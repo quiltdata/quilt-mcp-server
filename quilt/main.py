@@ -1,5 +1,9 @@
+from quilt import mcp
+
+
 def main():
-    print("Hello from quilt!")
+    """Run the Quilt MCP server"""
+    mcp.run()
 
 
 if __name__ == "__main__":
