@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "weather": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/ernest/GitHub/fast-mcp-server/weather",
+        "run",
+        "weather.py"
+      ]
+    }
+  }
+}
