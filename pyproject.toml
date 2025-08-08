@@ -1,0 +1,19 @@
+[project]
+name = "fast-mcp-server"
+version = "0.1.0"
+description = "Collection of FastMCP servers"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["weather", "quilt"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short --color=yes"

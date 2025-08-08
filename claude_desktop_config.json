@@ -8,6 +8,15 @@
         "run",
         "weather.py"
       ]
+    },
+    "quilt": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/ernest/GitHub/fast-mcp-server/quilt",
+        "run",
+        "main.py"
+      ]
     }
   }
 }
