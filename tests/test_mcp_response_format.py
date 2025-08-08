@@ -68,7 +68,6 @@ def test_tool_response_format():
     assert '\\"' not in text_content or text_content.count('\\"') < 5, "Text appears to be double-encoded JSON"
     
     print("✅ Tool response format validation passed")
-    return True
 
 
 def test_invalid_tool_error_format():
@@ -96,7 +95,6 @@ def test_invalid_tool_error_format():
     assert isinstance(error["code"], int), "Error code must be integer"
     
     print("✅ Invalid tool error format validation passed")
-    return True
 
 
 def test_tools_list_format():
@@ -130,7 +128,6 @@ def test_tools_list_format():
         assert "properties" in schema, "Tool schema missing properties field"
     
     print("✅ Tools list format validation passed")
-    return True
 
 
 def test_initialize_format():
@@ -170,7 +167,6 @@ def test_initialize_format():
     assert "version" in server_info
     
     print("✅ Initialize format validation passed")
-    return True
 
 
 if __name__ == "__main__":
