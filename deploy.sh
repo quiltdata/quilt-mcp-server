@@ -92,6 +92,7 @@ API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --r
 # Get Lambda function name and log group for debugging
 LAMBDA_FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue" --output text)
 LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LogGroupName'].OutputValue" --output text)
+API_GATEWAY_LOG_GROUP=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayLogGroup'].OutputValue" --output text)
 
 echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
 echo -e "${GREEN}📝 Claude MCP Server Configuration:${NC}"
@@ -106,12 +107,23 @@ echo -e "  Auth Domain: https://${COGNITO_DOMAIN}"
 echo
 echo -e "${BLUE}🔧 Debugging Information:${NC}"
 echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
-echo -e "  Log Group: ${LOG_GROUP_NAME}"
-echo -e "  View logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}"
+echo -e "  Lambda Log Group: ${LOG_GROUP_NAME}"
+echo -e "  API Gateway Log Group: ${API_GATEWAY_LOG_GROUP}"
+echo -e "  View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}"
+echo -e "  View API Gateway logs: aws logs tail ${API_GATEWAY_LOG_GROUP} --follow --region ${CDK_DEFAULT_REGION}"
 echo
 
 # Test the endpoint with Cognito authentication
 echo -e "${BLUE}🧪 Testing endpoint...${NC}"
+
+# First test without auth to check basic connectivity
+echo -e "  Testing basic connectivity..."
+BASIC_RESPONSE=$(curl -s -X POST \
+  "${API_ENDPOINT}" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+
+echo -e "  Basic response: ${BASIC_RESPONSE:0:200}..."
 
 # Get OAuth2 token using client credentials flow
 echo -e "  Getting OAuth2 token..."
@@ -141,6 +153,17 @@ if [ -n "$ACCESS_TOKEN" ]; then
     else
         echo -e "${RED}  ❌ MCP endpoint test failed${NC}"
         echo -e "  Response: $MCP_RESPONSE"
+        
+        # Show recent API Gateway logs for debugging
+        if [ -n "$API_GATEWAY_LOG_GROUP" ]; then
+            echo -e "${YELLOW}  📋 Recent API Gateway logs (last 5 minutes):${NC}"
+            aws logs filter-log-events \
+              --log-group-name "$API_GATEWAY_LOG_GROUP" \
+              --start-time $(($(date +%s) * 1000 - 300000)) \
+              --max-items 10 \
+              --query 'events[*].[timestamp,message]' \
+              --output table || echo "  Could not retrieve API Gateway logs"
+        fi
     fi
 else
     echo -e "${RED}  ❌ Failed to get OAuth2 token${NC}"

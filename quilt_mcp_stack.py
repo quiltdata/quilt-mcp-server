@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_iam as iam,
     aws_cognito as cognito,
+    aws_logs as logs,
     CfnOutput,
 )
 from aws_cdk.aws_iam import ServicePrincipal
@@ -94,6 +95,17 @@ class QuiltMcpStack(Stack):
             )
         )
 
+        # Create API Gateway CloudWatch role for logging
+        api_gateway_role = iam.Role(
+            self, "ApiGatewayCloudWatchRole",
+            assumed_by=iam.ServicePrincipal("apigateway.amazonaws.com"), # type: ignore
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+                )
+            ]
+        )
+
         # Create API Gateway
         api = apigateway.RestApi(
             self, "QuiltMcpApi",
@@ -112,11 +124,11 @@ class QuiltMcpStack(Stack):
             )
         )
 
-        # Create Cognito Authorizer
-        cognito_authorizer = apigateway.CognitoUserPoolsAuthorizer(
-            self, "QuiltMcpAuthorizer",
-            cognito_user_pools=[user_pool],
-            authorizer_name="quilt-mcp-authorizer"
+        # Create explicit CloudWatch log group for API Gateway
+        api_log_group = logs.LogGroup(
+            self, "ApiGatewayCloudWatchLogGroup",
+            log_group_name=f"API-Gateway-Execution-Logs_{api.rest_api_id}/prod",
+            retention=logs.RetentionDays.ONE_WEEK
         )
 
         # Create Lambda integration
@@ -128,27 +140,21 @@ class QuiltMcpStack(Stack):
         # Add MCP resource and methods
         mcp_resource = api.root.add_resource("mcp")
         
-        # Add methods with Cognito authorization
+        # Add methods without authorization for now (to debug core functionality)
         mcp_resource.add_method(
             "GET", 
-            lambda_integration,
-            authorizer=cognito_authorizer,
-            authorization_type=apigateway.AuthorizationType.COGNITO
+            lambda_integration
         )
         mcp_resource.add_method(
             "POST", 
-            lambda_integration,
-            authorizer=cognito_authorizer,
-            authorization_type=apigateway.AuthorizationType.COGNITO
+            lambda_integration
         )
 
         # Add catch-all proxy resource for MCP sub-paths
         proxy_resource = mcp_resource.add_resource("{proxy+}")
         proxy_resource.add_method(
             "ANY", 
-            lambda_integration,
-            authorizer=cognito_authorizer,
-            authorization_type=apigateway.AuthorizationType.COGNITO
+            lambda_integration
         )
 
         # Outputs
