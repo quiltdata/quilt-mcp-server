@@ -29,7 +29,74 @@ def search_packages(
         results = quilt3.search(query, limit=limit)
         return results
     except Exception as e:
-        return [{"error": f"Search failed: {str(e)}"}]
+        error_msg = str(e)
+        
+        # Check for authentication-related errors and provide helpful guidance
+        if "Invalid URL" in error_msg and "No scheme supplied" in error_msg:
+            return [{
+                "error": "Search failed: Quilt catalog not configured",
+                "solution": "Please run these commands to enable search:\n1. quilt3 config https://open.quiltdata.com\n2. quilt3 login",
+                "details": f"Original error: {error_msg}"
+            }]
+        elif "401" in error_msg or "403" in error_msg or "Unauthorized" in error_msg or "authentication" in error_msg.lower():
+            return [{
+                "error": "Search failed: Authentication required",
+                "solution": "Please login to the Quilt catalog:\n1. quilt3 config https://open.quiltdata.com\n2. quilt3 login",
+                "details": f"Original error: {error_msg}"
+            }]
+        elif "search" in error_msg.lower() and "endpoint" in error_msg.lower():
+            return [{
+                "error": "Search failed: Search endpoint not available", 
+                "solution": "This registry may not support search, or you need to login:\n1. quilt3 config https://open.quiltdata.com\n2. quilt3 login",
+                "details": f"Original error: {error_msg}"
+            }]
+        else:
+            # Generic error with suggestion
+            return [{
+                "error": f"Search failed: {error_msg}",
+                "suggestion": "If this is an authentication issue, try: quilt3 login"
+            }]
+
+
+@mcp.tool()
+def check_quilt_auth() -> Dict[str, Any]:
+    """
+    Check Quilt authentication status and provide setup guidance.
+    
+    Returns:
+        Dictionary with authentication status and setup instructions
+    """
+    try:
+        # Check if logged in
+        logged_in_url = quilt3.logged_in()
+        
+        if logged_in_url:
+            return {
+                "status": "authenticated",
+                "catalog_url": logged_in_url,
+                "message": "Successfully authenticated to Quilt catalog",
+                "search_available": True
+            }
+        else:
+            return {
+                "status": "not_authenticated", 
+                "message": "Not logged in to Quilt catalog",
+                "search_available": False,
+                "setup_instructions": [
+                    "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                    "2. Login: quilt3 login", 
+                    "3. Follow the browser authentication flow"
+                ]
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to check authentication: {str(e)}",
+            "setup_instructions": [
+                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                "2. Login: quilt3 login"
+            ]
+        }
 
 
 @mcp.tool()

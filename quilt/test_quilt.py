@@ -1,5 +1,5 @@
 import pytest
-from quilt import search_packages, list_packages, browse_package, search_package_contents
+from quilt import search_packages, list_packages, browse_package, search_package_contents, check_quilt_auth
 
 # Test configuration - using actual package from s3://quilt-example
 TEST_REGISTRY = "s3://quilt-example"
@@ -11,7 +11,7 @@ class TestQuiltAPI:
 
     def test_search_packages_success(self):
         """Test successful package search with actual data."""
-        result = search_packages("akarve/tmp", registry=TEST_REGISTRY, limit=5)
+        result = search_packages(TEST_PACKAGE, registry=TEST_REGISTRY, limit=5)
         
         # Should return a list
         assert isinstance(result, list)
@@ -160,6 +160,24 @@ class TestQuiltAPI:
         assert isinstance(result, list)
         assert len(result) == 1
         assert "error" in result[0]
+
+    def test_check_quilt_auth(self):
+        """Test Quilt authentication status checker."""
+        result = check_quilt_auth()
+        
+        assert isinstance(result, dict)
+        assert "status" in result
+        assert result["status"] in ["authenticated", "not_authenticated", "error"]
+        
+        if result["status"] == "authenticated":
+            assert "catalog_url" in result
+            assert result["search_available"] is True
+        elif result["status"] == "not_authenticated":
+            assert "setup_instructions" in result
+            assert result["search_available"] is False
+        else:  # error status
+            assert "error" in result
+            assert "setup_instructions" in result
 
 
 if __name__ == "__main__":

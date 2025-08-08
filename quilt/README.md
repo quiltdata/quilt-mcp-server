@@ -8,6 +8,7 @@ A Model Context Protocol (MCP) server that provides tools for interacting with Q
 - **Browse Package**: Explore the contents and metadata of specific packages
 - **Search Package Contents**: Search within package files and metadata for specific terms
 - **Search Packages**: Full-text search across packages (requires Quilt catalog authentication)
+- **Check Authentication**: Verify Quilt catalog authentication status and get setup guidance
 
 ## Installation
 
@@ -113,6 +114,20 @@ Search within the contents of a specific package for files and metadata.
 
 ```python
 search_package_contents("akarve/tmp", "README", registry="s3://quilt-example")
+```
+
+#### `check_quilt_auth`
+
+Check Quilt authentication status and get setup guidance if needed.
+
+**Parameters:** None
+
+**Returns:** Authentication status and setup instructions
+
+**Example:**
+
+```python
+check_quilt_auth()
 ```
 
 ## Example Data
