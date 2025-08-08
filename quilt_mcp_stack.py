@@ -106,3 +106,9 @@ class QuiltMcpStack(Stack):
             value=f"/aws/lambda/{lambda_fn.function_name}",
             description="CloudWatch log group name for Lambda logs"
         )
+
+        CfnOutput(
+            self, "ApiLogGroupName",
+            value=f"/aws/apigateway/{api.rest_api_id}/prod",
+            description="CloudWatch log group name for API Gateway logs"
+        )

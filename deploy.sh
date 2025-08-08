@@ -79,10 +79,12 @@ rm -rf "$LAMBDA_PACKAGE_DIR"
 # Get outputs
 API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
 LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LogGroupName'].OutputValue" --output text)
+API_LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiLogGroupName'].OutputValue" --output text)
 
 echo -e "${GREEN}🎉 Deployment completed!${NC}"
 echo -e "${GREEN}Claude MCP Server URL: ${API_ENDPOINT}${NC}"
-echo -e "${BLUE}View logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
+echo -e "${BLUE}View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
+echo -e "${BLUE}View API Gateway logs: aws logs tail ${API_LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
 
 # Test endpoint
 echo -e "${BLUE}Testing endpoint...${NC}"

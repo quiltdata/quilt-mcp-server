@@ -17,6 +17,13 @@ class TestQuiltMcpStack:
         self.app = cdk.App()
         self.quilt_policy_arn = "arn:aws:iam::123456789012:policy/TestQuiltReadPolicy"
         
+        # Set up a valid Lambda package directory for testing
+        # Point to the quilt directory relative to the test
+        test_dir = os.path.dirname(__file__)
+        project_root = os.path.dirname(test_dir)
+        quilt_dir = os.path.join(project_root, 'quilt')
+        os.environ['LAMBDA_PACKAGE_DIR'] = quilt_dir
+        
     def test_stack_creation(self):
         """Test that the stack can be created."""
         stack = QuiltMcpStack(
