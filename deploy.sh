@@ -79,12 +79,8 @@ uv run cdk deploy --require-approval never --app "python app.py"
 echo -e "${BLUE}Cleaning up temporary files...${NC}"
 rm -rf "$LAMBDA_PACKAGE_DIR"
 
-# Get Cognito credentials
-echo -e "${BLUE}Retrieving Cognito credentials...${NC}"
-COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" --output text)
-COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoClientId'].OutputValue" --output text)
-COGNITO_CLIENT_SECRET=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoClientSecret'].OutputValue" --output text)
-COGNITO_DOMAIN=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" --output text)
+# Get deployment outputs
+echo -e "${BLUE}Retrieving deployment outputs...${NC}"
 
 # Get the API endpoint
 API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
@@ -97,13 +93,11 @@ API_GATEWAY_LOG_GROUP=$(aws cloudformation describe-stacks --stack-name QuiltMcp
 echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
 echo -e "${GREEN}📝 Claude MCP Server Configuration:${NC}"
 echo -e "  URL: ${API_ENDPOINT}"
-echo -e "  Type: Streamable HTTP with OAuth2"
+echo -e "  Type: Streamable HTTP (no authentication)"
 echo
 echo -e "${GREEN}🔐 Cognito Authentication Credentials:${NC}"
 echo -e "  User Pool ID: ${COGNITO_USER_POOL_ID}"
 echo -e "  Client ID: ${COGNITO_CLIENT_ID}"
-echo -e "  Client Secret: ${COGNITO_CLIENT_SECRET}"
-echo -e "  Auth Domain: https://${COGNITO_DOMAIN}"
 echo
 echo -e "${BLUE}🔧 Debugging Information:${NC}"
 echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
@@ -113,70 +107,27 @@ echo -e "  View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region $
 echo -e "  View API Gateway logs: aws logs tail ${API_GATEWAY_LOG_GROUP} --follow --region ${CDK_DEFAULT_REGION}"
 echo
 
-# Test the endpoint with Cognito authentication
+# Test the endpoint 
 echo -e "${BLUE}🧪 Testing endpoint...${NC}"
 
-# First test without auth to check basic connectivity
-echo -e "  Testing basic connectivity..."
-BASIC_RESPONSE=$(curl -s -X POST \
+# Test basic connectivity
+echo -e "  Testing MCP tools/list endpoint..."
+MCP_RESPONSE=$(curl -s -X POST \
   "${API_ENDPOINT}" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
 
-echo -e "  Basic response: ${BASIC_RESPONSE:0:200}..."
-
-# Get OAuth2 token using client credentials flow
-echo -e "  Getting OAuth2 token..."
-TOKEN_RESPONSE=$(curl -s -X POST \
-  "https://${COGNITO_DOMAIN}/oauth2/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "${COGNITO_CLIENT_ID}:${COGNITO_CLIENT_SECRET}" \
-  -d "grant_type=client_credentials")
-
-# Extract access token
-ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])" 2>/dev/null)
-
-if [ -n "$ACCESS_TOKEN" ]; then
-    echo -e "${GREEN}  ✅ OAuth2 token obtained successfully${NC}"
-    
-    # Test the MCP endpoint
-    echo -e "  Testing MCP tools/list endpoint..."
-    MCP_RESPONSE=$(curl -s -X POST \
-      "${API_ENDPOINT}" \
-      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-      -H "Content-Type: application/json" \
-      -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
-    
-    if echo "$MCP_RESPONSE" | grep -q "tools"; then
-        echo -e "${GREEN}  ✅ MCP endpoint is working correctly${NC}"
-        echo -e "  Response: ${MCP_RESPONSE:0:100}..."
-    else
-        echo -e "${RED}  ❌ MCP endpoint test failed${NC}"
-        echo -e "  Response: $MCP_RESPONSE"
-        
-        # Show recent API Gateway logs for debugging
-        if [ -n "$API_GATEWAY_LOG_GROUP" ]; then
-            echo -e "${YELLOW}  📋 Recent API Gateway logs (last 5 minutes):${NC}"
-            aws logs filter-log-events \
-              --log-group-name "$API_GATEWAY_LOG_GROUP" \
-              --start-time $(($(date +%s) * 1000 - 300000)) \
-              --max-items 10 \
-              --query 'events[*].[timestamp,message]' \
-              --output table || echo "  Could not retrieve API Gateway logs"
-        fi
-    fi
+if echo "$MCP_RESPONSE" | grep -q "tools"; then
+    echo -e "${GREEN}  ✅ MCP endpoint is working correctly${NC}"
+    echo -e "  Response: ${MCP_RESPONSE:0:100}..."
 else
-    echo -e "${RED}  ❌ Failed to get OAuth2 token${NC}"
-    echo -e "  Response: $TOKEN_RESPONSE"
-    echo -e "${YELLOW}  Note: You may need to create a user in Cognito first${NC}"
+    echo -e "${RED}  ❌ MCP endpoint test failed${NC}"
+    echo -e "  Response: $MCP_RESPONSE"
 fi
 
 echo
 echo -e "${BLUE}To connect from Claude:${NC}"
 echo -e "1. Add a new remote MCP server"
 echo -e "2. Set URL to: ${API_ENDPOINT}"
-echo -e "3. Set Type to: Streamable HTTP"
-echo -e "4. Configure OAuth2 with the credentials above"
-echo -e "5. Create a user in Cognito: aws cognito-idp admin-create-user --user-pool-id ${COGNITO_USER_POOL_ID} --username <username> --temporary-password <temp-password> --region ${CDK_DEFAULT_REGION}"
+echo -e "3. Set Type to: Streamable HTTP (no authentication needed for testing)"
 echo
-echo -e "${YELLOW}💾 Save these credentials securely!${NC}"

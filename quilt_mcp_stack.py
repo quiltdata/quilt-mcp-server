@@ -5,7 +5,6 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_apigateway as apigateway,
     aws_iam as iam,
-    aws_cognito as cognito,
     aws_logs as logs,
     CfnOutput,
 )
@@ -45,67 +44,6 @@ class QuiltMcpStack(Stack):
             }
         )
 
-        # Create Cognito User Pool
-        user_pool = cognito.UserPool(
-            self, "QuiltMcpUserPool",
-            user_pool_name="quilt-mcp-users",
-            sign_in_aliases=cognito.SignInAliases(email=True, username=True),
-            self_sign_up_enabled=False  # Admin creates users
-        )
-
-        # Create Cognito Resource Server with custom scopes
-        resource_server = user_pool.add_resource_server(
-            "QuiltMcpResourceServer",
-            identifier="quilt-mcp-api",
-            scopes=[
-                cognito.ResourceServerScope(
-                    scope_name="read",
-                    scope_description="Read access to Quilt MCP API"
-                ),
-                cognito.ResourceServerScope(
-                    scope_name="write", 
-                    scope_description="Write access to Quilt MCP API"
-                )
-            ]
-        )
-
-        # Create Cognito User Pool Client for client_credentials flow
-        user_pool_client = user_pool.add_client(
-            "QuiltMcpClient",
-            user_pool_client_name="quilt-mcp-client",
-            generate_secret=True,
-            o_auth=cognito.OAuthSettings(
-                flows=cognito.OAuthFlows(
-                    client_credentials=True
-                ),
-                scopes=[
-                    cognito.OAuthScope.resource_server(resource_server, 
-                        cognito.ResourceServerScope(scope_name="read", scope_description="Read access")),
-                    cognito.OAuthScope.resource_server(resource_server,
-                        cognito.ResourceServerScope(scope_name="write", scope_description="Write access"))
-                ]
-            )
-        )
-
-        # Create Cognito User Pool Domain
-        user_pool_domain = user_pool.add_domain(
-            "QuiltMcpDomain",
-            cognito_domain=cognito.CognitoDomainOptions(
-                domain_prefix=f"quilt-mcp-{self.account}-{self.region}"
-            )
-        )
-
-        # Create API Gateway CloudWatch role for logging
-        api_gateway_role = iam.Role(
-            self, "ApiGatewayCloudWatchRole",
-            assumed_by=iam.ServicePrincipal("apigateway.amazonaws.com"), # type: ignore
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
-                )
-            ]
-        )
-
         # Create API Gateway
         api = apigateway.RestApi(
             self, "QuiltMcpApi",
@@ -122,13 +60,6 @@ class QuiltMcpStack(Stack):
                 data_trace_enabled=True,
                 metrics_enabled=True
             )
-        )
-
-        # Create explicit CloudWatch log group for API Gateway
-        api_log_group = logs.LogGroup(
-            self, "ApiGatewayCloudWatchLogGroup",
-            log_group_name=f"API-Gateway-Execution-Logs_{api.rest_api_id}/prod",
-            retention=logs.RetentionDays.ONE_WEEK
         )
 
         # Create Lambda integration
@@ -162,30 +93,6 @@ class QuiltMcpStack(Stack):
             self, "ApiEndpoint",
             value=f"{api.url}mcp/",
             description="MCP Server API Endpoint"
-        )
-
-        CfnOutput(
-            self, "CognitoUserPoolId",
-            value=user_pool.user_pool_id,
-            description="Cognito User Pool ID"
-        )
-
-        CfnOutput(
-            self, "CognitoClientId",
-            value=user_pool_client.user_pool_client_id,
-            description="Cognito Client ID"
-        )
-
-        CfnOutput(
-            self, "CognitoClientSecret",
-            value=user_pool_client.user_pool_client_secret.unsafe_unwrap(),
-            description="Cognito Client Secret (keep secure!)"
-        )
-
-        CfnOutput(
-            self, "CognitoDomain",
-            value=f"{user_pool_domain.domain_name}.auth.{self.region}.amazoncognito.com",
-            description="Cognito Auth Domain"
         )
 
         CfnOutput(
