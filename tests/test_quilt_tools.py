@@ -56,10 +56,24 @@ class TestQuiltTools:
             
             result = list_packages()
             
-            assert len(result) == 2
-            assert result[0]['name'] == 'user/package1'
-            assert result[0]['registry'] == 's3://quilt-example'
-            assert result[0]['metadata'] == {'description': 'Test package'}
+            # Result now has pagination structure
+            assert len(result) == 1
+            assert 'packages' in result[0]
+            assert 'pagination' in result[0]
+            
+            packages = result[0]['packages']
+            assert len(packages) == 2
+            assert packages[0]['name'] == 'user/package1'
+            assert packages[0]['registry'] == 's3://quilt-example'
+            assert packages[0]['metadata'] == {'description': 'Test package'}
+            
+            # Check pagination info
+            pagination = result[0]['pagination']
+            assert pagination['total'] == 2
+            assert pagination['offset'] == 0
+            assert pagination['limit'] == 12
+            assert pagination['returned'] == 2
+            assert pagination['has_more'] is False
 
     def test_list_packages_with_prefix(self):
         """Test list_packages with prefix filter."""
@@ -72,8 +86,19 @@ class TestQuiltTools:
             
             result = list_packages(prefix='user/')
             
-            assert len(result) == 2
-            assert all(pkg['name'].startswith('user/') for pkg in result)
+            # Result now has pagination structure
+            assert len(result) == 1
+            assert 'packages' in result[0]
+            assert 'pagination' in result[0]
+            
+            packages = result[0]['packages']
+            assert len(packages) == 2
+            assert all(pkg['name'].startswith('user/') for pkg in packages)
+            
+            # Check pagination info
+            pagination = result[0]['pagination']
+            assert pagination['total'] == 2
+            assert pagination['returned'] == 2
 
     def test_list_packages_error(self):
         """Test list_packages with error."""

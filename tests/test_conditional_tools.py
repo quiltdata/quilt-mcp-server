@@ -19,7 +19,7 @@ def test_lambda_mode_tools():
     with patch.dict(os.environ, {'AWS_LAMBDA_FUNCTION_NAME': 'test-function'}):
         # Force reload to pick up environment change
         if 'quilt' in sys.modules:
-            importlib.reload(sys.modules['quilt'])
+            quilt = importlib.reload(sys.modules['quilt'])
         else:
             import quilt
         
