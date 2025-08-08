@@ -108,6 +108,46 @@ echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
 echo -e "  Log Group: ${LOG_GROUP_NAME}"
 echo -e "  View logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}"
 echo
+
+# Test the endpoint with Cognito authentication
+echo -e "${BLUE}🧪 Testing endpoint...${NC}"
+
+# Get OAuth2 token using client credentials flow
+echo -e "  Getting OAuth2 token..."
+TOKEN_RESPONSE=$(curl -s -X POST \
+  "https://${COGNITO_DOMAIN}/oauth2/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -u "${COGNITO_CLIENT_ID}:${COGNITO_CLIENT_SECRET}" \
+  -d "grant_type=client_credentials")
+
+# Extract access token
+ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['access_token'])" 2>/dev/null)
+
+if [ -n "$ACCESS_TOKEN" ]; then
+    echo -e "${GREEN}  ✅ OAuth2 token obtained successfully${NC}"
+    
+    # Test the MCP endpoint
+    echo -e "  Testing MCP tools/list endpoint..."
+    MCP_RESPONSE=$(curl -s -X POST \
+      "${API_ENDPOINT}" \
+      -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    
+    if echo "$MCP_RESPONSE" | grep -q "tools"; then
+        echo -e "${GREEN}  ✅ MCP endpoint is working correctly${NC}"
+        echo -e "  Response: ${MCP_RESPONSE:0:100}..."
+    else
+        echo -e "${RED}  ❌ MCP endpoint test failed${NC}"
+        echo -e "  Response: $MCP_RESPONSE"
+    fi
+else
+    echo -e "${RED}  ❌ Failed to get OAuth2 token${NC}"
+    echo -e "  Response: $TOKEN_RESPONSE"
+    echo -e "${YELLOW}  Note: You may need to create a user in Cognito first${NC}"
+fi
+
+echo
 echo -e "${BLUE}To connect from Claude:${NC}"
 echo -e "1. Add a new remote MCP server"
 echo -e "2. Set URL to: ${API_ENDPOINT}"
