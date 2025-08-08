@@ -1,8 +1,82 @@
 # Deploying Quilt MCP Server Remotely
 
-This guide explains how to launch your Quilt MCP server with a streamable HTTP interface and connect to it from Claude as a remote MCP server.
+This guide explains two ways to deploy your Quilt MCP server with a streamable HTTP interface:
 
-## Prerequisites
+1. **AWS Lambda (Recommended)** - Production-ready deployment with API Gateway
+2. **Local with ngrok** - Quick development/testing setup
+
+## Option 1: AWS Lambda Deployment (Recommended)
+
+Deploy your Quilt MCP server as an AWS Lambda function with API Gateway for a production-ready, scalable solution.
+
+### Prerequisites
+
+- AWS CLI configured with appropriate permissions
+- Python 3.11+ and pip
+- AWS CDK CLI (`npm install -g aws-cdk`)
+- A Quilt S3 read policy ARN (for accessing your S3 buckets)
+
+### Step 1: Configure Environment
+
+Copy the environment template and configure your settings:
+
+```bash
+cp env.example .env
+```
+
+Edit `.env` and set:
+- `QUILT_READ_POLICY_ARN`: Your AWS IAM policy ARN for S3 read access
+- `CDK_DEFAULT_REGION`: AWS region (optional, defaults to us-east-1)
+- `AWS_PROFILE`: AWS profile to use (optional, defaults to default)
+
+### Step 2: Deploy to AWS
+
+```bash
+cd deploy
+./deploy.sh
+```
+
+The script will:
+1. Install CDK dependencies
+2. Bootstrap CDK (if needed)
+3. Package and deploy your Lambda function
+4. Create API Gateway with API key authentication
+5. Output your MCP server URL and API key
+
+### Step 3: Connect from Claude
+
+Use the output from the deployment script:
+- **URL**: The API Gateway endpoint (ends with `/mcp/`)
+- **Type**: Streamable HTTP
+- **API Key**: The generated API key value
+
+### AWS Lambda Features
+
+- **Serverless**: No servers to manage, automatic scaling
+- **API Key Authentication**: Secure access with rate limiting
+- **S3 Access**: Lambda uses IAM role for secure S3 bucket access
+- **CORS Support**: Enabled for Claude web interface
+- **Usage Plans**: Rate limiting (100 req/sec, 10k req/day)
+- **CloudWatch Logs**: Automatic logging for debugging
+
+### Management Commands
+
+```bash
+# Update the deployment
+cd deploy && ./deploy.sh
+
+# View logs
+aws logs tail /aws/lambda/QuiltMcpStack-QuiltMcpFunction --follow
+
+# Delete the stack
+cd deploy && cdk destroy
+```
+
+## Option 2: Local Development with ngrok
+
+For quick testing and development, you can run the server locally and expose it via ngrok.
+
+### Prerequisites
 
 You must have [ngrok](https://ngrok.com/) installed and authenticated to expose your local server to the internet.
 
@@ -44,7 +118,6 @@ python remote.py
 
 By default, this will start the server on `http://0.0.0.0:8000/mcp/`.
 
-
 ## 2. Expose the Server Remotely (Required: ngrok)
 
 To access the server from outside your local machine (e.g., from Claude or other clients), you **must** use ngrok to expose your local server to the internet.
@@ -57,7 +130,7 @@ ngrok http 8000
 
 You will see output like:
 
-```
+```log
 Forwarding    https://<random>.ngrok.io -> http://localhost:8000
 ```
 

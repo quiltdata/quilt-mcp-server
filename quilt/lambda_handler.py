@@ -1,0 +1,191 @@
+import json
+import asyncio
+from typing import Dict, Any
+import logging
+from quilt import mcp
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """
+    AWS Lambda handler for the Quilt MCP server.
+    Processes HTTP requests and returns MCP-compatible responses.
+    """
+    try:
+        # Parse the incoming request
+        http_method = event.get('httpMethod', 'GET')
+        path = event.get('path', '')
+        query_params = event.get('queryStringParameters') or {}
+        headers = event.get('headers', {})
+        body = event.get('body', '')
+        
+        logger.info(f"Received {http_method} request to {path}")
+        
+        # Handle CORS preflight
+        if http_method == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+                },
+                'body': ''
+            }
+        
+        # Parse request body if present
+        request_data = {}
+        if body:
+            try:
+                request_data = json.loads(body)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse request body: {body}")
+        
+        # Handle MCP requests
+        if http_method == 'POST':
+            # Handle MCP method calls
+            response_data = asyncio.run(handle_mcp_request(request_data))
+        else:
+            # Handle GET requests (server info, capabilities, etc.)
+            response_data = asyncio.run(handle_mcp_info_request(query_params))
+        
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key',
+                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            },
+            'body': json.dumps(response_data, default=str)
+        }
+        
+    except Exception as e:
+        logger.error(f"Handler error: {str(e)}", exc_info=True)
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': f'Internal server error: {str(e)}'
+            })
+        }
+
+async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle MCP method calls."""
+    try:
+        method = request_data.get('method', '')
+        params = request_data.get('params', {})
+        request_id = request_data.get('id', 1)
+        
+        logger.info(f"MCP method call: {method}")
+        
+        if method == 'tools/list':
+            # Return available tools
+            tools = []
+            for tool_name, tool_info in mcp._tools.items():
+                tools.append({
+                    'name': tool_name,
+                    'description': tool_info['func'].__doc__ or '',
+                    'inputSchema': tool_info.get('schema', {})
+                })
+            
+            return {
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'result': {'tools': tools}
+            }
+            
+        elif method == 'tools/call':
+            # Call a specific tool
+            tool_name = params.get('name', '')
+            tool_args = params.get('arguments', {})
+            
+            if tool_name in mcp._tools:
+                tool_func = mcp._tools[tool_name]['func']
+                try:
+                    result = await asyncio.to_thread(tool_func, **tool_args)
+                    return {
+                        'jsonrpc': '2.0',
+                        'id': request_id,
+                        'result': {
+                            'content': [
+                                {
+                                    'type': 'text',
+                                    'text': json.dumps(result, indent=2, default=str)
+                                }
+                            ]
+                        }
+                    }
+                except Exception as e:
+                    logger.error(f"Tool execution error: {str(e)}")
+                    return {
+                        'jsonrpc': '2.0',
+                        'id': request_id,
+                        'error': {
+                            'code': -32603,
+                            'message': f'Tool execution failed: {str(e)}'
+                        }
+                    }
+            else:
+                return {
+                    'jsonrpc': '2.0',
+                    'id': request_id,
+                    'error': {
+                        'code': -32601,
+                        'message': f'Tool not found: {tool_name}'
+                    }
+                }
+        
+        elif method == 'initialize':
+            # Handle MCP initialization
+            return {
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'result': {
+                    'protocolVersion': '2024-11-05',
+                    'capabilities': {
+                        'tools': {}
+                    },
+                    'serverInfo': {
+                        'name': 'quilt-mcp-server',
+                        'version': '1.0.0'
+                    }
+                }
+            }
+        
+        else:
+            return {
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'error': {
+                    'code': -32601,
+                    'message': f'Method not found: {method}'
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"MCP request error: {str(e)}")
+        return {
+            'jsonrpc': '2.0',
+            'id': request_data.get('id', 1),
+            'error': {
+                'code': -32603,
+                'message': f'Internal error: {str(e)}'
+            }
+        }
+
+async def handle_mcp_info_request(query_params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle GET requests for server information."""
+    return {
+        'name': 'quilt-mcp-server',
+        'version': '1.0.0',
+        'description': 'Claude-compatible MCP server for Quilt data access',
+        'capabilities': {
+            'tools': list(mcp._tools.keys())
+        }
+    }
