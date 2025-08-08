@@ -9,6 +9,7 @@ app = cdk.App()
 account = os.getenv('CDK_DEFAULT_ACCOUNT', cdk.Aws.ACCOUNT_ID)
 region = os.getenv('CDK_DEFAULT_REGION', 'us-east-1')
 quilt_read_policy_arn = os.getenv('QUILT_READ_POLICY_ARN')
+lambda_timeout_seconds = int(os.getenv('LAMBDA_TIMEOUT_SECONDS', '300'))
 
 if not quilt_read_policy_arn:
     raise ValueError("QUILT_READ_POLICY_ARN environment variable is required")
@@ -17,6 +18,7 @@ QuiltMcpStack(
     app, 
     "QuiltMcpStack",
     quilt_read_policy_arn=quilt_read_policy_arn,
+    lambda_timeout_seconds=lambda_timeout_seconds,
     env=cdk.Environment(account=account, region=region),
     description="Quilt MCP Server deployed as Lambda with API Gateway"
 )

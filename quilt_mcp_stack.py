@@ -13,7 +13,7 @@ import os
 
 
 class QuiltMcpStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, quilt_read_policy_arn: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, quilt_read_policy_arn: str, lambda_timeout_seconds: int = 300, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Create Lambda execution role
@@ -36,7 +36,7 @@ class QuiltMcpStack(Stack):
             handler="lambda_handler.handler",
             code=_lambda.Code.from_asset(lambda_package_dir),
             role=lambda_role, # type: ignore
-            timeout=Duration.seconds(30),
+            timeout=Duration.seconds(lambda_timeout_seconds),
             memory_size=512,
             environment={
                 "ENV": "production",
