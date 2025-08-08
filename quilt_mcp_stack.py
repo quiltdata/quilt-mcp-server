@@ -52,21 +52,37 @@ class QuiltMcpStack(Stack):
             self_sign_up_enabled=False  # Admin creates users
         )
 
-        # Create Cognito User Pool Client
+        # Create Cognito Resource Server with custom scopes
+        resource_server = user_pool.add_resource_server(
+            "QuiltMcpResourceServer",
+            identifier="quilt-mcp-api",
+            scopes=[
+                cognito.ResourceServerScope(
+                    scope_name="read",
+                    scope_description="Read access to Quilt MCP API"
+                ),
+                cognito.ResourceServerScope(
+                    scope_name="write", 
+                    scope_description="Write access to Quilt MCP API"
+                )
+            ]
+        )
+
+        # Create Cognito User Pool Client for client_credentials flow
         user_pool_client = user_pool.add_client(
             "QuiltMcpClient",
             user_pool_client_name="quilt-mcp-client",
-            auth_flows=cognito.AuthFlow(
-                user_srp=True,
-                admin_user_password=True,
-                custom=True,
-                user_password=True
-            ),
             generate_secret=True,
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(
                     client_credentials=True
-                )
+                ),
+                scopes=[
+                    cognito.OAuthScope.resource_server(resource_server, 
+                        cognito.ResourceServerScope(scope_name="read", scope_description="Read access")),
+                    cognito.OAuthScope.resource_server(resource_server,
+                        cognito.ResourceServerScope(scope_name="write", scope_description="Write access"))
+                ]
             )
         )
 
@@ -87,6 +103,12 @@ class QuiltMcpStack(Stack):
                 allow_origins=apigateway.Cors.ALL_ORIGINS,
                 allow_methods=apigateway.Cors.ALL_METHODS,
                 allow_headers=["Content-Type", "Authorization", "X-Amz-Date"]
+            ),
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                logging_level=apigateway.MethodLoggingLevel.INFO,
+                data_trace_enabled=True,
+                metrics_enabled=True
             )
         )
 
@@ -170,4 +192,10 @@ class QuiltMcpStack(Stack):
             self, "LogGroupName",
             value=f"/aws/lambda/{lambda_fn.function_name}",
             description="CloudWatch log group name for Lambda logs"
+        )
+
+        CfnOutput(
+            self, "ApiGatewayLogGroup",
+            value=f"API-Gateway-Execution-Logs_{api.rest_api_id}/prod",
+            description="API Gateway CloudWatch log group name"
         )
