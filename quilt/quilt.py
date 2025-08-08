@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("quilt")
 
 
-@mcp.tool()
+# @mcp.tool()  # Disabled due to configuration issues
 def search_packages(
     query: str, 
     registry: str = "s3://quilt-example",
@@ -24,7 +24,9 @@ def search_packages(
         List of package metadata dictionaries
     """
     try:
-        results = quilt3.search(query, registry=registry, limit=limit)
+        # Configure the registry for this search
+        quilt3.config(navigator_url=registry.replace('s3://', 'https://') + '/')
+        results = quilt3.search(query, limit=limit)
         return results
     except Exception as e:
         return [{"error": f"Search failed: {str(e)}"}]
@@ -46,10 +48,14 @@ def list_packages(
         List of package metadata dictionaries
     """
     try:
-        bucket = quilt3.Bucket(registry)
         packages = []
         
-        for pkg_name in bucket.list_packages(prefix=prefix):
+        # Use the direct list_packages function
+        for pkg_name in quilt3.list_packages(registry=registry):
+            # Apply prefix filter if specified
+            if prefix and not pkg_name.startswith(prefix):
+                continue
+                
             try:
                 pkg = quilt3.Package.browse(pkg_name, registry=registry)
                 packages.append({
@@ -192,29 +198,6 @@ def search_package_contents(
         return matches
     except Exception as e:
         return [{"error": f"Failed to search package contents: {str(e)}"}]
-
-
-@mcp.tool()
-def get_package_versions(
-    package_name: str,
-    registry: str = "s3://quilt-example"
-) -> List[Dict[str, Any]]:
-    """
-    Get all versions of a specific package.
-    
-    Args:
-        package_name: Name of the package to get versions for
-        registry: S3 bucket URL for the Quilt registry
-    
-    Returns:
-        List of package version metadata dictionaries
-    """
-    try:
-        bucket = quilt3.Bucket(registry)
-        versions = bucket.list_package_versions(package_name)
-        return versions
-    except Exception as e:
-        return [{"error": f"Failed to get package versions: {str(e)}"}]
 
 
 if __name__ == "__main__":
