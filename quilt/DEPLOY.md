@@ -39,7 +39,7 @@ ngrok config add-authtoken <YOUR_NGROK_AUTHTOKEN>
 Navigate to the `quilt` directory and run the remote server script:
 
 ```bash
-python remote.py
+uv run python remote.py
 ```
 
 By default, this will start the server on `http://0.0.0.0:8000/mcp/`.
