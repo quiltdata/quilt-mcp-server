@@ -38,8 +38,8 @@ class TestQuiltMcpStack:
             "Name": "Quilt MCP Server"
         })
         
-        # Verify IAM roles exist (Lambda role + API Gateway service role)
-        template.resource_count_is("AWS::IAM::Role", 2)
+        # Verify only one IAM role exists (Lambda execution role)
+        template.resource_count_is("AWS::IAM::Role", 1)
         
     def test_no_cognito_resources(self):
         """Test that no Cognito resources exist in the simplified stack."""
