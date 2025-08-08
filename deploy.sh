@@ -55,38 +55,40 @@ echo -e "${BLUE}Packaging Lambda function...${NC}"
 LAMBDA_PACKAGE_DIR=$(mktemp -d)
 echo "Packaging to: $LAMBDA_PACKAGE_DIR"
 
-# Copy source files from quilt directory
-cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
-
-# Install Lambda dependencies into the package directory
-echo "Installing dependencies..."
-
 # Check if Docker is available for Linux packaging
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  echo "Using Docker to build Linux-compatible package..."
+  echo "Using Dockerfile to build Linux-compatible package..."
   
-  # Use Amazon Linux 2023 which is what Lambda uses
+  # Build the Docker image with all dependencies
+  echo "Building Docker image with dependencies..."
+  docker build --platform linux/amd64 -t quilt-mcp-builder .
+  
+  # Create a container to extract the built environment
+  echo "Extracting dependencies from Docker container..."
   docker run --rm \
     -v "$LAMBDA_PACKAGE_DIR":/output \
     --entrypoint="" \
-    amazonlinux:2023 \
+    quilt-mcp-builder \
     bash -c "
-      yum install -y python3 python3-pip
-      pip3 install \
-        quilt3>=5.6.0 \
-        fastmcp>=0.1.0 \
-        boto3>=1.34.0 \
-        botocore>=1.34.0 \
-        -t /output/
+      # Copy system Python site-packages (since we installed with --system)
+      echo \"Copying system site-packages...\"
+      cp -r /usr/local/lib/python3.11/site-packages/* /output/
+      # Copy our source files
+      cp /app/quilt/*.py /output/ 2>/dev/null || echo \"Warning: Could not copy quilt source files\"
+      # Ensure permissions are correct
+      chmod -R 755 /output/
+      # List what we copied for debugging
+      echo \"Packaged files:\"
+      ls -la /output/ | head -20
     "
   
-  # Copy our source files
-  cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
-  
-  echo "✅ Docker-based packaging completed"
+  echo "✅ Docker-based packaging completed using Dockerfile"
   
 else
   echo "Docker not available, using fallback approach..."
+  
+  # Copy source files first
+  cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
   
   # Use uv to install dependencies
   uv pip install --target "$LAMBDA_PACKAGE_DIR" --no-build-isolation \
@@ -96,6 +98,7 @@ else
     "botocore>=1.34.0"
 
   echo "❌ Using macOS binaries - Lambda will likely fail with pydantic_core import error"
+  echo "💡 Install Docker to use the Dockerfile for proper Linux builds"
 fi
 
 # Create deployment package
@@ -130,10 +133,6 @@ echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
 echo -e "${GREEN}📝 Claude MCP Server Configuration:${NC}"
 echo -e "  URL: ${API_ENDPOINT}"
 echo -e "  Type: Streamable HTTP (no authentication)"
-echo
-echo -e "${GREEN}🔐 Cognito Authentication Credentials:${NC}"
-echo -e "  User Pool ID: ${COGNITO_USER_POOL_ID}"
-echo -e "  Client ID: ${COGNITO_CLIENT_ID}"
 echo
 echo -e "${BLUE}🔧 Debugging Information:${NC}"
 echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"

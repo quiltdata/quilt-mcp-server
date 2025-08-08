@@ -1,0 +1,38 @@
+# Ignore virtual environments
+.venv/
+venv/
+env/
+*/.venv/
+*/venv/
+*/env/
+
+# Ignore cache and build directories
+__pycache__/
+*/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Ignore CDK output
+cdk.out/
+*/cdk.out/
+
+# Ignore package directories (they contain cached binaries)
+package/
+*/package/
+
+# Ignore logs and temp files
+*.log
+.DS_Store
+.env
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore git
+.git/
