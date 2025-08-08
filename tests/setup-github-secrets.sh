@@ -34,7 +34,7 @@ else
     echo "❌ No .env file found. Create one first:"
     echo "   cp env.example .env"
     echo "   # Edit .env with your values"
-    echo "   ./setup-github-secrets.sh"
+    echo "   ./tests/setup-github-secrets.sh"
     exit 1
 fi
 
