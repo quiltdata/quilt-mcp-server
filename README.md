@@ -12,7 +12,7 @@ cp env.example .env
 # Edit .env with your QUILT_READ_POLICY_ARN
 
 # 2. Deploy to AWS
-cd deploy && ./deploy.sh
+./deploy.sh
 
 # 3. Connect Claude with the output URL and Cognito credentials
 ```
@@ -58,6 +58,10 @@ cd deploy && ./deploy.sh
 
 ```tree
 ├── README.md              # This file - main documentation
+├── deploy.sh             # Automated deployment script  
+├── app.py                # CDK application
+├── quilt_mcp_stack.py    # Infrastructure stack
+├── cdk.json              # CDK configuration
 ├── pyproject.toml         # Modern Python dependency management
 ├── uv.lock               # Dependency lockfile
 ├── env.example           # Environment template
@@ -71,10 +75,7 @@ cd deploy && ./deploy.sh
 │   ├── lambda_handler.py # AWS Lambda wrapper
 │   ├── main.py           # CLI entry point
 │   └── DEPLOY.md         # Local development guide
-├── deploy/               # AWS CDK infrastructure
-│   ├── app.py            # CDK application
-│   ├── quilt_mcp_stack.py # Infrastructure stack
-│   └── deploy.sh         # Automated deployment script
+├── deploy/               # CDK build artifacts (auto-generated)
 └── weather/              # Example MCP server
     ├── weather.py        # Weather MCP server
     └── pyproject.toml    # Independent dependencies
@@ -137,10 +138,10 @@ aws logs tail <LOG_GROUP_NAME> --follow --region <REGION>
 aws cognito-idp admin-create-user --user-pool-id <USER_POOL_ID> --username <username> --temporary-password <temp-password> --region <REGION>
 
 # Update deployment
-cd deploy && ./deploy.sh
+./deploy.sh
 
 # Delete infrastructure
-cd deploy && cdk destroy
+cdk destroy
 ```
 
 ## 📚 Local Development
