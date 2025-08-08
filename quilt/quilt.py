@@ -200,28 +200,18 @@ def get_package_versions(
     registry: str = "s3://quilt-example"
 ) -> List[Dict[str, Any]]:
     """
-    Get all versions (hashes) of a package.
+    Get all versions of a specific package.
     
     Args:
-        package_name: Name of the package
+        package_name: Name of the package to get versions for
         registry: S3 bucket URL for the Quilt registry
     
     Returns:
-        List of package versions with metadata
+        List of package version metadata dictionaries
     """
     try:
         bucket = quilt3.Bucket(registry)
-        versions = []
-        
-        # Get package versions
-        for version_info in bucket.list_package_versions(package_name):
-            versions.append({
-                "hash": version_info.get("hash"),
-                "modified": version_info.get("modified"),
-                "size": version_info.get("size"),
-                "metadata": version_info.get("metadata", {})
-            })
-        
+        versions = bucket.list_package_versions(package_name)
         return versions
     except Exception as e:
         return [{"error": f"Failed to get package versions: {str(e)}"}]

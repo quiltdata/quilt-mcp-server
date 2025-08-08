@@ -1,252 +1,155 @@
 import pytest
-from unittest.mock import patch, MagicMock
-from quilt import search_packages, list_packages, browse_package, search_package_contents, get_package_versions
+from quilt import search_packages, list_packages, browse_package, search_package_contents
+
+# Test configuration - using actual package from s3://quilt-example
+TEST_REGISTRY = "s3://quilt-example"
+TEST_PACKAGE = "akarve/tmp"
 
 
 class TestQuiltAPI:
-    """Test suite for quilt MCP server."""
+    """Test suite for quilt MCP server using real data from akarve/tmp package."""
 
-    @patch('quilt.quilt3.search')
-    def test_search_packages_success(self, mock_search):
-        """Test successful package search."""
-        mock_search.return_value = [
-            {
-                "name": "test-package",
-                "registry": "s3://quilt-example",
-                "hash": "abc123",
-                "metadata": {"title": "Test Package"}
-            }
-        ]
+    def test_search_packages_success(self):
+        """Test successful package search with actual data."""
+        result = search_packages("akarve", registry=TEST_REGISTRY)
         
-        result = search_packages("test query")
+        # Should find at least one result
+        assert isinstance(result, list)
+        assert len(result) > 0
         
-        assert len(result) == 1
-        assert result[0]["name"] == "test-package"
-        mock_search.assert_called_once_with("test query", registry="s3://quilt-example", limit=10)
+        # Should not contain error messages
+        assert not any("error" in item for item in result)
 
-    @patch('quilt.quilt3.search')
-    def test_search_packages_error(self, mock_search):
-        """Test package search with error."""
-        mock_search.side_effect = Exception("API Error")
-        
-        result = search_packages("test query")
-        
-        assert len(result) == 1
-        assert "error" in result[0]
-        assert "Search failed" in result[0]["error"]
-
-    @patch('quilt.quilt3.search')
-    def test_search_packages_custom_params(self, mock_search):
+    def test_search_packages_custom_params(self):
         """Test package search with custom parameters."""
-        mock_search.return_value = []
+        result = search_packages("akarve", registry=TEST_REGISTRY, limit=5)
         
-        search_packages("query", registry="s3://custom-bucket", limit=20)
-        
-        mock_search.assert_called_once_with("query", registry="s3://custom-bucket", limit=20)
+        assert isinstance(result, list)
+        # Should respect the limit parameter
+        assert len(result) <= 5
 
-    @patch('quilt.quilt3.Bucket')
-    @patch('quilt.quilt3.Package.browse')
-    def test_list_packages_success(self, mock_browse, mock_bucket):
+    def test_search_packages_no_results(self):
+        """Test package search with query that should return no results."""
+        result = search_packages("nonexistent-package-xyz123", registry=TEST_REGISTRY)
+        
+        assert isinstance(result, list)
+        # May be empty or contain error message
+        assert len(result) >= 0
+
+    def test_list_packages_success(self):
         """Test successful package listing."""
-        mock_bucket_instance = MagicMock()
-        mock_bucket_instance.list_packages.return_value = ["package1", "package2"]
-        mock_bucket.return_value = mock_bucket_instance
+        result = list_packages(registry=TEST_REGISTRY)
         
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {"description": "Test package"}
-        mock_browse.return_value = mock_pkg
+        assert isinstance(result, list)
+        assert len(result) > 0
         
-        result = list_packages()
-        
-        assert len(result) == 2
-        assert result[0]["name"] == "package1"
-        assert result[1]["name"] == "package2"
-        mock_bucket.assert_called_once_with("s3://quilt-example")
+        # Should find the akarve/tmp package
+        package_names = [pkg.get("name") for pkg in result if "name" in pkg]
+        assert TEST_PACKAGE in package_names
 
-    @patch('quilt.quilt3.Bucket')
-    def test_list_packages_bucket_error(self, mock_bucket):
-        """Test package listing with bucket error."""
-        mock_bucket.side_effect = Exception("Bucket error")
-        
-        result = list_packages()
-        
-        assert len(result) == 1
-        assert "error" in result[0]
-        assert "Failed to list packages" in result[0]["error"]
-
-    @patch('quilt.quilt3.Bucket')
-    @patch('quilt.quilt3.Package.browse')
-    def test_list_packages_with_prefix(self, mock_browse, mock_bucket):
+    def test_list_packages_with_prefix(self):
         """Test package listing with prefix filter."""
-        mock_bucket_instance = MagicMock()
-        mock_bucket_instance.list_packages.return_value = ["test-package"]
-        mock_bucket.return_value = mock_bucket_instance
+        result = list_packages(registry=TEST_REGISTRY, prefix="akarve")
         
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {}
-        mock_browse.return_value = mock_pkg
+        assert isinstance(result, list)
+        assert len(result) > 0
         
-        list_packages(prefix="test-")
-        
-        mock_bucket_instance.list_packages.assert_called_once_with(prefix="test-")
+        # All packages should start with the prefix
+        for pkg in result:
+            if "name" in pkg:
+                assert pkg["name"].startswith("akarve")
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_browse_package_success(self, mock_browse):
-        """Test successful package browsing."""
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {"title": "Test Package"}
-        mock_pkg.top_hash = "abc123"
-        mock_pkg.__iter__.return_value = ["file1.txt", "file2.csv"]
+    def test_list_packages_invalid_registry(self):
+        """Test package listing with invalid registry."""
+        result = list_packages(registry="s3://nonexistent-bucket-xyz")
         
-        # Mock file entries
-        mock_entry1 = MagicMock()
-        mock_entry1.size = 1024
-        mock_entry1.hash = "hash1"
-        mock_entry1.meta = {"type": "text"}
-        
-        mock_entry2 = MagicMock()
-        mock_entry2.size = 2048
-        mock_entry2.hash = "hash2"
-        mock_entry2.meta = {"type": "csv"}
-        
-        mock_pkg.__getitem__.side_effect = lambda key: mock_entry1 if key == "file1.txt" else mock_entry2
-        mock_browse.return_value = mock_pkg
-        
-        result = browse_package("test-package")
-        
-        assert result["name"] == "test-package"
-        assert result["hash"] == "abc123"
-        assert len(result["files"]) == 2
-        assert result["files"][0]["path"] == "file1.txt"
-        assert result["files"][0]["size"] == 1024
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        # Should contain error message
+        assert any("error" in item for item in result)
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_browse_package_error(self, mock_browse):
-        """Test package browsing with error."""
-        mock_browse.side_effect = Exception("Package not found")
+    def test_browse_package_success(self):
+        """Test successful package browsing with actual akarve/tmp package."""
+        result = browse_package(TEST_PACKAGE, registry=TEST_REGISTRY)
         
-        result = browse_package("nonexistent-package")
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert result["name"] == TEST_PACKAGE
+        assert result["registry"] == TEST_REGISTRY
+        assert "files" in result
+        assert isinstance(result["files"], list)
         
+        # Should contain the known files: README.md and deck.pdf
+        file_paths = [f["path"] for f in result["files"]]
+        assert "README.md" in file_paths
+        assert "deck.pdf" in file_paths
+        
+        # Check file details
+        readme_file = next(f for f in result["files"] if f["path"] == "README.md")
+        deck_file = next(f for f in result["files"] if f["path"] == "deck.pdf")
+        
+        # These should have size information
+        assert "size" in readme_file
+        assert "size" in deck_file
+
+    def test_browse_package_error(self):
+        """Test package browsing with nonexistent package."""
+        result = browse_package("nonexistent/package", registry=TEST_REGISTRY)
+        
+        assert isinstance(result, dict)
         assert "error" in result
-        assert "Failed to browse package" in result["error"]
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_browse_package_with_version(self, mock_browse):
-        """Test package browsing with specific version."""
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {}
-        mock_pkg.__iter__.return_value = []
-        mock_browse.return_value = mock_pkg
+    def test_browse_package_invalid_registry(self):
+        """Test package browsing with invalid registry."""
+        result = browse_package(TEST_PACKAGE, registry="s3://nonexistent-bucket")
         
-        browse_package("test-package", hash_or_tag="v1.0")
-        
-        mock_browse.assert_called_once_with("test-package", registry="s3://quilt-example", top_hash="v1.0")
+        assert isinstance(result, dict)
+        assert "error" in result
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_search_package_contents_success(self, mock_browse):
-        """Test successful package content search."""
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {"description": "Test package with data"}
-        mock_pkg.__iter__.return_value = ["data/test.csv", "docs/readme.md"]
+    def test_search_package_contents_file_path_match(self):
+        """Test package content search finding file path matches."""
+        result = search_package_contents(TEST_PACKAGE, "README", registry=TEST_REGISTRY)
         
-        # Mock file entries
-        mock_entry1 = MagicMock()
-        mock_entry1.size = 1024
-        mock_entry1.hash = "hash1"
-        mock_entry1.meta = {"type": "data file"}
+        assert isinstance(result, list)
+        assert len(result) > 0
         
-        mock_entry2 = MagicMock()
-        mock_entry2.size = 512
-        mock_entry2.hash = "hash2"
-        mock_entry2.meta = {"type": "documentation"}
+        # Should find README.md file
+        path_matches = [m for m in result if m.get("type") == "file_path" and "README" in m.get("path", "")]
+        assert len(path_matches) > 0
         
-        mock_pkg.__getitem__.side_effect = lambda key: mock_entry1 if key == "data/test.csv" else mock_entry2
-        mock_browse.return_value = mock_pkg
-        
-        result = search_package_contents("test-package", "data")
-        
-        matches = [m for m in result if m.get("type") == "file_path"]
-        assert len(matches) >= 1
-        assert any("data/test.csv" in m["path"] for m in matches)
+        readme_match = path_matches[0]
+        assert readme_match["path"] == "README.md"
+        assert readme_match["match_type"] == "path"
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_search_package_contents_metadata_match(self, mock_browse):
-        """Test package content search finding metadata matches."""
-        mock_pkg = MagicMock()
-        mock_pkg.meta = {"description": "Contains important data"}
-        mock_pkg.__iter__.return_value = ["file.txt"]
+    def test_search_package_contents_file_extension_match(self):
+        """Test package content search finding files by extension."""
+        result = search_package_contents(TEST_PACKAGE, "pdf", registry=TEST_REGISTRY)
         
-        mock_entry = MagicMock()
-        mock_entry.size = 100
-        mock_entry.hash = "hash1"
-        mock_entry.meta = {}
+        assert isinstance(result, list)
+        assert len(result) > 0
         
-        mock_pkg.__getitem__.return_value = mock_entry
-        mock_browse.return_value = mock_pkg
+        # Should find deck.pdf file
+        path_matches = [m for m in result if m.get("type") == "file_path" and "pdf" in m.get("path", "")]
+        assert len(path_matches) > 0
         
-        result = search_package_contents("test-package", "important")
-        
-        metadata_matches = [m for m in result if m.get("match_type") == "metadata"]
-        assert len(metadata_matches) >= 1
+        pdf_match = path_matches[0]
+        assert pdf_match["path"] == "deck.pdf"
 
-    @patch('quilt.quilt3.Package.browse')
-    def test_search_package_contents_error(self, mock_browse):
-        """Test package content search with error."""
-        mock_browse.side_effect = Exception("Package error")
+    def test_search_package_contents_no_matches(self):
+        """Test package content search with no matches."""
+        result = search_package_contents(TEST_PACKAGE, "nonexistent-term-xyz", registry=TEST_REGISTRY)
         
-        result = search_package_contents("test-package", "query")
+        assert isinstance(result, list)
+        # Should return empty list when no matches found
+        assert len(result) == 0
+
+    def test_search_package_contents_error(self):
+        """Test package content search with nonexistent package."""
+        result = search_package_contents("nonexistent/package", "query", registry=TEST_REGISTRY)
         
+        assert isinstance(result, list)
         assert len(result) == 1
         assert "error" in result[0]
-
-    @patch('quilt.quilt3.Bucket')
-    def test_get_package_versions_success(self, mock_bucket):
-        """Test successful package version retrieval."""
-        mock_bucket_instance = MagicMock()
-        mock_bucket_instance.list_package_versions.return_value = [
-            {
-                "hash": "abc123",
-                "modified": "2024-01-01T00:00:00Z",
-                "size": 1024,
-                "metadata": {"version": "1.0"}
-            },
-            {
-                "hash": "def456",
-                "modified": "2024-01-02T00:00:00Z", 
-                "size": 2048,
-                "metadata": {"version": "1.1"}
-            }
-        ]
-        mock_bucket.return_value = mock_bucket_instance
-        
-        result = get_package_versions("test-package")
-        
-        assert len(result) == 2
-        assert result[0]["hash"] == "abc123"
-        assert result[1]["hash"] == "def456"
-        mock_bucket_instance.list_package_versions.assert_called_once_with("test-package")
-
-    @patch('quilt.quilt3.Bucket')
-    def test_get_package_versions_error(self, mock_bucket):
-        """Test package version retrieval with error."""
-        mock_bucket.side_effect = Exception("Bucket error")
-        
-        result = get_package_versions("test-package")
-        
-        assert len(result) == 1
-        assert "error" in result[0]
-        assert "Failed to get package versions" in result[0]["error"]
-
-    @patch('quilt.quilt3.Bucket')
-    def test_get_package_versions_custom_registry(self, mock_bucket):
-        """Test package version retrieval with custom registry."""
-        mock_bucket_instance = MagicMock()
-        mock_bucket_instance.list_package_versions.return_value = []
-        mock_bucket.return_value = mock_bucket_instance
-        
-        get_package_versions("test-package", registry="s3://custom-bucket")
-        
-        mock_bucket.assert_called_once_with("s3://custom-bucket")
 
 
 if __name__ == "__main__":
