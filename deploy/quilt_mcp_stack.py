@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_iam as iam,
     CfnOutput,
 )
+from aws_cdk.aws_iam import ServicePrincipal
 import os
 
 
@@ -17,7 +18,7 @@ class QuiltMcpStack(Stack):
         # Create Lambda execution role
         lambda_role = iam.Role(
             self, "QuiltMcpLambdaRole",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"), # type: ignore
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
                 iam.ManagedPolicy.from_managed_policy_arn(self, "QuiltReadPolicy", quilt_read_policy_arn)
@@ -33,7 +34,7 @@ class QuiltMcpStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_handler.handler",
             code=_lambda.Code.from_asset(lambda_package_dir),
-            role=lambda_role,
+            role=lambda_role, # type: ignore
             timeout=Duration.seconds(30),
             memory_size=512,
             environment={
@@ -78,7 +79,7 @@ class QuiltMcpStack(Stack):
 
         # Create Lambda integration
         lambda_integration = apigateway.LambdaIntegration(
-            lambda_fn,
+            lambda_fn, # type: ignore
             request_templates={"application/json": '{"statusCode": "200"}'}
         )
 
