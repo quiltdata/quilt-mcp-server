@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("quilt")
 
 
-# @mcp.tool()  # Disabled due to configuration issues
+@mcp.tool()
 def search_packages(
     query: str, 
     registry: str = "s3://quilt-example",

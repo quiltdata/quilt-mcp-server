@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server that provides tools for interacting with Q
 - **List Packages**: Browse all packages in a Quilt registry with optional prefix filtering
 - **Browse Package**: Explore the contents and metadata of specific packages
 - **Search Package Contents**: Search within package files and metadata for specific terms
-- ~~**Search Packages**: Full-text search across packages~~ (currently disabled due to configuration issues)
+- **Search Packages**: Full-text search across packages (requires Quilt catalog authentication)
 
 ## Installation
 
@@ -18,6 +18,10 @@ A Model Context Protocol (MCP) server that provides tools for interacting with Q
   - Environment variables: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
   - IAM roles (if running on EC2)
   - AWS credentials file (`~/.aws/credentials`)
+
+- **Quilt Catalog Authentication** (required for search functionality):
+  - Configure catalog URL using CLI: `quilt3 config https://open.quiltdata.com`
+  - Login to catalog: `quilt3 login`
 
 ### Setup
 
@@ -46,6 +50,22 @@ After adding the configuration, restart Claude Desktop to load the Quilt MCP ser
 ## Usage
 
 ### Available Tools
+
+#### `search_packages`
+
+Search for packages across the entire Quilt registry using text search.
+
+**Parameters:**
+
+- `query` (str): Search terms to find packages
+- `registry` (str): S3 bucket URL for the Quilt registry (default: "s3://quilt-example")
+- `limit` (int): Maximum number of results to return (default: 10)
+
+**Example:**
+
+```python
+search_packages("akarve", registry="s3://quilt-example", limit=5)
+```
 
 #### `list_packages`
 
@@ -104,7 +124,8 @@ The tests and examples use the `akarve/tmp` package from `s3://quilt-example`, w
 
 ## Limitations
 
-- Package search functionality is currently disabled due to Quilt search API configuration requirements
+- Package search functionality requires authentication to a Quilt catalog (e.g., `https://open.quiltdata.com`)
+  - Must configure catalog URL and login before search operations work
 - Large result sets are limited to prevent overwhelming responses
 - Requires valid AWS credentials for accessing S3 buckets (including public ones like `s3://quilt-example`)
 
@@ -134,6 +155,7 @@ uv run pytest -v
 
 Tests use the actual `akarve/tmp` package from `s3://quilt-example` to verify:
 
+- Package searching across the registry
 - Package listing and filtering
 - Package browsing and file enumeration
 - Content searching within packages
@@ -144,3 +166,22 @@ Tests use the actual `akarve/tmp` package from `s3://quilt-example` to verify:
 - `quilt3`: Python SDK for Quilt data packages
 - `fastmcp`: Framework for building MCP servers
 - `pytest`: Testing framework (dev dependency)
+
+### Enabling Search Functionality
+
+Search functionality is now enabled! If you need to set it up:
+
+1. Configure Quilt catalog URL:
+
+```python
+import quilt3
+quilt3.config('https://open.quiltdata.com')
+```
+
+1. Login to the catalog:
+
+```python
+quilt3.login()
+```
+
+The `search_packages` tool should now work properly after authentication.
