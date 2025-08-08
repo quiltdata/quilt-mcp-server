@@ -87,11 +87,11 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
         if method == 'tools/list':
             # Return available tools
             tools = []
-            for tool_name, tool_info in mcp._tools.items():
+            for tool_name, tool in mcp._tool_manager._tools.items():
                 tools.append({
-                    'name': tool_name,
-                    'description': tool_info['func'].__doc__ or '',
-                    'inputSchema': tool_info.get('schema', {})
+                    'name': tool.name,
+                    'description': tool.description or '',
+                    'inputSchema': tool.parameters or {}
                 })
             
             return {
@@ -105,10 +105,11 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             tool_name = params.get('name', '')
             tool_args = params.get('arguments', {})
             
-            if tool_name in mcp._tools:
-                tool_func = mcp._tools[tool_name]['func']
+            if tool_name in mcp._tool_manager._tools:
                 try:
-                    result = await asyncio.to_thread(tool_func, **tool_args)
+                    result = await mcp.call_tool(tool_name, tool_args)
+                    # result is a list of content objects
+                    content_text = result[0].text if result else json.dumps({}, default=str)
                     return {
                         'jsonrpc': '2.0',
                         'id': request_id,
@@ -116,7 +117,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                             'content': [
                                 {
                                     'type': 'text',
-                                    'text': json.dumps(result, indent=2, default=str)
+                                    'text': content_text
                                 }
                             ]
                         }
@@ -186,6 +187,6 @@ async def handle_mcp_info_request(query_params: Dict[str, Any]) -> Dict[str, Any
         'version': '1.0.0',
         'description': 'Claude-compatible MCP server for Quilt data access',
         'capabilities': {
-            'tools': list(mcp._tools.keys())
+            'tools': list(mcp._tool_manager._tools.keys())
         }
     }

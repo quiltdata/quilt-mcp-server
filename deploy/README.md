@@ -7,7 +7,7 @@ This directory contains the AWS CDK infrastructure code to deploy the Quilt MCP 
 - `app.py` - CDK application entry point
 - `quilt_mcp_stack.py` - Main CDK stack defining Lambda, API Gateway, and IAM resources
 - `deploy.sh` - Automated deployment script
-- `requirements.txt` - CDK Python dependencies
+- Dependencies managed via root `pyproject.toml`
 - `cdk.json` - CDK configuration
 
 ## Quick Start
@@ -31,6 +31,14 @@ This directory contains the AWS CDK infrastructure code to deploy the Quilt MCP 
 - **API Gateway**: HTTP API with CORS and API key authentication
 - **IAM Role**: Lambda execution role with S3 read permissions via your policy ARN
 - **Usage Plan**: Rate limiting (100 req/sec, 200 burst, 10k daily)
+
+## Dependencies
+
+This deployment uses the root-level `pyproject.toml` with dependency groups:
+- `deploy` group: CDK and infrastructure dependencies
+- Main dependencies: Quilt3, FastMCP, boto3 for the Lambda function
+
+Install with: `uv sync --group deploy`
 
 ## Environment Variables
 

@@ -13,7 +13,7 @@ echo -e "${BLUE}🚀 Deploying Quilt MCP Server to AWS Lambda${NC}"
 # Check if .env file exists and source it
 if [ -f "../.env" ]; then
     echo -e "${GREEN}Loading environment from .env file${NC}"
-    export $(cat ../.env | xargs)
+    export $(cat ../.env | grep -v '^#' | grep -v '^$' | xargs)
 elif [ -f "../env.example" ]; then
     echo -e "${YELLOW}⚠️  .env file not found. Please copy env.example to .env and configure it${NC}"
     echo -e "${YELLOW}Required: QUILT_READ_POLICY_ARN${NC}"
@@ -40,13 +40,28 @@ echo -e "  AWS Profile: ${AWS_PROFILE:-default}"
 
 # Install Python dependencies for CDK
 echo -e "${BLUE}Installing CDK dependencies...${NC}"
-pip install -r requirements.txt
+cd ..
+uv sync --group deploy
+cd deploy
 
-# Install Lambda function dependencies
-echo -e "${BLUE}Installing Lambda dependencies...${NC}"
+# Package Lambda function with dependencies
+echo -e "${BLUE}Packaging Lambda function...${NC}"
 cd ../quilt
-pip install -r requirements.txt -t .
-cd ../deploy
+
+# Create a temporary directory for Lambda packaging
+LAMBDA_PACKAGE_DIR=$(mktemp -d)
+echo "Packaging to: $LAMBDA_PACKAGE_DIR"
+
+# Copy source files
+cp *.py "$LAMBDA_PACKAGE_DIR/"
+
+# Install Lambda dependencies into the package directory
+cd /Users/ernest/GitHub/fast-mcp-server
+uv pip install --target "$LAMBDA_PACKAGE_DIR" quilt3>=5.6.0 fastmcp>=0.1.0 boto3>=1.34.0 botocore>=1.34.0
+
+# Create deployment package
+cd /Users/ernest/GitHub/fast-mcp-server/deploy
+export LAMBDA_PACKAGE_DIR="$LAMBDA_PACKAGE_DIR"
 
 # Bootstrap CDK (if needed)
 echo -e "${BLUE}Checking CDK bootstrap...${NC}"
@@ -58,6 +73,10 @@ fi
 # Deploy the stack
 echo -e "${BLUE}Deploying CDK stack...${NC}"
 cdk deploy --require-approval never
+
+# Clean up temporary package directory
+echo -e "${BLUE}Cleaning up temporary files...${NC}"
+rm -rf "$LAMBDA_PACKAGE_DIR"
 
 # Get the API key value
 echo -e "${BLUE}Retrieving API key...${NC}"

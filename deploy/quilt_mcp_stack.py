@@ -24,12 +24,15 @@ class QuiltMcpStack(Stack):
             ]
         )
 
+        # Get the Lambda package directory from environment
+        lambda_package_dir = os.environ.get('LAMBDA_PACKAGE_DIR', '../quilt')
+        
         # Create Lambda function
         lambda_fn = _lambda.Function(
             self, "QuiltMcpFunction",
             runtime=_lambda.Runtime.PYTHON_3_11,
             handler="lambda_handler.handler",
-            code=_lambda.Code.from_asset("../quilt"),
+            code=_lambda.Code.from_asset(lambda_package_dir),
             role=lambda_role,
             timeout=Duration.seconds(30),
             memory_size=512,
