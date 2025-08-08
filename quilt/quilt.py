@@ -159,27 +159,41 @@ def check_filesystem_access() -> Dict[str, Any]:
 @conditional_tool(annotations=LAMBDA_COMPATIBLE)
 def list_packages(
     registry: str = "s3://quilt-example",
-    prefix: Optional[str] = None
+    prefix: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
 ) -> List[Dict[str, Any]]:
     """
-    List all packages in a Quilt registry.
+    List packages in a Quilt registry with pagination support.
     
     Args:
         registry: S3 bucket URL for the Quilt registry
         prefix: Optional prefix to filter package names
+        limit: Maximum number of packages to return (default: 50)
+        offset: Number of packages to skip for pagination (default: 0)
     
     Returns:
-        List of package metadata dictionaries
+        List of package metadata dictionaries with pagination info
     """
     try:
         packages = []
+        all_package_names = []
         
-        # Use the direct list_packages function
+        # First, get all package names and apply prefix filter
         for pkg_name in quilt3.list_packages(registry=registry):
-            # Apply prefix filter if specified
             if prefix and not pkg_name.startswith(prefix):
                 continue
-                
+            all_package_names.append(pkg_name)
+        
+        # Calculate pagination bounds
+        total_packages = len(all_package_names)
+        start_idx = offset
+        end_idx = min(offset + limit, total_packages)
+        
+        # Process only the requested slice of packages
+        paginated_names = all_package_names[start_idx:end_idx]
+        
+        for pkg_name in paginated_names:
             try:
                 pkg = quilt3.Package.browse(pkg_name, registry=registry)
                 packages.append({
@@ -194,7 +208,19 @@ def list_packages(
                     "error": f"Failed to get metadata: {str(e)}"
                 })
         
-        return packages
+        # Add pagination metadata
+        result = {
+            "packages": packages,
+            "pagination": {
+                "total": total_packages,
+                "offset": offset,
+                "limit": limit,
+                "returned": len(packages),
+                "has_more": end_idx < total_packages
+            }
+        }
+        
+        return [result]
     except Exception as e:
         return [{"error": f"Failed to list packages: {str(e)}"}]
 

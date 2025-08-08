@@ -9,7 +9,7 @@ app = cdk.App()
 account = os.getenv('CDK_DEFAULT_ACCOUNT', cdk.Aws.ACCOUNT_ID)
 region = os.getenv('CDK_DEFAULT_REGION', 'us-east-1')
 quilt_read_policy_arn = os.getenv('QUILT_READ_POLICY_ARN')
-lambda_timeout_seconds = int(os.getenv('LAMBDA_TIMEOUT_SECONDS', '300'))
+lambda_timeout_seconds = int(os.getenv('LAMBDA_TIMEOUT_SECONDS', '30'))
 
 if not quilt_read_policy_arn:
     raise ValueError("QUILT_READ_POLICY_ARN environment variable is required")
