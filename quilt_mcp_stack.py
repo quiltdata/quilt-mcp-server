@@ -59,7 +59,7 @@ class QuiltMcpStack(Stack):
             default_cors_preflight_options=apigateway.CorsOptions(
                 allow_origins=apigateway.Cors.ALL_ORIGINS,
                 allow_methods=apigateway.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization", "X-Amz-Date"]
+                allow_headers=["Content-Type", "Authorization", "X-Amz-Date", "X-Requested-With", "Accept", "Origin", "Referer", "User-Agent"]
             ),
             deploy_options=apigateway.StageOptions(
                 stage_name="prod",

@@ -46,7 +46,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 200,
                 'headers': {
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Requested-With,Accept,Origin,Referer,User-Agent',
                     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
                 },
                 'body': ''
@@ -73,7 +73,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Requested-With,Accept,Origin,Referer,User-Agent',
                 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
             },
             'body': json.dumps(response_data, default=str)
@@ -106,10 +106,17 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             # Return available tools
             tools = []
             for tool_name, tool in mcp._tool_manager._tools.items():
+                input_schema = tool.parameters or {}
+                # Ensure schema has required type and properties fields
+                if not isinstance(input_schema, dict) or 'type' not in input_schema:
+                    input_schema = {
+                        'type': 'object',
+                        'properties': input_schema if isinstance(input_schema, dict) else {}
+                    }
                 tools.append({
                     'name': tool.name,
                     'description': tool.description or '',
-                    'inputSchema': tool.parameters or {}
+                    'inputSchema': input_schema
                 })
             
             return {
@@ -168,7 +175,9 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                 'result': {
                     'protocolVersion': '2024-11-05',
                     'capabilities': {
-                        'tools': {}
+                        'tools': {},
+                        'roots': {'listChanged': True},
+                        'sampling': {}
                     },
                     'serverInfo': {
                         'name': 'quilt-mcp-server',
