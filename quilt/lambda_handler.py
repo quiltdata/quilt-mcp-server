@@ -2,7 +2,12 @@ import json
 import asyncio
 from typing import Dict, Any
 import logging
-from . import quilt
+import sys
+import os
+
+# Add the current directory to path to import our local quilt module
+sys.path.insert(0, os.path.dirname(__file__))
+from quilt import mcp  # type: ignore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +92,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
         if method == 'tools/list':
             # Return available tools
             tools = []
-            for tool_name, tool in quilt.mcp._tool_manager._tools.items():
+            for tool_name, tool in mcp._tool_manager._tools.items():
                 tools.append({
                     'name': tool.name,
                     'description': tool.description or '',
@@ -105,9 +110,9 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             tool_name = params.get('name', '')
             tool_args = params.get('arguments', {})
             
-            if tool_name in quilt.mcp._tool_manager._tools:
+            if tool_name in mcp._tool_manager._tools:
                 try:
-                    result = await quilt.mcp.call_tool(tool_name, tool_args)
+                    result = await mcp.call_tool(tool_name, tool_args)
                     # Handle the result properly - convert to JSON string
                     content_text = json.dumps(result, default=str) if result else "{}"
                     return {
@@ -187,6 +192,6 @@ async def handle_mcp_info_request(query_params: Dict[str, Any]) -> Dict[str, Any
         'version': '1.0.0',
         'description': 'Claude-compatible MCP server for Quilt data access',
         'capabilities': {
-            'tools': list(quilt.mcp._tool_manager._tools.keys())
+            'tools': list(mcp._tool_manager._tools.keys())
         }
     }
