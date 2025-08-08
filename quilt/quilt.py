@@ -160,7 +160,7 @@ def check_filesystem_access() -> Dict[str, Any]:
 def list_packages(
     registry: str = "s3://quilt-example",
     prefix: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 12,
     offset: int = 0
 ) -> List[Dict[str, Any]]:
     """
@@ -169,7 +169,7 @@ def list_packages(
     Args:
         registry: S3 bucket URL for the Quilt registry
         prefix: Optional prefix to filter package names
-        limit: Maximum number of packages to return (default: 50)
+        limit: Maximum number of packages to return (default: 12)
         offset: Number of packages to skip for pagination (default: 0)
     
     Returns:
