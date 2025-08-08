@@ -44,6 +44,13 @@ class QuiltMcpStack(Stack):
             }
         )
 
+        # Create API Gateway log group
+        api_log_group = logs.LogGroup(
+            self, "ApiGatewayLogGroup",
+            log_group_name=f"/aws/apigateway/{self.region}/quilt-mcp-api",
+            retention=logs.RetentionDays.ONE_WEEK
+        )
+
         # Create API Gateway
         api = apigateway.RestApi(
             self, "QuiltMcpApi",
@@ -58,7 +65,19 @@ class QuiltMcpStack(Stack):
                 stage_name="prod",
                 logging_level=apigateway.MethodLoggingLevel.INFO,
                 data_trace_enabled=True,
-                metrics_enabled=True
+                metrics_enabled=True,
+                access_log_destination=apigateway.LogGroupLogDestination(api_log_group), # type: ignore
+                access_log_format=apigateway.AccessLogFormat.json_with_standard_fields(
+                    caller=False,
+                    http_method=True,
+                    ip=True,
+                    protocol=True,
+                    request_time=True,
+                    resource_path=True,
+                    response_length=True,
+                    status=True,
+                    user=False
+                )
             )
         )
 
@@ -109,6 +128,6 @@ class QuiltMcpStack(Stack):
 
         CfnOutput(
             self, "ApiLogGroupName",
-            value=f"/aws/apigateway/{api.rest_api_id}/prod",
+            value=api_log_group.log_group_name,
             description="CloudWatch log group name for API Gateway logs"
         )

@@ -22,6 +22,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     AWS Lambda handler for the Quilt MCP server.
     Processes HTTP requests and returns MCP-compatible responses.
     """
+    print("=== LAMBDA HANDLER CALLED ===")
+    print(f"Event keys: {list(event.keys())}")
+    
     logger.info("Lambda handler called")
     logger.debug(f"Event: {json.dumps(event, default=str)}")
     
@@ -33,10 +36,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         headers = event.get('headers', {})
         body = event.get('body', '')
         
+        print(f"=== REQUEST: {http_method} {path} ===")
         logger.info(f"Received {http_method} request to {path}")
         
         # Handle CORS preflight
         if http_method == 'OPTIONS':
+            print("=== HANDLING OPTIONS REQUEST ===")
             return {
                 'statusCode': 200,
                 'headers': {
@@ -75,6 +80,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        print(f"=== HANDLER EXCEPTION: {str(e)} ===")
         logger.error(f"Handler error: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
