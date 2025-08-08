@@ -78,24 +78,41 @@ cdk deploy --require-approval never
 echo -e "${BLUE}Cleaning up temporary files...${NC}"
 rm -rf "$LAMBDA_PACKAGE_DIR"
 
-# Get the API key value
-echo -e "${BLUE}Retrieving API key...${NC}"
-API_KEY_ID=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiKeyId'].OutputValue" --output text)
-API_KEY_VALUE=$(aws apigateway get-api-key --api-key $API_KEY_ID --include-value --region $CDK_DEFAULT_REGION --query "value" --output text)
+# Get Cognito credentials
+echo -e "${BLUE}Retrieving Cognito credentials...${NC}"
+COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" --output text)
+COGNITO_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoClientId'].OutputValue" --output text)
+COGNITO_CLIENT_SECRET=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoClientSecret'].OutputValue" --output text)
+COGNITO_DOMAIN=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='CognitoDomain'].OutputValue" --output text)
 
 # Get the API endpoint
 API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
 
+# Get Lambda function name and log group for debugging
+LAMBDA_FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue" --output text)
+LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LogGroupName'].OutputValue" --output text)
+
 echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
 echo -e "${GREEN}📝 Claude MCP Server Configuration:${NC}"
 echo -e "  URL: ${API_ENDPOINT}"
-echo -e "  Type: Streamable HTTP"
-echo -e "  API Key: ${API_KEY_VALUE}"
+echo -e "  Type: Streamable HTTP with OAuth2"
+echo
+echo -e "${GREEN}🔐 Cognito Authentication Credentials:${NC}"
+echo -e "  User Pool ID: ${COGNITO_USER_POOL_ID}"
+echo -e "  Client ID: ${COGNITO_CLIENT_ID}"
+echo -e "  Client Secret: ${COGNITO_CLIENT_SECRET}"
+echo -e "  Auth Domain: https://${COGNITO_DOMAIN}"
+echo
+echo -e "${BLUE}🔧 Debugging Information:${NC}"
+echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
+echo -e "  Log Group: ${LOG_GROUP_NAME}"
+echo -e "  View logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}"
 echo
 echo -e "${BLUE}To connect from Claude:${NC}"
 echo -e "1. Add a new remote MCP server"
 echo -e "2. Set URL to: ${API_ENDPOINT}"
 echo -e "3. Set Type to: Streamable HTTP"
-echo -e "4. Set API Key to: ${API_KEY_VALUE}"
+echo -e "4. Configure OAuth2 with the credentials above"
+echo -e "5. Create a user in Cognito: aws cognito-idp admin-create-user --user-pool-id ${COGNITO_USER_POOL_ID} --username <username> --temporary-password <temp-password> --region ${CDK_DEFAULT_REGION}"
 echo
 echo -e "${YELLOW}💾 Save these credentials securely!${NC}"

@@ -2,7 +2,7 @@ import json
 import asyncio
 from typing import Dict, Any
 import logging
-from quilt import mcp
+from . import quilt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +29,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'statusCode': 200,
                 'headers': {
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date',
                     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
                 },
                 'body': ''
@@ -56,7 +56,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key',
+                'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date',
                 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
             },
             'body': json.dumps(response_data, default=str)
@@ -87,7 +87,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
         if method == 'tools/list':
             # Return available tools
             tools = []
-            for tool_name, tool in mcp._tool_manager._tools.items():
+            for tool_name, tool in quilt.mcp._tool_manager._tools.items():
                 tools.append({
                     'name': tool.name,
                     'description': tool.description or '',
@@ -105,11 +105,11 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             tool_name = params.get('name', '')
             tool_args = params.get('arguments', {})
             
-            if tool_name in mcp._tool_manager._tools:
+            if tool_name in quilt.mcp._tool_manager._tools:
                 try:
-                    result = await mcp.call_tool(tool_name, tool_args)
-                    # result is a list of content objects
-                    content_text = result[0].text if result else json.dumps({}, default=str)
+                    result = await quilt.mcp.call_tool(tool_name, tool_args)
+                    # Handle the result properly - convert to JSON string
+                    content_text = json.dumps(result, default=str) if result else "{}"
                     return {
                         'jsonrpc': '2.0',
                         'id': request_id,
@@ -187,6 +187,6 @@ async def handle_mcp_info_request(query_params: Dict[str, Any]) -> Dict[str, Any
         'version': '1.0.0',
         'description': 'Claude-compatible MCP server for Quilt data access',
         'capabilities': {
-            'tools': list(mcp._tool_manager._tools.keys())
+            'tools': list(quilt.mcp._tool_manager._tools.keys())
         }
     }

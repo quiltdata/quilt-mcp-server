@@ -7,7 +7,7 @@ import os
 # Add the deploy directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'deploy'))
 
-from quilt_mcp_stack import QuiltMcpStack
+from quilt_mcp_stack import QuiltMcpStack  # type: ignore
 
 class TestQuiltMcpStack:
     """Test suite for CDK stack."""
@@ -38,11 +38,11 @@ class TestQuiltMcpStack:
             "Name": "Quilt MCP Server"
         })
         
-        # Verify IAM roles exist (Lambda role + API Gateway CloudWatch role)
-        template.resource_count_is("AWS::IAM::Role", 2)
+        # Verify IAM roles exist (Lambda role + API Gateway CloudWatch role + Cognito authenticated role)
+        template.resource_count_is("AWS::IAM::Role", 3)
         
-    def test_api_key_creation(self):
-        """Test that API key and usage plan are created."""
+    def test_cognito_creation(self):
+        """Test that Cognito User Pool and related resources are created."""
         stack = QuiltMcpStack(
             self.app,
             "TestQuiltMcpStack",
@@ -51,22 +51,24 @@ class TestQuiltMcpStack:
         
         template = assertions.Template.from_stack(stack)
         
-        # Verify API key exists
-        template.has_resource_properties("AWS::ApiGateway::ApiKey", {
-            "Name": "quilt-mcp-key"
+        # Verify Cognito User Pool exists
+        template.has_resource_properties("AWS::Cognito::UserPool", {
+            "UserPoolName": "quilt-mcp-users"
         })
         
-        # Verify usage plan exists
-        template.has_resource_properties("AWS::ApiGateway::UsagePlan", {
-            "UsagePlanName": "QuiltMcpUsagePlan",
-            "Throttle": {
-                "RateLimit": 100,
-                "BurstLimit": 200
-            },
-            "Quota": {
-                "Limit": 10000,
-                "Period": "DAY"
-            }
+        # Verify Cognito User Pool Client exists
+        template.has_resource_properties("AWS::Cognito::UserPoolClient", {
+            "ClientName": "quilt-mcp-client",
+            "GenerateSecret": True
+        })
+        
+        # Verify Cognito Domain exists
+        template.resource_count_is("AWS::Cognito::UserPoolDomain", 1)
+        
+        # Verify Cognito Authorizer exists
+        template.has_resource_properties("AWS::ApiGateway::Authorizer", {
+            "Name": "quilt-mcp-authorizer",
+            "Type": "COGNITO_USER_POOLS"
         })
         
     def test_cors_configuration(self):
@@ -104,8 +106,8 @@ class TestQuiltMcpStack:
             }
         })
         
-    def test_api_methods_require_key(self):
-        """Test that API methods require API key."""
+    def test_api_methods_require_cognito_auth(self):
+        """Test that API methods require Cognito authorization."""
         stack = QuiltMcpStack(
             self.app,
             "TestQuiltMcpStack",
@@ -114,15 +116,15 @@ class TestQuiltMcpStack:
         
         template = assertions.Template.from_stack(stack)
         
-        # Check that GET and POST methods require API key
+        # Check that GET and POST methods require Cognito authorization
         template.has_resource_properties("AWS::ApiGateway::Method", {
             "HttpMethod": "GET",
-            "ApiKeyRequired": True
+            "AuthorizationType": "COGNITO_USER_POOLS"
         })
         
         template.has_resource_properties("AWS::ApiGateway::Method", {
             "HttpMethod": "POST",
-            "ApiKeyRequired": True
+            "AuthorizationType": "COGNITO_USER_POOLS"
         })
         
     def test_outputs_exist(self):
@@ -138,7 +140,12 @@ class TestQuiltMcpStack:
         # Verify outputs exist
         outputs = template.to_json()["Outputs"]
         assert "ApiEndpoint" in outputs
-        assert "ApiKeyId" in outputs
+        assert "CognitoUserPoolId" in outputs
+        assert "CognitoClientId" in outputs
+        assert "CognitoClientSecret" in outputs
+        assert "CognitoDomain" in outputs
+        assert "LambdaFunctionName" in outputs
+        assert "LogGroupName" in outputs
         
     def test_lambda_timeout_and_memory(self):
         """Test Lambda function timeout and memory configuration."""

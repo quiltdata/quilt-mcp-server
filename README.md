@@ -14,7 +14,7 @@ cp env.example .env
 # 2. Deploy to AWS
 cd deploy && ./deploy.sh
 
-# 3. Connect Claude with the output URL and API key
+# 3. Connect Claude with the output URL and Cognito credentials
 ```
 
 ## 🛠️ Available Tools
@@ -45,9 +45,9 @@ cd deploy && ./deploy.sh
 ### AWS Lambda (Production)
 
 - **Lambda Function**: Python 3.11 runtime with Quilt MCP server
-- **API Gateway**: HTTP API with CORS and API key authentication
+- **API Gateway**: HTTP API with CORS and Cognito authentication
 - **IAM Role**: S3 read permissions via your managed policy
-- **Usage Plans**: Rate limiting (100 req/sec, 10k daily limit)
+- **Cognito**: User pool with OAuth2 client credentials flow
 
 ### Local Development
 
@@ -113,13 +113,13 @@ uv run pytest tests/ -v
 
 ### Rate Limits
 
-- 100 requests/second
-- 200 burst capacity
-- 10,000 requests/day
+- Cognito OAuth2 token-based authentication
+- No built-in request limits (configure via API Gateway throttling if needed)
 
 ## 🔐 Security
 
-- API key authentication for all endpoints
+- Cognito OAuth2 authentication for all endpoints
+- JWT token validation
 - IAM role-based S3 access (no embedded credentials)
 - CORS enabled for Claude web interface
 - CloudWatch logging for audit trails
@@ -127,8 +127,14 @@ uv run pytest tests/ -v
 ## 🛠️ Management
 
 ```bash
-# View Lambda logs
+# View Lambda logs (function name provided by deploy.sh)
 aws logs tail /aws/lambda/QuiltMcpStack-QuiltMcpFunction --follow
+
+# View logs using exact log group name from deployment output
+aws logs tail <LOG_GROUP_NAME> --follow --region <REGION>
+
+# Create a Cognito user for authentication
+aws cognito-idp admin-create-user --user-pool-id <USER_POOL_ID> --username <username> --temporary-password <temp-password> --region <REGION>
 
 # Update deployment
 cd deploy && ./deploy.sh
