@@ -57,7 +57,7 @@ cp *.py "$LAMBDA_PACKAGE_DIR/"
 
 # Install Lambda dependencies into the package directory
 cd /Users/ernest/GitHub/fast-mcp-server
-uv pip install --target "$LAMBDA_PACKAGE_DIR" quilt3>=5.6.0 fastmcp>=0.1.0 boto3>=1.34.0 botocore>=1.34.0
+uv pip install --target "$LAMBDA_PACKAGE_DIR" "quilt3>=5.6.0" "fastmcp>=0.1.0" "boto3>=1.34.0" "botocore>=1.34.0"
 
 # Create deployment package
 cd /Users/ernest/GitHub/fast-mcp-server/deploy
