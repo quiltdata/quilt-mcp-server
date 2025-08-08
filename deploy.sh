@@ -59,7 +59,44 @@ echo "Packaging to: $LAMBDA_PACKAGE_DIR"
 cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
 
 # Install Lambda dependencies into the package directory
-uv pip install --target "$LAMBDA_PACKAGE_DIR" "quilt3>=5.6.0" "fastmcp>=0.1.0" "boto3>=1.34.0" "botocore>=1.34.0"
+echo "Installing dependencies..."
+
+# Check if Docker is available for Linux packaging
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  echo "Using Docker to build Linux-compatible package..."
+  
+  # Use Amazon Linux 2023 which is what Lambda uses
+  docker run --rm \
+    -v "$LAMBDA_PACKAGE_DIR":/output \
+    --entrypoint="" \
+    amazonlinux:2023 \
+    bash -c "
+      yum install -y python3 python3-pip
+      pip3 install \
+        quilt3>=5.6.0 \
+        fastmcp>=0.1.0 \
+        boto3>=1.34.0 \
+        botocore>=1.34.0 \
+        -t /output/
+    "
+  
+  # Copy our source files
+  cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
+  
+  echo "✅ Docker-based packaging completed"
+  
+else
+  echo "Docker not available, using fallback approach..."
+  
+  # Use uv to install dependencies
+  uv pip install --target "$LAMBDA_PACKAGE_DIR" --no-build-isolation \
+    "quilt3>=5.6.0" \
+    "fastmcp>=0.1.0" \
+    "boto3>=1.34.0" \
+    "botocore>=1.34.0"
+
+  echo "❌ Using macOS binaries - Lambda will likely fail with pydantic_core import error"
+fi
 
 # Create deployment package
 export LAMBDA_PACKAGE_DIR="$LAMBDA_PACKAGE_DIR"
@@ -88,7 +125,6 @@ API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --r
 # Get Lambda function name and log group for debugging
 LAMBDA_FUNCTION_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue" --output text)
 LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LogGroupName'].OutputValue" --output text)
-API_GATEWAY_LOG_GROUP=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiGatewayLogGroup'].OutputValue" --output text)
 
 echo -e "${GREEN}🎉 Deployment completed successfully!${NC}"
 echo -e "${GREEN}📝 Claude MCP Server Configuration:${NC}"
@@ -102,9 +138,7 @@ echo
 echo -e "${BLUE}🔧 Debugging Information:${NC}"
 echo -e "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
 echo -e "  Lambda Log Group: ${LOG_GROUP_NAME}"
-echo -e "  API Gateway Log Group: ${API_GATEWAY_LOG_GROUP}"
 echo -e "  View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}"
-echo -e "  View API Gateway logs: aws logs tail ${API_GATEWAY_LOG_GROUP} --follow --region ${CDK_DEFAULT_REGION}"
 echo
 
 # Test the endpoint 
