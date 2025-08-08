@@ -86,12 +86,6 @@ echo -e "${GREEN}Claude MCP Server URL: ${API_ENDPOINT}${NC}"
 echo -e "${BLUE}View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
 echo -e "${BLUE}View API Gateway logs: aws logs tail ${API_LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
 
-# Test endpoint
-echo -e "${BLUE}Testing endpoint...${NC}"
-MCP_RESPONSE=$(curl -s -X POST "${API_ENDPOINT}" -H "Content-Type: application/json" -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
-
-if echo "$MCP_RESPONSE" | grep -q "tools"; then
-    echo -e "${GREEN}✅ MCP endpoint is working${NC}"
-else
-    echo -e "${RED}❌ MCP endpoint test failed${NC}"
-fi
+# Test endpoint using separate script
+echo ""
+./tests/test-endpoint.sh -e "${API_ENDPOINT}"

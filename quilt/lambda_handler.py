@@ -10,7 +10,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 from quilt import mcp  # type: ignore
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -18,6 +22,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     AWS Lambda handler for the Quilt MCP server.
     Processes HTTP requests and returns MCP-compatible responses.
     """
+    logger.info("Lambda handler called")
+    logger.debug(f"Event: {json.dumps(event, default=str)}")
+    
     try:
         # Parse the incoming request
         http_method = event.get('httpMethod', 'GET')
