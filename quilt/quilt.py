@@ -2,6 +2,7 @@ from typing import Any, Optional, Dict, List
 import quilt3
 from mcp.server.fastmcp import FastMCP
 
+
 # Initialize FastMCP server
 mcp = FastMCP("quilt")
 
@@ -267,5 +268,3 @@ def search_package_contents(
         return [{"error": f"Failed to search package contents: {str(e)}"}]
 
 
-if __name__ == "__main__":
-    mcp.run()

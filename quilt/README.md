@@ -26,7 +26,7 @@ A Model Context Protocol (MCP) server that provides tools for interacting with Q
 
 ### Setup
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your Claude Desktop configuration (`~/Library/Application\ Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
