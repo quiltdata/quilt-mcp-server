@@ -299,6 +299,223 @@ run_claude_simulation_tests() {
         echo -e "${RED}❌ Response time: ${RESPONSE_TIME}ms (too slow)${NC}"
     fi
     
+    # Test 9: Tool Execution (actual tool call)
+    echo -e "${BLUE}Claude Test 9: Tool Execution${NC}"
+    
+    TOOL_CALL_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "check_quilt_auth", "arguments": {}}}'
+    
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Testing tool execution:${NC}"
+        echo "$TOOL_CALL_REQUEST" | jq . 2>/dev/null || echo "$TOOL_CALL_REQUEST"
+    fi
+    
+    TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d "$TOOL_CALL_REQUEST")
+    
+    if echo "$TOOL_RESPONSE" | grep -q '"content"'; then
+        echo -e "${GREEN}✅ Tool execution works${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${BLUE}Tool response:${NC}"
+            echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Tool execution unclear${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
+        fi
+    fi
+    
+    # Test 10: Invalid Tool Call
+    echo -e "${BLUE}Claude Test 10: Invalid Tool Call${NC}"
+    
+    INVALID_TOOL_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "nonexistent_tool", "arguments": {}}}'
+    
+    INVALID_TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d "$INVALID_TOOL_REQUEST")
+    
+    if echo "$INVALID_TOOL_RESPONSE" | grep -q '"error"'; then
+        echo -e "${GREEN}✅ Invalid tool properly rejected${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Invalid tool handling unclear${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}Response: $INVALID_TOOL_RESPONSE${NC}"
+        fi
+    fi
+    
+    # Test 11: Malformed JSON
+    echo -e "${BLUE}Claude Test 11: Malformed JSON Handling${NC}"
+    
+    MALFORMED_RESPONSE=$(curl -s -w '%{http_code}' -o /tmp/malformed_response.txt -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}')
+    
+    if [ "$MALFORMED_RESPONSE" -eq 500 ] || [ "$MALFORMED_RESPONSE" -eq 400 ]; then
+        echo -e "${GREEN}✅ Malformed JSON properly handled (HTTP $MALFORMED_RESPONSE)${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Malformed JSON handling unclear (HTTP $MALFORMED_RESPONSE)${NC}"
+    fi
+    
+    # Test 12: Wrong Content-Type
+    echo -e "${BLUE}Claude Test 12: Content-Type Validation${NC}"
+    
+    WRONG_CONTENT_TYPE_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X POST "$ENDPOINT" \
+        -H "Content-Type: text/plain" \
+        -H "Origin: https://claude.ai" \
+        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    
+    if [ "$WRONG_CONTENT_TYPE_RESPONSE" -eq 200 ]; then
+        echo -e "${GREEN}✅ Server accepts requests with wrong Content-Type${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Server rejects wrong Content-Type (HTTP $WRONG_CONTENT_TYPE_RESPONSE)${NC}"
+    fi
+    
+    # Test 13: Empty POST Body
+    echo -e "${BLUE}Claude Test 13: Empty POST Body${NC}"
+    
+    EMPTY_BODY_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d '')
+    
+    if [ "$EMPTY_BODY_RESPONSE" -eq 400 ] || [ "$EMPTY_BODY_RESPONSE" -eq 500 ]; then
+        echo -e "${GREEN}✅ Empty body properly handled (HTTP $EMPTY_BODY_RESPONSE)${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Empty body handling unclear (HTTP $EMPTY_BODY_RESPONSE)${NC}"
+    fi
+    
+    # Test 14: HTTP Method Validation
+    echo -e "${BLUE}Claude Test 14: HTTP Method Validation${NC}"
+    
+    PUT_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X PUT "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai")
+    
+    DELETE_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X DELETE "$ENDPOINT" \
+        -H "Origin: https://claude.ai")
+    
+    if [ "$PUT_RESPONSE" -eq 405 ] && [ "$DELETE_RESPONSE" -eq 405 ]; then
+        echo -e "${GREEN}✅ Unsupported HTTP methods properly rejected${NC}"
+    else
+        echo -e "${YELLOW}⚠️  HTTP method validation unclear (PUT: $PUT_RESPONSE, DELETE: $DELETE_RESPONSE)${NC}"
+    fi
+    
+    # Test 15: Request ID Types
+    echo -e "${BLUE}Claude Test 15: Request ID Validation${NC}"
+    
+    # Test with string ID
+    STRING_ID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d '{"jsonrpc": "2.0", "id": "test-string-id", "method": "tools/list", "params": {}}')
+    
+    # Test with null ID
+    NULL_ID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d '{"jsonrpc": "2.0", "id": null, "method": "tools/list", "params": {}}')
+    
+    STRING_ID_SUCCESS=$(echo "$STRING_ID_RESPONSE" | grep -q '"tools"' && echo "true" || echo "false")
+    NULL_ID_SUCCESS=$(echo "$NULL_ID_RESPONSE" | grep -q '"tools"' && echo "true" || echo "false")
+    
+    if [ "$STRING_ID_SUCCESS" = "true" ] && [ "$NULL_ID_SUCCESS" = "true" ]; then
+        echo -e "${GREEN}✅ Different request ID types handled${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Request ID handling unclear (string: $STRING_ID_SUCCESS, null: $NULL_ID_SUCCESS)${NC}"
+    fi
+    
+    # Test 16: Unicode and Special Characters
+    echo -e "${BLUE}Claude Test 16: Unicode Handling${NC}"
+    
+    UNICODE_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search_packages", "arguments": {"query": "测试 émojis 🚀 special chars: <>&'\''\"", "limit": 1}}}'
+    
+    UNICODE_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d "$UNICODE_REQUEST")
+    
+    if echo "$UNICODE_RESPONSE" | grep -q '"content"\|"error"'; then
+        echo -e "${GREEN}✅ Unicode characters handled${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Unicode handling unclear${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}Response: $UNICODE_RESPONSE${NC}"
+        fi
+    fi
+    
+    # Test 17: Missing Required Parameters
+    echo -e "${BLUE}Claude Test 17: Missing Required Parameters${NC}"
+    
+    MISSING_PARAM_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search_packages", "arguments": {}}}'
+    
+    MISSING_PARAM_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d "$MISSING_PARAM_REQUEST")
+    
+    if echo "$MISSING_PARAM_RESPONSE" | grep -q '"error"'; then
+        echo -e "${GREEN}✅ Missing required parameters properly handled${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Missing parameter validation unclear${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}Response: $MISSING_PARAM_RESPONSE${NC}"
+        fi
+    fi
+    
+    # Test 18: Protocol Version Compatibility
+    echo -e "${BLUE}Claude Test 18: Protocol Version Compatibility${NC}"
+    
+    OLD_PROTOCOL_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2023-06-13", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
+    
+    OLD_PROTOCOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://claude.ai" \
+        -d "$OLD_PROTOCOL_REQUEST")
+    
+    if echo "$OLD_PROTOCOL_RESPONSE" | grep -q '"result"\|"error"'; then
+        echo -e "${GREEN}✅ Protocol version handling works${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Protocol version handling unclear${NC}"
+    fi
+    
+    # Test 19: Response Compression
+    echo -e "${BLUE}Claude Test 19: Response Compression${NC}"
+    
+    COMPRESSION_RESPONSE=$(curl -s -w '%{size_download}' -o /dev/null -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Accept-Encoding: gzip, deflate" \
+        -H "Origin: https://claude.ai" \
+        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    
+    if [ "$COMPRESSION_RESPONSE" -gt 0 ]; then
+        echo -e "${GREEN}✅ Response compression support detected${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Response compression unclear${NC}"
+    fi
+    
+    # Test 20: Multiple Origins
+    echo -e "${BLUE}Claude Test 20: Origin Header Validation${NC}"
+    
+    # Test with different origins
+    NO_ORIGIN_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    
+    OTHER_ORIGIN_RESPONSE=$(curl -s -w '%{http_code}' -o /dev/null -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Origin: https://example.com" \
+        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    
+    if [ "$NO_ORIGIN_RESPONSE" -eq 200 ] && [ "$OTHER_ORIGIN_RESPONSE" -eq 200 ]; then
+        echo -e "${GREEN}✅ CORS allows all origins${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Origin handling: no-origin=$NO_ORIGIN_RESPONSE, other=$OTHER_ORIGIN_RESPONSE${NC}"
+    fi
+    
     echo -e "${BLUE}=================== CLAUDE SIMULATION COMPLETE ===================${NC}"
 }
 

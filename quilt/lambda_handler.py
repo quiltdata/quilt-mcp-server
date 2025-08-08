@@ -133,8 +133,14 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             if tool_name in mcp._tool_manager._tools:
                 try:
                     result = await mcp.call_tool(tool_name, tool_args)
-                    # Handle the result properly - convert to JSON string
-                    content_text = json.dumps(result, default=str) if result else "{}"
+                    # Extract clean text from the result
+                    if isinstance(result, (list, tuple)) and len(result) >= 2:
+                        # Get the actual result from the second element
+                        actual_result = result[1].get('result', {}) if isinstance(result[1], dict) else result[1]
+                        content_text = json.dumps(actual_result, indent=2)
+                    else:
+                        content_text = json.dumps(result, indent=2, default=str)
+                    
                     return {
                         'jsonrpc': '2.0',
                         'id': request_id,
