@@ -75,7 +75,7 @@ cp env.example .env
 │   ├── lambda_handler.py # AWS Lambda wrapper
 │   ├── main.py           # CLI entry point
 │   └── DEPLOY.md         # Local development guide
-├── deploy/               # CDK build artifacts (auto-generated)
+├── cdk.out/              # CDK build artifacts (auto-generated)
 └── weather/              # Example MCP server
     ├── weather.py        # Weather MCP server
     └── pyproject.toml    # Independent dependencies

@@ -13,12 +13,14 @@ This directory contains the AWS CDK infrastructure code to deploy the Quilt MCP 
 ## Quick Start
 
 1. Configure environment:
+
    ```bash
    cp ../env.example ../.env
    # Edit .env with your QUILT_READ_POLICY_ARN
    ```
 
 2. Deploy:
+
    ```bash
    ./deploy.sh
    ```
@@ -35,6 +37,7 @@ This directory contains the AWS CDK infrastructure code to deploy the Quilt MCP 
 ## Dependencies
 
 This deployment uses the root-level `pyproject.toml` with dependency groups:
+
 - `deploy` group: CDK and infrastructure dependencies
 - Main dependencies: Quilt3, FastMCP, boto3 for the Lambda function
 
@@ -50,6 +53,7 @@ Install with: `uv sync --group deploy`
 ## Costs
 
 AWS Lambda pricing:
+
 - Free tier: 1M requests/month + 400k GB-seconds compute
 - After free tier: ~$0.20 per 1M requests + $0.0000166667 per GB-second
 - API Gateway: ~$3.50 per million API calls

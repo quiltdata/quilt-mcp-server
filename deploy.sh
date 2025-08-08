@@ -13,7 +13,9 @@ echo -e "${BLUE}🚀 Deploying Quilt MCP Server to AWS Lambda${NC}"
 # Check if .env file exists and source it
 if [ -f ".env" ]; then
     echo -e "${GREEN}Loading environment from .env file${NC}"
-    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+    set -a  # automatically export all variables
+    source .env
+    set +a  # turn off automatic export
 elif [ -f "env.example" ]; then
     echo -e "${YELLOW}⚠️  .env file not found. Please copy env.example to .env and configure it${NC}"
     echo -e "${YELLOW}Required: QUILT_READ_POLICY_ARN${NC}"
@@ -38,23 +40,25 @@ echo -e "  Region: ${CDK_DEFAULT_REGION}"
 echo -e "  Quilt Policy ARN: ${QUILT_READ_POLICY_ARN}"
 echo -e "  AWS Profile: ${AWS_PROFILE:-default}"
 
+# Debug: Check if environment variables are properly exported
+echo -e "${BLUE}Debug - Environment variables for CDK:${NC}"
+echo -e "  QUILT_READ_POLICY_ARN: ${QUILT_READ_POLICY_ARN}"
+
 # Install Python dependencies for CDK
 echo -e "${BLUE}Installing CDK dependencies...${NC}"
 uv sync --group deploy
 
 # Package Lambda function with dependencies
 echo -e "${BLUE}Packaging Lambda function...${NC}"
-cd quilt
 
 # Create a temporary directory for Lambda packaging
 LAMBDA_PACKAGE_DIR=$(mktemp -d)
 echo "Packaging to: $LAMBDA_PACKAGE_DIR"
 
-# Copy source files
-cp *.py "$LAMBDA_PACKAGE_DIR/"
+# Copy source files from quilt directory
+cp quilt/*.py "$LAMBDA_PACKAGE_DIR/"
 
 # Install Lambda dependencies into the package directory
-cd $(pwd)
 uv pip install --target "$LAMBDA_PACKAGE_DIR" "quilt3>=5.6.0" "fastmcp>=0.1.0" "boto3>=1.34.0" "botocore>=1.34.0"
 
 # Create deployment package
@@ -64,12 +68,12 @@ export LAMBDA_PACKAGE_DIR="$LAMBDA_PACKAGE_DIR"
 echo -e "${BLUE}Checking CDK bootstrap...${NC}"
 if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $CDK_DEFAULT_REGION >/dev/null 2>&1; then
     echo -e "${YELLOW}Bootstrapping CDK...${NC}"
-    cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$CDK_DEFAULT_REGION
+    uv run cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$CDK_DEFAULT_REGION --app "python app.py"
 fi
 
 # Deploy the stack
 echo -e "${BLUE}Deploying CDK stack...${NC}"
-cdk deploy --require-approval never
+uv run cdk deploy --require-approval never --app "python app.py"
 
 # Clean up temporary package directory
 echo -e "${BLUE}Cleaning up temporary files...${NC}"
