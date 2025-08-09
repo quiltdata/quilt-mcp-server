@@ -1,91 +1,160 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo -e "${BLUE}🚀 Deploying Quilt MCP Server to AWS Lambda${NC}"
+# Source common utilities
+source "$SCRIPT_DIR/scripts/common.sh"
+source "$SCRIPT_DIR/scripts/package-lambda.sh"
 
-# Load environment
-if [ -f ".env" ]; then
-    echo -e "${GREEN}Loading environment from .env${NC}"
-    set -a && source .env && set +a
-else
-    echo -e "${RED}❌ .env file not found. Copy env.example to .env and configure it${NC}"
-    exit 1
-fi
-
-# Validate required variables
-if [ -z "$QUILT_READ_POLICY_ARN" ]; then
-    echo -e "${RED}❌ QUILT_READ_POLICY_ARN is required in .env${NC}"
-    exit 1
-fi
-
-# Set defaults
-export CDK_DEFAULT_ACCOUNT=${CDK_DEFAULT_ACCOUNT:-$(aws sts get-caller-identity --query Account --output text)}
-export CDK_DEFAULT_REGION=${CDK_DEFAULT_REGION:-us-east-1}
-
-echo -e "${GREEN}Deploying to account ${CDK_DEFAULT_ACCOUNT} in ${CDK_DEFAULT_REGION}${NC}"
-
-# Install dependencies
-echo -e "${BLUE}Installing dependencies...${NC}"
-uv sync --group deploy
-
-# Package Lambda function
-echo -e "${BLUE}Packaging Lambda function...${NC}"
-LAMBDA_PACKAGE_DIR=$(mktemp -d)
-
-if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  echo "Building Docker image for Lambda..."
-  docker build --platform linux/amd64 -t quilt-mcp-builder . >/dev/null 2>&1
-  
-  echo "Extracting Lambda package..."
-  docker run --rm --platform linux/amd64 \
-    -v "$LAMBDA_PACKAGE_DIR":/output \
-    --entrypoint="" \
-    quilt-mcp-builder \
-    bash -c "
-      cp -r /usr/local/lib/python3.11/site-packages/* /output/
-      cp /app/quilt/*.py /output/ 2>/dev/null || true
-      chmod -R 755 /output/
-    " >/dev/null 2>&1
+# Main deployment function
+main() {
+    local skip_tests=false
+    local verbose=false
+    local lambda_package_dir=""
     
-  echo "✅ Lambda package built successfully"
-else
-  echo -e "${RED}❌ Docker not available. Install Docker for proper Lambda builds.${NC}"
-  exit 1
-fi
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --skip-tests)
+                skip_tests=true
+                shift
+                ;;
+            -v|--verbose)
+                verbose=true
+                shift
+                ;;
+            -p|--package-dir)
+                lambda_package_dir="$2"
+                shift 2
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                log_info "Use -h or --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Show deployment header
+    log_info "🚀 Deploying Quilt MCP Server to AWS Lambda"
+    echo ""
+    
+    # Load and validate environment
+    load_environment
+    validate_environment
+    setup_aws_defaults
+    
+    log_success "Deploying to account ${CDK_DEFAULT_ACCOUNT} in ${CDK_DEFAULT_REGION}"
+    echo ""
+    
+    # Install dependencies
+    log_info "Installing dependencies..."
+    uv sync --group deploy
+    log_success "✅ Dependencies installed"
+    
+    # Package Lambda function if not provided
+    if [ -z "$lambda_package_dir" ]; then
+        log_info "Packaging Lambda function..."
+        lambda_package_dir=$(package_lambda)
+        cleanup_required=true
+    else
+        cleanup_required=false
+        log_info "Using provided Lambda package: $lambda_package_dir"
+    fi
+    
+    # Set environment variable for CDK
+    export LAMBDA_PACKAGE_DIR="$lambda_package_dir"
+    
+    # Bootstrap and deploy CDK
+    if ! check_cdk_bootstrap "$CDK_DEFAULT_REGION"; then
+        bootstrap_cdk "$CDK_DEFAULT_ACCOUNT" "$CDK_DEFAULT_REGION"
+    else
+        log_success "✅ CDK already bootstrapped"
+    fi
+    
+    log_info "Deploying to AWS..."
+    uv run cdk deploy --require-approval never --app "python app.py"
+    log_success "✅ CDK deployment completed"
+    
+    # Cleanup temporary Lambda package if we created it
+    if [ "$cleanup_required" = true ]; then
+        cleanup_temp_dir "$lambda_package_dir"
+    fi
+    
+    # Extract deployment configuration and show summary
+    log_info "Configuring deployment..."
+    "$SCRIPT_DIR/scripts/post-deploy.sh" --skip-api-test
+    
+    # Run endpoint tests unless skipped
+    if [ "$skip_tests" = false ]; then
+        echo ""
+        log_info "🧪 Running endpoint tests..."
+        if [ -f "$SCRIPT_DIR/tests/test-endpoint.sh" ]; then
+            # Load config to get API endpoint
+            load_config
+            "$SCRIPT_DIR/tests/test-endpoint.sh" -e "$API_ENDPOINT"
+        else
+            log_warning "⚠️  Test script not found, skipping endpoint tests"
+        fi
+    fi
+    
+    echo ""
+    log_success "🎉 Deployment completed successfully!"
+}
 
-export LAMBDA_PACKAGE_DIR="$LAMBDA_PACKAGE_DIR"
+# Show help information
+show_help() {
+    cat << EOF
+Usage: $0 [OPTIONS]
 
-# Bootstrap CDK if needed
-echo -e "${BLUE}Checking CDK bootstrap...${NC}"
-if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region $CDK_DEFAULT_REGION >/dev/null 2>&1; then
-    echo -e "${YELLOW}Bootstrapping CDK...${NC}"
-    uv run cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$CDK_DEFAULT_REGION --app "python app.py"
-fi
+Deploy Quilt MCP Server to AWS Lambda with Cognito authentication
 
-# Deploy
-echo -e "${BLUE}Deploying to AWS...${NC}"
-uv run cdk deploy --require-approval never --app "python app.py"
+Options:
+  --skip-tests           Skip endpoint testing after deployment
+  -v, --verbose          Enable verbose output
+  -p, --package-dir DIR  Use existing Lambda package directory
+  -h, --help             Show this help message
 
-# Cleanup
-rm -rf "$LAMBDA_PACKAGE_DIR"
+Examples:
+  $0                     # Full deployment with tests
+  $0 --skip-tests        # Deploy without running tests
+  $0 -p ./lambda-pkg     # Use existing Lambda package
 
-# Get outputs
-API_ENDPOINT=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text)
-LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='LogGroupName'].OutputValue" --output text)
-API_LOG_GROUP_NAME=$(aws cloudformation describe-stacks --stack-name QuiltMcpStack --region $CDK_DEFAULT_REGION --query "Stacks[0].Outputs[?OutputKey=='ApiLogGroupName'].OutputValue" --output text)
+Sub-commands (run these individually):
+  scripts/package-lambda.sh    # Package Lambda function only
+  scripts/cdk-deploy.sh        # CDK operations (deploy/destroy/diff)
+  scripts/post-deploy.sh       # Post-deployment configuration
+  tests/check_logs.sh          # View deployment logs
+  tests/get_token.sh           # Get OAuth access token
 
-echo -e "${GREEN}🎉 Deployment completed!${NC}"
-echo -e "${GREEN}Claude MCP Server URL: ${API_ENDPOINT}${NC}"
-echo -e "${BLUE}View Lambda logs: aws logs tail ${LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
-echo -e "${BLUE}View API Gateway logs: aws logs tail ${API_LOG_GROUP_NAME} --follow --region ${CDK_DEFAULT_REGION}${NC}"
+Environment:
+  - Copy env.example to .env and configure required variables
+  - QUILT_READ_POLICY_ARN is required
+  - CDK_DEFAULT_ACCOUNT and CDK_DEFAULT_REGION will be auto-detected
 
-# Test endpoint using separate script
-echo ""
-./tests/test-endpoint.sh -e "${API_ENDPOINT}"
+Files created:
+  - .config                    # Deployment configuration
+  - CloudFormation stack       # AWS resources
+  - Docker image               # Lambda build environment
+EOF
+}
+
+# Trap for cleanup on exit
+cleanup() {
+    local exit_code=$?
+    if [ -n "$lambda_package_dir" ] && [ "$cleanup_required" = true ]; then
+        cleanup_temp_dir "$lambda_package_dir"
+    fi
+    exit $exit_code
+}
+
+trap cleanup EXIT
+
+# Run main function
+main "$@"
