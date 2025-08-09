@@ -130,8 +130,8 @@ Sub-commands (run these individually):
   scripts/package-lambda.sh    # Package Lambda function only
   scripts/cdk-deploy.sh        # CDK operations (deploy/destroy/diff)
   scripts/post-deploy.sh       # Post-deployment configuration
-  tests/check_logs.sh          # View deployment logs
-  tests/get_token.sh           # Get OAuth access token
+  scripts/check_logs.sh        # View deployment logs
+  scripts/get_token.sh         # Get OAuth access token
 
 Environment:
   - Copy env.example to .env and configure required variables
