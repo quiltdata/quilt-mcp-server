@@ -1,12 +1,14 @@
-# Deploying Quilt MCP Server Remotely
+# Local Quilt MCP Server with ngrok
 
-This guide explains how to launch your Quilt MCP server with a streamable HTTP interface and connect to it from Claude as a remote MCP server.
+This guide explains how to run your Quilt MCP server locally and expose it via ngrok for development and testing.
+
+> **Note**: For production deployment, see the main [README.md](../README.md) for AWS Lambda deployment instructions.
 
 ## Prerequisites
 
 You must have [ngrok](https://ngrok.com/) installed and authenticated to expose your local server to the internet.
 
-### a. Install ngrok
+### Install ngrok
 
 If you do not have ngrok installed, download it from [ngrok.com/download](https://ngrok.com/download) and follow the installation instructions for your platform.
 
@@ -24,7 +26,7 @@ unzip ngrok-stable-*.zip
 sudo mv ngrok /usr/local/bin
 ```
 
-### b. Authenticate ngrok (first time only)
+### Authenticate ngrok (first time only)
 
 Sign up for a free ngrok account at [ngrok.com](https://ngrok.com/), then get your auth token from your dashboard.
 
@@ -36,14 +38,17 @@ ngrok config add-authtoken <YOUR_NGROK_AUTHTOKEN>
 
 ## 1. Launch the Server
 
-Navigate to the `quilt` directory and run the remote server script:
+Navigate to the project root and run the remote server script:
 
 ```bash
-uv run python remote.py
+# Install dependencies (from project root)
+uv sync
+
+# Run the local server
+uv run python quilt/remote.py
 ```
 
 By default, this will start the server on `http://0.0.0.0:8000/mcp/`.
-
 
 ## 2. Expose the Server Remotely (Required: ngrok)
 
@@ -57,7 +62,7 @@ ngrok http 8000
 
 You will see output like:
 
-```
+```log
 Forwarding    https://<random>.ngrok.io -> http://localhost:8000
 ```
 

@@ -78,6 +78,35 @@ class TestQuiltAPI:
         # Should contain error message
         assert any("error" in item for item in result)
 
+    def test_list_packages_metadata_warnings(self):
+        """Test that list_packages returns warnings (not errors) for metadata failures."""
+        # Use a valid registry but this should trigger filesystem issues in Lambda environment
+        result = list_packages(registry=TEST_REGISTRY, prefix="akarve", limit=3)
+        
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        
+        # Get the result data structure
+        result_data = result[0]
+        assert "packages" in result_data
+        assert "pagination" in result_data
+        
+        packages = result_data["packages"]
+        assert len(packages) > 0
+        
+        # Look for packages with warnings (not errors)
+        has_warnings = any("warning" in pkg for pkg in packages)
+        has_errors = any("error" in pkg for pkg in packages)
+        
+        # We expect warnings for metadata failures, not errors
+        if has_warnings or has_errors:
+            # If there are metadata issues, they should be warnings, not errors
+            warning_count = sum(1 for pkg in packages if "warning" in pkg)
+            error_count = sum(1 for pkg in packages if "error" in pkg)
+            
+            # Warnings should be preferred over errors for metadata issues
+            assert warning_count >= error_count, f"Expected more warnings ({warning_count}) than errors ({error_count}) for metadata failures"
+
     def test_browse_package_success(self):
         """Test successful package browsing with actual akarve/tmp package."""
         result = browse_package(TEST_PACKAGE, registry=TEST_REGISTRY)

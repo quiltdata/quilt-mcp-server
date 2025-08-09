@@ -1,0 +1,20 @@
+# Virtual environments
+.venv/
+*/.venv/
+venv/
+env/
+
+# Build and cache directories
+__pycache__/
+*.pyc
+.pytest_cache/
+cdk.out/
+package/
+
+# Development files
+.env
+*.log
+.DS_Store
+.git/
+.vscode/
+.idea/
