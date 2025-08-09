@@ -105,18 +105,6 @@ class QuiltMcpStack(Stack):
             }
         )
 
-        # Create JWT Authorizer for HTTP API
-        jwt_authorizer = apigwv2.CfnAuthorizer(
-            self, "QuiltMcpJwtAuthorizer",
-            api_id="placeholder",  # Will be set after HTTP API creation
-            authorizer_type="JWT",
-            identity_source=["$request.header.Authorization"],
-            name="QuiltMcpJwtAuthorizer",
-            jwt_configuration=apigwv2.CfnAuthorizer.JWTConfigurationProperty(
-                issuer=f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}",
-                audience=[user_pool_client.user_pool_client_id]
-            )
-        )
 
         # Create HTTP API (v2) 
         http_api = apigwv2.HttpApi(
@@ -130,37 +118,64 @@ class QuiltMcpStack(Stack):
             )
         )
 
-        # Update JWT authorizer with actual API ID
-        jwt_authorizer.api_id = http_api.http_api_id
 
-        # Create Lambda integration for HTTP API
-        lambda_integration = integrations.HttpLambdaIntegration(
-            "QuiltMcpLambdaIntegration",
-            lambda_fn
+        # Create Lambda integration resource for HTTP API
+        lambda_integration_resource = apigwv2.CfnIntegration(
+            self, "QuiltMcpLambdaIntegration",
+            api_id=http_api.http_api_id,
+            integration_type="AWS_PROXY",
+            integration_uri=lambda_fn.function_arn,
+            payload_format_version="2.0"
+        )
+
+        # Grant API Gateway permission to invoke Lambda
+        lambda_fn.add_permission(
+            "ApiGatewayInvoke",
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            action="lambda:InvokeFunction",
+            source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{http_api.http_api_id}/*/*"
+        )
+
+        # Create JWT Authorizer
+        jwt_auth = apigwv2.CfnAuthorizer(
+            self, "McpJwtAuth",
+            api_id=http_api.http_api_id,
+            authorizer_type="JWT",
+            identity_source=["$request.header.Authorization"],
+            name="McpJwtAuth",
+            jwt_configuration=apigwv2.CfnAuthorizer.JWTConfigurationProperty(
+                issuer=f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}",
+                audience=[user_pool_client.user_pool_client_id]
+            )
         )
 
         # Add routes with JWT authorization
-        http_api.add_routes(
-            path="/mcp",
-            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
-            integration=lambda_integration,
-            authorizer=apigwv2.HttpJwtAuthorizer(
-                "McpJwtAuth",
-                jwt_audience=[user_pool_client.user_pool_client_id],
-                jwt_issuer=f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}"
-            )
+        mcp_route = apigwv2.CfnRoute(
+            self, "McpRoute",
+            api_id=http_api.http_api_id,
+            route_key="POST /mcp",
+            target=f"integrations/{lambda_integration_resource.ref}",
+            authorization_type="JWT",
+            authorizer_id=jwt_auth.ref
+        )
+
+        mcp_get_route = apigwv2.CfnRoute(
+            self, "McpGetRoute", 
+            api_id=http_api.http_api_id,
+            route_key="GET /mcp",
+            target=f"integrations/{lambda_integration_resource.ref}",
+            authorization_type="JWT",
+            authorizer_id=jwt_auth.ref
         )
 
         # Add catch-all proxy route
-        http_api.add_routes(
-            path="/mcp/{proxy+}",
-            methods=[apigwv2.HttpMethod.ANY],
-            integration=lambda_integration,
-            authorizer=apigwv2.HttpJwtAuthorizer(
-                "McpProxyJwtAuth", 
-                jwt_audience=[user_pool_client.user_pool_client_id],
-                jwt_issuer=f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}"
-            )
+        proxy_route = apigwv2.CfnRoute(
+            self, "McpProxyRoute",
+            api_id=http_api.http_api_id, 
+            route_key="ANY /mcp/{proxy+}",
+            target=f"integrations/{lambda_integration_resource.ref}",
+            authorization_type="JWT",
+            authorizer_id=jwt_auth.ref
         )
 
         # Outputs
@@ -190,7 +205,7 @@ class QuiltMcpStack(Stack):
 
         CfnOutput(
             self, "ResourceServerIdentifier", 
-            value=resource_server.user_pool_resource_server_identifier,
+            value=resource_server.user_pool_resource_server_id,
             description="Resource Server identifier for scopes"
         )
 
