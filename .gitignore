@@ -208,3 +208,4 @@ __marimo__/
 /quilt/.vscode
 /deploy/cdk.out
 /cdk.out
+.config
