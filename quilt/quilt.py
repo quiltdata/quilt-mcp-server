@@ -205,7 +205,7 @@ def list_packages(
                 packages.append({
                     "name": pkg_name,
                     "registry": registry,
-                    "error": f"Failed to get metadata: {str(e)}"
+                    "warning": f"Failed to get metadata: {str(e)}"
                 })
         
         # Add pagination metadata

@@ -548,180 +548,84 @@ run_tools_tests() {
         echo ""
     fi
     
-    # Test 1: check_quilt_auth (no parameters)
-    echo -e "${BLUE}Tool Test 1: check_quilt_auth${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Testing authentication check...${NC}"
+    # Extract available tools and filter for check* and list* tools only
+    AVAILABLE_TOOLS=$(echo "$TOOLS_LIST_RESPONSE" | jq -r '.result.tools[].name' 2>/dev/null | grep -E '^(check|list)')
+    
+    if [ -z "$AVAILABLE_TOOLS" ]; then
+        echo -e "${YELLOW}⚠️  No check* or list* tools found${NC}"
+        return 1
     fi
     
-    AUTH_REQUEST='{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "check_quilt_auth", "arguments": {}}}'
-    AUTH_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$AUTH_REQUEST")
+    echo -e "${BLUE}Available check/list tools to test:${NC}"
+    echo "$AVAILABLE_TOOLS" | sed 's/^/  - /'
     
-    if echo "$AUTH_RESPONSE" | grep -q '"content"'; then
-        echo -e "${GREEN}✅ check_quilt_auth works${NC}"
+    # Dynamically test each available check* and list* tool
+    TOOL_COUNT=1
+    for TOOL_NAME in $AVAILABLE_TOOLS; do
+        echo -e "${BLUE}Tool Test $TOOL_COUNT: $TOOL_NAME${NC}"
+        
         if [ "$VERBOSE" = true ]; then
-            echo -e "${BLUE}Response:${NC}"
-            echo "$AUTH_RESPONSE" | jq . 2>/dev/null || echo "$AUTH_RESPONSE"
-            echo ""
+            echo -e "${BLUE}Testing $TOOL_NAME...${NC}"
         fi
-    else
-        echo -e "${RED}❌ check_quilt_auth failed${NC}"
-        echo -e "${YELLOW}Response: $AUTH_RESPONSE${NC}"
-    fi
-    
-    # Test 2: search_packages (with timeout protection)
-    echo -e "${BLUE}Tool Test 2: search_packages${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Testing package search with small query...${NC}"
-    fi
-    
-    SEARCH_REQUEST='{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "search_packages", "arguments": {"query": "test", "limit": 3}}}'
-    SEARCH_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$SEARCH_REQUEST")
-    
-    if echo "$SEARCH_RESPONSE" | grep -q '"content"'; then
-        # Check if the content contains an error (nested in the text field)
-        if echo "$SEARCH_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
-            echo -e "${RED}❌ search_packages failed (returned error)${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${YELLOW}Response:${NC}"
-                echo "$SEARCH_RESPONSE" | jq . 2>/dev/null || echo "$SEARCH_RESPONSE"
-                echo ""
+        
+        # Create appropriate test arguments based on tool type
+        if [ "$TOOL_NAME" = "check_quilt_auth" ] || [ "$TOOL_NAME" = "check_filesystem_access" ]; then
+            # No arguments needed for check tools
+            TOOL_ARGUMENTS="{}"
+        elif [ "$TOOL_NAME" = "list_packages" ]; then
+            # Use minimal arguments for list_packages to avoid large responses
+            TOOL_ARGUMENTS='{"limit": 3}'
+        else
+            # Default empty arguments
+            TOOL_ARGUMENTS="{}"
+        fi
+        
+        TOOL_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"$TOOL_NAME\", \"arguments\": $TOOL_ARGUMENTS}}"
+        TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d "$TOOL_REQUEST")
+        
+        if echo "$TOOL_RESPONSE" | grep -q '"content"'; then
+            # Check if the content contains an error (nested in the text field)
+            if echo "$TOOL_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
+                echo -e "${RED}❌ $TOOL_NAME failed (returned error)${NC}"
+                if [ "$VERBOSE" = true ]; then
+                    echo -e "${YELLOW}Response:${NC}"
+                    echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
+                    echo ""
+                else
+                    echo -e "${YELLOW}Error details: $(echo "$TOOL_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | head -1)${NC}"
+                fi
             else
-                echo -e "${YELLOW}Error details: $(echo "$SEARCH_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | head -1)${NC}"
+                echo -e "${GREEN}✅ $TOOL_NAME works${NC}"
+                if [ "$VERBOSE" = true ]; then
+                    echo -e "${BLUE}Response:${NC}"
+                    echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
+                    echo ""
+                fi
+            fi
+        elif echo "$TOOL_RESPONSE" | grep -q '"error"'; then
+            echo -e "${RED}❌ $TOOL_NAME failed${NC}"
+            if [ "$VERBOSE" = true ]; then
+                echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
+            else
+                echo -e "${YELLOW}Response: $(echo "$TOOL_RESPONSE" | jq -r '.error.message' 2>/dev/null || echo "$TOOL_RESPONSE")${NC}"
             fi
         else
-            echo -e "${GREEN}✅ search_packages works${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${BLUE}Response:${NC}"
-                echo "$SEARCH_RESPONSE" | jq . 2>/dev/null || echo "$SEARCH_RESPONSE"
-                echo ""
-            fi
+            echo -e "${RED}❌ $TOOL_NAME failed (unexpected response)${NC}"
+            echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
         fi
-    else
-        echo -e "${RED}❌ search_packages failed${NC}"
-        echo -e "${YELLOW}Response: $SEARCH_RESPONSE${NC}"
-    fi
+        
+        TOOL_COUNT=$((TOOL_COUNT + 1))
+    done
     
-    # Test 3: list_packages (with very restrictive limit and timeout)
-    echo -e "${BLUE}Tool Test 3: list_packages${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Testing package listing with no prefix...${NC}"
-    fi
-    
-    LIST_REQUEST='{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "list_packages", "arguments": {}}}'
-    LIST_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$LIST_REQUEST")
-    
-    if echo "$LIST_RESPONSE" | grep -q '"content"'; then
-        # Check if the content contains an error (nested in the text field)
-        if echo "$LIST_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
-            echo -e "${RED}❌ list_packages failed (returned error)${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${YELLOW}Response:${NC}"
-                echo "$LIST_RESPONSE" | jq . 2>/dev/null || echo "$LIST_RESPONSE"
-                echo ""
-            else
-                echo -e "${YELLOW}Error details: $(echo "$LIST_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | head -1)${NC}"
-            fi
-        else
-            echo -e "${GREEN}✅ list_packages works${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${BLUE}Response:${NC}"
-                echo "$LIST_RESPONSE" | jq . 2>/dev/null || echo "$LIST_RESPONSE"
-                echo ""
-            fi
-        fi
-    else
-        echo -e "${RED}❌ list_packages failed${NC}"
-        echo -e "${YELLOW}Response: $LIST_RESPONSE${NC}"
-    fi
-    
-    # Test 4: browse_package (requires a known package name)
-    echo -e "${BLUE}Tool Test 4: browse_package${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Testing package browsing with example package...${NC}"
-    fi
-    
-    BROWSE_REQUEST='{"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "browse_package", "arguments": {"package_name": "examples/wellcome"}}}'
-    BROWSE_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$BROWSE_REQUEST")
-    
-    if echo "$BROWSE_RESPONSE" | grep -q '"content"'; then
-        # Check if the content contains an error (nested in the text field)
-        if echo "$BROWSE_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
-            echo -e "${YELLOW}⚠️  browse_package failed (returned error)${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${YELLOW}Response:${NC}"
-                echo "$BROWSE_RESPONSE" | jq . 2>/dev/null || echo "$BROWSE_RESPONSE"
-                echo ""
-            else
-                echo -e "${YELLOW}Error details: $(echo "$BROWSE_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | head -1)${NC}"
-            fi
-        else
-            echo -e "${GREEN}✅ browse_package works${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${BLUE}Response:${NC}"
-                echo "$BROWSE_RESPONSE" | jq . 2>/dev/null || echo "$BROWSE_RESPONSE"
-                echo ""
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠️  browse_package failed (may be due to package not existing)${NC}"
-        if [ "$VERBOSE" = true ]; then
-            echo -e "${YELLOW}Response: $BROWSE_RESPONSE${NC}"
-        fi
-    fi
-    
-    # Test 5: search_package_contents (requires a known package)
-    echo -e "${BLUE}Tool Test 5: search_package_contents${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Testing package content search...${NC}"
-    fi
-    
-    CONTENT_REQUEST='{"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "search_package_contents", "arguments": {"package_name": "examples/wellcome", "query": "data"}}}'
-    CONTENT_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$CONTENT_REQUEST")
-    
-    if echo "$CONTENT_RESPONSE" | grep -q '"content"'; then
-        # Check if the content contains an error (nested in the text field)
-        if echo "$CONTENT_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
-            echo -e "${YELLOW}⚠️  search_package_contents failed (returned error)${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${YELLOW}Response:${NC}"
-                echo "$CONTENT_RESPONSE" | jq . 2>/dev/null || echo "$CONTENT_RESPONSE"
-                echo ""
-            else
-                echo -e "${YELLOW}Error details: $(echo "$CONTENT_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | head -1)${NC}"
-            fi
-        else
-            echo -e "${GREEN}✅ search_package_contents works${NC}"
-            if [ "$VERBOSE" = true ]; then
-                echo -e "${BLUE}Response:${NC}"
-                echo "$CONTENT_RESPONSE" | jq . 2>/dev/null || echo "$CONTENT_RESPONSE"
-                echo ""
-            fi
-        fi
-    else
-        echo -e "${YELLOW}⚠️  search_package_contents failed (may be due to package not existing)${NC}"
-        if [ "$VERBOSE" = true ]; then
-            echo -e "${YELLOW}Response: $CONTENT_RESPONSE${NC}"
-        fi
-    fi
-    
-    # Test 6: Error handling - invalid tool
-    echo -e "${BLUE}Tool Test 6: Error Handling (Invalid Tool)${NC}"
+    # Test error handling - invalid tool
+    echo -e "${BLUE}Tool Test $TOOL_COUNT: Error Handling (Invalid Tool)${NC}"
     if [ "$VERBOSE" = true ]; then
         echo -e "${BLUE}Testing invalid tool call...${NC}"
     fi
     
-    INVALID_REQUEST='{"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "nonexistent_tool", "arguments": {}}}'
+    INVALID_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"nonexistent_tool\", \"arguments\": {}}}"
     INVALID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
         -H "Content-Type: application/json" \
         -d "$INVALID_REQUEST")

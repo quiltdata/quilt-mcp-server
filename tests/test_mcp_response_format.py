@@ -12,7 +12,7 @@ import os
 # Add the quilt directory to path to import our modules
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'quilt'))
 
-from lambda_handler import handle_mcp_request
+from quilt.lambda_handler import handle_mcp_request
 
 
 def test_tool_response_format():
