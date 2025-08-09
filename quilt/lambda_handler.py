@@ -29,9 +29,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.debug(f"Event: {json.dumps(event, default=str)}")
     
     try:
-        # Parse the incoming request
-        http_method = event.get('httpMethod', 'GET')
-        path = event.get('path', '')
+        # Parse the incoming request - handle both REST API and HTTP API v2 formats
+        http_method = (event.get('httpMethod') or 
+                      event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
+        path = event.get('path', event.get('rawPath', ''))
         query_params = event.get('queryStringParameters') or {}
         headers = event.get('headers', {})
         body = event.get('body', '')
