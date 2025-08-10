@@ -14,6 +14,8 @@ FULL_TEST=false
 TOOLS_TEST=false
 STACK_NAME="QuiltMcpStack"
 REGION=""
+USE_AUTH=true
+ACCESS_TOKEN=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -42,10 +44,18 @@ while [[ $# -gt 0 ]]; do
             TOOLS_TEST=true
             shift
             ;;
+        --no-auth)
+            USE_AUTH=false
+            shift
+            ;;
+        --token)
+            ACCESS_TOKEN="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
-            echo "Test MCP endpoint functionality"
+            echo "Test MCP endpoint functionality with JWT authentication support"
             echo ""
             echo "Options:"
             echo "  -v, --verbose      Enable verbose output"
@@ -54,17 +64,24 @@ while [[ $# -gt 0 ]]; do
             echo "  -s, --stack        CloudFormation stack name (default: QuiltMcpStack)"
             echo "  -r, --region       AWS region (default: from env or us-east-1)"
             echo "  -e, --endpoint     Direct endpoint URL (skips CloudFormation lookup)"
+            echo "  --no-auth          Test without JWT authentication (legacy mode)"
+            echo "  --token TOKEN      Use specific JWT token for authentication"
             echo "  -h, --help         Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                                    # Test with defaults"
+            echo "  $0                                    # Test with auto JWT authentication"
             echo "  $0 -v                                 # Test with verbose output"
             echo "  $0 -t                                 # Test each available tool"
             echo "  $0 -f                                 # Run full Claude.ai simulation"
-            echo "  $0 -v -f                              # Full test with verbose output"
-            echo "  $0 -t -v                              # Test tools with verbose output"
+            echo "  $0 --no-auth                          # Test without authentication (legacy)"
+            echo "  $0 --token \$TOKEN                    # Test with specific JWT token"
             echo "  $0 -e https://api.example.com/mcp/    # Test specific endpoint"
-            echo "  $0 -v -s MyStack -r us-west-2        # Test custom stack"
+            echo "  $0 -v -s MyStack -r us-west-2         # Test custom stack"
+            echo ""
+            echo "Authentication:"
+            echo "  By default, tests use JWT authentication with auto-token retrieval."
+            echo "  Requires .config file or deployment configuration for auth parameters."
+            echo "  Use --no-auth for testing legacy unauthenticated endpoints."
             exit 0
             ;;
         *)
@@ -88,7 +105,56 @@ if [ -z "$REGION" ]; then
     REGION=${CDK_DEFAULT_REGION:-us-east-1}
 fi
 
+# Authentication setup
+setup_authentication() {
+    if [ "$USE_AUTH" = false ]; then
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${YELLOW}Running in no-auth mode (legacy)${NC}"
+        fi
+        return 0
+    fi
+    
+    # Try to get token if not provided
+    if [ -z "$ACCESS_TOKEN" ]; then
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${BLUE}Retrieving JWT access token...${NC}"
+        fi
+        
+        # Check if we have get_token.sh script
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+        if [ -f "$SCRIPT_DIR/scripts/get_token.sh" ]; then
+            ACCESS_TOKEN=$("$SCRIPT_DIR/scripts/get_token.sh" 2>/dev/null)
+            if [ $? -ne 0 ] || [ -z "$ACCESS_TOKEN" ]; then
+                echo -e "${RED}❌ Failed to retrieve access token${NC}"
+                echo -e "${YELLOW}Use --no-auth for unauthenticated testing or --token to provide token${NC}"
+                exit 1
+            fi
+            if [ "$VERBOSE" = true ]; then
+                echo -e "${GREEN}✅ Access token retrieved${NC}"
+            fi
+        else
+            echo -e "${RED}❌ get_token.sh script not found${NC}"
+            echo -e "${YELLOW}Use --no-auth for unauthenticated testing or --token to provide token${NC}"
+            exit 1
+        fi
+    else
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${GREEN}Using provided access token${NC}"
+        fi
+    fi
+}
+
+# Setup authentication headers
+get_auth_headers() {
+    if [ "$USE_AUTH" = true ] && [ -n "$ACCESS_TOKEN" ]; then
+        echo "-H \"Authorization: Bearer $ACCESS_TOKEN\""
+    fi
+}
+
 echo -e "${BLUE}🧪 Testing MCP Endpoint${NC}"
+
+# Setup authentication
+setup_authentication
 
 # Get endpoint from CloudFormation if not provided directly
 if [ -z "$ENDPOINT" ]; then
@@ -649,18 +715,32 @@ run_tools_tests() {
 
 # Test 1: Basic connectivity (GET request)
 echo -e "${BLUE}Test 1: Basic connectivity (GET)${NC}"
-if [ "$VERBOSE" = true ]; then
-    echo -e "${BLUE}Running: curl -s -w '%{http_code}' -o /dev/null ${ENDPOINT}${NC}"
+if [ "$USE_AUTH" = true ]; then
+    echo -e "${BLUE}Testing with JWT authentication...${NC}"
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Running: curl -s -w '%{http_code}' -o /dev/null -H \"Authorization: Bearer \$ACCESS_TOKEN\" ${ENDPOINT}${NC}"
+    fi
+    HTTP_STATUS=$(curl -s -w '%{http_code}' -o /dev/null -H "Authorization: Bearer $ACCESS_TOKEN" "$ENDPOINT")
+else
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Running: curl -s -w '%{http_code}' -o /dev/null ${ENDPOINT}${NC}"
+    fi
+    HTTP_STATUS=$(curl -s -w '%{http_code}' -o /dev/null "$ENDPOINT")
 fi
 
-HTTP_STATUS=$(curl -s -w '%{http_code}' -o /dev/null "$ENDPOINT")
 if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 405 ]; then
     echo -e "${GREEN}✅ Endpoint is reachable (HTTP $HTTP_STATUS)${NC}"
+elif [ "$HTTP_STATUS" -eq 401 ] && [ "$USE_AUTH" = false ]; then
+    echo -e "${GREEN}✅ Endpoint is protected (HTTP 401 without auth, as expected)${NC}"
 else
     echo -e "${RED}❌ Endpoint connectivity failed (HTTP $HTTP_STATUS)${NC}"
     if [ "$VERBOSE" = true ]; then
         echo -e "${YELLOW}Response body:${NC}"
-        curl -s "$ENDPOINT" || echo "No response body"
+        if [ "$USE_AUTH" = true ]; then
+            curl -s -H "Authorization: Bearer $ACCESS_TOKEN" "$ENDPOINT" || echo "No response body"
+        else
+            curl -s "$ENDPOINT" || echo "No response body"
+        fi
     fi
     exit 1
 fi

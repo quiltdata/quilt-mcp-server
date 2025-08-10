@@ -77,6 +77,9 @@ package_lambda() {
     if [ "$created_temp_dir" = true ]; then
         echo "$output_dir"
     else
+        if [ "$quiet" = "true" ]; then
+            echo "$output_dir"
+        fi
         return 0
     fi
 }
@@ -172,9 +175,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         package_lambda "$OUTPUT_DIR"
         log_success "Lambda function packaged to: $OUTPUT_DIR"
     else
-        TEMP_DIR=$(package_lambda)
-        log_success "Lambda function packaged to: $TEMP_DIR"
-        if [ "$BUILD_ONLY" = false ] && [ "$TEST_LOCAL" = false ]; then
+        TEMP_DIR=$(package_lambda "" "true")
+        echo "$TEMP_DIR"
+        if [ "$VERBOSE" = true ]; then
+            log_success "Lambda function packaged to: $TEMP_DIR"
+        fi
+        if [ "$BUILD_ONLY" = false ] && [ "$TEST_LOCAL" = false ] && [ "$VERBOSE" = true ]; then
             log_warning "⚠️  Temporary directory will be cleaned up after use"
         fi
     fi

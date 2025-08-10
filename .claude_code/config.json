@@ -1,0 +1,30 @@
+{
+  "project": {
+    "name": "fast-mcp-server",
+    "type": "aws-serverless",
+    "description": "Secure MCP server for Quilt data access with JWT authentication"
+  },
+  "development": {
+    "primary_language": "python",
+    "build_system": "uv",
+    "deployment": "aws-cdk", 
+    "testing_framework": "custom",
+    "container_platform": "docker"
+  },
+  "workflows": {
+    "build": "./scripts/build.sh build",
+    "deploy": "./scripts/build.sh deploy", 
+    "test": "./scripts/build.sh test",
+    "clean": "./scripts/build.sh clean",
+    "logs": "./scripts/check_logs.sh",
+    "token": "./scripts/get_token.sh"
+  },
+  "auto_permissions": {
+    "repository_tools": true,
+    "aws_operations": true,
+    "docker_operations": true,
+    "testing_tools": true,
+    "deployment_scripts": true
+  },
+  "security_context": "defensive"
+}
