@@ -9,6 +9,8 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 from quilt import mcp  # type: ignore
 
+# Force rebuild timestamp: 2025-08-10T00:58:00Z
+
 # Configure logging
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logging.basicConfig(

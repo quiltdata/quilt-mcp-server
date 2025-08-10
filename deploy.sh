@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common utilities
 source "$SCRIPT_DIR/scripts/common.sh"
-source "$SCRIPT_DIR/scripts/package-lambda.sh"
+source "$SCRIPT_DIR/packager/package-lambda.sh"
 
 # Main deployment function
 main() {
@@ -61,8 +61,10 @@ main() {
     # Package Lambda function if not provided
     if [ -z "$lambda_package_dir" ]; then
         log_info "Packaging Lambda function..."
-        lambda_package_dir=$(package_lambda)
+        check_docker
+        lambda_package_dir=$(package_lambda "" "true")
         cleanup_required=true
+        log_success "✅ Lambda package built successfully"
     else
         cleanup_required=false
         log_info "Using provided Lambda package: $lambda_package_dir"

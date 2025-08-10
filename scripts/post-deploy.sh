@@ -11,9 +11,16 @@ extract_deployment_config() {
     
     check_jq
     
-    # Get stack outputs
+    # Get stack outputs with no color contamination
     local stack_outputs
-    stack_outputs=$(get_stack_outputs "$region")
+    if [ -z "${NO_COLOR:-}" ]; then
+        log_info "Retrieving deployment outputs from CloudFormation..."
+    fi
+    stack_outputs=$(NO_COLOR=1 aws cloudformation describe-stacks \
+        --stack-name "$STACK_NAME" \
+        --region "$region" \
+        --query "Stacks[0].Outputs" \
+        --output json)
     
     if [ -z "$stack_outputs" ] || [ "$stack_outputs" = "null" ]; then
         log_error "❌ Failed to retrieve stack outputs"
@@ -34,7 +41,15 @@ extract_deployment_config() {
     
     # Get client secret
     local client_secret
-    client_secret=$(get_client_secret "$user_pool_id" "$client_id" "$region")
+    if [ -z "${NO_COLOR:-}" ]; then
+        log_info "Retrieving Cognito client secret..."
+    fi
+    client_secret=$(NO_COLOR=1 aws cognito-idp describe-user-pool-client \
+        --user-pool-id "$user_pool_id" \
+        --client-id "$client_id" \
+        --region "$region" \
+        --query "UserPoolClient.ClientSecret" \
+        --output text)
     
     # Write configuration
     write_config "$api_endpoint" "$token_endpoint" "$client_id" "$client_secret" \
@@ -209,8 +224,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # Use provided region or default
     REGION=${REGION:-$CDK_DEFAULT_REGION}
     
-    # Extract configuration
-    CONFIG_VARS=$(extract_deployment_config "$REGION")
+    # Extract configuration with colors disabled and capture only the variable assignments
+    CONFIG_VARS=$(NO_COLOR=1 extract_deployment_config "$REGION" 2>/dev/null | grep "^[A-Z_]*=")
     
     # Parse configuration variables
     eval "$CONFIG_VARS"

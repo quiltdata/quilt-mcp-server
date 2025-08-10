@@ -90,7 +90,8 @@ get_stack_outputs() {
     local region=${1:-$CDK_DEFAULT_REGION}
     log_info "Retrieving deployment outputs from CloudFormation..."
     
-    aws cloudformation describe-stacks \
+    # Disable colors for this AWS call to prevent contamination
+    NO_COLOR=1 aws cloudformation describe-stacks \
         --stack-name "$STACK_NAME" \
         --region "$region" \
         --query "Stacks[0].Outputs" \
@@ -111,7 +112,7 @@ get_client_secret() {
     local region=${3:-$CDK_DEFAULT_REGION}
     
     log_info "Retrieving Cognito client secret..."
-    aws cognito-idp describe-user-pool-client \
+    NO_COLOR=1 aws cognito-idp describe-user-pool-client \
         --user-pool-id "$user_pool_id" \
         --client-id "$client_id" \
         --region "$region" \

@@ -209,3 +209,4 @@ __marimo__/
 /deploy/cdk.out
 /cdk.out
 .config
+/test-package
