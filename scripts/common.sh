@@ -156,6 +156,10 @@ REGION=${region}
 
 # OAuth Scopes
 OAUTH_SCOPES="${resource_server_id}/read ${resource_server_id}/write"
+
+# MCP Inspector Configuration
+MCP_SERVER_URL=\${API_ENDPOINT}
+MCP_SERVER_NAME="Quilt MCP Server"
 EOF
 
     log_success "✅ Configuration saved to .config"

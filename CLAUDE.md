@@ -25,9 +25,6 @@ Claude Code has permission to run the following commands without asking:
 ./scripts/build.sh deploy -v
 ./scripts/build.sh test -v
 
-# Legacy deploy script
-./deploy.sh
-./deploy.sh --skip-tests
 ```
 
 ### Docker & Packaging  
@@ -98,6 +95,7 @@ aws logs *
 ./scripts/check_logs.sh -s 10m
 ./scripts/post-deploy.sh
 ./scripts/post-deploy.sh --skip-api-test
+./scripts/test-mcp-inspector.sh
 ```
 
 ### Environment & Dependencies
