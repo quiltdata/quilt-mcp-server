@@ -122,27 +122,26 @@ def test_forced_local_mode():
         assert quilt.get_lambda_mode() is False
         assert quilt.is_lambda_environment() is True  # Env var still there
 
-def test_lambda_mode_reset():
-    """Test that lambda mode can be reset to follow environment."""
+def test_lambda_mode_reset(monkeypatch):
+    """Test that lambda mode can be reset to follow environment using monkeypatch."""
     import importlib
-    
+
     with patch.dict(os.environ, {}, clear=False):
         if 'AWS_LAMBDA_FUNCTION_NAME' in os.environ:
             del os.environ['AWS_LAMBDA_FUNCTION_NAME']
-            
+
         if 'quilt' in sys.modules:
             quilt = importlib.reload(sys.modules['quilt'])
         else:
             import quilt
-        
-        # Force Lambda mode
-        quilt.set_lambda_mode(True)
+
+        # Force Lambda mode via monkeypatch
+        monkeypatch.setattr(quilt, "_FORCE_LAMBDA_MODE", True, raising=False)
         assert quilt.get_lambda_mode() is True
-        
-        # Reset to follow environment
-        quilt.set_lambda_mode(None)
-        quilt._FORCE_LAMBDA_MODE = None  # Direct reset
-        
+
+        # Reset to follow environment via monkeypatch
+        monkeypatch.setattr(quilt, "_FORCE_LAMBDA_MODE", None, raising=False)
+
         # Should now follow environment (local)
         assert quilt.get_lambda_mode() is False
 

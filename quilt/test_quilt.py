@@ -58,8 +58,13 @@ class TestQuiltAPI:
         assert isinstance(data, dict)
         assert "packages" in data
         assert isinstance(data["packages"], list)
-        
-        package_names = [pkg.get("name") for pkg in data["packages"] if isinstance(pkg, dict) and "name" in pkg]
+        package_names = [
+            name
+            for name in (
+                pkg.get("name") for pkg in data["packages"] if isinstance(pkg, dict)
+            )
+            if isinstance(name, str)
+        ]
         if package_names:
             # At least one package should start with akarve
             assert any(name.startswith("akarve") for name in package_names)

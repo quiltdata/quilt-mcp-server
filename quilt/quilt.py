@@ -14,14 +14,16 @@ def is_lambda_environment() -> bool:
     """Check if we're running in AWS Lambda environment."""
     return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
-# Global override for testing - can be set directly in tests
-_FORCE_LAMBDA_MODE = None
+# Note: Optional types are avoided in tool signatures to keep MCP Inspector happy.
 
-def set_lambda_mode(force_lambda: bool) -> None:
+# Global override for testing - can be set directly in tests
+_FORCE_LAMBDA_MODE: Optional[bool] = None
+
+def set_lambda_mode(force_lambda: Optional[bool]) -> None:
     """Override Lambda mode for testing purposes.
     
     Args:
-        force_lambda: True to force Lambda mode, False to force local mode
+    force_lambda: True to force Lambda mode, False for local mode, None to reset
     """
     global _FORCE_LAMBDA_MODE
     _FORCE_LAMBDA_MODE = force_lambda
@@ -35,12 +37,11 @@ def get_lambda_mode() -> bool:
     return is_lambda_environment()
 
 # Create ToolAnnotations for different environments
-LAMBDA_COMPATIBLE = ToolAnnotations(
-    environment_requirements="lambda_compatible"
-)
-LOCAL_ONLY = ToolAnnotations(
-    environment_requirements="local_only"
-)
+# Note: ToolAnnotations may not declare custom fields; attach our marker attribute dynamically
+LAMBDA_COMPATIBLE = ToolAnnotations()  # type: ignore[call-arg]
+setattr(LAMBDA_COMPATIBLE, 'environment_requirements', 'lambda_compatible')  # type: ignore[attr-defined]
+LOCAL_ONLY = ToolAnnotations()  # type: ignore[call-arg]
+setattr(LOCAL_ONLY, 'environment_requirements', 'local_only')  # type: ignore[attr-defined]
 
 # Decorator function to conditionally register tools
 def conditional_tool(annotations=None, **kwargs):
@@ -282,7 +283,7 @@ def search_packages(
 def browse_package(
     package_name: str,
     registry: str = "s3://quilt-example",
-    hash_or_tag: Optional[str] = None
+    hash_or_tag: str = ""
 ) -> Dict[str, Any]:
     """
     Browse a specific package in a Quilt registry.
@@ -300,7 +301,7 @@ def browse_package(
             pkg = quilt3.Package.browse(package_name, registry=registry, top_hash=hash_or_tag)
         else:
             pkg = quilt3.Package.browse(package_name, registry=registry)
-        
+
         # Get package structure
         files = []
         for key in pkg:
@@ -317,13 +318,13 @@ def browse_package(
                     "path": key,
                     "error": f"Failed to read entry: {str(e)}"
                 })
-        
+
         # Try to get metadata, but don't fail if it's not accessible
         try:
             metadata = pkg.meta
         except Exception as e:
             metadata = {"warning": f"Failed to access package metadata: {str(e)}"}
-        
+
         return {
             "name": package_name,
             "registry": registry,
@@ -340,7 +341,7 @@ def search_package_contents(
     package_name: str,
     query: str,
     registry: str = "s3://quilt-example",
-    hash_or_tag: Optional[str] = None
+    hash_or_tag: str = ""
 ) -> List[Dict[str, Any]]:
     """
     Search within the contents of a specific package.
@@ -359,10 +360,10 @@ def search_package_contents(
             pkg = quilt3.Package.browse(package_name, registry=registry, top_hash=hash_or_tag)
         else:
             pkg = quilt3.Package.browse(package_name, registry=registry)
-        
+
         matches = []
         query_lower = query.lower()
-        
+
         # Search in package metadata
         try:
             pkg_meta_str = str(pkg.meta).lower()
@@ -380,12 +381,12 @@ def search_package_contents(
                 "match_type": "metadata_error",
                 "warning": f"Could not access package metadata: {str(e)}"
             })
-        
+
         # Search in file paths and metadata
         for key in pkg:
             try:
                 entry = pkg[key]
-                
+
                 # Search in file path
                 if query_lower in key.lower():
                     matches.append({
@@ -396,7 +397,7 @@ def search_package_contents(
                         "hash": getattr(entry, "hash", None),
                         "metadata": getattr(entry, "meta", {})
                     })
-                
+
                 # Search in file metadata
                 file_meta = getattr(entry, "meta", {})
                 if file_meta and query_lower in str(file_meta).lower():
@@ -408,10 +409,10 @@ def search_package_contents(
                         "hash": getattr(entry, "hash", None),
                         "metadata": file_meta
                     })
-                    
-            except Exception as e:
+
+            except Exception:
                 continue
-        
+
         return matches
     except Exception as e:
         return [{"error": f"Failed to search package contents: {str(e)}"}]

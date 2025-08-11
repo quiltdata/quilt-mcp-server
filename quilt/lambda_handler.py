@@ -40,12 +40,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     os.makedirs('/tmp/quilt/cache', exist_ok=True)
     os.makedirs('/tmp/quilt/tempfiles', exist_ok=True)
     
-    print("=== LAMBDA HANDLER CALLED ===")
-    print(f"Event keys: {list(event.keys())}")
-    print(f"Working directory: {os.getcwd()}")
-    print(f"HOME: {os.environ.get('HOME')}")
-    print(f"QUILT_CONFIG_DIR: {os.environ.get('QUILT_CONFIG_DIR')}")
-    print(f"XDG_CONFIG_HOME: {os.environ.get('XDG_CONFIG_HOME')}")
+    logger.debug("Lambda handler invoked")
+    logger.debug(f"Event keys: {list(event.keys())}")
+    logger.debug(f"Working directory: {os.getcwd()}")
+    logger.debug(f"HOME: {os.environ.get('HOME')}")
+    logger.debug(f"QUILT_CONFIG_DIR: {os.environ.get('QUILT_CONFIG_DIR')}")
+    logger.debug(f"XDG_CONFIG_HOME: {os.environ.get('XDG_CONFIG_HOME')}")
     
     logger.info("Lambda handler called")
     logger.debug(f"Event: {json.dumps(event, default=str)}")
@@ -53,18 +53,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Parse the incoming request - handle both REST API and HTTP API v2 formats
         http_method = (event.get('httpMethod') or 
-                      event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
+                       event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
         path = event.get('path', event.get('rawPath', ''))
         query_params = event.get('queryStringParameters') or {}
         headers = event.get('headers', {})
         body = event.get('body', '')
-        
-        print(f"=== REQUEST: {http_method} {path} ===")
-        logger.info(f"Received {http_method} request to {path}")
+
+        logger.info(f"Request: {http_method} {path}")
         
         # Handle CORS preflight
         if http_method == 'OPTIONS':
-            print("=== HANDLING OPTIONS REQUEST ===")
+            logger.debug("Handling CORS preflight (OPTIONS)")
             return {
                 'statusCode': 200,
                 'headers': {
@@ -103,7 +102,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        print(f"=== HANDLER EXCEPTION: {str(e)} ===")
         logger.error(f"Handler error: {str(e)}", exc_info=True)
         return {
             'statusCode': 500,
