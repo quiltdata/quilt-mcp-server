@@ -74,6 +74,7 @@ After deployment, test the MCP server using the official MCP Inspector:
 ```
 
 This will launch the MCP Inspector with your deployed server configuration, allowing you to:
+
 - Browse available MCP tools
 - Test tool functionality interactively  
 - Verify authentication is working
