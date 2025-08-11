@@ -2,13 +2,8 @@ import pytest
 import json
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
-import sys
-import os
 
-# Add the quilt directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'quilt'))
-
-from lambda_handler import handler, handle_mcp_request, handle_mcp_info_request
+from quilt.lambda_handler import handler, handle_mcp_request, handle_mcp_info_request
 
 class TestLambdaHandler:
     """Test suite for Lambda handler."""
@@ -91,7 +86,7 @@ class TestLambdaHandler:
 
     def test_handler_exception(self):
         """Test handler with exception."""
-        with patch('lambda_handler.handle_mcp_info_request', side_effect=Exception('Test error')):
+        with patch('quilt.lambda_handler.handle_mcp_info_request', side_effect=Exception('Test error')):
             event = {
                 'httpMethod': 'GET',
                 'path': '/mcp/',
@@ -140,16 +135,16 @@ class TestLambdaHandler:
         mock_tool.description = 'Test tool'
         mock_tool.parameters = {'type': 'object'}
         
-        with patch('lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
             'test_tool': mock_tool
         }):
             result = await handle_mcp_request(request_data)
-        
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 2
-        assert 'result' in result
-        assert 'tools' in result['result']
-        assert len(result['result']['tools']) == 1
+
+            assert result['jsonrpc'] == '2.0'
+            assert result['id'] == 2
+            assert 'result' in result
+            assert 'tools' in result['result']
+            assert len(result['result']['tools']) == 1
 
     @pytest.mark.asyncio
     async def test_handle_mcp_request_tools_call_success(self):
@@ -167,15 +162,15 @@ class TestLambdaHandler:
             }
         }
         
-        with patch('lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
             'test_tool': Mock()
-        }), patch('lambda_handler.mcp.call_tool', return_value=[Mock(text=json.dumps({'result': 'success', 'args': {'param1': 'value1'}}))]):
+        }), patch('quilt.lambda_handler.mcp.call_tool', return_value=[Mock(text=json.dumps({'result': 'success', 'args': {'param1': 'value1'}}))]):
             result = await handle_mcp_request(request_data)
-        
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 3
-        assert 'result' in result
-        assert 'content' in result['result']
+
+            assert result['jsonrpc'] == '2.0'
+            assert result['id'] == 3
+            assert 'result' in result
+            assert 'content' in result['result']
 
     @pytest.mark.asyncio
     async def test_handle_mcp_request_tools_call_not_found(self):
@@ -190,13 +185,13 @@ class TestLambdaHandler:
             }
         }
         
-        with patch('lambda_handler.mcp._tool_manager._tools', {}):
+        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {}):
             result = await handle_mcp_request(request_data)
-        
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 4
-        assert 'error' in result
-        assert result['error']['code'] == -32601
+
+            assert result['jsonrpc'] == '2.0'
+            assert result['id'] == 4
+            assert 'error' in result
+            assert result['error']['code'] == -32601
 
     @pytest.mark.asyncio
     async def test_handle_mcp_request_tools_call_error(self):
@@ -214,15 +209,15 @@ class TestLambdaHandler:
             }
         }
         
-        with patch('lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
             'failing_tool': Mock()
-        }), patch('lambda_handler.mcp.call_tool', side_effect=Exception('Tool failed')):
+        }), patch('quilt.lambda_handler.mcp.call_tool', side_effect=Exception('Tool failed')):
             result = await handle_mcp_request(request_data)
-        
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 5
-        assert 'error' in result
-        assert result['error']['code'] == -32603
+
+            assert result['jsonrpc'] == '2.0'
+            assert result['id'] == 5
+            assert 'error' in result
+            assert result['error']['code'] == -32603
 
     @pytest.mark.asyncio
     async def test_handle_mcp_request_unknown_method(self):

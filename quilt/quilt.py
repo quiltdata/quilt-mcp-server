@@ -1,9 +1,8 @@
-from typing import Any, Optional, Dict, List
+from typing import Any, Dict, List
 import quilt3
 import os
 import tempfile
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
 
 
 # Initialize FastMCP server
@@ -14,53 +13,7 @@ def is_lambda_environment() -> bool:
     """Check if we're running in AWS Lambda environment."""
     return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
-# Note: Optional types are avoided in tool signatures to keep MCP Inspector happy.
-
-# Global override for testing - can be set directly in tests
-_FORCE_LAMBDA_MODE: Optional[bool] = None
-
-def set_lambda_mode(force_lambda: Optional[bool]) -> None:
-    """Override Lambda mode for testing purposes.
-    
-    Args:
-    force_lambda: True to force Lambda mode, False for local mode, None to reset
-    """
-    global _FORCE_LAMBDA_MODE
-    _FORCE_LAMBDA_MODE = force_lambda
-    # Note: Tool registration happens at module import time, so this only affects
-    # future imports or dynamic registration
-
-def get_lambda_mode() -> bool:
-    """Get current Lambda mode status, respecting test overrides."""
-    if _FORCE_LAMBDA_MODE is not None:
-        return _FORCE_LAMBDA_MODE
-    return is_lambda_environment()
-
-# Create ToolAnnotations for different environments
-# Note: ToolAnnotations may not declare custom fields; attach our marker attribute dynamically
-LAMBDA_COMPATIBLE = ToolAnnotations()  # type: ignore[call-arg]
-setattr(LAMBDA_COMPATIBLE, 'environment_requirements', 'lambda_compatible')  # type: ignore[attr-defined]
-LOCAL_ONLY = ToolAnnotations()  # type: ignore[call-arg]
-setattr(LOCAL_ONLY, 'environment_requirements', 'local_only')  # type: ignore[attr-defined]
-
-# Decorator function to conditionally register tools
-def conditional_tool(annotations=None, **kwargs):
-    """Decorator that conditionally registers tools based on environment requirements."""
-    def decorator(func):
-        # Check if this tool should be registered in current environment
-        if annotations and hasattr(annotations, 'environment_requirements'):
-            env_req = annotations.environment_requirements
-            if env_req == 'local_only' and get_lambda_mode():
-                # Skip registration in Lambda environment
-                return func
-        
-        # Register the tool with FastMCP's built-in decorator
-        return mcp.tool(annotations=annotations, **kwargs)(func)
-    
-    return decorator
-
-
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def check_quilt_auth() -> Dict[str, Any]:
     """
     Check Quilt authentication status and provide setup guidance.
@@ -101,7 +54,7 @@ def check_quilt_auth() -> Dict[str, Any]:
         }
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def check_filesystem_access() -> Dict[str, Any]:
     """
     Check if the current environment has filesystem write access needed for Quilt operations.
@@ -157,7 +110,7 @@ def check_filesystem_access() -> Dict[str, Any]:
     return result
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def list_packages(
     registry: str = "s3://quilt-example",
     prefix: str = "",
@@ -227,7 +180,7 @@ def list_packages(
         return [{"error": f"Failed to list packages: {str(e)}"}]
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def search_packages(
     query: str, 
     registry: str = "s3://quilt-example",
@@ -279,7 +232,7 @@ def search_packages(
             }]
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def browse_package(
     package_name: str,
     registry: str = "s3://quilt-example",
@@ -336,7 +289,7 @@ def browse_package(
         return {"error": f"Failed to browse package '{package_name}': {str(e)}"}
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def search_package_contents(
     package_name: str,
     query: str,
@@ -419,4 +372,4 @@ def search_package_contents(
 
 
 # Tools are automatically registered when the module is imported
-# due to the @conditional_tool decorators above
+# due to the @mcp.tool decorators above

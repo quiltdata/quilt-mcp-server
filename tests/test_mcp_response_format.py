@@ -6,13 +6,8 @@ This test ensures tool responses match the exact format expected by Claude.ai.
 
 import json
 import asyncio
-import sys
-import os
 
-# Add the quilt directory to path to import our modules
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'quilt'))
-
-from lambda_handler import handle_mcp_request  # type: ignore
+from quilt.lambda_handler import handle_mcp_request  # type: ignore
 
 
 def test_tool_response_format():
@@ -184,4 +179,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ MCP response format test failed: {str(e)}")
         print("This indicates a compliance issue that could cause Claude.ai to disable your connector.")
-        sys.exit(1)
+        raise

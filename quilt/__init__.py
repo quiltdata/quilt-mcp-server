@@ -4,8 +4,6 @@ from __future__ import annotations
 from .quilt import (
     mcp,
     is_lambda_environment,
-    set_lambda_mode,
-    get_lambda_mode,
     check_quilt_auth,
     check_filesystem_access,
     list_packages,
@@ -17,8 +15,6 @@ from .quilt import (
 __all__ = [
     "mcp",
     "is_lambda_environment",
-    "set_lambda_mode",
-    "get_lambda_mode",
     "check_quilt_auth",
     "check_filesystem_access",
     "list_packages",
