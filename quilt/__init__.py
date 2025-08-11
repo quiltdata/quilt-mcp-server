@@ -15,6 +15,8 @@ from .quilt import (
     bucket_objects_list,
     bucket_object_info,
     bucket_object_text,
+    bucket_objects_put,
+    bucket_object_fetch,
 )
 
 __all__ = [
@@ -27,6 +29,8 @@ __all__ = [
     "bucket_object_info",
     "bucket_object_text",
     "bucket_objects_list",
+    "bucket_objects_put",
+    "bucket_object_fetch",
     "package_add",
     "package_browse",
     "package_contents_search",

@@ -381,133 +381,278 @@ def package_contents_search(
         return [{"error": f"Failed to search package contents: {str(e)}"}]
 
 
-    # ---------------------------- Bucket / Object Tools ----------------------------
+# ---------------------------- Bucket / Object Tools ----------------------------
 
-    def _normalize_bucket(uri_or_name: str) -> str:
-        if uri_or_name.startswith("s3://"):
-            return uri_or_name[5:].split('/', 1)[0]
-        return uri_or_name
+def _normalize_bucket(uri_or_name: str) -> str:
+    if uri_or_name.startswith("s3://"):
+        return uri_or_name[5:].split('/', 1)[0]
+    return uri_or_name
 
 
-    @mcp.tool()
-    def bucket_objects_list(
-        bucket: str = "s3://quilt-example",
-        prefix: str = "",
-        max_keys: int = 100,
-        continuation_token: str = ""
-    ) -> Dict[str, Any]:
-        """List raw S3 objects in a bucket (NOT Quilt packages).
+@mcp.tool()
+def bucket_objects_list(
+    bucket: str = "s3://quilt-example",
+    prefix: str = "",
+    max_keys: int = 100,
+    continuation_token: str = ""
+) -> Dict[str, Any]:
+    """List raw S3 objects in a bucket (NOT Quilt packages).
 
-        Args:
-            bucket: Bucket name or s3://bucket URI
-            prefix: Key prefix filter
-            max_keys: Page size (1-1000, capped internally)
-            continuation_token: Pass token from previous response for next page
-        """
-        import boto3  # local import for easier test patching
+    Args:
+        bucket: Bucket name or s3://bucket URI
+        prefix: Key prefix filter
+        max_keys: Page size (1-1000, capped internally)
+        continuation_token: Pass token from previous response for next page
+    """
+    import boto3  # local import for easier test patching
 
-        bkt = _normalize_bucket(bucket)
-        max_keys = max(1, min(max_keys, 1000))
-        client = boto3.client("s3")
-        params: Dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
-        if prefix:
-            params["Prefix"] = prefix
-        if continuation_token:
-            params["ContinuationToken"] = continuation_token
+    bkt = _normalize_bucket(bucket)
+    max_keys = max(1, min(max_keys, 1000))
+    client = boto3.client("s3")
+    params: Dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
+    if prefix:
+        params["Prefix"] = prefix
+    if continuation_token:
+        params["ContinuationToken"] = continuation_token
+    try:
+        resp = client.list_objects_v2(**params)
+    except Exception as e:
+        return {"error": f"Failed to list objects: {e}", "bucket": bkt}
+    objects: List[Dict[str, Any]] = []
+    for item in resp.get("Contents", []) or []:
+        objects.append({
+            "key": item.get("Key"),
+            "size": item.get("Size"),
+            "last_modified": str(item.get("LastModified")),
+            "etag": item.get("ETag"),
+            "storage_class": item.get("StorageClass"),
+        })
+    return {
+        "bucket": bkt,
+        "prefix": prefix,
+        "objects": objects,
+        "truncated": resp.get("IsTruncated", False),
+        "next_token": resp.get("NextContinuationToken", ""),
+        "key_count": resp.get("KeyCount", len(objects)),
+        "max_keys": max_keys,
+    }
+
+
+@mcp.tool()
+def bucket_object_info(
+    s3_uri: str,
+) -> Dict[str, Any]:
+    """Return HEAD/metadata information for a single S3 object."""
+    import boto3
+    if not s3_uri.startswith("s3://"):
+        return {"error": "s3_uri must start with s3://"}
+    without = s3_uri[5:]
+    if '/' not in without:
+        return {"error": "s3_uri must include a key after the bucket/"}
+    bucket, key = without.split('/', 1)
+    client = boto3.client("s3")
+    try:
+        head = client.head_object(Bucket=bucket, Key=key)
+    except Exception as e:
+        return {"error": f"Failed to head object: {e}", "bucket": bucket, "key": key}
+    return {
+        "bucket": bucket,
+        "key": key,
+        "size": head.get("ContentLength"),
+        "content_type": head.get("ContentType"),
+        "etag": head.get("ETag"),
+        "last_modified": str(head.get("LastModified")),
+        "metadata": head.get("Metadata", {}),
+        "storage_class": head.get("StorageClass"),
+        "cache_control": head.get("CacheControl"),
+    }
+
+
+@mcp.tool()
+def bucket_object_text(
+    s3_uri: str,
+    max_bytes: int = 65536,
+    encoding: str = "utf-8"
+) -> Dict[str, Any]:
+    """Download a small text object, returning (possibly truncated) content.
+
+    Args:
+        s3_uri: Full s3://bucket/key URI
+        max_bytes: Maximum bytes to read
+        encoding: Text encoding to decode
+    """
+    import boto3
+    if not s3_uri.startswith("s3://"):
+        return {"error": "s3_uri must start with s3://"}
+    without = s3_uri[5:]
+    if '/' not in without:
+        return {"error": "s3_uri must include a key after the bucket/"}
+    bucket, key = without.split('/', 1)
+    client = boto3.client("s3")
+    try:
+        obj = client.get_object(Bucket=bucket, Key=key)
+        body = obj["Body"].read(max_bytes + 1)
+    except Exception as e:
+        return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
+    truncated = len(body) > max_bytes
+    if truncated:
+        body = body[:max_bytes]
+    try:
+        text = body.decode(encoding, errors="replace")
+    except Exception as e:
+        return {"error": f"Decode failed: {e}", "bucket": bucket, "key": key}
+    return {
+        "bucket": bucket,
+        "key": key,
+        "encoding": encoding,
+        "truncated": truncated,
+        "max_bytes": max_bytes,
+        "text": text,
+    }
+
+
+@mcp.tool()
+def bucket_objects_put(
+    bucket: str,
+    items: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Upload multiple small text/binary objects to S3.
+
+    Args:
+        bucket: Bucket name or s3://bucket URI.
+        items: List of objects where each item may contain:
+            - key (required)
+            - text (mutually exclusive with data)
+            - data (base64-encoded string)
+            - encoding (for text, default utf-8)
+            - content_type (optional)
+            - metadata (dict) optional user metadata
+    Returns summary with per-object results (etag / error).
+    """
+    import boto3, base64
+    bkt = _normalize_bucket(bucket)
+    if not items:
+        return {"error": "items list is empty", "bucket": bkt}
+    client = boto3.client("s3")
+    results: List[Dict[str, Any]] = []
+    for idx, item in enumerate(items):
+        key = item.get("key")
+        if not key or not isinstance(key, str):
+            results.append({"index": idx, "error": "missing key"})
+            continue
+        text = item.get("text")
+        data_b64 = item.get("data")
+        if (text is None) == (data_b64 is None):  # both None or both present
+            results.append({"key": key, "error": "provide exactly one of text or data"})
+            continue
+        body: bytes
+        if text is not None:
+            encoding = item.get("encoding", "utf-8")
+            try:
+                body = text.encode(encoding)
+            except Exception as e:
+                results.append({"key": key, "error": f"encode failed: {e}"})
+                continue
+        else:
+            if data_b64 is None:
+                results.append({"key": key, "error": "data missing"})
+                continue
+            try:
+                body = base64.b64decode(str(data_b64), validate=True)
+            except Exception as e:
+                results.append({"key": key, "error": f"base64 decode failed: {e}"})
+                continue
+        put_kwargs: Dict[str, Any] = {"Bucket": bkt, "Key": key, "Body": body}
+        if item.get("content_type"):
+            put_kwargs["ContentType"] = item["content_type"]
+        if item.get("metadata") and isinstance(item.get("metadata"), dict):
+            put_kwargs["Metadata"] = item["metadata"]
         try:
-            resp = client.list_objects_v2(**params)
-        except Exception as e:
-            return {"error": f"Failed to list objects: {e}", "bucket": bkt}
-        objects: List[Dict[str, Any]] = []
-        for item in resp.get("Contents", []) or []:
-            objects.append({
-                "key": item.get("Key"),
-                "size": item.get("Size"),
-                "last_modified": str(item.get("LastModified")),
-                "etag": item.get("ETag"),
-                "storage_class": item.get("StorageClass"),
+            resp = client.put_object(**put_kwargs)
+            results.append({
+                "key": key,
+                "etag": resp.get("ETag"),
+                "size": len(body),
+                "content_type": put_kwargs.get("ContentType"),
             })
-        return {
-            "bucket": bkt,
-            "prefix": prefix,
-            "objects": objects,
-            "truncated": resp.get("IsTruncated", False),
-            "next_token": resp.get("NextContinuationToken", ""),
-            "key_count": resp.get("KeyCount", len(objects)),
-            "max_keys": max_keys,
-        }
-
-
-    @mcp.tool()
-    def bucket_object_info(
-        s3_uri: str,
-    ) -> Dict[str, Any]:
-        """Return HEAD/metadata information for a single S3 object."""
-        import boto3
-        if not s3_uri.startswith("s3://"):
-            return {"error": "s3_uri must start with s3://"}
-        without = s3_uri[5:]
-        if '/' not in without:
-            return {"error": "s3_uri must include a key after the bucket/"}
-        bucket, key = without.split('/', 1)
-        client = boto3.client("s3")
-        try:
-            head = client.head_object(Bucket=bucket, Key=key)
         except Exception as e:
-            return {"error": f"Failed to head object: {e}", "bucket": bucket, "key": key}
-        return {
-            "bucket": bucket,
-            "key": key,
-            "size": head.get("ContentLength"),
-            "content_type": head.get("ContentType"),
-            "etag": head.get("ETag"),
-            "last_modified": str(head.get("LastModified")),
-            "metadata": head.get("Metadata", {}),
-            "storage_class": head.get("StorageClass"),
-            "cache_control": head.get("CacheControl"),
-        }
+            results.append({"key": key, "error": str(e)})
+    successes = sum(1 for r in results if "etag" in r)
+    return {
+        "bucket": bkt,
+        "requested": len(items),
+        "uploaded": successes,
+        "results": results,
+    }
 
 
-    @mcp.tool()
-    def bucket_object_text(
-        s3_uri: str,
-        max_bytes: int = 65536,
-        encoding: str = "utf-8"
-    ) -> Dict[str, Any]:
-        """Download a small text object, returning (possibly truncated) content.
+@mcp.tool()
+def bucket_object_fetch(
+    s3_uri: str,
+    max_bytes: int = 65536,
+    base64_encode: bool = True
+) -> Dict[str, Any]:
+    """Fetch an object (binary-safe) returning base64 or raw text fallback.
 
-        Args:
-            s3_uri: Full s3://bucket/key URI
-            max_bytes: Maximum bytes to read
-            encoding: Text encoding to decode
-        """
-        import boto3
-        if not s3_uri.startswith("s3://"):
-            return {"error": "s3_uri must start with s3://"}
-        without = s3_uri[5:]
-        if '/' not in without:
-            return {"error": "s3_uri must include a key after the bucket/"}
-        bucket, key = without.split('/', 1)
-        client = boto3.client("s3")
-        try:
-            obj = client.get_object(Bucket=bucket, Key=key)
-            body = obj["Body"].read(max_bytes + 1)
-        except Exception as e:
-            return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
-        truncated = len(body) > max_bytes
-        if truncated:
-            body = body[:max_bytes]
-        try:
-            text = body.decode(encoding, errors="replace")
-        except Exception as e:
-            return {"error": f"Decode failed: {e}", "bucket": bucket, "key": key}
+    Args:
+        s3_uri: Full s3://bucket/key
+        max_bytes: Maximum bytes to read
+        base64_encode: If True always base64 encode body
+    """
+    import boto3, base64
+    if not s3_uri.startswith("s3://"):
+        return {"error": "s3_uri must start with s3://"}
+    without = s3_uri[5:]
+    if '/' not in without:
+        return {"error": "s3_uri must include a key after the bucket/"}
+    bucket, key = without.split('/', 1)
+    client = boto3.client("s3")
+    try:
+        obj = client.get_object(Bucket=bucket, Key=key)
+        body = obj["Body"].read(max_bytes + 1)
+        content_type = obj.get("ContentType")
+    except Exception as e:
+        return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
+    truncated = len(body) > max_bytes
+    if truncated:
+        body = body[:max_bytes]
+    if base64_encode:
+        data = base64.b64encode(body).decode("ascii")
         return {
             "bucket": bucket,
             "key": key,
-            "encoding": encoding,
             "truncated": truncated,
             "max_bytes": max_bytes,
+            "base64": True,
+            "data": data,
+            "content_type": content_type,
+            "size": len(body),
+        }
+    # Try utf-8 decode fallback
+    try:
+        text = body.decode("utf-8")
+        return {
+            "bucket": bucket,
+            "key": key,
+            "truncated": truncated,
+            "max_bytes": max_bytes,
+            "base64": False,
             "text": text,
+            "content_type": content_type,
+            "size": len(body),
+        }
+    except Exception:
+        data = base64.b64encode(body).decode("ascii")
+        return {
+            "bucket": bucket,
+            "key": key,
+            "truncated": truncated,
+            "max_bytes": max_bytes,
+            "base64": True,
+            "data": data,
+            "content_type": content_type,
+            "size": len(body),
+            "note": "Binary data returned as base64 after decode failure",
         }
 
 
