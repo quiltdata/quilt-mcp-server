@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "permissions": {
+    "bash": {
+      "allow_all": true,
+      "allowed_patterns": [
+        "./scripts/*",
+        "./packager/*",
+        "./tests/*",
+        "./deploy.sh*",
+        "scripts/*",
+        "packager/*", 
+        "tests/*",
+        "uv *",
+        "python *",
+        "aws *",
+        "docker *",
+        "git *",
+        "curl *",
+        "find *",
+        "grep *",
+        "ls *",
+        "cat *",
+        "head *",
+        "tail *",
+        "mkdir *",
+        "rm *",
+        "mv *",
+        "cp *",
+        "chmod *",
+        "echo *",
+        "printenv",
+        "source *",
+        "set *",
+        "timeout *",
+        "sleep *",
+        "gh *",
+        "brew *",
+        "sam *",
+        "cdk *"
+      ]
+    },
+    "file_operations": {
+      "allow_read": true,
+      "allow_write": true,
+      "allow_create": true,
+      "allow_delete": false,
+      "restricted_paths": [
+        ".env",
+        "*.key",
+        "*.pem",
+        "secrets/*"
+      ]
+    },
+    "network": {
+      "allow_curl": true,
+      "allow_wget": true,
+      "allowed_domains": [
+        "amazonaws.com",
+        "github.com",
+        "claude.ai",
+        "anthropic.com",
+        "pypi.org"
+      ]
+    }
+  },
+  "auto_approve": {
+    "repository_scripts": true,
+    "common_dev_commands": true,
+    "aws_cli": true,
+    "docker_commands": true,
+    "git_operations": true,
+    "testing_commands": true
+  },
+  "security": {
+    "prevent_secret_exposure": true,
+    "validate_urls": true,
+    "require_https": false
+  },
+  "description": "Quilt MCP Server development environment - defensive security tools and deployment automation"
+}

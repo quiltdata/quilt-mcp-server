@@ -1,0 +1,53 @@
+{
+  "resource": "/mcp",
+  "path": "/mcp",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "User-Agent": "test-client/1.0"
+  },
+  "multiValueHeaders": {
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "test-client/1.0"
+    ]
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": {},
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "test",
+    "resourcePath": "/mcp",
+    "httpMethod": "POST",
+    "extendedRequestId": "test-request-id",
+    "requestTime": "08/Jan/2025:12:00:00 +0000",
+    "path": "/prod/mcp",
+    "accountId": "123456789012",
+    "protocol": "HTTP/1.1",
+    "stage": "prod",
+    "domainPrefix": "test-api",
+    "requestTimeEpoch": 1736337600000,
+    "requestId": "test-request-id",
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "accountId": null,
+      "cognitoIdentityId": null,
+      "caller": null,
+      "sourceIp": "127.0.0.1",
+      "principalOrgId": null,
+      "accessKey": null,
+      "cognitoAuthenticationType": null,
+      "cognitoAuthenticationProvider": null,
+      "userArn": null,
+      "userAgent": "test-client/1.0",
+      "user": null
+    },
+    "domainName": "test-api.execute-api.us-east-1.amazonaws.com",
+    "apiId": "test-api-id"
+  },
+  "body": "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"tools/list\", \"params\": {}}",
+  "isBase64Encoded": false
+}

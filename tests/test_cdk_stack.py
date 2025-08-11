@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from quilt_mcp_stack import QuiltMcpStack
 
 class TestQuiltMcpStack:
-    """Test suite for the simplified CDK stack without Cognito."""
+    """Test suite for the CDK stack with Cognito OAuth 2.0 client credentials."""
     
     def setup_method(self):
         """Set up test fixtures."""
@@ -40,16 +40,16 @@ class TestQuiltMcpStack:
             "Handler": "lambda_handler.handler"
         })
         
-        # Verify API Gateway exists
-        template.has_resource_properties("AWS::ApiGateway::RestApi", {
+        # Verify HTTP API exists
+        template.has_resource_properties("AWS::ApiGatewayV2::Api", {
             "Name": "Quilt MCP Server"
         })
         
-        # Verify IAM roles exist (Lambda role + API Gateway service role)
-        template.resource_count_is("AWS::IAM::Role", 2)
+        # Verify Lambda role exists
+        template.resource_count_is("AWS::IAM::Role", 1)
         
-    def test_no_cognito_resources(self):
-        """Test that no Cognito resources exist in the simplified stack."""
+    def test_cognito_resources_exist(self):
+        """Test that required Cognito resources exist."""
         stack = QuiltMcpStack(
             self.app,
             "TestQuiltMcpStack",
@@ -58,13 +58,14 @@ class TestQuiltMcpStack:
         
         template = assertions.Template.from_stack(stack)
         
-        # Verify no Cognito resources
-        template.resource_count_is("AWS::Cognito::UserPool", 0)
-        template.resource_count_is("AWS::Cognito::UserPoolClient", 0)
-        template.resource_count_is("AWS::ApiGateway::Authorizer", 0)
+        # Verify Cognito resources exist
+        template.resource_count_is("AWS::Cognito::UserPool", 1)
+        template.resource_count_is("AWS::Cognito::UserPoolClient", 1)
+        template.resource_count_is("AWS::Cognito::UserPoolDomain", 1)
+        template.resource_count_is("AWS::Cognito::UserPoolResourceServer", 1)
         
-    def test_api_methods_no_auth(self):
-        """Test that API methods don't require authentication."""
+    def test_api_routes_with_jwt_auth(self):
+        """Test that API routes have JWT authorization."""
         stack = QuiltMcpStack(
             self.app,
             "TestQuiltMcpStack",
@@ -73,19 +74,16 @@ class TestQuiltMcpStack:
         
         template = assertions.Template.from_stack(stack)
         
-        # Verify methods have no authentication
-        template.has_resource_properties("AWS::ApiGateway::Method", {
-            "HttpMethod": "GET",
-            "AuthorizationType": "NONE"
-        })
+        # Verify HTTP API routes exist (GET, POST, proxy)
+        template.resource_count_is("AWS::ApiGatewayV2::Route", 3)
         
-        template.has_resource_properties("AWS::ApiGateway::Method", {
-            "HttpMethod": "POST", 
-            "AuthorizationType": "NONE"
+        # Verify JWT authorizer exists
+        template.has_resource_properties("AWS::ApiGatewayV2::Authorizer", {
+            "AuthorizerType": "JWT"
         })
         
     def test_cors_configuration(self):
-        """Test CORS configuration."""
+        """Test CORS configuration on HTTP API."""
         stack = QuiltMcpStack(
             self.app,
             "TestQuiltMcpStack",
@@ -94,10 +92,12 @@ class TestQuiltMcpStack:
         
         template = assertions.Template.from_stack(stack)
         
-        # Verify OPTIONS method for CORS
-        template.has_resource_properties("AWS::ApiGateway::Method", {
-            "HttpMethod": "OPTIONS",
-            "AuthorizationType": "NONE"
+        # Verify HTTP API has CORS configuration
+        template.has_resource_properties("AWS::ApiGatewayV2::Api", {
+            "CorsConfiguration": {
+                "AllowOrigins": ["*"],
+                "AllowMethods": ["GET", "POST", "OPTIONS"]
+            }
         })
         
     def test_lambda_configuration(self):
@@ -133,14 +133,16 @@ class TestQuiltMcpStack:
         template = assertions.Template.from_stack(stack)
         outputs = template.find_outputs("*")
         
-        # Verify required outputs exist (no Cognito outputs)
+        # Verify required outputs exist
         assert "ApiEndpoint" in outputs
         assert "LambdaFunctionName" in outputs  
         assert "LogGroupName" in outputs
         
-        # Verify Cognito outputs don't exist
-        assert "CognitoUserPoolId" not in outputs
-        assert "CognitoClientId" not in outputs
+        # Verify Cognito outputs exist
+        assert "TokenEndpoint" in outputs
+        assert "ClientId" in outputs
+        assert "UserPoolId" in outputs
+        assert "ResourceServerIdentifier" in outputs
         
     def test_lambda_role_permissions(self):
         """Test Lambda role has correct permissions."""

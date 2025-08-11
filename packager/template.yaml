@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Local test template for Quilt MCP Lambda function
+
+Parameters:
+  QuiltReadPolicyArn:
+    Type: String
+    Default: "arn:aws:iam::123456789012:policy/fake-policy"
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+
+Resources:
+  QuiltMcpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command:
+          - lambda_handler.handler
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          LAMBDA_MODE: "true"
+      Events:
+        TestApi:
+          Type: Api
+          Properties:
+            Path: /
+            Method: post
+    Metadata:
+      DockerTag: python3.11-v1
+      DockerContext: ..
+      Dockerfile: packager/Dockerfile.lambda
+
+Outputs:
+  QuiltMcpApi:
+    Description: "API Gateway endpoint URL for Prod stage for Quilt MCP function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  QuiltMcpFunction:
+    Description: "Quilt MCP Lambda Function ARN"
+    Value: !GetAtt QuiltMcpFunction.Arn

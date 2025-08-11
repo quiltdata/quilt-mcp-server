@@ -159,7 +159,7 @@ def check_filesystem_access() -> Dict[str, Any]:
 @conditional_tool(annotations=LAMBDA_COMPATIBLE)
 def list_packages(
     registry: str = "s3://quilt-example",
-    prefix: Optional[str] = None,
+    prefix: str = "",
     limit: int = 12,
     offset: int = 0
 ) -> List[Dict[str, Any]]:
@@ -181,7 +181,8 @@ def list_packages(
         
         # First, get all package names and apply prefix filter
         for pkg_name in quilt3.list_packages(registry=registry):
-            if prefix and not pkg_name.startswith(prefix):
+            # Apply prefix filter if provided (skip empty strings)
+            if prefix and prefix.strip() and not pkg_name.startswith(prefix):
                 continue
             all_package_names.append(pkg_name)
         
