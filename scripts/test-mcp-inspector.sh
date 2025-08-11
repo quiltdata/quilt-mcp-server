@@ -19,7 +19,7 @@ main() {
     # Load configuration
     source .config
     
-    # Check if MCP Inspector is installed
+    # Check if npx is available
     if ! command -v npx >/dev/null 2>&1; then
         log_error "❌ Node.js/npx not found. Please install Node.js first:"
         log_info "    https://nodejs.org/"
@@ -53,17 +53,18 @@ main() {
     echo "🔐 Access Token: $ACCESS_TOKEN"
     echo ""
     echo "📝 Connection Instructions:"
-    echo "  1. Select 'HTTP Transport' in MCP Inspector"
-    echo "  2. Enter Server URL: $API_ENDPOINT"
-    echo "  3. Add Authorization header: Bearer $ACCESS_TOKEN"
-    echo "  4. Click Connect"
+    echo "  1. In the MCP Inspector web interface:"
+    echo "  2. Select 'Streamable HTTP' as transport type"
+    echo "  3. Server URL should be pre-filled: $API_ENDPOINT"
+    echo "  4. In Authentication -> API Token Authentication, enter token: $ACCESS_TOKEN"
+    echo "  5. Click Connect or Test Connection"
     echo ""
     echo "Press any key to launch MCP Inspector..."
     read -n 1 -s
     
     # Launch MCP Inspector
     log_info "Launching MCP Inspector..."
-    if ! npx @modelcontextprotocol/inspector 2>&1; then
+    if ! npx -y @modelcontextprotocol/inspector --transport http --server-url "$API_ENDPOINT" 2>&1; then
         EXIT_CODE=$?
         echo ""
         log_error "❌ MCP Inspector failed to start (exit code: $EXIT_CODE)"
