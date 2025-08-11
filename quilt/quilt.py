@@ -1,9 +1,8 @@
-from typing import Any, Optional, Dict, List
+from typing import Any, Dict, List
 import quilt3
 import os
 import tempfile
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
 
 
 # Initialize FastMCP server
@@ -14,52 +13,7 @@ def is_lambda_environment() -> bool:
     """Check if we're running in AWS Lambda environment."""
     return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
-# Global override for testing - can be set directly in tests
-_FORCE_LAMBDA_MODE = None
-
-def set_lambda_mode(force_lambda: bool) -> None:
-    """Override Lambda mode for testing purposes.
-    
-    Args:
-        force_lambda: True to force Lambda mode, False to force local mode
-    """
-    global _FORCE_LAMBDA_MODE
-    _FORCE_LAMBDA_MODE = force_lambda
-    # Note: Tool registration happens at module import time, so this only affects
-    # future imports or dynamic registration
-
-def get_lambda_mode() -> bool:
-    """Get current Lambda mode status, respecting test overrides."""
-    if _FORCE_LAMBDA_MODE is not None:
-        return _FORCE_LAMBDA_MODE
-    return is_lambda_environment()
-
-# Create ToolAnnotations for different environments
-LAMBDA_COMPATIBLE = ToolAnnotations(
-    environment_requirements="lambda_compatible"
-)
-LOCAL_ONLY = ToolAnnotations(
-    environment_requirements="local_only"
-)
-
-# Decorator function to conditionally register tools
-def conditional_tool(annotations=None, **kwargs):
-    """Decorator that conditionally registers tools based on environment requirements."""
-    def decorator(func):
-        # Check if this tool should be registered in current environment
-        if annotations and hasattr(annotations, 'environment_requirements'):
-            env_req = annotations.environment_requirements
-            if env_req == 'local_only' and get_lambda_mode():
-                # Skip registration in Lambda environment
-                return func
-        
-        # Register the tool with FastMCP's built-in decorator
-        return mcp.tool(annotations=annotations, **kwargs)(func)
-    
-    return decorator
-
-
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def check_quilt_auth() -> Dict[str, Any]:
     """
     Check Quilt authentication status and provide setup guidance.
@@ -100,7 +54,7 @@ def check_quilt_auth() -> Dict[str, Any]:
         }
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def check_filesystem_access() -> Dict[str, Any]:
     """
     Check if the current environment has filesystem write access needed for Quilt operations.
@@ -156,7 +110,7 @@ def check_filesystem_access() -> Dict[str, Any]:
     return result
 
 
-@conditional_tool(annotations=LAMBDA_COMPATIBLE)
+@mcp.tool()
 def list_packages(
     registry: str = "s3://quilt-example",
     prefix: str = "",
@@ -226,7 +180,7 @@ def list_packages(
         return [{"error": f"Failed to list packages: {str(e)}"}]
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@mcp.tool()
 def search_packages(
     query: str, 
     registry: str = "s3://quilt-example",
@@ -278,11 +232,11 @@ def search_packages(
             }]
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@mcp.tool()
 def browse_package(
     package_name: str,
     registry: str = "s3://quilt-example",
-    hash_or_tag: Optional[str] = None
+    hash_or_tag: str = ""
 ) -> Dict[str, Any]:
     """
     Browse a specific package in a Quilt registry.
@@ -300,7 +254,7 @@ def browse_package(
             pkg = quilt3.Package.browse(package_name, registry=registry, top_hash=hash_or_tag)
         else:
             pkg = quilt3.Package.browse(package_name, registry=registry)
-        
+
         # Get package structure
         files = []
         for key in pkg:
@@ -317,24 +271,30 @@ def browse_package(
                     "path": key,
                     "error": f"Failed to read entry: {str(e)}"
                 })
-        
+
+        # Try to get metadata, but don't fail if it's not accessible
+        try:
+            metadata = pkg.meta
+        except Exception as e:
+            metadata = {"warning": f"Failed to access package metadata: {str(e)}"}
+
         return {
             "name": package_name,
             "registry": registry,
             "hash": pkg.top_hash if hasattr(pkg, 'top_hash') else None,
-            "metadata": pkg.meta,
+            "metadata": metadata,
             "files": files
         }
     except Exception as e:
         return {"error": f"Failed to browse package '{package_name}': {str(e)}"}
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@mcp.tool()
 def search_package_contents(
     package_name: str,
     query: str,
     registry: str = "s3://quilt-example",
-    hash_or_tag: Optional[str] = None
+    hash_or_tag: str = ""
 ) -> List[Dict[str, Any]]:
     """
     Search within the contents of a specific package.
@@ -353,25 +313,33 @@ def search_package_contents(
             pkg = quilt3.Package.browse(package_name, registry=registry, top_hash=hash_or_tag)
         else:
             pkg = quilt3.Package.browse(package_name, registry=registry)
-        
+
         matches = []
         query_lower = query.lower()
-        
+
         # Search in package metadata
-        pkg_meta_str = str(pkg.meta).lower()
-        if query_lower in pkg_meta_str:
+        try:
+            pkg_meta_str = str(pkg.meta).lower()
+            if query_lower in pkg_meta_str:
+                matches.append({
+                    "type": "package_metadata",
+                    "path": "",
+                    "match_type": "metadata",
+                    "metadata": pkg.meta
+                })
+        except Exception as e:
             matches.append({
                 "type": "package_metadata",
                 "path": "",
-                "match_type": "metadata",
-                "metadata": pkg.meta
+                "match_type": "metadata_error",
+                "warning": f"Could not access package metadata: {str(e)}"
             })
-        
+
         # Search in file paths and metadata
         for key in pkg:
             try:
                 entry = pkg[key]
-                
+
                 # Search in file path
                 if query_lower in key.lower():
                     matches.append({
@@ -382,7 +350,7 @@ def search_package_contents(
                         "hash": getattr(entry, "hash", None),
                         "metadata": getattr(entry, "meta", {})
                     })
-                
+
                 # Search in file metadata
                 file_meta = getattr(entry, "meta", {})
                 if file_meta and query_lower in str(file_meta).lower():
@@ -394,14 +362,14 @@ def search_package_contents(
                         "hash": getattr(entry, "hash", None),
                         "metadata": file_meta
                     })
-                    
-            except Exception as e:
+
+            except Exception:
                 continue
-        
+
         return matches
     except Exception as e:
         return [{"error": f"Failed to search package contents: {str(e)}"}]
 
 
 # Tools are automatically registered when the module is imported
-# due to the @conditional_tool decorators above
+# due to the @mcp.tool decorators above

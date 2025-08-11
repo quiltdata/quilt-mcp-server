@@ -102,6 +102,14 @@ class QuiltMcpStack(Stack):
             environment={
                 "ENV": "production",
                 "LOG_LEVEL": "INFO",
+                # Ensure all libraries use the writable /tmp space for configs and caches
+                "HOME": "/tmp",
+                "QUILT_CONFIG_DIR": "/tmp",
+                "XDG_CONFIG_HOME": "/tmp/.config",
+                "XDG_CACHE_HOME": "/tmp/.cache",
+                "XDG_DATA_HOME": "/tmp/.local/share",
+                "TMPDIR": "/tmp",
+                "QUILT_DISABLE_CACHE": "true",
             }
         )
 
@@ -131,7 +139,7 @@ class QuiltMcpStack(Stack):
         # Grant API Gateway permission to invoke Lambda
         lambda_fn.add_permission(
             "ApiGatewayInvoke",
-            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            principal=iam.ServicePrincipal("apigateway.amazonaws.com"),  # type: ignore[arg-type]
             action="lambda:InvokeFunction",
             source_arn=f"arn:aws:execute-api:{self.region}:{self.account}:{http_api.http_api_id}/*/*"
         )

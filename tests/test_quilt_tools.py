@@ -1,11 +1,6 @@
 import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
-import sys
-import os
-
-# Add the quilt directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'quilt'))
 
 from quilt import (
     check_quilt_auth,

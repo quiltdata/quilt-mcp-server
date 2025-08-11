@@ -285,6 +285,14 @@ test_deployment() {
         local tool_count
         tool_count=$(echo "$api_response" | jq -r '.result.tools | length' 2>/dev/null || echo "0")
         log_info "Found $tool_count Quilt MCP tools"
+        
+        # Run comprehensive tool tests
+        log_info "🔧 Running comprehensive tool tests..."
+        if ! "$PROJECT_ROOT/tests/test-endpoint.sh" -t; then
+            log_error "❌ Tool tests failed"
+            return 1
+        fi
+        
         return 0
     else
         log_error "❌ API endpoint not responding correctly"

@@ -210,3 +210,4 @@ __marimo__/
 /cdk.out
 .config
 /test-package
+packager/test-event*.json

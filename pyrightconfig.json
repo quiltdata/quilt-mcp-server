@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
+"pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/cdk.out/**",
+    "**/__pycache__/**"
+  ]
+}
