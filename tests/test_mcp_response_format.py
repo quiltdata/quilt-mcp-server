@@ -19,7 +19,7 @@ def test_tool_response_format():
         "id": 1,
         "method": "tools/call",
         "params": {
-            "name": "check_quilt_auth",
+            "name": "auth_check",
             "arguments": {}
         }
     }
