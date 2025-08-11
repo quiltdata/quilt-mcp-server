@@ -12,6 +12,7 @@ NC='\033[0m'
 VERBOSE=false
 FULL_TEST=false
 TOOLS_TEST=false
+TOOL_NUMBER=""
 STACK_NAME="QuiltMcpStack"
 REGION=""
 USE_AUTH=true
@@ -42,7 +43,13 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--tools)
             TOOLS_TEST=true
-            shift
+            # Check if next argument is a number (tool number)
+            if [[ $2 =~ ^[0-9]+$ ]]; then
+                TOOL_NUMBER="$2"
+                shift 2
+            else
+                shift
+            fi
             ;;
         --no-auth)
             USE_AUTH=false
@@ -60,7 +67,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  -v, --verbose      Enable verbose output"
             echo "  -f, --full         Run comprehensive Claude.ai simulation tests"
-            echo "  -t, --tools        Test each available MCP tool"
+            echo "  -t, --tools [N]    Test each available MCP tool (or just tool N)"
             echo "  -s, --stack        CloudFormation stack name (default: QuiltMcpStack)"
             echo "  -r, --region       AWS region (default: from env or us-east-1)"
             echo "  -e, --endpoint     Direct endpoint URL (skips CloudFormation lookup)"
@@ -599,9 +606,16 @@ run_tools_tests() {
     
     # First get the list of available tools
     echo -e "${BLUE}Getting list of available tools...${NC}"
-    TOOLS_LIST_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    if [ "$USE_AUTH" = true ]; then
+        TOOLS_LIST_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    else
+        TOOLS_LIST_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
+    fi
     
     if ! echo "$TOOLS_LIST_RESPONSE" | grep -q "tools"; then
         echo -e "${RED}❌ Failed to get tools list${NC}"
@@ -614,15 +628,15 @@ run_tools_tests() {
         echo ""
     fi
     
-    # Extract available tools and filter for check* and list* tools only
-    AVAILABLE_TOOLS=$(echo "$TOOLS_LIST_RESPONSE" | jq -r '.result.tools[].name' 2>/dev/null | grep -E '^(check|list)')
+    # Extract all available tools
+    AVAILABLE_TOOLS=$(echo "$TOOLS_LIST_RESPONSE" | jq -r '.result.tools[].name' 2>/dev/null)
     
     if [ -z "$AVAILABLE_TOOLS" ]; then
-        echo -e "${YELLOW}⚠️  No check* or list* tools found${NC}"
+        echo -e "${YELLOW}⚠️  No tools found${NC}"
         return 1
     fi
     
-    echo -e "${BLUE}Available check/list tools to test:${NC}"
+    echo -e "${BLUE}Available tools to test:${NC}"
     echo "$AVAILABLE_TOOLS" | sed 's/^/  - /'
     
     # Dynamically test each available check* and list* tool
@@ -635,21 +649,44 @@ run_tools_tests() {
         fi
         
         # Create appropriate test arguments based on tool type
-        if [ "$TOOL_NAME" = "check_quilt_auth" ] || [ "$TOOL_NAME" = "check_filesystem_access" ]; then
-            # No arguments needed for check tools
-            TOOL_ARGUMENTS="{}"
-        elif [ "$TOOL_NAME" = "list_packages" ]; then
-            # Use minimal arguments for list_packages to avoid large responses
-            TOOL_ARGUMENTS='{"limit": 3}'
-        else
-            # Default empty arguments
-            TOOL_ARGUMENTS="{}"
-        fi
+        case "$TOOL_NAME" in
+            "check_quilt_auth"|"check_filesystem_access")
+                # No arguments needed for check tools
+                TOOL_ARGUMENTS="{}"
+                ;;
+            "list_packages")
+                # Use minimal arguments for list_packages to avoid large responses
+                TOOL_ARGUMENTS='{"limit": 3}'
+                ;;
+            "search_packages")
+                # Test with a simple search query
+                TOOL_ARGUMENTS='{"query": "test", "limit": 2}'
+                ;;
+            "browse_package")
+                # Test with a known package from the example registry
+                TOOL_ARGUMENTS='{"package_name": "akarve/amazon-reviews"}'
+                ;;
+            "search_package_contents")
+                # Test searching within a known package
+                TOOL_ARGUMENTS='{"package_name": "akarve/amazon-reviews", "query": "data"}'
+                ;;
+            *)
+                # Default empty arguments
+                TOOL_ARGUMENTS="{}"
+                ;;
+        esac
         
         TOOL_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"$TOOL_NAME\", \"arguments\": $TOOL_ARGUMENTS}}"
-        TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-            -H "Content-Type: application/json" \
-            -d "$TOOL_REQUEST")
+        if [ "$USE_AUTH" = true ]; then
+            TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $ACCESS_TOKEN" \
+                -d "$TOOL_REQUEST")
+        else
+            TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -d "$TOOL_REQUEST")
+        fi
         
         if echo "$TOOL_RESPONSE" | grep -q '"content"'; then
             # Check if the content contains an error (nested in the text field)
@@ -692,9 +729,16 @@ run_tools_tests() {
     fi
     
     INVALID_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"nonexistent_tool\", \"arguments\": {}}}"
-    INVALID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-        -H "Content-Type: application/json" \
-        -d "$INVALID_REQUEST")
+    if [ "$USE_AUTH" = true ]; then
+        INVALID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -d "$INVALID_REQUEST")
+    else
+        INVALID_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d "$INVALID_REQUEST")
+    fi
     
     if echo "$INVALID_RESPONSE" | grep -q '"error"'; then
         echo -e "${GREEN}✅ Invalid tool properly rejected${NC}"
@@ -755,9 +799,16 @@ if [ "$VERBOSE" = true ]; then
     echo ""
 fi
 
-MCP_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-    -H "Content-Type: application/json" \
-    -d "$MCP_REQUEST")
+if [ "$USE_AUTH" = true ]; then
+    MCP_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $ACCESS_TOKEN" \
+        -d "$MCP_REQUEST")
+else
+    MCP_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$MCP_REQUEST")
+fi
 
 if [ "$VERBOSE" = true ]; then
     echo -e "${BLUE}Response:${NC}"
@@ -789,9 +840,16 @@ if [ "$VERBOSE" = true ]; then
     echo ""
 fi
 
-INIT_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
-    -H "Content-Type: application/json" \
-    -d "$INIT_REQUEST")
+if [ "$USE_AUTH" = true ]; then
+    INIT_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $ACCESS_TOKEN" \
+        -d "$INIT_REQUEST")
+else
+    INIT_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$INIT_REQUEST")
+fi
 
 if [ "$VERBOSE" = true ]; then
     echo -e "${BLUE}Response:${NC}"

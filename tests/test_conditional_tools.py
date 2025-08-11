@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'quilt'))
 
 def test_lambda_mode_tools():
-    """Test that only Lambda-compatible tools are available in Lambda mode."""
+    """Test that all tools are available in Lambda mode (behavior updated to include all tools)."""
     # Import in function to ensure fresh module state
     import importlib
     
@@ -26,15 +26,17 @@ def test_lambda_mode_tools():
         # Check which tools are registered
         registered_tools = list(quilt.mcp._tool_manager._tools.keys())
         
-        # Lambda-compatible tools should be registered
-        assert 'check_quilt_auth' in registered_tools
-        assert 'check_filesystem_access' in registered_tools 
-        assert 'list_packages' in registered_tools
-        
-        # Local-only tools should NOT be registered
-        assert 'search_packages' not in registered_tools
-        assert 'browse_package' not in registered_tools
-        assert 'search_package_contents' not in registered_tools
+        # All tools should be registered in Lambda mode now
+        expected_tools = [
+            'check_quilt_auth',
+            'check_filesystem_access',
+            'list_packages',
+            'search_packages',
+            'browse_package',
+            'search_package_contents'
+        ]
+        for tool in expected_tools:
+            assert tool in registered_tools, f"Tool '{tool}' should be available in Lambda mode"
 
 def test_local_mode_tools():
     """Test that all tools are available in local mode."""

@@ -226,7 +226,7 @@ def list_packages(
         return [{"error": f"Failed to list packages: {str(e)}"}]
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@conditional_tool(annotations=LAMBDA_COMPATIBLE)
 def search_packages(
     query: str, 
     registry: str = "s3://quilt-example",
@@ -278,7 +278,7 @@ def search_packages(
             }]
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@conditional_tool(annotations=LAMBDA_COMPATIBLE)
 def browse_package(
     package_name: str,
     registry: str = "s3://quilt-example",
@@ -318,18 +318,24 @@ def browse_package(
                     "error": f"Failed to read entry: {str(e)}"
                 })
         
+        # Try to get metadata, but don't fail if it's not accessible
+        try:
+            metadata = pkg.meta
+        except Exception as e:
+            metadata = {"warning": f"Failed to access package metadata: {str(e)}"}
+        
         return {
             "name": package_name,
             "registry": registry,
             "hash": pkg.top_hash if hasattr(pkg, 'top_hash') else None,
-            "metadata": pkg.meta,
+            "metadata": metadata,
             "files": files
         }
     except Exception as e:
         return {"error": f"Failed to browse package '{package_name}': {str(e)}"}
 
 
-@conditional_tool(annotations=LOCAL_ONLY)
+@conditional_tool(annotations=LAMBDA_COMPATIBLE)
 def search_package_contents(
     package_name: str,
     query: str,
@@ -358,13 +364,21 @@ def search_package_contents(
         query_lower = query.lower()
         
         # Search in package metadata
-        pkg_meta_str = str(pkg.meta).lower()
-        if query_lower in pkg_meta_str:
+        try:
+            pkg_meta_str = str(pkg.meta).lower()
+            if query_lower in pkg_meta_str:
+                matches.append({
+                    "type": "package_metadata",
+                    "path": "",
+                    "match_type": "metadata",
+                    "metadata": pkg.meta
+                })
+        except Exception as e:
             matches.append({
                 "type": "package_metadata",
                 "path": "",
-                "match_type": "metadata",
-                "metadata": pkg.meta
+                "match_type": "metadata_error",
+                "warning": f"Could not access package metadata: {str(e)}"
             })
         
         # Search in file paths and metadata
