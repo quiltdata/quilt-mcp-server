@@ -24,8 +24,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     AWS Lambda handler for the Quilt MCP server.
     Processes HTTP requests and returns MCP-compatible responses.
     """
+    # Ensure working directory is writable in Lambda
+    try:
+        os.chdir('/tmp')
+    except Exception:
+        pass
+    
+    # Create directories that might be needed (safe if already present)
+    os.makedirs('/tmp/.config', exist_ok=True)
+    os.makedirs('/tmp/.cache', exist_ok=True)
+    os.makedirs('/tmp/.local/share', exist_ok=True)
+    os.makedirs('/tmp/quilt', exist_ok=True)
+        
+    # Create quilt3 directories
+    os.makedirs('/tmp/quilt/cache', exist_ok=True)
+    os.makedirs('/tmp/quilt/tempfiles', exist_ok=True)
+    
     print("=== LAMBDA HANDLER CALLED ===")
     print(f"Event keys: {list(event.keys())}")
+    print(f"Working directory: {os.getcwd()}")
+    print(f"HOME: {os.environ.get('HOME')}")
+    print(f"QUILT_CONFIG_DIR: {os.environ.get('QUILT_CONFIG_DIR')}")
+    print(f"XDG_CONFIG_HOME: {os.environ.get('XDG_CONFIG_HOME')}")
     
     logger.info("Lambda handler called")
     logger.debug(f"Event: {json.dumps(event, default=str)}")

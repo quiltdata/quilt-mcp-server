@@ -51,10 +51,16 @@ class TestQuiltAPI:
         result = list_packages(registry=TEST_REGISTRY, prefix="akarve")
         
         assert isinstance(result, list)
+        assert len(result) >= 1
         
-        # Should find the akarve/tmp package if any akarve packages exist
-        if len(result) > 0:
-            package_names = [pkg.get("name") for pkg in result if "name" in pkg]
+        # New API returns a single result object with 'packages' and 'pagination'
+        data = result[0]
+        assert isinstance(data, dict)
+        assert "packages" in data
+        assert isinstance(data["packages"], list)
+        
+        package_names = [pkg.get("name") for pkg in data["packages"] if isinstance(pkg, dict) and "name" in pkg]
+        if package_names:
             # At least one package should start with akarve
             assert any(name.startswith("akarve") for name in package_names)
 
