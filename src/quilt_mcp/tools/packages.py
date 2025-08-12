@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, List
 import quilt3, os
-from .. import mcp
+from ..server import mcp
 from ..constants import DEFAULT_REGISTRY
 
 @mcp.tool()

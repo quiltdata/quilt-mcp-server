@@ -94,7 +94,7 @@ class QuiltMcpStack(Stack):
         lambda_fn = _lambda.Function(
             self, "QuiltMcpFunction",
             runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="lambda_handler.handler",
+            handler="quilt_mcp.handlers.lambda_handler.handler",
             code=_lambda.Code.from_asset(lambda_package_dir),
             role=lambda_role, # type: ignore
             timeout=Duration.seconds(lambda_timeout_seconds),

@@ -5,9 +5,7 @@ import logging
 import sys
 import os
 
-# Add the current directory to path to import our local quilt module
-sys.path.insert(0, os.path.dirname(__file__))
-from quilt import mcp  # type: ignore
+from .. import mcp
 
 # Force rebuild timestamp: 2025-08-10T00:58:00Z
 

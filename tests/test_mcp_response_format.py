@@ -7,7 +7,7 @@ This test ensures tool responses match the exact format expected by Claude.ai.
 import json
 import asyncio
 
-from quilt.lambda_handler import handle_mcp_request  # type: ignore
+from quilt_mcp.handlers.lambda_handler import handle_mcp_request  # type: ignore
 
 
 def test_tool_response_format():

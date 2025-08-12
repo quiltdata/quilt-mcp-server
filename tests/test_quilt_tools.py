@@ -2,7 +2,7 @@ import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
 
-from quilt import (
+from quilt_mcp import (
     auth_check,
     packages_list,
     package_browse,

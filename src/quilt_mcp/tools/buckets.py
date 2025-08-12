@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, List
-from .. import mcp
+from ..server import mcp
 from ..constants import DEFAULT_BUCKET
 
 # Helpers

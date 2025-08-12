@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from quilt import (
+from quilt_mcp import (
     bucket_objects_list,
     bucket_object_info,
     bucket_object_text,

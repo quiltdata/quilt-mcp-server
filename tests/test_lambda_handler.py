@@ -3,7 +3,7 @@ import json
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 
-from quilt.lambda_handler import handler, handle_mcp_request, handle_mcp_info_request
+from quilt_mcp.handlers.lambda_handler import handler, handle_mcp_request, handle_mcp_info_request
 
 class TestLambdaHandler:
     """Test suite for Lambda handler."""

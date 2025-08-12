@@ -92,7 +92,7 @@ token:
 # Local HTTP server
 remote-run:
 	$(UV) sync
-	$(UVRUN) fastmcp dev quilt/remote.py
+	$(UVRUN) fastmcp dev entry_points/dev_server.py
 
 remote-test:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."
@@ -142,18 +142,18 @@ stdio-config:
 	@echo '  "mcpServers": {'
 	@echo '    "quilt": {'
 	@echo '      "command": "uv",'
-	@echo '      "args": ["run", "-m", "quilt.main"]'
+	@echo '      "args": ["run", "entry_points/stdio_server.py"]'
 	@echo '    }'
 	@echo '  }'
 	@echo '}'
 
 stdio-inspector:
 	$(UV) sync
-	$(INSPECTOR) --server-command "$(UV)" --server-args "run -m quilt.main"
+	$(INSPECTOR) --server-command "$(UV)" --server-args "run entry_points/stdio_server.py"
 
 stdio-run:
 	$(UV) sync
-	$(UVRUN) $(PY) -m quilt.main
+	$(UVRUN) $(PY) entry_points/stdio_server.py
 
 # Tests
 pytest: deps-test

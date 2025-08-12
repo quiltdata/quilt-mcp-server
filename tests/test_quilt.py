@@ -1,6 +1,6 @@
 import pytest
 import quilt3
-from quilt import (
+from quilt_mcp import (
     packages_search,
     packages_list,
     package_browse,
@@ -324,7 +324,7 @@ class TestQuiltAPI:
         # Clean up uploaded test files
         try:
             for item in test_items:
-                from quilt import bucket_object_info
+                from quilt_mcp import bucket_object_info
                 # Verify file was uploaded, then we could delete it if there was a delete tool
                 info_result = bucket_object_info(f"{KNOWN_BUCKET}/{item['key']}")
                 if "error" not in info_result:

@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import os
 import quilt3
-from .. import mcp
+from ..server import mcp
 from ..constants import DEFAULT_REGISTRY
 
 # Internal helper replicated from monolith (will be removed there)

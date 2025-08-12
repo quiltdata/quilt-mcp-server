@@ -7,7 +7,7 @@ import os
 # Add the project root to the path to import the stack
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from quilt_mcp_stack import QuiltMcpStack
+from deployment.cdk.quilt_mcp_stack import QuiltMcpStack
 
 class TestQuiltMcpStack:
     """Test suite for the CDK stack with Cognito OAuth 2.0 client credentials."""
