@@ -7,6 +7,21 @@ import quilt3
 from ..constants import DEFAULT_REGISTRY
 from ..server import mcp
 
+# Helpers
+
+def _normalize_registry(bucket_or_uri: str) -> str:
+    """Normalize registry input to s3:// URI format.
+    
+    Args:
+        bucket_or_uri: Either a bucket name (e.g., "my-bucket") or s3:// URI (e.g., "s3://my-bucket")
+    
+    Returns:
+        Full s3:// URI format (e.g., "s3://my-bucket")
+    """
+    if bucket_or_uri.startswith("s3://"):
+        return bucket_or_uri
+    return f"s3://{bucket_or_uri}"
+
 
 @mcp.tool()
 def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
@@ -20,8 +35,9 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
     Returns:
         Dict with list of package names.
     """
-    # Pass registry to quilt3.list_packages(), then apply filtering
-    pkgs = list(quilt3.list_packages(registry=registry))  # Convert generator to list
+    # Normalize registry and pass to quilt3.list_packages(), then apply filtering
+    normalized_registry = _normalize_registry(registry)
+    pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
 
     # Apply prefix filtering if specified
     if prefix:
@@ -65,7 +81,8 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
         Dict with list of package contents (file/folder paths).
     """
     # Use the provided registry
-    pkg = quilt3.Package.browse(package_name, registry=registry)
+    normalized_registry = _normalize_registry(registry)
+    pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     contents = list(pkg.keys())
 
     # Apply top limit if specified
@@ -87,6 +104,7 @@ def package_contents_search(package_name: str, query: str, registry: str = DEFAU
         Dict with matching paths and count of results.
     """
     # Use the provided registry
-    pkg = quilt3.Package.browse(package_name, registry=registry)
+    normalized_registry = _normalize_registry(registry)
+    pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     matches = [k for k in pkg.keys() if query.lower() in k.lower()]
     return {"matches": matches, "count": len(matches)}
