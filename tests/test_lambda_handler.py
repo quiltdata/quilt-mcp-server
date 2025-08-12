@@ -87,7 +87,7 @@ class TestLambdaHandler:
 
     def test_handler_exception(self):
         """Test handler with exception."""
-        with patch('quilt.lambda_handler.handle_mcp_info_request', side_effect=Exception('Test error')):
+        with patch('quilt_mcp.handlers.lambda_handler.handle_mcp_info_request', side_effect=Exception('Test error')):
             event = {
                 'httpMethod': 'GET',
                 'path': '/mcp/',
@@ -136,7 +136,7 @@ class TestLambdaHandler:
         mock_tool.description = 'Test tool'
         mock_tool.parameters = {'type': 'object'}
 
-        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
             'test_tool': mock_tool
         }):
             result = await handle_mcp_request(request_data)
@@ -163,9 +163,9 @@ class TestLambdaHandler:
             }
         }
 
-        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
             'test_tool': Mock()
-        }), patch('quilt.lambda_handler.mcp.call_tool', return_value=[Mock(text=json.dumps({'result': 'success', 'args': {'param1': 'value1'}}))]):
+        }), patch('quilt_mcp.handlers.lambda_handler.mcp.call_tool', return_value=[Mock(text=json.dumps({'result': 'success', 'args': {'param1': 'value1'}}))]):
             result = await handle_mcp_request(request_data)
 
             assert result['jsonrpc'] == '2.0'
@@ -186,7 +186,7 @@ class TestLambdaHandler:
             }
         }
 
-        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {}):
+        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {}):
             result = await handle_mcp_request(request_data)
 
             assert result['jsonrpc'] == '2.0'
@@ -210,9 +210,9 @@ class TestLambdaHandler:
             }
         }
 
-        with patch('quilt.lambda_handler.mcp._tool_manager._tools', {
+        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
             'failing_tool': Mock()
-        }), patch('quilt.lambda_handler.mcp.call_tool', side_effect=Exception('Tool failed')):
+        }), patch('quilt_mcp.handlers.lambda_handler.mcp.call_tool', side_effect=Exception('Tool failed')):
             result = await handle_mcp_request(request_data)
 
             assert result['jsonrpc'] == '2.0'
