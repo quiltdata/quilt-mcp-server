@@ -11,6 +11,17 @@ def _normalize_bucket(uri_or_name: str) -> str:
 
 @mcp.tool()
 def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "") -> Dict[str, Any]:
+    """List objects in an S3 bucket with optional prefix filtering.
+    
+    Args:
+        bucket: S3 bucket name or s3:// URI (default: DEFAULT_BUCKET)
+        prefix: Filter objects by prefix (default: "")
+        max_keys: Maximum number of objects to return, 1-1000 (default: 100)
+        continuation_token: Token for paginating through large result sets (default: "")
+    
+    Returns:
+        Dict with bucket info, objects list, and pagination details.
+    """
     import boto3
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
@@ -27,6 +38,14 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
 
 @mcp.tool()
 def bucket_object_info(s3_uri: str) -> Dict[str, Any]:
+    """Get metadata information for a specific S3 object.
+    
+    Args:
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/object")
+    
+    Returns:
+        Dict with object metadata including size, content type, etag, and modification date.
+    """
     import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
@@ -39,6 +58,16 @@ def bucket_object_info(s3_uri: str) -> Dict[str, Any]:
 
 @mcp.tool()
 def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> Dict[str, Any]:
+    """Read text content from an S3 object.
+    
+    Args:
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file.txt")
+        max_bytes: Maximum bytes to read (default: 65536)
+        encoding: Text encoding to use (default: "utf-8")
+    
+    Returns:
+        Dict with decoded text content and metadata.
+    """
     import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
@@ -58,6 +87,16 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
 
 @mcp.tool()
 def bucket_objects_put(bucket: str, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Upload multiple objects to an S3 bucket.
+    
+    Args:
+        bucket: S3 bucket name or s3:// URI
+        items: List of objects to upload, each with 'key' and either 'text' or 'data' (base64)
+               Optional: 'content_type', 'encoding' (for text), 'metadata' dict
+    
+    Returns:
+        Dict with upload results and summary statistics.
+    """
     import boto3, base64
     bkt = _normalize_bucket(bucket)
     if not items: return {"error": "items list is empty", "bucket": bkt}
@@ -93,6 +132,16 @@ def bucket_objects_put(bucket: str, items: List[Dict[str, Any]]) -> Dict[str, An
 
 @mcp.tool()
 def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> Dict[str, Any]:
+    """Fetch binary or text data from an S3 object.
+    
+    Args:
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file")
+        max_bytes: Maximum bytes to read (default: 65536)
+        base64_encode: Return binary data as base64 (default: True)
+    
+    Returns:
+        Dict with object data as base64 or text, plus metadata.
+    """
     import boto3, base64
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]

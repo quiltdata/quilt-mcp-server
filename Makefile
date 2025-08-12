@@ -12,7 +12,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector remote-kill deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-test remote-inspector remote-kill deps-test deps-lint deps-all
 
 # Test event generation pattern
 tests/events/%.json: tests/generate_lambda_events.py
@@ -45,7 +45,8 @@ help:
 	@echo "  stdio-inspector    Launch MCP Inspector for stdio server"
 	@echo ""
 	@echo "Remote Tasks:" 
-	@echo "  remote-run         Run local HTTP MCP server (remote.py)"
+	@echo "  remote-run         Run local HTTP MCP server (Python direct)"
+	@echo "  remote-hotload     Run local HTTP MCP server with FastMCP hot reload"
 	@echo "  remote-test        Test local FastMCP server with session management"
 	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-kill        Stop local HTTP MCP server"
@@ -101,9 +102,11 @@ token:
 	@$(TOKEN_CMD)
 
 # Local HTTP server
-remote-run:
-	$(UV) sync
-	$(UVRUN) fastmcp dev entry_points/dev_server.py
+remote-run: setup
+	$(UVRUN) python entry_points/dev_server.py
+
+remote-hotload: setup
+	$(UVRUN) fastmcp dev entry_points/dev_server.py:mcp --with-editable .
 
 remote-test:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."
@@ -158,12 +161,10 @@ stdio-config:
 	@echo '  }'
 	@echo '}'
 
-stdio-inspector:
-	$(UV) sync
+stdio-inspector: setup
 	$(INSPECTOR) --server-command "$(UV)" --server-args "run entry_points/stdio_server.py"
 
-stdio-run:
-	$(UV) sync
+stdio-run: setup
 	$(UVRUN) $(PY) entry_points/stdio_server.py
 
 # Tests

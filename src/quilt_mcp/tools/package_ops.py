@@ -37,10 +37,34 @@ def _collect_objects_into_package(pkg: "quilt3.Package", s3_uris: List[str], fla
 
 @mcp.tool()
 def package_create(package_name: str, s3_uris: List[str], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", flatten: bool = True) -> Dict[str, Any]:
+    """Create a new Quilt package from S3 objects.
+    
+    Args:
+        package_name: Name for the new package (e.g., "username/package-name")
+        s3_uris: List of S3 URIs to include in the package
+        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
+        metadata: Optional metadata dict to attach to the package
+        message: Commit message for package creation (default: "Created via package_create tool")
+        flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
+    
+    Returns:
+        Dict with creation status, package details, and list of files added.
+    """
     if not metadata: metadata = {}
     warnings: List[str] = []
-    if not s3_uris: return {"error": "No S3 URIs provided"}
-    if not package_name: return {"error": "Package name is required"}
+    
+    # Debug logging
+    import json
+    debug_info = {
+        "package_name": package_name,
+        "s3_uris": s3_uris,
+        "s3_uris_type": type(s3_uris).__name__,
+        "s3_uris_len": len(s3_uris) if s3_uris else "None/Empty"
+    }
+    print(f"DEBUG package_create input: {json.dumps(debug_info, indent=2)}")
+    
+    if not s3_uris: return {"error": "No S3 URIs provided", "debug": debug_info}
+    if not package_name: return {"error": "Package name is required", "debug": debug_info}
     pkg = quilt3.Package()
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added: return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
@@ -53,6 +77,19 @@ def package_create(package_name: str, s3_uris: List[str], registry: str = DEFAUL
 
 @mcp.tool()
 def package_update(package_name: str, s3_uris: List[str], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Added objects via package_update tool", flatten: bool = True) -> Dict[str, Any]:
+    """Update an existing Quilt package by adding new S3 objects.
+    
+    Args:
+        package_name: Name of the existing package to update (e.g., "username/package-name")
+        s3_uris: List of S3 URIs to add to the package
+        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
+        metadata: Optional metadata dict to merge with existing package metadata
+        message: Commit message for package update (default: "Added objects via package_update tool")
+        flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
+    
+    Returns:
+        Dict with update status, package details, and list of files added.
+    """
     if not metadata: metadata = {}
     if not s3_uris: return {"error": "No S3 URIs provided"}
     if not package_name: return {"error": "package_name is required for package_update"}
@@ -77,7 +114,15 @@ def package_update(package_name: str, s3_uris: List[str], registry: str = DEFAUL
 
 @mcp.tool()
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> Dict[str, Any]:
-    """Delete a package from the registry."""
+    """Delete a Quilt package from the registry.
+    
+    Args:
+        package_name: Name of the package to delete (e.g., "username/package-name")
+        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
+    
+    Returns:
+        Dict with deletion status and confirmation message.
+    """
     if not package_name:
         return {"error": "package_name is required for package deletion"}
     

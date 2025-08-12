@@ -8,8 +8,8 @@ It runs the MCP server with streamable HTTP transport on localhost.
 from __future__ import annotations
 import quilt_mcp
 
-# Export the server for fastmcp dev
-server = quilt_mcp.mcp
+# Export the configured server for fastmcp dev
+mcp = quilt_mcp.mcp
 
 def main() -> None:
     """Run the development HTTP server."""
