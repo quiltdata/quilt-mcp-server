@@ -1,7 +1,7 @@
 [project]
-name = "fast-mcp-server"
+name = "quilt-mcp-server"
 version = "0.1.0"
-description = "Collection of FastMCP servers"
+description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,6 +11,14 @@ dependencies = [
     "boto3>=1.34.0",
     "httpx>=0.27.0",
 ]
+
+[project.scripts]
+quilt-mcp-dev = "entry_points.dev_server:main"
+quilt-mcp-stdio = "entry_points.stdio_server:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 test = [
@@ -28,10 +36,11 @@ lint = [
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
+    "yamllint>=1.35.0",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "quilt"]
+testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

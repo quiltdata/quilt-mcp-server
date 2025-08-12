@@ -43,23 +43,30 @@ docker build --platform linux/amd64 -t quilt-mcp-builder -f packager/Dockerfile 
 docker run --rm --platform linux/amd64 -v *:/output --entrypoint="" quilt-mcp-builder *
 docker images -q quilt-mcp-builder
 docker rmi quilt-mcp-builder
+
+# Local development with external access
+make remote-export
 ```
 
 ### Testing & Validation
 
 ```bash
 # Endpoint testing
-./tests/test-endpoint.sh
-./tests/test-endpoint.sh -v
-./tests/test-endpoint.sh -f
-./tests/test-endpoint.sh -t
-./tests/test-endpoint.sh --no-auth
-./tests/test-endpoint.sh --token *
+./scripts/test-endpoint.sh
+./scripts/test-endpoint.sh -v
+./scripts/test-endpoint.sh -f
+./scripts/test-endpoint.sh -t
+./scripts/test-endpoint.sh -l
+./scripts/test-endpoint.sh -l --list-tools
+./scripts/test-endpoint.sh -l package_create
+./scripts/test-endpoint.sh -l -v auth_check
+./scripts/test-endpoint.sh --no-auth
+./scripts/test-endpoint.sh --token *
 
 # Lambda testing
-./tests/test_lambda.sh
-uv run python -m pytest tests/
-uv run python tests/test_*.py
+./scripts/test_lambda.sh
+uv run python -m pytest quilt/tests/
+uv run python quilt/tests/test_*.py
 ```
 
 ### AWS Operations
@@ -152,6 +159,8 @@ head *
 tail *
 grep -r * .
 cat *
+make *
+curl *
 
 # Process management
 timeout * *
@@ -187,8 +196,8 @@ These commands are specifically for testing and validation:
 
 # Individual component testing  
 ./packager/package-lambda.sh -t tools-list
-./tests/test-endpoint.sh -v -f
-uv run python tests/test_lambda_handler.py
+./scripts/test-endpoint.sh -v -f
+uv run python quilt/tests/test_lambda_handler.py
 
 # Authentication flow testing
 TOKEN=$(./scripts/get_token.sh) && curl -H "Authorization: Bearer $TOKEN" -X POST https://*/mcp/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
@@ -212,6 +221,52 @@ The following environment variables are safe to use:
 - No secrets are logged or exposed in responses
 - All authentication uses OAuth 2.0 Client Credentials flow
 
+## Tool Testing Configuration
+
+MCP tool testing is configured via `scripts/test-tools.json`, which defines test arguments for each tool:
+
+```bash
+# List all available test tools
+./scripts/test-endpoint.sh -l --list-tools
+
+# Test specific tools locally  
+./scripts/test-endpoint.sh -l package_create
+./scripts/test-endpoint.sh -l -v bucket_objects_list
+
+# Edit test-tools.json to customize test parameters
+```
+
+The test configuration includes realistic test data for all MCP tools including:
+- Authentication and filesystem checks
+- Package operations (create, update, delete, browse, search)
+- S3 bucket operations (list, fetch, put, metadata)
+
+## Development Server Options
+
+### Local Development
+```bash
+make remote-run        # Local server on http://127.0.0.1:8000/mcp
+make remote-hotload    # FastMCP hot reload development server
+```
+
+### External Access via ngrok
+```bash
+make remote-export     # Expose local server via ngrok tunnel
+```
+
+The `remote-export` command:
+- Starts the MCP server locally on port 8000
+- Creates an ngrok tunnel for external access
+- Provides a public HTTPS URL for testing with external clients
+- Automatically handles cleanup when stopped with Ctrl+C
+- Requires ngrok installation: `brew install ngrok`
+
+Use `remote-export` for:
+- Testing with Claude Desktop from different machines
+- Sharing your development server with team members
+- Testing MCP integrations from external services
+- Demonstrating MCP functionality remotely
+
 ## Workflow Documentation
 
 1. **Build**: `./scripts/build.sh build` - Docker package + local test
@@ -219,4 +274,4 @@ The following environment variables are safe to use:
 3. **Test**: `./scripts/build.sh test` - End-to-end endpoint testing
 4. **Debug**: `./scripts/check_logs.sh` - View Lambda logs for troubleshooting
 
-For comprehensive testing: `./scripts/build.sh deploy && ./tests/test-endpoint.sh -v -f`
+For comprehensive testing: `./scripts/build.sh deploy && ./scripts/test-endpoint.sh -v -f`

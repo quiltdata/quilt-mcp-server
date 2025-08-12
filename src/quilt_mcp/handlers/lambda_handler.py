@@ -1,13 +1,10 @@
-import json
 import asyncio
-from typing import Dict, Any
+import json
 import logging
-import sys
 import os
+from typing import Any
 
-# Add the current directory to path to import our local quilt module
-sys.path.insert(0, os.path.dirname(__file__))
-from quilt import mcp  # type: ignore
+from .. import mcp
 
 # Force rebuild timestamp: 2025-08-10T00:58:00Z
 
@@ -19,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     AWS Lambda handler for the Quilt MCP server.
     Processes HTTP requests and returns MCP-compatible responses.
@@ -29,30 +26,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         os.chdir('/tmp')
     except Exception:
         pass
-    
+
     # Create directories that might be needed (safe if already present)
     os.makedirs('/tmp/.config', exist_ok=True)
     os.makedirs('/tmp/.cache', exist_ok=True)
     os.makedirs('/tmp/.local/share', exist_ok=True)
     os.makedirs('/tmp/quilt', exist_ok=True)
-        
+
     # Create quilt3 directories
     os.makedirs('/tmp/quilt/cache', exist_ok=True)
     os.makedirs('/tmp/quilt/tempfiles', exist_ok=True)
-    
+
     logger.debug("Lambda handler invoked")
     logger.debug(f"Event keys: {list(event.keys())}")
     logger.debug(f"Working directory: {os.getcwd()}")
     logger.debug(f"HOME: {os.environ.get('HOME')}")
     logger.debug(f"QUILT_CONFIG_DIR: {os.environ.get('QUILT_CONFIG_DIR')}")
     logger.debug(f"XDG_CONFIG_HOME: {os.environ.get('XDG_CONFIG_HOME')}")
-    
+
     logger.info("Lambda handler called")
     logger.debug(f"Event: {json.dumps(event, default=str)}")
-    
+
     try:
         # Parse the incoming request - handle both REST API and HTTP API v2 formats
-        http_method = (event.get('httpMethod') or 
+        http_method = (event.get('httpMethod') or
                        event.get('requestContext', {}).get('http', {}).get('method', 'GET'))
         path = event.get('path', event.get('rawPath', ''))
         query_params = event.get('queryStringParameters') or {}
@@ -60,7 +57,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         body = event.get('body', '')
 
         logger.info(f"Request: {http_method} {path}")
-        
+
         # Handle CORS preflight
         if http_method == 'OPTIONS':
             logger.debug("Handling CORS preflight (OPTIONS)")
@@ -73,7 +70,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 },
                 'body': ''
             }
-        
+
         # Parse request body if present
         request_data = {}
         if body:
@@ -81,7 +78,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 request_data = json.loads(body)
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse request body: {body}")
-        
+
         # Handle MCP requests
         if http_method == 'POST':
             # Handle MCP method calls
@@ -89,7 +86,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             # Handle GET requests (server info, capabilities, etc.)
             response_data = asyncio.run(handle_mcp_info_request(query_params))
-        
+
         return {
             'statusCode': 200,
             'headers': {
@@ -100,7 +97,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             },
             'body': json.dumps(response_data, default=str)
         }
-        
+
     except Exception as e:
         logger.error(f"Handler error: {str(e)}", exc_info=True)
         return {
@@ -114,15 +111,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             })
         }
 
-async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
+async def handle_mcp_request(request_data: dict[str, Any]) -> dict[str, Any]:
     """Handle MCP method calls."""
     try:
         method = request_data.get('method', '')
         params = request_data.get('params', {})
         request_id = request_data.get('id', 1)
-        
+
         logger.info(f"MCP method call: {method}")
-        
+
         if method == 'tools/list':
             # Return available tools
             tools = []
@@ -139,18 +136,18 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                     'description': tool.description or '',
                     'inputSchema': input_schema
                 })
-            
+
             return {
                 'jsonrpc': '2.0',
                 'id': request_id,
                 'result': {'tools': tools}
             }
-            
+
         elif method == 'tools/call':
             # Call a specific tool
             tool_name = params.get('name', '')
             tool_args = params.get('arguments', {})
-            
+
             if tool_name in mcp._tool_manager._tools:
                 try:
                     result = await mcp.call_tool(tool_name, tool_args)
@@ -161,7 +158,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                         content_text = json.dumps(actual_result, indent=2)
                     else:
                         content_text = json.dumps(result, indent=2, default=str)
-                    
+
                     return {
                         'jsonrpc': '2.0',
                         'id': request_id,
@@ -193,7 +190,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                         'message': f'Tool not found: {tool_name}'
                     }
                 }
-        
+
         elif method == 'initialize':
             # Handle MCP initialization
             return {
@@ -212,7 +209,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 }
             }
-        
+
         else:
             return {
                 'jsonrpc': '2.0',
@@ -222,7 +219,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
                     'message': f'Method not found: {method}'
                 }
             }
-            
+
     except Exception as e:
         logger.error(f"MCP request error: {str(e)}")
         return {
@@ -234,7 +231,7 @@ async def handle_mcp_request(request_data: Dict[str, Any]) -> Dict[str, Any]:
             }
         }
 
-async def handle_mcp_info_request(query_params: Dict[str, Any]) -> Dict[str, Any]:
+async def handle_mcp_info_request(query_params: dict[str, Any]) -> dict[str, Any]:
     """Handle GET requests for server information."""
     return {
         'name': 'quilt-mcp-server',

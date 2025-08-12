@@ -3,29 +3,30 @@
 Generate Lambda test events for API Gateway integration testing.
 """
 
-import json
-import base64
 import argparse
-from typing import Dict, Any, Optional
+import base64
+import json
+from typing import Any
+
 
 def create_api_gateway_event(
     method: str = "POST",
     path: str = "/mcp",
-    body: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-    query_params: Optional[Dict[str, str]] = None,
+    body: str | None = None,
+    headers: dict[str, str] | None = None,
+    query_params: dict[str, str] | None = None,
     stage: str = "prod"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create an API Gateway proxy event for Lambda testing."""
-    
+
     default_headers = {
         "Content-Type": "application/json",
         "User-Agent": "test-client/1.0"
     }
-    
+
     if headers:
         default_headers.update(headers)
-    
+
     # Base64 encode body if present
     is_base64_encoded = False
     if body:
@@ -40,7 +41,7 @@ def create_api_gateway_event(
             is_base64_encoded = True
     else:
         encoded_body = None
-    
+
     event = {
         "resource": path,
         "path": path,
@@ -84,10 +85,10 @@ def create_api_gateway_event(
         "body": encoded_body,
         "isBase64Encoded": is_base64_encoded
     }
-    
+
     return event
 
-def create_mcp_tools_list_event() -> Dict[str, Any]:
+def create_mcp_tools_list_event() -> dict[str, Any]:
     """Create a specific event for MCP tools/list request."""
     mcp_request = {
         "jsonrpc": "2.0",
@@ -95,7 +96,7 @@ def create_mcp_tools_list_event() -> Dict[str, Any]:
         "method": "tools/list",
         "params": {}
     }
-    
+
     return create_api_gateway_event(
         method="POST",
         path="/mcp",
@@ -103,7 +104,7 @@ def create_mcp_tools_list_event() -> Dict[str, Any]:
         headers={"Content-Type": "application/json"}
     )
 
-def create_mcp_resources_list_event() -> Dict[str, Any]:
+def create_mcp_resources_list_event() -> dict[str, Any]:
     """Create a specific event for MCP resources/list request."""
     mcp_request = {
         "jsonrpc": "2.0",
@@ -111,7 +112,7 @@ def create_mcp_resources_list_event() -> Dict[str, Any]:
         "method": "resources/list",
         "params": {}
     }
-    
+
     return create_api_gateway_event(
         method="POST",
         path="/mcp",
@@ -119,7 +120,7 @@ def create_mcp_resources_list_event() -> Dict[str, Any]:
         headers={"Content-Type": "application/json"}
     )
 
-def create_health_check_event() -> Dict[str, Any]:
+def create_health_check_event() -> dict[str, Any]:
     """Create a health check event."""
     return create_api_gateway_event(
         method="GET",
@@ -154,9 +155,9 @@ def main():
         "--body",
         help="Request body for custom events"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Generate the appropriate event
     event = None
     if args.event_type == "tools-list":
@@ -171,13 +172,13 @@ def main():
             path=args.path,
             body=args.body
         )
-    
+
     if event is None:
         raise ValueError(f"Unknown event type: {args.event_type}")
-    
+
     # Output the event
     event_json = json.dumps(event, indent=2)
-    
+
     if args.output:
         with open(args.output, 'w') as f:
             f.write(event_json)

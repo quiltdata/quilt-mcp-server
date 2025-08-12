@@ -3,7 +3,7 @@ set -e
 
 # Script to test Lambda function with predefined or custom events
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$PROJECT_ROOT/scripts/common.sh"
 
 # Default values
@@ -102,33 +102,26 @@ if [ -n "$CUSTOM_EVENT" ]; then
         log_info "Using custom event file: $EVENT_FILE"
     fi
 else
-    # Generate event file
-    EVENT_FILE="$SCRIPT_DIR/test-event-${TEST_TYPE}-$(date +%s).json"
+    # Use Makefile-generated event file
+    EVENT_FILE="$PROJECT_ROOT/tests/events/${TEST_TYPE}.json"
     
     if [ "$VERBOSE" = true ]; then
-        log_info "Generating test event for: $TEST_TYPE"
+        log_info "Using Makefile-generated test event for: $TEST_TYPE"
         log_info "Event file: $EVENT_FILE"
     fi
     
-    # Generate event using the existing script
-    case "$TEST_TYPE" in
-        tools-list)
-            python "$PROJECT_ROOT/tests/generate_lambda_events.py" --event-type tools-list -o "$EVENT_FILE"
-            ;;
-        resources-list)
-            python "$PROJECT_ROOT/tests/generate_lambda_events.py" --event-type resources-list -o "$EVENT_FILE"
-            ;;
-        health-check)
-            python "$PROJECT_ROOT/tests/generate_lambda_events.py" --event-type health-check -o "$EVENT_FILE"
-            ;;
-        custom)
-            if [ -z "$CUSTOM_BODY" ]; then
-                CUSTOM_BODY='{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-                log_info "No custom body provided, using default: $CUSTOM_BODY"
-            fi
-            python "$PROJECT_ROOT/tests/generate_lambda_events.py" --event-type custom --body "$CUSTOM_BODY" -o "$EVENT_FILE"
-            ;;
-    esac
+    # Generate event using Makefile if it doesn't exist
+    if [ ! -f "$EVENT_FILE" ]; then
+        if [ "$VERBOSE" = true ]; then
+            log_info "Generating event file using Makefile..."
+        fi
+        (cd "$PROJECT_ROOT" && make "tests/events/${TEST_TYPE}.json")
+        
+        if [ ! -f "$EVENT_FILE" ]; then
+            log_error "Failed to generate event file: $EVENT_FILE"
+            exit 1
+        fi
+    fi
     
     if [ $? -ne 0 ]; then
         log_error "❌ Failed to generate event file"
