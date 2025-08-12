@@ -38,7 +38,8 @@ help:
 	@echo ""
 	@echo "Remote Tasks:" 
 	@echo "  remote-run         Run local HTTP MCP server (remote.py)"
-	@echo "  remote-test        curl tools/list against local HTTP server"
+	@echo "  remote-test        Test local FastMCP server with session management"
+	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
 	@echo ""
 
@@ -91,22 +92,33 @@ remote-run:
 
 remote-test:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."
-	@SESSION_ID=$$(curl -s -X POST http://localhost:8000/mcp/ \
+	@SESSION_ID=$$(curl -s -i -X POST http://localhost:8000/mcp \
 	  -H "Content-Type: application/json" \
+	  -H "Accept: application/json, text/event-stream" \
 	  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
-	  | jq -r '.result.sessionId // empty' 2>/dev/null); \
+	  | grep -i "mcp-session-id:" | head -1 | sed 's/.*mcp-session-id: *\([^ \r]*\).*/\1/' | tr -d '\r'); \
 	if [ -n "$$SESSION_ID" ]; then \
 	  echo "Got session ID: $$SESSION_ID"; \
-	  curl -s -X POST http://localhost:8000/mcp/ \
+	  curl -s -X POST http://localhost:8000/mcp \
 	    -H "Content-Type: application/json" \
+	    -H "Accept: application/json, text/event-stream" \
 	    -H "Mcp-Session-Id: $$SESSION_ID" \
-	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | jq .; \
+	    -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null; \
+	  curl -s -X POST http://localhost:8000/mcp \
+	    -H "Content-Type: application/json" \
+	    -H "Accept: application/json, text/event-stream" \
+	    -H "Mcp-Session-Id: $$SESSION_ID" \
+	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq .; \
 	else \
 	  echo "No session ID returned, testing without session management..."; \
-	  curl -s -X POST http://localhost:8000/mcp/ \
+	  curl -s -X POST http://localhost:8000/mcp \
 	    -H "Content-Type: application/json" \
-	    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | jq .; \
+	    -H "Accept: application/json, text/event-stream" \
+	    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq .; \
 	fi
+
+remote-test-full:
+	./scripts/test-endpoint.sh -l -v
 
 remote-inspector:
 	@if [ -z "$(API_ENDPOINT)" ]; then echo "API_ENDPOINT not set in .config"; exit 1; fi; \
