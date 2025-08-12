@@ -48,7 +48,7 @@ help:
 	@echo "Remote Tasks:" 
 	@echo "  remote-run         Run local HTTP MCP server (Python direct)"
 	@echo "  remote-hotload     Run local HTTP MCP server with FastMCP hot reload"
-	@echo "  remote-export      Expose local MCP server via ngrok tunnel"
+	@echo "  remote-export      Expose local MCP server via ngrok (uniformly-alive-halibut.ngrok-free.app)"
 	@echo "  remote-test        Test local FastMCP server with session management"
 	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-kill        Stop local HTTP MCP server"
@@ -117,13 +117,13 @@ remote-export: setup
 	SERVER_PID=$$!; \
 	echo "Server started with PID: $$SERVER_PID"; \
 	sleep 3; \
-	echo "Starting ngrok tunnel..."; \
-	ngrok http 8000 --log=stdout & \
+	echo "Starting ngrok tunnel with static domain..."; \
+	ngrok http 8000 --domain=uniformly-alive-halibut.ngrok-free.app --log=stdout & \
 	NGROK_PID=$$!; \
 	echo "Ngrok started with PID: $$NGROK_PID"; \
 	echo ""; \
-	echo "🌐 Your MCP server will be available at the ngrok URL shown above"; \
-	echo "📋 MCP endpoint will be: https://your-ngrok-url.ngrok.io/mcp"; \
+	echo "🌐 Your MCP server is available at: https://uniformly-alive-halibut.ngrok-free.app"; \
+	echo "📋 MCP endpoint: https://uniformly-alive-halibut.ngrok-free.app/mcp"; \
 	echo ""; \
 	echo "Press Ctrl+C to stop both server and ngrok"; \
 	trap 'echo "Stopping server and ngrok..."; kill $$SERVER_PID $$NGROK_PID 2>/dev/null; exit' INT; \

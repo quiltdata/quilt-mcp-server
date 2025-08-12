@@ -256,14 +256,14 @@ make remote-export     # Expose local server via ngrok tunnel
 
 The `remote-export` command:
 - Starts the MCP server locally on port 8000
-- Creates an ngrok tunnel for external access
-- Provides a public HTTPS URL for testing with external clients
+- Creates an ngrok tunnel with predictable URL: `https://uniformly-alive-halibut.ngrok-free.app`
+- MCP endpoint available at: `https://uniformly-alive-halibut.ngrok-free.app/mcp`
 - Automatically handles cleanup when stopped with Ctrl+C
-- Requires ngrok installation: `brew install ngrok`
+- Requires ngrok installation and authtoken configuration
 
 Use `remote-export` for:
 - Testing with Claude Desktop from different machines
-- Sharing your development server with team members
+- Sharing your development server with team members (consistent URL)
 - Testing MCP integrations from external services
 - Demonstrating MCP functionality remotely
 
