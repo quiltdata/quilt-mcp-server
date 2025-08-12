@@ -10,7 +10,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector deps-test deps-lint deps-all
 help:
 	@echo "Quilt MCP Server - Makefile"
 	@echo ""
@@ -24,6 +24,7 @@ help:
 	@echo "  logs               Tail lambda logs (last 10m)"
 	@echo "  token              Print OAuth token (using get_token.sh)"
 	@echo "  pytest             Run pytest suite"
+	@echo "  coverage           Run pytest with coverage report"
 	@echo ""
 	@echo "Build Tasks:" 
 	@echo "  build              Build lambda artifact (scripts/build.sh build)"
@@ -147,4 +148,7 @@ stdio-run:
 
 # Tests
 pytest: deps-test
-	$(UV) run python -m pytest quilt/tests/test_cdk_stack.py quilt/tests/test_lambda_handler.py quilt/tests/test_mcp_response_format.py quilt/tests/test_bucket_tools.py -q
+	$(UV) run python -m pytest
+
+coverage: deps-test
+	$(UV) run python -m pytest --cov=quilt --cov-report=term-missing
