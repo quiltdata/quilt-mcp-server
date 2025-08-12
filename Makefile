@@ -12,7 +12,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-test remote-inspector remote-kill deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-test deps-lint deps-all
 
 # Test event generation pattern
 tests/events/%.json: tests/generate_lambda_events.py
@@ -47,6 +47,7 @@ help:
 	@echo "Remote Tasks:" 
 	@echo "  remote-run         Run local HTTP MCP server (Python direct)"
 	@echo "  remote-hotload     Run local HTTP MCP server with FastMCP hot reload"
+	@echo "  remote-export      Expose local MCP server via ngrok tunnel"
 	@echo "  remote-test        Test local FastMCP server with session management"
 	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-kill        Stop local HTTP MCP server"
@@ -107,6 +108,27 @@ remote-run: setup
 
 remote-hotload: setup
 	$(UVRUN) fastmcp dev entry_points/dev_server.py:mcp --with-editable .
+
+remote-export: setup
+	@echo "🚀 Starting MCP server and exposing via ngrok..."
+	@echo "Make sure ngrok is installed: brew install ngrok (or download from ngrok.com)"
+	@echo ""
+	@echo "Starting MCP server on port 8000..."
+	@$(UVRUN) python entry_points/dev_server.py & \
+	SERVER_PID=$$!; \
+	echo "Server started with PID: $$SERVER_PID"; \
+	sleep 3; \
+	echo "Starting ngrok tunnel..."; \
+	ngrok http 8000 --log=stdout & \
+	NGROK_PID=$$!; \
+	echo "Ngrok started with PID: $$NGROK_PID"; \
+	echo ""; \
+	echo "🌐 Your MCP server will be available at the ngrok URL shown above"; \
+	echo "📋 MCP endpoint will be: https://your-ngrok-url.ngrok.io/mcp"; \
+	echo ""; \
+	echo "Press Ctrl+C to stop both server and ngrok"; \
+	trap 'echo "Stopping server and ngrok..."; kill $$SERVER_PID $$NGROK_PID 2>/dev/null; exit' INT; \
+	wait
 
 remote-test:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."

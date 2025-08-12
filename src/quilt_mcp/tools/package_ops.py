@@ -52,19 +52,8 @@ def package_create(package_name: str, s3_uris: List[str], registry: str = DEFAUL
     """
     if not metadata: metadata = {}
     warnings: List[str] = []
-    
-    # Debug logging
-    import json
-    debug_info = {
-        "package_name": package_name,
-        "s3_uris": s3_uris,
-        "s3_uris_type": type(s3_uris).__name__,
-        "s3_uris_len": len(s3_uris) if s3_uris else "None/Empty"
-    }
-    print(f"DEBUG package_create input: {json.dumps(debug_info, indent=2)}")
-    
-    if not s3_uris: return {"error": "No S3 URIs provided", "debug": debug_info}
-    if not package_name: return {"error": "Package name is required", "debug": debug_info}
+    if not s3_uris: return {"error": "No S3 URIs provided"}
+    if not package_name: return {"error": "Package name is required"}
     pkg = quilt3.Package()
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added: return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
@@ -73,7 +62,21 @@ def package_create(package_name: str, s3_uris: List[str], registry: str = DEFAUL
         except Exception as e: warnings.append(f"Failed to set metadata: {e}")
     try: top_hash = pkg.push(package_name, registry=registry, message=message)
     except Exception as e: return {"error": f"Failed to push package: {e}", "package_name": package_name, "warnings": warnings}
-    return {"status": "success", "action": "created", "package_name": package_name, "registry": registry, "top_hash": top_hash, "entries_added": len(added), "files": added, "metadata_provided": bool(metadata), "warnings": warnings, "message": message}
+    
+    # Ensure all values are JSON serializable
+    result = {
+        "status": "success", 
+        "action": "created", 
+        "package_name": str(package_name), 
+        "registry": str(registry), 
+        "top_hash": str(top_hash), 
+        "entries_added": len(added), 
+        "files": added, 
+        "metadata_provided": bool(metadata), 
+        "warnings": warnings, 
+        "message": str(message)
+    }
+    return result
 
 @mcp.tool()
 def package_update(package_name: str, s3_uris: List[str], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Added objects via package_update tool", flatten: bool = True) -> Dict[str, Any]:

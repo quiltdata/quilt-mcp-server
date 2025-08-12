@@ -14,6 +14,7 @@ FULL_TEST=false
 TOOLS_TEST=false
 LOCAL_TEST=false
 TOOL_NUMBER=""
+LOCAL_TOOL_NAME=""
 STACK_NAME="QuiltMcpStack"
 REGION=""
 USE_AUTH=true
@@ -22,6 +23,31 @@ ACCESS_TOKEN=""
 #==============================================================================
 # FUNCTION DEFINITIONS
 #==============================================================================
+
+list_test_tools() {
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    TEST_TOOLS_FILE="$SCRIPT_DIR/test-tools.json"
+    
+    if [ ! -f "$TEST_TOOLS_FILE" ]; then
+        echo -e "${RED}❌ test-tools.json not found at: $TEST_TOOLS_FILE${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}Available test tools:${NC}"
+    echo "====================="
+    
+    # Get all tool names and descriptions
+    jq -r '.tools | to_entries[] | "\(.key): \(.value.description)"' "$TEST_TOOLS_FILE" 2>/dev/null | while IFS=: read -r tool_name tool_desc; do
+        echo -e "${GREEN}  $tool_name${NC}:$tool_desc"
+    done
+    
+    echo ""
+    echo -e "${BLUE}Usage:${NC}"
+    echo "  $0 -l <tool_name>     # Test specific tool"
+    echo "  $0 -l -v <tool_name>  # Test with verbose output"
+    echo ""
+    echo -e "${BLUE}To modify test parameters, edit:${NC} $TEST_TOOLS_FILE"
+}
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -32,7 +58,7 @@ show_help() {
     echo "  -v, --verbose      Enable verbose output"
     echo "  -f, --full         Run comprehensive Claude.ai simulation tests"
     echo "  -t, --tools [N]    Test each available MCP tool (or just tool N)"
-    echo "  -l, --local        Test local FastMCP server with session management"
+    echo "  -l, --local [TOOL] Test local FastMCP server with session management (optionally test specific tool)"
     echo "  -s, --stack        CloudFormation stack name (default: QuiltMcpStack)"
     echo "  -r, --region       AWS region (default: from env or us-east-1)"
     echo "  -e, --endpoint     Direct endpoint URL (skips CloudFormation lookup)"
@@ -45,6 +71,8 @@ show_help() {
     echo "  $0 -v                                 # Test with verbose output"
     echo "  $0 -t                                 # Test each available tool"
     echo "  $0 -l                                 # Test local FastMCP server"
+    echo "  $0 -l package_create                   # Test specific tool on local server"
+    echo "  $0 -l --list-tools                     # Show available test tools"
     echo "  $0 -f                                 # Run full Claude.ai simulation"
     echo "  $0 --no-auth                          # Test without authentication (legacy)"
     echo "  $0 --token \$TOKEN                    # Test with specific JWT token"
@@ -194,9 +222,40 @@ test_local_fastmcp() {
         return 1
     fi
     
-    # Test 3: Simple tool call with session
-    echo -e "${BLUE}Step 3: Test tool call with session${NC}"
-    TOOL_REQUEST='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"check_quilt_auth","arguments":{}}}'
+    # Test 3: Tool call with session
+    if [ -n "$LOCAL_TOOL_NAME" ]; then
+        echo -e "${BLUE}Step 3: Test specific tool: $LOCAL_TOOL_NAME${NC}"
+        
+        # Load tool configuration from JSON file
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        TEST_TOOLS_FILE="$SCRIPT_DIR/test-tools.json"
+        
+        if [ -f "$TEST_TOOLS_FILE" ]; then
+            # Get tool arguments from JSON file
+            TOOL_ARGS=$(jq -r ".tools.\"$LOCAL_TOOL_NAME\".arguments // {}" "$TEST_TOOLS_FILE" 2>/dev/null)
+            TOOL_DESC=$(jq -r ".tools.\"$LOCAL_TOOL_NAME\".description // \"Test $LOCAL_TOOL_NAME\"" "$TEST_TOOLS_FILE" 2>/dev/null)
+            
+            if [ "$TOOL_ARGS" != "null" ] && [ -n "$TOOL_ARGS" ]; then
+                if [ "$VERBOSE" = true ]; then
+                    echo -e "${BLUE}Tool description: $TOOL_DESC${NC}"
+                    echo -e "${BLUE}Using arguments from test-tools.json:${NC}"
+                    echo "$TOOL_ARGS" | jq . 2>/dev/null || echo "$TOOL_ARGS"
+                fi
+                
+                # Build the full request with arguments from JSON
+                TOOL_REQUEST="{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"$LOCAL_TOOL_NAME\",\"arguments\":$TOOL_ARGS}}"
+            else
+                echo -e "${YELLOW}⚠️  Tool '$LOCAL_TOOL_NAME' not found in test-tools.json, using empty arguments${NC}"
+                TOOL_REQUEST="{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"$LOCAL_TOOL_NAME\",\"arguments\":{}}}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  test-tools.json not found, using empty arguments${NC}"
+            TOOL_REQUEST="{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":\"$LOCAL_TOOL_NAME\",\"arguments\":{}}}"
+        fi
+    else
+        echo -e "${BLUE}Step 3: Test tool call with session${NC}"
+        TOOL_REQUEST='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"auth_check","arguments":{}}}'
+    fi
     
     if [ -n "$SESSION_ID" ]; then
         TOOL_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
@@ -335,66 +394,142 @@ run_tools_tests() {
     echo -e "${BLUE}Available tools to test:${NC}"
     echo "$AVAILABLE_TOOLS" | sed 's/^/  - /'
     
-    # Test each available tool
+    # Path to test tools config
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    TEST_TOOLS_FILE="$SCRIPT_DIR/test-tools.json"
+    if [ ! -f "$TEST_TOOLS_FILE" ]; then
+        echo -e "${YELLOW}⚠️  test-tools.json not found, skipping detailed tool validations${NC}"
+    fi
+
+    # Helper: fetch env var by name from contains_env directive
+    get_env_value() {
+        local name="$1"; eval echo "\${$name}" 2>/dev/null
+    }
+
+    # Test each available tool with config-driven arguments & validations
     TOOL_COUNT=1
     for TOOL_NAME in $AVAILABLE_TOOLS; do
         echo -e "${BLUE}Tool Test $TOOL_COUNT: $TOOL_NAME${NC}"
-        
-        # Create appropriate test arguments based on tool type
-        case "$TOOL_NAME" in
-            "check_quilt_auth"|"check_filesystem_access")
-                TOOL_ARGUMENTS="{}"
-                ;;
-            "list_packages")
-                TOOL_ARGUMENTS='{"limit": 3}'
-                ;;
-            "search_packages")
-                TOOL_ARGUMENTS='{"query": "test", "limit": 2}'
-                ;;
-            "browse_package")
-                TOOL_ARGUMENTS='{"package_name": "akarve/amazon-reviews"}'
-                ;;
-            "search_package_contents")
-                TOOL_ARGUMENTS='{"package_name": "akarve/amazon-reviews", "query": "data"}'
-                ;;
-            *)
-                TOOL_ARGUMENTS="{}"
-                ;;
-        esac
-        
+        # Pull arguments from json file if present else empty
+        if [ -f "$TEST_TOOLS_FILE" ]; then
+            TOOL_ARGUMENTS=$(jq -c --arg name "$TOOL_NAME" '.tools[$name].arguments // {}' "$TEST_TOOLS_FILE" 2>/dev/null)
+            VALIDATIONS=$(jq -c --arg name "$TOOL_NAME" '.tools[$name].validations // {}' "$TEST_TOOLS_FILE" 2>/dev/null)
+        else
+            TOOL_ARGUMENTS="{}"; VALIDATIONS="{}"
+        fi
+
+        [ -z "$TOOL_ARGUMENTS" ] || [ "$TOOL_ARGUMENTS" = "null" ] && TOOL_ARGUMENTS="{}"
+        [ -z "$VALIDATIONS" ] || [ "$VALIDATIONS" = "null" ] && VALIDATIONS="{}"
+
         TOOL_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"$TOOL_NAME\", \"arguments\": $TOOL_ARGUMENTS}}"
         TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
             -H "Content-Type: application/json" \
             $(get_auth_headers) \
             -d "$TOOL_REQUEST")
-        
-        if echo "$TOOL_RESPONSE" | grep -q '"content"'; then
-            # Check if the content contains an error
-            if echo "$TOOL_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null | grep -q '"error"'; then
-                echo -e "${RED}❌ $TOOL_NAME failed (returned error)${NC}"
-                if [ "$VERBOSE" = true ]; then
-                    echo -e "${YELLOW}Response:${NC}"
-                    echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
-                    echo ""
+
+        RAW_TEXT=$(echo "$TOOL_RESPONSE" | jq -r '.result.content[0].text' 2>/dev/null || echo "")
+        # Attempt to parse embedded JSON
+        if echo "$RAW_TEXT" | jq . >/dev/null 2>&1; then
+            RESULT_JSON="$RAW_TEXT"
+        else
+            # Fallback: sometimes tool returns direct object already
+            RESULT_JSON=$(echo "$TOOL_RESPONSE" | jq '.result // empty')
+        fi
+
+        STATUS_ICON="${GREEN}✅${NC}"; FAILURE=false; FAILURE_REASONS=()
+        if echo "$TOOL_RESPONSE" | grep -q '"error"' && ! echo "$TOOL_RESPONSE" | grep -q '"content"'; then
+            FAILURE=true; FAILURE_REASONS+=("RPC error envelope")
+        fi
+        if echo "$RESULT_JSON" | grep -q '"error"'; then
+            FAILURE=true; FAILURE_REASONS+=("Result contains error key")
+        fi
+
+        # Apply validations
+        if [ "$VALIDATIONS" != "{}" ]; then
+            # expect_keys
+            for key in $(echo "$VALIDATIONS" | jq -r '.expect_keys[]?'); do
+                if ! echo "$RESULT_JSON" | jq -e ". | has(\"$key\")" >/dev/null 2>&1; then
+                    FAILURE=true; FAILURE_REASONS+=("missing key $key")
                 fi
-            else
-                echo -e "${GREEN}✅ $TOOL_NAME works${NC}"
-                if [ "$VERBOSE" = true ]; then
-                    echo -e "${BLUE}Response:${NC}"
-                    echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
-                    echo ""
+            done
+            # enum validations
+            echo "$VALIDATIONS" | jq -c '.enum // {}' | while read -r enumobj; do
+                [ "$enumobj" = "{}" ] && continue
+                for enum_key in $(echo "$enumobj" | jq -r 'keys[]'); do
+                    allowed=$(echo "$enumobj" | jq -r --arg k "$enum_key" '.[$k][]')
+                    value=$(echo "$RESULT_JSON" | jq -r --arg k "$enum_key" '.[$k] // empty')
+                    if [ -n "$value" ]; then
+                        match=false
+                        for a in $allowed; do [ "$a" = "$value" ] && match=true; done
+                        if [ "$match" = false ]; then FAILURE=true; FAILURE_REASONS+=("$enum_key value '$value' not in enum"); fi
+                    fi
+                done
+            done
+            # min_items
+            for obj_key in $(echo "$VALIDATIONS" | jq -r '.min_items | keys[]?' 2>/dev/null); do
+                min_required=$(echo "$VALIDATIONS" | jq -r --arg k "$obj_key" '.min_items[$k]')
+                count=$(echo "$RESULT_JSON" | jq -r --arg k "$obj_key" '.[$k] | length' 2>/dev/null || echo 0)
+                if [ "$count" -lt "$min_required" ]; then FAILURE=true; FAILURE_REASONS+=("$obj_key has $count < $min_required items"); fi
+            done
+            # contains_env
+            for arr_key in $(echo "$VALIDATIONS" | jq -r '.contains_env | keys[]?' 2>/dev/null); do
+                env_name=$(echo "$VALIDATIONS" | jq -r --arg k "$arr_key" '.contains_env[$k]')
+                expected=$(get_env_value "$env_name")
+                if [ -n "$expected" ]; then
+                    if ! echo "$RESULT_JSON" | jq -e --arg k "$arr_key" --arg v "$expected" '.[$k][]? | select(. == $v)' >/dev/null 2>&1; then
+                        FAILURE=true; FAILURE_REASONS+=("$arr_key missing expected env value $env_name=$expected")
+                    fi
                 fi
-            fi
-        elif echo "$TOOL_RESPONSE" | grep -q '"error"'; then
-            echo -e "${RED}❌ $TOOL_NAME failed${NC}"
+            done
+            # min_number
+            for num_key in $(echo "$VALIDATIONS" | jq -r '.min_number | keys[]?' 2>/dev/null); do
+                min_required=$(echo "$VALIDATIONS" | jq -r --arg k "$num_key" '.min_number[$k]')
+                value=$(echo "$RESULT_JSON" | jq -r --arg k "$num_key" '.[$k] // 0')
+                if [ "$value" = "null" ] || [ "$value" -lt "$min_required" ]; then FAILURE=true; FAILURE_REASONS+=("$num_key=$value < $min_required"); fi
+            done
+            # min_text_length
+            for txt_key in $(echo "$VALIDATIONS" | jq -r '.min_text_length | keys[]?' 2>/dev/null); do
+                min_len=$(echo "$VALIDATIONS" | jq -r --arg k "$txt_key" '.min_text_length[$k]')
+                value_len=$(echo "$RESULT_JSON" | jq -r --arg k "$txt_key" '.[$k] | length' 2>/dev/null || echo 0)
+                if [ "$value_len" -lt "$min_len" ]; then FAILURE=true; FAILURE_REASONS+=("$txt_key length $value_len < $min_len"); fi
+            done
+            # one_of_keys_non_empty
+            for group in $(echo "$VALIDATIONS" | jq -c '.one_of_keys_non_empty[]?' 2>/dev/null); do
+                found=false
+                for key in $(echo "$group" | jq -r '.[]'); do
+                    if echo "$RESULT_JSON" | jq -e --arg k "$key" '.[$k] | length > 0' >/dev/null 2>&1; then found=true; break; fi
+                done
+                if [ "$found" = false ]; then FAILURE=true; FAILURE_REASONS+=("none of keys $(echo "$group" | jq -r '.[]' | paste -sd/,/) non-empty"); fi
+            done
+            # path_keys
+            for pk in $(echo "$VALIDATIONS" | jq -r '.path_keys[]?' 2>/dev/null); do
+                val=$(echo "$RESULT_JSON" | jq -r --arg k "$pk" '.[$k] // empty')
+                if [ -n "$val" ] && [[ ! "$val" == /* ]]; then FAILURE=true; FAILURE_REASONS+=("$pk not absolute path: $val"); fi
+            done
+            # non_negative
+            for nk in $(echo "$VALIDATIONS" | jq -r '.non_negative[]?' 2>/dev/null); do
+                val=$(echo "$RESULT_JSON" | jq -r --arg k "$nk" '.[$k] // 0')
+                if [ "$val" -lt 0 ]; then FAILURE=true; FAILURE_REASONS+=("$nk negative: $val"); fi
+            done
+        fi
+
+        if [ "$FAILURE" = true ]; then
+            echo -e "${RED}❌ $TOOL_NAME failed validations${NC}"
             if [ "$VERBOSE" = true ]; then
-                echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
+                echo -e "${YELLOW}Reasons:${NC} ${FAILURE_REASONS[*]}"
+                echo -e "${BLUE}Raw tool response:${NC}"
+                echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
+                echo -e "${BLUE}Parsed result JSON:${NC}"
+                echo "$RESULT_JSON" | jq . 2>/dev/null || echo "$RESULT_JSON"
             fi
         else
-            echo -e "${RED}❌ $TOOL_NAME failed (unexpected response)${NC}"
-            echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
+            echo -e "${GREEN}✅ $TOOL_NAME passed${NC}"
+            if [ "$VERBOSE" = true ]; then
+                echo -e "${BLUE}Parsed result:${NC}"
+                echo "$RESULT_JSON" | jq . 2>/dev/null || echo "$RESULT_JSON"
+            fi
         fi
-        
+
         TOOL_COUNT=$((TOOL_COUNT + 1))
     done
     
@@ -537,7 +672,16 @@ while [[ $# -gt 0 ]]; do
             ;;
         -l|--local)
             LOCAL_TEST=true
-            shift
+            # Check if next argument is a tool name or --list-tools
+            if [[ $2 == "--list-tools" ]]; then
+                list_test_tools
+                exit 0
+            elif [[ $2 && ! $2 =~ ^- ]]; then
+                LOCAL_TOOL_NAME="$2"
+                shift 2
+            else
+                shift
+            fi
             ;;
         --no-auth)
             USE_AUTH=false
