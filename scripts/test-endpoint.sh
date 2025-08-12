@@ -57,6 +57,13 @@ show_help() {
     echo "  Use --no-auth for testing legacy unauthenticated endpoints."
 }
 
+dump_logs_on_failure() {
+    if [ -f ".config" ]; then
+        echo -e "${YELLOW}📋 Dumping recent Lambda logs for debugging...${NC}"
+        ./scripts/check_logs.sh -s 5m 2>/dev/null | tail -20 || echo "Failed to retrieve logs"
+    fi
+}
+
 setup_authentication() {
     if [ "$USE_AUTH" = false ]; then
         if [ "$VERBOSE" = true ]; then
@@ -183,6 +190,7 @@ test_local_fastmcp() {
     else
         echo -e "${RED}❌ Tools list failed${NC}"
         echo -e "${YELLOW}Response: $TOOLS_JSON${NC}"
+        dump_logs_on_failure
         return 1
     fi
     
@@ -415,6 +423,7 @@ run_basic_tests() {
         echo -e "${GREEN}✅ Endpoint is protected (HTTP 401 without auth, as expected)${NC}"
     else
         echo -e "${RED}❌ Endpoint connectivity failed (HTTP $HTTP_STATUS)${NC}"
+        dump_logs_on_failure
         exit 1
     fi
 
@@ -450,6 +459,7 @@ run_basic_tests() {
     else
         echo -e "${RED}❌ MCP tools/list method failed${NC}"
         echo -e "${YELLOW}Response: $MCP_RESPONSE${NC}"
+        dump_logs_on_failure
         exit 1
     fi
 
