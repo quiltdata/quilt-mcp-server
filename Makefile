@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 UV ?= uv
-UVRUN ?= uv run --env-file .env
+ENV_FILE ?= .env
+UVRUN ?= uv run --env-file $(ENV_FILE)
 PY ?= python
 INSPECTOR ?= npx -y @modelcontextprotocol/inspector@latest
 TOKEN_CMD := ./scripts/get_token.sh

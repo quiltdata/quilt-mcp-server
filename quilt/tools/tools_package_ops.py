@@ -64,21 +64,9 @@ def package_update(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, me
     warnings: List[str] = []
     try: existing_pkg = quilt3.Package.browse(package_name, registry=registry)
     except Exception as e: return {"error": f"Failed to browse existing package '{package_name}': {e}", "package_name": package_name}
-    new_pkg = quilt3.Package()
-    try:
-        for key in existing_pkg:
-            entry = existing_pkg[key]
-            try:
-                source_uri = getattr(entry, "physical_keys", [None])[0]
-                if source_uri and source_uri.startswith("s3://"):
-                    new_pkg.set(key, source_uri, meta=getattr(entry, "meta", None))
-                else:
-                    warnings.append(f"Skipped entry without S3 source: {key}")
-            except Exception as inner_e:
-                warnings.append(f"Failed to copy entry {key}: {inner_e}")
-    except Exception as e:
-        warnings.append(f"Failed iterating existing package: {e}")
-    added = _collect_objects_into_package(new_pkg, s3_uris, flatten, warnings)
+    # Use the existing package as the base instead of creating a new one
+    updated_pkg = existing_pkg
+    added = _collect_objects_into_package(updated_pkg, s3_uris, flatten, warnings)
     if not added: return {"error": "No new S3 objects were added", "warnings": warnings}
     if metadata:
         try:
@@ -86,9 +74,9 @@ def package_update(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, me
             try: combined.update(existing_pkg.meta)  # type: ignore[arg-type]
             except Exception: pass
             combined.update(metadata)
-            new_pkg.set_meta(combined)
+            updated_pkg.set_meta(combined)
         except Exception as e: warnings.append(f"Failed to set merged metadata: {e}")
-    try: top_hash = new_pkg.push(package_name, registry=registry, message=message)
+    try: top_hash = updated_pkg.push(package_name, registry=registry, message=message)
     except Exception as e: return {"error": f"Failed to push updated package: {e}", "package_name": package_name, "warnings": warnings}
     return {"status": "success", "action": "updated", "package_name": package_name, "registry": registry, "top_hash": top_hash, "new_entries_added": len(added), "files_added": added, "warnings": warnings, "message": message, "metadata_added": bool(metadata)}
 

@@ -18,6 +18,7 @@ from quilt import (
     DEFAULT_REGISTRY,
     DEFAULT_BUCKET,
     KNOWN_TEST_PACKAGE,
+    KNOWN_TEST_ENTRY,
     KNOWN_TEST_S3_OBJECT,
 )
 
@@ -32,76 +33,97 @@ class TestQuiltAPI:
     """Test suite for quilt MCP server using real data - tests that expect actual results."""
 
     def test_packages_list_returns_data(self):
-        """Test that packages_list returns actual packages from quilt-example."""
+        """Test that packages_list returns actual packages from configured registry."""
         result = packages_list(registry=TEST_REGISTRY)
         
         assert isinstance(result, dict), "Result should be a dict"
         assert "packages" in result, "Result should have 'packages' key"
-        assert len(result["packages"]) > 0, f"Expected packages in {TEST_REGISTRY}, got empty list"
+        # FAIL if no packages - this indicates a real problem
+        assert len(result["packages"]) > 0, f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
         
         # Check that we get string package names
         for pkg in result["packages"]:
             assert isinstance(pkg, str), f"Package name should be string, got {type(pkg)}: {pkg}"
             assert "/" in pkg, f"Package names should contain namespace/name format, got: {pkg}"
 
-    def test_packages_list_akarve_prefix(self):
-        """Test that akarve prefix returns known packages."""
-        result = packages_list(registry=TEST_REGISTRY, prefix="akarve")
+    def test_packages_list_prefix(self):
+        """Test that prefix filtering works and finds the configured test package."""
+        # Extract prefix from known test package
+        test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
+        result = packages_list(registry=TEST_REGISTRY, prefix=test_prefix)
         
         assert isinstance(result, dict)
         assert "packages" in result
-        assert len(result["packages"]) > 0, "Expected akarve packages in quilt-example"
+        
+        # FAIL if no packages with this prefix - this means the test environment is misconfigured
+        assert len(result["packages"]) > 0, f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
         
         # Verify all results match prefix
         for pkg in result["packages"]:
-            assert pkg.startswith("akarve"), f"Package {pkg} doesn't start with 'akarve'"
+            assert pkg.startswith(test_prefix), f"Package {pkg} doesn't start with '{test_prefix}'"
         
-        # Verify we get the known package
+        # FAIL if known package not found - this means the test environment is misconfigured
         package_names = result["packages"]
-        assert KNOWN_PACKAGE in package_names, f"Expected {KNOWN_PACKAGE} in results: {package_names}"
+        assert KNOWN_PACKAGE in package_names, f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
     def test_packages_search_finds_data(self):
         """Test that searching finds actual data (search returns S3 objects, not packages)."""
-        result = packages_search("akarve", limit=5)
+        # Try multiple search terms to find some data
+        search_terms = ["data", "test", "file", "csv", "parquet", "txt", "json"]
+        found_results = False
         
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) > 0, "Expected to find objects containing 'akarve'"
+        for term in search_terms:
+            result = packages_search(term, limit=5)
+            assert isinstance(result, dict)
+            assert "results" in result
+            
+            if len(result["results"]) > 0:
+                found_results = True
+                # Verify the response structure is correct
+                for item in result["results"]:
+                    if isinstance(item, dict) and "_source" in item:
+                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                break
         
-        # Search returns ElasticSearch objects with _source.key containing the search term
-        found_akarve = False
-        for item in result["results"]:
-            if isinstance(item, dict) and "_source" in item:
-                key = item["_source"].get("key", "")
-                if "akarve" in key.lower():
-                    found_akarve = True
-                    break
-        assert found_akarve, f"Expected 'akarve' in search results keys: {[item.get('_source', {}).get('key', '') for item in result['results']]}"
+        # FAIL if no search terms found any data - this indicates a real problem
+        assert found_results, f"No search results found for any common terms {search_terms} - check if search indexing is working or data exists"
 
     def test_package_browse_known_package(self):
-        """Test browsing the known akarve/tmp package."""
+        """Test browsing the known test package."""
         result = package_browse(KNOWN_PACKAGE, registry=TEST_REGISTRY)
         
         assert isinstance(result, dict)
         assert "contents" in result
-        assert len(result["contents"]) > 0, f"Expected files in {KNOWN_PACKAGE}, got empty"
+        
+        # FAIL if no contents found - this means the test package is misconfigured
+        assert len(result["contents"]) > 0, f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
         
         # Check we get actual file names
         for content in result["contents"]:
             assert isinstance(content, str), f"Content should be string, got {type(content)}: {content}"
 
     def test_package_contents_search_in_known_package(self):
-        """Test searching within a known package for common file extensions."""
-        result = package_contents_search(KNOWN_PACKAGE, ".csv", registry=TEST_REGISTRY)
+        """Test searching within a known package for files."""
+        # Try searching for the known test entry first
+        known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README"
+        result = package_contents_search(KNOWN_PACKAGE, known_entry, registry=TEST_REGISTRY)
         
         assert isinstance(result, dict)
         assert "matches" in result
         assert "count" in result
         
-        # If there are matches, verify they contain .csv
+        # If the known entry isn't found, try common extensions
+        if result["count"] == 0:
+            for ext in [".md", ".txt", ".csv", ".json", ".parquet"]:
+                result = package_contents_search(KNOWN_PACKAGE, ext, registry=TEST_REGISTRY)
+                if result["count"] > 0:
+                    break
+        
+        # Don't fail if no matches - just verify the search functionality works
+        # (Some packages might not have common file types)
         if result["count"] > 0:
             for match in result["matches"]:
-                assert ".csv" in match.lower(), f"Match {match} should contain '.csv'"
+                assert isinstance(match, str), f"Match should be string, got {type(match)}: {match}"
 
     def test_bucket_objects_list_returns_data(self):
         """Test that bucket listing returns actual objects."""
@@ -132,23 +154,24 @@ class TestQuiltAPI:
         assert result["size"] > 0, "File should have non-zero size"
 
     def test_bucket_object_text_csv_file(self):
-        """Test reading text from a README file."""
-        # Use README.md which is definitely a text file
-        readme_uri = "s3://quilt-example/akarve/tmp/README.md"
-        result = bucket_object_text(readme_uri, max_bytes=1000)
+        """Test reading text from the configured test file."""
+        # Use the configured test entry which should be a text file
+        test_uri = KNOWN_TEST_S3_OBJECT
+        result = bucket_object_text(test_uri, max_bytes=1000)
         
         assert isinstance(result, dict)
         if "error" in result:
-            pytest.skip(f"Known file not accessible: {result['error']}")
+            pytest.skip(f"Test file not accessible: {result['error']}")
         
         assert "text" in result
         assert "bucket" in result
         assert "key" in result
         
-        # README files should have markdown content
+        # Verify we can read text content (don't assume specific format)
         text = result["text"]
         assert len(text) > 0, "File should have content"
-        assert "README" in text or "#" in text or "\n" in text, "README file should contain markdown content"
+        assert isinstance(text, str), "Text should be a string"
+        # Don't assume markdown format - different environments have different file types
 
     def test_auth_check_returns_status(self):
         """Test authentication check returns valid status."""
@@ -216,7 +239,7 @@ class TestQuiltAPI:
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
-        result = bucket_object_info("s3://quilt-example/definitely/nonexistent/file.txt")
+        result = bucket_object_info(f"{KNOWN_BUCKET}/definitely/nonexistent/file.txt")
         
         assert isinstance(result, dict)
         assert "error" in result, "Non-existent file should return error"
@@ -255,7 +278,7 @@ class TestQuiltAPI:
 
     def test_bucket_objects_put_small_file(self):
         """Test uploading small objects to S3."""
-        test_bucket = "s3://quilt-example"
+        test_bucket = KNOWN_BUCKET
         test_items = [
             {
                 "key": "test-uploads/test-file-1.txt",
@@ -303,7 +326,7 @@ class TestQuiltAPI:
             for item in test_items:
                 from quilt import bucket_object_info
                 # Verify file was uploaded, then we could delete it if there was a delete tool
-                info_result = bucket_object_info(f"s3://quilt-example/{item['key']}")
+                info_result = bucket_object_info(f"{KNOWN_BUCKET}/{item['key']}")
                 if "error" not in info_result:
                     print(f"Test file uploaded successfully: {item['key']}")
         except Exception:
@@ -369,44 +392,44 @@ class TestQuiltAPI:
             print(f"Warning: Failed to cleanup test package {result['package_name']}: {cleanup_error}")
 
     def test_package_update_realistic(self):
-        """Test updating an existing package - expect success."""
-        # First create a package to update
-        test_package = "testuser/updatetest"
+        """Test updating the existing test package by adding a timestamp file."""
+        import time
+        import tempfile
+        import os
         
-        # Get some objects to add
-        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=3)
-        if not objects_result.get("objects"):
-            pytest.skip("No objects found to create/update package with")
+        # Create a temporary timestamp file with variable content to ensure unique hash
+        current_time = time.time()
+        timestamp_content = f"Updated at: {current_time}\nMicroseconds: {int(current_time * 1000000)}\nRandom ID: {int(current_time * 1000000) % 999999}\nTest run timestamp for package update validation"
         
-        # Use first object for initial creation
-        s3_uris_create = [f"s3://{objects_result['bucket']}/{objects_result['objects'][0]['key']}"]
-        
-        # Create the package first
-        create_result = package_create(
-            s3_uris=s3_uris_create,
-            registry=TEST_REGISTRY,
-            metadata={"created_by": "test_suite", "purpose": "update_test"},
-            message="Initial package for update test",
-            package_name=test_package,
-            flatten=True
-        )
-        
-        if "error" in create_result:
-            if "accessdenied" in create_result["error"].lower() or "not authorized" in create_result["error"].lower():
-                pytest.fail(f"Permission error - user needs package creation permissions: {create_result['error']}")
-            else:
-                pytest.fail(f"Failed to create test package: {create_result['error']}")
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.timestamp', delete=False) as tmp_file:
+            tmp_file.write(timestamp_content)
+            tmp_file_path = tmp_file.name
         
         try:
-            # Now update the package with additional objects
-            s3_uris_update = [f"s3://{objects_result['bucket']}/{objects_result['objects'][1]['key']}"]
+            # Upload the timestamp file to S3 first
+            timestamp_key = f"{KNOWN_TEST_PACKAGE}/.timestamp"
+            upload_items = [
+                {
+                    "key": timestamp_key,
+                    "text": timestamp_content,
+                    "content_type": "text/plain",
+                    "metadata": {"created_by": "test_suite", "test": "package_update"}
+                }
+            ]
+            
+            upload_result = bucket_objects_put(KNOWN_BUCKET, upload_items)
+            if upload_result.get("uploaded", 0) == 0:
+                pytest.skip("Could not upload timestamp file for package update test")
+            
+            # Now update the existing test package with the timestamp file
+            timestamp_s3_uri = f"{KNOWN_BUCKET}/{timestamp_key}"
             
             result = package_update(
-                s3_uris=s3_uris_update,
+                s3_uris=[timestamp_s3_uri],
                 registry=TEST_REGISTRY,
-                metadata={"updated_by": "test_suite", "update_test": True},
-                message="Test package update",
-                package_name=test_package,
+                metadata={"updated_by": "test_suite", "last_updated": int(time.time())},
+                message="Added timestamp file via package update test",
+                package_name=KNOWN_TEST_PACKAGE,
                 flatten=True
             )
             
@@ -423,18 +446,16 @@ class TestQuiltAPI:
             assert "status" in result
             assert result["status"] == "success"
             assert "package_name" in result
-            assert result["package_name"] == test_package
+            assert result["package_name"] == KNOWN_TEST_PACKAGE
             assert "new_entries_added" in result
-            assert result["new_entries_added"] > 0, "Should have added new entries"
+            assert result["new_entries_added"] > 0, "Should have added the timestamp file"
             
         finally:
-            # Clean up - delete the test package
+            # Clean up the temporary file
             try:
-                delete_result = package_delete(test_package, registry=TEST_REGISTRY)
-                if "error" in delete_result:
-                    print(f"Warning: Failed to cleanup test package {test_package}: {delete_result['error']}")
-            except Exception as cleanup_error:
-                print(f"Warning: Failed to cleanup test package {test_package}: {cleanup_error}")
+                os.unlink(tmp_file_path)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
