@@ -167,17 +167,17 @@ class TestQuiltTools:
 
     def test_catalog_info_success(self):
         """Test catalog_info with successful response."""
-        with patch('quilt3.logged_in', return_value='https://test.catalog.com'), \
-             patch('quilt3.config', return_value={'navigator_url': 'https://test.catalog.com', 'registryUrl': 'https://registry.test.com'}):
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            with patch('quilt3.config', return_value={'navigator_url': 'https://test.catalog.com', 'registryUrl': 'https://registry.test.com'}):
 
-            result = catalog_info()
+                result = catalog_info()
 
-            assert isinstance(result, dict)
-            assert result['status'] == 'success'
-            assert result['catalog_name'] == 'test.catalog.com'
-            assert result['is_authenticated'] is True
-            assert 'navigator_url' in result
-            assert 'registry_url' in result
+                assert isinstance(result, dict)
+                assert result['status'] == 'success'
+                assert result['catalog_name'] == 'test.catalog.com'
+                assert result['is_authenticated'] is True
+                assert 'navigator_url' in result
+                assert 'registry_url' in result
 
     def test_catalog_info_not_authenticated(self):
         """Test catalog_info when not authenticated."""

@@ -134,7 +134,7 @@ def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAUL
     try: top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
     except Exception as e: return {"error": f"Failed to push updated package: {e}", "package_name": package_name, "warnings": warnings}
     
-    # Ensure all values are JSON serializable
+    # Convert non-string values to ensure JSON serialization
     result = {
         "status": "success",
         "action": "updated",

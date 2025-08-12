@@ -179,7 +179,7 @@ def catalog_url(registry: str, package_name: Optional[str] = None, path: Optiona
             "bucket": bucket,
             "package_name": package_name,
             "path": path,
-            "catalog_host": catalog_host.replace('https://', '').replace('http://', '')
+            "catalog_host": catalog_host.replace('https://', '').replace('http://', '') if catalog_host else None
         }
         
     except Exception as e:

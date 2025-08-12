@@ -35,9 +35,9 @@
     "catalog_url": {
       "description": "Generate catalog URL for package view",
       "arguments": {
-        "registry": "s3://quilt-ernest-staging",
-        "package_name": "raw/salmon-rnaseq",
-        "path": "README.md"
+        "registry": "${QUILT_DEFAULT_BUCKET}",
+        "package_name": "${QUILT_TEST_PACKAGE}",
+        "path": "${QUILT_TEST_ENTRY}"
       },
       "validations": {
         "expect_keys": ["status", "catalog_url", "view_type"],
@@ -48,9 +48,9 @@
     "catalog_uri": {
       "description": "Generate Quilt+ URI for package reference",
       "arguments": {
-        "registry": "s3://quilt-ernest-staging",
-        "package_name": "raw/salmon-rnaseq",
-        "path": "README.md"
+        "registry": "${QUILT_DEFAULT_BUCKET}",
+        "package_name": "${QUILT_TEST_PACKAGE}",
+        "path": "${QUILT_TEST_ENTRY}"
       },
       "validations": {
         "expect_keys": ["status", "quilt_plus_uri", "bucket"],
@@ -83,7 +83,7 @@
     "package_browse": {
       "description": "Browse a test package",
       "arguments": {
-        "package_name": "raw/salmon-rnaseq",
+        "package_name": "${QUILT_TEST_PACKAGE}",
         "top": 10
       },
       "validations": {
@@ -94,8 +94,8 @@
     "package_contents_search": {
       "description": "Search within package contents",
       "arguments": {
-        "package_name": "raw/salmon-rnaseq",
-        "query": "quant"
+        "package_name": "${QUILT_TEST_PACKAGE}",
+        "query": "${QUILT_TEST_ENTRY}"
       },
       "validations": {
         "expect_keys": ["matches", "count"],
