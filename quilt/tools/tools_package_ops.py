@@ -35,9 +35,9 @@ def _collect_objects_into_package(pkg: "quilt3.Package", s3_uris: List[str], fla
     return added
 
 @mcp.tool()
-def package_create(s3_uris: List[str] | None = None, registry: str = "s3://quilt-example", metadata: Dict[str, Any] | None = None, message: str = "Created via package_create tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
-    if s3_uris is None: s3_uris = []
-    if metadata is None: metadata = {}
+def package_create(s3_uris: List[str] = [], registry: str = "s3://quilt-example", metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
+    if not s3_uris: s3_uris = []
+    if not metadata: metadata = {}
     warnings: List[str] = []
     if not s3_uris: return {"error": "No S3 URIs provided"}
     if not package_name:
@@ -55,9 +55,9 @@ def package_create(s3_uris: List[str] | None = None, registry: str = "s3://quilt
     return {"status": "success", "action": "created", "package_name": package_name, "registry": registry, "top_hash": top_hash, "entries_added": len(added), "files": added, "metadata_provided": bool(metadata), "warnings": warnings, "message": message}
 
 @mcp.tool()
-def package_add(s3_uris: List[str] | None = None, registry: str = "s3://quilt-example", metadata: Dict[str, Any] | None = None, message: str = "Added objects via package_add tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
-    if s3_uris is None: s3_uris = []
-    if metadata is None: metadata = {}
+def package_add(s3_uris: List[str] = [], registry: str = "s3://quilt-example", metadata: Dict[str, Any] = {}, message: str = "Added objects via package_add tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
+    if not s3_uris: s3_uris = []
+    if not metadata: metadata = {}
     if not s3_uris: return {"error": "No S3 URIs provided"}
     if not package_name: return {"error": "package_name is required for package_add"}
     warnings: List[str] = []
