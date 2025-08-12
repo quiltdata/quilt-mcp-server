@@ -1,4 +1,5 @@
 import pytest
+import quilt3
 from quilt import (
     packages_search,
     packages_list,
@@ -6,6 +7,7 @@ from quilt import (
     package_contents_search,
     package_create,
     package_update,
+    package_delete,
     auth_check,
     filesystem_check,
     bucket_objects_list,
@@ -278,11 +280,34 @@ class TestQuiltAPI:
         
         assert result["requested"] == 2, "Should have requested 2 uploads"
         
+        # Expect successful uploads (user should have permissions)
+        if result["uploaded"] < result["requested"]:
+            # Check for permission errors
+            for item_result in result["results"]:
+                if "error" in item_result:
+                    error_msg = item_result["error"].lower()
+                    if "accessdenied" in error_msg or "not authorized" in error_msg:
+                        pytest.fail(f"Permission error - user needs s3:PutObject permissions: {item_result['error']}")
+        
+        assert result["uploaded"] > 0, "Should have successfully uploaded some files"
+        
         # Check individual results
         for item_result in result["results"]:
             assert "key" in item_result
-            # Either success (has etag) or error (has error message)
-            assert "etag" in item_result or "error" in item_result
+            # Should have successful uploads (etag) for test environment
+            if "error" in item_result and "accessdenied" not in item_result["error"].lower():
+                pytest.fail(f"Unexpected upload error: {item_result['error']}")
+        
+        # Clean up uploaded test files
+        try:
+            for item in test_items:
+                from quilt import bucket_object_info
+                # Verify file was uploaded, then we could delete it if there was a delete tool
+                info_result = bucket_object_info(f"s3://quilt-example/{item['key']}")
+                if "error" not in info_result:
+                    print(f"Test file uploaded successfully: {item['key']}")
+        except Exception:
+            pass  # Cleanup is best-effort
 
     def test_package_create_realistic(self):
         """Test creating a package from existing S3 objects."""
@@ -318,55 +343,98 @@ class TestQuiltAPI:
         
         assert isinstance(result, dict)
         
-        # Check for either success or meaningful error
+        # Expect success (user should have permissions)
         if "error" in result:
-            # If it fails, the error should be informative
-            assert len(result["error"]) > 10, f"Error message too short: {result['error']}"
-            pytest.skip(f"Package creation failed (expected): {result['error']}")
-        else:
-            # If it succeeds, check success fields
-            assert "status" in result
-            assert result["status"] == "success"
-            assert "package_name" in result
-            assert "entries_added" in result
-            assert result["entries_added"] > 0, "Should have added some entries"
+            # If it fails due to permissions, that's a setup issue
+            error_msg = result["error"].lower()
+            if "accessdenied" in error_msg or "not authorized" in error_msg:
+                pytest.fail(f"Permission error - user needs s3:PutObject permissions: {result['error']}")
+            else:
+                pytest.fail(f"Package creation failed: {result['error']}")
+        
+        # Verify successful creation
+        assert "status" in result
+        assert result["status"] == "success"
+        assert "package_name" in result
+        assert "entries_added" in result
+        assert result["entries_added"] > 0, "Should have added some entries"
+        
+        # Clean up - delete the test package
+        try:
+            delete_result = package_delete(result["package_name"], registry=TEST_REGISTRY)
+            if "error" in delete_result:
+                print(f"Warning: Failed to cleanup test package {result['package_name']}: {delete_result['error']}")
+        except Exception as cleanup_error:
+            # Log cleanup failure but don't fail the test
+            print(f"Warning: Failed to cleanup test package {result['package_name']}: {cleanup_error}")
 
     def test_package_update_realistic(self):
-        """Test updating an existing package (will likely fail but informatively)."""
-        # Try to update a known package
-        test_package = "test-package-update"
+        """Test updating an existing package - expect success."""
+        # First create a package to update
+        test_package = "testuser/updatetest"
         
         # Get some objects to add
-        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=2)
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=3)
         if not objects_result.get("objects"):
-            pytest.skip("No objects found to update package with")
+            pytest.skip("No objects found to create/update package with")
         
-        s3_uris = [f"s3://{objects_result['bucket']}/{obj['key']}" 
-                   for obj in objects_result["objects"][:1]]
+        # Use first object for initial creation
+        s3_uris_create = [f"s3://{objects_result['bucket']}/{objects_result['objects'][0]['key']}"]
         
-        result = package_update(
-            s3_uris=s3_uris,
+        # Create the package first
+        create_result = package_create(
+            s3_uris=s3_uris_create,
             registry=TEST_REGISTRY,
-            metadata={"updated_by": "test_suite"},
-            message="Test package update",
+            metadata={"created_by": "test_suite", "purpose": "update_test"},
+            message="Initial package for update test",
             package_name=test_package,
             flatten=True
         )
         
-        assert isinstance(result, dict)
+        if "error" in create_result:
+            if "accessdenied" in create_result["error"].lower() or "not authorized" in create_result["error"].lower():
+                pytest.fail(f"Permission error - user needs package creation permissions: {create_result['error']}")
+            else:
+                pytest.fail(f"Failed to create test package: {create_result['error']}")
         
-        # This will likely fail because the package doesn't exist
-        if "error" in result:
-            assert "package_name" in result
-            # Error should mention the package name or provide useful info
-            error_msg = result["error"].lower()
-            assert any(term in error_msg for term in [
-                "not found", "does not exist", "browse", test_package, "invalid package name"
-            ]), f"Error should be informative about missing package: {result['error']}"
-        else:
-            # If it somehow succeeds, verify structure
+        try:
+            # Now update the package with additional objects
+            s3_uris_update = [f"s3://{objects_result['bucket']}/{objects_result['objects'][1]['key']}"]
+            
+            result = package_update(
+                s3_uris=s3_uris_update,
+                registry=TEST_REGISTRY,
+                metadata={"updated_by": "test_suite", "update_test": True},
+                message="Test package update",
+                package_name=test_package,
+                flatten=True
+            )
+            
+            assert isinstance(result, dict)
+            
+            # Expect successful update
+            if "error" in result:
+                if "accessdenied" in result["error"].lower() or "not authorized" in result["error"].lower():
+                    pytest.fail(f"Permission error - user needs package update permissions: {result['error']}")
+                else:
+                    pytest.fail(f"Package update failed: {result['error']}")
+            
+            # Verify successful update
             assert "status" in result
+            assert result["status"] == "success"
             assert "package_name" in result
+            assert result["package_name"] == test_package
+            assert "new_entries_added" in result
+            assert result["new_entries_added"] > 0, "Should have added new entries"
+            
+        finally:
+            # Clean up - delete the test package
+            try:
+                delete_result = package_delete(test_package, registry=TEST_REGISTRY)
+                if "error" in delete_result:
+                    print(f"Warning: Failed to cleanup test package {test_package}: {delete_result['error']}")
+            except Exception as cleanup_error:
+                print(f"Warning: Failed to cleanup test package {test_package}: {cleanup_error}")
 
 
 if __name__ == "__main__":

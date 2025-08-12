@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 UV ?= uv
+UVRUN ?= uv run --env-file .env
 PY ?= python
 INSPECTOR ?= npx -y @modelcontextprotocol/inspector@latest
 TOKEN_CMD := ./scripts/get_token.sh
@@ -155,7 +156,7 @@ stdio-run:
 
 # Tests
 pytest: deps-test
-	$(UV) run python -m pytest
+	$(UVRUN) python -m pytest
 
 coverage: deps-test
-	$(UV) run python -m pytest --cov=quilt --cov-report=term-missing
+	$(UVRUN) python -m pytest --cov=quilt --cov-report=term-missing

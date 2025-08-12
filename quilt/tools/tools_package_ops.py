@@ -91,3 +91,25 @@ def package_update(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, me
     try: top_hash = new_pkg.push(package_name, registry=registry, message=message)
     except Exception as e: return {"error": f"Failed to push updated package: {e}", "package_name": package_name, "warnings": warnings}
     return {"status": "success", "action": "updated", "package_name": package_name, "registry": registry, "top_hash": top_hash, "new_entries_added": len(added), "files_added": added, "warnings": warnings, "message": message, "metadata_added": bool(metadata)}
+
+@mcp.tool()
+def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> Dict[str, Any]:
+    """Delete a package from the registry."""
+    if not package_name:
+        return {"error": "package_name is required for package deletion"}
+    
+    try:
+        quilt3.delete_package(package_name, registry=registry)
+        return {
+            "status": "success", 
+            "action": "deleted", 
+            "package_name": package_name, 
+            "registry": registry,
+            "message": f"Package {package_name} deleted successfully"
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to delete package '{package_name}': {e}", 
+            "package_name": package_name,
+            "registry": registry
+        }

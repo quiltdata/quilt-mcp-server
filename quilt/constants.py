@@ -1,11 +1,14 @@
 """Constants used throughout the Quilt MCP server."""
 
-# Default registry for Quilt packages
-DEFAULT_REGISTRY = "s3://quilt-example"
+import os
 
-# Default bucket for S3 operations  
-DEFAULT_BUCKET = "s3://quilt-example"
+# Default bucket for S3 operations (also serves as registry) - read from environment
+DEFAULT_BUCKET = os.getenv("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+DEFAULT_REGISTRY = DEFAULT_BUCKET  # Registry is the same as bucket
 
-# Known test packages and objects (for testing)
-KNOWN_TEST_PACKAGE = "akarve/tmp"
-KNOWN_TEST_S3_OBJECT = "s3://quilt-example/akarve/demo/df.parquet"
+# Known test packages and entries (for testing) - read from environment
+KNOWN_TEST_PACKAGE = os.getenv("QUILT_TEST_PACKAGE", "akarve/tmp")
+KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTERY", "README.md")  # Note: keeping the typo from .env
+
+# For backward compatibility, construct full S3 object path
+KNOWN_TEST_S3_OBJECT = f"{DEFAULT_BUCKET}/{KNOWN_TEST_PACKAGE}/{KNOWN_TEST_ENTRY}"
