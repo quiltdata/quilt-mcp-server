@@ -24,7 +24,19 @@ jobs:
             
     - name: Run tests
       run: make pytest
+      env:
+        UVRUN: uv run
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        QUILT_READ_POLICY_ARN: ${{ secrets.QUILT_READ_POLICY_ARN }}
+        CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
+        CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
+        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
+        QUILT_TEST_ENTERY: ${{ secrets.QUILT_TEST_ENTERY }}
       
     - name: Check code formatting (optional)
       run: make lint
       continue-on-error: true
+      env:
+        UVRUN: uv run

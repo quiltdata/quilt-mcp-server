@@ -161,3 +161,6 @@ pytest: deps-test
 
 coverage: deps-test
 	$(UVRUN) python -m pytest --cov=quilt --cov-report=term-missing
+
+lint: deps-lint
+	@echo "Linting not configured yet - skipping"
