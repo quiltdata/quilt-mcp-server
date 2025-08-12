@@ -1,6 +1,6 @@
 {
   "tools": {
-    "auth_check": {
+    "auth_status": {
       "description": "Check Quilt authentication status",
       "arguments": {},
       "validations": {
@@ -8,12 +8,54 @@
         "enum": {"status": ["authenticated", "not_authenticated", "error"]}
       }
     },
-    "filesystem_check": {
+    "filesystem_status": {
       "description": "Check filesystem permissions and capabilities",
       "arguments": {},
       "validations": {
         "expect_keys": ["home_directory", "temp_directory", "current_directory"],
         "path_keys": ["home_directory", "temp_directory", "current_directory"]
+      }
+    },
+    "catalog_info": {
+      "description": "Get current catalog configuration information",
+      "arguments": {},
+      "validations": {
+        "expect_keys": ["catalog_name", "is_authenticated", "status"],
+        "enum": {"status": ["success", "error"]}
+      }
+    },
+    "catalog_name": {
+      "description": "Get the name of the current catalog",
+      "arguments": {},
+      "validations": {
+        "expect_keys": ["catalog_name", "detection_method", "status"],
+        "enum": {"status": ["success", "error"]}
+      }
+    },
+    "catalog_url": {
+      "description": "Generate catalog URL for package view",
+      "arguments": {
+        "registry": "s3://quilt-ernest-staging",
+        "package_name": "raw/salmon-rnaseq",
+        "path": "README.md"
+      },
+      "validations": {
+        "expect_keys": ["status", "catalog_url", "view_type"],
+        "enum": {"status": ["success", "error"], "view_type": ["package", "bucket"]},
+        "url_format": {"catalog_url": "https://"}
+      }
+    },
+    "catalog_uri": {
+      "description": "Generate Quilt+ URI for package reference",
+      "arguments": {
+        "registry": "s3://quilt-ernest-staging",
+        "package_name": "raw/salmon-rnaseq",
+        "path": "README.md"
+      },
+      "validations": {
+        "expect_keys": ["status", "quilt_plus_uri", "bucket"],
+        "enum": {"status": ["success", "error"]},
+        "uri_format": {"quilt_plus_uri": "quilt+s3://"}
       }
     },
     "packages_list": {

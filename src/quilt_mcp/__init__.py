@@ -18,7 +18,7 @@ from .constants import (
 from .server import is_lambda_environment, mcp
 
 # Re-export all tools for easy access
-from .tools.auth import auth_check, filesystem_check
+from .tools.auth import auth_status, filesystem_status, catalog_info, catalog_name, catalog_url, catalog_uri
 from .tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,
@@ -47,8 +47,12 @@ __all__ = [
     "KNOWN_TEST_ENTRY",
     "KNOWN_TEST_S3_OBJECT",
     # Auth tools
-    "auth_check",
-    "filesystem_check",
+    "auth_status",
+    "filesystem_status",
+    "catalog_info",
+    "catalog_name", 
+    "catalog_url",
+    "catalog_uri",
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",

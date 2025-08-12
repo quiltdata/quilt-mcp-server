@@ -9,13 +9,13 @@ from quilt_mcp import (  # type: ignore[import-not-found]
     KNOWN_TEST_ENTRY,
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
-    auth_check,
+    auth_status,
     bucket_object_fetch,
     bucket_object_info,
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    filesystem_check,
+    filesystem_status,
     package_browse,
     package_contents_search,
     package_create,
@@ -176,9 +176,9 @@ class TestQuiltAPI:
         assert isinstance(text, str), "Text should be a string"
         # Don't assume markdown format - different environments have different file types
 
-    def test_auth_check_returns_status(self):
+    def test_auth_status_returns_status(self):
         """Test authentication check returns valid status."""
-        result = auth_check()
+        result = auth_status()
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -194,9 +194,9 @@ class TestQuiltAPI:
         else:  # error status
             assert "error" in result, "Error status should include error message"
 
-    def test_filesystem_check_returns_info(self):
+    def test_filesystem_status_returns_info(self):
         """Test filesystem check returns actual system info."""
-        result = filesystem_check()
+        result = filesystem_status()
 
         assert isinstance(result, dict)
         assert "is_lambda" in result

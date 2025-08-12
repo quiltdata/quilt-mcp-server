@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
 from quilt_mcp import (
-    auth_check,
+    auth_status,
     package_browse,
     package_contents_search,
     packages_list,
@@ -12,28 +12,28 @@ from quilt_mcp import (
 class TestQuiltTools:
     """Test suite for Quilt MCP tools."""
 
-    def test_auth_check_authenticated(self):
-        """Test auth_check when user is authenticated."""
+    def test_auth_status_authenticated(self):
+        """Test auth_status when user is authenticated."""
         with patch('quilt3.logged_in', return_value='https://open.quiltdata.com'):
-            result = auth_check()
+            result = auth_status()
 
             assert result['status'] == 'authenticated'
             assert result['catalog_url'] == 'https://open.quiltdata.com'
             assert result['search_available'] is True
 
-    def test_auth_check_not_authenticated(self):
-        """Test auth_check when user is not authenticated."""
+    def test_auth_status_not_authenticated(self):
+        """Test auth_status when user is not authenticated."""
         with patch('quilt3.logged_in', return_value=None):
-            result = auth_check()
+            result = auth_status()
 
             assert result['status'] == 'not_authenticated'
             assert result['search_available'] is False
             assert 'setup_instructions' in result
 
-    def test_auth_check_error(self):
-        """Test auth_check when an error occurs."""
+    def test_auth_status_error(self):
+        """Test auth_status when an error occurs."""
         with patch('quilt3.logged_in', side_effect=Exception('Test error')):
-            result = auth_check()
+            result = auth_status()
 
             assert result['status'] == 'error'
             assert 'Failed to check authentication' in result['error']
