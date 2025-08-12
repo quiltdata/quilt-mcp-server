@@ -1,23 +1,22 @@
-import pytest
-import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from quilt_mcp import (
     auth_check,
-    packages_list,
     package_browse,
     package_contents_search,
-    packages_search
+    packages_list,
+    packages_search,
 )
+
 
 class TestQuiltTools:
     """Test suite for Quilt MCP tools."""
-    
+
     def test_auth_check_authenticated(self):
         """Test auth_check when user is authenticated."""
         with patch('quilt3.logged_in', return_value='https://open.quiltdata.com'):
             result = auth_check()
-            
+
             assert result['status'] == 'authenticated'
             assert result['catalog_url'] == 'https://open.quiltdata.com'
             assert result['search_available'] is True
@@ -26,7 +25,7 @@ class TestQuiltTools:
         """Test auth_check when user is not authenticated."""
         with patch('quilt3.logged_in', return_value=None):
             result = auth_check()
-            
+
             assert result['status'] == 'not_authenticated'
             assert result['search_available'] is False
             assert 'setup_instructions' in result
@@ -35,7 +34,7 @@ class TestQuiltTools:
         """Test auth_check when an error occurs."""
         with patch('quilt3.logged_in', side_effect=Exception('Test error')):
             result = auth_check()
-            
+
             assert result['status'] == 'error'
             assert 'Failed to check authentication' in result['error']
             assert 'setup_instructions' in result
@@ -45,16 +44,16 @@ class TestQuiltTools:
         mock_packages = ['user/package1', 'user/package2']
         mock_package = Mock()
         mock_package.meta = {'description': 'Test package'}
-        
+
         with patch('quilt3.list_packages', return_value=mock_packages), \
              patch('quilt3.Package.browse', return_value=mock_package):
-            
+
             result = packages_list()
-            
+
             # Result now has packages structure
             assert isinstance(result, dict)
             assert 'packages' in result
-            
+
             packages = result['packages']
             assert len(packages) == 2
             assert packages[0] == 'user/package1'
@@ -65,20 +64,20 @@ class TestQuiltTools:
         mock_packages = ['user/package1', 'user/package2', 'other/package3']
         mock_package = Mock()
         mock_package.meta = {}
-        
+
         with patch('quilt3.list_packages', return_value=mock_packages), \
              patch('quilt3.Package.browse', return_value=mock_package):
-            
+
             result = packages_list(prefix='user/')
-            
+
             # Result now has packages structure
             assert isinstance(result, dict)
             assert 'packages' in result
-            
+
             packages = result['packages']
             assert len(packages) == 2
             assert all(pkg.startswith('user/') for pkg in packages)
-            
+
 
     def test_packages_list_error(self):
         """Test packages_list with error."""
@@ -93,10 +92,10 @@ class TestQuiltTools:
         """Test package_browse with successful response."""
         mock_package = Mock()
         mock_package.keys.return_value = ['file1.txt', 'file2.csv']
-        
+
         with patch('quilt3.Package.browse', return_value=mock_package):
             result = package_browse('user/test-package')
-            
+
             assert isinstance(result, dict)
             assert 'contents' in result
             assert len(result['contents']) == 2
@@ -116,10 +115,10 @@ class TestQuiltTools:
         """Test package_contents_search with matches."""
         mock_package = Mock()
         mock_package.keys.return_value = ['test_file.txt', 'data.csv']
-        
+
         with patch('quilt3.Package.browse', return_value=mock_package):
             result = package_contents_search('user/test-package', 'test')
-            
+
             assert isinstance(result, dict)
             assert 'matches' in result
             assert 'count' in result
@@ -150,12 +149,12 @@ class TestQuiltTools:
             {'name': 'user/package1', 'description': 'Test package 1'},
             {'name': 'user/package2', 'description': 'Test package 2'}
         ]
-        
+
         with patch('quilt3.config'), \
              patch('quilt3.search', return_value=mock_results):
-            
+
             result = packages_search('test query')
-            
+
             assert isinstance(result, dict)
             assert 'results' in result
             assert len(result['results']) == 2

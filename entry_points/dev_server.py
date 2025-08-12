@@ -6,6 +6,7 @@ It runs the MCP server with streamable HTTP transport on localhost.
 """
 
 from __future__ import annotations
+
 import quilt_mcp
 
 # Export the configured server for fastmcp dev

@@ -5,7 +5,9 @@ along with utility functions for environment detection.
 """
 
 from __future__ import annotations
+
 import os
+
 from mcp.server.fastmcp import FastMCP
 
 # Single FastMCP instance used across all tool modules

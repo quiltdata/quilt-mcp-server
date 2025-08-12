@@ -1,11 +1,15 @@
 from __future__ import annotations
-from typing import Any, Dict, List
-import quilt3, os
-from ..server import mcp
+
+from typing import Any
+
+import quilt3
+
 from ..constants import DEFAULT_REGISTRY
+from ..server import mcp
+
 
 @mcp.tool()
-def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> Dict[str, Any]:
+def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
     """List all available Quilt packages in a registry.
     
     Args:
@@ -18,19 +22,19 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
     """
     # Pass registry to quilt3.list_packages(), then apply filtering
     pkgs = list(quilt3.list_packages(registry=registry))  # Convert generator to list
-    
+
     # Apply prefix filtering if specified
     if prefix:
         pkgs = [pkg for pkg in pkgs if pkg.startswith(prefix)]
-    
+
     # Apply limit if specified
     if limit > 0:
         pkgs = pkgs[:limit]
-        
+
     return {"packages": pkgs}
 
 @mcp.tool()
-def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10) -> Dict[str, Any]:
+def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
     
     Args:
@@ -47,7 +51,7 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
     return {"results": results}
 
 @mcp.tool()
-def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int = 0, include: List[str] = [], exclude: List[str] = []) -> Dict[str, Any]:
+def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int = 0, include: list[str] = [], exclude: list[str] = []) -> dict[str, Any]:
     """Browse the contents of a Quilt package.
     
     Args:
@@ -63,15 +67,15 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
     # Use the provided registry
     pkg = quilt3.Package.browse(package_name, registry=registry)
     contents = list(pkg.keys())
-    
+
     # Apply top limit if specified
     if top > 0:
         contents = contents[:top]
-        
+
     return {"contents": contents}
 
 @mcp.tool()
-def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY) -> Dict[str, Any]:
+def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
     """Search within a package's contents by filename or path.
     
     Args:

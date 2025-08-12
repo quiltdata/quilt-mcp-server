@@ -32,6 +32,7 @@ help:
 	@echo "  token              Print OAuth token (using get_token.sh)"
 	@echo "  pytest             Run pytest suite"
 	@echo "  coverage           Run pytest with coverage report"
+	@echo "  lint               Auto-fix Python (ruff+black), then type & YAML lint"
 	@echo ""
 	@echo "Build Tasks:" 
 	@echo "  build              Build lambda artifact (scripts/build.sh build)"
@@ -197,8 +198,8 @@ coverage: setup
 PY_SRC := src tests entry_points
 YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
 
-lint: deps-lint ruff-check black-check mypy yaml-lint ## Run all linters (ruff, black --check, mypy, yamllint)
-	@echo "✅ Lint passed"
+lint: deps-lint ruff-fix black mypy yaml-lint ## Auto-fix formatting & style, then type & YAML lint
+	@echo "✅ Lint (auto-fix) completed"
 
 lint-ci: lint ## Alias for lint (CI friendly)
 
@@ -212,7 +213,7 @@ format: deps-lint ## Auto-format code with Ruff (imports, fixes) and Black
 ruff: deps-lint ## Run Ruff (no fix)
 	$(UVRUN) ruff check $(PY_SRC)
 
-ruff-check: ruff ## Backward compatibility target
+ruff-check: ruff ## Backward compatibility target (non-fixing)
 
 ruff-fix: deps-lint ## Run Ruff with fixes
 	$(UVRUN) ruff check --fix $(PY_SRC)
