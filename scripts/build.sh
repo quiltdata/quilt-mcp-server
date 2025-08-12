@@ -288,7 +288,7 @@ test_deployment() {
         
         # Run comprehensive tool tests
         log_info "🔧 Running comprehensive tool tests..."
-        if ! "$PROJECT_ROOT/tests/test-endpoint.sh" -t; then
+        if ! "$PROJECT_ROOT/scripts/test-endpoint.sh" -t; then
             log_error "❌ Tool tests failed"
             return 1
         fi

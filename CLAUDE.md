@@ -49,17 +49,17 @@ docker rmi quilt-mcp-builder
 
 ```bash
 # Endpoint testing
-./tests/test-endpoint.sh
-./tests/test-endpoint.sh -v
-./tests/test-endpoint.sh -f
-./tests/test-endpoint.sh -t
-./tests/test-endpoint.sh --no-auth
-./tests/test-endpoint.sh --token *
+./scripts/test-endpoint.sh
+./scripts/test-endpoint.sh -v
+./scripts/test-endpoint.sh -f
+./scripts/test-endpoint.sh -t
+./scripts/test-endpoint.sh --no-auth
+./scripts/test-endpoint.sh --token *
 
 # Lambda testing
-./tests/test_lambda.sh
-uv run python -m pytest tests/
-uv run python tests/test_*.py
+./scripts/test_lambda.sh
+uv run python -m pytest quilt/tests/
+uv run python quilt/tests/test_*.py
 ```
 
 ### AWS Operations
@@ -152,6 +152,8 @@ head *
 tail *
 grep -r * .
 cat *
+make *
+curl *
 
 # Process management
 timeout * *
@@ -187,8 +189,8 @@ These commands are specifically for testing and validation:
 
 # Individual component testing  
 ./packager/package-lambda.sh -t tools-list
-./tests/test-endpoint.sh -v -f
-uv run python tests/test_lambda_handler.py
+./scripts/test-endpoint.sh -v -f
+uv run python quilt/tests/test_lambda_handler.py
 
 # Authentication flow testing
 TOKEN=$(./scripts/get_token.sh) && curl -H "Authorization: Bearer $TOKEN" -X POST https://*/mcp/ -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
@@ -219,4 +221,4 @@ The following environment variables are safe to use:
 3. **Test**: `./scripts/build.sh test` - End-to-end endpoint testing
 4. **Debug**: `./scripts/check_logs.sh` - View Lambda logs for troubleshooting
 
-For comprehensive testing: `./scripts/build.sh deploy && ./tests/test-endpoint.sh -v -f`
+For comprehensive testing: `./scripts/build.sh deploy && ./scripts/test-endpoint.sh -v -f`

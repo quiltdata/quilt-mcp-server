@@ -12,6 +12,7 @@ NC='\033[0m'
 VERBOSE=false
 FULL_TEST=false
 TOOLS_TEST=false
+LOCAL_TEST=false
 TOOL_NUMBER=""
 STACK_NAME="QuiltMcpStack"
 REGION=""
@@ -51,6 +52,10 @@ while [[ $# -gt 0 ]]; do
                 shift
             fi
             ;;
+        -l|--local)
+            LOCAL_TEST=true
+            shift
+            ;;
         --no-auth)
             USE_AUTH=false
             shift
@@ -68,6 +73,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -v, --verbose      Enable verbose output"
             echo "  -f, --full         Run comprehensive Claude.ai simulation tests"
             echo "  -t, --tools [N]    Test each available MCP tool (or just tool N)"
+            echo "  -l, --local        Test local FastMCP server with session management"
             echo "  -s, --stack        CloudFormation stack name (default: QuiltMcpStack)"
             echo "  -r, --region       AWS region (default: from env or us-east-1)"
             echo "  -e, --endpoint     Direct endpoint URL (skips CloudFormation lookup)"
@@ -79,6 +85,7 @@ while [[ $# -gt 0 ]]; do
             echo "  $0                                    # Test with auto JWT authentication"
             echo "  $0 -v                                 # Test with verbose output"
             echo "  $0 -t                                 # Test each available tool"
+            echo "  $0 -l                                 # Test local FastMCP server"
             echo "  $0 -f                                 # Run full Claude.ai simulation"
             echo "  $0 --no-auth                          # Test without authentication (legacy)"
             echo "  $0 --token \$TOKEN                    # Test with specific JWT token"
@@ -160,6 +167,12 @@ get_auth_headers() {
 
 echo -e "${BLUE}🧪 Testing MCP Endpoint${NC}"
 
+# Handle local test mode
+if [ "$LOCAL_TEST" = true ]; then
+    test_local_fastmcp
+    exit 0
+fi
+
 # Setup authentication
 setup_authentication
 
@@ -183,6 +196,99 @@ if [ -z "$ENDPOINT" ]; then
 fi
 
 echo -e "${GREEN}Testing endpoint: ${ENDPOINT}${NC}"
+
+# Function to test local FastMCP server with session management
+test_local_fastmcp() {
+    local LOCAL_ENDPOINT="http://localhost:8000/mcp/"
+    echo -e "${BLUE}=================== LOCAL FASTMCP SESSION TEST ===================${NC}"
+    
+    # Test 1: Initialize session
+    echo -e "${BLUE}Step 1: Initialize session${NC}"
+    INIT_REQUEST='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}'
+    
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Sending initialize request to $LOCAL_ENDPOINT${NC}"
+        echo "$INIT_REQUEST" | jq . 2>/dev/null || echo "$INIT_REQUEST"
+    fi
+    
+    INIT_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -d "$INIT_REQUEST")
+    
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Initialize response:${NC}"
+        echo "$INIT_RESPONSE" | jq . 2>/dev/null || echo "$INIT_RESPONSE"
+        echo ""
+    fi
+    
+    # Extract session ID if present
+    SESSION_ID=$(echo "$INIT_RESPONSE" | jq -r '.result.sessionId // empty' 2>/dev/null)
+    
+    if [ -n "$SESSION_ID" ]; then
+        echo -e "${GREEN}✅ Session initialized with ID: $SESSION_ID${NC}"
+        SESSION_HEADER="-H \"Mcp-Session-Id: $SESSION_ID\""
+    else
+        echo -e "${YELLOW}⚠️  No session ID returned, proceeding without session management${NC}"
+        SESSION_HEADER=""
+    fi
+    
+    # Test 2: Tools list with session
+    echo -e "${BLUE}Step 2: Test tools/list with session${NC}"
+    TOOLS_REQUEST='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+    
+    if [ -n "$SESSION_ID" ]; then
+        TOOLS_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d "$TOOLS_REQUEST")
+    else
+        TOOLS_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d "$TOOLS_REQUEST")
+    fi
+    
+    if echo "$TOOLS_RESPONSE" | grep -q "tools"; then
+        echo -e "${GREEN}✅ Tools list successful${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${BLUE}Tools response:${NC}"
+            echo "$TOOLS_RESPONSE" | jq . 2>/dev/null || echo "$TOOLS_RESPONSE"
+            echo ""
+        fi
+    else
+        echo -e "${RED}❌ Tools list failed${NC}"
+        echo -e "${YELLOW}Response: $TOOLS_RESPONSE${NC}"
+        return 1
+    fi
+    
+    # Test 3: Simple tool call with session
+    echo -e "${BLUE}Step 3: Test tool call with session${NC}"
+    TOOL_REQUEST='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"check_quilt_auth","arguments":{}}}'
+    
+    if [ -n "$SESSION_ID" ]; then
+        TOOL_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d "$TOOL_REQUEST")
+    else
+        TOOL_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d "$TOOL_REQUEST")
+    fi
+    
+    if echo "$TOOL_RESPONSE" | grep -q '"content"'; then
+        echo -e "${GREEN}✅ Tool call successful${NC}"
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${BLUE}Tool response:${NC}"
+            echo "$TOOL_RESPONSE" | jq . 2>/dev/null || echo "$TOOL_RESPONSE"
+            echo ""
+        fi
+    else
+        echo -e "${RED}❌ Tool call failed${NC}"
+        echo -e "${YELLOW}Response: $TOOL_RESPONSE${NC}"
+    fi
+    
+    echo -e "${BLUE}=================== LOCAL FASTMCP TEST COMPLETE ===================${NC}"
+}
 
 # Function to run comprehensive Claude.ai simulation tests
 run_claude_simulation_tests() {

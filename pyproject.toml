@@ -31,7 +31,7 @@ lint = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "quilt"]
+testpaths = ["quilt/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -60,7 +60,7 @@ ignore = [
 ]
 
 [tool.ruff.per-file-ignores]
-"tests/*" = ["B011"]
+"quilt/tests/*" = ["B011"]
 
 [tool.mypy]
 python_version = "3.12"

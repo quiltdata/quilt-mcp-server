@@ -29,7 +29,7 @@ mkdir -p "$TEST_DIR"
 
 # Test 1: MCP tools/list
 echo -e "${YELLOW}Test 1: MCP tools/list${NC}"
-python3 tests/generate_lambda_events.py --event-type tools-list --output "$TEST_DIR/tools-list-event.json"
+python3 quilt/tests/generate_lambda_events.py --event-type tools-list --output "$TEST_DIR/tools-list-event.json"
 echo "  Generated event: $TEST_DIR/tools-list-event.json"
 
 echo "  Invoking Lambda..."
@@ -46,7 +46,7 @@ echo
 
 # Test 2: MCP resources/list
 echo -e "${YELLOW}Test 2: MCP resources/list${NC}"
-python3 tests/generate_lambda_events.py --event-type resources-list --output "$TEST_DIR/resources-list-event.json"
+python3 quilt/tests/generate_lambda_events.py --event-type resources-list --output "$TEST_DIR/resources-list-event.json"
 echo "  Generated event: $TEST_DIR/resources-list-event.json"
 
 echo "  Invoking Lambda..."
@@ -62,7 +62,7 @@ echo
 
 # Test 3: Health check
 echo -e "${YELLOW}Test 3: Health check${NC}"
-python3 tests/generate_lambda_events.py --event-type health-check --output "$TEST_DIR/health-check-event.json"
+python3 quilt/tests/generate_lambda_events.py --event-type health-check --output "$TEST_DIR/health-check-event.json"
 echo "  Generated event: $TEST_DIR/health-check-event.json"
 
 echo "  Invoking Lambda..."

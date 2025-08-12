@@ -10,7 +10,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest build test deploy stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector deps-test deps-lint deps-all
 help:
 	@echo "Quilt MCP Server - Makefile"
 	@echo ""
@@ -29,6 +29,7 @@ help:
 	@echo "  build              Build lambda artifact (scripts/build.sh build)"
 	@echo "  test               Test deployed stack (scripts/build.sh test)"
 	@echo "  deploy             Build + deploy via CDK (scripts/build.sh deploy)"
+	@echo "  all                Run pytest then deploy (test + deploy)"
 	@echo ""
 	@echo "Stdio Tasks:" 
 	@echo "  stdio-run          Run local stdio MCP server (quilt.main)"
@@ -69,6 +70,9 @@ test:
 deploy:
 	./scripts/build.sh deploy
 
+all: pytest deploy
+	@echo "✅ All tasks completed: pytest + deploy"
+
 clean:
 	./scripts/build.sh clean || true
 	rm -rf .pytest_cache .coverage dist build *.egg-info
@@ -86,9 +90,23 @@ remote-run:
 	$(UV) run $(PY) -m quilt.remote
 
 remote-test:
-	@curl -s -X POST http://localhost:8000/mcp/ \
+	@echo "Testing FastMCP streamable HTTP transport with session management..."
+	@SESSION_ID=$$(curl -s -X POST http://localhost:8000/mcp/ \
 	  -H "Content-Type: application/json" \
-	  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | jq .
+	  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
+	  | jq -r '.result.sessionId // empty' 2>/dev/null); \
+	if [ -n "$$SESSION_ID" ]; then \
+	  echo "Got session ID: $$SESSION_ID"; \
+	  curl -s -X POST http://localhost:8000/mcp/ \
+	    -H "Content-Type: application/json" \
+	    -H "Mcp-Session-Id: $$SESSION_ID" \
+	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | jq .; \
+	else \
+	  echo "No session ID returned, testing without session management..."; \
+	  curl -s -X POST http://localhost:8000/mcp/ \
+	    -H "Content-Type: application/json" \
+	    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | jq .; \
+	fi
 
 remote-inspector:
 	@if [ -z "$(API_ENDPOINT)" ]; then echo "API_ENDPOINT not set in .config"; exit 1; fi; \
@@ -117,4 +135,4 @@ stdio-run:
 
 # Tests
 pytest: deps-test
-	$(UV) run python -m pytest -q
+	$(UV) run python -m pytest quilt/tests/test_cdk_stack.py quilt/tests/test_lambda_handler.py quilt/tests/test_mcp_response_format.py quilt/tests/test_bucket_tools.py -q

@@ -4,8 +4,8 @@ from aws_cdk import assertions
 import sys
 import os
 
-# Add the parent directory to the path to import the stack
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Add the project root to the path to import the stack
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from quilt_mcp_stack import QuiltMcpStack
 
@@ -20,8 +20,8 @@ class TestQuiltMcpStack:
         # Set up a valid Lambda package directory for testing
         # Point to the quilt directory relative to the test
         test_dir = os.path.dirname(__file__)
-        project_root = os.path.dirname(test_dir)
-        quilt_dir = os.path.join(project_root, 'quilt')
+        quilt_dir = os.path.dirname(test_dir)  # quilt/tests -> quilt
+        project_root = os.path.dirname(quilt_dir)  # quilt -> project root
         os.environ['LAMBDA_PACKAGE_DIR'] = quilt_dir
         
     def test_stack_creation(self):
