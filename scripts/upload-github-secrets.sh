@@ -22,15 +22,20 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
-# Load current .env if it exists
-if [ ! -f ".env" ]; then
-    echo "❌ No .env file found. Create one first:"
-    echo "   cp env.example .env"
-    echo "   # Edit .env with your values"
+# Load environment file (default to .env or use ENV_FILE)
+ENV_FILE="${ENV_FILE:-.env}"
+
+if [ ! -f "$ENV_FILE" ]; then
+    echo "❌ No $ENV_FILE file found. Create one first:"
+    echo "   cp env.example $ENV_FILE"
+    echo "   # Edit $ENV_FILE with your values"
     exit 1
 fi
 
-source .env
+echo "📁 Loading environment from: $ENV_FILE"
+set -a  # Automatically export all variables
+source "$ENV_FILE"
+set +a  # Turn off automatic export
 
 echo "📋 Setting up repository secrets..."
 echo
@@ -85,6 +90,11 @@ echo "Setting optional secrets with defaults..."
 # Optional with defaults
 set_secret "CDK_DEFAULT_ACCOUNT" "$CDK_DEFAULT_ACCOUNT" "false"
 set_secret "CDK_DEFAULT_REGION" "${CDK_DEFAULT_REGION:-us-east-1}" "false"
+
+# Quilt MCP Server Configuration
+set_secret "QUILT_DEFAULT_BUCKET" "$QUILT_DEFAULT_BUCKET" "false"
+set_secret "QUILT_TEST_PACKAGE" "$QUILT_TEST_PACKAGE" "false"
+set_secret "QUILT_TEST_ENTERY" "$QUILT_TEST_ENTERY" "false"
 
 echo
 echo "🎉 GitHub secrets setup complete!"

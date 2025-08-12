@@ -5,88 +5,133 @@ A secure, Claude-compatible MCP (Model Context Protocol) server for accessing Qu
 ## Quick Start
 
 ```bash
-# 1. Configure your environment
-cp env.example .env
-# Edit .env with your QUILT_READ_POLICY_ARN
+# 1. Setup environment
+make env                          # Copy env.example to .env
+# Edit .env with your AWS account and Quilt bucket details
 
-# 2. Deploy to AWS Lambda
-./scripts/build.sh deploy
+# 2. Deploy to AWS Lambda  
+make deploy                       # Build and deploy everything
 
-# 3. Use the output API endpoint and authentication details
+# 3. Test the deployment
+make test                         # Verify everything works
 ```
 
 ## MCP Tools
 
-This server provides secure access to Quilt data operations:
+This server provides 13 secure tools for Quilt data operations:
 
-- **`search_packages`** - Search for packages across Quilt registries
-- **`list_packages`** - List all packages in a registry  
-- **`browse_package`** - Examine package structure and metadata
+### Package Management
+- **`packages_list`** - List packages in a registry with optional filtering
+- **`packages_search`** - Search packages using ElasticSearch  
+- **`package_browse`** - Examine package contents and structure
+- **`package_contents_search`** - Search within a specific package
+- **`package_create`** - Create new packages from S3 objects
+- **`package_update`** - Update existing packages with new files
+- **`package_delete`** - Remove packages from registry
+
+### S3 Operations
+- **`bucket_objects_list`** - List objects in S3 buckets
+- **`bucket_object_info`** - Get metadata for specific objects
+- **`bucket_object_text`** - Read text content from objects
+- **`bucket_objects_put`** - Upload objects to S3
+- **`bucket_object_fetch`** - Download object data
+
+### System Tools
+- **`auth_check`** - Verify Quilt authentication status
+- **`filesystem_check`** - Check system environment details
 
 ## Requirements
 
-- **AWS Account** with CLI configured
+- **AWS Account** with CLI configured  
 - **Python 3.11+** and [uv](https://docs.astral.sh/uv/) package manager
 - **Docker** for Lambda packaging
-- **IAM Policy ARN** for S3 read access to your Quilt buckets
+- **IAM Policy ARN** for S3 access to your Quilt buckets
 
 ## Configuration
 
-Copy `env.example` to `.env` and set:
+```bash
+# Copy and edit environment configuration
+make env
+```
+
+Edit `.env` with your settings:
 
 ```bash
-# Required
+# Required: IAM policy for S3 access
 QUILT_READ_POLICY_ARN=arn:aws:iam::123456789012:policy/YourQuiltReadPolicy
 
-# Optional
+# Quilt Configuration  
+QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
+QUILT_TEST_PACKAGE=yournamespace/testpackage
+QUILT_TEST_ENTERY=README.md
+
+# AWS Configuration
 CDK_DEFAULT_ACCOUNT=123456789012
 CDK_DEFAULT_REGION=us-east-1
 AWS_PROFILE=default
 ```
 
-## Authentication
+## Makefile Commands
 
-The deployed server uses OAuth 2.0 Client Credentials flow with AWS Cognito for secure access. Authentication is handled automatically by the deployment process.
+### Build & Deploy
+```bash
+make build                        # Build Lambda package locally
+make deploy                       # Build and deploy to AWS
+make test                         # Test deployed endpoints
+make all                          # Run pytest then deploy
+```
 
-## Commands
+### Development & Testing
+```bash
+make pytest                       # Run integration tests locally
+make coverage                     # Run tests with coverage report
+make clean                        # Clean build artifacts
+```
+
+### Local Development
+```bash
+make stdio-run                    # Run as stdio MCP server
+make stdio-inspector              # Test stdio server with MCP Inspector
+make remote-run                   # Run as HTTP server (localhost:8000)
+make remote-test                  # Test local HTTP server
+```
+
+### Monitoring & Debug
+```bash
+make logs                         # View Lambda logs (last 10 minutes)
+make token                        # Get OAuth access token
+make remote-inspector             # Test deployed server with MCP Inspector
+```
+
+## Environment Switching
+
+Use different environment files for different deployments:
 
 ```bash
-# Deploy and test
-./scripts/build.sh deploy          # Full deployment pipeline
-./scripts/build.sh test            # Test existing deployment
+# Development environment
+make pytest                       # Uses .env (default)
 
-# Development
-./scripts/build.sh build           # Build Lambda package locally
-./scripts/build.sh clean           # Clean build artifacts
-
-# Monitoring
-./scripts/check_logs.sh            # View Lambda logs
-./scripts/get_token.sh             # Get authentication token
+# Staging environment  
+ENV_FILE=.env.staging make pytest # Uses staging configuration
+ENV_FILE=.env.staging make deploy  # Deploy to staging
 ```
 
 ## Testing with MCP Inspector
 
-After deployment, test the MCP server using the official MCP Inspector:
-
 ```bash
-# Test the deployed server (no installation needed - uses npx)
-./scripts/test-mcp-inspector.sh
+# Test deployed server
+make remote-inspector
+
+# Test local stdio server
+make stdio-inspector
 ```
-
-This will launch the MCP Inspector with your deployed server configuration, allowing you to:
-
-- Browse available MCP tools
-- Test tool functionality interactively  
-- Verify authentication is working
-- Debug any issues
 
 ## Manual API Testing
 
-You can also test the raw API directly:
-
 ```bash
-# Get access token and test API
-TOKEN=$(./scripts/get_token.sh)
+# Get access token and test
+make token
+TOKEN=$(make token)
 curl -H "Authorization: Bearer $TOKEN" \
      -X POST https://your-api-endpoint.com/mcp/ \
      -H "Content-Type: application/json" \
@@ -96,5 +141,6 @@ curl -H "Authorization: Bearer $TOKEN" \
 ## Cleanup
 
 ```bash
-uv run cdk destroy --app "python app.py"
+make clean                        # Remove local build artifacts
+uv run cdk destroy --app "python app.py"  # Remove AWS resources
 ```
