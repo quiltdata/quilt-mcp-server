@@ -116,10 +116,10 @@ build_mode() {
     
     # Build with Docker packaging
     if [ -n "$BUILD_DIR" ]; then
-        "$PROJECT_ROOT/packager/package-lambda.sh" -o "$BUILD_DIR" $VERBOSE_FLAG
+        "$PROJECT_ROOT/deployment/packager/package-lambda.sh" -o "$BUILD_DIR" $VERBOSE_FLAG
     else
         # Use quiet mode to capture just the directory path
-        BUILD_DIR=$("$PROJECT_ROOT/packager/package-lambda.sh" 2>/dev/null | tail -1)
+        BUILD_DIR=$("$PROJECT_ROOT/deployment/packager/package-lambda.sh" 2>/dev/null | tail -1)
         if [ "$VERBOSE" = true ]; then
             log_info "Lambda package built to: $BUILD_DIR"
         fi
@@ -133,7 +133,7 @@ build_mode() {
     # Test locally if not skipping tests
     if [ "$SKIP_TESTS" = false ]; then
         log_info "🧪 Testing Lambda package locally"
-        if ! "$PROJECT_ROOT/packager/test-lambda.sh" -t "$TEST_TYPE" $VERBOSE_FLAG; then
+        if ! "$PROJECT_ROOT/deployment/packager/test-lambda.sh" -t "$TEST_TYPE" $VERBOSE_FLAG; then
             log_error "❌ Local testing failed"
             exit 1
         fi
