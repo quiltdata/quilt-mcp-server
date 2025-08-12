@@ -30,8 +30,16 @@ help:
 	@echo "  clean              Clean build/test artifacts"
 	@echo "  logs               Tail lambda logs (last 10m)"
 	@echo "  token              Print OAuth token (using get_token.sh)"
-	@echo "  pytest             Run pytest suite"
-	@echo "  coverage           Run pytest with coverage report"
+	@echo "  pytest             Run all tests (unit + integration)"
+	@echo "  pytest-unit        Run unit tests only (mocked, fast)"
+	@echo "  pytest-integration Run integration tests only (real data, slow)"
+	@echo "  pytest-catalog     Run catalog tool tests only (new functionality)"
+	@echo "  pytest-auth        Run auth/filesystem tests only"
+	@echo "  pytest-packages    Run package operation tests only"
+	@echo "  pytest-buckets     Run bucket operation tests only"
+	@echo "  coverage           Run all tests with coverage report"
+	@echo "  coverage-unit      Run unit tests with coverage"
+	@echo "  coverage-integration Run integration tests with coverage"
 	@echo "  lint               Auto-fix Python (ruff+black), then type & YAML lint"
 	@echo ""
 	@echo "Build Tasks:" 
@@ -192,8 +200,32 @@ stdio-run: setup
 pytest: setup
 	$(UVRUN) python -m pytest
 
-coverage: setup
-	$(UVRUN) python -m pytest --cov=quilt --cov-report=term-missing
+pytest-unit: setup ## Run unit tests only (test_quilt_tools.py - mocked)
+	$(UVRUN) python -m pytest tests/test_quilt_tools.py -v
+
+pytest-integration: setup ## Run integration tests only (test_quilt.py - real data)
+	$(UVRUN) python -m pytest tests/test_quilt.py -v
+
+pytest-catalog: setup ## Run catalog tool tests only (new functionality)
+	$(UVRUN) python -m pytest tests/test_quilt_tools.py::TestQuiltTools::test_catalog_info_success tests/test_quilt_tools.py::TestQuiltTools::test_catalog_name_from_authentication tests/test_quilt_tools.py::TestQuiltTools::test_catalog_url_package_view tests/test_quilt_tools.py::TestQuiltTools::test_catalog_uri_basic tests/test_quilt.py::TestQuiltAPI::test_catalog_info_returns_data tests/test_quilt.py::TestQuiltAPI::test_catalog_name_returns_name tests/test_quilt.py::TestQuiltAPI::test_catalog_url_package_view tests/test_quilt.py::TestQuiltAPI::test_catalog_uri_package_reference -v
+
+pytest-auth: setup ## Run auth/filesystem tool tests only
+	$(UVRUN) python -m pytest -k "auth_status or filesystem_status" -v
+
+pytest-packages: setup ## Run package operation tests only
+	$(UVRUN) python -m pytest -k "package" -v
+
+pytest-buckets: setup ## Run bucket operation tests only
+	$(UVRUN) python -m pytest -k "bucket" -v
+
+coverage: setup ## Run all tests with coverage report
+	$(UVRUN) python -m pytest --cov=quilt_mcp --cov-report=term-missing --cov-report=html
+
+coverage-unit: setup ## Run unit tests with coverage
+	$(UVRUN) python -m pytest tests/test_quilt_tools.py --cov=quilt_mcp --cov-report=term-missing
+
+coverage-integration: setup ## Run integration tests with coverage  
+	$(UVRUN) python -m pytest tests/test_quilt.py --cov=quilt_mcp --cov-report=term-missing
 
 PY_SRC := src tests entry_points
 YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)

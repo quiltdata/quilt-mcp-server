@@ -15,6 +15,10 @@ from quilt_mcp import (  # type: ignore[import-not-found]
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
+    catalog_info,
+    catalog_name,
+    catalog_url,
+    catalog_uri,
     filesystem_status,
     package_browse,
     package_contents_search,
@@ -208,6 +212,114 @@ class TestQuiltAPI:
         assert result["home_directory"].startswith("/"), f"Home directory should be absolute path: {result['home_directory']}"
         assert result["temp_directory"].startswith("/"), f"Temp directory should be absolute path: {result['temp_directory']}"
         assert result["current_directory"].startswith("/"), f"Current directory should be absolute path: {result['current_directory']}"
+
+    def test_catalog_info_returns_data(self):
+        """Test catalog_info returns current catalog information."""
+        result = catalog_info()
+
+        assert isinstance(result, dict)
+        assert "catalog_name" in result
+        assert "is_authenticated" in result
+        assert "status" in result
+        assert result["status"] in ["success", "error"]
+
+        if result["status"] == "success":
+            assert isinstance(result["catalog_name"], str)
+            assert isinstance(result["is_authenticated"], bool)
+            assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
+
+    def test_catalog_name_returns_name(self):
+        """Test catalog_name returns the catalog name and detection method."""
+        result = catalog_name()
+
+        assert isinstance(result, dict)
+        assert "catalog_name" in result
+        assert "detection_method" in result
+        assert "status" in result
+        assert result["status"] in ["success", "error"]
+
+        if result["status"] == "success":
+            assert isinstance(result["catalog_name"], str)
+            assert isinstance(result["detection_method"], str)
+            assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
+            assert result["detection_method"] in ["authentication", "navigator_config", "registry_config", "unknown"]
+
+    def test_catalog_url_package_view(self):
+        """Test catalog_url generates valid package view URLs."""
+        result = catalog_url(
+            registry=TEST_REGISTRY,
+            package_name="raw/salmon-rnaseq",
+            path="README.md"
+        )
+
+        assert isinstance(result, dict)
+        assert "status" in result
+
+        if result["status"] == "success":
+            assert "catalog_url" in result
+            assert "view_type" in result
+            assert "bucket" in result
+            assert result["view_type"] == "package"
+            assert result["catalog_url"].startswith("https://")
+            assert "/b/" in result["catalog_url"]
+            assert "/packages/" in result["catalog_url"]
+            assert "raw/salmon-rnaseq" in result["catalog_url"]
+            assert "README.md" in result["catalog_url"]
+
+    def test_catalog_url_bucket_view(self):
+        """Test catalog_url generates valid bucket view URLs."""
+        result = catalog_url(
+            registry=TEST_REGISTRY,
+            path="test/data.csv"
+        )
+
+        assert isinstance(result, dict)
+        assert "status" in result
+
+        if result["status"] == "success":
+            assert "catalog_url" in result
+            assert "view_type" in result
+            assert "bucket" in result
+            assert result["view_type"] == "bucket"
+            assert result["catalog_url"].startswith("https://")
+            assert "/b/" in result["catalog_url"]
+            assert "/tree/" in result["catalog_url"]
+            assert "test/data.csv" in result["catalog_url"]
+
+    def test_catalog_uri_package_reference(self):
+        """Test catalog_uri generates valid Quilt+ URIs."""
+        result = catalog_uri(
+            registry=TEST_REGISTRY,
+            package_name="raw/salmon-rnaseq",
+            path="README.md"
+        )
+
+        assert isinstance(result, dict)
+        assert "status" in result
+
+        if result["status"] == "success":
+            assert "quilt_plus_uri" in result
+            assert "bucket" in result
+            assert result["quilt_plus_uri"].startswith("quilt+s3://")
+            assert "package=raw/salmon-rnaseq" in result["quilt_plus_uri"]
+            assert "path=README.md" in result["quilt_plus_uri"]
+
+    def test_catalog_uri_with_version(self):
+        """Test catalog_uri generates versioned Quilt+ URIs."""
+        test_hash = "abc123def456"
+        result = catalog_uri(
+            registry=TEST_REGISTRY,
+            package_name="raw/salmon-rnaseq",
+            path="README.md",
+            top_hash=test_hash
+        )
+
+        assert isinstance(result, dict)
+        assert "status" in result
+
+        if result["status"] == "success":
+            assert "quilt_plus_uri" in result
+            assert f"package=raw/salmon-rnaseq@{test_hash}" in result["quilt_plus_uri"]
 
     # FAILURE CASES - These should fail gracefully
 

@@ -2,6 +2,10 @@ from unittest.mock import Mock, patch
 
 from quilt_mcp import (
     auth_status,
+    catalog_info,
+    catalog_name,
+    catalog_url,
+    catalog_uri,
     package_browse,
     package_contents_search,
     packages_list,
@@ -160,3 +164,126 @@ class TestQuiltTools:
             assert len(result['results']) == 2
             assert result['results'][0]['name'] == 'user/package1'
             assert result['results'][1]['name'] == 'user/package2'
+
+    def test_catalog_info_success(self):
+        """Test catalog_info with successful response."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'), \
+             patch('quilt3.config', return_value={'navigator_url': 'https://test.catalog.com', 'registryUrl': 'https://registry.test.com'}):
+
+            result = catalog_info()
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['catalog_name'] == 'test.catalog.com'
+            assert result['is_authenticated'] is True
+            assert 'navigator_url' in result
+            assert 'registry_url' in result
+
+    def test_catalog_info_not_authenticated(self):
+        """Test catalog_info when not authenticated."""
+        with patch('quilt3.logged_in', return_value=None), \
+             patch('quilt3.config', return_value={'navigator_url': 'https://test.catalog.com'}):
+
+            result = catalog_info()
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['catalog_name'] == 'test.catalog.com'
+            assert result['is_authenticated'] is False
+
+    def test_catalog_name_from_authentication(self):
+        """Test catalog_name when detected from authentication."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'), \
+             patch('quilt3.config', return_value={}):
+
+            result = catalog_name()
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['catalog_name'] == 'test.catalog.com'
+            assert result['detection_method'] == 'authentication'
+            assert result['is_authenticated'] is True
+
+    def test_catalog_name_from_config(self):
+        """Test catalog_name when detected from config."""
+        with patch('quilt3.logged_in', return_value=None), \
+             patch('quilt3.config', return_value={'navigator_url': 'https://config.catalog.com'}):
+
+            result = catalog_name()
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['catalog_name'] == 'config.catalog.com'
+            assert result['detection_method'] == 'navigator_config'
+            assert result['is_authenticated'] is False
+
+    def test_catalog_url_package_view(self):
+        """Test catalog_url for package view."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            result = catalog_url(
+                registry='s3://test-bucket',
+                package_name='user/package',
+                path='data.csv'
+            )
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['view_type'] == 'package'
+            assert result['catalog_url'] == 'https://test.catalog.com/b/test-bucket/packages/user/package/tree/latest/data.csv'
+            assert result['bucket'] == 'test-bucket'
+
+    def test_catalog_url_bucket_view(self):
+        """Test catalog_url for bucket view."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            result = catalog_url(
+                registry='s3://test-bucket',
+                path='data/file.csv'
+            )
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['view_type'] == 'bucket'
+            assert result['catalog_url'] == 'https://test.catalog.com/b/test-bucket/tree/data/file.csv'
+            assert result['bucket'] == 'test-bucket'
+
+    def test_catalog_uri_basic(self):
+        """Test catalog_uri with basic parameters."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            result = catalog_uri(
+                registry='s3://test-bucket',
+                package_name='user/package',
+                path='data.csv'
+            )
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert result['quilt_plus_uri'] == 'quilt+s3://test-bucket#package=user/package&path=data.csv&catalog=test.catalog.com'
+            assert result['bucket'] == 'test-bucket'
+
+    def test_catalog_uri_with_version(self):
+        """Test catalog_uri with version hash."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            result = catalog_uri(
+                registry='s3://test-bucket',
+                package_name='user/package',
+                top_hash='abc123def456'
+            )
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert 'package=user/package@abc123def456' in result['quilt_plus_uri']
+            assert result['top_hash'] == 'abc123def456'
+
+    def test_catalog_uri_with_tag(self):
+        """Test catalog_uri with version tag."""
+        with patch('quilt3.logged_in', return_value='https://test.catalog.com'):
+            result = catalog_uri(
+                registry='s3://test-bucket',
+                package_name='user/package',
+                tag='v1.0'
+            )
+
+            assert isinstance(result, dict)
+            assert result['status'] == 'success'
+            assert 'package=user/package:v1.0' in result['quilt_plus_uri']
+            assert result['tag'] == 'v1.0'

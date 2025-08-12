@@ -19,7 +19,7 @@ def test_tool_response_format():
         "id": 1,
         "method": "tools/call",
         "params": {
-            "name": "auth_check",
+            "name": "auth_status",
             "arguments": {}
         }
     }
