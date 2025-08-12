@@ -196,6 +196,18 @@
         "expect_keys": ["bucket", "key"],
         "one_of_keys_non_empty": [["data", "text"]]
       }
+    },
+    "bucket_object_link": {
+      "description": "Generate presigned URL for S3 object download",
+      "arguments": {
+        "s3_uri": "s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP1/quant.sf",
+        "expiration": 1800
+      },
+      "validations": {
+        "expect_keys": ["bucket", "key", "presigned_url", "expires_in"],
+        "url_format": {"presigned_url": "https://"},
+        "min_number": {"expires_in": 1}
+      }
     }
   }
 }

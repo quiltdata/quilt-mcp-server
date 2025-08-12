@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from quilt_mcp import (
     bucket_object_fetch,
     bucket_object_info,
+    bucket_object_link,
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
@@ -135,3 +136,47 @@ def test_bucket_object_fetch_text_fallback():
         result = bucket_object_fetch("s3://my-bucket/file.txt", max_bytes=100, base64_encode=False)
         assert result["base64"] is False
         assert result["text"].startswith("hello")
+
+
+def test_bucket_object_link_success():
+    mock_client = MagicMock()
+    mock_client.generate_presigned_url.return_value = "https://example.com/presigned-url?signature=abc123"
+    with patch("boto3.client", return_value=mock_client):
+        result = bucket_object_link("s3://my-bucket/file.txt", expiration=7200)
+        assert result["bucket"] == "my-bucket"
+        assert result["key"] == "file.txt"
+        assert result["presigned_url"] == "https://example.com/presigned-url?signature=abc123"
+        assert result["expires_in"] == 7200
+        mock_client.generate_presigned_url.assert_called_once_with(
+            "get_object",
+            Params={"Bucket": "my-bucket", "Key": "file.txt"},
+            ExpiresIn=7200
+        )
+
+
+def test_bucket_object_link_invalid_uri():
+    result = bucket_object_link("not-an-s3-uri")
+    assert "error" in result
+
+
+def test_bucket_object_link_expiration_limits():
+    mock_client = MagicMock()
+    mock_client.generate_presigned_url.return_value = "https://example.com/presigned-url"
+    with patch("boto3.client", return_value=mock_client):
+        # Test minimum expiration
+        result = bucket_object_link("s3://my-bucket/file.txt", expiration=0)
+        assert result["expires_in"] == 1
+        
+        # Test maximum expiration
+        result = bucket_object_link("s3://my-bucket/file.txt", expiration=1000000)
+        assert result["expires_in"] == 604800
+
+
+def test_bucket_object_link_error():
+    mock_client = MagicMock()
+    mock_client.generate_presigned_url.side_effect = Exception("access denied")
+    with patch("boto3.client", return_value=mock_client):
+        result = bucket_object_link("s3://my-bucket/file.txt")
+        assert "error" in result
+        assert result["bucket"] == "my-bucket"
+        assert result["key"] == "file.txt"

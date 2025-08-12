@@ -22,6 +22,7 @@ from .tools.auth import auth_status, filesystem_status, catalog_info, catalog_na
 from .tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,
+    bucket_object_link,
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
@@ -59,6 +60,7 @@ __all__ = [
     "bucket_objects_list",
     "bucket_objects_put",
     "bucket_object_fetch",
+    "bucket_object_link",
     # Package tools
     "package_browse",
     "package_contents_search",

@@ -171,3 +171,31 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     except Exception:
         data = base64.b64encode(body).decode("ascii")
         return {"bucket": bucket, "key": key, "truncated": truncated, "max_bytes": max_bytes, "base64": True, "data": data, "content_type": content_type, "size": len(body), "note": "Binary data returned as base64 after decode failure"}
+
+@mcp.tool()
+def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
+    """Generate a presigned URL for downloading an S3 object.
+    
+    Args:
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file")
+        expiration: URL expiration time in seconds (default: 3600, max: 604800)
+    
+    Returns:
+        Dict with presigned URL and metadata.
+    """
+    import boto3
+    if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
+    without = s3_uri[5:]
+    if '/' not in without: return {"error": "s3_uri must include a key after the bucket/"}
+    bucket, key = without.split('/', 1)
+    expiration = max(1, min(expiration, 604800))
+    client = boto3.client("s3")
+    try:
+        url = client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expiration
+        )
+        return {"bucket": bucket, "key": key, "presigned_url": url, "expires_in": expiration}
+    except Exception as e:
+        return {"error": f"Failed to generate presigned URL: {e}", "bucket": bucket, "key": key}
