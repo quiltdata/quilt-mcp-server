@@ -8,6 +8,21 @@ import quilt3
 from ..constants import DEFAULT_REGISTRY
 from ..server import mcp
 
+# Helpers
+
+def _normalize_registry(bucket_or_uri: str) -> str:
+    """Normalize registry input to s3:// URI format.
+    
+    Args:
+        bucket_or_uri: Either a bucket name (e.g., "my-bucket") or s3:// URI (e.g., "s3://my-bucket")
+    
+    Returns:
+        Full s3:// URI format (e.g., "s3://my-bucket")
+    """
+    if bucket_or_uri.startswith("s3://"):
+        return bucket_or_uri
+    return f"s3://{bucket_or_uri}"
+
 # Internal helper replicated from monolith (will be removed there)
 
 def _collect_objects_into_package(pkg: quilt3.Package, s3_uris: list[str], flatten: bool, warnings: list[str]) -> list[dict[str, Any]]:
@@ -63,7 +78,8 @@ def package_create(package_name: str, s3_uris: list[str], registry: str = DEFAUL
     if metadata:
         try: pkg.set_meta(metadata)
         except Exception as e: warnings.append(f"Failed to set metadata: {e}")
-    try: top_hash = pkg.push(package_name, registry=registry, message=message)
+    normalized_registry = _normalize_registry(registry)
+    try: top_hash = pkg.push(package_name, registry=normalized_registry, message=message)
     except Exception as e: return {"error": f"Failed to push package: {e}", "package_name": package_name, "warnings": warnings}
 
     # Ensure all values are JSON serializable
@@ -100,7 +116,8 @@ def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAUL
     if not s3_uris: return {"error": "No S3 URIs provided"}
     if not package_name: return {"error": "package_name is required for package_update"}
     warnings: list[str] = []
-    try: existing_pkg = quilt3.Package.browse(package_name, registry=registry)
+    normalized_registry = _normalize_registry(registry)
+    try: existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     except Exception as e: return {"error": f"Failed to browse existing package '{package_name}': {e}", "package_name": package_name}
     # Use the existing package as the base instead of creating a new one
     updated_pkg = existing_pkg
@@ -114,7 +131,7 @@ def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAUL
             combined.update(metadata)
             updated_pkg.set_meta(combined)
         except Exception as e: warnings.append(f"Failed to set merged metadata: {e}")
-    try: top_hash = updated_pkg.push(package_name, registry=registry, message=message)
+    try: top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
     except Exception as e: return {"error": f"Failed to push updated package: {e}", "package_name": package_name, "warnings": warnings}
     return {"status": "success", "action": "updated", "package_name": package_name, "registry": registry, "top_hash": top_hash, "new_entries_added": len(added), "files_added": added, "warnings": warnings, "message": message, "metadata_added": bool(metadata)}
 
@@ -133,7 +150,8 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
         return {"error": "package_name is required for package deletion"}
 
     try:
-        quilt3.delete_package(package_name, registry=registry)
+        normalized_registry = _normalize_registry(registry)
+        quilt3.delete_package(package_name, registry=normalized_registry)
         return {
             "status": "success",
             "action": "deleted",
