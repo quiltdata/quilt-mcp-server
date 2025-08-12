@@ -133,7 +133,21 @@ def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAUL
         except Exception as e: warnings.append(f"Failed to set merged metadata: {e}")
     try: top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
     except Exception as e: return {"error": f"Failed to push updated package: {e}", "package_name": package_name, "warnings": warnings}
-    return {"status": "success", "action": "updated", "package_name": package_name, "registry": registry, "top_hash": top_hash, "new_entries_added": len(added), "files_added": added, "warnings": warnings, "message": message, "metadata_added": bool(metadata)}
+    
+    # Ensure all values are JSON serializable
+    result = {
+        "status": "success",
+        "action": "updated",
+        "package_name": str(package_name),
+        "registry": str(registry),
+        "top_hash": str(top_hash),
+        "new_entries_added": len(added),
+        "files_added": added,
+        "warnings": warnings,
+        "message": str(message),
+        "metadata_added": bool(metadata)
+    }
+    return result
 
 @mcp.tool()
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
