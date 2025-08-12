@@ -165,7 +165,7 @@ remote-test:
 	fi
 
 remote-test-full:
-	./scripts/test-endpoint.sh -l -v
+	./scripts/test-endpoint.sh -l -t -v
 
 remote-kill:
 	@pkill -f "python -m quilt.remote" || echo "No remote server running"
@@ -206,18 +206,6 @@ pytest-unit: setup ## Run unit tests only (test_quilt_tools.py - mocked)
 pytest-integration: setup ## Run integration tests only (test_quilt.py - real data)
 	$(UVRUN) python -m pytest tests/test_quilt.py -v
 
-pytest-catalog: setup ## Run catalog tool tests only (new functionality)
-	$(UVRUN) python -m pytest tests/test_quilt_tools.py::TestQuiltTools::test_catalog_info_success tests/test_quilt_tools.py::TestQuiltTools::test_catalog_name_from_authentication tests/test_quilt_tools.py::TestQuiltTools::test_catalog_url_package_view tests/test_quilt_tools.py::TestQuiltTools::test_catalog_uri_basic tests/test_quilt.py::TestQuiltAPI::test_catalog_info_returns_data tests/test_quilt.py::TestQuiltAPI::test_catalog_name_returns_name tests/test_quilt.py::TestQuiltAPI::test_catalog_url_package_view tests/test_quilt.py::TestQuiltAPI::test_catalog_uri_package_reference -v
-
-pytest-auth: setup ## Run auth/filesystem tool tests only
-	$(UVRUN) python -m pytest -k "auth_status or filesystem_status" -v
-
-pytest-packages: setup ## Run package operation tests only
-	$(UVRUN) python -m pytest -k "package" -v
-
-pytest-buckets: setup ## Run bucket operation tests only
-	$(UVRUN) python -m pytest -k "bucket" -v
-
 coverage: setup ## Run all tests with coverage report
 	$(UVRUN) python -m pytest --cov=quilt_mcp --cov-report=term-missing --cov-report=html
 
@@ -230,34 +218,11 @@ coverage-integration: setup ## Run integration tests with coverage
 PY_SRC := src tests entry_points
 YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
 
-lint: deps-lint ruff-fix black mypy yaml-lint ## Auto-fix formatting & style, then type & YAML lint
-	@echo "✅ Lint (auto-fix) completed"
-
 lint-ci: lint ## Alias for lint (CI friendly)
 
-format: deps-lint ## Auto-format code with Ruff (imports, fixes) and Black
-	@echo "🔧 Ruff (autofix)"
+lint: deps-lint
 	$(UVRUN) ruff check --fix $(PY_SRC)
-	@echo "🖤 Black formatting"
 	$(UVRUN) black $(PY_SRC)
-	@echo "✅ Formatting complete"
-
-ruff: deps-lint ## Run Ruff (no fix)
-	$(UVRUN) ruff check $(PY_SRC)
-
-ruff-check: ruff ## Backward compatibility target (non-fixing)
-
-ruff-fix: deps-lint ## Run Ruff with fixes
-	$(UVRUN) ruff check --fix $(PY_SRC)
-
-black: deps-lint ## Run Black (format in place)
-	$(UVRUN) black $(PY_SRC)
-
-black-check: deps-lint ## Run Black in check mode
-	$(UVRUN) black --check --diff $(PY_SRC)
-
-mypy: deps-lint ## Run mypy static type checking
 	$(UVRUN) mypy src
-
-yaml-lint: deps-lint ## Lint YAML files with yamllint (skip if none)
-	@if [ -z "$(YAML_FILES)" ]; then echo "(No YAML files to lint)"; else $(UVRUN) yamllint $(YAML_FILES); fi
+	@if [ -n "$(YAML_FILES)" ]; then $(UVRUN) yamllint $(YAML_FILES); else echo "(No YAML files to lint)"; fi
+	@echo "✅ Lint (auto-fix) completed"

@@ -1,12 +1,9 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Load common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 # Default values
 VERBOSE=false
@@ -19,6 +16,35 @@ STACK_NAME="QuiltMcpStack"
 REGION=""
 USE_AUTH=true
 ACCESS_TOKEN=""
+
+#==============================================================================
+# HELPER FUNCTIONS
+#==============================================================================
+
+# Helper: fetch env var by name
+get_env_value() {
+    local name="$1"; eval echo "\${$name}" 2>/dev/null
+}
+
+# Helper: substitute environment variables in JSON string
+substitute_env_vars() {
+    local json="$1"
+    # Find all ${VAR_NAME} patterns and substitute them
+    local result="$json"
+    local pattern='\$\{([A-Z_][A-Z0-9_]*)\}'
+    
+    while [[ $result =~ $pattern ]]; do
+        local var_name="${BASH_REMATCH[1]}"
+        local var_value=$(get_env_value "$var_name")
+        if [ -n "$var_value" ]; then
+            result="${result//\$\{$var_name\}/$var_value}"
+        else
+            log_warning "Environment variable $var_name not set"
+            break
+        fi
+    done
+    echo "$result"
+}
 
 #==============================================================================
 # FUNCTION DEFINITIONS
@@ -138,10 +164,10 @@ get_auth_headers() {
 
 test_local_fastmcp() {
     local LOCAL_ENDPOINT="http://localhost:8000/mcp"
-    echo -e "${BLUE}=================== LOCAL FASTMCP SESSION TEST ===================${NC}"
+    log_info "=================== LOCAL FASTMCP SESSION TEST ==================="
     
     # Test 1: Initialize session
-    echo -e "${BLUE}Step 1: Initialize session${NC}"
+    log_info "Step 1: Initialize session"
     INIT_REQUEST='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}'
     
     if [ "$VERBOSE" = true ]; then
@@ -236,6 +262,9 @@ test_local_fastmcp() {
             TOOL_DESC=$(jq -r ".tools.\"$LOCAL_TOOL_NAME\".description // \"Test $LOCAL_TOOL_NAME\"" "$TEST_TOOLS_FILE" 2>/dev/null)
             
             if [ "$TOOL_ARGS" != "null" ] && [ -n "$TOOL_ARGS" ]; then
+                # Substitute environment variables in TOOL_ARGS
+                TOOL_ARGS=$(substitute_env_vars "$TOOL_ARGS")
+                
                 if [ "$VERBOSE" = true ]; then
                     echo -e "${BLUE}Tool description: $TOOL_DESC${NC}"
                     echo -e "${BLUE}Using arguments from test-tools.json:${NC}"
@@ -254,7 +283,7 @@ test_local_fastmcp() {
         fi
     else
         echo -e "${BLUE}Step 3: Test tool call with session${NC}"
-        TOOL_REQUEST='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"auth_check","arguments":{}}}'
+        TOOL_REQUEST='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"auth_status","arguments":{}}}'
     fi
     
     if [ -n "$SESSION_ID" ]; then
@@ -291,6 +320,163 @@ test_local_fastmcp() {
     fi
     
     echo -e "${BLUE}=================== LOCAL FASTMCP TEST COMPLETE ===================${NC}"
+}
+
+test_local_fastmcp_all_tools() {
+    local LOCAL_ENDPOINT="http://localhost:8000/mcp"
+    log_info "=================== LOCAL FASTMCP ALL TOOLS TEST ==================="
+    
+    # Step 1: Initialize session (reuse logic from test_local_fastmcp)
+    echo -e "${BLUE}Step 1: Initialize session${NC}"
+    INIT_REQUEST='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}'
+    
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${BLUE}Sending initialize request to $LOCAL_ENDPOINT${NC}"
+        echo "$INIT_REQUEST" | jq . 2>/dev/null || echo "$INIT_REQUEST"
+    fi
+    
+    # Get response with headers to extract session ID
+    INIT_RESPONSE=$(curl -s -i -X POST "$LOCAL_ENDPOINT" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json, text/event-stream" \
+        -d "$INIT_REQUEST")
+    
+    # Extract session ID from response headers
+    SESSION_ID=$(echo "$INIT_RESPONSE" | grep -i "mcp-session-id:" | head -1 | sed 's/.*mcp-session-id: *\([^ \r]*\).*/\1/' | tr -d '\r')
+    
+    if [ -n "$SESSION_ID" ]; then
+        echo -e "${GREEN}✅ Session initialized with ID: $SESSION_ID${NC}"
+        
+        # Send initialized notification to complete the MCP handshake
+        curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null
+    else
+        echo -e "${YELLOW}⚠️  No session ID returned, proceeding without session management${NC}"
+    fi
+    
+    # Step 2: Get tools list
+    echo -e "${BLUE}Step 2: Get tools list${NC}"
+    TOOLS_REQUEST='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+    
+    if [ -n "$SESSION_ID" ]; then
+        TOOLS_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d "$TOOLS_REQUEST")
+    else
+        TOOLS_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d "$TOOLS_REQUEST")
+    fi
+    
+    # Extract JSON from SSE format
+    if echo "$TOOLS_RESPONSE" | grep -q "^data: "; then
+        TOOLS_JSON=$(echo "$TOOLS_RESPONSE" | grep "^data: " | sed 's/^data: //' | head -1)
+    else
+        TOOLS_JSON="$TOOLS_RESPONSE"
+    fi
+    
+    # Extract available tools
+    AVAILABLE_TOOLS=$(echo "$TOOLS_JSON" | jq -r '.result.tools[].name' 2>/dev/null)
+    
+    if [ -z "$AVAILABLE_TOOLS" ]; then
+        echo -e "${RED}❌ Failed to get tools list${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}✅ Found tools to test:${NC}"
+    echo "$AVAILABLE_TOOLS" | sed 's/^/  - /'
+    echo ""
+    
+    # Step 3: Test each tool from test-tools.json
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    TEST_TOOLS_FILE="$SCRIPT_DIR/test-tools.json"
+    
+    if [ ! -f "$TEST_TOOLS_FILE" ]; then
+        echo -e "${RED}❌ test-tools.json not found at: $TEST_TOOLS_FILE${NC}"
+        return 1
+    fi
+    
+    # Get tools from test-tools.json
+    TEST_TOOLS=$(jq -r '.tools | keys[]' "$TEST_TOOLS_FILE" 2>/dev/null)
+    TOOL_COUNT=0
+    SUCCESS_COUNT=0
+    FAIL_COUNT=0
+    
+    for TOOL_NAME in $TEST_TOOLS; do
+        TOOL_COUNT=$((TOOL_COUNT + 1))
+        echo -e "${BLUE}Tool Test $TOOL_COUNT: $TOOL_NAME${NC}"
+        
+        # Get tool arguments from test-tools.json
+        TOOL_ARGS=$(jq -c ".tools.\"$TOOL_NAME\".arguments // {}" "$TEST_TOOLS_FILE" 2>/dev/null)
+        TOOL_DESC=$(jq -r ".tools.\"$TOOL_NAME\".description // \"Test $TOOL_NAME\"" "$TEST_TOOLS_FILE" 2>/dev/null)
+        
+        # Substitute environment variables in TOOL_ARGS
+        TOOL_ARGS=$(substitute_env_vars "$TOOL_ARGS")
+        
+        if [ "$VERBOSE" = true ]; then
+            echo -e "${BLUE}  Description: $TOOL_DESC${NC}"
+            echo -e "${BLUE}  Arguments: $TOOL_ARGS${NC}"
+        fi
+        
+        # Build tool request
+        TOOL_REQUEST="{\"jsonrpc\":\"2.0\",\"id\":$((TOOL_COUNT + 2)),\"method\":\"tools/call\",\"params\":{\"name\":\"$TOOL_NAME\",\"arguments\":$TOOL_ARGS}}"
+        
+        # Make tool call
+        if [ -n "$SESSION_ID" ]; then
+            TOOL_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -H "Accept: application/json, text/event-stream" \
+                -H "Mcp-Session-Id: $SESSION_ID" \
+                -d "$TOOL_REQUEST")
+        else
+            TOOL_RESPONSE=$(curl -s -X POST "$LOCAL_ENDPOINT" \
+                -H "Content-Type: application/json" \
+                -H "Accept: application/json, text/event-stream" \
+                -d "$TOOL_REQUEST")
+        fi
+        
+        # Extract JSON from SSE format
+        if echo "$TOOL_RESPONSE" | grep -q "^data: "; then
+            TOOL_JSON=$(echo "$TOOL_RESPONSE" | grep "^data: " | sed 's/^data: //' | head -1)
+        else
+            TOOL_JSON="$TOOL_RESPONSE"
+        fi
+        
+        # Check if tool call was successful
+        if echo "$TOOL_JSON" | grep -q '"content"' && ! echo "$TOOL_JSON" | grep -q '"isError":true'; then
+            echo -e "${GREEN}  ✅ PASSED${NC}"
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+            if [ "$VERBOSE" = true ]; then
+                echo -e "${BLUE}  Response: ${NC}$(echo "$TOOL_JSON" | jq -r '.result.content[0].text' 2>/dev/null | head -c 100)..."
+            fi
+        else
+            echo -e "${RED}  ❌ FAILED${NC}"
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            if [ "$VERBOSE" = true ]; then
+                echo -e "${YELLOW}  Error: ${NC}$(echo "$TOOL_JSON" | jq -r '.error.message // .result.content[0].text' 2>/dev/null | head -c 200)"
+            fi
+        fi
+        echo ""
+    done
+    
+    # Summary
+    echo -e "${BLUE}=================== TEST SUMMARY ===================${NC}"
+    echo -e "${GREEN}✅ Passed: $SUCCESS_COUNT${NC}"
+    echo -e "${RED}❌ Failed: $FAIL_COUNT${NC}"
+    echo -e "${BLUE}📋 Total:  $TOOL_COUNT${NC}"
+    
+    if [ "$FAIL_COUNT" -gt 0 ]; then
+        echo -e "${YELLOW}💡 Run with individual tool names for detailed error output${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}=================== LOCAL FASTMCP ALL TOOLS TEST COMPLETE ===================${NC}"
 }
 
 run_claude_simulation_tests() {
@@ -405,6 +591,26 @@ run_tools_tests() {
     get_env_value() {
         local name="$1"; eval echo "\${$name}" 2>/dev/null
     }
+    
+    # Helper: substitute environment variables in JSON string
+    substitute_env_vars() {
+        local json="$1"
+        # Find all ${VAR_NAME} patterns and substitute them
+        local result="$json"
+        local pattern='\$\{([A-Z_][A-Z0-9_]*)\}'
+        
+        while [[ $result =~ $pattern ]]; do
+            local var_name="${BASH_REMATCH[1]}"
+            local var_value=$(get_env_value "$var_name")
+            if [ -n "$var_value" ]; then
+                result="${result//\$\{$var_name\}/$var_value}"
+            else
+                echo "Warning: Environment variable $var_name not set" >&2
+                break
+            fi
+        done
+        echo "$result"
+    }
 
     # Test each available tool with config-driven arguments & validations
     TOOL_COUNT=1
@@ -420,6 +626,9 @@ run_tools_tests() {
 
         [ -z "$TOOL_ARGUMENTS" ] || [ "$TOOL_ARGUMENTS" = "null" ] && TOOL_ARGUMENTS="{}"
         [ -z "$VALIDATIONS" ] || [ "$VALIDATIONS" = "null" ] && VALIDATIONS="{}"
+        
+        # Substitute environment variables in TOOL_ARGUMENTS
+        TOOL_ARGUMENTS=$(substitute_env_vars "$TOOL_ARGUMENTS")
 
         TOOL_REQUEST="{\"jsonrpc\": \"2.0\", \"id\": $TOOL_COUNT, \"method\": \"tools/call\", \"params\": {\"name\": \"$TOOL_NAME\", \"arguments\": $TOOL_ARGUMENTS}}"
         TOOL_RESPONSE=$(curl -s -X POST "$ENDPOINT" \
@@ -707,21 +916,29 @@ done
 # MAIN EXECUTION
 #==============================================================================
 
-echo -e "${BLUE}🧪 Testing MCP Endpoint${NC}"
+log_info "🧪 Testing MCP Endpoint"
 
-# Handle local test mode - exit early
-if [ "$LOCAL_TEST" = true ]; then
-    test_local_fastmcp
-    exit 0
-fi
-
-# Load environment if available
+# Load environment variables early (needed for local tests with env vars)
 if [ -f ".env" ]; then
     if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Loading environment from .env${NC}"
+        log_info "Loading environment from .env"
     fi
     set -a && source .env && set +a
 fi
+
+# Handle local test mode 
+if [ "$LOCAL_TEST" = true ]; then
+    if [ "$TOOLS_TEST" = true ]; then
+        # Run comprehensive local tools test
+        test_local_fastmcp_all_tools
+    else
+        # Run single tool or basic local test
+        test_local_fastmcp
+    fi
+    exit 0
+fi
+
+# Environment already loaded earlier
 
 # Set region default
 if [ -z "$REGION" ]; then
