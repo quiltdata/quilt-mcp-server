@@ -63,7 +63,7 @@ QUILT_READ_POLICY_ARN=arn:aws:iam::123456789012:policy/YourQuiltReadPolicy
 # Quilt Configuration  
 QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
 QUILT_TEST_PACKAGE=yournamespace/testpackage
-QUILT_TEST_ENTERY=README.md
+QUILT_TEST_ENTRY=README.md
 
 # AWS Configuration
 CDK_DEFAULT_ACCOUNT=123456789012

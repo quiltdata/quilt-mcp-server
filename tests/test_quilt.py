@@ -1,6 +1,8 @@
 import pytest
 import quilt3
-from quilt_mcp import (
+import time
+import uuid
+from quilt_mcp import (  # type: ignore[import-not-found]
     packages_search,
     packages_list,
     package_browse,
@@ -105,7 +107,7 @@ class TestQuiltAPI:
     def test_package_contents_search_in_known_package(self):
         """Test searching within a known package for files."""
         # Try searching for the known test entry first
-        known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README"
+        known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README.md"
         result = package_contents_search(KNOWN_PACKAGE, known_entry, registry=TEST_REGISTRY)
         
         assert isinstance(result, dict)
@@ -253,16 +255,18 @@ class TestQuiltAPI:
         if not objects_result.get("objects"):
             pytest.skip("No objects found to test fetch")
         
-        # Find a small object to test
+        # Find a small object to test (prefer smallest under threshold)
+        candidates = [o for o in objects_result["objects"] if o.get("size", 0) > 0]
+        SMALL_MAX = 10000
         small_obj = None
-        for obj in objects_result["objects"]:
-            if obj.get("size", 0) < 10000:  # Less than 10KB
-                small_obj = obj
-                break
-        
+        if candidates:
+            under = [o for o in candidates if o.get("size", 0) < SMALL_MAX]
+            search_space = under or candidates
+            small_obj = min(search_space, key=lambda o: o.get("size", 0))
         if not small_obj:
-            pytest.skip("No small objects found to test fetch")
-        
+            pytest.skip("No suitable objects (non-zero size) found to test fetch")
+        # Static type assurance (helps static analysis)
+        assert small_obj is not None  # noqa: F821
         s3_uri = f"s3://{objects_result['bucket']}/{small_obj['key']}"
         result = bucket_object_fetch(s3_uri, max_bytes=1000)
         
@@ -324,7 +328,7 @@ class TestQuiltAPI:
         # Clean up uploaded test files
         try:
             for item in test_items:
-                from quilt_mcp import bucket_object_info
+                from quilt_mcp import bucket_object_info  # type: ignore[import-not-found]
                 # Verify file was uploaded, then we could delete it if there was a delete tool
                 info_result = bucket_object_info(f"{KNOWN_BUCKET}/{item['key']}")
                 if "error" not in info_result:
@@ -339,12 +343,13 @@ class TestQuiltAPI:
         if not objects_result.get("objects"):
             pytest.skip("No objects found to create package from")
         
-        # Build S3 URIs from actual objects
-        s3_uris = []
-        for obj in objects_result["objects"][:2]:  # Use first 2 objects
-            if obj.get("size", 0) < 50000:  # Skip large files
-                s3_uri = f"s3://{objects_result['bucket']}/{obj['key']}"
-                s3_uris.append(s3_uri)
+        # Build S3 URIs from actual objects (prefer smaller ones)
+        MAX_FILE = 50000
+        s3_uris = [
+            f"s3://{objects_result['bucket']}/{obj['key']}"
+            for obj in objects_result["objects"]
+            if obj.get("size", 0) < MAX_FILE and obj.get("size", 0) > 0
+        ][:2]
         
         if not s3_uris:
             pytest.skip("No suitable objects found for package creation")
@@ -355,8 +360,9 @@ class TestQuiltAPI:
             "test": True
         }
         
+        dynamic_pkg_name = f"testuser/testpackage-{int(time.time())}-{uuid.uuid4().hex[:8]}"
         result = package_create(
-            package_name="testuser/testpackage",
+            package_name=dynamic_pkg_name,
             s3_uris=s3_uris,
             registry=TEST_REGISTRY,
             metadata=test_metadata,
@@ -385,11 +391,14 @@ class TestQuiltAPI:
         # Clean up - delete the test package
         try:
             delete_result = package_delete(result["package_name"], registry=TEST_REGISTRY)
-            if "error" in delete_result:
-                print(f"Warning: Failed to cleanup test package {result['package_name']}: {delete_result['error']}")
+            if delete_result.get("status") != "success":
+                print(
+                    f"Warning: Package cleanup did not report success: {delete_result}"
+                )
         except Exception as cleanup_error:
-            # Log cleanup failure but don't fail the test
-            print(f"Warning: Failed to cleanup test package {result['package_name']}: {cleanup_error}")
+            print(
+                f"Warning: Exception during cleanup of {result['package_name']}: {cleanup_error}"
+            )
 
     def test_package_update_realistic(self):
         """Test updating the existing test package by adding a timestamp file."""

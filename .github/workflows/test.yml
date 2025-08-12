@@ -33,10 +33,10 @@ jobs:
         CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
         QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
-        QUILT_TEST_ENTERY: ${{ secrets.QUILT_TEST_ENTERY }}
+        QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
       
     - name: Check code formatting (optional)
-      run: make lint
+      run: make lint-ci
       continue-on-error: true
       env:
         UVRUN: uv run

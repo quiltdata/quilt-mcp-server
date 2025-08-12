@@ -12,7 +12,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
 
 # Test event generation pattern
 tests/events/%.json: tests/generate_lambda_events.py
@@ -62,10 +62,8 @@ help:
 
 # Setup / env
 default: help
-setup:
-	$(UV) sync
 
-deps-test:
+setup:
 	$(UV) sync --group test
 
 deps-lint:
@@ -190,11 +188,43 @@ stdio-run: setup
 	$(UVRUN) $(PY) entry_points/stdio_server.py
 
 # Tests
-pytest: deps-test
+pytest: setup
 	$(UVRUN) python -m pytest
 
-coverage: deps-test
+coverage: setup
 	$(UVRUN) python -m pytest --cov=quilt --cov-report=term-missing
 
-lint: deps-lint
-	@echo "Linting not configured yet - skipping"
+PY_SRC := src tests entry_points
+YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
+
+lint: deps-lint ruff-check black-check mypy yaml-lint ## Run all linters (ruff, black --check, mypy, yamllint)
+	@echo "✅ Lint passed"
+
+lint-ci: lint ## Alias for lint (CI friendly)
+
+format: deps-lint ## Auto-format code with Ruff (imports, fixes) and Black
+	@echo "🔧 Ruff (autofix)"
+	$(UVRUN) ruff check --fix $(PY_SRC)
+	@echo "🖤 Black formatting"
+	$(UVRUN) black $(PY_SRC)
+	@echo "✅ Formatting complete"
+
+ruff: deps-lint ## Run Ruff (no fix)
+	$(UVRUN) ruff check $(PY_SRC)
+
+ruff-check: ruff ## Backward compatibility target
+
+ruff-fix: deps-lint ## Run Ruff with fixes
+	$(UVRUN) ruff check --fix $(PY_SRC)
+
+black: deps-lint ## Run Black (format in place)
+	$(UVRUN) black $(PY_SRC)
+
+black-check: deps-lint ## Run Black in check mode
+	$(UVRUN) black --check --diff $(PY_SRC)
+
+mypy: deps-lint ## Run mypy static type checking
+	$(UVRUN) mypy src
+
+yaml-lint: deps-lint ## Lint YAML files with yamllint (skip if none)
+	@if [ -z "$(YAML_FILES)" ]; then echo "(No YAML files to lint)"; else $(UVRUN) yamllint $(YAML_FILES); fi

@@ -94,7 +94,7 @@ set_secret "CDK_DEFAULT_REGION" "${CDK_DEFAULT_REGION:-us-east-1}" "false"
 # Quilt MCP Server Configuration
 set_secret "QUILT_DEFAULT_BUCKET" "$QUILT_DEFAULT_BUCKET" "false"
 set_secret "QUILT_TEST_PACKAGE" "$QUILT_TEST_PACKAGE" "false"
-set_secret "QUILT_TEST_ENTERY" "$QUILT_TEST_ENTERY" "false"
+set_secret "QUILT_TEST_ENTRY" "$QUILT_TEST_ENTRY" "false"
 
 echo
 echo "🎉 GitHub secrets setup complete!"
