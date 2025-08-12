@@ -10,7 +10,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector deps-test deps-lint deps-all
+.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector remote-kill deps-test deps-lint deps-all
 help:
 	@echo "Quilt MCP Server - Makefile"
 	@echo ""
@@ -41,6 +41,7 @@ help:
 	@echo "  remote-run         Run local HTTP MCP server (remote.py)"
 	@echo "  remote-test        Test local FastMCP server with session management"
 	@echo "  remote-test-full   Full test of local server with detailed output"
+	@echo "  remote-kill        Stop local HTTP MCP server"
 	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
 	@echo ""
 
@@ -121,7 +122,13 @@ remote-test:
 remote-test-full:
 	./scripts/test-endpoint.sh -l -v
 
+remote-kill:
+	@pkill -f "python -m quilt.remote" || echo "No remote server running"
+
 remote-inspector:
+	$(INSPECTOR) --server-url "http://127.0.0.1:8000/mcp"
+
+lambda-inspector:
 	@if [ -z "$(API_ENDPOINT)" ]; then echo "API_ENDPOINT not set in .config"; exit 1; fi; \
 	TOKEN="$$($(TOKEN_CMD))"; \
 	if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi; \
