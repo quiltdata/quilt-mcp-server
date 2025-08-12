@@ -356,11 +356,11 @@ class TestQuiltAPI:
         }
         
         result = package_create(
+            package_name="testuser/testpackage",
             s3_uris=s3_uris,
             registry=TEST_REGISTRY,
             metadata=test_metadata,
             message="Test package creation",
-            package_name="testuser/testpackage",
             flatten=True
         )
         
@@ -425,11 +425,11 @@ class TestQuiltAPI:
             timestamp_s3_uri = f"{KNOWN_BUCKET}/{timestamp_key}"
             
             result = package_update(
+                package_name=KNOWN_TEST_PACKAGE,
                 s3_uris=[timestamp_s3_uri],
                 registry=TEST_REGISTRY,
                 metadata={"updated_by": "test_suite", "last_updated": int(time.time())},
                 message="Added timestamp file via package update test",
-                package_name=KNOWN_TEST_PACKAGE,
                 flatten=True
             )
             

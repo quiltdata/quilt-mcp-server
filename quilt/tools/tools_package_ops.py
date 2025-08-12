@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, List
-import os, datetime, re
+import os
 import quilt3
 from .. import mcp
 from ..constants import DEFAULT_REGISTRY
@@ -36,15 +36,11 @@ def _collect_objects_into_package(pkg: "quilt3.Package", s3_uris: List[str], fla
     return added
 
 @mcp.tool()
-def package_create(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
-    if not s3_uris: s3_uris = []
+def package_create(package_name: str, s3_uris: List[str], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", flatten: bool = True) -> Dict[str, Any]:
     if not metadata: metadata = {}
     warnings: List[str] = []
     if not s3_uris: return {"error": "No S3 URIs provided"}
-    if not package_name:
-        ts = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        safe_first = re.sub(r"[^A-Za-z0-9_.-]", "-", os.path.basename(s3_uris[0].rstrip('/')) or "data")[:40]
-        package_name = f"pkg-{safe_first}-{ts}"
+    if not package_name: return {"error": "Package name is required"}
     pkg = quilt3.Package()
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added: return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
@@ -56,8 +52,7 @@ def package_create(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, me
     return {"status": "success", "action": "created", "package_name": package_name, "registry": registry, "top_hash": top_hash, "entries_added": len(added), "files": added, "metadata_provided": bool(metadata), "warnings": warnings, "message": message}
 
 @mcp.tool()
-def package_update(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Added objects via package_update tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
-    if not s3_uris: s3_uris = []
+def package_update(package_name: str, s3_uris: List[str], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Added objects via package_update tool", flatten: bool = True) -> Dict[str, Any]:
     if not metadata: metadata = {}
     if not s3_uris: return {"error": "No S3 URIs provided"}
     if not package_name: return {"error": "package_name is required for package_update"}
