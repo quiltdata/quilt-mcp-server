@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 import os, datetime, re
 import quilt3
 from .. import mcp
+from ..constants import DEFAULT_REGISTRY
 
 # Internal helper replicated from monolith (will be removed there)
 
@@ -35,7 +36,7 @@ def _collect_objects_into_package(pkg: "quilt3.Package", s3_uris: List[str], fla
     return added
 
 @mcp.tool()
-def package_create(s3_uris: List[str] = [], registry: str = "s3://quilt-example", metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
+def package_create(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Created via package_create tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
     if not s3_uris: s3_uris = []
     if not metadata: metadata = {}
     warnings: List[str] = []
@@ -55,14 +56,14 @@ def package_create(s3_uris: List[str] = [], registry: str = "s3://quilt-example"
     return {"status": "success", "action": "created", "package_name": package_name, "registry": registry, "top_hash": top_hash, "entries_added": len(added), "files": added, "metadata_provided": bool(metadata), "warnings": warnings, "message": message}
 
 @mcp.tool()
-def package_add(s3_uris: List[str] = [], registry: str = "s3://quilt-example", metadata: Dict[str, Any] = {}, message: str = "Added objects via package_add tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
+def package_update(s3_uris: List[str] = [], registry: str = DEFAULT_REGISTRY, metadata: Dict[str, Any] = {}, message: str = "Added objects via package_update tool", package_name: str = "", flatten: bool = True) -> Dict[str, Any]:
     if not s3_uris: s3_uris = []
     if not metadata: metadata = {}
     if not s3_uris: return {"error": "No S3 URIs provided"}
-    if not package_name: return {"error": "package_name is required for package_add"}
+    if not package_name: return {"error": "package_name is required for package_update"}
     warnings: List[str] = []
     try: existing_pkg = quilt3.Package.browse(package_name, registry=registry)
-    except Exception as e: return {"error": f"Failed to browse existing package '{package_name}': {e}"}
+    except Exception as e: return {"error": f"Failed to browse existing package '{package_name}': {e}", "package_name": package_name}
     new_pkg = quilt3.Package()
     try:
         for key in existing_pkg:

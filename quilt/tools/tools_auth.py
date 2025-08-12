@@ -32,7 +32,7 @@ def filesystem_check() -> Dict[str, Any]:
     except Exception as e:
         result["temp_writable"] = False; result["temp_write_error"] = str(e)
     if result.get("home_writable"):
-        result.update(status="full_access", message="Full filesystem access available - all Quilt tools should work", tools_available=["auth_check","filesystem_check","packages_list","packages_search","package_browse","package_contents_search","package_create","package_add","bucket_objects_list","bucket_object_info","bucket_object_text","bucket_objects_put","bucket_object_fetch"])
+        result.update(status="full_access", message="Full filesystem access available - all Quilt tools should work", tools_available=["auth_check","filesystem_check","packages_list","packages_search","package_browse","package_contents_search","package_create","package_update","bucket_objects_list","bucket_object_info","bucket_object_text","bucket_objects_put","bucket_object_fetch"])
     elif result.get("temp_writable"):
         result.update(status="limited_access", message="Limited filesystem access - Quilt tools may work with proper configuration", tools_available=["auth_check","filesystem_check","packages_list","package_browse","package_contents_search"], recommendation="Try setting QUILT_CONFIG_DIR environment variable to /tmp")
     else:

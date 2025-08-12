@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Dict, List
 from .. import mcp
+from ..constants import DEFAULT_BUCKET
 
 # Helpers
 
@@ -9,7 +10,7 @@ def _normalize_bucket(uri_or_name: str) -> str:
     return uri_or_name
 
 @mcp.tool()
-def bucket_objects_list(bucket: str = "s3://quilt-example", prefix: str = "", max_keys: int = 100, continuation_token: str = "") -> Dict[str, Any]:
+def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "") -> Dict[str, Any]:
     import boto3
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
