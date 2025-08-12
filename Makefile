@@ -92,7 +92,7 @@ token:
 # Local HTTP server
 remote-run:
 	$(UV) sync
-	$(UV) run $(PY) -m quilt.remote
+	$(UVRUN) fastmcp dev quilt/remote.py
 
 remote-test:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."
@@ -153,7 +153,7 @@ stdio-inspector:
 
 stdio-run:
 	$(UV) sync
-	$(UV) run $(PY) -m quilt.main
+	$(UVRUN) $(PY) -m quilt.main
 
 # Tests
 pytest: deps-test
