@@ -237,6 +237,7 @@ MCP tool testing is configured via `scripts/test-tools.json`, which defines test
 ```
 
 The test configuration includes realistic test data for all MCP tools including:
+
 - Authentication and filesystem checks
 - Package operations (create, update, delete, browse, search)
 - S3 bucket operations (list, fetch, put, metadata)
@@ -244,17 +245,20 @@ The test configuration includes realistic test data for all MCP tools including:
 ## Development Server Options
 
 ### Local Development
+
 ```bash
 make remote-run        # Local server on http://127.0.0.1:8000/mcp
 make remote-hotload    # FastMCP hot reload development server
 ```
 
 ### External Access via ngrok
+
 ```bash
 make remote-export     # Expose local server via ngrok tunnel
 ```
 
 The `remote-export` command:
+
 - Starts the MCP server locally on port 8000
 - Creates an ngrok tunnel with predictable URL: `https://uniformly-alive-halibut.ngrok-free.app`
 - MCP endpoint available at: `https://uniformly-alive-halibut.ngrok-free.app/mcp`
@@ -262,6 +266,7 @@ The `remote-export` command:
 - Requires ngrok installation and authtoken configuration
 
 Use `remote-export` for:
+
 - Testing with Claude Desktop from different machines
 - Sharing your development server with team members (consistent URL)
 - Testing MCP integrations from external services

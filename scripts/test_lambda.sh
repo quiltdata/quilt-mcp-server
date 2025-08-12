@@ -5,12 +5,9 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Load common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 # Set AWS profile for deployment
 export AWS_PROFILE=open
@@ -20,15 +17,15 @@ FUNCTION_NAME="${1:-QuiltMcpStack-QuiltMcpFunctionA0EE64F7-YOVUz8gvahWX}"
 REGION="${2:-us-east-1}"
 TEST_DIR="/tmp/lambda-test"
 
-echo -e "${BLUE}🧪 Testing Lambda function: ${FUNCTION_NAME}${NC}"
-echo -e "${BLUE}📍 Region: ${REGION}${NC}"
+log_info "🧪 Testing Lambda function: ${FUNCTION_NAME}"
+log_info "📍 Region: ${REGION}"
 echo
 
 # Create test directory
 mkdir -p "$TEST_DIR"
 
 # Test 1: MCP tools/list
-echo -e "${YELLOW}Test 1: MCP tools/list${NC}"
+log_warning "Test 1: MCP tools/list"
 python3 quilt/tests/generate_lambda_events.py --event-type tools-list --output "$TEST_DIR/tools-list-event.json"
 echo "  Generated event: $TEST_DIR/tools-list-event.json"
 
@@ -45,7 +42,7 @@ cat "$TEST_DIR/tools-list-response.json" | jq '.' 2>/dev/null || cat "$TEST_DIR/
 echo
 
 # Test 2: MCP resources/list
-echo -e "${YELLOW}Test 2: MCP resources/list${NC}"
+log_warning "Test 2: MCP resources/list"
 python3 quilt/tests/generate_lambda_events.py --event-type resources-list --output "$TEST_DIR/resources-list-event.json"
 echo "  Generated event: $TEST_DIR/resources-list-event.json"
 
@@ -61,7 +58,7 @@ cat "$TEST_DIR/resources-list-response.json" | jq '.' 2>/dev/null || cat "$TEST_
 echo
 
 # Test 3: Health check
-echo -e "${YELLOW}Test 3: Health check${NC}"
+log_warning "Test 3: Health check"
 python3 quilt/tests/generate_lambda_events.py --event-type health-check --output "$TEST_DIR/health-check-event.json"
 echo "  Generated event: $TEST_DIR/health-check-event.json"
 
@@ -77,10 +74,10 @@ cat "$TEST_DIR/health-check-response.json" | jq '.' 2>/dev/null || cat "$TEST_DI
 echo
 
 # Show Lambda logs
-echo -e "${BLUE}📋 Recent Lambda logs:${NC}"
+log_info "📋 Recent Lambda logs:"
 LOG_GROUP="/aws/lambda/$FUNCTION_NAME"
 aws logs tail "$LOG_GROUP" --region "$REGION" --since 5m 2>/dev/null || echo "  No logs available yet"
 
 echo
-echo -e "${GREEN}✅ Lambda testing complete!${NC}"
-echo -e "Test files saved in: $TEST_DIR"
+log_success "✅ Lambda testing complete!"
+echo "Test files saved in: $TEST_DIR"

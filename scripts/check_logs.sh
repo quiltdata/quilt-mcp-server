@@ -1,12 +1,9 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Load common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 # Default values
 FOLLOW=false
@@ -70,31 +67,23 @@ done
 # Load environment variables
 if [ -f ".env" ]; then
     if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Loading environment from .env${NC}"
+        log_info "Loading environment from .env"
     fi
     set -a && source .env && set +a
 fi
 
 # Load configuration
-if [ ! -f ".config" ]; then
-    echo -e "${RED}❌ .config file not found. Run ./deploy.sh first${NC}"
-    exit 1
-fi
-
-if [ "$VERBOSE" = true ]; then
-    echo -e "${BLUE}Loading configuration from .config${NC}"
-fi
-set -a && source .config && set +a
+load_config
 
 # Validate required variables
 if [ -z "$LOG_GROUP_NAME" ] || [ -z "$REGION" ]; then
-    echo -e "${RED}❌ Required configuration missing. Run ./deploy.sh to regenerate .config${NC}"
+    log_error "❌ Required configuration missing. Run ./deploy.sh to regenerate .config"
     exit 1
 fi
 
-echo -e "${BLUE}🔍 Checking logs for Quilt MCP Server${NC}"
-echo -e "${BLUE}Region: ${REGION}${NC}"
-echo -e "${BLUE}Since: ${SINCE}${NC}"
+log_info "🔍 Checking logs for Quilt MCP Server"
+log_info "Region: ${REGION}"
+log_info "Since: ${SINCE}"
 
 # Build log command options
 LOG_OPTS="--region $REGION --since $SINCE"
@@ -104,16 +93,16 @@ fi
 
 # Function to show Lambda logs
 show_lambda_logs() {
-    echo -e "${GREEN}📋 Lambda Function Logs (${LAMBDA_FUNCTION_NAME}):${NC}"
-    echo -e "${BLUE}Log Group: ${LOG_GROUP_NAME}${NC}"
+    log_success "📋 Lambda Function Logs (${LAMBDA_FUNCTION_NAME}):"
+    log_info "Log Group: ${LOG_GROUP_NAME}"
     
     if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Command: aws logs tail ${LOG_GROUP_NAME} ${LOG_OPTS}${NC}"
+        log_info "Command: aws logs tail ${LOG_GROUP_NAME} ${LOG_OPTS}"
     fi
     
     aws logs tail "$LOG_GROUP_NAME" $LOG_OPTS || {
-        echo -e "${RED}❌ Failed to retrieve Lambda logs${NC}"
-        echo -e "${YELLOW}💡 Check if the log group exists and you have permissions${NC}"
+        log_error "❌ Failed to retrieve Lambda logs"
+        log_warning "💡 Check if the log group exists and you have permissions"
         return 1
     }
 }
@@ -124,28 +113,28 @@ show_api_logs() {
     API_LOG_GROUPS=$(aws logs describe-log-groups --region "$REGION" --log-group-name-prefix "/aws/apigateway" --query "logGroups[?contains(logGroupName, 'quilt') || contains(logGroupName, 'mcp')].logGroupName" --output text 2>/dev/null || echo "")
     
     if [ -n "$API_LOG_GROUPS" ]; then
-        echo -e "${GREEN}🌐 API Gateway Logs:${NC}"
+        log_success "🌐 API Gateway Logs:"
         for log_group in $API_LOG_GROUPS; do
-            echo -e "${BLUE}Log Group: ${log_group}${NC}"
+            log_info "Log Group: ${log_group}"
             if [ "$VERBOSE" = true ]; then
-                echo -e "${BLUE}Command: aws logs tail ${log_group} ${LOG_OPTS}${NC}"
+                log_info "Command: aws logs tail ${log_group} ${LOG_OPTS}"
             fi
             aws logs tail "$log_group" $LOG_OPTS || {
-                echo -e "${YELLOW}⚠️  Could not retrieve logs from ${log_group}${NC}"
+                log_warning "⚠️  Could not retrieve logs from ${log_group}"
             }
         done
     else
-        echo -e "${YELLOW}⚠️  No API Gateway logs found${NC}"
-        echo -e "${BLUE}💡 API Gateway logs may not be enabled or may not exist yet${NC}"
+        log_warning "⚠️  No API Gateway logs found"
+        log_info "💡 API Gateway logs may not be enabled or may not exist yet"
     fi
 }
 
 # Function to show recent deployment events
 show_recent_events() {
     if [ "$VERBOSE" = true ]; then
-        echo -e "${GREEN}📊 Recent CloudFormation Events:${NC}"
+        log_success "📊 Recent CloudFormation Events:"
         aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region "$REGION" --max-items 10 --query "StackEvents[?Timestamp > \`$(date -u -d "$SINCE ago" +%Y-%m-%dT%H:%M:%S.%3NZ)\`].[Timestamp,LogicalResourceId,ResourceStatusReason]" --output table 2>/dev/null || {
-            echo -e "${YELLOW}⚠️  Could not retrieve stack events${NC}"
+            log_warning "⚠️  Could not retrieve stack events"
         }
         echo ""
     fi
@@ -154,12 +143,12 @@ show_recent_events() {
 # Function to show configuration summary
 show_config() {
     if [ "$VERBOSE" = true ]; then
-        echo -e "${GREEN}⚙️  Current Configuration:${NC}"
-        echo -e "${BLUE}  Stack Name: ${STACK_NAME}${NC}"
-        echo -e "${BLUE}  Region: ${REGION}${NC}"
-        echo -e "${BLUE}  API Endpoint: ${API_ENDPOINT}${NC}"
-        echo -e "${BLUE}  Lambda Function: ${LAMBDA_FUNCTION_NAME}${NC}"
-        echo -e "${BLUE}  Log Group: ${LOG_GROUP_NAME}${NC}"
+        log_success "⚙️  Current Configuration:"
+        log_info "  Stack Name: ${STACK_NAME}"
+        log_info "  Region: ${REGION}"
+        log_info "  API Endpoint: ${API_ENDPOINT}"
+        log_info "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
+        log_info "  Log Group: ${LOG_GROUP_NAME}"
         echo ""
     fi
 }
@@ -180,9 +169,9 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}📝 Log viewing complete!${NC}"
+log_success "📝 Log viewing complete!"
 
 if [ "$FOLLOW" = false ]; then
-    echo -e "${BLUE}💡 Use -f flag to follow logs in real-time${NC}"
-    echo -e "${BLUE}💡 Use -s 1h to see logs from the last hour${NC}"
+    log_info "💡 Use -f flag to follow logs in real-time"
+    log_info "💡 Use -s 1h to see logs from the last hour"
 fi
