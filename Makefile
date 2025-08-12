@@ -13,6 +13,11 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 
 # Phony targets grouped by category: utility, build, stdio, remote
 .PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-test remote-inspector remote-kill deps-test deps-lint deps-all
+
+# Test event generation pattern
+tests/events/%.json: tests/generate_lambda_events.py
+	@mkdir -p tests/events
+	$(UVRUN) python tests/generate_lambda_events.py --event-type $* -o $@
 help:
 	@echo "Quilt MCP Server - Makefile"
 	@echo ""
@@ -45,6 +50,12 @@ help:
 	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-kill        Stop local HTTP MCP server"
 	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
+	@echo ""
+	@echo "Test Events:"
+	@echo "  Generate Lambda test events in tests/events/ using:"
+	@echo "    make tests/events/tools-list.json"
+	@echo "    make tests/events/resources-list.json" 
+	@echo "    make tests/events/health-check.json"
 	@echo ""
 
 # Setup / env

@@ -187,4 +187,5 @@ __marimo__/
 /cdk.out
 .config
 /test-package
-packager/test-event*.json
+# Old test event files (now use tests/events/ via Makefile)
+deployment/packager/test-event*.json
