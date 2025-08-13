@@ -49,13 +49,13 @@ help:
 	@echo "  all                Run pytest then deploy (test + deploy)"
 	@echo ""
 	@echo "Stdio Tasks:" 
-	@echo "  stdio-run          Run local stdio MCP server (quilt.main)"
+	@echo "  stdio-run          Run unified MCP server with stdio transport"
 	@echo "  stdio-config       Print Claude Desktop config snippet"
 	@echo "  stdio-inspector    Launch MCP Inspector for stdio server"
 	@echo ""
 	@echo "Remote Tasks:" 
-	@echo "  remote-run         Run local HTTP MCP server (Python direct)"
-	@echo "  remote-hotload     Run local HTTP MCP server with FastMCP hot reload"
+	@echo "  remote-run         Run unified MCP server with HTTP transport"
+	@echo "  remote-hotload     Run unified MCP server with FastMCP hot reload"
 	@echo "  remote-export      Expose local MCP server via ngrok (uniformly-alive-halibut.ngrok-free.app)"
 	@echo "  remote-test        Test local FastMCP server with session management"
 	@echo "  remote-test-full   Full test of local server with detailed output"
@@ -117,10 +117,10 @@ token:
 
 # Local HTTP server
 remote-run: setup
-	$(UVRUN) python entry_points/dev_server.py
+	FASTMCP_TRANSPORT=streamable-http $(UVRUN) python -m quilt_mcp
 
 remote-hotload: setup
-	$(UVRUN) fastmcp dev entry_points/dev_server.py:mcp --with-editable .
+	FASTMCP_TRANSPORT=streamable-http $(UVRUN) fastmcp dev src/quilt_mcp/server.py:mcp --with-editable .
 
 remote-export: setup
 	@echo "🚀 Starting MCP server and exposing via ngrok..."
@@ -187,8 +187,8 @@ lambda-inspector:
 
 # Docker Lambda environment (mirrors remote exactly)
 docker-build:
-	@echo "🐳 Building Lambda container image..."
-	@docker build --platform linux/amd64 -t quilt-mcp-lambda -f Dockerfile.lambda .
+	@echo "🐳 Building unified container image..."
+	@docker build --platform linux/amd64 -t quilt-mcp-lambda -f Dockerfile .
 
 docker-run: docker-build
 	@echo "🐳 Running Lambda container locally..."
@@ -228,10 +228,10 @@ stdio-config:
 	@echo '}'
 
 stdio-inspector: setup
-	$(INSPECTOR) --server-command "$(UV)" --server-args "run entry_points/stdio_server.py"
+	$(INSPECTOR) --server-command "$(UV)" --server-args "run --env-file $(ENV_FILE) python -m quilt_mcp"
 
 stdio-run: setup
-	$(UVRUN) $(PY) entry_points/stdio_server.py
+	FASTMCP_TRANSPORT=stdio $(UVRUN) python -m quilt_mcp
 
 # Tests
 pytest: setup

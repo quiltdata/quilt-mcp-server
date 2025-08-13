@@ -92,7 +92,7 @@ class QuiltMcpStack(Stack):
             self, "QuiltMcpFunction",
             code=_lambda.Code.from_asset_image(
                 directory=".",
-                file="Dockerfile.lambda"
+                file="Dockerfile"
             ),
             handler=_lambda.Handler.FROM_IMAGE,
             runtime=_lambda.Runtime.FROM_IMAGE,
@@ -100,8 +100,10 @@ class QuiltMcpStack(Stack):
             timeout=Duration.seconds(lambda_timeout_seconds),
             memory_size=512,
             environment={
-                "ENV": "production",
+                "RUNTIME": "lambda", 
                 "LOG_LEVEL": "INFO",
+                # FastMCP transport mode: 'sse' or 'streamable-http'
+                "FASTMCP_TRANSPORT": "streamable-http",
                 # Ensure all libraries use the writable /tmp space for configs and caches
                 "HOME": "/tmp",
                 "QUILT_CONFIG_DIR": "/tmp",

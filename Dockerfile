@@ -14,5 +14,5 @@ RUN uv pip install --system --no-cache-dir \
 # Copy the application code
 COPY src/ ${LAMBDA_TASK_ROOT}/
 
-# Set the CMD to your handler (Lambda will override this)
-CMD ["quilt_mcp.handlers.lambda_handler.handler"]
+# Set the CMD to the unified server handler
+CMD ["quilt_mcp.server.handler"]
