@@ -102,10 +102,12 @@ class TestQuiltTools:
             result = package_browse('user/test-package')
 
             assert isinstance(result, dict)
-            assert 'contents' in result
-            assert len(result['contents']) == 2
-            assert 'file1.txt' in result['contents']
-            assert 'file2.csv' in result['contents']
+            assert 'entries' in result
+            assert 'package_name' in result
+            assert 'total_entries' in result
+            assert len(result['entries']) == 2
+            assert result['entries'][0]['logical_key'] == 'file1.txt'
+            assert result['entries'][1]['logical_key'] == 'file2.csv'
 
     def test_package_browse_error(self):
         """Test package_browse with error."""

@@ -32,6 +32,7 @@ from .tools.package_ops import package_create, package_delete, package_update
 from .tools.packages import (
     package_browse,
     package_contents_search,
+    package_diff,
     packages_list,
     packages_search,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "package_contents_search",
     "package_create",
     "package_delete",
+    "package_diff",
     "package_update",
     "packages_list",
     "packages_search",

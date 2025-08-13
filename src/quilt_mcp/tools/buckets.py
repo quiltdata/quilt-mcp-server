@@ -11,8 +11,40 @@ def _normalize_bucket(uri_or_name: str) -> str:
     if uri_or_name.startswith("s3://"): return uri_or_name[5:].split('/', 1)[0]
     return uri_or_name
 
+def _generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
+    """Generate a presigned URL for an S3 URI.
+    
+    Args:
+        s3_uri: S3 URI (e.g., "s3://bucket/key")
+        expiration: URL expiration in seconds (default: 3600)
+    
+    Returns:
+        Presigned URL string or None if generation fails
+    """
+    import boto3
+    if not s3_uri.startswith("s3://"):
+        return None
+    
+    without_scheme = s3_uri[5:]
+    if '/' not in without_scheme:
+        return None
+    
+    bucket, key = without_scheme.split('/', 1)
+    expiration = max(1, min(expiration, 604800))  # 1 sec to 7 days
+    
+    try:
+        client = boto3.client("s3")
+        url = client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expiration
+        )
+        return url
+    except Exception:
+        return None
+
 @mcp.tool()
-def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "") -> dict[str, Any]:
+def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "", include_signed_urls: bool = True) -> dict[str, Any]:
     """List objects in an S3 bucket with optional prefix filtering.
     
     Args:
@@ -20,6 +52,7 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
         prefix: Filter objects by prefix (default: "")
         max_keys: Maximum number of objects to return, 1-1000 (default: 100)
         continuation_token: Token for paginating through large result sets (default: "")
+        include_signed_urls: Include presigned download URLs for each object (default: True)
     
     Returns:
         Dict with bucket info, objects list, and pagination details.
@@ -35,7 +68,21 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
     except Exception as e: return {"error": f"Failed to list objects: {e}", "bucket": bkt}
     objects: list[dict[str, Any]] = []
     for item in resp.get("Contents", []) or []:
-        objects.append({"key": item.get("Key"), "size": item.get("Size"), "last_modified": str(item.get("LastModified")), "etag": item.get("ETag"), "storage_class": item.get("StorageClass")})
+        key = item.get("Key")
+        s3_uri = f"s3://{bkt}/{key}"
+        obj_data = {
+            "key": key,
+            "s3_uri": s3_uri,
+            "size": item.get("Size"), 
+            "last_modified": str(item.get("LastModified")), 
+            "etag": item.get("ETag"), 
+            "storage_class": item.get("StorageClass")
+        }
+        if include_signed_urls:
+            signed_url = _generate_signed_url(s3_uri)
+            if signed_url:
+                obj_data["download_url"] = signed_url
+        objects.append(obj_data)
     return {"bucket": bkt, "prefix": prefix, "objects": objects, "truncated": resp.get("IsTruncated", False), "next_token": resp.get("NextContinuationToken", ""), "key_count": resp.get("KeyCount", len(objects)), "max_keys": max_keys}
 
 @mcp.tool()
