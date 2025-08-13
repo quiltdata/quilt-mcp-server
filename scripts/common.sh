@@ -131,6 +131,7 @@ write_config() {
     local lambda_function_name="$7"
     local log_group_name="$8"
     local region="$9"
+    local api_log_group_name="${10}"
     
     log_info "Writing deployment configuration to .config..."
     
@@ -151,6 +152,7 @@ RESOURCE_SERVER_ID=${resource_server_id}
 # AWS Resources
 LAMBDA_FUNCTION_NAME=${lambda_function_name}
 LOG_GROUP_NAME=${log_group_name}
+API_LOG_GROUP_NAME=${api_log_group_name}
 STACK_NAME=${STACK_NAME}
 REGION=${region}
 

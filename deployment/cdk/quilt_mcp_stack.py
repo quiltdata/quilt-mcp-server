@@ -117,6 +117,14 @@ class QuiltMcpStack(Stack):
         )
 
 
+        # Create CloudWatch log group for API Gateway
+        api_log_group = logs.LogGroup(
+            self, "QuiltMcpApiLogGroup",
+            log_group_name=f"/aws/apigateway/{self.stack_name}-http-api",
+            removal_policy=RemovalPolicy.DESTROY,
+            retention=logs.RetentionDays.ONE_MONTH
+        )
+
         # Create HTTP API (v2) 
         http_api = apigwv2.HttpApi(
             self, "QuiltMcpHttpApi",
@@ -189,6 +197,25 @@ class QuiltMcpStack(Stack):
             authorizer_id=jwt_auth.ref
         )
 
+        # Create API Gateway stage with logging enabled
+        api_stage = apigwv2.CfnStage(
+            self, "QuiltMcpApiStage",
+            api_id=http_api.http_api_id,
+            stage_name="$default",
+            auto_deploy=True,
+            access_log_settings=apigwv2.CfnStage.AccessLogSettingsProperty(
+                destination_arn=api_log_group.log_group_arn,
+                format='{"requestId":"$context.requestId","sourceIp":"$context.identity.sourceIp","requestTime":"$context.requestTime","protocol":"$context.protocol","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","requestTimeEpoch":"$context.requestTimeEpoch","responseTime":"$context.responseTime","integrationStatus":"$context.integration.status","integrationLatency":"$context.integration.latency","responseLatency":"$context.responseLatency","error":"$context.error.message","integrationError":"$context.integration.error","authorizerError":"$context.authorizer.error"}'
+            ),
+            default_route_settings=apigwv2.CfnStage.RouteSettingsProperty(
+                detailed_metrics_enabled=True,
+                logging_level="INFO",
+                data_trace_enabled=True,
+                throttling_burst_limit=1000,
+                throttling_rate_limit=500
+            )
+        )
+
         # Outputs
         CfnOutput(
             self, "ApiEndpoint",
@@ -230,4 +257,10 @@ class QuiltMcpStack(Stack):
             self, "LogGroupName",
             value=f"/aws/lambda/{lambda_fn.function_name}",
             description="CloudWatch log group name for Lambda logs"
+        )
+
+        CfnOutput(
+            self, "ApiLogGroupName",
+            value=api_log_group.log_group_name,
+            description="CloudWatch log group name for API Gateway logs"
         )

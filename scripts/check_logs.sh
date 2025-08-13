@@ -42,18 +42,18 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  -f, --follow       Follow log output (like tail -f)"
-            echo "  -v, --verbose      Show verbose output"
+            echo "  -v, --verbose      Show verbose output with configuration"
             echo "  -s, --since TIME   Show logs since TIME (default: 5m)"
-            echo "  -l, --lambda-only  Show only Lambda logs"
-            echo "  -a, --api-only     Show only API Gateway logs"
+            echo "  -l, --lambda-only  Show only Lambda function logs"
+            echo "  -a, --api-only     Show only API Gateway access logs"
             echo "  -h, --help         Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                 # View recent logs"
+            echo "  $0                 # View recent logs from both Lambda and API Gateway"
             echo "  $0 -f              # Follow logs in real-time"
             echo "  $0 -s 1h           # Show logs from last hour"
             echo "  $0 -l -f           # Follow only Lambda logs"
-            echo "  $0 -v -s 10m       # Verbose logs from last 10 minutes"
+            echo "  $0 -a -v -s 10m    # API Gateway logs with verbose output from last 10 minutes"
             exit 0
             ;;
         *)
@@ -109,23 +109,21 @@ show_lambda_logs() {
 
 # Function to show API Gateway logs (if they exist)
 show_api_logs() {
-    # Try to find API Gateway log groups
-    API_LOG_GROUPS=$(aws logs describe-log-groups --region "$REGION" --log-group-name-prefix "/aws/apigateway" --query "logGroups[?contains(logGroupName, 'quilt') || contains(logGroupName, 'mcp')].logGroupName" --output text 2>/dev/null || echo "")
-    
-    if [ -n "$API_LOG_GROUPS" ]; then
+    if [ -n "$API_LOG_GROUP_NAME" ]; then
         log_success "🌐 API Gateway Logs:"
-        for log_group in $API_LOG_GROUPS; do
-            log_info "Log Group: ${log_group}"
-            if [ "$VERBOSE" = true ]; then
-                log_info "Command: aws logs tail ${log_group} ${LOG_OPTS}"
-            fi
-            aws logs tail "$log_group" $LOG_OPTS || {
-                log_warning "⚠️  Could not retrieve logs from ${log_group}"
-            }
-        done
+        log_info "Log Group: ${API_LOG_GROUP_NAME}"
+        
+        if [ "$VERBOSE" = true ]; then
+            log_info "Command: aws logs tail ${API_LOG_GROUP_NAME} ${LOG_OPTS}"
+        fi
+        
+        aws logs tail "$API_LOG_GROUP_NAME" $LOG_OPTS || {
+            log_warning "⚠️  Could not retrieve logs from ${API_LOG_GROUP_NAME}"
+            log_info "💡 API Gateway logs may not be enabled yet or log group may not exist"
+        }
     else
-        log_warning "⚠️  No API Gateway logs found"
-        log_info "💡 API Gateway logs may not be enabled or may not exist yet"
+        log_warning "⚠️  No API Gateway log group configured"
+        log_info "💡 Deploy with the latest CDK configuration to enable API Gateway logging"
     fi
 }
 
@@ -148,7 +146,12 @@ show_config() {
         log_info "  Region: ${REGION}"
         log_info "  API Endpoint: ${API_ENDPOINT}"
         log_info "  Lambda Function: ${LAMBDA_FUNCTION_NAME}"
-        log_info "  Log Group: ${LOG_GROUP_NAME}"
+        log_info "  Lambda Log Group: ${LOG_GROUP_NAME}"
+        if [ -n "$API_LOG_GROUP_NAME" ]; then
+            log_info "  API Gateway Log Group: ${API_LOG_GROUP_NAME}"
+        else
+            log_info "  API Gateway Log Group: Not configured"
+        fi
         echo ""
     fi
 }

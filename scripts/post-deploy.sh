@@ -29,7 +29,7 @@ extract_deployment_config() {
     
     # Extract individual values
     local api_endpoint token_endpoint client_id user_pool_id resource_server_id
-    local log_group_name lambda_function_name
+    local log_group_name lambda_function_name api_log_group_name
     
     api_endpoint=$(extract_output_value "$stack_outputs" "ApiEndpoint")
     token_endpoint=$(extract_output_value "$stack_outputs" "TokenEndpoint") 
@@ -38,6 +38,7 @@ extract_deployment_config() {
     resource_server_id=$(extract_output_value "$stack_outputs" "ResourceServerIdentifier")
     log_group_name=$(extract_output_value "$stack_outputs" "LogGroupName")
     lambda_function_name=$(extract_output_value "$stack_outputs" "LambdaFunctionName")
+    api_log_group_name=$(extract_output_value "$stack_outputs" "ApiLogGroupName")
     
     # Get client secret
     local client_secret
@@ -54,7 +55,7 @@ extract_deployment_config() {
     # Write configuration
     write_config "$api_endpoint" "$token_endpoint" "$client_id" "$client_secret" \
                  "$user_pool_id" "$resource_server_id" "$lambda_function_name" \
-                 "$log_group_name" "$region"
+                 "$log_group_name" "$region" "$api_log_group_name"
     
     # Return configuration values for use by caller
     echo "API_ENDPOINT=$api_endpoint"
@@ -65,6 +66,7 @@ extract_deployment_config() {
     echo "RESOURCE_SERVER_ID=$resource_server_id"
     echo "LAMBDA_FUNCTION_NAME=$lambda_function_name"
     echo "LOG_GROUP_NAME=$log_group_name"
+    echo "API_LOG_GROUP_NAME=$api_log_group_name"
     echo "REGION=$region"
 }
 
