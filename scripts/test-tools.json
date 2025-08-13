@@ -208,6 +208,18 @@
         "url_format": {"presigned_url": "https://"},
         "min_number": {"expires_in": 1}
       }
+    },
+    "bucket_objects_search": {
+      "description": "Search objects in bucket using Elasticsearch query",
+      "arguments": {
+        "bucket": "quilt-ernest-staging",
+        "query": "salmon",
+        "limit": 5
+      },
+      "validations": {
+        "expect_keys": ["bucket", "query", "results"],
+        "optional_error": true
+      }
     }
   }
 }

@@ -15,6 +15,7 @@ from quilt_mcp import (  # type: ignore[import-not-found]
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
+    bucket_objects_search,
     catalog_info,
     catalog_name,
     catalog_url,
@@ -578,6 +579,75 @@ class TestQuiltAPI:
                 os.unlink(tmp_file_path)
             except Exception:
                 pass
+
+    def test_bucket_objects_search_finds_data(self):
+        """Test bucket_objects_search finds actual data in the test bucket."""
+        # Try multiple search terms to find some data
+        search_terms = ["README", "csv", "parquet", "json", "txt", "data", "test"]
+        found_results = False
+
+        for term in search_terms:
+            result = bucket_objects_search(KNOWN_BUCKET, term, limit=5)
+            assert isinstance(result, dict)
+            assert "bucket" in result
+            assert "query" in result
+            assert "results" in result
+
+            if "error" in result:
+                # Search might not be configured - skip test
+                if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+                    pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+                continue
+
+            if len(result["results"]) > 0:
+                found_results = True
+                # Verify the response structure is correct
+                for item in result["results"]:
+                    if isinstance(item, dict) and "_source" in item:
+                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                break
+
+        # If search is configured but no results found, that's okay for some buckets
+        if not found_results:
+            pytest.skip(f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content")
+
+    def test_bucket_objects_search_no_results(self):
+        """Test that non-existent search returns empty results, not error."""
+        result = bucket_objects_search(KNOWN_BUCKET, "xyznonexistentfile123456789")
+
+        assert isinstance(result, dict)
+        if "error" not in result:
+            assert "results" in result
+            assert len(result["results"]) == 0, "Non-existent search should return empty results"
+        else:
+            # Search might not be configured - that's okay
+            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}")
+
+    def test_bucket_objects_search_dsl_query(self):
+        """Test bucket_objects_search with dictionary DSL query."""
+        query_dsl = {
+            "query": {
+                "wildcard": {
+                    "key": "*.csv"
+                }
+            }
+        }
+        
+        result = bucket_objects_search(KNOWN_BUCKET, query_dsl, limit=3)
+
+        assert isinstance(result, dict)
+        assert "bucket" in result
+        assert "query" in result
+        assert result["query"] == query_dsl
+
+        if "error" in result:
+            # Search might not be configured - skip test
+            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+        else:
+            assert "results" in result
+            # Results might be empty if no CSV files exist, which is okay
 
 
 if __name__ == "__main__":

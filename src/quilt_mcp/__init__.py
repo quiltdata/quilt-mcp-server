@@ -26,6 +26,7 @@ from .tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
+    bucket_objects_search,
 )
 from .tools.package_ops import package_create, package_delete, package_update
 from .tools.packages import (
@@ -61,6 +62,7 @@ __all__ = [
     "bucket_objects_put",
     "bucket_object_fetch",
     "bucket_object_link",
+    "bucket_objects_search",
     # Package tools
     "package_browse",
     "package_contents_search",

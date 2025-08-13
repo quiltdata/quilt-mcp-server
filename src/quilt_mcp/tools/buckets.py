@@ -199,3 +199,25 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         return {"bucket": bucket, "key": key, "presigned_url": url, "expires_in": expiration}
     except Exception as e:
         return {"error": f"Failed to generate presigned URL: {e}", "bucket": bucket, "key": key}
+
+@mcp.tool()
+def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
+    """Search objects in a Quilt bucket using Elasticsearch query syntax.
+    
+    Args:
+        bucket: S3 bucket name or s3:// URI  
+        query: Search query string or dictionary-based DSL query
+        limit: Maximum number of results to return (default: 10)
+    
+    Returns:
+        Dict with search results including matching objects and metadata.
+    """
+    import quilt3
+    bkt = _normalize_bucket(bucket)
+    bucket_uri = f"s3://{bkt}"
+    try:
+        bucket_obj = quilt3.Bucket(bucket_uri)
+        results = bucket_obj.search(query, limit=limit)
+        return {"bucket": bkt, "query": query, "limit": limit, "results": results}
+    except Exception as e:
+        return {"error": f"Failed to search bucket: {e}", "bucket": bkt, "query": query}

@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 from quilt_mcp import (
     auth_status,
+    bucket_objects_search,
     catalog_info,
     catalog_name,
     catalog_url,
@@ -287,3 +288,62 @@ class TestQuiltTools:
             assert result['status'] == 'success'
             assert 'package=user/package:v1.0' in result['quilt_plus_uri']
             assert result['tag'] == 'v1.0'
+
+    def test_bucket_objects_search_success(self):
+        """Test bucket_objects_search with successful results."""
+        mock_results = [
+            {'_source': {'key': 'data/file1.csv', 'size': 1024}},
+            {'_source': {'key': 'data/file2.json', 'size': 512}}
+        ]
+        mock_bucket = Mock()
+        mock_bucket.search.return_value = mock_results
+
+        with patch('quilt3.Bucket', return_value=mock_bucket):
+            result = bucket_objects_search('test-bucket', 'data', limit=10)
+
+            assert isinstance(result, dict)
+            assert result['bucket'] == 'test-bucket'
+            assert result['query'] == 'data'
+            assert result['limit'] == 10
+            assert result['results'] == mock_results
+            mock_bucket.search.assert_called_once_with('data', limit=10)
+
+    def test_bucket_objects_search_with_dict_query(self):
+        """Test bucket_objects_search with dictionary DSL query."""
+        query_dsl = {"query": {"match": {"key": "test"}}}
+        mock_results = [{'_source': {'key': 'test.txt', 'size': 256}}]
+        mock_bucket = Mock()
+        mock_bucket.search.return_value = mock_results
+
+        with patch('quilt3.Bucket', return_value=mock_bucket):
+            result = bucket_objects_search('test-bucket', query_dsl, limit=5)
+
+            assert isinstance(result, dict)
+            assert result['bucket'] == 'test-bucket'
+            assert result['query'] == query_dsl
+            assert result['limit'] == 5
+            assert result['results'] == mock_results
+            mock_bucket.search.assert_called_once_with(query_dsl, limit=5)
+
+    def test_bucket_objects_search_s3_uri_normalization(self):
+        """Test bucket_objects_search normalizes s3:// URI to bucket name."""
+        mock_results = []
+        mock_bucket = Mock()
+        mock_bucket.search.return_value = mock_results
+
+        with patch('quilt3.Bucket', return_value=mock_bucket) as mock_bucket_class:
+            result = bucket_objects_search('s3://test-bucket', 'query')
+
+            assert result['bucket'] == 'test-bucket'
+            mock_bucket_class.assert_called_once_with('s3://test-bucket')
+
+    def test_bucket_objects_search_error(self):
+        """Test bucket_objects_search with search error."""
+        with patch('quilt3.Bucket', side_effect=Exception('Search endpoint not configured')):
+            result = bucket_objects_search('test-bucket', 'query')
+
+            assert isinstance(result, dict)
+            assert 'error' in result
+            assert 'Failed to search bucket' in result['error']
+            assert result['bucket'] == 'test-bucket'
+            assert result['query'] == 'query'
