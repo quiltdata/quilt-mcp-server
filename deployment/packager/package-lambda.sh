@@ -62,7 +62,7 @@ package_lambda() {
         bash -c "
             mkdir -p /output
             cp -r /usr/local/lib/python3.11/site-packages/* /output/
-            cp /app/quilt/*.py /output/ 2>/dev/null || true
+            cp -r /app/quilt /output/
             chmod -R 755 /output/
         " >/dev/null 2>&1; then
         log_error "❌ Failed to extract Lambda package from Docker"

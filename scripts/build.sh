@@ -101,6 +101,11 @@ load_environment
 validate_environment
 setup_aws_defaults
 
+# Check Docker availability for build operations
+if [ "$MODE" = "build" ] || [ "$MODE" = "deploy" ]; then
+    check_docker
+fi
+
 # Mode implementations
 build_mode() {
     log_info "🔨 Building Quilt MCP Lambda package"

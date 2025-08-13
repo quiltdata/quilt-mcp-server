@@ -11,8 +11,8 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 
 .DEFAULT_GOAL := help
 
-# Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest pytest-ci pytest-search coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
+# Phony targets grouped by category: utility, build, stdio, remote, docker
+.PHONY: help setup env clean logs token pytest pytest-ci pytest-search coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill docker-run docker-test docker-inspector deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
 
 # Test event generation pattern
 tests/events/%.json: tests/generate_lambda_events.py
@@ -61,6 +61,11 @@ help:
 	@echo "  remote-test-full   Full test of local server with detailed output"
 	@echo "  remote-kill        Stop local HTTP MCP server"
 	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
+	@echo ""
+	@echo "Docker Tasks:" 
+	@echo "  docker-run         Run Lambda-like environment in Docker (mirrors remote)"
+	@echo "  docker-test        Test Docker Lambda package (mirrors remote testing)"
+	@echo "  docker-inspector   Launch MCP Inspector for Docker Lambda environment"
 	@echo ""
 	@echo "Test Events:"
 	@echo "  Generate Lambda test events in tests/events/ using:"
@@ -178,6 +183,38 @@ lambda-inspector:
 	TOKEN="$$($(TOKEN_CMD))"; \
 	if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi; \
 	$(INSPECTOR) --server-url "$(API_ENDPOINT)/mcp"
+
+# Docker Lambda environment (mirrors remote)
+docker-run: setup
+	@echo "🐳 Running Lambda-like environment in Docker..."
+	@./deployment/packager/package-lambda.sh -b -v
+	@echo "Starting Docker container on port 9000..."
+	@docker run --rm -d \
+		--name quilt-mcp-lambda \
+		-p 9000:8080 \
+		--platform linux/amd64 \
+		public.ecr.aws/lambda/python:3.11 \
+		quilt_mcp.handlers.lambda_handler.handler || \
+	(echo "Building and running with packaged Lambda..." && \
+	 PACKAGE_DIR=$$(./deployment/packager/package-lambda.sh 2>/dev/null | tail -1) && \
+	 docker run --rm -d \
+		--name quilt-mcp-lambda \
+		-p 9000:8080 \
+		--platform linux/amd64 \
+		-v "$$PACKAGE_DIR":/var/task \
+		public.ecr.aws/lambda/python:3.11 \
+		quilt_mcp.handlers.lambda_handler.handler)
+	@echo "🌐 Lambda endpoint available at: http://localhost:9000/2015-03-31/functions/function/invocations"
+	@echo "💡 Use 'make docker-test' to test or 'docker stop quilt-mcp-lambda' to stop"
+
+docker-test:
+	@echo "🧪 Testing Docker Lambda environment..."
+	@./deployment/packager/test-lambda.sh -v
+
+docker-inspector:
+	@echo "🔍 Starting MCP Inspector for Docker Lambda environment..."
+	@echo "Note: This requires the Lambda environment to be running (make docker-run)"
+	@$(INSPECTOR) --server-url "http://localhost:9000/2015-03-31/functions/function/invocations"
 
 # Stdio config & inspection
 stdio-config:
