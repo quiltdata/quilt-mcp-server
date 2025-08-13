@@ -96,6 +96,7 @@ class QuiltMcpStack(Stack):
             ),
             handler=_lambda.Handler.FROM_IMAGE,
             runtime=_lambda.Runtime.FROM_IMAGE,
+            architecture=_lambda.Architecture.X86_64,
             role=lambda_role, # type: ignore
             timeout=Duration.seconds(lambda_timeout_seconds),
             memory_size=512,
