@@ -75,6 +75,7 @@ class TestQuiltAPI:
         package_names = result["packages"]
         assert KNOWN_PACKAGE in package_names, f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
+    @pytest.mark.search
     def test_packages_search_finds_data(self):
         """Test that searching finds actual data (search returns S3 objects, not packages)."""
         # Try multiple search terms to find some data
@@ -329,6 +330,7 @@ class TestQuiltAPI:
 
     # FAILURE CASES - These should fail gracefully
 
+    @pytest.mark.search
     def test_packages_search_no_results(self):
         """Test that non-existent search returns empty results, not error."""
         result = packages_search("xyznonexistentpackage123456789")
@@ -585,6 +587,7 @@ class TestQuiltAPI:
             except Exception:
                 pass
 
+    @pytest.mark.search
     def test_bucket_objects_search_finds_data(self):
         """Test bucket_objects_search finds actual data in the test bucket."""
         # Try multiple search terms to find some data

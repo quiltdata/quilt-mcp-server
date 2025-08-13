@@ -12,7 +12,7 @@ API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$AP
 .DEFAULT_GOAL := help
 
 # Phony targets grouped by category: utility, build, stdio, remote
-.PHONY: help setup env clean logs token pytest coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
+.PHONY: help setup env clean logs token pytest pytest-ci pytest-search coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
 
 # Test event generation pattern
 tests/events/%.json: tests/generate_lambda_events.py
@@ -31,6 +31,8 @@ help:
 	@echo "  logs               Tail lambda logs (last 10m)"
 	@echo "  token              Print OAuth token (using get_token.sh)"
 	@echo "  pytest             Run all tests (unit + integration)"
+	@echo "  pytest-ci          Run tests excluding search-dependent tests (for CI)"
+	@echo "  pytest-search      Run only search-dependent tests (requires search API)"
 	@echo "  pytest-unit        Run unit tests only (mocked, fast)"
 	@echo "  pytest-integration Run integration tests only (real data, slow)"
 	@echo "  pytest-catalog     Run catalog tool tests only (new functionality)"
@@ -38,8 +40,6 @@ help:
 	@echo "  pytest-packages    Run package operation tests only"
 	@echo "  pytest-buckets     Run bucket operation tests only"
 	@echo "  coverage           Run all tests with coverage report"
-	@echo "  coverage-unit      Run unit tests with coverage"
-	@echo "  coverage-integration Run integration tests with coverage"
 	@echo "  lint               Auto-fix Python (ruff+black), then type & YAML lint"
 	@echo ""
 	@echo "Build Tasks:" 
@@ -200,6 +200,12 @@ stdio-run: setup
 pytest: setup
 	$(UVRUN) python -m pytest
 
+pytest-ci: setup ## Run tests excluding search-dependent tests (for CI)
+	$(UVRUN) python -m pytest -m "not search"
+
+pytest-search: setup ## Run only search-dependent tests (requires search API)
+	$(UVRUN) python -m pytest -m "search"
+
 pytest-unit: setup ## Run unit tests only (test_quilt_tools.py - mocked)
 	$(UVRUN) python -m pytest tests/test_quilt_tools.py -v
 
@@ -208,12 +214,6 @@ pytest-integration: setup ## Run integration tests only (test_quilt.py - real da
 
 coverage: setup ## Run all tests with coverage report
 	$(UVRUN) python -m pytest --cov=quilt_mcp --cov-report=term-missing --cov-report=html
-
-coverage-unit: setup ## Run unit tests with coverage
-	$(UVRUN) python -m pytest tests/test_quilt_tools.py --cov=quilt_mcp --cov-report=term-missing
-
-coverage-integration: setup ## Run integration tests with coverage  
-	$(UVRUN) python -m pytest tests/test_quilt.py --cov=quilt_mcp --cov-report=term-missing
 
 PY_SRC := src tests entry_points
 YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)

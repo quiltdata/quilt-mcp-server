@@ -23,7 +23,7 @@ jobs:
       run: uv python install 3.11
             
     - name: Run tests
-      run: make pytest
+      run: make pytest-ci
       env:
         UVRUN: uv run
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
