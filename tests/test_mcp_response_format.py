@@ -4,10 +4,9 @@ Unit test to validate MCP tool response format compliance.
 This test ensures tool responses match the exact format expected by Claude.ai.
 """
 
-import asyncio
 import json
 
-from quilt_mcp.handlers.lambda_handler import handle_mcp_request  # type: ignore
+from src.quilt_mcp.core import MCPProcessor
 
 
 def test_tool_response_format():
@@ -25,7 +24,8 @@ def test_tool_response_format():
     }
 
     # Execute the handler
-    response = asyncio.run(handle_mcp_request(request_data))
+    processor = MCPProcessor()
+    response = processor.process_request(request_data)
 
     # Validate response structure
     assert "jsonrpc" in response, "Response missing jsonrpc field"
@@ -78,7 +78,8 @@ def test_invalid_tool_error_format():
         }
     }
 
-    response = asyncio.run(handle_mcp_request(request_data))
+    processor = MCPProcessor()
+    response = processor.process_request(request_data)
 
     # Should return an error response
     assert "error" in response, "Invalid tool call should return error"
@@ -102,7 +103,8 @@ def test_tools_list_format():
         "params": {}
     }
 
-    response = asyncio.run(handle_mcp_request(request_data))
+    processor = MCPProcessor()
+    response = processor.process_request(request_data)
 
     # Validate basic structure
     assert "result" in response
@@ -139,7 +141,8 @@ def test_initialize_format():
         }
     }
 
-    response = asyncio.run(handle_mcp_request(request_data))
+    processor = MCPProcessor()
+    response = processor.process_request(request_data)
 
     # Validate structure
     assert "result" in response
@@ -153,8 +156,7 @@ def test_initialize_format():
     # Check capabilities structure
     capabilities = result["capabilities"]
     assert "tools" in capabilities
-    assert "roots" in capabilities
-    assert "sampling" in capabilities
+    assert "resources" in capabilities
 
     # Check server info
     server_info = result["serverInfo"]

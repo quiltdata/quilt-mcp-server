@@ -158,8 +158,8 @@ class TestServerHandlerFunction:
         """Test that server.handler delegates to lambda_handler."""
         from src.quilt_mcp.server import handler as server_handler
         
-        # Mock lambda_handler
-        with patch('src.quilt_mcp.server.lambda_handler') as mock_lambda_handler:
+        # Mock the lambda_handler import inside the function
+        with patch('src.quilt_mcp.adapters.lambda_handler.lambda_handler') as mock_lambda_handler:
             mock_lambda_handler.return_value = {'statusCode': 200, 'body': '{}'}
             
             event = {'httpMethod': 'GET'}

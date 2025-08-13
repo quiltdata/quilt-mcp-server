@@ -20,19 +20,12 @@ class TestMCPProcessor:
         """Test initialization registers tools."""
         processor = MCPProcessor()
         
-        # Mock tool modules to avoid import issues in tests
-        with patch('src.quilt_mcp.core.processor.auth') as mock_auth, \
-             patch('src.quilt_mcp.core.processor.packages') as mock_packages, \
-             patch('src.quilt_mcp.core.processor.buckets') as mock_buckets, \
-             patch('src.quilt_mcp.core.processor.package_ops') as mock_package_ops:
-            
-            # Mock module registration
-            processor.tool_registry.register_from_module = MagicMock(return_value=5)
-            
+        # Mock the tool registration to avoid import dependencies
+        with patch.object(processor, '_register_all_tools') as mock_register:
             processor.initialize()
             
             assert processor._initialized
-            assert processor.tool_registry.register_from_module.call_count == 4
+            mock_register.assert_called_once()
     
     def test_process_initialize_request(self):
         """Test processing initialize request."""

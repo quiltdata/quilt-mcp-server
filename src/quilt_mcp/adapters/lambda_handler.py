@@ -200,8 +200,8 @@ class LambdaHandler:
         Returns:
             ISO formatted timestamp
         """
-        from datetime import datetime
-        return datetime.utcnow().isoformat() + 'Z'
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 # Global handler instance for Lambda

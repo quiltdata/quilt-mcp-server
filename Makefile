@@ -243,9 +243,6 @@ pytest-ci: setup ## Run tests excluding search-dependent tests (for CI)
 pytest-search: setup ## Run only search-dependent tests (requires search API)
 	$(UVRUN) python -m pytest -m "search"
 
-pytest-unit: setup ## Run unit tests only (test_quilt_tools.py - mocked)
-	$(UVRUN) python -m pytest tests/test_quilt_tools.py -v
-
 pytest-integration: setup ## Run integration tests only (test_quilt.py - real data)
 	$(UVRUN) python -m pytest tests/test_quilt.py -v
 

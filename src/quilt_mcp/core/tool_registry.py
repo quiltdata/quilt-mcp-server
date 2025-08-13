@@ -136,13 +136,20 @@ class ToolRegistry:
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
             
-            # Skip private attributes and non-functions
-            if attr_name.startswith('_') or not callable(attr):
+            # Skip private attributes, non-functions, and imported items
+            if (attr_name.startswith('_') or 
+                not callable(attr) or
+                not hasattr(attr, '__module__') or
+                attr.__module__ != module.__name__):
                 continue
             
-            # Register the function as a tool
-            tool_name = f"{prefix}{attr_name}" if prefix else attr_name
-            self.register_tool(tool_name, attr)
-            registered += 1
+            # Only register functions that are actually defined in this module
+            # and appear to be MCP tools (have proper docstrings and return dict)
+            if (hasattr(attr, '__doc__') and attr.__doc__ and
+                hasattr(attr, '__annotations__')):
+                
+                tool_name = f"{prefix}{attr_name}" if prefix else attr_name
+                self.register_tool(tool_name, attr)
+                registered += 1
             
         return registered

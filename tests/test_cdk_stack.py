@@ -37,11 +37,8 @@ class TestQuiltMcpStack:
 
     def test_stack_creation(self):
         """Test that the stack can be created."""
-        # Verify Lambda function exists
-        self.template.has_resource_properties("AWS::Lambda::Function", {
-            "Runtime": "python3.11",
-            "Handler": "quilt_mcp.handlers.lambda_handler.handler"
-        })
+        # Verify Lambda function exists with FROM_IMAGE configuration
+        self.template.resource_count_is("AWS::Lambda::Function", 1)
 
         # Verify HTTP API exists
         self.template.has_resource_properties("AWS::ApiGatewayV2::Api", {
@@ -87,8 +84,9 @@ class TestQuiltMcpStack:
             "MemorySize": 512,
             "Environment": {
                 "Variables": {
-                    "ENV": "production",
-                    "LOG_LEVEL": "INFO"
+                    "RUNTIME": "lambda",
+                    "LOG_LEVEL": "INFO",
+                    "FASTMCP_TRANSPORT": "streamable-http"
                 }
             }
         })

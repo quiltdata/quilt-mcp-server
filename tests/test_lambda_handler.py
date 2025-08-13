@@ -1,251 +1,171 @@
-import json
-from unittest.mock import Mock, patch, MagicMock
+"""Test the new Lambda event handler architecture."""
 
+import json
 import pytest
+from unittest.mock import patch, MagicMock
 
 from src.quilt_mcp.adapters.lambda_handler import LambdaHandler, lambda_handler
-from src.quilt_mcp.server import handler
 
 
 class TestLambdaHandler:
-    """Test suite for new Lambda handler architecture."""
-
-    def test_handler_options_request(self):
-        """Test CORS preflight OPTIONS request."""
+    """Test the LambdaHandler class."""
+    
+    def test_handler_initialization(self):
+        """Test handler initializes correctly."""
+        handler_instance = LambdaHandler()
+        assert handler_instance is not None
+        assert handler_instance.processor is not None
+    
+    def test_cors_preflight_request(self):
+        """Test CORS preflight request handling."""
         handler_instance = LambdaHandler()
         
         event = {
             'httpMethod': 'OPTIONS',
-            'path': '/mcp/',
-            'headers': {},
-            'queryStringParameters': None,
-            'body': ''
+            'path': '/mcp'
         }
-
-        result = handler_instance.handle_event(event, {})
-
-        assert result['statusCode'] == 200
-        assert 'Access-Control-Allow-Origin' in result['headers']
-        assert result['headers']['Access-Control-Allow-Origin'] == '*'
-        assert 'Access-Control-Allow-Methods' in result['headers']
-
-    def test_handler_get_request(self):
-        """Test GET request for server info."""
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 200
+        assert 'Access-Control-Allow-Origin' in response['headers']
+        assert response['headers']['Access-Control-Allow-Origin'] == '*'
+        assert response['body'] == ''
+    
+    def test_health_check_request(self):
+        """Test health check request handling."""
+        handler_instance = LambdaHandler()
+        
         event = {
             'httpMethod': 'GET',
-            'path': '/mcp/',
-            'headers': {},
-            'queryStringParameters': {},
-            'body': ''
+            'path': '/mcp'
         }
-
-        result = handler(event, {})
-
-        assert result['statusCode'] == 200
-        assert result['headers']['Content-Type'] == 'application/json'
-
-        body = json.loads(result['body'])
-        assert body['name'] == 'quilt-mcp-server'
-        assert body['version'] == '1.0.0'
-        assert 'capabilities' in body
-
-    def test_handler_post_request(self):
-        """Test POST request with MCP method call."""
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': 'initialize',
-            'params': {}
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 200
+        assert 'Content-Type' in response['headers']
+        assert response['headers']['Content-Type'] == 'application/json'
+        
+        body = json.loads(response['body'])
+        assert body['status'] == 'ok'
+        assert body['server'] == 'quilt-mcp-server'
+    
+    def test_mcp_request_processing(self):
+        """Test MCP request processing."""
+        handler_instance = LambdaHandler()
+        
+        # Mock the processor
+        handler_instance.processor.process_request = MagicMock(return_value={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"tools": []}
+        })
+        
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+            "params": {}
         }
-
+        
         event = {
             'httpMethod': 'POST',
-            'path': '/mcp/',
-            'headers': {'Content-Type': 'application/json'},
-            'queryStringParameters': None,
-            'body': json.dumps(request_data)
+            'path': '/mcp',
+            'body': json.dumps(mcp_request),
+            'headers': {'Content-Type': 'application/json'}
         }
-
-        result = handler(event, {})
-
-        assert result['statusCode'] == 200
-        body = json.loads(result['body'])
-        assert body['jsonrpc'] == '2.0'
-        assert body['id'] == 1
-        assert 'result' in body
-
-    def test_handler_invalid_json(self):
-        """Test POST request with invalid JSON."""
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 200
+        assert 'Content-Type' in response['headers']
+        
+        response_body = json.loads(response['body'])
+        assert response_body['jsonrpc'] == '2.0'
+        assert response_body['id'] == 1
+        assert 'result' in response_body
+        
+        # Verify processor was called
+        handler_instance.processor.process_request.assert_called_once_with(mcp_request)
+    
+    def test_invalid_json_request(self):
+        """Test handling invalid JSON in request."""
+        handler_instance = LambdaHandler()
+        
         event = {
             'httpMethod': 'POST',
-            'path': '/mcp/',
-            'headers': {'Content-Type': 'application/json'},
-            'queryStringParameters': None,
-            'body': 'invalid json'
+            'path': '/mcp',
+            'body': 'invalid json',
+            'headers': {'Content-Type': 'application/json'}
         }
-
-        # Should handle gracefully and still process the request
-        result = handler(event, {})
-        assert result['statusCode'] == 200
-
-    def test_handler_exception(self):
-        """Test handler with exception."""
-        with patch('quilt_mcp.handlers.lambda_handler.handle_mcp_info_request', side_effect=Exception('Test error')):
-            event = {
-                'httpMethod': 'GET',
-                'path': '/mcp/',
-                'headers': {},
-                'queryStringParameters': {},
-                'body': ''
-            }
-
-            result = handler(event, {})
-
-            assert result['statusCode'] == 500
-            body = json.loads(result['body'])
-            assert 'error' in body
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_initialize(self):
-        """Test MCP initialize request."""
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': 'initialize',
-            'params': {}
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 400
+        
+        response_body = json.loads(response['body'])
+        assert 'error' in response_body
+    
+    def test_empty_request_body(self):
+        """Test handling empty request body."""
+        handler_instance = LambdaHandler()
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/mcp',
+            'body': '',
+            'headers': {'Content-Type': 'application/json'}
         }
-
-        result = await handle_mcp_request(request_data)
-
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 1
-        assert 'result' in result
-        assert result['result']['protocolVersion'] == '2024-11-05'
-        assert 'capabilities' in result['result']
-        assert 'serverInfo' in result['result']
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_tools_list(self):
-        """Test MCP tools/list request."""
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 2,
-            'method': 'tools/list',
-            'params': {}
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 400
+    
+    def test_processor_exception_handling(self):
+        """Test handling processor exceptions."""
+        handler_instance = LambdaHandler()
+        
+        # Mock processor to raise exception
+        handler_instance.processor.process_request = MagicMock(side_effect=Exception("Test error"))
+        
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+            "params": {}
         }
-
-        mock_tool = Mock()
-        mock_tool.name = 'test_tool'
-        mock_tool.description = 'Test tool'
-        mock_tool.parameters = {'type': 'object'}
-
-        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
-            'test_tool': mock_tool
-        }):
-            result = await handle_mcp_request(request_data)
-
-            assert result['jsonrpc'] == '2.0'
-            assert result['id'] == 2
-            assert 'result' in result
-            assert 'tools' in result['result']
-            assert len(result['result']['tools']) == 1
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_tools_call_success(self):
-        """Test successful MCP tools/call request."""
-        def mock_tool(**kwargs):
-            return {'result': 'success', 'args': kwargs}
-
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 3,
-            'method': 'tools/call',
-            'params': {
-                'name': 'test_tool',
-                'arguments': {'param1': 'value1'}
-            }
+        
+        event = {
+            'httpMethod': 'POST',
+            'path': '/mcp',
+            'body': json.dumps(mcp_request),
+            'headers': {'Content-Type': 'application/json'}
         }
+        
+        response = handler_instance.handle_event(event, None)
+        
+        assert response['statusCode'] == 500
+        
+        response_body = json.loads(response['body'])
+        assert 'error' in response_body
 
-        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
-            'test_tool': Mock()
-        }), patch('quilt_mcp.handlers.lambda_handler.mcp.call_tool', return_value=[Mock(text=json.dumps({'result': 'success', 'args': {'param1': 'value1'}}))]):
-            result = await handle_mcp_request(request_data)
 
-            assert result['jsonrpc'] == '2.0'
-            assert result['id'] == 3
-            assert 'result' in result
-            assert 'content' in result['result']
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_tools_call_not_found(self):
-        """Test MCP tools/call request with non-existent tool."""
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 4,
-            'method': 'tools/call',
-            'params': {
-                'name': 'nonexistent_tool',
-                'arguments': {}
-            }
-        }
-
-        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {}):
-            result = await handle_mcp_request(request_data)
-
-            assert result['jsonrpc'] == '2.0'
-            assert result['id'] == 4
-            assert 'error' in result
-            assert result['error']['code'] == -32601
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_tools_call_error(self):
-        """Test MCP tools/call request with tool execution error."""
-        def failing_tool(**kwargs):
-            raise Exception('Tool failed')
-
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 5,
-            'method': 'tools/call',
-            'params': {
-                'name': 'failing_tool',
-                'arguments': {}
-            }
-        }
-
-        with patch('quilt_mcp.handlers.lambda_handler.mcp._tool_manager._tools', {
-            'failing_tool': Mock()
-        }), patch('quilt_mcp.handlers.lambda_handler.mcp.call_tool', side_effect=Exception('Tool failed')):
-            result = await handle_mcp_request(request_data)
-
-            assert result['jsonrpc'] == '2.0'
-            assert result['id'] == 5
-            assert 'error' in result
-            assert result['error']['code'] == -32603
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_request_unknown_method(self):
-        """Test MCP request with unknown method."""
-        request_data = {
-            'jsonrpc': '2.0',
-            'id': 6,
-            'method': 'unknown/method',
-            'params': {}
-        }
-
-        result = await handle_mcp_request(request_data)
-
-        assert result['jsonrpc'] == '2.0'
-        assert result['id'] == 6
-        assert 'error' in result
-        assert result['error']['code'] == -32601
-
-    @pytest.mark.asyncio
-    async def test_handle_mcp_info_request(self):
-        """Test MCP info request."""
-        result = await handle_mcp_info_request({})
-
-        assert result['name'] == 'quilt-mcp-server'
-        assert result['version'] == '1.0.0'
-        assert 'description' in result
-        assert 'capabilities' in result
+class TestServerHandlerFunction:
+    """Test the server handler function."""
+    
+    def test_server_handler_delegates_to_lambda_handler(self):
+        """Test that server.handler delegates to lambda_handler."""
+        from src.quilt_mcp.server import handler as server_handler
+        
+        # Mock the lambda_handler import inside the function
+        with patch('src.quilt_mcp.adapters.lambda_handler.lambda_handler') as mock_lambda_handler:
+            mock_lambda_handler.return_value = {'statusCode': 200, 'body': '{}'}
+            
+            event = {'httpMethod': 'GET'}
+            context = MagicMock()
+            
+            response = server_handler(event, context)
+            
+            assert response['statusCode'] == 200
+            mock_lambda_handler.assert_called_once_with(event, context)
