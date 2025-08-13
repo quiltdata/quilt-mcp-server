@@ -127,7 +127,7 @@ remote-export: setup
 	@echo "Make sure ngrok is installed: brew install ngrok (or download from ngrok.com)"
 	@echo ""
 	@echo "Starting MCP server on port 8000..."
-	@$(UVRUN) python entry_points/dev_server.py & \
+	@FASTMCP_TRANSPORT=streamable-http $(UVRUN) python -m quilt_mcp & \
 	SERVER_PID=$$!; \
 	echo "Server started with PID: $$SERVER_PID"; \
 	sleep 3; \
