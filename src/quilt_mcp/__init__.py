@@ -14,8 +14,9 @@ from .constants import (
     KNOWN_TEST_S3_OBJECT,
 )
 
-# Re-export the main server instance and core utilities
-from .server import is_lambda_environment, mcp
+# Re-export core utilities
+from .server import is_lambda_environment
+from .core import MCPProcessor
 
 # Re-export all tools for easy access
 from .tools.auth import auth_status, filesystem_status, catalog_info, catalog_name, catalog_url, catalog_uri
@@ -41,7 +42,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     # Core
-    "mcp",
+    "MCPProcessor",
     "is_lambda_environment",
     # Constants
     "DEFAULT_REGISTRY",

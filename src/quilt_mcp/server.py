@@ -1,12 +1,19 @@
-"""Clean FastMCP server that works in all environments."""
+"""Unified MCP server entry point.
 
-from __future__ import annotations
+This server automatically detects the environment and routes requests to the
+appropriate adapter:
+- Lambda: Uses lambda_handler for AWS Lambda events
+- Local: Uses fastmcp_bridge for development and testing
 
-import os
+Environment variables:
+- FASTMCP_TRANSPORT: 'stdio', 'sse', or 'streamable-http' (default: auto-detect)
+- AWS_LAMBDA_FUNCTION_NAME: Set by Lambda runtime (auto-detected)
+- LOG_LEVEL: Logging level (default: 'INFO')
+"""
+
 import logging
-from typing import Any, Literal
-
-from mcp.server.fastmcp import FastMCP
+import os
+from typing import Any, Dict, Literal
 
 # Configure logging
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -16,8 +23,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Single FastMCP instance
-mcp = FastMCP("quilt")
+
+def is_lambda_environment() -> bool:
+    """Check if running in AWS Lambda."""
+    return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+
 
 def get_transport() -> Literal["stdio", "sse", "streamable-http"]:
     """Get transport mode from environment or default."""
@@ -27,95 +37,49 @@ def get_transport() -> Literal["stdio", "sse", "streamable-http"]:
     logger.warning(f"Invalid transport '{transport}', using 'streamable-http'")
     return "streamable-http"
 
-def is_lambda_environment() -> bool:
-    """Check if running in AWS Lambda."""
-    return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
-
-def setup_lambda_environment() -> None:
-    """Setup Lambda environment."""
-    if not is_lambda_environment():
-        return
-        
-    try:
-        os.chdir('/tmp')
-        for directory in ['/tmp/.config', '/tmp/.cache', '/tmp/quilt']:
-            os.makedirs(directory, exist_ok=True)
-        logger.debug("Lambda environment ready")
-    except Exception as e:
-        logger.warning(f"Lambda setup failed: {e}")
-
-def register_tools() -> None:
-    """Import tools to register them with FastMCP."""
-    try:
-        # Import all tool modules - their @mcp.tool decorators will register them
-        from . import tools
-        # tools import triggers @mcp.tool decorators
-        logger.info("Tools registered successfully")
-    except Exception as e:
-        logger.error(f"Tool registration failed: {e}", exc_info=True)
 
 def main() -> None:
-    """Main entry point."""
+    """Main entry point for local development."""
     if is_lambda_environment():
-        logger.info("Lambda environment - handler will be called by AWS")
+        logger.info("Detected Lambda environment - handler will be called by AWS")
         return
     
-    # Register tools and run server
-    register_tools()
-    setup_lambda_environment()
+    logger.info("Starting Quilt MCP Server for local development")
     
+    # Use FastMCP bridge for local development
+    from .adapters.fastmcp_bridge import FastMCPBridge
+    
+    bridge = FastMCPBridge("quilt")
     transport = get_transport()
-    logger.info(f"Starting FastMCP server with transport: {transport}")
     
-    mcp.run(transport=transport)
-
-# AWS Lambda handler
-def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """Lambda handler using FastMCP's built-in HTTP handling."""
-    setup_lambda_environment()
-    register_tools()
+    logger.info(f"Using transport: {transport}")
     
-    # For Lambda, we need to extract the HTTP request and route to FastMCP
-    # This is a simplified approach - for production, consider the AWS Lambda MCP adapter
+    # Run the server
     try:
-        method = event.get('httpMethod', 'GET')
-        path = event.get('path', '/')
-        body = event.get('body', '')
-        
-        # Handle CORS preflight
-        if method == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
-                },
-                'body': ''
-            }
-        
-        # Basic health check
-        if method == 'GET':
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json'},
-                'body': '{"status": "ok", "server": "FastMCP"}'
-            }
-        
-        # For MCP requests, we'd need to integrate with FastMCP's request handling
-        # For now, return a placeholder
-        return {
-            'statusCode': 200,
-            'headers': {'Content-Type': 'application/json'},
-            'body': '{"message": "FastMCP Lambda handler", "method": "' + method + '"}'
-        }
-        
+        bridge.run(transport=transport)
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
     except Exception as e:
-        logger.error(f"Lambda error: {e}", exc_info=True)
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
-            'body': f'{{"error": "{str(e)}"}}'
-        }
+        logger.error(f"Server error: {e}", exc_info=True)
+        raise
 
-__all__ = ["mcp", "main", "handler"]
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """AWS Lambda handler entry point.
+    
+    This function is called by AWS Lambda for each request.
+    
+    Args:
+        event: AWS Lambda event from API Gateway
+        context: AWS Lambda context
+        
+    Returns:
+        AWS Lambda response for API Gateway
+    """
+    from .adapters.lambda_handler import lambda_handler
+    
+    return lambda_handler(event, context)
+
+
+# Backwards compatibility exports
+__all__ = ["main", "handler", "is_lambda_environment", "get_transport"]

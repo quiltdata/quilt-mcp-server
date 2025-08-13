@@ -9,7 +9,10 @@ from urllib.parse import urlparse, quote
 
 import quilt3
 
-from ..server import is_lambda_environment, mcp
+
+def is_lambda_environment() -> bool:
+    """Check if running in AWS Lambda."""
+    return bool(os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -123,7 +126,6 @@ def _get_catalog_host_from_config() -> Optional[str]:
     return None
 
 
-@mcp.tool()
 def catalog_url(registry: str, package_name: Optional[str] = None, path: Optional[str] = None, catalog_host: Optional[str] = None) -> dict[str, Any]:
     """Generate a catalog URL for viewing packages or bucket objects.
     
@@ -189,7 +191,6 @@ def catalog_url(registry: str, package_name: Optional[str] = None, path: Optiona
         }
 
 
-@mcp.tool()
 def catalog_uri(registry: str, package_name: Optional[str] = None, path: Optional[str] = None, 
                            top_hash: Optional[str] = None, tag: Optional[str] = None, 
                            catalog_host: Optional[str] = None) -> dict[str, Any]:
@@ -260,7 +261,6 @@ def catalog_uri(registry: str, package_name: Optional[str] = None, path: Optiona
         }
 
 
-@mcp.tool()
 def catalog_info() -> dict[str, Any]:
     """Get information about the current Quilt catalog configuration.
     
@@ -300,7 +300,6 @@ def catalog_info() -> dict[str, Any]:
         }
 
 
-@mcp.tool()
 def catalog_name() -> dict[str, Any]:
     """Get the name of the current Quilt catalog.
     
@@ -335,7 +334,6 @@ def catalog_name() -> dict[str, Any]:
         }
 
 
-@mcp.tool()
 def auth_status() -> dict[str, Any]:
     """Check Quilt authentication status and provide setup instructions.
     
@@ -371,7 +369,6 @@ def auth_status() -> dict[str, Any]:
             ]
         }
 
-@mcp.tool()
 def filesystem_status() -> dict[str, Any]:
     """Check filesystem permissions and environment capabilities.
     

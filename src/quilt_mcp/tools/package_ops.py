@@ -6,7 +6,6 @@ from typing import Any
 import quilt3
 
 from ..constants import DEFAULT_REGISTRY
-from ..server import mcp
 
 # Helpers
 
@@ -53,7 +52,6 @@ def _collect_objects_into_package(pkg: quilt3.Package, s3_uris: list[str], flatt
             continue
     return added
 
-@mcp.tool()
 def package_create(package_name: str, s3_uris: list[str], registry: str = DEFAULT_REGISTRY, metadata: dict[str, Any] = {}, message: str = "Created via package_create tool", flatten: bool = True) -> dict[str, Any]:
     """Create a new Quilt package from S3 objects.
     
@@ -97,7 +95,6 @@ def package_create(package_name: str, s3_uris: list[str], registry: str = DEFAUL
     }
     return result
 
-@mcp.tool()
 def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAULT_REGISTRY, metadata: dict[str, Any] = {}, message: str = "Added objects via package_update tool", flatten: bool = True) -> dict[str, Any]:
     """Update an existing Quilt package by adding new S3 objects.
     
@@ -149,7 +146,6 @@ def package_update(package_name: str, s3_uris: list[str], registry: str = DEFAUL
     }
     return result
 
-@mcp.tool()
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
     """Delete a Quilt package from the registry.
     

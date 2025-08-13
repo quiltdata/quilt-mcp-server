@@ -1,16 +1,19 @@
 import json
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
 import pytest
 
-from quilt_mcp.handlers.lambda_handler import handle_mcp_info_request, handle_mcp_request, handler
+from src.quilt_mcp.adapters.lambda_handler import LambdaHandler, lambda_handler
+from src.quilt_mcp.server import handler
 
 
 class TestLambdaHandler:
-    """Test suite for Lambda handler."""
+    """Test suite for new Lambda handler architecture."""
 
     def test_handler_options_request(self):
         """Test CORS preflight OPTIONS request."""
+        handler_instance = LambdaHandler()
+        
         event = {
             'httpMethod': 'OPTIONS',
             'path': '/mcp/',
@@ -19,7 +22,7 @@ class TestLambdaHandler:
             'body': ''
         }
 
-        result = handler(event, {})
+        result = handler_instance.handle_event(event, {})
 
         assert result['statusCode'] == 200
         assert 'Access-Control-Allow-Origin' in result['headers']

@@ -5,7 +5,6 @@ from typing import Any
 import boto3
 
 from ..constants import DEFAULT_BUCKET
-from ..server import mcp
 from ..utils import generate_signed_url
 
 # Helpers
@@ -15,7 +14,6 @@ def _normalize_bucket(uri_or_name: str) -> str:
     return uri_or_name
 
 
-@mcp.tool()
 def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "", include_signed_urls: bool = True) -> dict[str, Any]:
     """List objects in an S3 bucket with optional prefix filtering.
     
@@ -56,7 +54,6 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
         objects.append(obj_data)
     return {"bucket": bkt, "prefix": prefix, "objects": objects, "truncated": resp.get("IsTruncated", False), "next_token": resp.get("NextContinuationToken", ""), "key_count": resp.get("KeyCount", len(objects)), "max_keys": max_keys}
 
-@mcp.tool()
 def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     """Get metadata information for a specific S3 object.
     
@@ -75,7 +72,6 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     except Exception as e: return {"error": f"Failed to head object: {e}", "bucket": bucket, "key": key}
     return {"bucket": bucket, "key": key, "size": head.get("ContentLength"), "content_type": head.get("ContentType"), "etag": head.get("ETag"), "last_modified": str(head.get("LastModified")), "metadata": head.get("Metadata", {}), "storage_class": head.get("StorageClass"), "cache_control": head.get("CacheControl")}
 
-@mcp.tool()
 def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> dict[str, Any]:
     """Read text content from an S3 object.
     
@@ -103,7 +99,6 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     except Exception as e: return {"error": f"Decode failed: {e}", "bucket": bucket, "key": key}
     return {"bucket": bucket, "key": key, "encoding": encoding, "truncated": truncated, "max_bytes": max_bytes, "text": text}
 
-@mcp.tool()
 def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, Any]:
     """Upload multiple objects to an S3 bucket.
     
@@ -149,7 +144,6 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     successes = sum(1 for r in results if "etag" in r)
     return {"bucket": bkt, "requested": len(items), "uploaded": successes, "results": results}
 
-@mcp.tool()
 def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> dict[str, Any]:
     """Fetch binary or text data from an S3 object.
     
@@ -186,7 +180,6 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
         data = base64.b64encode(body).decode("ascii")
         return {"bucket": bucket, "key": key, "truncated": truncated, "max_bytes": max_bytes, "base64": True, "data": data, "content_type": content_type, "size": len(body), "note": "Binary data returned as base64 after decode failure"}
 
-@mcp.tool()
 def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     """Generate a presigned URL for downloading an S3 object.
     
@@ -213,7 +206,6 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     except Exception as e:
         return {"error": f"Failed to generate presigned URL: {e}", "bucket": bucket, "key": key}
 
-@mcp.tool()
 def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
     """Search objects in a Quilt bucket using Elasticsearch query syntax.
     

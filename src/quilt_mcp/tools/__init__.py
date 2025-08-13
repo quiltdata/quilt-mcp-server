@@ -5,9 +5,10 @@ This package contains all the MCP tool implementations organized by functionalit
 - buckets: S3 bucket operations
 - packages: Package browsing and search
 - package_ops: Package creation, update, and deletion
+
+These tools are pure functions that are registered by the core.tool_registry module.
 """
 
-# Import all tool modules to ensure their @mcp.tool decorators are executed
 from . import auth
 from . import buckets  
 from . import packages

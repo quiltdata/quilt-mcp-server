@@ -5,7 +5,6 @@ from typing import Any
 import quilt3
 
 from ..constants import DEFAULT_REGISTRY
-from ..server import mcp
 from ..utils import generate_signed_url
 
 # Helpers
@@ -25,7 +24,6 @@ def _normalize_registry(bucket_or_uri: str) -> str:
 
 
 
-@mcp.tool()
 def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
     """List all available Quilt packages in a registry.
     
@@ -51,7 +49,6 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
     return {"packages": pkgs}
 
-@mcp.tool()
 def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
     
@@ -68,7 +65,6 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
     results = quilt3.search(query, limit=effective_limit)
     return {"results": results}
 
-@mcp.tool()
 def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int = 0, include: list[str] = [], exclude: list[str] = [], include_signed_urls: bool = True) -> dict[str, Any]:
     """Browse the contents of a Quilt package.
     
@@ -127,7 +123,6 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
         "entries": entries
     }
 
-@mcp.tool()
 def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY, include_signed_urls: bool = True) -> dict[str, Any]:
     """Search within a package's contents by filename or path.
     
@@ -181,7 +176,6 @@ def package_contents_search(package_name: str, query: str, registry: str = DEFAU
         "count": len(matches)
     }
 
-@mcp.tool()
 def package_diff(package1_name: str, package2_name: str, registry: str = DEFAULT_REGISTRY, package1_hash: str = "", package2_hash: str = "") -> dict[str, Any]:
     """Compare two package versions and show differences.
     
