@@ -6,6 +6,7 @@ import quilt3
 
 from ..constants import DEFAULT_REGISTRY
 from ..server import mcp
+from ..utils import generate_signed_url
 
 # Helpers
 
@@ -22,37 +23,6 @@ def _normalize_registry(bucket_or_uri: str) -> str:
         return bucket_or_uri
     return f"s3://{bucket_or_uri}"
 
-def _generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
-    """Generate a presigned URL for an S3 URI.
-    
-    Args:
-        s3_uri: S3 URI (e.g., "s3://bucket/key")
-        expiration: URL expiration in seconds (default: 3600)
-    
-    Returns:
-        Presigned URL string or None if generation fails
-    """
-    import boto3
-    if not s3_uri.startswith("s3://"):
-        return None
-    
-    without_scheme = s3_uri[5:]
-    if '/' not in without_scheme:
-        return None
-    
-    bucket, key = without_scheme.split('/', 1)
-    expiration = max(1, min(expiration, 604800))  # 1 sec to 7 days
-    
-    try:
-        client = boto3.client("s3")
-        url = client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket, "Key": key},
-            ExpiresIn=expiration
-        )
-        return url
-    except Exception:
-        return None
 
 
 @mcp.tool()
@@ -141,7 +111,7 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
                 entry_data["s3_uri"] = s3_uri
                 
                 if include_signed_urls:
-                    signed_url = _generate_signed_url(s3_uri)
+                    signed_url = generate_signed_url(s3_uri)
                     if signed_url:
                         entry_data["download_url"] = signed_url
             
@@ -195,7 +165,7 @@ def package_contents_search(package_name: str, query: str, registry: str = DEFAU
                 match_data["s3_uri"] = s3_uri
                 
                 if include_signed_urls:
-                    signed_url = _generate_signed_url(s3_uri)
+                    signed_url = generate_signed_url(s3_uri)
                     if signed_url:
                         match_data["download_url"] = signed_url
             

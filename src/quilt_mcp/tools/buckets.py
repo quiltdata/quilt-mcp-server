@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import boto3
+
 from ..constants import DEFAULT_BUCKET
 from ..server import mcp
+from ..utils import generate_signed_url
 
 # Helpers
 
@@ -11,37 +14,6 @@ def _normalize_bucket(uri_or_name: str) -> str:
     if uri_or_name.startswith("s3://"): return uri_or_name[5:].split('/', 1)[0]
     return uri_or_name
 
-def _generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
-    """Generate a presigned URL for an S3 URI.
-    
-    Args:
-        s3_uri: S3 URI (e.g., "s3://bucket/key")
-        expiration: URL expiration in seconds (default: 3600)
-    
-    Returns:
-        Presigned URL string or None if generation fails
-    """
-    import boto3
-    if not s3_uri.startswith("s3://"):
-        return None
-    
-    without_scheme = s3_uri[5:]
-    if '/' not in without_scheme:
-        return None
-    
-    bucket, key = without_scheme.split('/', 1)
-    expiration = max(1, min(expiration, 604800))  # 1 sec to 7 days
-    
-    try:
-        client = boto3.client("s3")
-        url = client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket, "Key": key},
-            ExpiresIn=expiration
-        )
-        return url
-    except Exception:
-        return None
 
 @mcp.tool()
 def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys: int = 100, continuation_token: str = "", include_signed_urls: bool = True) -> dict[str, Any]:
@@ -57,7 +29,6 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
     Returns:
         Dict with bucket info, objects list, and pagination details.
     """
-    import boto3
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
     client = boto3.client("s3")
@@ -79,7 +50,7 @@ def bucket_objects_list(bucket: str = DEFAULT_BUCKET, prefix: str = "", max_keys
             "storage_class": item.get("StorageClass")
         }
         if include_signed_urls:
-            signed_url = _generate_signed_url(s3_uri)
+            signed_url = generate_signed_url(s3_uri)
             if signed_url:
                 obj_data["download_url"] = signed_url
         objects.append(obj_data)
@@ -95,7 +66,6 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     Returns:
         Dict with object metadata including size, content type, etag, and modification date.
     """
-    import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
     if '/' not in without: return {"error": "s3_uri must include a key after the bucket/"}
@@ -117,7 +87,6 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     Returns:
         Dict with decoded text content and metadata.
     """
-    import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
     if '/' not in without: return {"error": "s3_uri must include a key after the bucket/"}
@@ -148,7 +117,6 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     """
     import base64
 
-    import boto3
     bkt = _normalize_bucket(bucket)
     if not items: return {"error": "items list is empty", "bucket": bkt}
     client = boto3.client("s3")
@@ -195,7 +163,6 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     """
     import base64
 
-    import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
     if '/' not in without: return {"error": "s3_uri must include a key after the bucket/"}
@@ -230,7 +197,6 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     Returns:
         Dict with presigned URL and metadata.
     """
-    import boto3
     if not s3_uri.startswith("s3://"): return {"error": "s3_uri must start with s3://"}
     without = s3_uri[5:]
     if '/' not in without: return {"error": "s3_uri must include a key after the bucket/"}
