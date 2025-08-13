@@ -63,9 +63,10 @@ help:
 	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
 	@echo ""
 	@echo "Docker Tasks:" 
-	@echo "  docker-run         Run Lambda-like environment in Docker (mirrors remote)"
-	@echo "  docker-test        Test Docker Lambda package (mirrors remote testing)"
-	@echo "  docker-inspector   Launch MCP Inspector for Docker Lambda environment"
+	@echo "  docker-build       Build Lambda container using Amazon base image"
+	@echo "  docker-run         Run Lambda container locally (mirrors remote exactly)"
+	@echo "  docker-test        Test Lambda container with MCP call"
+	@echo "  docker-stop        Stop running Lambda container"
 	@echo ""
 	@echo "Test Events:"
 	@echo "  Generate Lambda test events in tests/events/ using:"
@@ -184,37 +185,36 @@ lambda-inspector:
 	if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi; \
 	$(INSPECTOR) --server-url "$(API_ENDPOINT)/mcp"
 
-# Docker Lambda environment (mirrors remote)
-docker-run: setup
-	@echo "🐳 Running Lambda-like environment in Docker..."
-	@./deployment/packager/package-lambda.sh -b -v
-	@echo "Starting Docker container on port 9000..."
+# Docker Lambda environment (mirrors remote exactly)
+docker-build:
+	@echo "🐳 Building Lambda container image..."
+	@docker build --platform linux/amd64 -t quilt-mcp-lambda -f Dockerfile.lambda .
+
+docker-run: docker-build
+	@echo "🐳 Running Lambda container locally..."
 	@docker run --rm -d \
 		--name quilt-mcp-lambda \
 		-p 9000:8080 \
 		--platform linux/amd64 \
-		public.ecr.aws/lambda/python:3.11 \
-		quilt_mcp.handlers.lambda_handler.handler || \
-	(echo "Building and running with packaged Lambda..." && \
-	 PACKAGE_DIR=$$(./deployment/packager/package-lambda.sh 2>/dev/null | tail -1) && \
-	 docker run --rm -d \
-		--name quilt-mcp-lambda \
-		-p 9000:8080 \
-		--platform linux/amd64 \
-		-v "$$PACKAGE_DIR":/var/task \
-		public.ecr.aws/lambda/python:3.11 \
-		quilt_mcp.handlers.lambda_handler.handler)
+		quilt-mcp-lambda
 	@echo "🌐 Lambda endpoint available at: http://localhost:9000/2015-03-31/functions/function/invocations"
 	@echo "💡 Use 'make docker-test' to test or 'docker stop quilt-mcp-lambda' to stop"
 
 docker-test:
-	@echo "🧪 Testing Docker Lambda environment..."
-	@./deployment/packager/test-lambda.sh -v
+	@echo "🧪 Testing Docker Lambda container..."
+	@echo '{"httpMethod":"POST","path":"/mcp","headers":{"Authorization":"Bearer test","Content-Type":"application/json"},"body":"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"}' | \
+	curl -s -X POST http://localhost:9000/2015-03-31/functions/function/invocations \
+		-H "Content-Type: application/json" \
+		-d @- | jq .
+
+docker-stop:
+	@echo "🛑 Stopping Lambda container..."
+	@docker stop quilt-mcp-lambda 2>/dev/null || echo "Container not running"
 
 docker-inspector:
 	@echo "🔍 Starting MCP Inspector for Docker Lambda environment..."
-	@echo "Note: This requires the Lambda environment to be running (make docker-run)"
-	@$(INSPECTOR) --server-url "http://localhost:9000/2015-03-31/functions/function/invocations"
+	@echo "Note: This requires the Lambda container to be running (make docker-run)"
+	@echo "Lambda containers don't directly support MCP Inspector - use docker-test instead"
 
 # Stdio config & inspection
 stdio-config:

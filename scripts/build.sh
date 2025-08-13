@@ -193,9 +193,9 @@ deploy_mode() {
         log_success "✅ CDK already bootstrapped"
     fi
     
-    # Deploy with CDK
+    # Deploy with CDK using our Lambda package
     log_info "Deploying to AWS..."
-    if ! uv run cdk deploy --require-approval never --app "python app.py"; then
+    if ! LAMBDA_PACKAGE_DIR="$LAMBDA_PACKAGE_DIR" uv run cdk deploy --require-approval never --app "python app.py"; then
         log_error "❌ CDK deployment failed"
         exit 1
     fi

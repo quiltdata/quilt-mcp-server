@@ -87,15 +87,15 @@ class QuiltMcpStack(Stack):
             ]
         )
 
-        # Get the Lambda package directory from environment
-        lambda_package_dir = os.environ.get('LAMBDA_PACKAGE_DIR', '../quilt')
-        
-        # Create Lambda function
+        # Create Lambda function using Docker container
         lambda_fn = _lambda.Function(
             self, "QuiltMcpFunction",
-            runtime=_lambda.Runtime.PYTHON_3_11,
-            handler="quilt_mcp.handlers.lambda_handler.handler",
-            code=_lambda.Code.from_asset(lambda_package_dir),
+            code=_lambda.Code.from_asset_image(
+                directory=".",
+                file="Dockerfile.lambda"
+            ),
+            handler=_lambda.Handler.FROM_IMAGE,
+            runtime=_lambda.Runtime.FROM_IMAGE,
             role=lambda_role, # type: ignore
             timeout=Duration.seconds(lambda_timeout_seconds),
             memory_size=512,

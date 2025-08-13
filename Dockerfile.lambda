@@ -1,0 +1,18 @@
+# Use the official AWS Lambda Python base image from Amazon ECR
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copy requirements and install dependencies
+COPY pyproject.toml uv.lock* ./
+
+# Install uv for dependency management
+RUN pip install uv
+
+# Install dependencies
+RUN uv pip install --system --no-cache-dir \
+    fastmcp mcp quilt3 boto3 botocore pydantic
+
+# Copy the application code
+COPY src/ ${LAMBDA_TASK_ROOT}/
+
+# Set the CMD to your handler (Lambda will override this)
+CMD ["quilt_mcp.handlers.lambda_handler.handler"]
