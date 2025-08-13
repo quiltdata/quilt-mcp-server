@@ -47,8 +47,8 @@ python_functions = "test_*"
 addopts = "-v --tb=short --color=yes"
 asyncio_mode = "auto"
 markers = [
-    "integration: marks tests as integration tests that require external services",
-    "search: marks tests that require search API functionality",
+    "search: marks search tests that require catalog authentication",
+    "aws: marks integration tests that require AWS authentication and permissions",
 ]
 
 [tool.black]

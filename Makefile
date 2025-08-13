@@ -240,10 +240,10 @@ pytest: setup
 pytest-ci: setup ## Run tests excluding search-dependent tests (for CI)
 	$(UVRUN) python -m pytest -m "not search"
 
-pytest-search: setup ## Run only search-dependent tests (requires search API)
-	$(UVRUN) python -m pytest -m "search"
+pytest-unit: setup ## Run tests non-integration tests
+	$(UVRUN) python -m pytest -m "not aws"
 
-pytest-integration: setup ## Run integration tests only (test_quilt.py - real data)
+pytest-integration: setup ## Run integration tests only (test_quilt.py - unmocked)
 	$(UVRUN) python -m pytest tests/test_quilt.py -v
 
 coverage: setup ## Run all tests with coverage report

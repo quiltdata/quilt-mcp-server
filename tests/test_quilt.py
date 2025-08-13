@@ -38,6 +38,7 @@ KNOWN_BUCKET = DEFAULT_BUCKET
 EXPECTED_S3_OBJECT = KNOWN_TEST_S3_OBJECT
 
 
+@pytest.mark.aws
 class TestQuiltAPI:
     """Test suite for quilt MCP server using real data - tests that expect actual results."""
 
@@ -160,7 +161,7 @@ class TestQuiltAPI:
 
         assert isinstance(result, dict)
         if "error" in result:
-            pytest.skip(f"Known file not accessible: {result['error']}")
+            assert False, f"Known file not accessible: {result['error']} - check AWS authentication and S3 permissions"
 
         assert "bucket" in result
         assert "key" in result
@@ -175,7 +176,7 @@ class TestQuiltAPI:
 
         assert isinstance(result, dict)
         if "error" in result:
-            pytest.skip(f"Test file not accessible: {result['error']}")
+            assert False, f"Test file not accessible: {result['error']} - check AWS authentication and S3 permissions"
 
         assert "text" in result
         assert "bucket" in result
@@ -374,7 +375,7 @@ class TestQuiltAPI:
         # Use a small object from bucket listing
         objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
         if not objects_result.get("objects"):
-            pytest.skip("No objects found to test fetch")
+            assert False, "No objects found to test fetch - check S3 bucket configuration and permissions"
 
         # Find a small object to test (prefer smallest under threshold)
         candidates = [o for o in objects_result["objects"] if o.get("size", 0) > 0]
@@ -385,7 +386,7 @@ class TestQuiltAPI:
             search_space = under or candidates
             small_obj = min(search_space, key=lambda o: o.get("size", 0))
         if not small_obj:
-            pytest.skip("No suitable objects (non-zero size) found to test fetch")
+            assert False, "No suitable objects (non-zero size) found to test fetch - check S3 bucket has files"
         # Static type assurance (helps static analysis)
         assert small_obj is not None  # noqa: F821
         s3_uri = f"s3://{objects_result['bucket']}/{small_obj['key']}"
@@ -393,7 +394,7 @@ class TestQuiltAPI:
 
         assert isinstance(result, dict)
         if "error" in result:
-            pytest.skip(f"Object not accessible: {result['error']}")
+            assert False, f"Object not accessible: {result['error']} - check AWS authentication and S3 permissions"
 
         assert "bucket" in result
         assert "key" in result
@@ -462,7 +463,7 @@ class TestQuiltAPI:
         # Get some actual objects from the bucket to use
         objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=3)
         if not objects_result.get("objects"):
-            pytest.skip("No objects found to create package from")
+            assert False, "No objects found to create package from - check S3 bucket configuration"
 
         # Build S3 URIs from actual objects (prefer smaller ones)
         MAX_FILE = 50000
@@ -473,7 +474,7 @@ class TestQuiltAPI:
         ][:2]
 
         if not s3_uris:
-            pytest.skip("No suitable objects found for package creation")
+            assert False, "No suitable objects found for package creation - check S3 bucket has appropriate files"
 
         test_metadata = {
             "description": "Test package created by integration tests",
@@ -549,7 +550,7 @@ class TestQuiltAPI:
 
             upload_result = bucket_objects_put(KNOWN_BUCKET, upload_items)
             if upload_result.get("uploaded", 0) == 0:
-                pytest.skip("Could not upload timestamp file for package update test")
+                assert False, "Could not upload timestamp file for package update test - check S3 write permissions"
 
             # Now update the existing test package with the timestamp file
             timestamp_s3_uri = f"{KNOWN_BUCKET}/{timestamp_key}"
@@ -604,7 +605,7 @@ class TestQuiltAPI:
             if "error" in result:
                 # Search might not be configured - skip test
                 if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                    pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+                    assert False, f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']} - check search indexing configuration"
                 continue
 
             if len(result["results"]) > 0:
@@ -617,7 +618,7 @@ class TestQuiltAPI:
 
         # If search is configured but no results found, that's okay for some buckets
         if not found_results:
-            pytest.skip(f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content")
+            assert False, f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - check if bucket has indexed content"
 
     def test_bucket_objects_search_no_results(self):
         """Test that non-existent search returns empty results, not error."""
@@ -630,7 +631,7 @@ class TestQuiltAPI:
         else:
             # Search might not be configured - that's okay
             if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}")
+                assert False, f"Search not configured for bucket {KNOWN_BUCKET} - check search indexing configuration"
 
     def test_bucket_objects_search_dsl_query(self):
         """Test bucket_objects_search with dictionary DSL query."""
@@ -652,7 +653,7 @@ class TestQuiltAPI:
         if "error" in result:
             # Search might not be configured - skip test
             if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+                assert False, f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']} - check search indexing configuration"
         else:
             assert "results" in result
             # Results might be empty if no CSV files exist, which is okay
@@ -664,7 +665,7 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
         if "error" in result:
             # Some packages might not support diff operations
-            pytest.skip(f"Package diff not supported: {result['error']}")
+            assert False, f"Package diff not supported: {result['error']} - check package exists and diff functionality"
 
         assert "package1" in result
         assert "package2" in result
@@ -683,7 +684,7 @@ class TestQuiltAPI:
         # Get available packages first
         packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
         if len(packages_result.get("packages", [])) < 2:
-            pytest.skip("Need at least 2 packages to test diff")
+            assert False, "Need at least 2 packages to test diff - check registry has multiple packages"
 
         packages = packages_result["packages"]
         pkg1, pkg2 = packages[0], packages[1]
@@ -694,9 +695,9 @@ class TestQuiltAPI:
         if "error" in result:
             # Some packages might not support diff operations or might not exist
             if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
-                pytest.skip(f"Packages not accessible for diff: {result['error']}")
+                assert False, f"Packages not accessible for diff: {result['error']} - check package names and permissions"
             else:
-                pytest.skip(f"Package diff not supported: {result['error']}")
+                assert False, f"Package diff not supported: {result['error']} - check diff functionality"
 
         assert "package1" in result
         assert "package2" in result
