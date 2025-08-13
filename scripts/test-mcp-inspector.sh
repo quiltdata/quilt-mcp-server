@@ -28,7 +28,7 @@ main() {
     
     # Get access token
     log_info "Getting OAuth access token..."
-    if ! ACCESS_TOKEN=$("$SCRIPT_DIR/get_token.sh" 2>/dev/null); then
+    if ! ACCESS_TOKEN=$("$SCRIPT_DIR/get-token.sh" 2>/dev/null); then
         log_error "❌ Failed to get access token"
         log_info "Check your deployment configuration and try again"
         exit 1
@@ -108,7 +108,7 @@ The script will:
 
 For manual connection:
 - Server URL: Found in .config as API_ENDPOINT
-- Authentication: Bearer token from ./scripts/get_token.sh
+- Authentication: Bearer token from ./scripts/get-token.sh
 - Transport: HTTP/HTTPS
 EOF
 }

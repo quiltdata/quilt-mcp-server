@@ -269,7 +269,7 @@ test_deployment() {
     
     # Get access token
     local access_token
-    if ! access_token=$("$SCRIPT_DIR/get_token.sh" 2>/dev/null); then
+    if ! access_token=$("$SCRIPT_DIR/get-token.sh" 2>/dev/null); then
         log_error "❌ Failed to get access token"
         return 1
     fi
@@ -314,7 +314,7 @@ show_failure_analysis() {
         source .config
         
         log_info "🔍 Checking Lambda logs for errors..."
-        "$SCRIPT_DIR/check_logs.sh" -s 10m
+    "$SCRIPT_DIR/check-logs.sh" -s 10m
         
         log_info "📊 Function configuration:"
         echo "  Function: $LAMBDA_FUNCTION_NAME"
@@ -343,12 +343,12 @@ show_deployment_summary() {
         echo ""
         log_info "🔧 Quick Commands:"
         log_info "  Test API: $0 test"
-        log_info "  View logs: scripts/check_logs.sh"
-        log_info "  Get token: scripts/get_token.sh"
+    log_info "  View logs: scripts/check-logs.sh"
+    log_info "  Get token: scripts/get-token.sh"
         
         echo ""
         log_info "🧪 Manual test:"
-        echo "  curl -H 'Authorization: Bearer \$(scripts/get_token.sh)' -X POST $API_ENDPOINT -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'"
+    echo "  curl -H 'Authorization: Bearer \$(scripts/get-token.sh)' -X POST $API_ENDPOINT -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'"
     fi
 }
 

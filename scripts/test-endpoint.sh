@@ -114,7 +114,7 @@ show_help() {
 dump_logs_on_failure() {
     if [ -f ".config" ]; then
         echo -e "${YELLOW}📋 Dumping recent Lambda logs for debugging...${NC}"
-        ./scripts/check_logs.sh -s 5m 2>/dev/null | tail -20 || echo "Failed to retrieve logs"
+    ./scripts/check-logs.sh -s 5m 2>/dev/null | tail -20 || echo "Failed to retrieve logs"
     fi
 }
 
@@ -132,10 +132,10 @@ setup_authentication() {
             echo -e "${BLUE}Retrieving JWT access token...${NC}"
         fi
         
-        # Check if we have get_token.sh script
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-        if [ -f "$SCRIPT_DIR/scripts/get_token.sh" ]; then
-            ACCESS_TOKEN=$("$SCRIPT_DIR/scripts/get_token.sh" 2>/dev/null)
+        # Check if we have get-token.sh script
+        SCRIPT_DIR="$(cd \"$(dirname \"${BASH_SOURCE[0]}\")/..\" && pwd)"
+        if [ -f "$SCRIPT_DIR/scripts/get-token.sh" ]; then
+            ACCESS_TOKEN=$("$SCRIPT_DIR/scripts/get-token.sh" 2>/dev/null)
             if [ $? -ne 0 ] || [ -z "$ACCESS_TOKEN" ]; then
                 echo -e "${RED}❌ Failed to retrieve access token${NC}"
                 echo -e "${YELLOW}Use --no-auth for unauthenticated testing or --token to provide token${NC}"
@@ -145,7 +145,7 @@ setup_authentication() {
                 echo -e "${GREEN}✅ Access token retrieved${NC}"
             fi
         else
-            echo -e "${RED}❌ get_token.sh script not found${NC}"
+            echo -e "${RED}❌ get-token.sh script not found${NC}"
             echo -e "${YELLOW}Use --no-auth for unauthenticated testing or --token to provide token${NC}"
             exit 1
         fi

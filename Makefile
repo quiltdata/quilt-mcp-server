@@ -4,7 +4,7 @@ ENV_FILE ?= .env
 UVRUN ?= uv run --env-file $(ENV_FILE)
 PY ?= python
 INSPECTOR ?= npx -y @modelcontextprotocol/inspector@latest
-TOKEN_CMD := ./scripts/get_token.sh
+TOKEN_CMD := ./scripts/get-token.sh
 PROJECT_ROOT := $(shell pwd)
 
 API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$API_ENDPOINT)
@@ -29,7 +29,7 @@ help:
 	@echo "  env                Create .env from env.example if missing"
 	@echo "  clean              Clean build/test artifacts"
 	@echo "  logs               Tail lambda logs (last 10m)"
-	@echo "  token              Print OAuth token (using get_token.sh)"
+	@echo "  token              Print OAuth token (using get-token.sh)"
 	@echo "  pytest             Run all tests (unit + integration)"
 	@echo "  pytest-ci          Run tests excluding search-dependent tests (for CI)"
 	@echo "  pytest-search      Run only search-dependent tests (requires search API)"
@@ -110,7 +110,7 @@ clean:
 
 # Logs & token
 logs:
-	./scripts/check_logs.sh -s 10m
+	./scripts/check-logs.sh -s 10m
 
 token:
 	@$(TOKEN_CMD)

@@ -197,23 +197,21 @@ class QuiltMcpStack(Stack):
             authorizer_id=jwt_auth.ref
         )
 
-        # Create API Gateway stage with logging enabled
-        api_stage = apigwv2.CfnStage(
-            self, "QuiltMcpApiStage",
-            api_id=http_api.http_api_id,
-            stage_name="$default",
-            auto_deploy=True,
-            access_log_settings=apigwv2.CfnStage.AccessLogSettingsProperty(
-                destination_arn=api_log_group.log_group_arn,
-                format='{"requestId":"$context.requestId","sourceIp":"$context.identity.sourceIp","requestTime":"$context.requestTime","protocol":"$context.protocol","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength","requestTimeEpoch":"$context.requestTimeEpoch","responseTime":"$context.responseTime","integrationStatus":"$context.integration.status","integrationLatency":"$context.integration.latency","responseLatency":"$context.responseLatency","error":"$context.error.message","integrationError":"$context.integration.error","authorizerError":"$context.authorizer.error"}'
-            ),
-            default_route_settings=apigwv2.CfnStage.RouteSettingsProperty(
-                detailed_metrics_enabled=True,
-                logging_level="INFO",
-                data_trace_enabled=True,
-                throttling_burst_limit=1000,
-                throttling_rate_limit=500
-            )
+        # Configure access logging on the default stage using the escape hatch pattern
+        # Access the underlying CloudFormation CfnStage resource
+        # Note: HTTP API supports different context variables than REST API
+        default_stage = http_api.default_stage.node.default_child
+        default_stage.access_log_settings = apigwv2.CfnStage.AccessLogSettingsProperty(
+            destination_arn=api_log_group.log_group_arn,
+            format='$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.routeKey $context.protocol" $context.status $context.responseLength $context.requestId'
+        )
+        
+        # Configure additional stage settings
+        # Note: HTTP APIs don't support execution logging, only access logging
+        default_stage.default_route_settings = apigwv2.CfnStage.RouteSettingsProperty(
+            detailed_metrics_enabled=True,
+            throttling_burst_limit=1000,
+            throttling_rate_limit=500
         )
 
         # Outputs

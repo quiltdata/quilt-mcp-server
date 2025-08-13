@@ -184,10 +184,10 @@ show_quick_commands() {
     
     echo ""
     log_info "🔧 Quick Commands:"
-    log_info "View Lambda logs: scripts/check_logs.sh"
-    log_info "Get access token: scripts/get_token.sh"
+    log_info "View Lambda logs: scripts/check-logs.sh"
+    log_info "Get access token: scripts/get-token.sh"
     log_info "Test API:"
-    echo -e "${BLUE}  curl -H 'Authorization: Bearer \$(scripts/get_token.sh)' -X POST ${api_endpoint} -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'${NC}"
+    echo -e "${BLUE}  curl -H 'Authorization: Bearer \$(scripts/get-token.sh)' -X POST ${api_endpoint} -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'${NC}"
 }
 
 # Check if CDK is bootstrapped

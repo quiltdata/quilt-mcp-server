@@ -112,7 +112,7 @@ test_authentication() {
     load_config
     
     # Try to get access token
-    local token_script="$SCRIPT_DIR/get_token.sh"
+    local token_script="$SCRIPT_DIR/get-token.sh"
     if [ ! -f "$token_script" ]; then
         log_warning "⚠️  Token script not found, skipping auth test"
         return 1
@@ -136,7 +136,7 @@ test_api_functionality() {
     load_config
     
     # Get access token
-    local token_script="$SCRIPT_DIR/get_token.sh"
+    local token_script="$SCRIPT_DIR/get-token.sh"
     if [ ! -f "$token_script" ]; then
         log_warning "⚠️  Cannot test API - token script not found"
         return 1
