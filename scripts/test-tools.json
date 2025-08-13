@@ -220,6 +220,17 @@
         "expect_keys": ["bucket", "query", "results"],
         "optional_error": true
       }
+    },
+    "package_diff": {
+      "description": "Compare two package versions and show differences",
+      "arguments": {
+        "package1_name": "${QUILT_TEST_PACKAGE}",
+        "package2_name": "${QUILT_TEST_PACKAGE}"
+      },
+      "validations": {
+        "expect_keys": ["package1", "package2", "diff"],
+        "optional_error": true
+      }
     }
   }
 }

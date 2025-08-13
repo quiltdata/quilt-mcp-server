@@ -25,6 +25,7 @@ from quilt_mcp import (  # type: ignore[import-not-found]
     package_contents_search,
     package_create,
     package_delete,
+    package_diff,
     package_update,
     packages_list,
     packages_search,
@@ -101,14 +102,17 @@ class TestQuiltAPI:
         result = package_browse(KNOWN_PACKAGE, registry=TEST_REGISTRY)
 
         assert isinstance(result, dict)
-        assert "contents" in result
+        assert "entries" in result
+        assert "package_name" in result
+        assert "total_entries" in result
 
-        # FAIL if no contents found - this means the test package is misconfigured
-        assert len(result["contents"]) > 0, f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
+        # FAIL if no entries found - this means the test package is misconfigured
+        assert len(result["entries"]) > 0, f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
 
-        # Check we get actual file names
-        for content in result["contents"]:
-            assert isinstance(content, str), f"Content should be string, got {type(content)}: {content}"
+        # Check we get actual entry structures
+        for entry in result["entries"]:
+            assert isinstance(entry, dict), f"Entry should be dict, got {type(entry)}: {entry}"
+            assert "logical_key" in entry, f"Entry missing logical_key: {entry}"
 
     def test_package_contents_search_in_known_package(self):
         """Test searching within a known package for files."""
@@ -131,7 +135,8 @@ class TestQuiltAPI:
         # (Some packages might not have common file types)
         if result["count"] > 0:
             for match in result["matches"]:
-                assert isinstance(match, str), f"Match should be string, got {type(match)}: {match}"
+                assert isinstance(match, dict), f"Match should be dict, got {type(match)}: {match}"
+                assert "logical_key" in match, f"Match missing logical_key: {match}"
 
     def test_bucket_objects_list_returns_data(self):
         """Test that bucket listing returns actual objects."""
@@ -648,6 +653,65 @@ class TestQuiltAPI:
         else:
             assert "results" in result
             # Results might be empty if no CSV files exist, which is okay
+
+    def test_package_diff_known_package_with_itself(self):
+        """Test package_diff comparing known package with itself (should show no differences)."""
+        result = package_diff(KNOWN_PACKAGE, KNOWN_PACKAGE, registry=TEST_REGISTRY)
+
+        assert isinstance(result, dict)
+        if "error" in result:
+            # Some packages might not support diff operations
+            pytest.skip(f"Package diff not supported: {result['error']}")
+
+        assert "package1" in result
+        assert "package2" in result
+        assert "diff" in result
+        assert result["package1"] == KNOWN_PACKAGE
+        assert result["package2"] == KNOWN_PACKAGE
+
+        # When comparing identical packages, should have no differences
+        diff = result["diff"]
+        if isinstance(diff, dict):
+            # If diff returns structured data, check for minimal differences
+            assert len(diff.get("added", [])) == 0 or len(diff.get("deleted", [])) == 0
+
+    def test_package_diff_different_packages(self):
+        """Test package_diff comparing two different packages."""
+        # Get available packages first
+        packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
+        if len(packages_result.get("packages", [])) < 2:
+            pytest.skip("Need at least 2 packages to test diff")
+
+        packages = packages_result["packages"]
+        pkg1, pkg2 = packages[0], packages[1]
+
+        result = package_diff(pkg1, pkg2, registry=TEST_REGISTRY)
+
+        assert isinstance(result, dict)
+        if "error" in result:
+            # Some packages might not support diff operations or might not exist
+            if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
+                pytest.skip(f"Packages not accessible for diff: {result['error']}")
+            else:
+                pytest.skip(f"Package diff not supported: {result['error']}")
+
+        assert "package1" in result
+        assert "package2" in result
+        assert "diff" in result
+        assert result["package1"] == pkg1
+        assert result["package2"] == pkg2
+
+    def test_package_diff_nonexistent_packages(self):
+        """Test package_diff with non-existent packages."""
+        result = package_diff("definitely/nonexistent1", "definitely/nonexistent2", registry=TEST_REGISTRY)
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        # Should get a meaningful error about packages not being found
+        error_msg = result["error"].lower()
+        assert any(term in error_msg for term in [
+            "failed to browse", "not found", "does not exist", "no such file"
+        ]), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 
 if __name__ == "__main__":

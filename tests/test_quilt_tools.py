@@ -9,6 +9,7 @@ from quilt_mcp import (
     catalog_uri,
     package_browse,
     package_contents_search,
+    package_diff,
     packages_list,
     packages_search,
 )
@@ -129,8 +130,10 @@ class TestQuiltTools:
             assert isinstance(result, dict)
             assert 'matches' in result
             assert 'count' in result
+            assert 'package_name' in result
+            assert 'query' in result
             assert len(result['matches']) == 1  # Only 'test_file.txt' matches 'test'
-            assert 'test_file.txt' in result['matches']
+            assert result['matches'][0]['logical_key'] == 'test_file.txt'
 
     def test_packages_search_authentication_error(self):
         """Test packages_search with authentication error."""
@@ -349,3 +352,91 @@ class TestQuiltTools:
             assert 'Failed to search bucket' in result['error']
             assert result['bucket'] == 'test-bucket'
             assert result['query'] == 'query'
+
+    def test_package_diff_success(self):
+        """Test package_diff with successful diff."""
+        mock_pkg1 = Mock()
+        mock_pkg2 = Mock() 
+        mock_diff_result = {
+            'added': ['new_file.txt'],
+            'deleted': ['old_file.txt'], 
+            'modified': ['changed_file.txt']
+        }
+        mock_pkg1.diff.return_value = mock_diff_result
+
+        with patch('quilt3.Package.browse') as mock_browse:
+            mock_browse.side_effect = [mock_pkg1, mock_pkg2]
+            
+            result = package_diff('user/package1', 'user/package2', package1_hash='abc123', package2_hash='def456')
+
+            assert isinstance(result, dict)
+            assert result['package1'] == 'user/package1'
+            assert result['package2'] == 'user/package2' 
+            assert result['package1_hash'] == 'abc123'
+            assert result['package2_hash'] == 'def456'
+            assert result['diff'] == mock_diff_result
+            mock_pkg1.diff.assert_called_once_with(mock_pkg2)
+
+    def test_package_diff_same_package_different_versions(self):
+        """Test package_diff comparing different versions of same package."""
+        mock_pkg1 = Mock()
+        mock_pkg2 = Mock()
+        mock_diff_result = {'added': [], 'deleted': [], 'modified': ['updated_file.txt']}
+        mock_pkg1.diff.return_value = mock_diff_result
+
+        with patch('quilt3.Package.browse') as mock_browse:
+            mock_browse.side_effect = [mock_pkg1, mock_pkg2]
+            
+            result = package_diff('user/package', 'user/package', package1_hash='old_hash', package2_hash='new_hash')
+
+            assert isinstance(result, dict)
+            assert result['package1'] == 'user/package'
+            assert result['package2'] == 'user/package'
+            assert result['package1_hash'] == 'old_hash'
+            assert result['package2_hash'] == 'new_hash'
+            assert result['diff'] == mock_diff_result
+
+    def test_package_diff_latest_versions(self):
+        """Test package_diff with latest versions (no hashes)."""
+        mock_pkg1 = Mock()
+        mock_pkg2 = Mock()
+        mock_diff_result = {'added': ['file1.txt'], 'deleted': [], 'modified': []}
+        mock_pkg1.diff.return_value = mock_diff_result
+
+        with patch('quilt3.Package.browse') as mock_browse:
+            mock_browse.side_effect = [mock_pkg1, mock_pkg2]
+            
+            result = package_diff('user/package1', 'user/package2')
+
+            assert isinstance(result, dict)
+            assert result['package1_hash'] == 'latest'
+            assert result['package2_hash'] == 'latest'
+            assert result['diff'] == mock_diff_result
+            # Should call browse without top_hash
+            assert mock_browse.call_count == 2
+
+    def test_package_diff_browse_error(self):
+        """Test package_diff with package browse error."""
+        with patch('quilt3.Package.browse', side_effect=Exception('Package not found')):
+            result = package_diff('user/nonexistent1', 'user/nonexistent2')
+
+            assert isinstance(result, dict)
+            assert 'error' in result
+            assert 'Failed to browse packages' in result['error']
+            assert 'Package not found' in result['error']
+
+    def test_package_diff_diff_error(self):
+        """Test package_diff with diff operation error."""
+        mock_pkg1 = Mock()
+        mock_pkg2 = Mock()
+        mock_pkg1.diff.side_effect = Exception('Diff operation failed')
+
+        with patch('quilt3.Package.browse') as mock_browse:
+            mock_browse.side_effect = [mock_pkg1, mock_pkg2]
+            
+            result = package_diff('user/package1', 'user/package2')
+
+            assert isinstance(result, dict)
+            assert 'error' in result
+            assert 'Failed to diff packages' in result['error']
+            assert 'Diff operation failed' in result['error']

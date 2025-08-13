@@ -158,22 +158,58 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
     }
 
 @mcp.tool()
-def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
+def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY, include_signed_urls: bool = True) -> dict[str, Any]:
     """Search within a package's contents by filename or path.
     
     Args:
         package_name: Name of the package to search (e.g., "username/package-name")
         query: Search query to match against file/folder names
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
+        include_signed_urls: Include presigned download URLs for S3 objects (default: True)
     
     Returns:
-        Dict with matching paths and count of results.
+        Dict with matching entries including logical keys, S3 URIs, and optional download URLs.
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
     pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
-    matches = [k for k in pkg.keys() if query.lower() in k.lower()]
-    return {"matches": matches, "count": len(matches)}
+    
+    # Find matching keys
+    matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
+    
+    # Get detailed information for each match
+    matches = []
+    for logical_key in matching_keys:
+        try:
+            entry = pkg[logical_key]
+            match_data = {
+                "logical_key": logical_key,
+                "physical_key": str(entry.physical_key) if hasattr(entry, 'physical_key') else None,
+                "size": getattr(entry, 'size', None),
+                "hash": str(getattr(entry, 'hash', ''))
+            }
+            
+            # Add S3 URI and signed URL if this is an S3 object
+            if hasattr(entry, 'physical_key') and str(entry.physical_key).startswith('s3://'):
+                s3_uri = str(entry.physical_key)
+                match_data["s3_uri"] = s3_uri
+                
+                if include_signed_urls:
+                    signed_url = _generate_signed_url(s3_uri)
+                    if signed_url:
+                        match_data["download_url"] = signed_url
+            
+            matches.append(match_data)
+        except Exception:
+            # Fallback to just the logical key if detailed info fails
+            matches.append({"logical_key": logical_key})
+    
+    return {
+        "package_name": package_name,
+        "query": query,
+        "matches": matches, 
+        "count": len(matches)
+    }
 
 @mcp.tool()
 def package_diff(package1_name: str, package2_name: str, registry: str = DEFAULT_REGISTRY, package1_hash: str = "", package2_hash: str = "") -> dict[str, Any]:
