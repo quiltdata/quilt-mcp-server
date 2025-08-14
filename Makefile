@@ -6,6 +6,8 @@ PY ?= python
 INSPECTOR ?= npx -y @modelcontextprotocol/inspector@latest
 TOKEN_CMD := ./scripts/get-token.sh
 PROJECT_ROOT := $(shell pwd)
+REMOTE_ENDPOINT ?= http://localhost:8000/mcp
+DOCKER_ENDPOINT ?= http://localhost:9000/2015-03-31/functions/function/invocations
 
 API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$API_ENDPOINT)
 
@@ -119,8 +121,8 @@ token:
 remote-run: setup
 	FASTMCP_TRANSPORT=streamable-http $(UVRUN) python -m quilt_mcp
 
-remote-hotload: setup
-	FASTMCP_TRANSPORT=streamable-http $(UVRUN) fastmcp dev src/quilt_mcp/server.py:mcp --with-editable .
+remote-test:
+	./scripts/test-endpoint.sh -l -t -v
 
 remote-export: setup
 	@echo "🚀 Starting MCP server and exposing via ngrok..."
@@ -136,42 +138,38 @@ remote-export: setup
 	NGROK_PID=$$!; \
 	echo "Ngrok started with PID: $$NGROK_PID"; \
 	echo ""; \
-	echo "🌐 Your MCP server is available at: https://uniformly-alive-halibut.ngrok-free.app"; \
 	echo "📋 MCP endpoint: https://uniformly-alive-halibut.ngrok-free.app/mcp"; \
 	echo ""; \
 	echo "Press Ctrl+C to stop both server and ngrok"; \
 	trap 'echo "Stopping server and ngrok..."; kill $$SERVER_PID $$NGROK_PID 2>/dev/null; exit' INT; \
 	wait
 
-remote-test:
+remote-check:
 	@echo "Testing FastMCP streamable HTTP transport with session management..."
-	@SESSION_ID=$$(curl -s -i -X POST http://localhost:8000/mcp \
+	@SESSION_ID=$$(curl -s -i -X POST $(REMOTE_ENDPOINT) \
 	  -H "Content-Type: application/json" \
 	  -H "Accept: application/json, text/event-stream" \
 	  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
 	  | grep -i "mcp-session-id:" | head -1 | sed 's/.*mcp-session-id: *\([^ \r]*\).*/\1/' | tr -d '\r'); \
 	if [ -n "$$SESSION_ID" ]; then \
 	  echo "Got session ID: $$SESSION_ID"; \
-	  curl -s -X POST http://localhost:8000/mcp \
+	  curl -s -X POST $(REMOTE_ENDPOINT) \
 	    -H "Content-Type: application/json" \
 	    -H "Accept: application/json, text/event-stream" \
 	    -H "Mcp-Session-Id: $$SESSION_ID" \
 	    -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null; \
-	  curl -s -X POST http://localhost:8000/mcp \
+	  curl -s -X POST $(REMOTE_ENDPOINT) \
 	    -H "Content-Type: application/json" \
 	    -H "Accept: application/json, text/event-stream" \
 	    -H "Mcp-Session-Id: $$SESSION_ID" \
-	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq .; \
+	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq -r '.result.tools[].name'; \
 	else \
 	  echo "No session ID returned, testing without session management..."; \
-	  curl -s -X POST http://localhost:8000/mcp \
+	  curl -s -X POST $(REMOTE_ENDPOINT) \
 	    -H "Content-Type: application/json" \
 	    -H "Accept: application/json, text/event-stream" \
 	    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq .; \
 	fi
-
-remote-test-full:
-	./scripts/test-endpoint.sh -l -t -v
 
 remote-kill:
 	@pkill -f "python -m quilt.remote" || echo "No remote server running"
@@ -197,13 +195,13 @@ docker-run: docker-build
 		-p 9000:8080 \
 		--platform linux/amd64 \
 		quilt-mcp-lambda
-	@echo "🌐 Lambda endpoint available at: http://localhost:9000/2015-03-31/functions/function/invocations"
+	@echo "🌐 Lambda endpoint available at: $(DOCKER_ENDPOINT)"
 	@echo "💡 Use 'make docker-test' to test or 'docker stop quilt-mcp-lambda' to stop"
 
 docker-test:
 	@echo "🧪 Testing Docker Lambda container..."
 	@echo '{"httpMethod":"POST","path":"/mcp","headers":{"Authorization":"Bearer test","Content-Type":"application/json"},"body":"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"}' | \
-	curl -s -X POST http://localhost:9000/2015-03-31/functions/function/invocations \
+	curl -s -X POST $(DOCKER_ENDPOINT) \
 		-H "Content-Type: application/json" \
 		-d @- | jq .
 
