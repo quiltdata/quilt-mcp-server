@@ -1,8 +1,17 @@
-# Use the official AWS Lambda Python base image from Amazon ECR
-FROM --platform=linux/amd64 public.ecr.aws/lambda/python:3.11
+# Use official Python slim image for lightweight web server
+FROM python:3.11-slim
 
-# Set environment variables for Lambda
-ENV PYTHONPATH="${LAMBDA_TASK_ROOT}"
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONPATH="/app/src"
+ENV PYTHONUNBUFFERED=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
 COPY pyproject.toml uv.lock* ./
@@ -10,15 +19,23 @@ COPY pyproject.toml uv.lock* ./
 # Install uv for dependency management  
 RUN pip install --no-cache-dir uv
 
-# Install dependencies with explicit platform
+# Install dependencies
 RUN uv pip install --system --no-cache-dir \
     fastmcp mcp quilt3 boto3 botocore pydantic
 
-# Copy the application code to Lambda task root
-COPY src/ ${LAMBDA_TASK_ROOT}/
+# Copy the application code
+COPY src/ ./src/
+COPY main.py ./
 
-# Ensure the handler module is importable
-RUN python -c "import quilt_mcp.server; print('Handler module imported successfully')"
+# Ensure the server module is importable
+RUN python -c "import src.quilt_mcp.server; print('Server module imported successfully')"
 
-# Set the CMD to the handler function
-CMD ["quilt_mcp.server.handler"]
+# Expose the default port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the FastMCP server
+CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8000"]

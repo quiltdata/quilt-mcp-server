@@ -10,7 +10,7 @@
       "requirements*.txt",
       "source.bat",
       "**/__pycache__",
-      "**/*.pyc"
+      "**/.venv"
     ]
   },
   "context": {
@@ -28,7 +28,7 @@
     "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": true,
     "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
     "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": true,
-    "@aws-cdk/aws-apigateway:disableCloudWatchRole": false,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
     "@aws-cdk/core:enablePartitionLiterals": true,
     "@aws-cdk/aws-events:eventsTargetQueueSameAccount": true,
     "@aws-cdk/aws-iam:standardizedServicePrincipals": true,
@@ -43,27 +43,19 @@
     "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": true,
     "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": true,
     "@aws-cdk/aws-redshift:columnId": true,
-    "@aws-cdk/aws-stepfunctions-tasks:enableLoggingConfigurationV2": true,
+    "@aws-cdk/aws-stepfunctions-tasks:enableLoggingForLambdaDatadogPolicy": true,
     "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true,
     "@aws-cdk/aws-apigateway:requestValidatorUniqueId": true,
     "@aws-cdk/aws-kms:aliasNameRef": true,
     "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": true,
     "@aws-cdk/core:includePrefixInUniqueNameGeneration": true,
     "@aws-cdk/aws-efs:denyAnonymousAccess": true,
-    "@aws-cdk/aws-opensearchservice:enableLoggingV2": true,
-    "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": true,
-    "@aws-cdk/aws-lambda:codeBucketPrefixPolicyAddedToRole": true,
-    "@aws-cdk/aws-gamelift:fleetIpPermissions": true,
-    "@aws-cdk/aws-elasticloadbalancingv2:trustStoreSupport": true,
-    "@aws-cdk/aws-apigateway:defaultMethodOptions": true,
-    "@aws-cdk/aws-s3objectlambda:defaultConfigurationReplacePolicy": true,
-    "@aws-cdk/aws-codeguruprofiler:profilingGroupWithoutComputePlatform": true,
-    "@aws-cdk/aws-opensearchservice:enableVersionUpgradeWithoutReplace": true,
-    "@aws-cdk/aws-apigateway:requestValidatorUniqueIdFeatureFlagProperty": true,
-    "@aws-cdk/aws-s3:bucketNotificationsHandlerRoleArn": true,
-    "@aws-cdk/aws-lambda-destinations:sqsDestinationMaxReceiveCount": true,
-    "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": true,
-    "@aws-cdk/aws-iam:oidcProviderDefaultThumbprints": true,
-    "@aws-cdk/aws-iam:roleStackSafeDefaultPolicyName": true
+    "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": true,
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": true,
+    "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": true,
+    "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": true,
+    "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": true,
+    "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForSourceAction": true
   }
 }

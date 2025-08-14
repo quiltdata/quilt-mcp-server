@@ -36,6 +36,9 @@ class FastMCPBridge:
         # Register tools with FastMCP
         self._register_tools_with_fastmcp()
         
+        # Register health endpoint
+        self._register_health_endpoint()
+        
         self._registered = True
         logger.info("FastMCP bridge initialized successfully")
     
@@ -86,6 +89,15 @@ class FastMCPBridge:
         decorated_tool = self.fastmcp.tool()(tool_wrapper)
         
         logger.debug(f"Registered FastMCP tool: {tool_name}")
+    
+    def _register_health_endpoint(self) -> None:
+        """Register a health check endpoint for load balancers."""
+        @self.fastmcp.tool()
+        def health_check() -> str:
+            """Health check endpoint for load balancers and monitoring."""
+            return "OK"
+        
+        logger.debug("Registered health check endpoint")
     
     def run(
         self,

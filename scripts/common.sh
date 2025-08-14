@@ -9,7 +9,7 @@ export BLUE='\033[0;34m'
 export NC='\033[0m'
 
 # Default values
-export STACK_NAME="QuiltMcpStack"
+export STACK_NAME="QuiltMcpFargateStack"
 export DEFAULT_REGION="us-east-1"
 
 # Logging functions
@@ -29,21 +29,38 @@ log_error() {
     echo -e "${RED}$1${NC}"
 }
 
-# Load environment variables
+# Load environment variables (optional)
 load_environment() {
     if [ -f ".env" ]; then
-        log_success "Loading environment from .env"
+        log_info "Loading environment from .env"
         set -a && source .env && set +a
-    else
-        log_error "❌ .env file not found. Copy env.example to .env and configure it"
-        exit 1
     fi
 }
 
-# Validate required environment variables
-validate_environment() {
-    if [ -z "$QUILT_READ_POLICY_ARN" ]; then
-        log_error "❌ QUILT_READ_POLICY_ARN is required in .env"
+# Check required tools
+check_dependencies() {
+    local tools=("$@")
+    local missing=()
+    
+    for tool in "${tools[@]}"; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing+=("$tool")
+        fi
+    done
+    
+    if [ ${#missing[@]} -gt 0 ]; then
+        log_error "❌ Missing required tools: ${missing[*]}"
+        case "${missing[0]}" in
+            jq)
+                log_error "Install with: brew install jq (macOS) or apt-get install jq (Ubuntu)"
+                ;;
+            aws)
+                log_error "Install AWS CLI: https://aws.amazon.com/cli/"
+                ;;
+            curl)
+                log_error "Install with: brew install curl (macOS) or apt-get install curl (Ubuntu)"
+                ;;
+        esac
         exit 1
     fi
 }
@@ -170,12 +187,30 @@ EOF
 # Load configuration
 load_config() {
     if [ ! -f ".config" ]; then
-        log_error "❌ .config file not found. Run ./deploy.sh first"
+        log_error "❌ .config file not found. Run './scripts/build.sh deploy' first"
         exit 1
     fi
     
     log_info "Loading configuration from .config"
     set -a && source .config && set +a
+    
+    # Validate required variables for ECS deployment
+    local required_vars=(
+        "STACK_NAME"
+        "REGION"
+        "MCP_ENDPOINT"
+        "CLUSTER_NAME"
+        "SERVICE_NAME"
+        "APP_LOG_GROUP"
+    )
+    
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var}" ]; then
+            log_error "❌ Missing required configuration: $var"
+            log_error "Run './scripts/build.sh deploy' to regenerate .config"
+            exit 1
+        fi
+    done
 }
 
 # Display quick commands

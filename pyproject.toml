@@ -13,8 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-quilt-mcp-dev = "entry_points.dev_server:main"
-quilt-mcp-stdio = "entry_points.stdio_server:main"
+quilt-mcp = "main:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -25,12 +24,9 @@ test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0", 
     "pytest-cov>=4.0.0",
-    "aws-cdk-lib>=2.100.0",
-    "constructs>=10.0.0",
 ]
 deploy = [
-    "aws-cdk-lib>=2.100.0",
-    "constructs>=10.0.0",
+    "docker>=6.0.0",
 ]
 lint = [
     "black>=23.0.0",
