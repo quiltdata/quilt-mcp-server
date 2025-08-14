@@ -1,20 +1,31 @@
 # Quilt MCP Server
 
-A secure, Claude-compatible MCP (Model Context Protocol) server for accessing Quilt data packages via AWS Lambda with JWT authentication.
+A secure MCP (Model Context Protocol) server for accessing Quilt data with JWT authentication, deployed on AWS ECS Fargate.
 
 ## Quick Start
 
 ```bash
-# 1. Setup environment
-make env                          # Copy env.example to .env
-# Edit .env with your AWS account and Quilt bucket details
+# Run locally
+./phases/app/build.sh run
 
-# 2. Deploy to AWS Lambda  
-make deploy                       # Build and deploy everything
-
-# 3. Test the deployment
-make test                         # Verify everything works
+# Full pipeline (requires ECR_REGISTRY)
+export ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
+./phases/shared/pipeline.sh full
 ```
+
+## Architecture
+
+This project uses a **4-phase deployment pipeline**:
+
+```
+phases/
+├── app/        # Stage 0: Local MCP server (Python)
+├── build/      # Stage 1: Docker containerization  
+├── catalog/    # Stage 2: ECR registry operations
+└── deploy/     # Stage 3: ECS/ALB deployment
+```
+
+Each phase is **atomic** and **testable** independently, but they compose to form a complete deployment pipeline.
 
 ## MCP Tools
 

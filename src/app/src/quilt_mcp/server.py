@@ -39,14 +39,11 @@ def get_transport() -> Literal["stdio", "sse", "streamable-http"]:
 
 
 def main() -> None:
-    """Main entry point for local development."""
-    if is_lambda_environment():
-        logger.info("Detected Lambda environment - handler will be called by AWS")
-        return
+    """Main entry point for FastMCP server."""
     
-    logger.info("Starting Quilt MCP Server for local development")
+    logger.info("Starting Quilt MCP Server")
     
-    # Use FastMCP bridge for local development
+    # Use FastMCP bridge
     from .adapters.fastmcp_bridge import FastMCPBridge
     
     bridge = FastMCPBridge("quilt")
@@ -64,22 +61,5 @@ def main() -> None:
         raise
 
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """AWS Lambda handler entry point.
-    
-    This function is called by AWS Lambda for each request.
-    
-    Args:
-        event: AWS Lambda event from API Gateway
-        context: AWS Lambda context
-        
-    Returns:
-        AWS Lambda response for API Gateway
-    """
-    from .adapters.lambda_handler import lambda_handler
-    
-    return lambda_handler(event, context)
-
-
-# Backwards compatibility exports
-__all__ = ["main", "handler", "is_lambda_environment", "get_transport"]
+# Exports
+__all__ = ["main", "is_lambda_environment", "get_transport"]

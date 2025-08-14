@@ -5,104 +5,147 @@ This repository contains a secure MCP (Model Context Protocol) server for access
 ## Repository Overview
 
 **Purpose**: Deploy and manage a Claude-compatible MCP server for Quilt data access with JWT authentication
-**Tech Stack**: Python, AWS CDK, Docker, Lambda, API Gateway, Cognito
+**Tech Stack**: Python, AWS CDK, Docker, ECS Fargate, Application Load Balancer, ECR
 **Security**: JWT authentication, IAM roles, secure credential management
+
+## Architecture
+
+This project uses a **4-phase deployment pipeline**:
+
+```
+src/
+├── app/           # Phase 0: Local MCP server (Python)
+├── build-docker/  # Phase 1: Docker containerization
+├── catalog-push/  # Phase 2: ECR registry operations
+├── deploy-aws/     # Phase 3: ECS/ALB deployment
+└── shared/        # Common utilities and pipeline orchestration
+```
 
 ## Pre-approved Commands
 
 Claude Code has permission to run the following commands without asking:
 
-### Build & Deploy
+### Phase-based Build System
 
 ```bash
-# Integrated build system
-./scripts/build.sh build
-./scripts/build.sh deploy
-./scripts/build.sh test
-./scripts/build.sh clean
-./scripts/build.sh deploy --skip-tests
-./scripts/build.sh build -v
-./scripts/build.sh deploy -v
-./scripts/build.sh test -v
+# Individual phase scripts
+./src/app/app.sh run
+./src/app/app.sh test
+./src/app/app.sh clean
 
+./src/build-docker/build-docker.sh build
+./src/build-docker/build-docker.sh test
+./src/build-docker/build-docker.sh run
+./src/build-docker/build-docker.sh clean
+./src/build-docker/build-docker.sh build -v
+./src/build-docker/build-docker.sh test -v
+
+./src/catalog-push/catalog-push.sh push
+./src/catalog-push/catalog-push.sh pull
+./src/catalog-push/catalog-push.sh test
+./src/catalog-push/catalog-push.sh login
+./src/catalog-push/catalog-push.sh push -v
+./src/catalog-push/catalog-push.sh test -v
+
+./src/deploy-aws/deploy-aws.sh deploy
+./src/deploy-aws/deploy-aws.sh test
+./src/deploy-aws/deploy-aws.sh destroy
+./src/deploy-aws/deploy-aws.sh status
+./src/deploy-aws/deploy-aws.sh deploy -v
+./src/deploy-aws/deploy-aws.sh deploy --skip-tests
+
+# Pipeline orchestration
+./src/shared/pipeline.sh full
+./src/shared/pipeline.sh app
+./src/shared/pipeline.sh build-docker
+./src/shared/pipeline.sh catalog
+./src/shared/pipeline.sh deploy
+./src/shared/pipeline.sh full -v
+./src/shared/pipeline.sh full --skip-tests
+
+# Makefile shortcuts
+make app
+make build
+make catalog
+make deploy
+make full
+make test-app
+make test-build
+make test-deploy
+make clean
+make status
+make destroy
 ```
 
-### Docker & Packaging  
+### Docker Operations
 
 ```bash
-# Lambda packaging
-./packager/package-lambda.sh
-./packager/package-lambda.sh -v
-./packager/package-lambda.sh -t
-./packager/package-lambda.sh -b
-./packager/test-lambda.sh
-./packager/run-lambda.sh
-
-# Docker commands for Lambda building
-docker build --platform linux/amd64 -t quilt-mcp-builder -f packager/Dockerfile .
-docker run --rm --platform linux/amd64 -v *:/output --entrypoint="" quilt-mcp-builder *
-docker images -q quilt-mcp-builder
-docker rmi quilt-mcp-builder
-
-# Local development with external access
-make remote-export
+# Docker commands for ECS deployment
+docker build --platform linux/amd64 -t quilt-mcp:* -f src/build-docker/Dockerfile .
+docker run --rm -p 8000:8000 quilt-mcp:*
+docker tag quilt-mcp:* *
+docker push *
+docker pull *
+docker images quilt-mcp
+docker rmi quilt-mcp:*
+docker stop *
+docker logs *
+docker inspect *
 ```
 
 ### Testing & Validation
 
 ```bash
-# Endpoint testing
-./scripts/test-endpoint.sh
-./scripts/test-endpoint.sh -v
-./scripts/test-endpoint.sh -f
-./scripts/test-endpoint.sh -t
-./scripts/test-endpoint.sh -l
-./scripts/test-endpoint.sh -l --list-tools
-./scripts/test-endpoint.sh -l package_create
-./scripts/test-endpoint.sh -l -v auth_check
-./scripts/test-endpoint.sh --no-auth
-./scripts/test-endpoint.sh --token *
+# Phase-specific testing
+./src/app/app.sh test
+./src/build-docker/build-docker.sh test
+./src/catalog-push/catalog-push.sh test
+./src/deploy-aws/deploy-aws.sh test
 
-# Lambda testing
-./scripts/test_lambda.sh
-uv run python -m pytest quilt/tests/
-uv run python quilt/tests/test_*.py
+# End-to-end pipeline testing
+./src/shared/pipeline.sh full
+./src/shared/pipeline.sh full --skip-tests
+
+# MCP endpoint testing
+curl -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+curl -X POST * -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Python testing
+uv run python -m pytest src/app/tests/ -v
+uv run python -m pytest *
 ```
 
 ### AWS Operations
 
 ```bash
-# CDK operations  
-uv run cdk deploy --require-approval never --app "python app.py"
-uv run cdk destroy --app "python app.py"
-uv run cdk bootstrap
-uv run cdk synth --app "python app.py"
-uv run cdk diff --app "python app.py"
+# CDK operations (from src/deploy-aws/)
+cd src/deploy && uv run cdk deploy --require-approval never --app "python app.py"
+cd src/deploy && uv run cdk destroy --app "python app.py"
+cd src/deploy && uv run cdk bootstrap --app "python app.py"
+cd src/deploy && uv run cdk synth --app "python app.py"
+cd src/deploy && uv run cdk diff --app "python app.py"
 
 # CloudFormation & AWS CLI
-aws cloudformation describe-stacks --stack-name QuiltMcpStack --region *
-aws cloudformation describe-stack-resources --stack-name QuiltMcpStack --region *
+aws cloudformation describe-stacks --stack-name QuiltMcpFargateStack --region *
+aws cloudformation describe-stack-resources --stack-name QuiltMcpFargateStack --region *
 aws cloudformation *
 aws sts get-caller-identity
 aws sts *
 
-# Lambda functions  
-aws lambda list-functions
-aws lambda get-function-configuration --function-name *
-aws lambda invoke --function-name * *
+# ECS & ECR operations
+aws ecs describe-clusters --cluster *
+aws ecs describe-services --cluster * --services *
+aws ecs list-tasks --cluster *
+aws ecs describe-tasks --cluster * --tasks *
+aws ecr describe-repositories
+aws ecr describe-images --repository-name *
+aws ecr get-login-password --region * | docker login --username AWS --password-stdin *
 
-# Logs
-aws logs tail /aws/lambda/* --follow
+# Logs (ECS/ALB)
+aws logs tail /ecs/* --follow --region *
+aws logs tail /aws/elasticloadbalancing/* --follow --region *
 aws logs describe-log-groups
 aws logs *
-
-# Authentication testing
-./scripts/get_token.sh
-./scripts/check_logs.sh
-./scripts/check_logs.sh -s 10m
-./scripts/post-deploy.sh
-./scripts/post-deploy.sh --skip-api-test
-./scripts/test-mcp-inspector.sh
 ```
 
 ### Environment & Dependencies
@@ -150,9 +193,7 @@ rm -f *
 rm -rf *
 
 # System utilities  
-chmod +x scripts/*
-chmod +x packager/*
-chmod +x tests/*
+chmod +x src/*/*.sh
 chmod +x *.sh
 ls -la *
 head *
@@ -209,17 +250,20 @@ The following environment variables are safe to use:
 
 - `CDK_DEFAULT_ACCOUNT` - AWS account ID
 - `CDK_DEFAULT_REGION` - AWS region (default: us-east-1)  
-- `LAMBDA_PACKAGE_DIR` - Directory for Lambda package
 - `AWS_REGION` - AWS region override
 - `AWS_PROFILE` - AWS CLI profile to use
+- `ECR_REGISTRY` - ECR registry URL (required for catalog-push/deploy phases)
+- `ECR_REPOSITORY` - ECR repository name (default: quilt-mcp)
+- `VPC_ID` - Existing VPC ID (optional)
+- `IMAGE_URI` - Docker image URI for deployment
 
 ## Security Notes
 
-- All Lambda functions use IAM roles with minimal required permissions
-- API endpoints are protected with Cognito JWT authentication  
+- All ECS tasks use IAM roles with minimal required permissions
+- API endpoints are protected with JWT authentication via ALB
 - Docker builds are isolated and use official base images
 - No secrets are logged or exposed in responses
-- All authentication uses OAuth 2.0 Client Credentials flow
+- All network traffic goes through ALB with security groups
 
 ## Tool Testing Configuration
 
@@ -274,9 +318,22 @@ Use `remote-export` for:
 
 ## Workflow Documentation
 
-1. **Build**: `./scripts/build.sh build` - Docker package + local test
-2. **Deploy**: `./scripts/build.sh deploy` - CDK deploy with pre-built package  
-3. **Test**: `./scripts/build.sh test` - End-to-end endpoint testing
-4. **Debug**: `./scripts/check_logs.sh` - View Lambda logs for troubleshooting
+### Phase-based Development Workflow
 
-For comprehensive testing: `./scripts/build.sh deploy && ./scripts/test-endpoint.sh -v -f`
+1. **App Phase**: `./src/app/app.sh run` - Local MCP server development
+2. **Build Phase**: `./src/build-docker/build-docker.sh build` - Docker containerization
+3. **Catalog Phase**: `./src/catalog-push/catalog-push.sh push` - Push to ECR registry  
+4. **Deploy Phase**: `./src/deploy-aws/deploy-aws.sh deploy` - Deploy to ECS Fargate
+
+### Pipeline Orchestration
+
+- **Full Pipeline**: `./src/shared/pipeline.sh full` - Complete end-to-end deployment
+- **Individual Phases**: `./src/shared/pipeline.sh [app|build-docker|catalog|deploy]`
+- **Makefile Shortcuts**: `make [app|build|catalog|deploy|full]`
+
+### Version Management
+
+All phases use **git SHA** as version tag to prevent skew:
+- Local image: `quilt-mcp:abc123f`  
+- ECR image: `${ECR_REGISTRY}/quilt-mcp:abc123f`
+- ECS service: Deployed with `abc123f`

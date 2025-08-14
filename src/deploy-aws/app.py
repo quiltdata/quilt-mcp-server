@@ -2,14 +2,16 @@
 """AWS CDK app for deploying Quilt MCP Server on ECS/Fargate."""
 
 import os
-import aws_cdk as cdk
-from constructs import Construct
-from aws_cdk import (
+import aws_cdk as cdk  # type: ignore[import-untyped]
+from constructs import Construct  # type: ignore[import-untyped]
+from aws_cdk import (  # type: ignore[import-untyped]
     Stack,
     aws_ecs as ecs,
     aws_ec2 as ec2,
     aws_logs as logs,
     aws_iam as iam,
+    aws_certificatemanager as acm,
+    aws_s3 as s3,
     aws_elasticloadbalancingv2 as elbv2,
 )
 
@@ -57,7 +59,7 @@ class QuiltMcpFargateStack(Stack):
         # Task Role (for the application)
         task_role = iam.Role(
             self, "QuiltMcpTaskRole",
-            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),  # type: ignore[arg-type]
             inline_policies={
                 "QuiltS3Access": iam.PolicyDocument(
                     statements=[
@@ -79,7 +81,7 @@ class QuiltMcpFargateStack(Stack):
         # Execution Role (for ECS to pull images and write logs)
         execution_role = iam.Role(
             self, "QuiltMcpExecutionRole",
-            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),  # type: ignore[arg-type]
             managed_policies=[
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonECSTaskExecutionRolePolicy")
             ]
@@ -91,15 +93,15 @@ class QuiltMcpFargateStack(Stack):
             family="quilt-mcp-task",
             cpu=256,
             memory_limit_mib=512,
-            task_role=task_role,
-            execution_role=execution_role
+            task_role=task_role,  # type: ignore[arg-type]
+            execution_role=execution_role  # type: ignore[arg-type]
         )
         
         # Get Docker image URI from environment or use default
         image_uri = os.environ.get("IMAGE_URI", "quilt-mcp:latest")
         
         # Container Definition
-        container = task_definition.add_container(
+        _ = task_definition.add_container(
             "QuiltMcpContainer",
             image=ecs.ContainerImage.from_registry(image_uri),
             port_mappings=[
@@ -133,8 +135,11 @@ class QuiltMcpFargateStack(Stack):
             load_balancer_name="quilt-mcp-alb"
         )
         
-        # Enable ALB access logs (optional - requires S3 bucket)
-        # alb.log_access_logs(bucket=..., prefix="alb-logs")
+        # Optional: Enable ALB access logs to S3 when provided
+        alb_log_bucket_name = os.environ.get("ALB_LOG_S3_BUCKET")
+        if alb_log_bucket_name:
+            logs_bucket = s3.Bucket.from_bucket_name(self, "AlbLogsBucket", alb_log_bucket_name)
+            alb.log_access_logs(bucket=logs_bucket, prefix="alb-logs")
         
         # Target Group
         target_group = elbv2.ApplicationTargetGroup(
@@ -153,12 +158,32 @@ class QuiltMcpFargateStack(Stack):
             )
         )
         
-        # ALB Listener
-        listener = alb.add_listener(
-            "QuiltMcpListener",
-            port=80,
-            default_target_groups=[target_group]
-        )
+        # ALB Listeners
+        cert_arn = os.environ.get("ACM_CERT_ARN")
+        https_enabled = False
+        if cert_arn:
+            # HTTPS listener with provided ACM certificate
+            certificate = acm.Certificate.from_certificate_arn(self, "QuiltMcpCert", cert_arn)
+            alb.add_listener(
+                "QuiltMcpHttpsListener",
+                port=443,
+                certificates=[elbv2.ListenerCertificate.from_certificate_manager(certificate)],
+                default_target_groups=[target_group]
+            )
+            # HTTP listener redirects to HTTPS
+            alb.add_listener(
+                "QuiltMcpHttpListener",
+                port=80,
+                default_action=elbv2.ListenerAction.redirect(protocol="HTTPS", port="443", permanent=True)
+            )
+            https_enabled = True
+        else:
+            # HTTP only
+            alb.add_listener(
+                "QuiltMcpListener",
+                port=80,
+                default_target_groups=[target_group]
+            )
         
         # ECS Service
         service = ecs.FargateService(
@@ -175,17 +200,24 @@ class QuiltMcpFargateStack(Stack):
         service.attach_to_application_target_group(target_group)
         
         # Output the load balancer URL
+        scheme = "https" if https_enabled else "http"
         cdk.CfnOutput(
             self, "LoadBalancerURL",
-            value=f"http://{alb.load_balancer_dns_name}",
+            value=f"{scheme}://{alb.load_balancer_dns_name}",
             description="URL of the Application Load Balancer"
         )
         
         cdk.CfnOutput(
             self, "MCPEndpoint", 
             value=f"http://{alb.load_balancer_dns_name}/mcp",
-            description="MCP endpoint URL"
+            description="MCP endpoint URL (HTTP)"
         )
+        if https_enabled:
+            cdk.CfnOutput(
+                self, "MCPEndpointHttps",
+                value=f"https://{alb.load_balancer_dns_name}/mcp",
+                description="MCP endpoint URL (HTTPS)"
+            )
         
         cdk.CfnOutput(
             self, "ClusterName",

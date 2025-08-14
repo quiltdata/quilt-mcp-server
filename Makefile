@@ -1,260 +1,93 @@
-SHELL := /bin/bash
-UV ?= uv
-ENV_FILE ?= .env
-UVRUN ?= uv run --env-file $(ENV_FILE)
-PY ?= python
-INSPECTOR ?= npx -y @modelcontextprotocol/inspector@latest
-TOKEN_CMD := ./scripts/get-token.sh
-PROJECT_ROOT := $(shell pwd)
-REMOTE_ENDPOINT ?= http://localhost:8000/mcp
-DOCKER_ENDPOINT ?= http://localhost:9000/2015-03-31/functions/function/invocations
+# Quilt MCP Server - Phase-based Build System
+# 
+# This Makefile provides simple wrappers around the phase scripts.
+# All validation logic lives in the individual phase scripts.
 
-API_ENDPOINT := $(shell [ -f .config ] && . ./.config >/dev/null 2>&1; echo $$API_ENDPOINT)
+.PHONY: help app build catalog deploy full validate clean test status destroy
 
-.DEFAULT_GOAL := help
-
-# Phony targets grouped by category: utility, build, stdio, remote, docker
-.PHONY: help setup env clean logs token pytest pytest-ci pytest-search coverage build test deploy all stdio-run stdio-config stdio-inspector remote-run remote-hotload remote-export remote-test remote-inspector remote-kill docker-run docker-test docker-inspector deps-lint deps-all lint ruff ruff-fix black black-check mypy yaml-lint format lint-ci
-
-# Test event generation pattern
-tests/events/%.json: tests/generate_lambda_events.py
-	@mkdir -p tests/events
-	$(UVRUN) python tests/generate_lambda_events.py --event-type $* -o $@
+# Default target
 help:
-	@echo "Quilt MCP Server - Makefile"
+	@echo "Quilt MCP Server - Phase-based Build System"
 	@echo ""
-	@echo "Utility Tasks:" 
-	@echo "  setup              Install base dependencies (uv sync)"
-	@echo "  deps-test          Install test dependency group"
-	@echo "  deps-lint          Install lint dependency group"
-	@echo "  deps-all           Install all dependency groups (test, lint, deploy)"
-	@echo "  env                Create .env from env.example if missing"
-	@echo "  clean              Clean build/test artifacts"
-	@echo "  logs               Tail lambda logs (last 10m)"
-	@echo "  token              Print OAuth token (using get-token.sh)"
-	@echo "  pytest             Run all tests (unit + integration)"
-	@echo "  pytest-ci          Run tests excluding search-dependent tests (for CI)"
-	@echo "  pytest-search      Run only search-dependent tests (requires search API)"
-	@echo "  pytest-unit        Run unit tests only (mocked, fast)"
-	@echo "  pytest-integration Run integration tests only (real data, slow)"
-	@echo "  pytest-catalog     Run catalog tool tests only (new functionality)"
-	@echo "  pytest-auth        Run auth/filesystem tests only"
-	@echo "  pytest-packages    Run package operation tests only"
-	@echo "  pytest-buckets     Run bucket operation tests only"
-	@echo "  coverage           Run all tests with coverage report"
-	@echo "  lint               Auto-fix Python (ruff+black), then type & YAML lint"
+	@echo "Phase Commands:"
+	@echo "  make app        - Phase 1: Run local MCP server"
+	@echo "  make build      - Phase 2: Build Docker container"
+	@echo "  make catalog    - Phase 3: Push to ECR registry"  
+	@echo "  make deploy     - Phase 4: Deploy to ECS Fargate"
+	@echo "  make full       - Complete pipeline (all phases)"
 	@echo ""
-	@echo "Build Tasks:" 
-	@echo "  build              Build lambda artifact (scripts/build.sh build)"
-	@echo "  test               Test deployed stack (scripts/build.sh test)"
-	@echo "  deploy             Build + deploy via CDK (scripts/build.sh deploy)"
-	@echo "  all                Run pytest then deploy (test + deploy)"
+	@echo "Validation Commands:"
+	@echo "  make validate     - Validate all phases (app + build + catalog* + deploy*)"
+	@echo "  make validate-app - Validate Phase 1 (App) only"
+	@echo "  make validate-build - Validate Phase 2 (Build-Docker) only"
+	@echo "  make validate-https - Validate HTTPS synthesis capability"
+	@echo "  make test         - Quick test of current deployment"
 	@echo ""
-	@echo "Stdio Tasks:" 
-	@echo "  stdio-run          Run unified MCP server with stdio transport"
-	@echo "  stdio-config       Print Claude Desktop config snippet"
-	@echo "  stdio-inspector    Launch MCP Inspector for stdio server"
+	@echo "Utilities:"
+	@echo "  make clean      - Clean artifacts"
+	@echo "  make status     - Show deployment status"
+	@echo "  make destroy    - Clean up AWS resources"
 	@echo ""
-	@echo "Remote Tasks:" 
-	@echo "  remote-run         Run unified MCP server with HTTP transport"
-	@echo "  remote-hotload     Run unified MCP server with FastMCP hot reload"
-	@echo "  remote-export      Expose local MCP server via ngrok (uniformly-alive-halibut.ngrok-free.app)"
-	@echo "  remote-test        Test local FastMCP server with session management"
-	@echo "  remote-test-full   Full test of local server with detailed output"
-	@echo "  remote-kill        Stop local HTTP MCP server"
-	@echo "  remote-inspector   Launch MCP Inspector for deployed endpoint"
+	@echo "Environment Variables:"
+	@echo "  ECR_REGISTRY    - ECR registry URL (required for catalog/deploy)"
+	@echo "  ECR_REPOSITORY  - ECR repository name (default: quilt-mcp)"
+	@echo "  ACM_CERT_ARN    - ACM certificate ARN (optional, enables HTTPS)"
 	@echo ""
-	@echo "Docker Tasks:" 
-	@echo "  docker-build       Build Lambda container using Amazon base image"
-	@echo "  docker-run         Run Lambda container locally (mirrors remote exactly)"
-	@echo "  docker-test        Test Lambda container with MCP call"
-	@echo "  docker-stop        Stop running Lambda container"
-	@echo ""
-	@echo "Test Events:"
-	@echo "  Generate Lambda test events in tests/events/ using:"
-	@echo "    make tests/events/tools-list.json"
-	@echo "    make tests/events/resources-list.json" 
-	@echo "    make tests/events/health-check.json"
-	@echo ""
+	@echo "* catalog and deploy phases require ECR_REGISTRY to be set"
 
-# Setup / env
-default: help
+# Phase Commands (delegate to phase scripts)
+app:
+	@./src/app/app.sh run
 
-setup:
-	$(UV) sync --group test
-
-deps-lint:
-	$(UV) sync --group lint
-
-deps-all:
-	$(UV) sync --all-extras --group test --group lint --group deploy || \
-		($(UV) sync && $(UV) sync --group test && $(UV) sync --group lint && $(UV) sync --group deploy)
-
-env:
-	@[ -f .env ] && echo ".env already exists" || (cp env.example .env && echo "Created .env")
-
-# Build / deploy wrappers
 build:
-	./scripts/build.sh build
+	@./src/build-docker/build-docker.sh build
 
-test:
-	./scripts/build.sh test
+catalog:
+	@./src/catalog-push/catalog-push.sh push
 
 deploy:
-	./scripts/build.sh deploy
+	@./src/deploy-aws/deploy-aws.sh deploy
 
-all: pytest deploy
-	@echo "✅ All tasks completed: pytest + deploy"
+full:
+	@./src/shared/pipeline.sh full
 
+# Validation Commands (delegate to validation scripts)
+validate:
+	@./src/shared/validate.sh all
+
+validate-app:
+	@./src/shared/validate.sh app
+
+validate-build:
+	@./src/shared/validate.sh build
+
+validate-https:
+	@echo "🔍 Testing HTTPS synthesis capability..."
+	@uv sync --group deploy > /dev/null 2>&1
+	@cd src/deploy-aws && uv run cdk synth --app "python app.py" --output /tmp/cdk-out-http > /dev/null && echo "✅ HTTP synthesis working"
+	@cd src/deploy-aws && ACM_CERT_ARN="arn:aws:acm:us-east-1:123456789012:certificate/test-cert" uv run cdk synth --app "python app.py" --output /tmp/cdk-out-https > /dev/null && echo "✅ HTTPS synthesis working"
+	@echo "✅ HTTPS capability validated"
+
+test:
+	@./src/deploy-aws/deploy-aws.sh test
+
+# Utilities (delegate to appropriate scripts)
 clean:
-	./scripts/build.sh clean || true
-	rm -rf .pytest_cache .coverage dist build *.egg-info
+	@./src/app/app.sh clean
+	@./src/build-docker/build-docker.sh clean
 
-# Logs & token
-logs:
-	./scripts/check-logs.sh -s 10m
+status:
+	@./src/deploy-aws/deploy-aws.sh status
 
-token:
-	@$(TOKEN_CMD)
+destroy:
+	@./src/deploy-aws/deploy-aws.sh destroy
 
-# Local HTTP server
-remote-run: setup
-	FASTMCP_TRANSPORT=streamable-http $(UVRUN) python -m quilt_mcp
+# Legacy compatibility (redirect to new system)
+pytest: 
+	@./src/app/app.sh test
 
-remote-test:
-	./scripts/test-endpoint.sh -l -t -v
+coverage:
+	@./src/app/app.sh validate
 
-remote-export: setup
-	@echo "🚀 Starting MCP server and exposing via ngrok..."
-	@echo "Make sure ngrok is installed: brew install ngrok (or download from ngrok.com)"
-	@echo ""
-	@echo "Starting MCP server on port 8000..."
-	@FASTMCP_TRANSPORT=streamable-http $(UVRUN) python -m quilt_mcp & \
-	SERVER_PID=$$!; \
-	echo "Server started with PID: $$SERVER_PID"; \
-	sleep 3; \
-	echo "Starting ngrok tunnel with static domain..."; \
-	ngrok http 8000 --domain=uniformly-alive-halibut.ngrok-free.app --log=stdout & \
-	NGROK_PID=$$!; \
-	echo "Ngrok started with PID: $$NGROK_PID"; \
-	echo ""; \
-	echo "📋 MCP endpoint: https://uniformly-alive-halibut.ngrok-free.app/mcp"; \
-	echo ""; \
-	echo "Press Ctrl+C to stop both server and ngrok"; \
-	trap 'echo "Stopping server and ngrok..."; kill $$SERVER_PID $$NGROK_PID 2>/dev/null; exit' INT; \
-	wait
-
-remote-check:
-	@echo "Testing FastMCP streamable HTTP transport with session management..."
-	@SESSION_ID=$$(curl -s -i -X POST $(REMOTE_ENDPOINT) \
-	  -H "Content-Type: application/json" \
-	  -H "Accept: application/json, text/event-stream" \
-	  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' \
-	  | grep -i "mcp-session-id:" | head -1 | sed 's/.*mcp-session-id: *\([^ \r]*\).*/\1/' | tr -d '\r'); \
-	if [ -n "$$SESSION_ID" ]; then \
-	  echo "Got session ID: $$SESSION_ID"; \
-	  curl -s -X POST $(REMOTE_ENDPOINT) \
-	    -H "Content-Type: application/json" \
-	    -H "Accept: application/json, text/event-stream" \
-	    -H "Mcp-Session-Id: $$SESSION_ID" \
-	    -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null; \
-	  curl -s -X POST $(REMOTE_ENDPOINT) \
-	    -H "Content-Type: application/json" \
-	    -H "Accept: application/json, text/event-stream" \
-	    -H "Mcp-Session-Id: $$SESSION_ID" \
-	    -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq -r '.result.tools[].name'; \
-	else \
-	  echo "No session ID returned, testing without session management..."; \
-	  curl -s -X POST $(REMOTE_ENDPOINT) \
-	    -H "Content-Type: application/json" \
-	    -H "Accept: application/json, text/event-stream" \
-	    -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | grep "^data: " | sed 's/^data: //' | jq .; \
-	fi
-
-remote-kill:
-	@pkill -f "python -m quilt.remote" || echo "No remote server running"
-
-remote-inspector:
-	$(INSPECTOR) --server-url "http://127.0.0.1:8000/mcp"
-
-lambda-inspector:
-	@if [ -z "$(API_ENDPOINT)" ]; then echo "API_ENDPOINT not set in .config"; exit 1; fi; \
-	TOKEN="$$($(TOKEN_CMD))"; \
-	if [ -z "$$TOKEN" ]; then echo "Failed to get token"; exit 1; fi; \
-	$(INSPECTOR) --server-url "$(API_ENDPOINT)/mcp"
-
-# Docker Lambda environment (mirrors remote exactly)
-docker-build:
-	@echo "🐳 Building unified container image..."
-	@docker build --platform linux/amd64 -t quilt-mcp-lambda -f Dockerfile .
-
-docker-run: docker-build
-	@echo "🐳 Running Lambda container locally..."
-	@docker run --rm -d \
-		--name quilt-mcp-lambda \
-		-p 9000:8080 \
-		--platform linux/amd64 \
-		quilt-mcp-lambda
-	@echo "🌐 Lambda endpoint available at: $(DOCKER_ENDPOINT)"
-	@echo "💡 Use 'make docker-test' to test or 'docker stop quilt-mcp-lambda' to stop"
-
-docker-test:
-	@echo "🧪 Testing Docker Lambda container..."
-	@echo '{"httpMethod":"POST","path":"/mcp","headers":{"Authorization":"Bearer test","Content-Type":"application/json"},"body":"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}"}' | \
-	curl -s -X POST $(DOCKER_ENDPOINT) \
-		-H "Content-Type: application/json" \
-		-d @- | jq .
-
-docker-stop:
-	@echo "🛑 Stopping Lambda container..."
-	@docker stop quilt-mcp-lambda 2>/dev/null || echo "Container not running"
-
-docker-inspector:
-	@echo "🔍 Starting MCP Inspector for Docker Lambda environment..."
-	@echo "Note: This requires the Lambda container to be running (make docker-run)"
-	@echo "Lambda containers don't directly support MCP Inspector - use docker-test instead"
-
-# Stdio config & inspection
-stdio-config:
-	@echo '{'
-	@echo '  "mcpServers": {'
-	@echo '    "quilt": {'
-	@echo '      "command": "uv",'
-	@echo '      "args": ["run", "entry_points/stdio_server.py"]'
-	@echo '    }'
-	@echo '  }'
-	@echo '}'
-
-stdio-inspector: setup
-	$(INSPECTOR) --server-command "$(UV)" --server-args "run --env-file $(ENV_FILE) python -m quilt_mcp"
-
-stdio-run: setup
-	FASTMCP_TRANSPORT=stdio $(UVRUN) python -m quilt_mcp
-
-# Tests
-pytest: setup
-	$(UVRUN) python -m pytest
-
-pytest-ci: setup ## Run tests excluding search-dependent tests (for CI)
-	$(UVRUN) python -m pytest -m "not search"
-
-pytest-unit: setup ## Run tests non-integration tests
-	$(UVRUN) python -m pytest -m "not aws"
-
-pytest-integration: setup ## Run integration tests only (test_quilt.py - unmocked)
-	$(UVRUN) python -m pytest tests/test_quilt.py -v
-
-coverage: setup ## Run all tests with coverage report
-	$(UVRUN) python -m pytest --cov=quilt_mcp --cov-report=term-missing --cov-report=html
-
-PY_SRC := src tests entry_points
-YAML_FILES := $(shell find . -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
-
-lint-ci: lint ## Alias for lint (CI friendly)
-
-lint: deps-lint
-	$(UVRUN) ruff check --fix $(PY_SRC)
-	$(UVRUN) black $(PY_SRC)
-	$(UVRUN) mypy src
-	@if [ -n "$(YAML_FILES)" ]; then $(UVRUN) yamllint $(YAML_FILES); else echo "(No YAML files to lint)"; fi
-	@echo "✅ Lint (auto-fix) completed"
+stdio-run: app
+remote-run: app

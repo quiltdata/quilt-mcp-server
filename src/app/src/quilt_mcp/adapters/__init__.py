@@ -7,7 +7,6 @@ transport mechanisms:
 - fastmcp_bridge: FastMCP integration for local development
 """
 
-from .lambda_handler import LambdaHandler
 from .fastmcp_bridge import FastMCPBridge
 
-__all__ = ["LambdaHandler", "FastMCPBridge"]
+__all__ = ["FastMCPBridge"]

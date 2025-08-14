@@ -74,6 +74,28 @@ setup_aws_defaults() {
     log_success "AWS Region: ${CDK_DEFAULT_REGION}"
 }
 
+# Set ECR registry - construct if not provided
+setup_ecr_registry() {
+    if [ -z "$ECR_REGISTRY" ]; then
+        # Try to construct from AWS account and region
+        if [ -n "$CDK_DEFAULT_ACCOUNT" ] && [ -n "$CDK_DEFAULT_REGION" ]; then
+            export ECR_REGISTRY="$CDK_DEFAULT_ACCOUNT.dkr.ecr.$CDK_DEFAULT_REGION.amazonaws.com"
+            log_info "Constructed ECR_REGISTRY: $ECR_REGISTRY"
+        elif [ -n "$AWS_ACCOUNT_ID" ] && [ -n "$AWS_DEFAULT_REGION" ]; then
+            export ECR_REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+            log_info "Constructed ECR_REGISTRY: $ECR_REGISTRY"
+        else
+            log_error "ECR_REGISTRY not provided and cannot construct from environment"
+            log_info "Either set ECR_REGISTRY or provide CDK_DEFAULT_ACCOUNT+CDK_DEFAULT_REGION"
+            log_info "Example: export ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com"
+            return 1
+        fi
+    fi
+    
+    # Set default repository name
+    export ECR_REPOSITORY=${ECR_REPOSITORY:-quilt-mcp}
+}
+
 # Check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -122,67 +144,6 @@ extract_output_value() {
     echo "$outputs" | jq -r ".[] | select(.OutputKey==\"$key\") | .OutputValue"
 }
 
-# Get Cognito client secret
-get_client_secret() {
-    local user_pool_id="$1"
-    local client_id="$2"
-    local region=${3:-$CDK_DEFAULT_REGION}
-    
-    log_info "Retrieving Cognito client secret..."
-    NO_COLOR=1 aws cognito-idp describe-user-pool-client \
-        --user-pool-id "$user_pool_id" \
-        --client-id "$client_id" \
-        --region "$region" \
-        --query "UserPoolClient.ClientSecret" \
-        --output text
-}
-
-# Write configuration file
-write_config() {
-    local api_endpoint="$1"
-    local token_endpoint="$2"
-    local client_id="$3"
-    local client_secret="$4"
-    local user_pool_id="$5"
-    local resource_server_id="$6"
-    local lambda_function_name="$7"
-    local log_group_name="$8"
-    local region="$9"
-    local api_log_group_name="${10}"
-    
-    log_info "Writing deployment configuration to .config..."
-    
-    cat > .config << EOF
-# Quilt MCP Server Deployment Configuration
-# Generated on $(date)
-
-# API Endpoints
-API_ENDPOINT=${api_endpoint}
-TOKEN_ENDPOINT=${token_endpoint}
-
-# Authentication
-CLIENT_ID=${client_id}
-CLIENT_SECRET=${client_secret}
-USER_POOL_ID=${user_pool_id}
-RESOURCE_SERVER_ID=${resource_server_id}
-
-# AWS Resources
-LAMBDA_FUNCTION_NAME=${lambda_function_name}
-LOG_GROUP_NAME=${log_group_name}
-API_LOG_GROUP_NAME=${api_log_group_name}
-STACK_NAME=${STACK_NAME}
-REGION=${region}
-
-# OAuth Scopes
-OAUTH_SCOPES="${resource_server_id}/read ${resource_server_id}/write"
-
-# MCP Inspector Configuration
-MCP_SERVER_URL=\${API_ENDPOINT}
-MCP_SERVER_NAME="Quilt MCP Server"
-EOF
-
-    log_success "✅ Configuration saved to .config"
-}
 
 # Load configuration
 load_config() {
@@ -215,14 +176,14 @@ load_config() {
 
 # Display quick commands
 show_quick_commands() {
-    local api_endpoint="$1"
+    local mcp_endpoint="$1"
     
     echo ""
     log_info "🔧 Quick Commands:"
-    log_info "View Lambda logs: scripts/check-logs.sh"
-    log_info "Get access token: scripts/get-token.sh"
-    log_info "Test API:"
-    echo -e "${BLUE}  curl -H 'Authorization: Bearer \$(scripts/get-token.sh)' -X POST ${api_endpoint} -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'${NC}"
+    log_info "View logs: ./scripts/logs.sh"
+    log_info "Test API: ./scripts/test.sh"
+    log_info "Manual test:"
+    echo -e "${BLUE}  curl -X POST ${mcp_endpoint} -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'${NC}"
 }
 
 # Check if CDK is bootstrapped

@@ -24,8 +24,8 @@ RUN uv pip install --system --no-cache-dir \
     fastmcp mcp quilt3 boto3 botocore pydantic
 
 # Copy the application code
-COPY src/ ./src/
-COPY main.py ./
+COPY src/app/src/ ./src/
+COPY src/app/main.py ./
 
 # Ensure the server module is importable
 RUN python -c "import src.quilt_mcp.server; print('Server module imported successfully')"
@@ -33,9 +33,9 @@ RUN python -c "import src.quilt_mcp.server; print('Server module imported succes
 # Expose the default port
 EXPOSE 8000
 
-# Health check
+# Health check - test if MCP server process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD pgrep -f "python.*main.py" || exit 1
 
 # Run the FastMCP server
 CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8000"]
