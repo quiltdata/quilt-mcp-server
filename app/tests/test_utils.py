@@ -3,20 +3,18 @@
 import inspect
 import os
 import unittest
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
-import pytest
 from fastmcp import FastMCP
-
+from quilt_mcp.tools import auth, buckets, package_ops, packages
 from quilt_mcp.utils import (
-    generate_signed_url,
+    create_configured_server,
     create_mcp_server,
+    generate_signed_url,
     get_tool_modules,
     register_tools,
-    create_configured_server,
     run_server,
 )
-from quilt_mcp.tools import auth, buckets, packages, package_ops
 
 
 class TestUtils(unittest.TestCase):
@@ -26,78 +24,72 @@ class TestUtils(unittest.TestCase):
         """Test generate_signed_url with invalid URI."""
         # Not S3 URI
         self.assertIsNone(generate_signed_url("https://example.com/file"))
-        
+
         # No path
         self.assertIsNone(generate_signed_url("s3://bucket"))
-        
+
         # Empty string
         self.assertIsNone(generate_signed_url(""))
 
-    @patch('quilt_mcp.utils.boto3.client')
+    @patch("quilt_mcp.utils.boto3.client")
     def test_generate_signed_url_success(self, mock_boto_client):
         """Test successful URL generation."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
         mock_boto_client.return_value = mock_client
-        
+
         result = generate_signed_url("s3://my-bucket/my-key.txt", 1800)
-        
+
         self.assertEqual(result, "https://signed.url")
         mock_boto_client.assert_called_once_with("s3")
         mock_client.generate_presigned_url.assert_called_once_with(
-            "get_object",
-            Params={"Bucket": "my-bucket", "Key": "my-key.txt"},
-            ExpiresIn=1800
+            "get_object", Params={"Bucket": "my-bucket", "Key": "my-key.txt"}, ExpiresIn=1800
         )
 
-    @patch('quilt_mcp.utils.boto3.client')
+    @patch("quilt_mcp.utils.boto3.client")
     def test_generate_signed_url_expiration_limits(self, mock_boto_client):
         """Test expiration time limits."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
         mock_boto_client.return_value = mock_client
-        
+
         # Test minimum (0 should become 1)
         generate_signed_url("s3://bucket/key", 0)
         mock_client.generate_presigned_url.assert_called_with(
-            "get_object",
-            Params={"Bucket": "bucket", "Key": "key"},
-            ExpiresIn=1
+            "get_object", Params={"Bucket": "bucket", "Key": "key"}, ExpiresIn=1
         )
-        
+
         # Test maximum (more than 7 days should become 7 days)
         generate_signed_url("s3://bucket/key", 700000)  # > 7 days
         mock_client.generate_presigned_url.assert_called_with(
-            "get_object",
-            Params={"Bucket": "bucket", "Key": "key"},
-            ExpiresIn=604800  # 7 days
+            "get_object", Params={"Bucket": "bucket", "Key": "key"}, ExpiresIn=604800  # 7 days
         )
 
-    @patch('quilt_mcp.utils.boto3.client')
+    @patch("quilt_mcp.utils.boto3.client")
     def test_generate_signed_url_exception(self, mock_boto_client):
         """Test handling of exceptions during URL generation."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.side_effect = Exception("AWS Error")
         mock_boto_client.return_value = mock_client
-        
+
         result = generate_signed_url("s3://bucket/key")
-        
+
         self.assertIsNone(result)
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
-        with patch('quilt_mcp.utils.boto3.client') as mock_boto_client:
+        with patch("quilt_mcp.utils.boto3.client") as mock_boto_client:
             mock_client = MagicMock()
             mock_client.generate_presigned_url.return_value = "https://signed.url"
             mock_boto_client.return_value = mock_client
-            
+
             result = generate_signed_url("s3://bucket/path/to/my-file.txt")
-            
+
             self.assertEqual(result, "https://signed.url")
             mock_client.generate_presigned_url.assert_called_once_with(
                 "get_object",
                 Params={"Bucket": "bucket", "Key": "path/to/my-file.txt"},
-                ExpiresIn=3600  # default
+                ExpiresIn=3600,  # default
             )
 
 
@@ -119,10 +111,10 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_register_tools_with_mock_server(self):
         """Test tool registration with a mock server."""
         mock_server = Mock(spec=FastMCP)
-        
+
         # Test with verbose=False to avoid print output
         tools_count = register_tools(mock_server, verbose=False)
-        
+
         # Verify that tools were registered
         self.assertGreater(tools_count, 0)
         self.assertEqual(mock_server.tool.call_count, tools_count)
@@ -130,10 +122,10 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_register_tools_with_specific_modules(self):
         """Test tool registration with specific modules."""
         mock_server = Mock(spec=FastMCP)
-        
+
         # Test with just one module
         tools_count = register_tools(mock_server, tool_modules=[auth], verbose=False)
-        
+
         # Verify tools from auth module were registered
         self.assertGreater(tools_count, 0)
         self.assertEqual(mock_server.tool.call_count, tools_count)
@@ -141,43 +133,45 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_register_tools_only_public_functions(self):
         """Test that only public functions are registered as tools."""
         mock_server = Mock(spec=FastMCP)
-        
+
         # Create a mock module with both public and private functions
         mock_module = Mock()
         mock_module.__name__ = "test_module"
-        
+
         def public_func():
             pass
-        
+
         def _private_func():
             pass
-        
+
         public_func.__name__ = "public_func"
         public_func.__module__ = "test_module"
         _private_func.__name__ = "_private_func"
         _private_func.__module__ = "test_module"
-        
+
         # Mock inspect.getmembers to return our test functions
         # but also mock the predicate function to properly filter
-        with patch('quilt_mcp.utils.inspect.getmembers') as mock_getmembers:
+        with patch("quilt_mcp.utils.inspect.getmembers") as mock_getmembers:
             # The predicate should only return the public function
             def mock_predicate(obj):
                 return (
-                    inspect.isfunction(obj) and 
-                    not obj.__name__.startswith('_') and
-                    obj.__module__ == mock_module.__name__
+                    inspect.isfunction(obj)
+                    and not obj.__name__.startswith("_")
+                    and obj.__module__ == mock_module.__name__
                 )
-            
+
             # Filter the functions according to our predicate
             all_functions = [
                 ("public_func", public_func),
                 ("_private_func", _private_func),
             ]
-            filtered_functions = [(name, func) for name, func in all_functions if mock_predicate(func)]
+            filtered_functions = [
+                (name, func) for name, func in all_functions if mock_predicate(func)
+            ]
             mock_getmembers.return_value = filtered_functions
-            
+
             tools_count = register_tools(mock_server, tool_modules=[mock_module], verbose=False)
-            
+
             # Only public function should be registered
             self.assertEqual(tools_count, 1)
             mock_server.tool.assert_called_once_with(public_func)
@@ -185,114 +179,120 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_register_tools_verbose_output(self):
         """Test that verbose mode produces output."""
         mock_server = Mock(spec=FastMCP)
-        
-        with patch('sys.stdout') as mock_stdout:
+
+        with patch("sys.stdout") as mock_stdout:
             # Register with verbose=True
             register_tools(mock_server, tool_modules=[auth], verbose=True)
-            
+
             # Check that print was called
             mock_stdout.write.assert_called()
 
     def test_create_configured_server(self):
         """Test creating a fully configured server."""
         server = create_configured_server(verbose=False)
-        
+
         self.assertIsInstance(server, FastMCP)
         # The server should have tools registered (we can't easily verify this
         # without inspecting internal state, but we can verify it doesn't crash)
 
     def test_create_configured_server_verbose_output(self):
         """Test that configured server produces verbose output."""
-        with patch('sys.stdout') as mock_stdout:
+        with patch("sys.stdout") as mock_stdout:
             create_configured_server(verbose=True)
-            
+
             # Check that print was called for verbose output
             mock_stdout.write.assert_called()
 
-    @patch('quilt_mcp.utils.create_configured_server')
+    @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_success(self, mock_create_server):
         """Test successful run_server execution."""
         mock_server = Mock(spec=FastMCP)
         mock_create_server.return_value = mock_server
-        
+
         # Set environment variable
-        with patch.dict(os.environ, {'FASTMCP_TRANSPORT': 'test-transport'}):
+        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "test-transport"}):
             run_server()
-        
+
         # Verify server was created and run was called
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport='test-transport')
+        mock_server.run.assert_called_once_with(transport="test-transport")
 
-    @patch('quilt_mcp.utils.create_configured_server')
+    @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):
         """Test run_server with default transport."""
         mock_server = Mock(spec=FastMCP)
         mock_create_server.return_value = mock_server
-        
+
         # Clear transport environment variable
         with patch.dict(os.environ, {}, clear=True):
             run_server()
-        
-        # Verify default transport is used
-        mock_server.run.assert_called_once_with(transport='streamable-http')
 
-    @patch('quilt_mcp.utils.create_configured_server')
+        # Verify default transport is used
+        mock_server.run.assert_called_once_with(transport="streamable-http")
+
+    @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_error_handling(self, mock_create_server):
         """Test run_server error handling."""
         # Make create_configured_server raise an exception
         mock_create_server.side_effect = Exception("Test error")
-        
+
         with self.assertRaises(Exception) as context:
             run_server()
-        
+
         self.assertIn("Test error", str(context.exception))
 
-    @patch('quilt_mcp.utils.create_configured_server')
+    @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_prints_error(self, mock_create_server):
         """Test that run_server prints errors."""
         mock_create_server.side_effect = Exception("Test error")
-        
-        with patch('sys.stdout') as mock_stdout:
-            with self.assertRaises(Exception):
-                run_server()
-            
-            # Check that error was printed
-            mock_stdout.write.assert_called()
+
+        with self.assertRaises(Exception) as context:
+            run_server()
+
+        # Check that we got the expected error
+        self.assertEqual(str(context.exception), "Test error")
 
     def test_end_to_end_server_creation(self):
         """Test complete server creation and tool registration flow."""
         # This is an integration test that exercises the complete flow
         server = create_configured_server(verbose=False)
-        
+
         # Verify we have a working server
         self.assertIsInstance(server, FastMCP)
-        
+
         # Verify that our tool modules have the expected public functions
         for module in get_tool_modules():
-            functions = inspect.getmembers(module, predicate=lambda obj: (
-                inspect.isfunction(obj) and 
-                not obj.__name__.startswith('_') and
-                obj.__module__ == module.__name__
-            ))
+            # Create a closure to capture the module variable properly
+            def make_predicate(current_module):
+                return lambda obj: (
+                    inspect.isfunction(obj)
+                    and not obj.__name__.startswith("_")
+                    and obj.__module__ == current_module.__name__
+                )
+
+            functions = inspect.getmembers(module, predicate=make_predicate(module))
             # Each module should have at least one public function
             self.assertGreater(len(functions), 0)
 
     def test_all_tool_modules_importable(self):
         """Test that all tool modules can be imported and have expected structure."""
         modules = get_tool_modules()
-        
+
         for module in modules:
             # Module should have a __name__ attribute
-            self.assertTrue(hasattr(module, '__name__'))
-            
+            self.assertTrue(hasattr(module, "__name__"))
+
             # Module should be one of our expected modules
-            self.assertIn(module.__name__, [
-                'quilt_mcp.tools.auth',
-                'quilt_mcp.tools.buckets', 
-                'quilt_mcp.tools.packages',
-                'quilt_mcp.tools.package_ops'
-            ])
-            
+            self.assertIn(
+                module.__name__,
+                [
+                    "quilt_mcp.tools.auth",
+                    "quilt_mcp.tools.buckets",
+                    "quilt_mcp.tools.packages",
+                    "quilt_mcp.tools.package_ops",
+                ],
+            )
+
             # Module should have at least one function
             functions = [obj for name, obj in inspect.getmembers(module, inspect.isfunction)]
             self.assertGreater(len(functions), 0)

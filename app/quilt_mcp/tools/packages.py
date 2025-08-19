@@ -9,12 +9,13 @@ from ..utils import generate_signed_url
 
 # Helpers
 
+
 def _normalize_registry(bucket_or_uri: str) -> str:
     """Normalize registry input to s3:// URI format.
-    
+
     Args:
         bucket_or_uri: Either a bucket name (e.g., "my-bucket") or s3:// URI (e.g., "s3://my-bucket")
-    
+
     Returns:
         Full s3:// URI format (e.g., "s3://my-bucket")
     """
@@ -23,15 +24,16 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     return f"s3://{bucket_or_uri}"
 
 
-
-def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
+def packages_list(
+    registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = ""
+) -> dict[str, Any]:
     """List all available Quilt packages in a registry.
-    
+
     Args:
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         limit: Maximum number of packages to return, 0 for unlimited (default: 0)
         prefix: Filter packages by name prefix (default: "")
-    
+
     Returns:
         Dict with list of package names.
     """
@@ -49,14 +51,17 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
     return {"packages": pkgs}
 
-def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10) -> dict[str, Any]:
+
+def packages_search(
+    query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10
+) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
-    
+
     Args:
         query: Search query string to find packages
-        registry: Quilt registry URL (default: DEFAULT_REGISTRY)  
+        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         limit: Maximum number of search results (default: 10)
-    
+
     Returns:
         Dict with search results including package names and metadata.
     """
@@ -65,9 +70,17 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
     results = quilt3.search(query, limit=effective_limit)
     return {"results": results}
 
-def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int = 0, include: list[str] = [], exclude: list[str] = [], include_signed_urls: bool = True) -> dict[str, Any]:
+
+def package_browse(
+    package_name: str,
+    registry: str = DEFAULT_REGISTRY,
+    top: int = 0,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    include_signed_urls: bool = True,
+) -> dict[str, Any]:
     """Browse the contents of a Quilt package.
-    
+
     Args:
         package_name: Name of the package to browse (e.g., "username/package-name")
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
@@ -75,42 +88,48 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
         include: Include patterns (currently unused, reserved for future)
         exclude: Exclude patterns (currently unused, reserved for future)
         include_signed_urls: Include presigned download URLs for S3 objects (default: True)
-    
+
     Returns:
         Dict with list of package contents including logical keys, S3 URIs, and optional download URLs.
     """
+    # Initialize mutable defaults
+    if include is None:
+        include = []
+    if exclude is None:
+        exclude = []
+
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
     pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
-    
+
     # Get detailed information about each entry
     entries = []
     keys = list(pkg.keys())
-    
+
     # Apply top limit if specified
     if top > 0:
         keys = keys[:top]
-    
+
     for logical_key in keys:
         try:
             entry = pkg[logical_key]
             entry_data = {
                 "logical_key": logical_key,
-                "physical_key": str(entry.physical_key) if hasattr(entry, 'physical_key') else None,
-                "size": getattr(entry, 'size', None),
-                "hash": str(getattr(entry, 'hash', ''))
+                "physical_key": str(entry.physical_key) if hasattr(entry, "physical_key") else None,
+                "size": getattr(entry, "size", None),
+                "hash": str(getattr(entry, "hash", "")),
             }
-            
+
             # Add S3 URI and signed URL if this is an S3 object
-            if hasattr(entry, 'physical_key') and str(entry.physical_key).startswith('s3://'):
+            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith("s3://"):
                 s3_uri = str(entry.physical_key)
                 entry_data["s3_uri"] = s3_uri
-                
+
                 if include_signed_urls:
                     signed_url = generate_signed_url(s3_uri)
                     if signed_url:
                         entry_data["download_url"] = signed_url
-            
+
             entries.append(entry_data)
         except Exception:
             # Fallback to just the logical key if detailed info fails
@@ -120,28 +139,34 @@ def package_browse(package_name: str, registry: str = DEFAULT_REGISTRY, top: int
         "package_name": package_name,
         "registry": registry,
         "total_entries": len(entries),
-        "entries": entries
+        "entries": entries,
     }
 
-def package_contents_search(package_name: str, query: str, registry: str = DEFAULT_REGISTRY, include_signed_urls: bool = True) -> dict[str, Any]:
+
+def package_contents_search(
+    package_name: str,
+    query: str,
+    registry: str = DEFAULT_REGISTRY,
+    include_signed_urls: bool = True,
+) -> dict[str, Any]:
     """Search within a package's contents by filename or path.
-    
+
     Args:
         package_name: Name of the package to search (e.g., "username/package-name")
         query: Search query to match against file/folder names
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         include_signed_urls: Include presigned download URLs for S3 objects (default: True)
-    
+
     Returns:
         Dict with matching entries including logical keys, S3 URIs, and optional download URLs.
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
     pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
-    
+
     # Find matching keys
     matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
-    
+
     # Get detailed information for each match
     matches = []
     for logical_key in matching_keys:
@@ -149,76 +174,82 @@ def package_contents_search(package_name: str, query: str, registry: str = DEFAU
             entry = pkg[logical_key]
             match_data = {
                 "logical_key": logical_key,
-                "physical_key": str(entry.physical_key) if hasattr(entry, 'physical_key') else None,
-                "size": getattr(entry, 'size', None),
-                "hash": str(getattr(entry, 'hash', ''))
+                "physical_key": str(entry.physical_key) if hasattr(entry, "physical_key") else None,
+                "size": getattr(entry, "size", None),
+                "hash": str(getattr(entry, "hash", "")),
             }
-            
+
             # Add S3 URI and signed URL if this is an S3 object
-            if hasattr(entry, 'physical_key') and str(entry.physical_key).startswith('s3://'):
+            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith("s3://"):
                 s3_uri = str(entry.physical_key)
                 match_data["s3_uri"] = s3_uri
-                
+
                 if include_signed_urls:
                     signed_url = generate_signed_url(s3_uri)
                     if signed_url:
                         match_data["download_url"] = signed_url
-            
+
             matches.append(match_data)
         except Exception:
             # Fallback to just the logical key if detailed info fails
             matches.append({"logical_key": logical_key})
-    
-    return {
-        "package_name": package_name,
-        "query": query,
-        "matches": matches, 
-        "count": len(matches)
-    }
 
-def package_diff(package1_name: str, package2_name: str, registry: str = DEFAULT_REGISTRY, package1_hash: str = "", package2_hash: str = "") -> dict[str, Any]:
+    return {"package_name": package_name, "query": query, "matches": matches, "count": len(matches)}
+
+
+def package_diff(
+    package1_name: str,
+    package2_name: str,
+    registry: str = DEFAULT_REGISTRY,
+    package1_hash: str = "",
+    package2_hash: str = "",
+) -> dict[str, Any]:
     """Compare two package versions and show differences.
-    
+
     Args:
         package1_name: Name of the first package (e.g., "username/package-name")
-        package2_name: Name of the second package (e.g., "username/package-name") 
+        package2_name: Name of the second package (e.g., "username/package-name")
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         package1_hash: Optional specific hash for first package (default: latest)
         package2_hash: Optional specific hash for second package (default: latest)
-    
+
     Returns:
         Dict with differences between the two packages including added, removed, and modified files.
     """
     normalized_registry = _normalize_registry(registry)
-    
+
     try:
         # Browse packages with optional hash specification
         if package1_hash:
-            pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry, top_hash=package1_hash)
+            pkg1 = quilt3.Package.browse(
+                package1_name, registry=normalized_registry, top_hash=package1_hash
+            )
         else:
             pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
-            
+
         if package2_hash:
-            pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry, top_hash=package2_hash)
+            pkg2 = quilt3.Package.browse(
+                package2_name, registry=normalized_registry, top_hash=package2_hash
+            )
         else:
             pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
-            
+
     except Exception as e:
         return {"error": f"Failed to browse packages: {e}"}
-    
+
     try:
         # Use quilt3's built-in diff functionality
         diff_result = pkg1.diff(pkg2)
-        
+
         # Convert the diff result to a more readable format
         return {
             "package1": package1_name,
             "package2": package2_name,
             "package1_hash": package1_hash if package1_hash else "latest",
-            "package2_hash": package2_hash if package2_hash else "latest", 
+            "package2_hash": package2_hash if package2_hash else "latest",
             "registry": registry,
-            "diff": diff_result
+            "diff": diff_result,
         }
-        
+
     except Exception as e:
         return {"error": f"Failed to diff packages: {e}"}

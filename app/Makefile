@@ -1,7 +1,7 @@
 # Quilt MCP Server - Phase 1 (App) Makefile
 # Local MCP server build and run
 
-.PHONY: help clean config coverage run test test-unit test-endpoint validate init verify zero 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero 
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  make test-unit    - Run unit tests only (skip integration tests)"
 	@echo "  make test-endpoint - Start server and test MCP endpoint"
 	@echo "  make coverage     - Run tests with coverage (≥85% required)"
+	@echo "  make lint         - Run code linting (auto-fixes formatting, reports remaining issues)"
 	@echo "  make validate     - Full SPEC-compliant validation"
 	@echo "  make clean        - Clean Python cache"
 	@echo "  make config       - Generate .config file with test results"
@@ -28,6 +29,17 @@ config:
 
 coverage:
 	@./app.sh coverage
+
+lint:
+	@echo "Running code linting and auto-fixing..."
+	@uv sync --group lint
+	@echo "Running black (formatter) - auto-fixing..."
+	@uv run black quilt_mcp/ tests/
+	@echo "Running ruff (linter) - auto-fixing..."
+	@uv run ruff check --fix quilt_mcp/ tests/
+	@echo "Running mypy (type checker)..."
+	@uv run mypy quilt_mcp/
+	@echo "✅ All linting completed"
 
 run:
 	@./app.sh run

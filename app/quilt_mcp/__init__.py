@@ -15,7 +15,14 @@ from .constants import (
 )
 
 # Re-export all tools for easy access
-from .tools.auth import auth_status, filesystem_status, catalog_info, catalog_name, catalog_url, catalog_uri
+from .tools.auth import (
+    auth_status,
+    catalog_info,
+    catalog_name,
+    catalog_uri,
+    catalog_url,
+    filesystem_status,
+)
 from .tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,
@@ -47,7 +54,7 @@ __all__ = [
     "auth_status",
     "filesystem_status",
     "catalog_info",
-    "catalog_name", 
+    "catalog_name",
     "catalog_url",
     "catalog_uri",
     # Bucket tools

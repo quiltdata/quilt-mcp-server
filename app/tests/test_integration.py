@@ -2,7 +2,6 @@ import time
 import uuid
 
 import pytest
-
 from quilt_mcp import (
     DEFAULT_BUCKET,
     DEFAULT_REGISTRY,
@@ -14,8 +13,8 @@ from quilt_mcp.tools.auth import (
     auth_status,
     catalog_info,
     catalog_name,
-    catalog_url,
     catalog_uri,
+    catalog_url,
     filesystem_status,
 )
 from quilt_mcp.tools.buckets import (
@@ -26,17 +25,17 @@ from quilt_mcp.tools.buckets import (
     bucket_objects_put,
     bucket_objects_search,
 )
+from quilt_mcp.tools.package_ops import (
+    package_create,
+    package_delete,
+    package_update,
+)
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
     packages_list,
     packages_search,
-)
-from quilt_mcp.tools.package_ops import (
-    package_create,
-    package_delete,
-    package_update,
 )
 
 # Test configuration - using constants
@@ -57,7 +56,9 @@ class TestQuiltAPI:
         assert isinstance(result, dict), "Result should be a dict"
         assert "packages" in result, "Result should have 'packages' key"
         # FAIL if no packages - this indicates a real problem
-        assert len(result["packages"]) > 0, f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
+        assert (
+            len(result["packages"]) > 0
+        ), f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
 
         # Check that we get string package names
         for pkg in result["packages"]:
@@ -74,7 +75,9 @@ class TestQuiltAPI:
         assert "packages" in result
 
         # FAIL if no packages with this prefix - this means the test environment is misconfigured
-        assert len(result["packages"]) > 0, f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
+        assert (
+            len(result["packages"]) > 0
+        ), f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
         # Verify all results match prefix
         for pkg in result["packages"]:
@@ -82,7 +85,9 @@ class TestQuiltAPI:
 
         # FAIL if known package not found - this means the test environment is misconfigured
         package_names = result["packages"]
-        assert KNOWN_PACKAGE in package_names, f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
+        assert (
+            KNOWN_PACKAGE in package_names
+        ), f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
     @pytest.mark.search
     def test_packages_search_finds_data(self):
@@ -101,11 +106,15 @@ class TestQuiltAPI:
                 # Verify the response structure is correct
                 for item in result["results"]:
                     if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                        assert (
+                            len(item["_source"]) > 0
+                        ), "Search result should have at least one key in _source"
                 break
 
         # FAIL if no search terms found any data - this indicates a real problem
-        assert found_results, f"No search results found for any common terms {search_terms} - check if search indexing is working or data exists"
+        assert (
+            found_results
+        ), f"No search results found for any common terms {search_terms} - check if search indexing is working or data exists"
 
     def test_package_browse_known_package(self):
         """Test browsing the known test package."""
@@ -117,7 +126,9 @@ class TestQuiltAPI:
         assert "total_entries" in result
 
         # FAIL if no entries found - this means the test package is misconfigured
-        assert len(result["entries"]) > 0, f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
+        assert (
+            len(result["entries"]) > 0
+        ), f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
 
         # Check we get actual entry structures
         for entry in result["entries"]:
@@ -209,7 +220,9 @@ class TestQuiltAPI:
             assert "catalog_url" in result, "Authenticated status should include catalog_url"
             assert result["search_available"] is True
         elif result["status"] == "not_authenticated":
-            assert "setup_instructions" in result, "Not authenticated should include setup instructions"
+            assert (
+                "setup_instructions" in result
+            ), "Not authenticated should include setup instructions"
             assert result["search_available"] is False
         else:  # error status
             assert "error" in result, "Error status should include error message"
@@ -224,9 +237,15 @@ class TestQuiltAPI:
         assert "current_directory" in result
 
         # Verify we get actual paths
-        assert result["home_directory"].startswith("/"), f"Home directory should be absolute path: {result['home_directory']}"
-        assert result["temp_directory"].startswith("/"), f"Temp directory should be absolute path: {result['temp_directory']}"
-        assert result["current_directory"].startswith("/"), f"Current directory should be absolute path: {result['current_directory']}"
+        assert result["home_directory"].startswith(
+            "/"
+        ), f"Home directory should be absolute path: {result['home_directory']}"
+        assert result["temp_directory"].startswith(
+            "/"
+        ), f"Temp directory should be absolute path: {result['temp_directory']}"
+        assert result["current_directory"].startswith(
+            "/"
+        ), f"Current directory should be absolute path: {result['current_directory']}"
 
     def test_catalog_info_returns_data(self):
         """Test catalog_info returns current catalog information."""
@@ -257,14 +276,17 @@ class TestQuiltAPI:
             assert isinstance(result["catalog_name"], str)
             assert isinstance(result["detection_method"], str)
             assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
-            assert result["detection_method"] in ["authentication", "navigator_config", "registry_config", "unknown"]
+            assert result["detection_method"] in [
+                "authentication",
+                "navigator_config",
+                "registry_config",
+                "unknown",
+            ]
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
         result = catalog_url(
-            registry=TEST_REGISTRY,
-            package_name="raw/salmon-rnaseq",
-            path="README.md"
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
         )
 
         assert isinstance(result, dict)
@@ -283,10 +305,7 @@ class TestQuiltAPI:
 
     def test_catalog_url_bucket_view(self):
         """Test catalog_url generates valid bucket view URLs."""
-        result = catalog_url(
-            registry=TEST_REGISTRY,
-            path="test/data.csv"
-        )
+        result = catalog_url(registry=TEST_REGISTRY, path="test/data.csv")
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -304,9 +323,7 @@ class TestQuiltAPI:
     def test_catalog_uri_package_reference(self):
         """Test catalog_uri generates valid Quilt+ URIs."""
         result = catalog_uri(
-            registry=TEST_REGISTRY,
-            package_name="raw/salmon-rnaseq",
-            path="README.md"
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
         )
 
         assert isinstance(result, dict)
@@ -326,7 +343,7 @@ class TestQuiltAPI:
             registry=TEST_REGISTRY,
             package_name="raw/salmon-rnaseq",
             path="README.md",
-            top_hash=test_hash
+            top_hash=test_hash,
         )
 
         assert isinstance(result, dict)
@@ -354,9 +371,9 @@ class TestQuiltAPI:
 
         # Should get a meaningful error about the bucket
         error_msg = str(exc_info.value).lower()
-        assert any(term in error_msg for term in [
-            "nosuchbucket", "no such bucket", "bucket", "not found"
-        ]), f"Expected meaningful bucket error, got: {exc_info.value}"
+        assert any(
+            term in error_msg for term in ["nosuchbucket", "no such bucket", "bucket", "not found"]
+        ), f"Expected meaningful bucket error, got: {exc_info.value}"
 
     def test_package_browse_nonexistent_fails(self):
         """Test that browsing non-existent package raises exception."""
@@ -364,9 +381,10 @@ class TestQuiltAPI:
             package_browse("definitely/nonexistent/package")
 
         error_msg = str(exc_info.value).lower()
-        assert any(term in error_msg for term in [
-            "not found", "does not exist", "no such file", "invalid package name"
-        ]), f"Expected meaningful error message, got: {exc_info.value}"
+        assert any(
+            term in error_msg
+            for term in ["not found", "does not exist", "no such file", "invalid package name"]
+        ), f"Expected meaningful error message, got: {exc_info.value}"
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
@@ -417,13 +435,13 @@ class TestQuiltAPI:
                 "key": "test-uploads/test-file-1.txt",
                 "text": "Hello, this is a test file created by the test suite.",
                 "content_type": "text/plain",
-                "metadata": {"created_by": "test_suite", "test": "true"}
+                "metadata": {"created_by": "test_suite", "test": "true"},
             },
             {
                 "key": "test-uploads/test-file-2.json",
                 "text": '{"message": "test json", "timestamp": "2025-01-01"}',
-                "content_type": "application/json"
-            }
+                "content_type": "application/json",
+            },
         ]
 
         result = bucket_objects_put(test_bucket, test_items)
@@ -443,7 +461,9 @@ class TestQuiltAPI:
                 if "error" in item_result:
                     error_msg = item_result["error"].lower()
                     if "accessdenied" in error_msg or "not authorized" in error_msg:
-                        pytest.fail(f"Permission error - user needs s3:PutObject permissions: {item_result['error']}")
+                        pytest.fail(
+                            f"Permission error - user needs s3:PutObject permissions: {item_result['error']}"
+                        )
 
         assert result["uploaded"] > 0, "Should have successfully uploaded some files"
 
@@ -485,7 +505,7 @@ class TestQuiltAPI:
         test_metadata = {
             "description": "Test package created by integration tests",
             "created_by": "test_suite",
-            "test": True
+            "test": True,
         }
 
         dynamic_pkg_name = f"testuser/testpackage-{int(time.time())}-{uuid.uuid4().hex[:8]}"
@@ -495,7 +515,7 @@ class TestQuiltAPI:
             registry=TEST_REGISTRY,
             metadata=test_metadata,
             message="Test package creation",
-            flatten=True
+            flatten=True,
         )
 
         assert isinstance(result, dict)
@@ -505,7 +525,9 @@ class TestQuiltAPI:
             # If it fails due to permissions, that's a setup issue
             error_msg = result["error"].lower()
             if "accessdenied" in error_msg or "not authorized" in error_msg:
-                pytest.fail(f"Permission error - user needs s3:PutObject permissions: {result['error']}")
+                pytest.fail(
+                    f"Permission error - user needs s3:PutObject permissions: {result['error']}"
+                )
             else:
                 pytest.fail(f"Package creation failed: {result['error']}")
 
@@ -520,13 +542,9 @@ class TestQuiltAPI:
         try:
             delete_result = package_delete(result["package_name"], registry=TEST_REGISTRY)
             if delete_result.get("status") != "success":
-                print(
-                    f"Warning: Package cleanup did not report success: {delete_result}"
-                )
+                print(f"Warning: Package cleanup did not report success: {delete_result}")
         except Exception as cleanup_error:
-            print(
-                f"Warning: Exception during cleanup of {result['package_name']}: {cleanup_error}"
-            )
+            print(f"Warning: Exception during cleanup of {result['package_name']}: {cleanup_error}")
 
     def test_package_update_realistic(self):
         """Test updating the existing test package by adding a timestamp file."""
@@ -538,7 +556,7 @@ class TestQuiltAPI:
         current_time = time.time()
         timestamp_content = f"Updated at: {current_time}\nMicroseconds: {int(current_time * 1000000)}\nRandom ID: {int(current_time * 1000000) % 999999}\nTest run timestamp for package update validation"
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.timestamp', delete=False) as tmp_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".timestamp", delete=False) as tmp_file:
             tmp_file.write(timestamp_content)
             tmp_file_path = tmp_file.name
 
@@ -550,7 +568,7 @@ class TestQuiltAPI:
                     "key": timestamp_key,
                     "text": timestamp_content,
                     "content_type": "text/plain",
-                    "metadata": {"created_by": "test_suite", "test": "package_update"}
+                    "metadata": {"created_by": "test_suite", "test": "package_update"},
                 }
             ]
 
@@ -567,15 +585,20 @@ class TestQuiltAPI:
                 registry=TEST_REGISTRY,
                 metadata={"updated_by": "test_suite", "last_updated": int(time.time())},
                 message="Added timestamp file via package update test",
-                flatten=True
+                flatten=True,
             )
 
             assert isinstance(result, dict)
 
             # Expect successful update
             if "error" in result:
-                if "accessdenied" in result["error"].lower() or "not authorized" in result["error"].lower():
-                    pytest.fail(f"Permission error - user needs package update permissions: {result['error']}")
+                if (
+                    "accessdenied" in result["error"].lower()
+                    or "not authorized" in result["error"].lower()
+                ):
+                    pytest.fail(
+                        f"Permission error - user needs package update permissions: {result['error']}"
+                    )
                 else:
                     pytest.fail(f"Package update failed: {result['error']}")
 
@@ -610,8 +633,13 @@ class TestQuiltAPI:
 
             if "error" in result:
                 # Search might not be configured - skip test
-                if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                    pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+                if (
+                    "search endpoint" in result["error"].lower()
+                    or "not configured" in result["error"].lower()
+                ):
+                    pytest.skip(
+                        f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}"
+                    )
                 continue
 
             if len(result["results"]) > 0:
@@ -619,12 +647,16 @@ class TestQuiltAPI:
                 # Verify the response structure is correct
                 for item in result["results"]:
                     if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                        assert (
+                            len(item["_source"]) > 0
+                        ), "Search result should have at least one key in _source"
                 break
 
         # If search is configured but no results found, that's okay for some buckets
         if not found_results:
-            pytest.skip(f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content")
+            pytest.skip(
+                f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content"
+            )
 
     def test_bucket_objects_search_no_results(self):
         """Test that non-existent search returns empty results, not error."""
@@ -636,19 +668,16 @@ class TestQuiltAPI:
             assert len(result["results"]) == 0, "Non-existent search should return empty results"
         else:
             # Search might not be configured - that's okay
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+            if (
+                "search endpoint" in result["error"].lower()
+                or "not configured" in result["error"].lower()
+            ):
                 pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}")
 
     def test_bucket_objects_search_dsl_query(self):
         """Test bucket_objects_search with dictionary DSL query."""
-        query_dsl = {
-            "query": {
-                "wildcard": {
-                    "key": "*.csv"
-                }
-            }
-        }
-        
+        query_dsl = {"query": {"wildcard": {"key": "*.csv"}}}
+
         result = bucket_objects_search(KNOWN_BUCKET, query_dsl, limit=3)
 
         assert isinstance(result, dict)
@@ -658,7 +687,10 @@ class TestQuiltAPI:
 
         if "error" in result:
             # Search might not be configured - skip test
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+            if (
+                "search endpoint" in result["error"].lower()
+                or "not configured" in result["error"].lower()
+            ):
                 pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
         else:
             assert "results" in result
@@ -700,7 +732,10 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
         if "error" in result:
             # Some packages might not support diff operations or might not exist
-            if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
+            if (
+                "not found" in result["error"].lower()
+                or "does not exist" in result["error"].lower()
+            ):
                 pytest.skip(f"Packages not accessible for diff: {result['error']}")
             else:
                 pytest.skip(f"Package diff not supported: {result['error']}")
@@ -713,15 +748,18 @@ class TestQuiltAPI:
 
     def test_package_diff_nonexistent_packages(self):
         """Test package_diff with non-existent packages."""
-        result = package_diff("definitely/nonexistent1", "definitely/nonexistent2", registry=TEST_REGISTRY)
+        result = package_diff(
+            "definitely/nonexistent1", "definitely/nonexistent2", registry=TEST_REGISTRY
+        )
 
         assert isinstance(result, dict)
         assert "error" in result
         # Should get a meaningful error about packages not being found
         error_msg = result["error"].lower()
-        assert any(term in error_msg for term in [
-            "failed to browse", "not found", "does not exist", "no such file"
-        ]), f"Expected meaningful error about missing packages, got: {result['error']}"
+        assert any(
+            term in error_msg
+            for term in ["failed to browse", "not found", "does not exist", "no such file"]
+        ), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 
 if __name__ == "__main__":

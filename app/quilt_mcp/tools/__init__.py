@@ -10,20 +10,17 @@ These tools are pure functions that are registered by the tools module.
 
 Example usage:
     from quilt_mcp.tools import auth, buckets, packages, package_ops
-    
+
     # Use auth tools
     status = auth.auth_status()
-    
+
     # Use bucket tools
     objects = buckets.bucket_objects_list("my-bucket")
-    
+
     # Use package tools
     pkg_list = packages.packages_list()
 """
 
-from . import auth
-from . import buckets  
-from . import packages
-from . import package_ops
+from . import auth, buckets, package_ops, packages
 
 __all__ = ["auth", "buckets", "packages", "package_ops"]

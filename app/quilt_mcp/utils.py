@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import inspect
 import os
-from typing import List, Any
+from collections.abc import Callable
+from typing import Any
 
 import boto3
 from fastmcp import FastMCP
@@ -12,32 +13,30 @@ from fastmcp import FastMCP
 
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
     """Generate a presigned URL for an S3 URI.
-    
+
     Args:
         s3_uri: S3 URI (e.g., "s3://bucket/key")
         expiration: URL expiration in seconds (default: 3600)
-    
+
     Returns:
         Presigned URL string or None if generation fails
     """
     if not s3_uri.startswith("s3://"):
         return None
-    
+
     without_scheme = s3_uri[5:]
-    if '/' not in without_scheme:
+    if "/" not in without_scheme:
         return None
-    
-    bucket, key = without_scheme.split('/', 1)
+
+    bucket, key = without_scheme.split("/", 1)
     expiration = max(1, min(expiration, 604800))  # 1 sec to 7 days
-    
+
     try:
         client = boto3.client("s3")
         url = client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket, "Key": key},
-            ExpiresIn=expiration
+            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration
         )
-        return url
+        return str(url) if url else None
     except Exception:
         return None
 
@@ -47,61 +46,67 @@ def create_mcp_server() -> FastMCP:
     return FastMCP("quilt-mcp-server")
 
 
-def get_tool_modules() -> List[Any]:
+def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, packages, package_ops
+    from quilt_mcp.tools import auth, buckets, package_ops, packages
+
     return [auth, buckets, packages, package_ops]
 
 
-def register_tools(mcp: FastMCP, tool_modules: List[Any] = None, verbose: bool = True) -> int:
+def register_tools(
+    mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True
+) -> int:
     """Register all public functions from tool modules as MCP tools.
-    
+
     Args:
         mcp: The FastMCP server instance
         tool_modules: List of modules to register tools from (defaults to all)
         verbose: Whether to print registration messages
-        
+
     Returns:
         Number of tools registered
     """
     if tool_modules is None:
         tool_modules = get_tool_modules()
-    
+
     tools_registered = 0
-    
+
     for module in tool_modules:
         # Get all public functions (not starting with _)
-        functions = inspect.getmembers(module, predicate=lambda obj: (
-            inspect.isfunction(obj) and 
-            not obj.__name__.startswith('_') and
-            obj.__module__ == module.__name__  # Only functions defined in this module
-        ))
-        
+        def make_predicate(mod: Any) -> Callable[[Any], bool]:
+            return lambda obj: (
+                inspect.isfunction(obj)
+                and not obj.__name__.startswith("_")
+                and obj.__module__ == mod.__name__  # Only functions defined in this module
+            )
+
+        functions = inspect.getmembers(module, predicate=make_predicate(module))
+
         for name, func in functions:
             # Register each function as an MCP tool
             mcp.tool(func)
             tools_registered += 1
             if verbose:
                 print(f"Registered tool: {module.__name__}.{name}")
-    
+
     return tools_registered
 
 
 def create_configured_server(verbose: bool = True) -> FastMCP:
     """Create a fully configured MCP server with all tools registered.
-    
+
     Args:
         verbose: Whether to print registration messages
-        
+
     Returns:
         Configured FastMCP server instance
     """
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
-    
+
     if verbose:
         print(f"Successfully registered {tools_count} tools")
-    
+
     return mcp
 
 
@@ -110,13 +115,16 @@ def run_server() -> None:
     try:
         # Create and configure the server
         mcp = create_configured_server()
-        
+
         # Get transport from environment variable (default to streamable-http)
-        transport = os.environ.get('FASTMCP_TRANSPORT', 'streamable-http')
-        
+        from fastmcp import Transport
+
+        transport_str = os.environ.get("FASTMCP_TRANSPORT", "streamable-http")
+        transport: Transport = transport_str  # type: ignore
+
         # Run the server
         mcp.run(transport=transport)
-        
+
     except Exception as e:
         print(f"Error starting MCP server: {e}")
         raise

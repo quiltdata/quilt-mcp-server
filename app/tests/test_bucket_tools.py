@@ -13,8 +13,20 @@ from quilt_mcp import (
 def test_bucket_objects_list_success():
     mock_resp = {
         "Contents": [
-            {"Key": "foo.txt", "Size": 10, "LastModified": "2025-01-01", "ETag": "abc", "StorageClass": "STANDARD"},
-            {"Key": "bar.csv", "Size": 20, "LastModified": "2025-01-02", "ETag": "def", "StorageClass": "STANDARD"},
+            {
+                "Key": "foo.txt",
+                "Size": 10,
+                "LastModified": "2025-01-01",
+                "ETag": "abc",
+                "StorageClass": "STANDARD",
+            },
+            {
+                "Key": "bar.csv",
+                "Size": 20,
+                "LastModified": "2025-01-02",
+                "ETag": "def",
+                "StorageClass": "STANDARD",
+            },
         ],
         "IsTruncated": False,
         "KeyCount": 2,
@@ -40,7 +52,7 @@ def test_bucket_object_info_success():
     head = {
         "ContentLength": 123,
         "ContentType": "text/plain",
-        "ETag": "\"etag\"",
+        "ETag": '"etag"',
         "LastModified": "2025-01-03",
         "Metadata": {"a": "b"},
         "StorageClass": "STANDARD",
@@ -109,7 +121,11 @@ def test_bucket_objects_put_errors():
     with patch("boto3.client", return_value=mock_client):
         result = bucket_objects_put(
             bucket="my-bucket",
-            items=[{"key": "a.txt", "text": "hello"}, {"key": "", "text": "bad"}, {"key": "c.bin", "data": "***"}],
+            items=[
+                {"key": "a.txt", "text": "hello"},
+                {"key": "", "text": "bad"},
+                {"key": "c.bin", "data": "***"},
+            ],
         )
         # One success attempt fails due to put exception; others have validation errors
         assert len(result["results"]) == 3
@@ -120,7 +136,10 @@ def test_bucket_object_fetch_base64():
     mock_stream = MagicMock()
     mock_stream.read.return_value = b"abcdef"
     mock_client = MagicMock()
-    mock_client.get_object.return_value = {"Body": mock_stream, "ContentType": "application/octet-stream"}
+    mock_client.get_object.return_value = {
+        "Body": mock_stream,
+        "ContentType": "application/octet-stream",
+    }
     with patch("boto3.client", return_value=mock_client):
         result = bucket_object_fetch("s3://my-bucket/file.bin", max_bytes=10, base64_encode=True)
         assert result["base64"] is True
@@ -140,7 +159,9 @@ def test_bucket_object_fetch_text_fallback():
 
 def test_bucket_object_link_success():
     mock_client = MagicMock()
-    mock_client.generate_presigned_url.return_value = "https://example.com/presigned-url?signature=abc123"
+    mock_client.generate_presigned_url.return_value = (
+        "https://example.com/presigned-url?signature=abc123"
+    )
     with patch("boto3.client", return_value=mock_client):
         result = bucket_object_link("s3://my-bucket/file.txt", expiration=7200)
         assert result["bucket"] == "my-bucket"
@@ -148,9 +169,7 @@ def test_bucket_object_link_success():
         assert result["presigned_url"] == "https://example.com/presigned-url?signature=abc123"
         assert result["expires_in"] == 7200
         mock_client.generate_presigned_url.assert_called_once_with(
-            "get_object",
-            Params={"Bucket": "my-bucket", "Key": "file.txt"},
-            ExpiresIn=7200
+            "get_object", Params={"Bucket": "my-bucket", "Key": "file.txt"}, ExpiresIn=7200
         )
 
 
@@ -166,7 +185,7 @@ def test_bucket_object_link_expiration_limits():
         # Test minimum expiration
         result = bucket_object_link("s3://my-bucket/file.txt", expiration=0)
         assert result["expires_in"] == 1
-        
+
         # Test maximum expiration
         result = bucket_object_link("s3://my-bucket/file.txt", expiration=1000000)
         assert result["expires_in"] == 604800
