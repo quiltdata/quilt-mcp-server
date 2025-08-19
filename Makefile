@@ -62,6 +62,9 @@ catalog:
 deploy:
 	@$(MAKE) -C deploy-aws deploy
 
+test-ci:
+	@$(MAKE) -C app test-ci
+
 # Validation Commands - delegate to phase-specific Makefiles
 validate:
 	@echo "🔍 Running full validation pipeline (all phases)..."
@@ -84,21 +87,6 @@ validate-deploy:
 	@echo "🔍 Validating Phase 4 (Deploy-AWS)..."
 	@$(MAKE) -C deploy-aws validate
 
-# Init Commands - delegate to phase-specific Makefiles
-init-app:
-	@$(MAKE) -C app init
-
-init-build:
-	@$(MAKE) init-app
-	@$(MAKE) -C build-docker init
-
-init-catalog:
-	@$(MAKE) init-build
-	@$(MAKE) -C catalog-push init
-
-init-deploy:
-	@$(MAKE) init-catalog
-	@$(MAKE) -C deploy-aws init
 
 # Test Commands - delegate to phase-specific Makefiles
 test-app:
@@ -113,44 +101,6 @@ test-catalog:
 test-deploy:
 	@$(MAKE) -C deploy-aws test
 
-# Verification Commands - delegate to phase-specific Makefiles
-verify-app:
-	@$(MAKE) -C app verify
-
-verify-build:
-	@$(MAKE) -C build-docker verify
-
-verify-catalog:
-	@$(MAKE) -C catalog-push verify
-
-verify-deploy:
-	@$(MAKE) -C deploy-aws verify
-
-# Zero Commands - delegate to phase-specific Makefiles
-zero-app:
-	@$(MAKE) -C app zero
-
-zero-build:
-	@$(MAKE) -C build-docker zero
-
-zero-catalog:
-	@$(MAKE) -C catalog-push zero
-
-zero-deploy:
-	@$(MAKE) -C deploy-aws zero
-
-# Configuration Commands - delegate to phase-specific Makefiles
-config-app:
-	@$(MAKE) -C app config
-
-config-build:
-	@$(MAKE) -C build-docker config
-
-config-catalog:
-	@$(MAKE) -C catalog-push config
-
-config-deploy:
-	@$(MAKE) -C deploy-aws config
 
 # Server Commands
 run-app:

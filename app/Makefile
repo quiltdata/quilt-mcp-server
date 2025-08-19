@@ -20,21 +20,30 @@ help:
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
 
-# Phase commands
+clean:
+	@./app.sh clean
+
+config:
+	@./app.sh config
+
+coverage:
+	@./app.sh coverage
+
 run:
 	@./app.sh run
 
 test:
 	@./app.sh test
 
+test-ci:
+	@echo "Running IAM tests only (skipping search tests)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not search"
+
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
-	@cd "$(PWD)" && uv sync --group test
-	@cd "$(PWD)" && export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not integration"
-
-
-coverage:
-	@./app.sh coverage
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not integration"
 
 test-endpoint:
 	@echo "Starting MCP server and testing endpoint..."
@@ -48,13 +57,6 @@ test-endpoint:
 validate:
 	@./app.sh validate
 
-clean:
-	@./app.sh clean
-
-config:
-	@./app.sh config
-
-# SPEC validation targets
 init:
 	@echo "Checking Phase 1 (App) preconditions..."
 	@command -v uv >/dev/null || (echo "Error: uv not found. Please install uv first." && exit 1)
