@@ -1,5 +1,10 @@
 # DXT Requirements
 
+## References
+
+- https://www.anthropic.com/engineering/desktop-extensions
+- https://github.com/anthropics/dxt/tree/main/examples/file-manager-python
+
 ## Goals
 
 ### Motivation
