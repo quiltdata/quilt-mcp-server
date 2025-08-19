@@ -45,7 +45,7 @@ KNOWN_BUCKET = DEFAULT_BUCKET
 EXPECTED_S3_OBJECT = KNOWN_TEST_S3_OBJECT
 
 
-@pytest.mark.integration
+@pytest.mark.aws
 class TestQuiltAPI:
     """Test suite for quilt MCP server using real data - tests that expect actual results."""
 

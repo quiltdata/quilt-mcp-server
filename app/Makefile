@@ -55,7 +55,7 @@ test-ci:
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not integration"
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws"
 
 test-endpoint:
 	@echo "Starting MCP server and testing endpoint..."

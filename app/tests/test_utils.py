@@ -209,13 +209,13 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_server = Mock(spec=FastMCP)
         mock_create_server.return_value = mock_server
 
-        # Set environment variable
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "test-transport"}):
+        # Set environment variable to a valid transport
+        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
             run_server()
 
         # Verify server was created and run was called
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="test-transport")
+        mock_server.run.assert_called_once_with(transport="http")
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):

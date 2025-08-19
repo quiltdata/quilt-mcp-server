@@ -4,7 +4,7 @@
 from quilt_mcp.utils import run_server
 
 
-def main():
+def main() -> None:
     """Main entry point for the MCP server."""
     run_server()
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import boto3
 from fastmcp import FastMCP
@@ -117,10 +117,14 @@ def run_server() -> None:
         mcp = create_configured_server()
 
         # Get transport from environment variable (default to streamable-http)
-        from fastmcp import Transport
-
         transport_str = os.environ.get("FASTMCP_TRANSPORT", "streamable-http")
-        transport: Transport = transport_str  # type: ignore
+
+        # Validate transport string and fall back to default if invalid
+        valid_transports = ["stdio", "http", "sse", "streamable-http"]
+        if transport_str not in valid_transports:
+            transport_str = "streamable-http"
+
+        transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
         # Run the server
         mcp.run(transport=transport)
