@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Extract port from URL
-PORT=$(echo "$ENDPOINT_URL" | sed -n 's/.*:\([0-9]*\).*/\1/p')
+PORT=$(echo "$ENDPOINT_URL" | sed -n 's|.*://[^:]\+:\([0-9]\+\).*|\1|p')
 if [ -z "$PORT" ]; then
     log_error "Could not extract port from endpoint URL: $ENDPOINT_URL"
     exit 1

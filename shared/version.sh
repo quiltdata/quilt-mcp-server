@@ -19,7 +19,7 @@ get_version_tag() {
 }
 
 # When sourced, export the version function
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+if [ "${BASH_SOURCE[0]}" != "${0}" ]; then
     export -f get_version
     export -f get_full_version  
     export -f get_branch

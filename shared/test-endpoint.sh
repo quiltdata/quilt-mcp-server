@@ -153,7 +153,7 @@ list_test_tools() {
 }
 
 # Parse arguments
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     case $1 in
         -t|--tools)
             TOOLS_TEST=true
