@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+# Keep our source phases
+!build-docker/
 develop-eggs/
 dist/
 downloads/
@@ -189,3 +191,4 @@ __marimo__/
 /test-package
 # Old test event files (now use tests/events/ via Makefile)
 deployment/packager/test-event*.json
+/deploy-aws/cdk.out

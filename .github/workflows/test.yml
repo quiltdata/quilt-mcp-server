@@ -23,7 +23,7 @@ jobs:
       run: uv python install 3.11
             
     - name: Run tests
-      run: make pytest
+      run: make test-ci
       env:
         UVRUN: uv run
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -34,9 +34,3 @@ jobs:
         QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
-      
-    - name: Check code formatting (optional)
-      run: make lint-ci
-      continue-on-error: true
-      env:
-        UVRUN: uv run
