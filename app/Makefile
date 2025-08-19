@@ -1,14 +1,20 @@
 # Quilt MCP Server - Phase 1 (App) Makefile
 # Local MCP server build and run
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero 
+# Load environment variables from .env if it exists
+sinclude ../.env
+export
+
+ENDPOINT ?= http://127.0.0.1:8000/mcp/
+
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector 
 
 # Default target
 help:
 	@echo "Quilt MCP Server - Phase 1 (App)"
 	@echo ""
 	@echo "Commands:"
-	@echo "  make run          - Start local MCP server on http://127.0.0.1:8000/mcp/"
+	@echo "  make run          - Start local MCP server on $(ENDPOINT)"
 	@echo "  make test         - Run unit and integration tests"
 	@echo "  make test-unit    - Run unit tests only (skip integration tests)"
 	@echo "  make test-endpoint - Start server and test MCP endpoint"
@@ -20,15 +26,21 @@ help:
 	@echo "  make init         - Check preconditions"
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
+	@echo "  make run-inspector - Launch MCP Inspector for visual testing"
 
 clean:
-	@./app.sh clean
+	@echo "Cleaning Python cache..."
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "Clean completed"
 
 config:
 	@./app.sh config
 
 coverage:
-	@./app.sh coverage
+	@echo "Running tests with coverage (≥85% required)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
 
 lint:
 	@echo "Running code linting and auto-fixing..."
@@ -42,10 +54,29 @@ lint:
 	@echo "✅ All linting completed"
 
 run:
-	@./app.sh run
+	@echo "Starting local MCP server..."
+	@uv sync
+	@./app.sh config  # Generate .config before starting
+	@echo "Server starting on $(ENDPOINT)"
+	@export PYTHONPATH="$(PWD)" && uv run python main.py
+
+run-inspector:
+	@echo "Launching MCP Inspector for visual testing..."
+	@command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1)
+	@uv sync
+	@echo "Starting MCP Inspector with server at $(ENDPOINT)"
+	@echo "Inspector UI will be available at http://127.0.0.1:6274"
+	@export PYTHONPATH="$(PWD)" && npx @modelcontextprotocol/inspector uv run python main.py
 
 test:
-	@./app.sh test
+	@echo "Running local tests..."
+	@uv sync --group test
+	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v; \
+	else \
+		echo "No tests found, running import test..."; \
+		export PYTHONPATH="$(PWD)" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
+	fi
 
 test-ci:
 	@echo "Running IAM tests only (skipping search tests)..."
@@ -58,13 +89,8 @@ test-unit:
 	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws"
 
 test-endpoint:
-	@echo "Starting MCP server and testing endpoint..."
-	@uv run python main.py & \
-	SERVER_PID=$$!; \
-	sleep 3; \
-	../shared/test-endpoint.sh -t "http://127.0.0.1:8000/mcp/" || TEST_RESULT=$$?; \
-	kill $$SERVER_PID 2>/dev/null || true; \
-	exit $${TEST_RESULT:-0}
+	@echo "Testing MCP endpoint at $(ENDPOINT)..."
+	@../shared/test-endpoint.sh -t "$(ENDPOINT)"
 
 validate:
 	@./app.sh validate
@@ -75,15 +101,13 @@ init:
 	@echo "✅ Phase 1 preconditions met"
 
 verify:
-	@echo "Starting server for endpoint verification (using sse transport)..."
-	@FASTMCP_TRANSPORT=sse ./app.sh run &
-	@echo $$! > .app-server.pid
-	@sleep 5  # Wait for server to start
-	@echo "Testing MCP endpoint..."
-	@../shared/test-endpoint.sh -p app -t || (kill `cat .app-server.pid` 2>/dev/null; rm -f .app-server.pid; exit 1)
-	@echo "Stopping server..."
-	@kill `cat .app-server.pid` 2>/dev/null || true
-	@rm -f .app-server.pid
+	@echo "Verifying MCP endpoint by starting server and running tests..."
+	@$(MAKE) run & \
+	SERVER_PID=$$!; \
+	sleep 3; \
+	$(MAKE) test-endpoint || TEST_RESULT=$$?; \
+	kill $$SERVER_PID 2>/dev/null || true; \
+	exit $${TEST_RESULT:-0}
 
 zero:
 	@echo "Stopping Phase 1 (App) processes..."

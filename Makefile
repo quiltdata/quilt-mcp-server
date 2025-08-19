@@ -4,9 +4,16 @@
 # Each phase has its own Makefile and SPEC.md for focused, maintainable builds.
 
 # Define phases
+sinclude .env
 PHASES := app build catalog deploy
 
-.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate $(addprefix verify-,$(PHASES)) $(addprefix zero-,$(PHASES)) $(addprefix config-,$(PHASES)) run-app remote-export
+# Endpoint configuration
+APP_ENDPOINT ?= http://127.0.0.1:8000/mcp
+BUILD_ENDPOINT ?= http://127.0.0.1:8001/mcp
+CATALOG_ENDPOINT ?= http://127.0.0.1:8002/mcp
+FLAGS ?=
+
+.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector
 
 # Default target
 help:
@@ -20,15 +27,12 @@ help:
 	@echo ""
 	@echo "🚀 Server Commands:"
 	@echo "  make run-app      - Run Phase 1 MCP server locally"
-	@echo "  make remote-export - Expose local server via ngrok tunnel"
+	@echo "  make run-app-tunnel - Expose local server via ngrok tunnel"
+	@echo "  make run-app-tunnel-inspector - Expose MCP Inspector via ngrok tunnel"
 	@echo ""
 	@echo "🧹 Cleanup Commands:"
 	@echo "  make clean      - Clean all phase artifacts"
 	@echo "  make destroy    - Clean up AWS resources"
-	@echo "  make zero-app     - Stop Phase 1 processes"
-	@echo "  make zero-build   - Stop Phase 2 containers"
-	@echo "  make zero-catalog - Stop Phase 3 containers"
-	@echo "  make zero-deploy  - Disable Phase 4 endpoint"
 	@echo ""
 	@echo "🔍 Validation Commands:"
 	@echo "  make validate       - Validate all phases sequentially"
@@ -106,52 +110,22 @@ test-deploy:
 run-app:
 	@$(MAKE) -C app run
 
-remote-export:
-	@echo "🌐 Starting ngrok tunnel for local MCP server..."
-	@echo "   Local server: http://127.0.0.1:8000/mcp"
-	@echo "   Public URL: https://uniformly-alive-halibut.ngrok-free.app/mcp"
-	@echo "   Press Ctrl+C to stop both server and tunnel"
-	@echo ""
-	@trap 'echo "Stopping tunnel and server..."; kill $$app_pid 2>/dev/null; exit 0' INT; \
-	$(MAKE) -C app run & app_pid=$$!; \
+run-app-tunnel:
+	@echo "Starting app server and tunnel..."
+	@$(MAKE) -C app run & app_pid=$$!; \
 	sleep 3; \
-	ngrok http 8000 --domain=uniformly-alive-halibut.ngrok-free.app; \
+	./shared/tunnel-endpoint.sh $(APP_ENDPOINT) $(FLAGS) || kill $$app_pid; \
 	kill $$app_pid 2>/dev/null
+
+inspect-app-tunnel:
+	@$(MAKE) run-app-tunnel "FLAGS=--inspect"
+
+test-endpoint-tunnel: # run app tunnel, then test-endpoint
+
 
 # Utilities
 check-env:
-	@echo "🔍 Checking environment configuration..."
-	@if [ ! -f ".env" ]; then \
-		echo "⚠️  No .env file found. Copy env.example to .env and configure."; \
-		exit 1; \
-	fi
-	@echo "✅ .env file exists"
-	@bash -c 'set -a && source .env && set +a && \
-		echo "📋 Environment Summary:" && \
-		echo "  AWS Account: $${CDK_DEFAULT_ACCOUNT:-$${AWS_ACCOUNT_ID:-Not set}}" && \
-		echo "  AWS Region: $${CDK_DEFAULT_REGION:-$${AWS_DEFAULT_REGION:-Not set}}" && \
-		echo "  ECR Registry: $${ECR_REGISTRY:-Will be auto-derived}" && \
-		echo "  Quilt Bucket: $${QUILT_DEFAULT_BUCKET:-Not set}" && \
-		echo "  Catalog Domain: $${QUILT_CATALOG_DOMAIN:-Not set}" && \
-		echo "" && \
-		echo "🔍 Validating required environment variables..." && \
-		if [ -z "$${CDK_DEFAULT_ACCOUNT}" ] && [ -z "$${AWS_ACCOUNT_ID}" ]; then \
-			echo "❌ Missing CDK_DEFAULT_ACCOUNT or AWS_ACCOUNT_ID"; \
-			exit 1; \
-		fi && \
-		if [ -z "$${CDK_DEFAULT_REGION}" ] && [ -z "$${AWS_DEFAULT_REGION}" ]; then \
-			echo "❌ Missing CDK_DEFAULT_REGION or AWS_DEFAULT_REGION"; \
-			exit 1; \
-		fi && \
-		if [ -z "$${QUILT_DEFAULT_BUCKET}" ]; then \
-			echo "❌ Missing QUILT_DEFAULT_BUCKET"; \
-			exit 1; \
-		fi && \
-		if [ -z "$${QUILT_CATALOG_DOMAIN}" ]; then \
-			echo "❌ Missing QUILT_CATALOG_DOMAIN"; \
-			exit 1; \
-		fi'
-	@echo "✅ Environment validation complete"
+	@./shared/check-env.sh
 
 clean:
 	@echo "🧹 Cleaning all phase artifacts..."
