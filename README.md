@@ -5,12 +5,18 @@ A secure MCP (Model Context Protocol) server for accessing Quilt data with JWT a
 ## Quick Start
 
 ```bash
-# Run locally
-./phases/app/build.sh run
+# Setup environment
+cp env.example .env
+# Edit .env with your AWS configuration
 
-# Full pipeline (requires ECR_REGISTRY)
-export ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
-./phases/shared/pipeline.sh full
+# Validate environment
+make check-env
+
+# Run locally
+make app
+
+# Full deployment pipeline
+make validate
 ```
 
 ## Architecture
@@ -18,14 +24,15 @@ export ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
 This project uses a **4-phase deployment pipeline**:
 
 ```
-phases/
-├── app/        # Stage 0: Local MCP server (Python)
-├── build/      # Stage 1: Docker containerization  
-├── catalog/    # Stage 2: ECR registry operations
-└── deploy/     # Stage 3: ECS/ALB deployment
+fast-mcp-server/
+├── app/           # Phase 1: Local MCP server (Python)
+├── build-docker/  # Phase 2: Docker containerization  
+├── catalog-push/  # Phase 3: ECR registry operations
+├── deploy-aws/    # Phase 4: ECS/ALB deployment
+└── shared/        # Common utilities (validation, testing)
 ```
 
-Each phase is **atomic** and **testable** independently, but they compose to form a complete deployment pipeline.
+Each phase is **atomic** and **testable** independently, following SPEC.md validation requirements.
 
 ## MCP Tools
 
@@ -55,103 +62,189 @@ This server provides 13 secure tools for Quilt data operations:
 
 - **AWS Account** with CLI configured  
 - **Python 3.11+** and [uv](https://docs.astral.sh/uv/) package manager
-- **Docker** for Lambda packaging
+- **Docker** for containerization
 - **IAM Policy ARN** for S3 access to your Quilt buckets
 
 ## Configuration
 
 ```bash
 # Copy and edit environment configuration
-make env
+cp env.example .env
+make check-env
 ```
 
 Edit `.env` with your settings:
 
 ```bash
-# Required: IAM policy for S3 access
-QUILT_READ_POLICY_ARN=arn:aws:iam::123456789012:policy/YourQuiltReadPolicy
-
-# Quilt Configuration  
-QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
-QUILT_TEST_PACKAGE=yournamespace/testpackage
-QUILT_TEST_ENTRY=README.md
-
-# AWS Configuration
+# AWS Configuration (auto-derived from AWS CLI if not set)
 CDK_DEFAULT_ACCOUNT=123456789012
 CDK_DEFAULT_REGION=us-east-1
 AWS_PROFILE=default
+
+# ECR Configuration (auto-constructed if not set)
+ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
+ECR_REPOSITORY=quilt-mcp
+
+# Quilt Configuration
+QUILT_CATALOG_DOMAIN=your-catalog-domain.com
+QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
+QUILT_TEST_PACKAGE=yournamespace/testpackage
+QUILT_TEST_ENTRY=README.md
 ```
 
 ## Makefile Commands
 
-### Build & Deploy
+### Phase Commands
 ```bash
-make build                        # Build Lambda package locally
-make deploy                       # Build and deploy to AWS
-make test                         # Test deployed endpoints
-make all                          # Run pytest then deploy
+make app                          # Phase 1: Run local MCP server
+make build                        # Phase 2: Build Docker container
+make catalog                      # Phase 3: Push to ECR registry
+make deploy                       # Phase 4: Deploy to ECS Fargate
 ```
 
-### Development & Testing
+### Validation Commands (SPEC-compliant)
 ```bash
-make pytest                       # Run integration tests locally
-make coverage                     # Run tests with coverage report
-make clean                        # Clean build artifacts
+make validate                     # Validate all phases sequentially
+make validate-app                 # Validate Phase 1 only
+make validate-build               # Validate Phase 2 only
+make validate-catalog             # Validate Phase 3 only
+make validate-deploy              # Validate Phase 4 only
 ```
+
+### Testing Commands
+```bash
+make test-app                     # Phase 1 testing only
+make test-build                   # Phase 2 testing only
+make test-deploy                  # Phase 4 testing only
+make coverage                     # Run tests with coverage (fails if <85%)
+```
+
+### Verification Commands (MCP Endpoint Testing)
+```bash
+make verify-app                   # Verify Phase 1 MCP endpoint
+make verify-build                 # Verify Phase 2 MCP endpoint
+make verify-catalog               # Verify Phase 3 MCP endpoint
+make verify-deploy                # Verify Phase 4 MCP endpoint
+```
+
+### Initialization & Cleanup
+```bash
+make init-app                     # Check Phase 1 preconditions
+make init-build                   # Check Phase 2 preconditions
+make init-catalog                 # Check Phase 3 preconditions
+make init-deploy                  # Check Phase 4 preconditions
+
+make zero-app                     # Stop Phase 1 processes
+make zero-build                   # Stop Phase 2 containers
+make zero-catalog                 # Stop Phase 3 containers
+make zero-deploy                  # Disable Phase 4 endpoint (preserve stack)
+```
+
+### Utilities
+```bash
+make check-env                    # Validate .env configuration
+make clean                        # Clean build artifacts
+make status                       # Show deployment status
+make destroy                      # Clean up AWS resources
+```
+
+## Port Configuration
+
+Each phase uses different ports to avoid conflicts:
+
+| Phase | Description | Port | Endpoint |
+|-------|-------------|------|----------|
+| Phase 1 | Local app | 8000 | `http://127.0.0.1:8000/mcp` |
+| Phase 2 | Docker build | 8001 | `http://127.0.0.1:8001/mcp` |
+| Phase 3 | ECR catalog | 8002 | `http://127.0.0.1:8002/mcp` |
+| Phase 4 | AWS deploy | 443/80 | `https://your-alb-url/mcp` |
+
+## Development Workflow
 
 ### Local Development
 ```bash
-make stdio-run                    # Run as stdio MCP server
-make stdio-inspector              # Test stdio server with MCP Inspector
-make remote-run                   # Run as HTTP server (localhost:8000)
-make remote-test                  # Test local HTTP server
+make app                          # Local server on http://127.0.0.1:8000/mcp
 ```
 
-### Monitoring & Debug
+### SPEC-Compliant Pipeline
 ```bash
-make logs                         # View Lambda logs (last 10 minutes)
-make token                        # Get OAuth access token
-make remote-inspector             # Test deployed server with MCP Inspector
+# Complete validation (recommended)
+make validate
+
+# Step-by-step development
+make init-app                     # Check preconditions
+make app                          # Run phase
+make test-app                     # Test artifacts
+make verify-app                   # Verify MCP endpoint
+make zero-app                     # Cleanup processes
 ```
 
-## Environment Switching
-
-Use different environment files for different deployments:
-
+### Testing Individual Phases
 ```bash
-# Development environment
-make pytest                       # Uses .env (default)
-
-# Staging environment  
-ENV_FILE=.env.staging make pytest # Uses staging configuration
-ENV_FILE=.env.staging make deploy  # Deploy to staging
+# Test specific phases
+make verify-build                 # Test Docker container
+make verify-catalog               # Test ECR image
+make verify-deploy                # Test deployed service
 ```
 
-## Testing with MCP Inspector
+## Environment Management
 
+The system automatically loads environment variables from `.env` via `shared/common.sh`:
+
+- Variables are auto-derived when possible (e.g., ECR_REGISTRY from AWS account)
+- Use `make check-env` to see current configuration
+- ECR_REGISTRY is constructed automatically if not provided
+- AWS credentials use your configured AWS CLI profile
+
+## Manual Testing
+
+### MCP Endpoint Testing
 ```bash
-# Test deployed server
-make remote-inspector
-
-# Test local stdio server
-make stdio-inspector
-```
-
-## Manual API Testing
-
-```bash
-# Get access token and test
-make token
-TOKEN=$(make token)
-curl -H "Authorization: Bearer $TOKEN" \
-     -X POST https://your-api-endpoint.com/mcp/ \
+# Test local server
+curl -X POST http://localhost:8000/mcp \
      -H "Content-Type: application/json" \
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Test Docker container (Phase 2)
+curl -X POST http://localhost:8001/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Test ECR image (Phase 3)
+curl -X POST http://localhost:8002/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+### AWS Service Testing
+```bash
+# View deployment status
+make status
+
+# View ECS logs
+aws logs tail /ecs/quilt-mcp --follow --region us-east-1
+
+# Test deployed endpoint (requires authentication)
+# See CLAUDE.md for full authentication setup
 ```
 
 ## Cleanup
 
 ```bash
-make clean                        # Remove local build artifacts
-uv run cdk destroy --app "python app.py"  # Remove AWS resources
+# Clean local artifacts
+make clean
+
+# Stop all running containers/processes
+make zero-app zero-build zero-catalog
+
+# Remove AWS resources
+make destroy
 ```
+
+## Security
+
+- All ECS tasks use IAM roles with minimal required permissions
+- API endpoints are protected with JWT authentication via ALB
+- Docker builds are isolated and use official base images
+- No secrets are logged or exposed in responses
+- Environment variables are managed via `.env` (not committed)

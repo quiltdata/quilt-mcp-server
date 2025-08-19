@@ -1,395 +1,141 @@
-# Fast MCP Server - Phase Specifications
+# Fast MCP Server - Phase-based Deployment Specifications
 
-This document defines the contracts, requirements, and validation criteria for each phase of the deployment pipeline.
+This document provides an overview of the 4-phase deployment pipeline. Each phase has its own dedicated Makefile and SPEC.md for focused, maintainable development.
 
 ## Architecture Overview
 
-The system uses a 4-phase pipeline where each phase is atomic, testable, and has clear input/output contracts:
+The Quilt MCP server uses a 4-phase pipeline for robust build and deployment:
 
 ```tree
-src/
-├── app/           # Phase 1: Local MCP server (Python)
-├── build-docker/  # Phase 2: Docker containerization  
+fast-mcp-server/
+├── app/           # Phase 1: Local MCP server
+│   ├── Makefile   # Phase-specific build targets
+│   └── SPEC.md    # Detailed phase specification
+├── build-docker/  # Phase 2: Docker containerization
+│   ├── Makefile   # Phase-specific build targets
+│   └── SPEC.md    # Detailed phase specification
 ├── catalog-push/  # Phase 3: ECR registry operations
+│   ├── Makefile   # Phase-specific build targets
+│   └── SPEC.md    # Detailed phase specification
 ├── deploy-aws/    # Phase 4: ECS/ALB deployment
-└── shared/        # Common utilities and pipeline orchestration
+│   ├── Makefile   # Phase-specific build targets
+│   └── SPEC.md    # Detailed phase specification
+└── shared/        # Common utilities
 ```
 
-## Version Management Contract
+## Phase Specifications
 
-All phases MUST use git SHA as the canonical version to prevent skew:
+Each phase is fully documented with its own specification:
 
-- **Version Source**: `git rev-parse --short HEAD`
-- **Local Image**: `quilt-mcp:${GIT_SHA}`
-- **ECR Image**: `${ECR_REGISTRY}/quilt-mcp:${GIT_SHA}`
-- **Deployed Service**: Tagged with `${GIT_SHA}`
+- **[Phase 1: App](app/SPEC.md)** - Local MCP server with FastMCP
+- **[Phase 2: Build-Docker](build-docker/SPEC.md)** - Docker containerization
+- **[Phase 3: Catalog-Push](catalog-push/SPEC.md)** - ECR registry operations
+- **[Phase 4: Deploy-AWS](deploy-aws/SPEC.md)** - ECS/ALB deployment
 
-## Phase 1: App (Local MCP Server)
+## Validation System
 
-### Phase 1 Purpose
+**Validation** means each phase successfully completes the following SPEC-compliant process:
 
-Develop and validate the core MCP server functionality locally.
+1. **Preconditions** (`make init-<phase>`): Check dependencies and environment
+2. **Execution** (`make <phase>`): Create/execute phase artifacts
+3. **Testing** (`make test-<phase>`): Run phase-specific tests
+4. **Verification** (`make verify-<phase>`): Validate MCP endpoint functionality
+5. **Cleanup** (`make zero-<phase>`): Clean up processes and resources
+6. **Configuration** (`make config-<phase>`): Generate `.config` with results
 
-### Phase 1 Input Contract
+Each phase must fail and abort validation on any error.
 
-- Source code in `src/app/src/quilt_mcp/`
-- Python dependencies in `pyproject.toml`
-- Test configuration
+## Usage
 
-### Phase 1 Output Contract
-
-- Validated MCP server ready for containerization
-- All tests passing with required coverage
-- Local endpoint responding correctly
-
-### Phase 1 Validation Requirements
-
-#### Phase 1 Unit Tests
+### Individual Phase Commands
 
 ```bash
-./src/app/app.sh test
+# Work with specific phases
+cd app && make help          # Phase 1 commands
+cd build-docker && make help # Phase 2 commands
+cd catalog-push && make help # Phase 3 commands
+cd deploy-aws && make help   # Phase 4 commands
 ```
 
-- **Requirement**: All unit tests MUST pass
-- **Coverage**: Minimum 85% code coverage
-- **Location**: `src/app/tests/test_*.py`
-- **Command**: `uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85`
+### Root Makefile Delegation
 
-#### Phase 1 Integration Tests  
+The root Makefile delegates to phase-specific Makefiles:
 
 ```bash
-./src/app/app.sh test --integration
-```
-
-- **Requirement**: All integration tests MUST pass
-- **Real Data**: Tests against actual Quilt buckets/packages
-- **Authentication**: Validates OAuth and AWS credentials
-
-#### Phase 1 Local Endpoint Validation
-
-```bash
-./test-endpoint.sh -l -t
-```
-
-- **Requirement**: Local server MUST respond to MCP calls
-- **Port**: Server runs on `http://127.0.0.1:8000/mcp`
-- **Methods**: `initialize`, `tools/list`, `tools/call` all functional
-- **Response Format**: Valid JSON-RPC 2.0 responses
-
-#### Phase 1 Import Validation
-
-- All core modules import without error
-- No circular dependencies
-- All tools register correctly
-
-### Phase 1 Success Criteria
-
-- [ ] All unit tests pass with ≥85% coverage
-- [ ] All integration tests pass  
-- [ ] `test-endpoint.sh -l -t` passes
-- [ ] Server starts and responds within 10 seconds
-- [ ] All MCP tools return valid responses
-
-### Phase 1 Script
-
-- **Location**: `src/app/app.sh`
-- **Commands**: `run`, `test`, `test --integration`, `test --coverage`, `clean`
-
-## Phase 2: Build-Docker (Containerization)
-
-### Phase 2 Purpose
-
-Package the MCP server into a Docker container for cloud deployment.
-
-### Phase 2 Input Contract
-
-- Validated app phase (Phase 1 success)
-- Git SHA version tag
-- `Dockerfile` with proper Python/dependency setup
-
-### Phase 2 Output Contract
-
-- Docker image: `quilt-mcp:${GIT_SHA}`
-- Container passes health checks
-- Image ready for registry push
-
-### Phase 2 Validation Requirements
-
-#### Phase 2 Build Validation
-
-```bash
-./src/build-docker/build-docker.sh build
-```
-
-- **Requirement**: Docker build MUST complete without errors
-- **Platform**: `linux/amd64` for ECS compatibility
-- **Size**: Image should be optimized (< 1GB)
-- **Layers**: Proper layer caching for fast rebuilds
-
-#### Phase 2 Container Health Check
-
-```bash
-./src/build-docker/build-docker.sh test  
-```
-
-- **Requirement**: Container MUST pass health check
-- **Startup**: Container starts within 30 seconds
-- **Health Endpoint**: `/health` returns 200 OK
-- **MCP Endpoint**: `/mcp` accepts requests
-- **Port**: Exposes port 8000
-
-#### Phase 2 Container Runtime Test
-
-- Container runs without privileged access
-- No hardcoded secrets or credentials
-- Proper signal handling (SIGTERM)
-- Logs to stdout/stderr
-
-### Phase 2 Success Criteria
-
-- [ ] Docker build completes successfully
-- [ ] Container starts and responds within 30s
-- [ ] Health check passes (`curl -f http://localhost:8001/health`)
-- [ ] MCP endpoint responds (`curl -f http://localhost:8001/mcp`)
-- [ ] Container stops gracefully on SIGTERM
-
-### Phase 2 Script
-
-- **Location**: `src/build-docker/build-docker.sh`  
-- **Commands**: `build`, `test`, `run`, `clean`
-
-## Phase 3: Catalog-Push (ECR Registry)
-
-### Phase 3 Purpose
-
-Push Docker images to ECR registry for cloud deployment.
-
-### Phase 3 Input Contract
-
-- Valid Docker image from Phase 2: `quilt-mcp:${GIT_SHA}`
-- ECR registry URL: `$ECR_REGISTRY`
-- AWS credentials with ECR push permissions
-
-### Phase 3 Output Contract
-
-- ECR image: `${ECR_REGISTRY}/quilt-mcp:${GIT_SHA}`
-- Image available for ECS deployment
-- Registry tagged with git SHA
-
-### Phase 3 Validation Requirements
-
-#### Phase 3 Registry Authentication
-
-```bash
-./src/catalog-push/catalog-push.sh login
-```
-
-- **Requirement**: ECR login MUST succeed
-- **Credentials**: Uses AWS credentials/profile
-- **Region**: Extracted from registry URL
-
-#### Phase 3 Push Validation
-
-```bash
-./src/catalog-push/catalog-push.sh push quilt-mcp:${GIT_SHA}
-```
-
-- **Requirement**: Image push MUST succeed
-- **Tagging**: Proper ECR URI format
-- **Verification**: Image manifest uploaded
-
-#### Phase 3 Pull Test
-
-```bash
-./src/catalog-push/catalog-push.sh test ${GIT_SHA}
-```
-
-- **Requirement**: Can pull and run ECR image
-- **Integrity**: Pulled image identical to local
-- **Runtime**: Container from ECR runs correctly
-
-### Phase 3 Success Criteria
-
-- [ ] ECR login successful
-- [ ] Image push completes without errors
-- [ ] ECR image pull and run test passes
-- [ ] Image tagged with correct git SHA
-- [ ] Registry metadata correct
-
-### Phase 3 Script
-
-- **Location**: `src/catalog-push/catalog-push.sh`
-- **Commands**: `push`, `pull`, `test`, `login`
-
-## Phase 4: Deploy-AWS (ECS/ALB Deployment)
-
-### Phase 4 Purpose
-
-Deploy containerized MCP server to AWS ECS with ALB load balancing.
-
-### Phase 4 Input Contract
-
-- ECR image: `${ECR_REGISTRY}/quilt-mcp:${GIT_SHA}`
-- AWS credentials with ECS/ALB/CloudFormation permissions
-- CDK app definition
-
-### Phase 4 Output Contract  
-
-- Live ECS service behind ALB
-- Public HTTPS endpoint
-- CloudWatch logging enabled
-- Health monitoring active
-
-### Phase 4 Validation Requirements
-
-#### Phase 4 Infrastructure Deployment
-
-```bash
-./src/deploy-aws/deploy-aws.sh deploy ${ECR_URI}
-```
-
-- **Requirement**: CDK deployment MUST succeed
-- **Resources**: ECS cluster, service, ALB, target groups
-- **Configuration**: `.config` file generated with outputs
-
-#### Phase 4 Service Health Check
-
-```bash
-./src/deploy-aws/deploy-aws.sh test
-```
-
-- **Requirement**: Deployed service MUST be healthy
-- **ALB Health**: Target groups show healthy targets
-- **ECS Health**: All tasks running and healthy
-- **Endpoint**: Public ALB endpoint responds
-
-#### Phase 4 MCP Endpoint Validation
-
-- **URL**: From `.config` file `$MCP_ENDPOINT`
-- **HTTPS**: SSL certificate valid
-- **Methods**: All MCP methods functional
-- **Performance**: Response time < 2 seconds
-
-#### Phase 4 Monitoring Validation
-
-- CloudWatch logs streaming
-- ECS service metrics available
-- ALB access logs (if configured)
-
-### Phase 4 Success Criteria
-
-- [ ] CDK deployment completes successfully
-- [ ] ECS service reaches RUNNING state
-- [ ] ALB health checks pass
-- [ ] Public endpoint responds correctly
-- [ ] All MCP tools functional via ALB
-- [ ] CloudWatch logs streaming
-
-### Phase 4 Script
-
-- **Location**: `src/deploy-aws/deploy-aws.sh`
-- **Commands**: `deploy`, `test`, `status`, `destroy`
-
-## Pipeline Orchestration Contract
-
-### Full Pipeline Execution
-
-```bash
-./src/shared/pipeline.sh full
-```
-
-**Requirements**:
-
-1. Each phase MUST complete successfully before next starts
-2. Version consistency maintained across all phases
-3. Any phase failure stops the pipeline
-4. Rollback capability for failed deployments
-
-### Individual Phase Execution
-
-```bash
-./src/shared/pipeline.sh [app|build-docker|catalog-push|deploy-aws]
-```
-
-**Requirements**:
-
-- Each phase can run independently
-- Input requirements validated before execution
-- Clear success/failure reporting
-
-## Environment Requirements
-
-### Required Environment Variables
-
-```bash
-# For catalog-push and deploy-aws phases
-export ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
-export ECR_REPOSITORY=quilt-mcp  # Optional, defaults to quilt-mcp
-
-# Optional AWS configuration
-export CDK_DEFAULT_ACCOUNT=123456789012
-export CDK_DEFAULT_REGION=us-east-1
-export VPC_ID=vpc-12345678  # Use existing VPC
-```
-
-### AWS Permissions Required
-
-- ECR: `GetAuthorizationToken`, `BatchGetImage`, `BatchCheckLayerAvailability`, `PutImage`
-- ECS: `CreateCluster`, `CreateService`, `UpdateService`, `DescribeServices`
-- CloudFormation: Full access for CDK operations
-- IAM: Create roles for ECS tasks
-- EC2: VPC and security group operations
-
-## Makefile Integration
-
-The Makefile provides convenient shortcuts while enforcing phase contracts:
-
-```bash
-# Individual phases with full validation
-make app        # Runs app phase with coverage requirements
-make build      # Runs build phase with container tests  
-make catalog    # Runs catalog phase with push/pull validation
-make deploy     # Runs deploy phase with endpoint validation
-
-# Pipeline orchestration
-make full       # Full pipeline with all validations
-
-# Testing shortcuts
-make test-app   # Phase 1 validation only
-make test-build # Phase 2 validation only  
-make test-deploy# Phase 4 validation only
+# Phase execution (delegates to <phase>/Makefile)
+make app        # Phase 1: Local MCP server
+make build      # Phase 2: Docker container
+make catalog    # Phase 3: ECR registry push
+make deploy     # Phase 4: ECS deployment
+
+# Validation (SPEC-compliant 6-step process)
+make validate       # All phases sequentially
+make validate-app   # Phase 1 only
+make validate-build # Phase 2 only
+make validate-catalog # Phase 3 only
+make validate-deploy # Phase 4 only
 
 # Utilities
-make clean      # Clean all phase artifacts
-make status     # Show deployment status
-make destroy    # Clean up AWS resources
+make check-env      # Validate environment
+make status         # Show deployment status
+make clean          # Clean artifacts
+make destroy        # Clean up AWS resources
 ```
 
-## Validation Matrix
+## Environment Setup
 
-| Phase | Unit Tests | Integration | Health Check | Endpoint Test | Coverage |
-|-------|------------|-------------|--------------|---------------|----------|
-| app   | ✅ Required | ✅ Required | N/A          | ✅ Local     | ≥85%     |
-| build-docker | N/A | N/A | ✅ Container | ✅ Container | N/A |
-| catalog-push | N/A | N/A | ✅ Registry | ✅ Pull/Run | N/A |
-| deploy-aws | N/A | N/A | ✅ ECS/ALB | ✅ Public | N/A |
+All phases use shared environment variables from `.env`:
 
-## Failure Handling
+```bash
+# Copy example and configure
+cp env.example .env
 
-### Phase Failure Response
+# Validate configuration
+make check-env
 
-1. **Immediate Stop**: Pipeline halts on any phase failure
-2. **Error Reporting**: Clear error messages with debugging info
-3. **State Preservation**: No cleanup on failure for debugging
-4. **Rollback Options**: Phase-specific rollback procedures
+# Required variables
+CDK_DEFAULT_ACCOUNT  # AWS account ID
+CDK_DEFAULT_REGION   # AWS region
+QUILT_DEFAULT_BUCKET # S3 bucket for Quilt data
+QUILT_CATALOG_DOMAIN # Quilt catalog domain
+```
 
-### Common Failure Scenarios
+## Success Criteria Summary
 
-- **App**: Test failures, coverage below 85%, import errors
-- **Build-Docker**: Docker build failure, health check timeout
-- **Catalog-Push**: ECR authentication, network issues, image corruption
-- **Deploy-AWS**: CDK deployment failure, ECS service startup issues
+Each phase has specific success criteria detailed in its SPEC.md:
 
-### Recovery Procedures
+- **Phase 1 (App)**: Local MCP server functional with ≥85% test coverage
+- **Phase 2 (Build)**: Docker container healthy and responsive
+- **Phase 3 (Catalog)**: ECR image pushed and validated
+- **Phase 4 (Deploy)**: Live ECS service with public ALB endpoint
 
-Each phase script includes troubleshooting guidance and recovery steps.
+All phases must pass MCP endpoint validation.
+
+## Port Configuration
+
+Each phase uses different ports to avoid conflicts:
+
+| Phase | Description | Port | Endpoint |
+|-------|-------------|------|----------|
+| Phase 1 | Local app | 8000 | `http://127.0.0.1:8000/mcp` |
+| Phase 2 | Docker build | 8001 | `http://127.0.0.1:8001/mcp` |
+| Phase 3 | ECR catalog | 8002 | `http://127.0.0.1:8002/mcp` |
+| Phase 4 | AWS deploy | 443/80 | `https://your-alb-url/mcp` |
+
+## Benefits of Phase-Specific Structure
+
+1. **Focused Documentation**: Each phase has targeted specifications
+2. **Maintainable Builds**: Phase-specific Makefiles reduce complexity
+3. **Independent Development**: Teams can work on phases separately
+4. **Clear Dependencies**: Phase order and prerequisites are explicit
+5. **Modular Testing**: Each phase validates independently
+
+## Migration from Monolithic Structure
+
+This structure replaces the previous single large Makefile and SPEC.md with:
+
+- 4 focused Makefiles (one per phase)
+- 4 detailed SPEC.md files (one per phase)
+- Root Makefile that delegates to phase-specific builds
+- Cleaner separation of concerns and documentation
+For detailed information about any phase, see its dedicated SPEC.md file.
