@@ -17,43 +17,14 @@ quilt-mcp.dxt (ZIP archive)
 │   └── main.py           # Entry point
 ├── python/               # Bundled Python runtime (optional)
 ├── dependencies/         # All required packages/libraries
+├── README.md             # User installation guide
+├── LICENSE.txt           # License file
+├── check-prereqs.sh      # Prerequisites validation script
 └── icon.png              # Quilt logo
 
 ### Manifest Configuration
 
-```json
-{
-  "dxt_version": "0.1",
-  "name": "quilt-mcp",
-  "version": "1.0.0",
-  "description": "Access Quilt data packages through Claude Desktop",
-  "server": {
-    "type": "python",
-    "entry_point": "server/main.py",
-    "mcp_config": {
-      "command": "python",
-      "args": ["${__dirname}/server/main.py"],
-      "transport": "stdio"
-    }
-  },
-  "user_config": [
-    {
-      "name": "catalog_domain",
-      "type": "string",
-      "label": "Quilt Catalog Domain",
-      "description": "Your organization's Quilt catalog domain",
-      "required": true
-    },
-    {
-      "name": "aws_profile",
-      "type": "string", 
-      "label": "AWS Profile",
-      "description": "AWS profile for authentication (optional)",
-      "required": false
-    }
-  ]
-}
-```
+See [`build-dxt/manifest.json`](../build-dxt/manifest.json) for the complete DXT manifest configuration.
 
 ## Implementation Strategy
 
@@ -63,6 +34,7 @@ quilt-mcp.dxt (ZIP archive)
 - **Dependencies**: Bundle all Python packages in archive
 - **Configuration**: Basic catalog domain input
 - **Authentication**: Use system AWS credentials with graceful fallback
+- **Python**: Require (at least) Python 3.11
 
 ### Phase 2: Enhanced Configuration
 
@@ -98,23 +70,41 @@ quilt-mcp.dxt (ZIP archive)
 
 ## Build Process
 
+### Directory Structure
+
+The DXT build assets are organized in a dedicated `build-dxt/` directory:
+
+```tree
+build-dxt/
+├── manifest.json         # DXT manifest configuration
+├── README.md             # User installation guide
+├── LICENSE.txt           # License file (generated)
+├── check-prereqs.sh      # Prerequisites validation script
+└── icon.png              # Quilt logo (optional)
+```
+
 ### Development Workflow
 
+From inside the `build-dxt` folder:
+
 ```bash
-# Build DXT locally during development
-make build-dxt
+make build # Build DXT locally during development
 
-# Test DXT installation
-make test-dxt-install
+make test # Is there any way to test it?
 
-# Validate DXT functionality
-make validate-dxt
+make release # Build the standalone release package
+
+make assess # Run check-prereqs.sh script
 ```
 
 ### CI/CD Integration
 
 - Automated DXT building on PR merge
-- Release artifacts include .dxt file and installation README
+- Release artifacts include:
+  - `.dxt` file (the extension package)
+  - `README.md` (user installation guide)
+  - `LICENSE.txt` (license file)
+  - `check-prereqs.sh` (prerequisites validation script)
 - Cross-platform testing (macOS, Windows, Linux)
 
 ## User Experience
@@ -123,7 +113,11 @@ make validate-dxt
 
 1. Download `quilt-mcp.dxt` from releases
 2. Double-click to install in Claude Desktop
-3. Configure catalog domain in Claude Desktop settings
+3. Configure Claude Desktop settings
+   1. QUILT_CATALOG_DOMAIN (required)
+   1. AWS_PROFILE
+   1. AWS_DEFAULT_REGION
+   1. LOG_LEVEL
 4. Optionally specify AWS profile
 
 ### Runtime Behavior
@@ -135,19 +129,23 @@ make validate-dxt
 ## Success Criteria
 
 ### Technical Requirements
+
 -  Single-file installation (.dxt archive)
 -  No external dependencies required on user system
 -  Responds correctly to MCP `tools/list` and `tools/call`
 -  Proper AWS authentication with user's existing credentials
 -  Works on clean systems without pre-installed Python/dependencies
+- Includes prerequisites validation script
 
 ### User Experience Requirements  
+
 -  One-click installation in Claude Desktop
 -  Clear configuration interface for catalog settings
 -  Informative error messages for common issues
 -  Documentation for end-user installation and troubleshooting
 
 ### Quality Assurance
+
 -  Automated CI testing for DXT generation and installation
 -  Cross-platform compatibility testing
 -  Integration testing with Claude Desktop
