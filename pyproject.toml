@@ -85,3 +85,9 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+# DXT configuration for Claude Desktop Extensions
+[tool.dxt]
+bundle = "uv pip install --target build-dxt/build/lib --no-cache-dir --quiet ."
+test = "python build-dxt/build/dxt_main.py"
+pack = "npx @anthropic-ai/dxt pack build-dxt/build build-dxt/dist/quilt-mcp.dxt"
