@@ -33,6 +33,7 @@ from .tools.buckets import (
     bucket_objects_search,
 )
 from .tools.package_ops import package_create, package_delete, package_update
+from .tools.s3_package import package_create_from_s3
 from .tools.packages import (
     package_browse,
     package_contents_search,
@@ -69,6 +70,7 @@ __all__ = [
     "package_browse",
     "package_contents_search",
     "package_create",
+    "package_create_from_s3",
     "package_delete",
     "package_diff",
     "package_update",

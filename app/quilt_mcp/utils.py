@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import inspect
 import os
+import re
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, Dict, Literal
 
 import boto3
 from fastmcp import FastMCP
@@ -48,9 +49,9 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, package_ops, packages
+    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package
 
-    return [auth, buckets, packages, package_ops]
+    return [auth, buckets, packages, package_ops, s3_package]
 
 
 def register_tools(
@@ -90,6 +91,36 @@ def register_tools(
                 print(f"Registered tool: {module.__name__}.{name}")
 
     return tools_registered
+
+
+async def get_s3_client():
+    """Get an S3 client instance."""
+    return boto3.client("s3")
+
+
+def validate_package_name(package_name: str) -> bool:
+    """Validate package name format (namespace/name)."""
+    if not package_name or "/" not in package_name:
+        return False
+    
+    parts = package_name.split("/")
+    if len(parts) != 2:
+        return False
+    
+    namespace, name = parts
+    
+    # Check for valid characters and format
+    pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-_]*[a-zA-Z0-9])?$"
+    return bool(re.match(pattern, namespace) and re.match(pattern, name))
+
+
+def format_error_response(message: str) -> Dict[str, Any]:
+    """Format a standardized error response."""
+    return {
+        "success": False,
+        "error": message,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+    }
 
 
 def create_configured_server(verbose: bool = True) -> FastMCP:

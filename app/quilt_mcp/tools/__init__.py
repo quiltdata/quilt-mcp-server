@@ -5,6 +5,7 @@ This package contains all the MCP tool implementations organized by functionalit
 - buckets: S3 bucket operations
 - packages: Package browsing and search
 - package_ops: Package creation, update, and deletion
+- s3_package: S3-to-package creation functionality
 
 These tools are pure functions that are registered by the tools module.
 
@@ -21,6 +22,6 @@ Example usage:
     pkg_list = packages.packages_list()
 """
 
-from . import auth, buckets, package_ops, packages
+from . import auth, buckets, package_ops, packages, s3_package
 
-__all__ = ["auth", "buckets", "packages", "package_ops"]
+__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package"]
