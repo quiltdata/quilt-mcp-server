@@ -49,9 +49,9 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package
+    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management
 
-    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package]
+    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package, metadata_templates, package_management]
 
 
 def register_tools(

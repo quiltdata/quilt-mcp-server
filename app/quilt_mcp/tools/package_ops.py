@@ -72,15 +72,44 @@ def package_create(
         package_name: Name for the new package (e.g., "username/package-name")
         s3_uris: List of S3 URIs to include in the package
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
-        metadata: Optional metadata dict to attach to the package
+        metadata: Optional metadata dict to attach to the package (JSON object, not string)
         message: Commit message for package creation (default: "Created via package_create tool")
         flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
 
     Returns:
         Dict with creation status, package details, and list of files added.
+        
+    Examples:
+        Basic package creation:
+        package_create("my-team/dataset", ["s3://bucket/file.csv"])
+        
+        With metadata:
+        package_create(
+            "my-team/dataset", 
+            ["s3://bucket/file.csv"],
+            metadata={"description": "My dataset", "type": "research"}
+        )
     """
+    # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
+    elif isinstance(metadata, str):
+        try:
+            import json
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": "Invalid metadata format",
+                "provided": metadata,
+                "expected": "Valid JSON object or Python dict",
+                "json_error": str(e),
+                "examples": [
+                    '{"description": "My dataset", "type": "research"}',
+                    '{"created_by": "analyst", "project": "Q1-analysis"}'
+                ],
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+            }
 
     warnings: list[str] = []
     if not s3_uris:

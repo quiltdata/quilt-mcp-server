@@ -47,6 +47,17 @@ from .tools.unified_package import (
     list_available_resources,
     quick_start,
 )
+from .tools.metadata_templates import (
+    get_metadata_template,
+    list_metadata_templates,
+    validate_metadata_structure,
+)
+from .tools.package_management import (
+    create_package_enhanced,
+    package_update_metadata,
+    package_validate,
+    list_package_tools,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
@@ -100,4 +111,12 @@ __all__ = [
     "create_package",
     "list_available_resources", 
     "quick_start",
+    # Enhanced package management
+    "create_package_enhanced",
+    "get_metadata_template",
+    "list_metadata_templates",
+    "list_package_tools",
+    "package_update_metadata",
+    "package_validate",
+    "validate_metadata_structure",
 ]
