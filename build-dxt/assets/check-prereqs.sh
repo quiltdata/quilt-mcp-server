@@ -52,37 +52,6 @@ check_aws() {
     fi
 }
 
-# Check Python packages
-check_packages() {
-    echo "Checking Python package requirements..."
-    
-    # Create temporary requirements check
-    temp_reqs=$(mktemp)
-    cat > "$temp_reqs" << 'EOF'
-quilt3>=5.6.0
-fastmcp>=0.1.0
-mcp>=1.12.0
-boto3>=1.34.0
-httpx>=0.27.0
-EOF
-
-    if python3 -m pip check >/dev/null 2>&1; then
-        echo "✅ Python package environment is consistent"
-    else
-        echo "⚠️  Python package conflicts detected"
-    fi
-    
-    # Check if pip can resolve requirements
-    if python3 -m pip install --dry-run -r "$temp_reqs" >/dev/null 2>&1; then
-        echo "✅ Required packages can be installed"
-    else
-        echo "⚠️  Some required packages may not be available"
-        echo "   This is normal if packages aren't installed yet"
-    fi
-    
-    rm -f "$temp_reqs"
-}
-
 # Check Claude Desktop
 check_claude_desktop() {
     echo "Checking Claude Desktop..."
@@ -123,9 +92,9 @@ show_summary() {
     echo "   Claude Desktop: Required for using the DXT extension"
     echo
     echo "💡 Next Steps:"
-    echo "   1. Install any missing prerequisites above"
-    echo "   2. Install the Quilt MCP DXT in Claude Desktop"
-    echo "   3. Configure catalog domain in Claude Desktop settings"
+    echo "   1. Double-click the Quilt MCP DXT to install in Claude Desktop"
+    echo "   2. Enter catalog domain when prompted"
+    echo "   3. Enable the extension"
     echo
 }
 
@@ -134,8 +103,6 @@ main() {
     check_python
     echo
     check_aws  
-    echo
-    check_packages
     echo
     check_claude_desktop
     echo

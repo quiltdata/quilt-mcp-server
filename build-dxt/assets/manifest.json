@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.1",
   "name": "quilt-mcp",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Access Quilt data packages through Claude Desktop",
   "author": {
     "name": "Quilt Data, Inc.",

@@ -1,48 +1,50 @@
-# Quilt MCP Extension for Claude Desktop
+# Quilt MCP DXT (Desktop Extension)
 
 Access your Quilt data packages directly from Claude Desktop with this Model Context Protocol (MCP) extension.
 
+## Prerequisites Check
+
+Before installing, run the prerequisites check script to verify your system is ready:
+
+```bash
+./check-prereqs.sh
+```
+
+This script verifies you have:
+
+- **Python 3.11+** (required for the MCP server)
+- **AWS credentials** (for accessing your Quilt data)
+- **Claude Desktop** (for running the extension)
+
 ## Installation
 
-1. **Download** the `quilt-mcp.dxt` file from the [latest release](https://github.com/quiltdata/fast-mcp-server/releases)
-2. **Double-click** the `.dxt` file to install it in Claude Desktop
-3. **Restart** Claude Desktop if prompted
+1. **Run prerequisites check**: `./check-prereqs.sh`
+2. **Double-click** the `quilt-mcp-<version>.dxt` file to install in Claude Desktop
+3. **Enter your catalog domain** when prompted (see Configuration below)
+4. **Restart** Claude Desktop if needed
 
 ## Configuration
 
-After installation, configure the extension in Claude Desktop:
+You only need to provide your **Quilt Catalog Domain** - everything else is automatically detected or uses defaults.
 
-### Required Settings
+NOTE: To access advanced search, you will need to login using the command-line.
 
-- **Quilt Catalog Domain**: Your organization's Quilt catalog URL
-  - Example: `https://catalog.example.com`
+```bash
+python3 -m pip install quilt3
+quilt3 config https://catalog.example.com
+quilt3 login
+```
+
+This generates an access code that you paste into the CLI,
+that autheneticates you to the Quilt stack.
+
+### Required Setting
+
+- **Quilt Catalog Domain**: The DNS name of your Quilt catalog
+  - Example: `catalog.example.com` (without https://)
   - Contact your admin if you're unsure of your catalog domain
 
-### Optional Settings
-
-- **AWS Profile**: Specify which AWS profile to use for authentication
-  - Leave blank to use your default AWS profile
-  - Only needed if you have multiple AWS profiles configured
-
-## Prerequisites
-
-Before using this extension, ensure you have:
-
-### AWS Credentials
-
-The extension uses your existing AWS credentials to access Quilt data. Make sure you have AWS credentials configured through one of these methods:
-
-- **AWS CLI**: Run `aws configure` to set up credentials
-- **AWS SSO**: Use `aws sso login` if your organization uses AWS SSO
-- **IAM Roles**: If running on EC2, IAM roles will be used automatically
-- **Environment Variables**: Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-
-### Quilt Access
-
-Verify you can access your Quilt catalog:
-
-- You should have appropriate IAM permissions for the S3 buckets containing your Quilt packages
-- Test access by visiting your catalog domain in a web browser
+The extension automatically detects your AWS credentials from your system configuration.
 
 ## Available Commands
 
@@ -56,30 +58,25 @@ Once configured, you can ask Claude to:
 
 ## Troubleshooting
 
+If you encounter issues:
+
+1. **Run the prerequisites check**: `./check-prereqs.sh`
+2. **Verify AWS credentials**: Run `aws sts get-caller-identity` to confirm your AWS access
+3. **Check catalog domain**: Ensure your catalog domain is correct (without https://)
+4. **Restart Claude Desktop**: After any configuration changes
+
 ### Common Issues
 
-1. **No AWS credentials found**
-   1. Configure AWS credentials using `aws configure`
-   2. Verify credentials work with: `aws sts get-caller-identity`
-2. **Access denied to catalog**
-   1. Check your AWS IAM permissions for the catalog S3 bucket
-   2. Confirm the catalog domain URL is correct
-3. **Package not found**
-   1. Verify the package name spelling
-   2. Check if you have permissions to access the specific package
-   3. Try listing all available packages first
-4. **Extension not loading**
-   1. Restart Claude Desktop
-   2. Check that you're using the latest version of Claude Desktop
-   3. Verify the `.dxt` file downloaded completely
+- **Extension not loading**: Restart Claude Desktop and verify you have the latest version
+- **No packages found**: Check your catalog domain and AWS permissions
+- **AWS access denied**: Confirm your AWS credentials have access to your Quilt S3 buckets
 
 ### Getting Help
 
 If you continue experiencing issues:
 
-1. Check the [troubleshooting guide](https://github.com/quiltdata/fast-mcp-server/wiki/Troubleshooting)
-2. Open an issue on [GitHub](https://github.com/quiltdata/fast-mcp-server/issues)
-3. Contact your organization's Quilt administrator
+1. Contact your organization's Quilt administrator
+2. Verify your AWS IAM permissions for Quilt data access
 
 ## Security Notes
 
