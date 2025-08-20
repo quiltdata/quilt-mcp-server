@@ -1,4 +1,4 @@
-"""Tests for S3-to-package creation functionality."""
+"""Tests for enhanced S3-to-package creation functionality."""
 
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
@@ -8,8 +8,17 @@ from quilt_mcp.tools.s3_package import (
     _validate_bucket_access,
     _discover_s3_objects,
     _should_include_object,
+    _suggest_target_registry,
+    _organize_file_structure,
+    _generate_readme_content,
+    _generate_package_metadata,
 )
 from quilt_mcp.utils import validate_package_name, format_error_response
+from quilt_mcp.validators import (
+    validate_package_structure,
+    validate_metadata_compliance,
+    validate_package_naming,
+)
 
 
 class TestPackageCreateFromS3:
@@ -139,3 +148,176 @@ class TestValidation:
         assert result["success"] is False
         assert result["error"] == "Test error message"
         assert "timestamp" in result
+
+    @pytest.mark.asyncio
+    async def test_dry_run_preview(self):
+        """Test dry run functionality returns preview without creating package."""
+        with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
+             patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
+             patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover:
+            
+            mock_discover.return_value = [
+                {"Key": "data.csv", "Size": 1000},
+                {"Key": "readme.md", "Size": 500},
+            ]
+            
+            result = await package_create_from_s3(
+                source_bucket="test-bucket",
+                package_name="test/package", 
+                target_registry="s3://test-registry",
+                dry_run=True
+            )
+            
+            assert result["success"] is True
+            assert result["action"] == "preview"
+            assert "structure_preview" in result
+            assert "readme_preview" in result
+            assert "metadata_preview" in result
+
+    @pytest.mark.asyncio
+    async def test_auto_registry_suggestion(self):
+        """Test automatic registry suggestion based on source patterns."""
+        with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
+             patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
+             patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover, \
+             patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create:
+            
+            mock_discover.return_value = [{"Key": "model.pkl", "Size": 1000}]
+            mock_create.return_value = {"top_hash": "test_hash"}
+            
+            result = await package_create_from_s3(
+                source_bucket="ml-training-data",
+                package_name="test/package",
+                # No target_registry specified - should be auto-suggested
+            )
+            
+            assert result["success"] is True
+            assert "ml-packages" in result["registry"]
+
+
+class TestEnhancedFunctionality:
+    """Test cases for enhanced S3-to-package functionality."""
+
+    def test_suggest_target_registry(self):
+        """Test registry suggestion algorithm."""
+        # ML patterns
+        assert _suggest_target_registry("ml-data", "models") == "s3://ml-packages"
+        assert _suggest_target_registry("training-data", "") == "s3://ml-packages"
+        
+        # Analytics patterns  
+        assert _suggest_target_registry("analytics-reports", "") == "s3://analytics-packages"
+        assert _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
+        
+        # Default fallback
+        assert _suggest_target_registry("random-bucket", "") == "s3://data-packages"
+
+    def test_organize_file_structure(self):
+        """Test smart file organization."""
+        objects = [
+            {"Key": "data.csv"},
+            {"Key": "config.yml"},
+            {"Key": "readme.md"},
+            {"Key": "model.pkl"},
+            {"Key": "image.png"},
+        ]
+        
+        organized = _organize_file_structure(objects, auto_organize=True)
+        
+        assert "data/processed" in organized
+        assert "metadata" in organized  
+        assert "docs" in organized
+        assert "data/misc" in organized
+        assert "data/media" in organized
+        
+        # Test flat organization
+        flat = _organize_file_structure(objects, auto_organize=False)
+        assert "" in flat
+        assert len(flat[""]) == 5
+
+    def test_generate_readme_content(self):
+        """Test README generation."""
+        organized_structure = {
+            "data/processed": [{"Key": "data.csv"}],
+            "docs": [{"Key": "readme.md"}],
+        }
+        
+        readme = _generate_readme_content(
+            package_name="test/package",
+            description="Test package",
+            organized_structure=organized_structure,
+            total_size=1000000,
+            source_info={"bucket": "test-bucket"},
+            metadata_template="standard"
+        )
+        
+        assert "# test/package" in readme
+        assert "Test package" in readme
+        assert "data/processed" in readme
+        assert "Usage" in readme
+        assert "quilt3.Package.browse" in readme
+
+    def test_generate_package_metadata(self):
+        """Test metadata generation."""
+        organized_structure = {
+            "data/processed": [{"Key": "data.csv", "Size": 1000}],
+        }
+        
+        metadata = _generate_package_metadata(
+            package_name="test/package",
+            source_info={"bucket": "test-bucket", "prefix": "data/"},
+            organized_structure=organized_structure,
+            metadata_template="ml",
+            user_metadata={"tags": ["test"]}
+        )
+        
+        assert "quilt" in metadata
+        assert "ml" in metadata
+        assert "user_metadata" in metadata
+        assert metadata["quilt"]["source"]["bucket"] == "test-bucket"
+        assert metadata["user_metadata"]["tags"] == ["test"]
+
+
+class TestValidationUtilities:
+    """Test cases for validation utilities."""
+
+    def test_package_structure_validation(self):
+        """Test package structure validation."""
+        good_structure = {
+            "data/processed": [{"Key": "data.csv"}],
+            "docs": [{"Key": "readme.md"}],
+        }
+        
+        is_valid, warnings, recommendations = validate_package_structure(good_structure)
+        assert is_valid is True
+        
+        # Test problematic structure
+        bad_structure = {
+            "temp": [{"Key": "file1.txt"}] * 60,  # Too many files, bad folder name
+        }
+        
+        is_valid, warnings, recommendations = validate_package_structure(bad_structure)
+        assert len(warnings) > 0
+
+    def test_metadata_compliance_validation(self):
+        """Test metadata compliance validation."""
+        good_metadata = {
+            "quilt": {
+                "created_by": "test",
+                "creation_date": "2024-01-01T00:00:00Z",
+                "source": {"type": "s3_bucket", "bucket": "test"}
+            }
+        }
+        
+        is_compliant, errors, warnings = validate_metadata_compliance(good_metadata)
+        assert is_compliant is True
+        assert len(errors) == 0
+
+    def test_package_naming_validation(self):
+        """Test package naming validation."""
+        is_valid, errors, suggestions = validate_package_naming("test/package")
+        assert is_valid is True
+        assert len(errors) == 0
+        
+        is_valid, errors, suggestions = validate_package_naming("invalid-name")
+        assert is_valid is False
+        assert len(errors) > 0
