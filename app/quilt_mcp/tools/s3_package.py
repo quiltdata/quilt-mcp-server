@@ -365,6 +365,18 @@ async def package_create_from_s3(
         if not source_bucket:
             return format_error_response("source_bucket is required")
         
+        # Validate and normalize bucket name
+        if source_bucket.startswith("s3://"):
+            return {
+                "success": False,
+                "error": "Invalid bucket name format",
+                "provided": source_bucket,
+                "expected": "bucket name only (without s3:// prefix)",
+                "example": "quilt-example",
+                "tip": "Use bucket name only, not full S3 URI",
+                "fix": f"Try using: {source_bucket.replace('s3://', '')}"
+            }
+        
         # Suggest target registry if not provided using permissions discovery
         if not target_registry:
             # Try to get smart recommendations based on actual permissions
@@ -403,17 +415,38 @@ async def package_create_from_s3(
             # Continue anyway - the user might have permissions that we can't detect
         
         # Initialize clients
-        s3_client = await get_s3_client()
+        s3_client = boto3.client("s3")
         
         # Validate source bucket access
         try:
-            await _validate_bucket_access(s3_client, source_bucket)
+            _validate_bucket_access(s3_client, source_bucket)
         except Exception as e:
-            return format_error_response(f"Cannot access source bucket {source_bucket}: {str(e)}")
+            # Provide friendly error message with helpful suggestions
+            error_msg = str(e)
+            if "Access denied" in error_msg or "AccessDenied" in error_msg:
+                return {
+                    "success": False,
+                    "error": "Cannot access source bucket - insufficient permissions",
+                    "bucket": source_bucket,
+                    "cause": "Missing read permissions for source bucket",
+                    "possible_fixes": [
+                        f"Verify you have s3:ListBucket and s3:GetObject permissions for {source_bucket}",
+                        "Check if the bucket name is correct",
+                        "Ensure your AWS credentials are properly configured",
+                        "Try: bucket_access_check() to diagnose specific permission issues"
+                    ],
+                    "suggested_actions": [
+                        f"Try: bucket_recommendations_get() to find buckets you can access",
+                        f"Try: aws_permissions_discover() to see all your bucket permissions"
+                    ],
+                    "debug_info": {"aws_error": error_msg, "operation": "source_bucket_access"}
+                }
+            else:
+                return format_error_response(f"Cannot access source bucket {source_bucket}: {str(e)}")
         
         # Discover source objects
         logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
-        objects = await _discover_s3_objects(
+        objects = _discover_s3_objects(
             s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns
         )
         
@@ -489,7 +522,7 @@ async def package_create_from_s3(
         
         # Create the actual package
         logger.info(f"Creating package {package_name} with enhanced structure")
-        package_result = await _create_enhanced_package(
+        package_result = _create_enhanced_package(
             s3_client=s3_client,
             organized_structure=organized_structure,
             source_bucket=source_bucket,
@@ -534,10 +567,10 @@ async def package_create_from_s3(
         return format_error_response(f"Failed to create package: {str(e)}")
 
 
-async def _validate_bucket_access(s3_client, bucket_name: str) -> None:
+def _validate_bucket_access(s3_client, bucket_name: str) -> None:
     """Validate that the user has access to the source bucket."""
     try:
-        await s3_client.head_bucket(Bucket=bucket_name)
+        s3_client.head_bucket(Bucket=bucket_name)
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code == "404":
@@ -548,7 +581,7 @@ async def _validate_bucket_access(s3_client, bucket_name: str) -> None:
             raise
 
 
-async def _discover_s3_objects(
+def _discover_s3_objects(
     s3_client,
     bucket: str,
     prefix: str,
@@ -562,7 +595,7 @@ async def _discover_s3_objects(
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
         
-        async for page in pages:
+        for page in pages:
             if "Contents" in page:
                 for obj in page["Contents"]:
                     if _should_include_object(obj["Key"], include_patterns, exclude_patterns):
@@ -598,7 +631,7 @@ def _should_include_object(
     return True  # Include by default if no patterns specified
 
 
-async def _create_enhanced_package(
+def _create_enhanced_package(
     s3_client,
     organized_structure: Dict[str, List[Dict[str, Any]]],
     source_bucket: str,
@@ -690,7 +723,7 @@ async def _create_package_from_objects(
         user_metadata=metadata
     )
     
-    return await _create_enhanced_package(
+    return _create_enhanced_package(
         s3_client=s3_client,
         organized_structure=organized_structure,
         source_bucket=source_bucket,

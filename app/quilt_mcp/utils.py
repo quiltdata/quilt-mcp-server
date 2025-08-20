@@ -93,7 +93,7 @@ def register_tools(
     return tools_registered
 
 
-async def get_s3_client():
+def get_s3_client():
     """Get an S3 client instance."""
     return boto3.client("s3")
 
