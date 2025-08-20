@@ -13,7 +13,7 @@ BUILD_ENDPOINT ?= http://127.0.0.1:8001/mcp
 CATALOG_ENDPOINT ?= http://127.0.0.1:8002/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector
+.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo
 
 # Default target
 help:
@@ -45,6 +45,12 @@ help:
 	@echo "  make check-env    - Validate .env configuration"
 	@echo "  make status       - Show deployment status"
 	@echo "  make coverage     - Run tests with coverage"
+	@echo ""
+	@echo "🏷️  Release Management:"
+	@echo "  make tag         - Create tag using version from manifest.json"
+	@echo "  make tag-release VERSION=x.y.z  - Create release tag (triggers DXT build)"
+	@echo "  make tag-prerelease VERSION=x.y.z-rc.1 - Create prerelease tag"
+	@echo "  make tag-dev VERSION=x.y.z-dev  - Create development tag"
 	@echo ""
 	@echo "📖 Phase Documentation:"
 	@echo "  Each phase has its own Makefile and SPEC.md:"
@@ -140,3 +146,110 @@ destroy:
 
 status:
 	@$(MAKE) -C deploy-aws status
+
+# Release Management
+check-clean-repo:
+	@echo "🔍 Checking repository state..."
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "❌ Repository has uncommitted changes. Please commit or stash them first."; \
+		git status --short; \
+		exit 1; \
+	fi
+	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
+		echo "❌ Not on main branch. Please switch to main branch first."; \
+		echo "Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
+		exit 1; \
+	fi
+	@echo "✅ Repository is clean and on main branch"
+
+tag-release: check-clean-repo
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION is required. Usage: make tag-release VERSION=1.0.0"; \
+		exit 1; \
+	fi
+	@echo "🏷️  Creating release tag v$(VERSION)..."
+	@if git tag | grep -q "^v$(VERSION)$$"; then \
+		echo "❌ Tag v$(VERSION) already exists"; \
+		exit 1; \
+	fi
+	@git pull origin main
+	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@git push origin "v$(VERSION)"
+	@echo "✅ Release tag v$(VERSION) created and pushed"
+	@echo "🚀 GitHub Actions will now build and publish the DXT package"
+	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+
+tag-prerelease: check-clean-repo
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION is required. Usage: make tag-prerelease VERSION=1.0.0-rc.1"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -q -- "-"; then \
+		echo "❌ Prerelease version must contain a hyphen (e.g., 1.0.0-rc.1, 1.0.0-beta.1)"; \
+		exit 1; \
+	fi
+	@echo "🏷️  Creating prerelease tag v$(VERSION)..."
+	@if git tag | grep -q "^v$(VERSION)$$"; then \
+		echo "❌ Tag v$(VERSION) already exists"; \
+		exit 1; \
+	fi
+	@git pull origin main
+	@git tag -a "v$(VERSION)" -m "Prerelease v$(VERSION)"
+	@git push origin "v$(VERSION)"
+	@echo "✅ Prerelease tag v$(VERSION) created and pushed"
+	@echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
+	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+
+tag-dev: check-clean-repo
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION is required. Usage: make tag-dev VERSION=1.0.0-dev"; \
+		exit 1; \
+	fi
+	@if ! echo "$(VERSION)" | grep -q "dev"; then \
+		echo "❌ Development version must contain 'dev' (e.g., 1.0.0-dev, 1.0.0-dev.1)"; \
+		exit 1; \
+	fi
+	@echo "🏷️  Creating development tag v$(VERSION)..."
+	@if git tag | grep -q "^v$(VERSION)$$"; then \
+		echo "❌ Tag v$(VERSION) already exists"; \
+		exit 1; \
+	fi
+	@git pull origin main
+	@git tag -a "v$(VERSION)" -m "Development build v$(VERSION)"
+	@git push origin "v$(VERSION)"
+	@echo "✅ Development tag v$(VERSION) created and pushed"
+	@echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
+	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+
+tag: check-clean-repo
+	@echo "🔍 Reading version from build-dxt/assets/manifest.json..."
+	@if [ ! -f "build-dxt/assets/manifest.json" ]; then \
+		echo "❌ manifest.json not found at build-dxt/assets/manifest.json"; \
+		exit 1; \
+	fi
+	@MANIFEST_VERSION=$$(python3 -c "import json; print(json.load(open('build-dxt/assets/manifest.json'))['version'])"); \
+	if [ -z "$$MANIFEST_VERSION" ]; then \
+		echo "❌ Could not read version from manifest.json"; \
+		exit 1; \
+	fi; \
+	echo "📋 Found version: $$MANIFEST_VERSION"; \
+	if git tag | grep -q "^v$$MANIFEST_VERSION$$"; then \
+		echo "❌ Tag v$$MANIFEST_VERSION already exists"; \
+		exit 1; \
+	fi; \
+	if echo "$$MANIFEST_VERSION" | grep -q "dev"; then \
+		echo "🏷️  Creating development tag v$$MANIFEST_VERSION..."; \
+		TAG_TYPE="Development build"; \
+	elif echo "$$MANIFEST_VERSION" | grep -q -- "-"; then \
+		echo "🏷️  Creating prerelease tag v$$MANIFEST_VERSION..."; \
+		TAG_TYPE="Prerelease"; \
+	else \
+		echo "🏷️  Creating release tag v$$MANIFEST_VERSION..."; \
+		TAG_TYPE="Release"; \
+	fi; \
+	git pull origin main; \
+	git tag -a "v$$MANIFEST_VERSION" -m "$$TAG_TYPE v$$MANIFEST_VERSION"; \
+	git push origin "v$$MANIFEST_VERSION"; \
+	echo "✅ Tag v$$MANIFEST_VERSION created and pushed"; \
+	echo "🚀 GitHub Actions will now build and publish the DXT package"; \
+	echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$$MANIFEST_VERSION"

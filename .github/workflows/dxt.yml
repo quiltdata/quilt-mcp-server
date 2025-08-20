@@ -1,0 +1,139 @@
+name: Build and Release DXT
+
+# This workflow builds the Quilt MCP DXT package and creates a GitHub release
+# with the .dxt file and accompanying documentation.
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v1.0.0)
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        
+    - name: Set up Python
+      run: uv python install 3.11
+      
+    - name: Extract version from tag
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION="0.0.0-dev"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Build DXT package
+      run: |
+        echo "🔨 Building DXT package..."
+        cd build-dxt
+        make build VERSION=${{ steps.version.outputs.version }}
+        
+        # Verify the DXT was built
+        ls -la dist/
+        echo "✅ DXT package built successfully"
+        
+    - name: Test DXT package
+      run: |
+        echo "🧪 Testing DXT package..."
+        cd build-dxt
+        make test VERSION=${{ steps.version.outputs.version }}
+        echo "✅ DXT package tested successfully"
+        
+    - name: Prepare release assets
+      run: |
+        echo "📦 Preparing release assets..."
+        mkdir -p release-assets
+        
+        # Copy DXT file
+        cp build-dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt release-assets/
+        
+        # Copy documentation
+        cp build-dxt/assets/README.md release-assets/
+        cp build-dxt/assets/check-prereqs.sh release-assets/
+        
+        # Make check-prereqs executable
+        chmod +x release-assets/check-prereqs.sh
+        
+        # List what we're releasing
+        echo "Release assets:"
+        ls -la release-assets/
+        
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION=${{ steps.version.outputs.version }}
+        cat > release-notes.md << EOF
+        # Quilt MCP DXT v${VERSION}
+        
+        ## What's New
+        
+        This release includes the Quilt MCP Desktop Extension (DXT) for Claude Desktop.
+        
+        ## Installation
+        
+        1. **Download the assets** from this release
+        2. **Run prerequisites check**: \`./check-prereqs.sh\`
+        3. **Install the DXT**: Double-click \`quilt-mcp-${VERSION}.dxt\`
+        4. **Configure catalog domain** in Claude Desktop settings
+        
+        ## What's Included
+        
+        - \`quilt-mcp-${VERSION}.dxt\` - The MCP extension for Claude Desktop
+        - \`README.md\` - Installation and usage instructions  
+        - \`check-prereqs.sh\` - Prerequisites validation script
+        
+        ## System Requirements
+        
+        - **Python 3.11+** (required for the MCP server)
+        - **AWS credentials** (for accessing your Quilt data)
+        - **Claude Desktop** (latest version recommended)
+        - **Quilt catalog domain** (contact your admin if unsure)
+        
+        ## Security
+        
+        - Uses your existing AWS credentials - no additional authentication needed
+        - Runs locally on your machine - no external services involved
+        - Your data stays in your AWS environment
+        
+        For detailed instructions, see the included README.md file.
+        EOF
+        
+        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+        cat release-notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Quilt MCP DXT v${{ steps.version.outputs.version }}"
+        body: ${{ steps.release_notes.outputs.release_notes }}
+        files: |
+          release-assets/quilt-mcp-${{ steps.version.outputs.version }}.dxt
+          release-assets/README.md
+          release-assets/check-prereqs.sh
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        generate_release_notes: false
+        
+    - name: Output release info
+      run: |
+        echo "✅ Release created successfully!"
+        echo "Version: ${{ steps.version.outputs.version }}"
+        echo "Tag: ${{ github.ref }}"
+        echo "Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
