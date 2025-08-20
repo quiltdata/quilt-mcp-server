@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# Prerequisites validation script for Quilt MCP DXT
+# Checks system requirements and configuration
+
+set -e
+
+echo "🔍 Checking Quilt MCP DXT Prerequisites..."
+echo
+
+# Check Python version
+check_python() {
+    echo "Checking Python installation..."
+    if command -v python3 >/dev/null 2>&1; then
+        python_version=$(python3 --version 2>&1 | awk '{print $2}')
+        major=$(echo $python_version | cut -d. -f1)
+        minor=$(echo $python_version | cut -d. -f2)
+        
+        if [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; then
+            echo "✅ Python $python_version found (required: 3.11+)"
+        else
+            echo "❌ Python $python_version found, but 3.11+ is required"
+            return 1
+        fi
+    else
+        echo "❌ Python 3 not found. Please install Python 3.11 or newer"
+        return 1
+    fi
+}
+
+# Check AWS configuration
+check_aws() {
+    echo "Checking AWS configuration..."
+    
+    # Check AWS CLI
+    if command -v aws >/dev/null 2>&1; then
+        echo "✅ AWS CLI found"
+        
+        # Check AWS credentials
+        if aws sts get-caller-identity >/dev/null 2>&1; then
+            identity=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
+            echo "✅ AWS credentials configured (Account: $identity)"
+        else
+            echo "⚠️  AWS CLI found but credentials not configured or invalid"
+            echo "   Configure credentials with: aws configure"
+            echo "   Or set AWS_PROFILE environment variable"
+        fi
+    else
+        echo "⚠️  AWS CLI not found"
+        echo "   Install with: pip install awscli"
+        echo "   Or use AWS environment variables for authentication"
+    fi
+}
+
+# Check Python packages
+check_packages() {
+    echo "Checking Python package requirements..."
+    
+    # Create temporary requirements check
+    temp_reqs=$(mktemp)
+    cat > "$temp_reqs" << 'EOF'
+quilt3>=5.6.0
+fastmcp>=0.1.0
+mcp>=1.12.0
+boto3>=1.34.0
+httpx>=0.27.0
+EOF
+
+    if python3 -m pip check >/dev/null 2>&1; then
+        echo "✅ Python package environment is consistent"
+    else
+        echo "⚠️  Python package conflicts detected"
+    fi
+    
+    # Check if pip can resolve requirements
+    if python3 -m pip install --dry-run -r "$temp_reqs" >/dev/null 2>&1; then
+        echo "✅ Required packages can be installed"
+    else
+        echo "⚠️  Some required packages may not be available"
+        echo "   This is normal if packages aren't installed yet"
+    fi
+    
+    rm -f "$temp_reqs"
+}
+
+# Check Claude Desktop
+check_claude_desktop() {
+    echo "Checking Claude Desktop..."
+    
+    # macOS
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if [ -d "/Applications/Claude.app" ]; then
+            echo "✅ Claude Desktop found on macOS"
+        else
+            echo "⚠️  Claude Desktop not found in /Applications/"
+            echo "   Download from: https://claude.ai/download"
+        fi
+    # Windows
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+        if [ -d "$APPDATA/Claude" ] || [ -d "$LOCALAPPDATA/Claude" ]; then
+            echo "✅ Claude Desktop found on Windows"
+        else
+            echo "⚠️  Claude Desktop not found"
+            echo "   Download from: https://claude.ai/download"
+        fi
+    # Linux
+    else
+        if command -v claude >/dev/null 2>&1 || [ -f "$HOME/.local/bin/claude" ]; then
+            echo "✅ Claude Desktop found on Linux"
+        else
+            echo "⚠️  Claude Desktop not found"
+            echo "   Download from: https://claude.ai/download"
+        fi
+    fi
+}
+
+# Summary function
+show_summary() {
+    echo
+    echo "📋 Prerequisites Summary:"
+    echo "   Python 3.11+: Required for running the MCP server"
+    echo "   AWS Credentials: Required for accessing Quilt data"
+    echo "   Claude Desktop: Required for using the DXT extension"
+    echo
+    echo "💡 Next Steps:"
+    echo "   1. Install any missing prerequisites above"
+    echo "   2. Install the Quilt MCP DXT in Claude Desktop"
+    echo "   3. Configure catalog domain in Claude Desktop settings"
+    echo
+}
+
+# Main execution
+main() {
+    check_python
+    echo
+    check_aws  
+    echo
+    check_packages
+    echo
+    check_claude_desktop
+    echo
+    show_summary
+    
+    echo "✅ Prerequisites check complete!"
+}
+
+# Run if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

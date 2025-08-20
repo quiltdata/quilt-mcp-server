@@ -1,0 +1,54 @@
+{
+  "dxt_version": "0.1",
+  "name": "quilt-mcp",
+  "version": "0.3.3",
+  "description": "Access Quilt data packages through Claude Desktop",
+  "author": {
+    "name": "Quilt Data, Inc.",
+    "email": "support@quiltdata.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ernest/fast-mcp-server"
+  },
+  "icon": "icon.png",
+  "server": {
+    "type": "python",
+    "entry_point": "bootstrap.py",
+    "mcp_config": {
+      "command": "python3",
+      "args": ["${__dirname}/bootstrap.py"],
+      "env": {
+        "PYTHONNOUSERSITE": "1"
+      }
+    }
+  },
+  "user_config": {
+    "catalog_domain": {
+      "type": "string",
+      "title": "Quilt Catalog Domain",
+      "description": "Your Quilt catalog's DNS name (not the URL)",
+      "required": true
+    },
+    "aws_profile": {
+      "type": "string",
+      "title": "AWS Profile",
+      "description": "AWS profile for authentication",
+      "required": false
+    },
+    "aws_region": {
+      "type": "string",
+      "title": "AWS Region",
+      "description": "Region for AWS Quilt data access",
+      "required": false
+    },
+    "log_level": {
+      "type": "string",
+      "title": "Log Level",
+      "description": "Set logging verbosity (info, debug, error)",
+      "required": false,
+      "default": "info"
+    }
+  }
+}
