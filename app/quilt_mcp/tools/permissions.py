@@ -25,7 +25,7 @@ def _get_permission_discovery() -> AWSPermissionDiscovery:
     return _permission_discovery
 
 
-async def aws_permissions_discover(
+def aws_permissions_discover(
     check_buckets: Optional[List[str]] = None,
     include_cross_account: bool = False,
     force_refresh: bool = False
@@ -48,7 +48,7 @@ async def aws_permissions_discover(
             discovery.clear_cache()
         
         # Discover user identity
-        identity = await discovery.discover_user_identity()
+        identity = discovery.discover_user_identity()
         
         # Discover accessible buckets
         if check_buckets:
@@ -56,7 +56,7 @@ async def aws_permissions_discover(
             bucket_permissions = []
             for bucket_name in check_buckets:
                 try:
-                    bucket_info = await discovery.discover_bucket_permissions(bucket_name)
+                    bucket_info = discovery.discover_bucket_permissions(bucket_name)
                     bucket_permissions.append(bucket_info._asdict())
                 except Exception as e:
                     logger.warning(f"Failed to check bucket {bucket_name}: {e}")
@@ -67,7 +67,7 @@ async def aws_permissions_discover(
                     })
         else:
             # Discover all accessible buckets
-            accessible_buckets = await discovery.discover_accessible_buckets(include_cross_account)
+            accessible_buckets = discovery.discover_accessible_buckets(include_cross_account)
             bucket_permissions = [bucket._asdict() for bucket in accessible_buckets]
         
         # Categorize buckets by permission level
@@ -110,7 +110,7 @@ async def aws_permissions_discover(
         return format_error_response(f"Failed to discover AWS permissions: {str(e)}")
 
 
-async def bucket_access_check(
+def bucket_access_check(
     bucket_name: str,
     operations: List[str] = None
 ) -> Dict[str, Any]:
@@ -131,10 +131,10 @@ async def bucket_access_check(
         discovery = _get_permission_discovery()
         
         # Get comprehensive bucket info
-        bucket_info = await discovery.discover_bucket_permissions(bucket_name)
+        bucket_info = discovery.discover_bucket_permissions(bucket_name)
         
         # Test specific operations if requested
-        operation_results = await discovery.test_bucket_operations(bucket_name, operations)
+        operation_results = discovery.test_bucket_operations(bucket_name, operations)
         
         # Add helpful guidance for uncertain permissions
         guidance = []
@@ -176,7 +176,7 @@ async def bucket_access_check(
         return format_error_response(f"Failed to check bucket access: {str(e)}")
 
 
-async def bucket_recommendations_get(
+def bucket_recommendations_get(
     source_bucket: Optional[str] = None,
     operation_type: str = "package_creation",
     user_context: Optional[Dict[str, Any]] = None
@@ -196,7 +196,7 @@ async def bucket_recommendations_get(
         discovery = _get_permission_discovery()
         
         # Discover accessible buckets
-        accessible_buckets = await discovery.discover_accessible_buckets()
+        accessible_buckets = discovery.discover_accessible_buckets()
         
         # Filter for writable buckets
         writable_buckets = [

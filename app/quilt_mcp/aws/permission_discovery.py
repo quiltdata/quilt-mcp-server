@@ -72,7 +72,7 @@ class AWSPermissionDiscovery:
             logger.error("AWS credentials not found")
             raise
     
-    async def discover_user_identity(self) -> UserIdentity:
+    def discover_user_identity(self) -> UserIdentity:
         """Discover current AWS identity and basic info."""
         cache_key = "user_identity"
         
@@ -117,7 +117,7 @@ class AWSPermissionDiscovery:
             logger.error(f"Failed to discover user identity: {e}")
             raise
     
-    async def discover_accessible_buckets(self, include_cross_account: bool = False) -> List[BucketInfo]:
+    def discover_accessible_buckets(self, include_cross_account: bool = False) -> List[BucketInfo]:
         """Discover all buckets user has any level of access to."""
         cache_key = f"accessible_buckets_{include_cross_account}"
         
@@ -137,7 +137,7 @@ class AWSPermissionDiscovery:
             for bucket_info in owned_buckets:
                 bucket_name = bucket_info['Name']
                 try:
-                    bucket_detail = await self.discover_bucket_permissions(bucket_name)
+                    bucket_detail = self.discover_bucket_permissions(bucket_name)
                     buckets.append(bucket_detail)
                 except Exception as e:
                     logger.warning(f"Failed to check permissions for owned bucket {bucket_name}: {e}")
@@ -165,7 +165,7 @@ class AWSPermissionDiscovery:
         self.bucket_list_cache[cache_key] = buckets
         return buckets
     
-    async def discover_bucket_permissions(self, bucket_name: str) -> BucketInfo:
+    def discover_bucket_permissions(self, bucket_name: str) -> BucketInfo:
         """Discover permission level for specific bucket."""
         cache_key = f"bucket_permissions_{bucket_name}"
         
@@ -251,7 +251,7 @@ class AWSPermissionDiscovery:
                         try:
                             bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
                             # If we can read bucket policy, do basic analysis
-                            can_write = await self._analyze_bucket_policy_for_write_access(
+                            can_write = self._analyze_bucket_policy_for_write_access(
                                 bucket_policy.get('Policy', '{}'), bucket_name
                             )
                         except ClientError as policy_error:
@@ -298,7 +298,7 @@ class AWSPermissionDiscovery:
         
         return bucket_info
     
-    async def test_bucket_operations(self, bucket_name: str, operations: List[str]) -> Dict[str, bool]:
+    def test_bucket_operations(self, bucket_name: str, operations: List[str]) -> Dict[str, bool]:
         """Safely test specific operations on bucket."""
         results = {}
         
@@ -324,13 +324,13 @@ class AWSPermissionDiscovery:
                     # This is much safer and doesn't risk creating unwanted objects
                     try:
                         bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
-                        results[operation] = await self._analyze_bucket_policy_for_write_access(
+                        results[operation] = self._analyze_bucket_policy_for_write_access(
                             bucket_policy.get('Policy', '{}'), bucket_name
                         )
                     except ClientError as e:
                         if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
                             # No bucket policy - check IAM permissions
-                            results[operation] = await self._check_iam_write_permissions(bucket_name)
+                            results[operation] = self._check_iam_write_permissions(bucket_name)
                         else:
                             results[operation] = False
                     except Exception:
@@ -356,14 +356,14 @@ class AWSPermissionDiscovery:
         self.bucket_list_cache.clear()
         logger.info("Permission cache cleared")
     
-    async def _analyze_bucket_policy_for_write_access(self, policy_json: str, bucket_name: str) -> bool:
+    def _analyze_bucket_policy_for_write_access(self, policy_json: str, bucket_name: str) -> bool:
         """Analyze bucket policy to determine if current user has write access."""
         try:
             import json
             policy = json.loads(policy_json)
             
             # Get current user identity for policy analysis
-            identity = await self.discover_user_identity()
+            identity = self.discover_user_identity()
             
             # Simple policy analysis - look for statements that grant write permissions
             statements = policy.get('Statement', [])
@@ -387,7 +387,7 @@ class AWSPermissionDiscovery:
             logger.warning(f"Failed to analyze bucket policy: {e}")
             return False
     
-    async def _check_iam_write_permissions(self, bucket_name: str) -> bool:
+    def _check_iam_write_permissions(self, bucket_name: str) -> bool:
         """Check IAM permissions for write access to bucket."""
         try:
             # For now, use a conservative approach
@@ -396,7 +396,7 @@ class AWSPermissionDiscovery:
             
             # Try to use STS simulate-principal-policy if available
             try:
-                identity = await self.discover_user_identity()
+                identity = self.discover_user_identity()
                 
                 response = self.sts_client.simulate_principal_policy(
                     PolicySourceArn=identity.arn,

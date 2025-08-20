@@ -381,7 +381,7 @@ async def package_create_from_s3(
         if not target_registry:
             # Try to get smart recommendations based on actual permissions
             try:
-                recommendations = await bucket_recommendations_get(
+                recommendations = bucket_recommendations_get(
                     source_bucket=source_bucket,
                     operation_type="package_creation"
                 )
@@ -404,12 +404,24 @@ async def package_create_from_s3(
         # Validate target registry permissions
         target_bucket_name = target_registry.replace("s3://", "")
         try:
-            access_check = await bucket_access_check(target_bucket_name)
+            access_check = bucket_access_check(target_bucket_name)
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
-                return format_error_response(
-                    f"Insufficient write permissions for target registry {target_registry}. "
-                    f"Please choose a different target registry or check your AWS permissions."
-                )
+                return {
+                    "success": False,
+                    "error": "Cannot create package in target registry",
+                    "cause": "Insufficient write permissions",
+                    "target_registry": target_registry,
+                    "possible_fixes": [
+                        f"Verify you have s3:PutObject permissions for {target_bucket_name}",
+                        "Check if you're connected to the right catalog",
+                        "Try a different bucket you own"
+                    ],
+                    "suggested_actions": [
+                        "Try: bucket_recommendations_get() to find writable buckets",
+                        "Try: test_permissions() to diagnose specific issues"
+                    ],
+                    "debug_info": {"aws_error": "AccessDenied", "operation": "target_registry_validation"}
+                }
         except Exception as e:
             logger.warning(f"Could not validate target registry permissions: {e}")
             # Continue anyway - the user might have permissions that we can't detect

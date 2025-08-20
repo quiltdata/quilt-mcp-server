@@ -17,7 +17,7 @@ from .s3_package import package_create_from_s3
 logger = logging.getLogger(__name__)
 
 
-async def create_package(
+def create_package(
     name: str,
     files: List[str],
     description: str = "",
@@ -78,7 +78,7 @@ async def create_package(
         
         # Handle different source types
         if file_analysis["source_type"] == "s3_only":
-            return await _create_package_from_s3_sources(
+            return _create_package_from_s3_sources(
                 name=name,
                 s3_files=file_analysis["s3_files"],
                 description=description,
@@ -88,7 +88,7 @@ async def create_package(
                 metadata=metadata
             )
         elif file_analysis["source_type"] == "local_only":
-            return await _create_package_from_local_sources(
+            return _create_package_from_local_sources(
                 name=name,
                 local_files=file_analysis["local_files"],
                 description=description,
@@ -98,7 +98,7 @@ async def create_package(
                 metadata=metadata
             )
         elif file_analysis["source_type"] == "mixed":
-            return await _create_package_from_mixed_sources(
+            return _create_package_from_mixed_sources(
                 name=name,
                 file_analysis=file_analysis,
                 description=description,
@@ -250,10 +250,9 @@ def list_available_resources() -> Dict[str, Any]:
     """
     try:
         # Use the permissions discovery to get comprehensive bucket information
-        import asyncio
         from .permissions import aws_permissions_discover
         
-        permissions_result = asyncio.run(aws_permissions_discover())
+        permissions_result = aws_permissions_discover()
         
         if not permissions_result.get("success"):
             return {
@@ -391,7 +390,7 @@ def _analyze_file_sources(files: List[str]) -> Dict[str, Any]:
     }
 
 
-async def _create_package_from_s3_sources(
+def _create_package_from_s3_sources(
     name: str,
     s3_files: List[str],
     description: str,
@@ -417,7 +416,7 @@ async def _create_package_from_s3_sources(
                 source_prefix = common_prefix
         
         # Use the enhanced S3-to-package creation tool
-        result = await package_create_from_s3(
+        result = package_create_from_s3(
             source_bucket=source_bucket,
             package_name=name,
             source_prefix=source_prefix,
@@ -447,7 +446,7 @@ async def _create_package_from_s3_sources(
         return format_error_response(f"S3 package creation failed: {str(e)}")
 
 
-async def _create_package_from_local_sources(
+def _create_package_from_local_sources(
     name: str,
     local_files: List[str],
     description: str,
@@ -472,7 +471,7 @@ async def _create_package_from_local_sources(
     }
 
 
-async def _create_package_from_mixed_sources(
+def _create_package_from_mixed_sources(
     name: str,
     file_analysis: Dict[str, Any],
     description: str,
