@@ -7,6 +7,7 @@ This package contains all the MCP tool implementations organized by functionalit
 - package_ops: Package creation, update, and deletion
 - s3_package: S3-to-package creation functionality
 - permissions: AWS permissions discovery and bucket recommendations
+- unified_package: Simplified, intelligent package creation interface
 
 These tools are pure functions that are registered by the tools module.
 
@@ -23,6 +24,6 @@ Example usage:
     pkg_list = packages.packages_list()
 """
 
-from . import auth, buckets, package_ops, packages, s3_package, permissions
+from . import auth, buckets, package_ops, packages, s3_package, permissions, unified_package
 
-__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions"]
+__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions", "unified_package"]

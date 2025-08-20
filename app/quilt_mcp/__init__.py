@@ -21,7 +21,10 @@ from .tools.auth import (
     catalog_name,
     catalog_uri,
     catalog_url,
+    configure_catalog,
     filesystem_status,
+    switch_catalog,
+    test_permissions,
 )
 from .tools.buckets import (
     bucket_object_fetch,
@@ -38,6 +41,11 @@ from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
     bucket_recommendations_get,
+)
+from .tools.unified_package import (
+    create_package,
+    list_available_resources,
+    quick_start,
 )
 from .tools.packages import (
     package_browse,
@@ -58,11 +66,14 @@ __all__ = [
     "KNOWN_TEST_S3_OBJECT",
     # Auth tools
     "auth_status",
-    "filesystem_status",
     "catalog_info",
     "catalog_name",
     "catalog_url",
     "catalog_uri",
+    "configure_catalog",
+    "filesystem_status",
+    "switch_catalog",
+    "test_permissions",
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",
@@ -85,4 +96,8 @@ __all__ = [
     "aws_permissions_discover",
     "bucket_access_check",
     "bucket_recommendations_get",
+    # Unified tools
+    "create_package",
+    "list_available_resources", 
+    "quick_start",
 ]
