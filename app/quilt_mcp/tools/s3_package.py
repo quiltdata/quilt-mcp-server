@@ -531,6 +531,17 @@ def package_create_from_s3(
                 metadata_template=metadata_template
             )
         
+        # Generate Quilt summary files (quilt_summarize.json + visualizations)
+        from .quilt_summary import create_quilt_summary_files
+        summary_files = create_quilt_summary_files(
+            package_name=package_name,
+            package_metadata=enhanced_metadata,
+            organized_structure=organized_structure,
+            readme_content=readme_content,
+            source_info=source_info,
+            metadata_template=metadata_template
+        )
+        
         # Prepare confirmation information
         confirmation_info = {
             "bucket_suggested": target_registry,
@@ -544,7 +555,9 @@ def package_create_from_s3(
             "total_files": len(objects),
             "total_size_mb": round(total_size / (1024 * 1024), 2),
             "organization_applied": auto_organize,
-            "readme_generated": generate_readme
+            "readme_generated": generate_readme,
+            "summary_files_generated": summary_files.get("success", False),
+            "visualization_count": summary_files.get("visualization_count", 0)
         }
         
         # If dry run, return preview without creating
@@ -557,6 +570,11 @@ def package_create_from_s3(
                 "structure_preview": confirmation_info,
                 "readme_preview": readme_content[:500] + "..." if readme_content else None,
                 "metadata_preview": enhanced_metadata,
+                "summary_files_preview": {
+                    "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
+                    "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),
+                    "files_generated": summary_files.get("files_generated", {})
+                },
                 "message": "Preview generated. Set dry_run=False to create the package."
             }
         
@@ -600,7 +618,13 @@ def package_create_from_s3(
             },
             "confirmation": confirmation_info,
             "package_hash": package_result.get("top_hash"),
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
+            "summary_files": {
+                "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
+                "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),
+                "files_generated": summary_files.get("files_generated", {}),
+                "visualization_count": summary_files.get("visualization_count", 0)
+            }
         }
         
     except NoCredentialsError:

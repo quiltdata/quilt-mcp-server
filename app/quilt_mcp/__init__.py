@@ -63,6 +63,11 @@ from .tools.metadata_examples import (
     create_metadata_from_template,
     fix_metadata_validation_issues,
 )
+from .tools.quilt_summary import (
+    create_quilt_summary_files,
+    generate_quilt_summarize_json,
+    generate_package_visualizations,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
@@ -128,4 +133,8 @@ __all__ = [
     "show_metadata_examples",
     "create_metadata_from_template", 
     "fix_metadata_validation_issues",
+    # Quilt summary and visualization tools
+    "create_quilt_summary_files",
+    "generate_quilt_summarize_json",
+    "generate_package_visualizations",
 ]

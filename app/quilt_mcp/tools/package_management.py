@@ -163,6 +163,17 @@ def create_package_enhanced(
         
         # Dry run - return preview
         if dry_run:
+            # Generate preview of summary files
+            from .quilt_summary import create_quilt_summary_files
+            summary_preview = create_quilt_summary_files(
+                package_name=name,
+                package_metadata={"quilt": template_metadata},
+                organized_structure={"root": [{"Key": f, "Size": 0} for f in files]},
+                readme_content=f"# {name}\n\nPreview package with {len(files)} files",
+                source_info={"type": "local_files", "bucket": "preview"},
+                metadata_template=metadata_template
+            )
+            
             return {
                 "success": True,
                 "action": "preview",
@@ -172,12 +183,17 @@ def create_package_enhanced(
                 "metadata_template": metadata_template,
                 "metadata_preview": template_metadata,
                 "validation": validation_result,
+                "summary_files_preview": {
+                    "quilt_summarize.json": summary_preview.get("summary_package", {}).get("quilt_summarize.json", {}),
+                    "visualizations": summary_preview.get("summary_package", {}).get("visualizations", {}),
+                    "files_generated": summary_preview.get("files_generated", {})
+                },
                 "next_steps": [
                     "Set dry_run=False to create the package",
                     "Modify metadata if needed",
                     "Add more files if required"
                 ],
-                "estimated_action": f"Will create package '{name}' with {len(files)} files using '{metadata_template}' template"
+                "estimated_action": f"Will create package '{name}' with {len(files)} files using '{metadata_template}' template and generate Quilt summary files"
             }
         
         # Auto-detect registry if not provided
