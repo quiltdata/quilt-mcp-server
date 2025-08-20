@@ -34,6 +34,11 @@ from .tools.buckets import (
 )
 from .tools.package_ops import package_create, package_delete, package_update
 from .tools.s3_package import package_create_from_s3
+from .tools.permissions import (
+    aws_permissions_discover,
+    bucket_access_check,
+    bucket_recommendations_get,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
@@ -76,4 +81,8 @@ __all__ = [
     "package_update",
     "packages_list",
     "packages_search",
+    # Permission tools
+    "aws_permissions_discover",
+    "bucket_access_check",
+    "bucket_recommendations_get",
 ]

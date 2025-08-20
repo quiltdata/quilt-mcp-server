@@ -18,6 +18,7 @@ import quilt3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..utils import get_s3_client, validate_package_name, format_error_response
+from .permissions import bucket_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
 
@@ -364,10 +365,42 @@ async def package_create_from_s3(
         if not source_bucket:
             return format_error_response("source_bucket is required")
         
-        # Suggest target registry if not provided
+        # Suggest target registry if not provided using permissions discovery
         if not target_registry:
-            target_registry = _suggest_target_registry(source_bucket, source_prefix)
-            logger.info(f"Suggested target registry: {target_registry}")
+            # Try to get smart recommendations based on actual permissions
+            try:
+                recommendations = await bucket_recommendations_get(
+                    source_bucket=source_bucket,
+                    operation_type="package_creation"
+                )
+                
+                if recommendations.get("success") and recommendations.get("recommendations", {}).get("primary_recommendations"):
+                    # Use the top recommendation
+                    top_rec = recommendations["recommendations"]["primary_recommendations"][0]
+                    target_registry = f"s3://{top_rec['bucket_name']}"
+                    logger.info(f"Using permission-based recommendation: {target_registry}")
+                else:
+                    # Fallback to pattern-based suggestion
+                    target_registry = _suggest_target_registry(source_bucket, source_prefix)
+                    logger.info(f"Using pattern-based suggestion: {target_registry}")
+                    
+            except Exception as e:
+                logger.warning(f"Permission-based recommendation failed, using pattern-based: {e}")
+                target_registry = _suggest_target_registry(source_bucket, source_prefix)
+                logger.info(f"Fallback suggestion: {target_registry}")
+        
+        # Validate target registry permissions
+        target_bucket_name = target_registry.replace("s3://", "")
+        try:
+            access_check = await bucket_access_check(target_bucket_name)
+            if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
+                return format_error_response(
+                    f"Insufficient write permissions for target registry {target_registry}. "
+                    f"Please choose a different target registry or check your AWS permissions."
+                )
+        except Exception as e:
+            logger.warning(f"Could not validate target registry permissions: {e}")
+            # Continue anyway - the user might have permissions that we can't detect
         
         # Initialize clients
         s3_client = await get_s3_client()
