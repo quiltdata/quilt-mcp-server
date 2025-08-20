@@ -322,8 +322,8 @@ def _generate_package_metadata(
 
 async def package_create_from_s3(
     source_bucket: str,
-    source_prefix: str = "",
     package_name: str,
+    source_prefix: str = "",
     target_registry: Optional[str] = None,
     description: str = "",
     include_patterns: Optional[List[str]] = None,
@@ -340,8 +340,8 @@ async def package_create_from_s3(
     
     Args:
         source_bucket: S3 bucket containing source data
-        source_prefix: Optional prefix to filter source objects
         package_name: Name for the new package (namespace/name format)
+        source_prefix: Optional prefix to filter source objects (default: "")
         target_registry: Target Quilt registry (auto-suggested if not provided)
         description: Package description
         include_patterns: File patterns to include (glob style)

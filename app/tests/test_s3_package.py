@@ -30,7 +30,6 @@ class TestPackageCreateFromS3:
         result = await package_create_from_s3(
             source_bucket="test-bucket",
             package_name="invalid-name",  # Missing namespace
-            target_registry="s3://test-registry",
         )
         
         assert result["success"] is False
@@ -42,11 +41,10 @@ class TestPackageCreateFromS3:
         result = await package_create_from_s3(
             source_bucket="",  # Empty bucket
             package_name="test/package",
-            target_registry="s3://test-registry",
         )
         
         assert result["success"] is False
-        assert "source_bucket and target_registry are required" in result["error"]
+        assert "source_bucket is required" in result["error"]
 
     @pytest.mark.asyncio
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
@@ -62,7 +60,6 @@ class TestPackageCreateFromS3:
         result = await package_create_from_s3(
             source_bucket="test-bucket",
             package_name="test/package",
-            target_registry="s3://test-registry",
         )
         
         assert result["success"] is False
@@ -87,7 +84,6 @@ class TestPackageCreateFromS3:
         result = await package_create_from_s3(
             source_bucket="test-bucket",
             package_name="test/package",
-            target_registry="s3://test-registry",
             description="Test package",
         )
         
@@ -164,7 +160,6 @@ class TestValidation:
             result = await package_create_from_s3(
                 source_bucket="test-bucket",
                 package_name="test/package", 
-                target_registry="s3://test-registry",
                 dry_run=True
             )
             
