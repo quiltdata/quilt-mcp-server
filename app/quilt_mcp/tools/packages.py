@@ -39,7 +39,10 @@ def packages_list(
     """
     # Normalize registry and pass to quilt3.list_packages(), then apply filtering
     normalized_registry = _normalize_registry(registry)
-    pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
+    # Suppress stdout during list_packages to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
 
     # Apply prefix filtering if specified
     if prefix:
@@ -67,7 +70,10 @@ def packages_search(
     """
     # quilt3.search() only supports query and limit, not registry
     effective_limit = limit if limit > 0 else 10
-    results = quilt3.search(query, limit=effective_limit)
+    # Suppress stdout during search to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        results = quilt3.search(query, limit=effective_limit)
     return {"results": results}
 
 
@@ -117,7 +123,11 @@ def package_browse(
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
     try:
-        pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+        # Suppress stdout during browse to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+            
     except Exception as e:
         return {
             "success": False,
@@ -303,7 +313,11 @@ def package_contents_search(
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
-    pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+    
+    # Suppress stdout during browse to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
 
     # Find matching keys
     matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
@@ -361,19 +375,22 @@ def package_diff(
 
     try:
         # Browse packages with optional hash specification
-        if package1_hash:
-            pkg1 = quilt3.Package.browse(
-                package1_name, registry=normalized_registry, top_hash=package1_hash
-            )
-        else:
-            pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
+        # Suppress stdout during browse operations to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            if package1_hash:
+                pkg1 = quilt3.Package.browse(
+                    package1_name, registry=normalized_registry, top_hash=package1_hash
+                )
+            else:
+                pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
 
-        if package2_hash:
-            pkg2 = quilt3.Package.browse(
-                package2_name, registry=normalized_registry, top_hash=package2_hash
-            )
-        else:
-            pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
+            if package2_hash:
+                pkg2 = quilt3.Package.browse(
+                    package2_name, registry=normalized_registry, top_hash=package2_hash
+                )
+            else:
+                pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
 
     except Exception as e:
         return {"error": f"Failed to browse packages: {e}"}

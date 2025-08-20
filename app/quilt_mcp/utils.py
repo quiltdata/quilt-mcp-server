@@ -5,6 +5,9 @@ from __future__ import annotations
 import inspect
 import os
 import re
+import sys
+import io
+import contextlib
 from collections.abc import Callable
 from typing import Any, Dict, Literal
 
@@ -88,7 +91,9 @@ def register_tools(
             mcp.tool(func)
             tools_registered += 1
             if verbose:
-                print(f"Registered tool: {module.__name__}.{name}")
+                # Use stderr to avoid interfering with JSON-RPC on stdout
+                import sys
+                print(f"Registered tool: {module.__name__}.{name}", file=sys.stderr)
 
     return tools_registered
 
@@ -123,7 +128,25 @@ def format_error_response(message: str) -> Dict[str, Any]:
     }
 
 
-def create_configured_server(verbose: bool = True) -> FastMCP:
+@contextlib.contextmanager
+def suppress_stdout():
+    """Context manager to suppress stdout output to prevent JSON-RPC interference.
+    
+    This is critical for MCP servers using stdio transport, as any stdout output
+    that isn't valid JSON-RPC will break the communication protocol.
+    """
+    stdout_capture = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(stdout_capture):
+            yield stdout_capture
+    finally:
+        # Log captured output to stderr if needed for debugging
+        captured_output = stdout_capture.getvalue().strip()
+        if captured_output:
+            print(f"Suppressed stdout: {captured_output}", file=sys.stderr)
+
+
+def create_configured_server(verbose: bool = False) -> FastMCP:
     """Create a fully configured MCP server with all tools registered.
 
     Args:
@@ -136,7 +159,9 @@ def create_configured_server(verbose: bool = True) -> FastMCP:
     tools_count = register_tools(mcp, verbose=verbose)
 
     if verbose:
-        print(f"Successfully registered {tools_count} tools")
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        import sys
+        print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
 
@@ -161,5 +186,7 @@ def run_server() -> None:
         mcp.run(transport=transport)
 
     except Exception as e:
-        print(f"Error starting MCP server: {e}")
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        import sys
+        print(f"Error starting MCP server: {e}", file=sys.stderr)
         raise

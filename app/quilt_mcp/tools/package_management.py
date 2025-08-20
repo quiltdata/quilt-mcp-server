@@ -325,7 +325,10 @@ def package_update_metadata(
                 registry = DEFAULT_REGISTRY
             
             # Browse existing package to get current structure
-            pkg = quilt3.Package.browse(package_name, registry=registry)
+            # Suppress stdout during browse to avoid JSON-RPC interference
+            from ..utils import suppress_stdout
+            with suppress_stdout():
+                pkg = quilt3.Package.browse(package_name, registry=registry)
             
             # Get current metadata
             current_metadata = {}
@@ -346,7 +349,11 @@ def package_update_metadata(
             
             # Push the updated package
             commit_message = f"Updated metadata for {package_name}"
-            top_hash = pkg.push(package_name, registry=registry, message=commit_message)
+            
+            # Suppress stdout during push to avoid JSON-RPC interference
+            from ..utils import suppress_stdout
+            with suppress_stdout():
+                top_hash = pkg.push(package_name, registry=registry, message=commit_message)
             
             return {
                 "success": True,

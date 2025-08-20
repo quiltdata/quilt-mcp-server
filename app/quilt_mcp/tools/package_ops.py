@@ -139,7 +139,11 @@ def package_create(
             warnings.append(f"Failed to set metadata: {e}")
     normalized_registry = _normalize_registry(registry)
     try:
-        top_hash = pkg.push(package_name, registry=normalized_registry, message=message)
+        # Suppress stdout during push to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            top_hash = pkg.push(package_name, registry=normalized_registry, message=message)
+            
     except Exception as e:
         return {
             "error": f"Failed to push package: {e}",
@@ -224,7 +228,10 @@ def package_update(
     warnings: list[str] = []
     normalized_registry = _normalize_registry(registry)
     try:
-        existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+        # Suppress stdout during browse to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",
@@ -247,7 +254,11 @@ def package_update(
         except Exception as e:
             warnings.append(f"Failed to set merged metadata: {e}")
     try:
-        top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
+        # Suppress stdout during push to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
+            
     except Exception as e:
         return {
             "error": f"Failed to push updated package: {e}",
@@ -286,7 +297,10 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
 
     try:
         normalized_registry = _normalize_registry(registry)
-        quilt3.delete_package(package_name, registry=normalized_registry)
+        # Suppress stdout during delete to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            quilt3.delete_package(package_name, registry=normalized_registry)
         return {
             "status": "success",
             "action": "deleted",

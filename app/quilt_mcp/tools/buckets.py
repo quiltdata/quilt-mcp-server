@@ -325,8 +325,11 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
     bkt = _normalize_bucket(bucket)
     bucket_uri = f"s3://{bkt}"
     try:
-        bucket_obj = quilt3.Bucket(bucket_uri)
-        results = bucket_obj.search(query, limit=limit)
+        # Suppress stdout during bucket operations to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            bucket_obj = quilt3.Bucket(bucket_uri)
+            results = bucket_obj.search(query, limit=limit)
         return {"bucket": bkt, "query": query, "limit": limit, "results": results}
     except Exception as e:
         return {"error": f"Failed to search bucket: {e}", "bucket": bkt, "query": query}
