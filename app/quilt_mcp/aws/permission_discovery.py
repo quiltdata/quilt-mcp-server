@@ -182,7 +182,7 @@ class AWSPermissionDiscovery:
         error_message = None
         
         try:
-            # Test 1: Try to get bucket location (also tests basic access)
+            # Test 1: Try to get bucket location (safe, read-only operation)
             try:
                 location_response = self.s3_client.get_bucket_location(Bucket=bucket_name)
                 region = location_response.get('LocationConstraint') or 'us-east-1'
@@ -190,6 +190,16 @@ class AWSPermissionDiscovery:
             except ClientError as e:
                 if e.response['Error']['Code'] in ['AccessDenied', 'NoSuchBucket']:
                     error_message = f"Cannot access bucket: {e.response['Error']['Code']}"
+                    return BucketInfo(
+                        name=bucket_name,
+                        region=region,
+                        permission_level=PermissionLevel.NO_ACCESS,
+                        can_read=False,
+                        can_write=False,
+                        can_list=False,
+                        last_checked=datetime.utcnow(),
+                        error_message=error_message
+                    )
                 else:
                     raise
             
@@ -204,7 +214,7 @@ class AWSPermissionDiscovery:
                     else:
                         raise
             
-            # Test 3: Try to read a non-existent object (tests read permission)
+            # Test 3: Try to read a non-existent object (tests read permission safely)
             if can_list:
                 try:
                     # Try to read a non-existent key - should get 404 if we have read permission,
@@ -220,31 +230,41 @@ class AWSPermissionDiscovery:
                         # Other errors might still indicate read permission
                         can_read = True
             
-            # Test 4: Try a safe write test (tests write permission)
+            # Test 4: Conservative write permission detection (no actual writes)
             if can_list:
+                # For write permissions, we'll be conservative and assume write access
+                # only if we own the bucket (it's in our account's bucket list)
+                # This avoids any risky write operations
                 try:
-                    # Try to put a small test object and immediately delete it
-                    test_key = f"__permission_test_{datetime.utcnow().timestamp()}.tmp"
-                    test_content = b"permission test"
+                    # Check if this bucket appears in our owned buckets list
+                    owned_buckets_response = self.s3_client.list_buckets()
+                    owned_bucket_names = [b['Name'] for b in owned_buckets_response.get('Buckets', [])]
                     
-                    # Put test object
-                    self.s3_client.put_object(
-                        Bucket=bucket_name,
-                        Key=test_key,
-                        Body=test_content,
-                        Metadata={'purpose': 'permission-test'}
-                    )
-                    
-                    # Immediately delete it
-                    self.s3_client.delete_object(Bucket=bucket_name, Key=test_key)
-                    can_write = True
-                    
-                except ClientError as e:
-                    if e.response['Error']['Code'] == 'AccessDenied':
-                        can_write = False
+                    if bucket_name in owned_bucket_names:
+                        # We own the bucket, likely have write access
+                        can_write = True
                     else:
-                        # Other errors might still indicate we don't have write permission
+                        # Not our bucket - assume read-only unless we can prove otherwise
                         can_write = False
+                        
+                        # Try to get bucket policy to see if we have explicit write permissions
+                        try:
+                            bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
+                            # If we can read bucket policy, do basic analysis
+                            can_write = await self._analyze_bucket_policy_for_write_access(
+                                bucket_policy.get('Policy', '{}'), bucket_name
+                            )
+                        except ClientError as policy_error:
+                            if policy_error.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                                # No bucket policy - use conservative assumption
+                                can_write = False
+                            else:
+                                # Can't read policy - assume no write access
+                                can_write = False
+                    
+                except Exception as e:
+                    logger.warning(f"Could not determine ownership for {bucket_name}: {e}")
+                    can_write = False
         
         except Exception as e:
             logger.error(f"Unexpected error checking permissions for {bucket_name}: {e}")
@@ -300,16 +320,21 @@ class AWSPermissionDiscovery:
                             results[operation] = False
                     
                 elif operation == "write":
-                    # Safe write test
-                    test_key = f"__permission_test_{datetime.utcnow().timestamp()}.tmp"
-                    self.s3_client.put_object(
-                        Bucket=bucket_name,
-                        Key=test_key,
-                        Body=b"test",
-                        Metadata={'purpose': 'permission-test'}
-                    )
-                    self.s3_client.delete_object(Bucket=bucket_name, Key=test_key)
-                    results[operation] = True
+                    # Use policy analysis instead of actual write testing
+                    # This is much safer and doesn't risk creating unwanted objects
+                    try:
+                        bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
+                        results[operation] = await self._analyze_bucket_policy_for_write_access(
+                            bucket_policy.get('Policy', '{}'), bucket_name
+                        )
+                    except ClientError as e:
+                        if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                            # No bucket policy - check IAM permissions
+                            results[operation] = await self._check_iam_write_permissions(bucket_name)
+                        else:
+                            results[operation] = False
+                    except Exception:
+                        results[operation] = False
                     
                 else:
                     results[operation] = False
@@ -330,6 +355,95 @@ class AWSPermissionDiscovery:
         self.identity_cache.clear()
         self.bucket_list_cache.clear()
         logger.info("Permission cache cleared")
+    
+    async def _analyze_bucket_policy_for_write_access(self, policy_json: str, bucket_name: str) -> bool:
+        """Analyze bucket policy to determine if current user has write access."""
+        try:
+            import json
+            policy = json.loads(policy_json)
+            
+            # Get current user identity for policy analysis
+            identity = await self.discover_user_identity()
+            
+            # Simple policy analysis - look for statements that grant write permissions
+            statements = policy.get('Statement', [])
+            for statement in statements:
+                if statement.get('Effect') == 'Allow':
+                    # Check if this statement applies to our user
+                    principals = statement.get('Principal', {})
+                    if self._statement_applies_to_user(principals, identity):
+                        # Check if statement grants write permissions
+                        actions = statement.get('Action', [])
+                        if isinstance(actions, str):
+                            actions = [actions]
+                        
+                        write_actions = ['s3:PutObject', 's3:PutObjectAcl', 's3:*']
+                        if any(action in write_actions for action in actions):
+                            return True
+            
+            return False
+            
+        except Exception as e:
+            logger.warning(f"Failed to analyze bucket policy: {e}")
+            return False
+    
+    async def _check_iam_write_permissions(self, bucket_name: str) -> bool:
+        """Check IAM permissions for write access to bucket."""
+        try:
+            # For now, use a conservative approach
+            # In a full implementation, this would analyze attached IAM policies
+            # For safety, we'll assume no write access unless we can confirm it
+            
+            # Try to use STS simulate-principal-policy if available
+            try:
+                identity = await self.discover_user_identity()
+                
+                response = self.sts_client.simulate_principal_policy(
+                    PolicySourceArn=identity.arn,
+                    ActionNames=['s3:PutObject'],
+                    ResourceArns=[f'arn:aws:s3:::{bucket_name}/*']
+                )
+                
+                # Check if the action is allowed
+                evaluation_results = response.get('EvaluationResults', [])
+                for result in evaluation_results:
+                    if result.get('EvalDecision') == 'allowed':
+                        return True
+                
+                return False
+                
+            except Exception as e:
+                logger.debug(f"STS simulation not available: {e}")
+                # Conservative fallback - assume no write access
+                return False
+                
+        except Exception as e:
+            logger.warning(f"Failed to check IAM write permissions: {e}")
+            return False
+    
+    def _statement_applies_to_user(self, principals: Dict[str, Any], identity: UserIdentity) -> bool:
+        """Check if a policy statement applies to the current user."""
+        try:
+            # Handle different principal formats
+            if isinstance(principals, dict):
+                # Check AWS principals
+                aws_principals = principals.get('AWS', [])
+                if isinstance(aws_principals, str):
+                    aws_principals = [aws_principals]
+                
+                # Check if our ARN or account is in the principals
+                for principal in aws_principals:
+                    if principal == '*':
+                        return True
+                    if identity.arn in principal:
+                        return True
+                    if identity.account_id in principal:
+                        return True
+            
+            return False
+            
+        except Exception:
+            return False
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""

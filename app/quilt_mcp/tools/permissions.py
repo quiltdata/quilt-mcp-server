@@ -136,6 +136,21 @@ async def bucket_access_check(
         # Test specific operations if requested
         operation_results = await discovery.test_bucket_operations(bucket_name, operations)
         
+        # Add helpful guidance for uncertain permissions
+        guidance = []
+        if bucket_info.permission_level == PermissionLevel.READ_ONLY:
+            guidance.append("This bucket appears to be read-only. Consider using a different bucket for package creation.")
+        elif bucket_info.permission_level == PermissionLevel.LIST_ONLY:
+            guidance.append("Limited access detected. You can see bucket contents but may not be able to read or write files.")
+        elif bucket_info.permission_level == PermissionLevel.NO_ACCESS:
+            guidance.append("No access detected. Check your AWS permissions or verify the bucket name.")
+        
+        # Add quilt-specific guidance
+        if bucket_info.can_write:
+            guidance.append("✅ This bucket can be used for Quilt package creation.")
+        else:
+            guidance.append("❌ This bucket cannot be used for Quilt package creation (no write access).")
+        
         return {
             "success": True,
             "bucket_name": bucket_name,
@@ -148,7 +163,12 @@ async def bucket_access_check(
             "operation_tests": operation_results,
             "bucket_region": bucket_info.region,
             "last_checked": bucket_info.last_checked.isoformat(),
-            "error_message": bucket_info.error_message
+            "error_message": bucket_info.error_message,
+            "guidance": guidance,
+            "quilt_compatible": bucket_info.can_write,
+            "recommended_for_packages": bucket_info.permission_level in [
+                PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE
+            ]
         }
         
     except Exception as e:
