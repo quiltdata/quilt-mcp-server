@@ -62,7 +62,7 @@ def package_create(
     package_name: str,
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
-    metadata: dict[str, Any] | None = None,
+    metadata: Any = None,
     message: str = "Created via package_create tool",
     flatten: bool = True,
 ) -> dict[str, Any]:
@@ -110,6 +110,18 @@ def package_create(
                 ],
                 "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
             }
+    elif not isinstance(metadata, dict):
+        return {
+            "success": False,
+            "error": "Invalid metadata type",
+            "provided_type": type(metadata).__name__,
+            "expected": "Dictionary object or JSON string",
+            "examples": [
+                '{"description": "My dataset", "version": "1.0"}',
+                '{"tags": ["research", "2024"], "author": "scientist"}'
+            ],
+            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+        }
 
     warnings: list[str] = []
     if not s3_uris:
@@ -155,7 +167,7 @@ def package_update(
     package_name: str,
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
-    metadata: dict[str, Any] | None = None,
+    metadata: Any = None,
     message: str = "Added objects via package_update tool",
     flatten: bool = True,
 ) -> dict[str, Any]:
@@ -172,8 +184,38 @@ def package_update(
     Returns:
         Dict with update status, package details, and list of files added.
     """
+    # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
+    elif isinstance(metadata, str):
+        try:
+            import json
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": "Invalid metadata format",
+                "provided": metadata,
+                "expected": "Valid JSON object or Python dict",
+                "json_error": str(e),
+                "examples": [
+                    '{"description": "Updated dataset", "version": "2.0"}',
+                    '{"tags": ["updated", "v2"], "quality": "validated"}'
+                ],
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+            }
+    elif not isinstance(metadata, dict):
+        return {
+            "success": False,
+            "error": "Invalid metadata type",
+            "provided_type": type(metadata).__name__,
+            "expected": "Dictionary object or JSON string",
+            "examples": [
+                '{"description": "Updated dataset", "version": "2.0"}',
+                '{"tags": ["updated", "v2"], "author": "scientist"}'
+            ],
+            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+        }
 
     if not s3_uris:
         return {"error": "No S3 URIs provided"}

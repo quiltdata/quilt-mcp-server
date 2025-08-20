@@ -5,14 +5,14 @@ types, making it easy for users to create properly structured metadata.
 """
 
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 METADATA_TEMPLATES = {
     "standard": {
         "description": "Standard data package",
         "created_by": "quilt-mcp-server",
-        "creation_date": datetime.utcnow().isoformat(),
+        "creation_date": datetime.now(timezone.utc).isoformat(),
         "package_type": "data",
         "version": "1.0.0"
     },
@@ -20,7 +20,7 @@ METADATA_TEMPLATES = {
     "genomics": {
         "description": "Genomics data package",
         "created_by": "quilt-mcp-server", 
-        "creation_date": datetime.utcnow().isoformat(),
+        "creation_date": datetime.now(timezone.utc).isoformat(),
         "package_type": "genomics",
         "data_type": "genomics",
         "organism": "unknown",
@@ -33,7 +33,7 @@ METADATA_TEMPLATES = {
     "ml": {
         "description": "Machine learning dataset",
         "created_by": "quilt-mcp-server",
-        "creation_date": datetime.utcnow().isoformat(), 
+        "creation_date": datetime.now(timezone.utc).isoformat(), 
         "package_type": "ml_dataset",
         "data_type": "machine_learning",
         "dataset_stage": "processed",
@@ -46,7 +46,7 @@ METADATA_TEMPLATES = {
     "research": {
         "description": "Research data package",
         "created_by": "quilt-mcp-server",
-        "creation_date": datetime.utcnow().isoformat(),
+        "creation_date": datetime.now(timezone.utc).isoformat(),
         "package_type": "research",
         "data_type": "research",
         "study_type": "unknown",
@@ -58,7 +58,7 @@ METADATA_TEMPLATES = {
     "analytics": {
         "description": "Business analytics data package",
         "created_by": "quilt-mcp-server",
-        "creation_date": datetime.utcnow().isoformat(),
+        "creation_date": datetime.now(timezone.utc).isoformat(),
         "package_type": "analytics",
         "data_type": "business_analytics",
         "analysis_period": "unknown",
@@ -87,7 +87,7 @@ def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = No
     metadata = METADATA_TEMPLATES[template_name].copy()
     
     # Update creation date to current time
-    metadata["creation_date"] = datetime.utcnow().isoformat()
+    metadata["creation_date"] = datetime.now(timezone.utc).isoformat()
     
     # Merge custom fields
     if custom_fields:

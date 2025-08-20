@@ -24,7 +24,7 @@ def create_package(
     auto_organize: bool = True,
     dry_run: bool = False,
     target_registry: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Any = None
 ) -> Dict[str, Any]:
     """
     Unified package creation tool that handles everything automatically.
@@ -65,6 +65,40 @@ def create_package(
                 tip="Provide at least one file to include in the package"
             )
         
+        # Handle metadata parameter - support both dict and JSON string for user convenience
+        processed_metadata = {}
+        if metadata is not None:
+            if isinstance(metadata, str):
+                try:
+                    import json
+                    processed_metadata = json.loads(metadata)
+                except json.JSONDecodeError as e:
+                    return {
+                        "success": False,
+                        "error": "Invalid metadata JSON format",
+                        "provided": metadata,
+                        "json_error": str(e),
+                        "examples": [
+                            '{"description": "My dataset", "type": "research"}',
+                            '{"tags": ["analysis", "2024"], "author": "scientist"}'
+                        ],
+                        "tip": "Use proper JSON format with quotes around keys and string values"
+                    }
+            elif isinstance(metadata, dict):
+                processed_metadata = metadata.copy()
+            else:
+                return {
+                    "success": False,
+                    "error": "Invalid metadata type",
+                    "provided_type": type(metadata).__name__,
+                    "expected": "Dictionary object or JSON string",
+                    "examples": [
+                        '{"description": "My dataset", "version": "1.0"}',
+                        '{"tags": ["research", "2024"], "author": "scientist"}'
+                    ],
+                    "tip": "Pass metadata as a dictionary object or JSON string"
+                }
+        
         # Analyze file sources
         file_analysis = _analyze_file_sources(files)
         
@@ -85,7 +119,7 @@ def create_package(
                 auto_organize=auto_organize,
                 dry_run=dry_run,
                 target_registry=target_registry,
-                metadata=metadata
+                metadata=processed_metadata
             )
         elif file_analysis["source_type"] == "local_only":
             return _create_package_from_local_sources(
@@ -95,7 +129,7 @@ def create_package(
                 auto_organize=auto_organize,
                 dry_run=dry_run,
                 target_registry=target_registry,
-                metadata=metadata
+                metadata=processed_metadata
             )
         elif file_analysis["source_type"] == "mixed":
             return _create_package_from_mixed_sources(
@@ -105,7 +139,7 @@ def create_package(
                 auto_organize=auto_organize,
                 dry_run=dry_run,
                 target_registry=target_registry,
-                metadata=metadata
+                metadata=processed_metadata
             )
         else:
             return format_error_response("Unable to determine file source types")

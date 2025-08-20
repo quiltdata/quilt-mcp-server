@@ -58,6 +58,11 @@ from .tools.package_management import (
     package_validate,
     list_package_tools,
 )
+from .tools.metadata_examples import (
+    show_metadata_examples,
+    create_metadata_from_template,
+    fix_metadata_validation_issues,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
@@ -119,4 +124,8 @@ __all__ = [
     "package_update_metadata",
     "package_validate",
     "validate_metadata_structure",
+    # Metadata examples and guidance
+    "show_metadata_examples",
+    "create_metadata_from_template", 
+    "fix_metadata_validation_issues",
 ]

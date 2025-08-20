@@ -321,7 +321,7 @@ def _generate_package_metadata(
     return metadata
 
 
-async def package_create_from_s3(
+def package_create_from_s3(
     source_bucket: str,
     package_name: str,
     source_prefix: str = "",
@@ -334,7 +334,7 @@ async def package_create_from_s3(
     confirm_structure: bool = True,
     metadata_template: str = "standard",
     dry_run: bool = False,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Any = None,
 ) -> Dict[str, Any]:
     """
     Create a well-organized Quilt package from S3 bucket contents with smart organization.
@@ -364,6 +364,40 @@ async def package_create_from_s3(
         
         if not source_bucket:
             return format_error_response("source_bucket is required")
+        
+        # Handle metadata parameter - support both dict and JSON string for user convenience
+        processed_metadata = {}
+        if metadata is not None:
+            if isinstance(metadata, str):
+                try:
+                    import json
+                    processed_metadata = json.loads(metadata)
+                except json.JSONDecodeError as e:
+                    return {
+                        "success": False,
+                        "error": "Invalid metadata JSON format",
+                        "provided": metadata,
+                        "json_error": str(e),
+                        "examples": [
+                            '{"description": "Dataset from S3", "source": "s3_bucket"}',
+                            '{"tags": ["s3-import", "2024"], "quality": "raw"}'
+                        ],
+                        "tip": "Use proper JSON format with quotes around keys and string values"
+                    }
+            elif isinstance(metadata, dict):
+                processed_metadata = metadata.copy()
+            else:
+                return {
+                    "success": False,
+                    "error": "Invalid metadata type",
+                    "provided_type": type(metadata).__name__,
+                    "expected": "Dictionary object or JSON string",
+                    "examples": [
+                        '{"description": "Dataset from S3", "version": "1.0"}',
+                        '{"tags": ["s3-import", "2024"], "author": "data-team"}'
+                    ],
+                    "tip": "Pass metadata as a dictionary object or JSON string"
+                }
         
         # Validate and normalize bucket name
         if source_bucket.startswith("s3://"):
@@ -482,7 +516,7 @@ async def package_create_from_s3(
             source_info=source_info,
             organized_structure=organized_structure,
             metadata_template=metadata_template,
-            user_metadata=metadata
+            user_metadata=processed_metadata
         )
         
         # Generate README content

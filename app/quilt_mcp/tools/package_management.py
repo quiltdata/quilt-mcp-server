@@ -22,7 +22,7 @@ def create_package_enhanced(
     files: List[str],
     description: str = "",
     metadata_template: str = "standard",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Any = None,
     registry: Optional[str] = None,
     dry_run: bool = False,
     auto_organize: bool = True
@@ -271,7 +271,7 @@ def create_package_enhanced(
 
 def package_update_metadata(
     package_name: str,
-    metadata: Dict[str, Any],
+    metadata: Any,
     registry: str = None,
     merge_with_existing: bool = True
 ) -> Dict[str, Any]:
@@ -315,24 +315,74 @@ def package_update_metadata(
                 "validation_result": validation_result
             }
         
-        # This is a placeholder for the actual implementation
-        # In a full implementation, this would:
-        # 1. Browse the existing package
-        # 2. Get current metadata
-        # 3. Merge or replace metadata
-        # 4. Push updated package
-        
-        return {
-            "success": False,
-            "error": "Metadata update not yet implemented",
-            "alternative": "Create a new package version with updated metadata",
-            "suggested_workflow": [
-                "1. Browse existing package to see current structure",
-                "2. Create new package with same files plus updated metadata",
-                "3. Use package versioning to track changes"
-            ],
-            "help": "Use create_package_enhanced() with updated metadata for now"
-        }
+        # Implementation: Update package metadata
+        try:
+            from ..constants import DEFAULT_REGISTRY
+            import quilt3
+            
+            # Use default registry if none provided
+            if not registry:
+                registry = DEFAULT_REGISTRY
+            
+            # Browse existing package to get current structure
+            pkg = quilt3.Package.browse(package_name, registry=registry)
+            
+            # Get current metadata
+            current_metadata = {}
+            try:
+                current_metadata = dict(pkg.meta) if hasattr(pkg, 'meta') else {}
+            except Exception:
+                current_metadata = {}
+            
+            # Merge or replace metadata based on user preference
+            if merge_with_existing:
+                final_metadata = current_metadata.copy()
+                final_metadata.update(metadata)
+            else:
+                final_metadata = metadata.copy()
+            
+            # Set the new metadata
+            pkg.set_meta(final_metadata)
+            
+            # Push the updated package
+            commit_message = f"Updated metadata for {package_name}"
+            top_hash = pkg.push(package_name, registry=registry, message=commit_message)
+            
+            return {
+                "success": True,
+                "action": "metadata_updated",
+                "package_name": package_name,
+                "registry": registry,
+                "top_hash": str(top_hash),
+                "previous_metadata": current_metadata,
+                "new_metadata": final_metadata,
+                "merge_applied": merge_with_existing,
+                "message": "Metadata updated successfully",
+                "next_steps": [
+                    f"Browse updated package: package_browse('{package_name}')",
+                    f"Validate package: package_validate('{package_name}')",
+                    f"View online: catalog_url('{registry}', '{package_name}')"
+                ]
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": "Failed to update package metadata",
+                "cause": str(e),
+                "error_type": type(e).__name__,
+                "possible_fixes": [
+                    "Verify the package exists in the specified registry",
+                    "Check that you have write permissions for the registry",
+                    "Ensure your metadata is a valid dictionary"
+                ],
+                "suggested_actions": [
+                    f"Try: package_browse('{package_name}') to verify package exists",
+                    "Try: test_permissions() to check bucket access",
+                    "Try: validate_metadata_structure() to check metadata format"
+                ],
+                "debug_info": {"error_type": type(e).__name__, "operation": "metadata_update"}
+            }
         
     except Exception as e:
         return format_error_response(f"Metadata update failed: {str(e)}")
