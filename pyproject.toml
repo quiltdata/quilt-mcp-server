@@ -26,9 +26,12 @@ dependencies = [
 quilt-mcp = "app.main:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["app*"]
+where = ["app"]
+include = ["quilt_mcp*"]
 exclude = ["shared", "build-docker", "catalog-push", "deploy-aws", "scripts"]
+
+[tool.setuptools.package-dir]
+"" = "app"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]

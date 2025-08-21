@@ -8,8 +8,7 @@ import re
 import sys
 import io
 import contextlib
-from collections.abc import Callable
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Callable
 
 import boto3
 from fastmcp import FastMCP
@@ -92,7 +91,6 @@ def register_tools(
             tools_registered += 1
             if verbose:
                 # Use stderr to avoid interfering with JSON-RPC on stdout
-                import sys
                 print(f"Registered tool: {module.__name__}.{name}", file=sys.stderr)
 
     return tools_registered
@@ -160,7 +158,6 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        import sys
         print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
@@ -187,6 +184,5 @@ def run_server() -> None:
 
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        import sys
         print(f"Error starting MCP server: {e}", file=sys.stderr)
         raise
