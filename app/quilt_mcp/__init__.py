@@ -24,7 +24,7 @@ from .tools.auth import (
     configure_catalog,
     filesystem_status,
     switch_catalog,
-    test_permissions,
+    tool_test_permissions as test_permissions,
 )
 from .tools.buckets import (
     bucket_object_fetch,

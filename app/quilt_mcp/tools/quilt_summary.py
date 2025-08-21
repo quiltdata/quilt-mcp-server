@@ -57,6 +57,13 @@ def generate_quilt_summarize_json(
         Complete quilt_summarize.json content as dictionary
     """
     try:
+        # Validate minimal inputs
+        if not package_name or not isinstance(organized_structure, dict) or len(organized_structure) == 0:
+            return {
+                "error": "Invalid inputs for summary generation",
+                "package_name": package_name,
+                "details": "package_name must be non-empty and organized_structure must contain files"
+            }
         # Calculate comprehensive statistics
         total_files = sum(len(files) for files in organized_structure.values())
         total_size = sum(
@@ -444,6 +451,12 @@ def create_quilt_summary_files(
         Dictionary with all generated files and content
     """
     try:
+        # Validate inputs
+        if not package_name or not organized_structure:
+            return {
+                "success": False,
+                "error": "Invalid inputs: package_name and organized_structure are required"
+            }
         # Generate quilt_summarize.json
         summary_json = generate_quilt_summarize_json(
             package_name=package_name,

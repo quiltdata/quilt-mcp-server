@@ -7,7 +7,9 @@ import tempfile
 from typing import Any
 from urllib.parse import quote, urlparse
 
+import asyncio
 import quilt3
+from .permissions import bucket_access_check
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -687,9 +689,6 @@ def test_permissions(bucket: str) -> dict[str, Any]:
     """
     try:
         # Use the existing bucket access check but enhance the output
-        import asyncio
-        from .permissions import bucket_access_check
-        
         # Run the async permission check
         result = asyncio.run(bucket_access_check(bucket, ["read", "write", "list"]))
         

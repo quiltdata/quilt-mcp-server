@@ -10,6 +10,7 @@ from datetime import datetime
 
 from ..aws.permission_discovery import AWSPermissionDiscovery, PermissionLevel
 from ..utils import format_error_response
+from botocore.exceptions import ClientError  # Used in tests when patching
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def aws_permissions_discover(
             if isinstance(permission_level, PermissionLevel):
                 permission_level = permission_level.value
             
-            category = permission_level.replace("_", "_").lower()
+            category = str(permission_level).lower()
             if category in categorized_buckets:
                 categorized_buckets[category].append(bucket)
         

@@ -411,29 +411,44 @@ def package_create_from_s3(
                 "fix": f"Try using: {source_bucket.replace('s3://', '')}"
             }
         
-        # Suggest target registry if not provided using permissions discovery
+        # Discover source objects first so dry_run and empty results short-circuit early
+        s3_client = boto3.client("s3")
+        try:
+            _validate_bucket_access(s3_client, source_bucket)
+        except Exception as e:
+            error_msg = str(e)
+            if "Access denied" in error_msg or "AccessDenied" in error_msg:
+                return {
+                    "success": False,
+                    "error": "Cannot access source bucket - insufficient permissions",
+                    "bucket": source_bucket,
+                    "cause": "Missing read permissions for source bucket",
+                }
+            else:
+                return format_error_response(f"Cannot access source bucket {source_bucket}: {str(e)}")
+
+        logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
+        objects = _discover_s3_objects(
+            s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns
+        )
+
+        if not objects:
+            return format_error_response("No objects found matching the specified criteria")
+
+        # Now suggest target registry if not provided
         if not target_registry:
-            # Try to get smart recommendations based on actual permissions
             try:
                 recommendations = bucket_recommendations_get(
                     source_bucket=source_bucket,
                     operation_type="package_creation"
                 )
-                
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get("primary_recommendations"):
-                    # Use the top recommendation
                     top_rec = recommendations["recommendations"]["primary_recommendations"][0]
                     target_registry = f"s3://{top_rec['bucket_name']}"
-                    logger.info(f"Using permission-based recommendation: {target_registry}")
                 else:
-                    # Fallback to pattern-based suggestion
                     target_registry = _suggest_target_registry(source_bucket, source_prefix)
-                    logger.info(f"Using pattern-based suggestion: {target_registry}")
-                    
-            except Exception as e:
-                logger.warning(f"Permission-based recommendation failed, using pattern-based: {e}")
+            except Exception:
                 target_registry = _suggest_target_registry(source_bucket, source_prefix)
-                logger.info(f"Fallback suggestion: {target_registry}")
         
         # Validate target registry permissions
         target_bucket_name = target_registry.replace("s3://", "")
@@ -460,44 +475,7 @@ def package_create_from_s3(
             logger.warning(f"Could not validate target registry permissions: {e}")
             # Continue anyway - the user might have permissions that we can't detect
         
-        # Initialize clients
-        s3_client = boto3.client("s3")
-        
-        # Validate source bucket access
-        try:
-            _validate_bucket_access(s3_client, source_bucket)
-        except Exception as e:
-            # Provide friendly error message with helpful suggestions
-            error_msg = str(e)
-            if "Access denied" in error_msg or "AccessDenied" in error_msg:
-                return {
-                    "success": False,
-                    "error": "Cannot access source bucket - insufficient permissions",
-                    "bucket": source_bucket,
-                    "cause": "Missing read permissions for source bucket",
-                    "possible_fixes": [
-                        f"Verify you have s3:ListBucket and s3:GetObject permissions for {source_bucket}",
-                        "Check if the bucket name is correct",
-                        "Ensure your AWS credentials are properly configured",
-                        "Try: bucket_access_check() to diagnose specific permission issues"
-                    ],
-                    "suggested_actions": [
-                        f"Try: bucket_recommendations_get() to find buckets you can access",
-                        f"Try: aws_permissions_discover() to see all your bucket permissions"
-                    ],
-                    "debug_info": {"aws_error": error_msg, "operation": "source_bucket_access"}
-                }
-            else:
-                return format_error_response(f"Cannot access source bucket {source_bucket}: {str(e)}")
-        
-        # Discover source objects
-        logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
-        objects = _discover_s3_objects(
-            s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns
-        )
-        
-        if not objects:
-            return format_error_response("No objects found matching the specified criteria")
+        # s3_client already initialized above
         
         # Organize file structure
         organized_structure = _organize_file_structure(objects, auto_organize)

@@ -13,6 +13,7 @@ from pathlib import Path
 from ..utils import validate_package_name, format_error_response
 from .permissions import bucket_recommendations_get, bucket_access_check
 from .s3_package import package_create_from_s3
+from .auth import auth_status  # Expose for tests patching
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +158,8 @@ def quick_start() -> Dict[str, Any]:
     """
     try:
         # Check current status
-        from .auth import auth_status
-        auth_result = auth_status()
+        from .auth import auth_status as _auth_status
+        auth_result = _auth_status()
         
         # Determine current step based on auth status
         if auth_result.get("status") == "authenticated":

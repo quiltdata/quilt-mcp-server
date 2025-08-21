@@ -1,7 +1,7 @@
 """Package naming validation and suggestion utilities."""
 
 import re
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 from pathlib import Path
 
 
