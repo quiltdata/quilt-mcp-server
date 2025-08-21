@@ -48,18 +48,26 @@ class TestPackageCreateFromS3:
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
+    @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
     @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    def test_no_objects_found(self, mock_recommendations, mock_discover, mock_validate, mock_s3_client):
-        """Test handling when no objects are found."""
+    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    def test_no_objects_found(self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client):
+        """Test handling when no objects are found in source bucket."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
         mock_validate.return_value = None
         mock_discover.return_value = []  # No objects found
+        mock_create.return_value = {"top_hash": "test_hash_123"}
         mock_recommendations.return_value = {
             "success": True,
             "recommendations": {
                 "package_creation": ["test-bucket"]
             }
+        }
+        # Mock bucket access check to return success for target registry
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True}
         }
         
         result = package_create_from_s3(
@@ -78,7 +86,8 @@ class TestPackageCreateFromS3:
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
     @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
     @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    def test_successful_package_creation(self, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client):
+    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    def test_successful_package_creation(self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client):
         """Test successful package creation."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
@@ -93,6 +102,11 @@ class TestPackageCreateFromS3:
             "recommendations": {
                 "package_creation": ["test-bucket"]
             }
+        }
+        # Mock bucket access check to return success for target registry
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True}
         }
         
         result = package_create_from_s3(
@@ -165,12 +179,16 @@ class TestValidation:
         with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
              patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover, \
-             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations:
+             patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create, \
+             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations, \
+             patch('quilt_mcp.tools.s3_package.bucket_access_check') as mock_access_check:
             
             mock_discover.return_value = [
                 {"Key": "data.csv", "Size": 1000},
                 {"Key": "readme.md", "Size": 500},
             ]
+            
+            mock_create.return_value = {"top_hash": "test_hash"}
             
             mock_recommendations.return_value = {
                 "success": True,
@@ -178,6 +196,12 @@ class TestValidation:
                     "package_creation": ["test-bucket"],
                     "temporary_storage": ["temp-bucket"]
                 }
+            }
+            
+            # Mock bucket access check to return success for target registry
+            mock_access_check.return_value = {
+                "success": True,
+                "access_summary": {"can_write": True}
             }
             
             result = package_create_from_s3(
