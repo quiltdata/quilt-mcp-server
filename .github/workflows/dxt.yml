@@ -16,8 +16,37 @@ on:
 jobs:
   # Run tests first to ensure quality
   test:
-    uses: ./.github/workflows/test.yml
-    secrets: inherit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      timeout-minutes: 2
+      
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+      timeout-minutes: 3
+        
+    - name: Set up Python
+      run: uv python install ${{ matrix.python-version }}
+      timeout-minutes: 3
+            
+    - name: Run unit tests
+      run: |
+        cd app
+        make test-unit-ci
+      timeout-minutes: 10
+      env:
+        UVRUN: uv run
+        # No AWS credentials - unit tests should use mocks
+        UNIT_TEST_MODE: "true"
 
   build-and-release:
     runs-on: ubuntu-latest
