@@ -11,19 +11,28 @@ echo
 # Check Python version
 check_python() {
     echo "Checking Python installation..."
-    if command -v python3 >/dev/null 2>&1; then
-        python_version=$(python3 --version 2>&1 | awk '{print $2}')
+    
+    # Check user's default Python (what Claude Desktop will use from login environment)
+    # Use a clean environment to simulate what Claude Desktop sees
+    python_cmd=$(env -i bash -l -c 'command -v python3' 2>/dev/null)
+    
+    if [ -n "$python_cmd" ]; then
+        python_version=$(env -i bash -l -c "$python_cmd --version" 2>&1 | awk '{print $2}')
         major=$(echo $python_version | cut -d. -f1)
         minor=$(echo $python_version | cut -d. -f2)
         
         if [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; then
-            echo "✅ Python $python_version found (required: 3.11+)"
+            echo "✅ User default Python $python_version found at $python_cmd (required: 3.11+)"
+            echo "   This is the Python that Claude Desktop will use"
         else
-            echo "❌ Python $python_version found, but 3.11+ is required"
+            echo "❌ User default Python $python_version found at $python_cmd, but 3.11+ is required"
+            echo "   Claude Desktop requires Python 3.11+ in the user's login environment"
             return 1
         fi
     else
-        echo "❌ Python 3 not found. Please install Python 3.11 or newer"
+        echo "❌ User default Python 3 not found in login environment"
+        echo "   Claude Desktop requires Python 3.11+ accessible from user's login shell"
+        echo "   Try adding Python to your shell profile (.bashrc, .zshrc, etc.)"
         return 1
     fi
 }
