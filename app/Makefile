@@ -5,7 +5,7 @@
 sinclude ../.env
 export
 
-ENDPOINT ?= http://127.0.0.1:8000/mcp/
+ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
 .PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools 
 

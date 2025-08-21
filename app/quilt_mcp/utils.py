@@ -172,13 +172,13 @@ def run_server() -> None:
         # Create and configure the server
         mcp = create_configured_server()
 
-        # Get transport from environment variable (default to streamable-http)
-        transport_str = os.environ.get("FASTMCP_TRANSPORT", "streamable-http")
+        # Get transport from environment variable (default to stdio for MCP compatibility)
+        transport_str = os.environ.get("FASTMCP_TRANSPORT", "stdio")
 
         # Validate transport string and fall back to default if invalid
         valid_transports = ["stdio", "http", "sse", "streamable-http"]
         if transport_str not in valid_transports:
-            transport_str = "streamable-http"
+            transport_str = "stdio"
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
