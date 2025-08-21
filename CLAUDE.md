@@ -4,20 +4,19 @@ This repository contains a secure MCP (Model Context Protocol) server for access
 
 ## Repository Overview
 
-**Purpose**: Deploy and manage a Claude-compatible MCP server for Quilt data access with JWT authentication
-**Tech Stack**: Python, AWS CDK, Docker, ECS Fargate, Application Load Balancer, ECR
-**Security**: JWT authentication, IAM roles, secure credential management
+**Purpose**: Local MCP server for Quilt data access
+**Tech Stack**: Python, Docker (optional)
+**Security**: Local development focused
 
 ## Architecture
 
-This project uses a **4-phase deployment pipeline**:
+This project provides a local MCP server with optional Docker containerization:
 
 ```tree
-fast-mcp-server/
+quilt-mcp-server/
 ├── app/           # Phase 1: Local MCP server (Python)
 ├── build-docker/  # Phase 2: Docker containerization  
 ├── catalog-push/  # Phase 3: ECR registry operations
-├── deploy-aws/    # Phase 4: ECS/ALB deployment
 └── shared/        # Common utilities (validation, testing)
 ```
 
@@ -35,7 +34,6 @@ make check-env              # Validate .env configuration
 make app                    # Phase 1: Run local MCP server
 make build                  # Phase 2: Build Docker container  
 make catalog                # Phase 3: Push to ECR registry
-make deploy                 # Phase 4: Deploy to ECS Fargate
 
 # Validation Commands (SPEC-compliant)
 make validate               # Validate all phases sequentially
@@ -47,31 +45,25 @@ make validate-deploy        # Validate Phase 4 only
 # Testing Commands
 make test-app               # Phase 1 testing only
 make test-build             # Phase 2 testing only
-make test-deploy            # Phase 4 testing only
 make coverage               # Run tests with coverage (fails if <85%)
 
 # Verification Commands (MCP Endpoint Testing)
 make verify-app             # Verify Phase 1 MCP endpoint
 make verify-build           # Verify Phase 2 MCP endpoint
 make verify-catalog         # Verify Phase 3 MCP endpoint
-make verify-deploy          # Verify Phase 4 MCP endpoint
 
 # Initialization Commands (Precondition Checks)
 make init-app               # Check Phase 1 preconditions
 make init-build             # Check Phase 2 preconditions
 make init-catalog           # Check Phase 3 preconditions
-make init-deploy            # Check Phase 4 preconditions
 
 # Cleanup Commands
 make clean                  # Clean build artifacts
 make zero-app               # Stop Phase 1 processes
 make zero-build             # Stop Phase 2 containers
 make zero-catalog           # Stop Phase 3 containers
-make zero-deploy            # Disable Phase 4 endpoint (preserve stack)
 
 # Utilities
-make status                 # Show deployment status
-make destroy                # Clean up AWS resources
 ```
 
 ### Direct Phase Scripts (Alternative)
@@ -98,12 +90,6 @@ make destroy                # Clean up AWS resources
 ./catalog-push/catalog-push.sh login
 ./catalog-push/catalog-push.sh validate
 
-# Phase 4: Deploy-AWS (ECS/ALB Deployment)
-./deploy-aws/deploy-aws.sh deploy
-./deploy-aws/deploy-aws.sh test
-./deploy-aws/deploy-aws.sh status
-./deploy-aws/deploy-aws.sh validate
-./deploy-aws/deploy-aws.sh destroy
 ```
 
 ### Shared Utilities
@@ -114,13 +100,11 @@ make destroy                # Clean up AWS resources
 ./shared/validate.sh app
 ./shared/validate.sh build
 ./shared/validate.sh catalog
-./shared/validate.sh deploy
 
 # MCP endpoint testing
 ./shared/test-endpoint.sh -p app -t
 ./shared/test-endpoint.sh -p build -t
 ./shared/test-endpoint.sh -p catalog -t
-./shared/test-endpoint.sh -p deploy -t
 ```
 
 ### Docker Operations
@@ -154,35 +138,6 @@ curl -X POST http://localhost:8001/mcp -H "Content-Type: application/json" -d '{
 curl -X POST http://localhost:8002/mcp -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-### AWS Operations
-
-```bash
-# CDK operations (from deploy-aws/)
-cd deploy-aws && uv run cdk deploy --require-approval never --app "python app.py"
-cd deploy-aws && uv run cdk destroy --app "python app.py"
-cd deploy-aws && uv run cdk bootstrap --app "python app.py"
-cd deploy-aws && uv run cdk synth --app "python app.py"
-cd deploy-aws && uv run cdk diff --app "python app.py"
-
-# CloudFormation & AWS CLI
-aws cloudformation describe-stacks --stack-name QuiltMcpFargateStack --region *
-aws cloudformation describe-stack-resources --stack-name QuiltMcpFargateStack --region *
-aws sts get-caller-identity
-
-# ECS & ECR operations
-aws ecs describe-clusters --cluster *
-aws ecs describe-services --cluster * --services *
-aws ecs list-tasks --cluster *
-aws ecs describe-tasks --cluster * --tasks *
-aws ecr describe-repositories
-aws ecr describe-images --repository-name *
-aws ecr get-login-password --region * | docker login --username AWS --password-stdin *
-
-# Logs (ECS/ALB)
-aws logs tail /ecs/* --follow --region *
-aws logs tail /aws/elasticloadbalancing/* --follow --region *
-aws logs describe-log-groups
-```
 
 ### Environment & Dependencies
 
@@ -249,9 +204,6 @@ pkill *
 Environment variables are automatically loaded from `.env` and managed by `shared/common.sh`. Use `make check-env` to validate your configuration.
 
 Key variables (see `env.example` for complete list):
-- `CDK_DEFAULT_ACCOUNT` - AWS account ID (auto-derived from AWS CLI)
-- `CDK_DEFAULT_REGION` - AWS region (default: us-east-1)
-- `ECR_REGISTRY` - ECR registry URL (auto-constructed if not set)
 - `QUILT_DEFAULT_BUCKET` - S3 bucket for Quilt data
 - `QUILT_CATALOG_DOMAIN` - Quilt catalog domain
 
@@ -264,7 +216,6 @@ Each phase uses different ports to avoid conflicts:
 | Phase 1 | Local app | 8000 | `http://127.0.0.1:8000/mcp` |
 | Phase 2 | Docker build | 8001 | `http://127.0.0.1:8001/mcp` |
 | Phase 3 | ECR catalog | 8002 | `http://127.0.0.1:8002/mcp` |
-| Phase 4 | AWS deploy | 443/80 | `https://your-alb-url/mcp` |
 
 ## Workflow Documentation
 
@@ -288,22 +239,20 @@ make validate
 make validate-app
 make validate-build  
 make validate-catalog
-make validate-deploy
 
 # Execution pipeline (no validation)
-make app build catalog deploy
+make app build catalog
 
 # Testing pipeline
-make test-app test-build test-deploy
+make test-app test-build
 ```
 
 ### Version Management
 
-All phases use **git SHA** as version tag to prevent skew:
+Local phases use **git SHA** as version tag:
 
 - Local image: `quilt-mcp:abc123f`  
 - ECR image: `${ECR_REGISTRY}/quilt-mcp:abc123f`
-- ECS service: Deployed with `abc123f`
 
 ## Development Server Options
 
@@ -336,11 +285,9 @@ Use `remote-export` for:
 
 ## Security Notes
 
-- All ECS tasks use IAM roles with minimal required permissions
-- API endpoints are protected with JWT authentication via ALB
 - Docker builds are isolated and use official base images
 - No secrets are logged or exposed in responses
-- All network traffic goes through ALB with security groups
+- Local development focused with optional containerization
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

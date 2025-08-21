@@ -5,7 +5,7 @@
 
 # Define phases
 sinclude .env
-PHASES := app build catalog deploy
+PHASES := app build catalog
 
 # Endpoint configuration
 APP_ENDPOINT ?= http://127.0.0.1:8000/mcp
@@ -23,7 +23,7 @@ help:
 	@echo "  make app        - Phase 1: Local MCP server (app/)"
 	@echo "  make build      - Phase 2: Docker container (build-docker/)"
 	@echo "  make catalog    - Phase 3: ECR registry push (catalog-push/)"  
-	@echo "  make deploy     - Phase 4: ECS deployment (deploy-aws/)"
+	@echo ""
 	@echo ""
 	@echo "🚀 Server Commands:"
 	@echo "  make run-app      - Run Phase 1 MCP server locally"
@@ -32,18 +32,18 @@ help:
 	@echo ""
 	@echo "🧹 Cleanup Commands:"
 	@echo "  make clean      - Clean all phase artifacts"
-	@echo "  make destroy    - Clean up AWS resources"
+	@echo ""
 	@echo ""
 	@echo "🔍 Validation Commands:"
 	@echo "  make validate       - Validate all phases sequentially"
 	@echo "  make validate-app   - Validate Phase 1 only"
 	@echo "  make validate-build - Validate Phase 2 only"
 	@echo "  make validate-catalog - Validate Phase 3 only"
-	@echo "  make validate-deploy - Validate Phase 4 only"
+	@echo ""
 	@echo ""
 	@echo "⚙️  Utilities:"
 	@echo "  make check-env    - Validate .env configuration"
-	@echo "  make status       - Show deployment status"
+	@echo ""
 	@echo "  make coverage     - Run tests with coverage"
 	@echo ""
 	@echo "🏷️  Release Management:"
@@ -57,7 +57,7 @@ help:
 	@echo "  - app/Makefile + app/SPEC.md"
 	@echo "  - build-docker/Makefile + build-docker/SPEC.md"
 	@echo "  - catalog-push/Makefile + catalog-push/SPEC.md"
-	@echo "  - deploy-aws/Makefile + deploy-aws/SPEC.md"
+	@echo ""
 
 # Phase Commands - delegate to phase-specific Makefiles
 app:
@@ -69,8 +69,6 @@ build:
 catalog:
 	@$(MAKE) -C catalog-push push
 
-deploy:
-	@$(MAKE) -C deploy-aws deploy
 
 test-ci:
 	@$(MAKE) -C app test-ci
@@ -78,7 +76,7 @@ test-ci:
 # Validation Commands - delegate to phase-specific Makefiles
 validate:
 	@echo "🔍 Running full validation pipeline (all phases)..."
-	@$(MAKE) validate-app validate-build validate-catalog validate-deploy
+	@$(MAKE) validate-app validate-build validate-catalog
 	@echo "✅ All phases validated successfully!"
 
 validate-app:
@@ -93,9 +91,6 @@ validate-catalog:
 	@echo "🔍 Validating Phase 3 (Catalog-Push)..."
 	@$(MAKE) -C catalog-push validate
 
-validate-deploy:
-	@echo "🔍 Validating Phase 4 (Deploy-AWS)..."
-	@$(MAKE) -C deploy-aws validate
 
 
 # Test Commands - delegate to phase-specific Makefiles
@@ -108,8 +103,6 @@ test-build:
 test-catalog:
 	@$(MAKE) -C catalog-push test
 
-test-deploy:
-	@$(MAKE) -C deploy-aws test
 
 
 # Server Commands
@@ -141,11 +134,7 @@ clean:
 coverage:
 	@$(MAKE) -C app coverage
 
-destroy:
-	@$(MAKE) -C deploy-aws destroy
 
-status:
-	@$(MAKE) -C deploy-aws status
 
 # Release Management
 check-clean-repo:

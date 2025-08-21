@@ -28,7 +28,7 @@ quilt-mcp = "app.main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
-exclude = ["shared", "build-docker", "catalog-push", "deploy-aws", "scripts"]
+exclude = ["shared", "build-docker", "catalog-push", "scripts"]
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -40,10 +40,6 @@ test = [
     "pytest-asyncio>=0.23.0", 
     "pytest-cov>=4.0.0",
     "pytest-timeout>=2.1.0",
-]
-deploy = [
-    "aws-cdk-lib>=2.100.0",
-    "constructs>=10.0.0",
 ]
 lint = [
     "black>=23.0.0",
