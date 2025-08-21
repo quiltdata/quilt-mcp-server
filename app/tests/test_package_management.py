@@ -149,11 +149,12 @@ class TestEnhancedPackageBrowsing:
         mock_entry2.hash = "hash2" 
         mock_entry2.physical_key = "s3://bucket/docs/readme.md"
         
-        mock_pkg.__getitem__.side_effect = lambda key: {
+        # Configure the mock to handle __getitem__ calls
+        mock_pkg.__getitem__ = Mock(side_effect=lambda key: {
             "data/file1.csv": mock_entry1,
             "docs/readme.md": mock_entry2,
             "analysis/script.py": mock_entry1
-        }[key]
+        }[key])
         
         mock_browse.return_value = mock_pkg
         

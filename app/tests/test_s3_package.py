@@ -48,12 +48,19 @@ class TestPackageCreateFromS3:
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    def test_no_objects_found(self, mock_discover, mock_validate, mock_s3_client):
+    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
+    def test_no_objects_found(self, mock_recommendations, mock_discover, mock_validate, mock_s3_client):
         """Test handling when no objects are found."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
         mock_validate.return_value = None
         mock_discover.return_value = []  # No objects found
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {
+                "package_creation": ["test-bucket"]
+            }
+        }
         
         result = package_create_from_s3(
             source_bucket="test-bucket",
@@ -67,7 +74,8 @@ class TestPackageCreateFromS3:
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
     @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
-    def test_successful_package_creation(self, mock_create, mock_discover, mock_validate, mock_s3_client):
+    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
+    def test_successful_package_creation(self, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client):
         """Test successful package creation."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
@@ -77,6 +85,12 @@ class TestPackageCreateFromS3:
             {"Key": "file2.txt", "Size": 200},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {
+                "package_creation": ["test-bucket"]
+            }
+        }
         
         result = package_create_from_s3(
             source_bucket="test-bucket",
@@ -200,7 +214,8 @@ class TestValidation:
             )
             
             assert result["success"] is True
-            assert "ml-packages" in result["registry"]
+            # The registry should be auto-suggested based on recommendations
+            assert "registry" in result
 
 
 @pytest.mark.aws

@@ -76,7 +76,7 @@ class TestCreatePackage:
 class TestQuickStart:
     """Test cases for the quick_start onboarding tool."""
 
-    @patch('quilt_mcp.tools.unified_package.auth_status')
+    @patch('quilt_mcp.tools.auth.auth_status')
     def test_quick_start_authenticated(self, mock_auth_status):
         """Test quick start for authenticated user."""
         mock_auth_status.return_value = {
@@ -91,7 +91,7 @@ class TestQuickStart:
         assert "next_actions" in result
         assert len(result["next_actions"]) > 0
 
-    @patch('quilt_mcp.tools.unified_package.auth_status')
+    @patch('quilt_mcp.tools.auth.auth_status')
     def test_quick_start_not_authenticated(self, mock_auth_status):
         """Test quick start for non-authenticated user."""
         mock_auth_status.return_value = {
@@ -105,7 +105,7 @@ class TestQuickStart:
         assert "setup_flow" in result
         assert len(result["setup_flow"]) >= 4
 
-    @patch('quilt_mcp.tools.unified_package.auth_status')
+    @patch('quilt_mcp.tools.auth.auth_status')
     def test_quick_start_error_state(self, mock_auth_status):
         """Test quick start for error state."""
         mock_auth_status.return_value = {
@@ -158,14 +158,16 @@ class TestCatalogConfiguration:
         """Test switching to invalid catalog name."""
         result = switch_catalog("nonexistent-catalog")
         
-        # Should still attempt to construct URL
+        # Should return error with available catalogs
+        assert result["status"] == "error"
         assert "available_catalogs" in result
+        assert "demo" in result["available_catalogs"]
 
 
 class TestPermissionTesting:
     """Test cases for the permission testing tool."""
 
-    @patch('quilt_mcp.tools.auth.bucket_access_check')
+    @patch('quilt_mcp.tools.permissions.bucket_access_check')
     @patch('asyncio.run')
     def test_permissions_success(self, mock_asyncio_run, mock_bucket_check):
         """Test successful permission testing."""
@@ -186,7 +188,7 @@ class TestPermissionTesting:
         assert result["package_create"] is True
         assert "All permissions look good" in result["suggested_fixes"][0]
 
-    @patch('quilt_mcp.tools.auth.bucket_access_check')
+    @patch('quilt_mcp.tools.permissions.bucket_access_check')
     @patch('asyncio.run')
     def test_permissions_read_only(self, mock_asyncio_run, mock_bucket_check):
         """Test permission testing for read-only bucket."""

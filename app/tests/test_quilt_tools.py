@@ -118,11 +118,13 @@ class TestQuiltTools:
     def test_package_browse_error(self):
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            try:
-                package_browse("user/nonexistent")
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "Package not found" in str(e)
+            result = package_browse("user/nonexistent")
+            
+            assert result["success"] is False
+            assert "Failed to browse package" in result["error"]
+            assert "Package not found" in result["cause"]
+            assert "possible_fixes" in result
+            assert "suggested_actions" in result
 
     def test_package_contents_search_success(self):
         """Test package_contents_search with matches."""
