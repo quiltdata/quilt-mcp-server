@@ -92,12 +92,12 @@ jobs:
         esac
       timeout-minutes: 20
       env:
-        # AWS credentials for integration testing
+        # AWS credentials for integration testing (from organization secrets)
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
         
-        # Quilt-specific settings
+        # Quilt-specific settings (from organization secrets)
         QUILT_READ_POLICY_ARN: ${{ secrets.QUILT_READ_POLICY_ARN }}
         CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
         CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}

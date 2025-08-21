@@ -25,7 +25,6 @@ class TestAWSPermissionsDiscover:
 
     @pytest.mark.asyncio
     @pytest.mark.aws
-    @pytest.timeout(10)
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
     async def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""

@@ -147,8 +147,7 @@ class TestValidation:
         assert result["error"] == "Test error message"
         assert "timestamp" in result
 
-    @pytest.mark.asyncio
-    async def test_dry_run_preview(self):
+    def test_dry_run_preview(self):
         """Test dry run functionality returns preview without creating package."""
         with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
@@ -168,7 +167,7 @@ class TestValidation:
                 }
             }
             
-            result = await package_create_from_s3(
+            result = package_create_from_s3(
                 source_bucket="test-bucket",
                 package_name="test/package", 
                 dry_run=True
@@ -180,8 +179,7 @@ class TestValidation:
             assert "readme_preview" in result
             assert "metadata_preview" in result
 
-    @pytest.mark.asyncio
-    async def test_auto_registry_suggestion(self):
+    def test_auto_registry_suggestion(self):
         """Test automatic registry suggestion based on source patterns."""
         with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
@@ -199,7 +197,7 @@ class TestValidation:
                 }
             }
             
-            result = await package_create_from_s3(
+            result = package_create_from_s3(
                 source_bucket="ml-training-data",
                 package_name="test/package",
                 # No target_registry specified - should be auto-suggested
