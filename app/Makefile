@@ -91,22 +91,30 @@ test-unit-ci:
 test-integration:
 	@echo "Running integration tests with real AWS..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws or search" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws or search" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-aws:
 	@echo "Running AWS-specific integration tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-search:
 	@echo "Running search integration tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "search" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "search" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-permissions:
 	@echo "Running permission-specific tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
