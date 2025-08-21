@@ -377,15 +377,20 @@ class TestQuiltAPI:
         ), f"Expected meaningful bucket error, got: {exc_info.value}"
 
     def test_package_browse_nonexistent_fails(self):
-        """Test that browsing non-existent package raises exception."""
-        with pytest.raises(Exception) as exc_info:
-            package_browse("definitely/nonexistent/package")
+        """Test that browsing non-existent package returns error response."""
+        result = package_browse("definitely/nonexistent/package")
 
-        error_msg = str(exc_info.value).lower()
+        # The function now returns an error dictionary instead of raising an exception
+        assert isinstance(result, dict)
+        assert result.get("success") is False
+        assert "error" in result
+        assert "cause" in result
+        
+        error_msg = str(result.get("error", "")).lower()
         assert any(
             term in error_msg
-            for term in ["not found", "does not exist", "no such file", "invalid package name"]
-        ), f"Expected meaningful error message, got: {exc_info.value}"
+            for term in ["failed to browse", "package", "definitely/nonexistent/package"]
+        ), f"Expected meaningful error message, got: {result}"
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
