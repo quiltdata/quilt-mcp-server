@@ -114,7 +114,8 @@ run-app-tunnel:
 	make app > /dev/null 2>&1 & app_pid=$$!; 
 	sleep 3; 
 	./scripts/tunnel-endpoint.sh $(APP_ENDPOINT) $(FLAGS) || kill $$app_pid; 
-	kill $$app_pidinspect-app-tunnel:
+	kill $$app_pid
+inspect-app-tunnel:
 	@$(MAKE) run-app-tunnel "FLAGS=--inspect"
 
 test-endpoint-tunnel: # run app tunnel, then test-endpoint
