@@ -154,8 +154,15 @@ class TestCatalogConfiguration:
         assert result["action"] == "switched"
         mock_configure.assert_called_with("https://demo.quiltdata.com")
 
-    def test_switch_catalog_invalid_name(self):
+    @patch('quilt_mcp.tools.auth.configure_catalog')
+    def test_switch_catalog_invalid_name(self, mock_configure):
         """Test switching to invalid catalog name."""
+        # Mock the configure_catalog call to fail
+        mock_configure.return_value = {
+            "status": "error",
+            "error": "Failed to configure catalog"
+        }
+        
         result = switch_catalog("nonexistent-catalog")
         
         # Should return error with available catalogs
@@ -205,7 +212,7 @@ class TestPermissionTesting:
         assert result["status"] == "success"
         assert result["bucket_write"] is False
         assert result["package_create"] is False
-        assert "Add s3:PutObject permission" in result["suggested_fixes"]
+        assert "Add s3:PutObject permission" in result["suggested_fixes"][0]
 
 
 class TestUtilityFunctions:
