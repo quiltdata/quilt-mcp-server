@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import json
 
 import boto3
+import quilt3
 from botocore.exceptions import ClientError, NoCredentialsError
 from cachetools import TTLCache
 
@@ -65,9 +66,25 @@ class AWSPermissionDiscovery:
         
         # Initialize AWS clients
         try:
-            self.sts_client = boto3.client('sts')
-            self.iam_client = boto3.client('iam')
-            self.s3_client = boto3.client('s3')
+            # Prefer Quilt3-provided STS-backed session, if logged in
+            session = None
+            try:
+                if hasattr(quilt3, 'logged_in') and quilt3.logged_in():
+                    if hasattr(quilt3, 'get_boto3_session'):
+                        session = quilt3.get_boto3_session()
+            except Exception:
+                session = None
+
+            if session is not None:
+                logger.info("Using Quilt3-backed boto3 session for permission discovery")
+                self.sts_client = session.client('sts')
+                self.iam_client = session.client('iam')
+                self.s3_client = session.client('s3')
+            else:
+                logger.info("Using default boto3 clients for permission discovery")
+                self.sts_client = boto3.client('sts')
+                self.iam_client = boto3.client('iam')
+                self.s3_client = boto3.client('s3')
         except NoCredentialsError:
             logger.error("AWS credentials not found")
             raise
