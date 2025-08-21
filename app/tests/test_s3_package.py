@@ -21,6 +21,7 @@ from quilt_mcp.validators import (
 )
 
 
+@pytest.mark.aws
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
@@ -95,6 +96,7 @@ class TestPackageCreateFromS3:
         assert result["description"] == "Test package"
 
 
+@pytest.mark.aws
 class TestUtilityFunctions:
     """Test cases for utility functions."""
 
@@ -190,6 +192,7 @@ class TestValidation:
             assert "ml-packages" in result["registry"]
 
 
+@pytest.mark.aws
 class TestEnhancedFunctionality:
     """Test cases for enhanced S3-to-package functionality."""
 

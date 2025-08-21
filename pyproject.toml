@@ -39,6 +39,7 @@ test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0", 
     "pytest-cov>=4.0.0",
+    "pytest-timeout>=2.1.0",
 ]
 deploy = [
     "aws-cdk-lib>=2.100.0",
@@ -56,11 +57,12 @@ testpaths = ["app/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --tb=short --color=yes"
+addopts = "-v --tb=short --color=yes --timeout=30 --timeout-method=thread"
 asyncio_mode = "auto"
 markers = [
-    "search: marks search tests that require catalog authentication",
-    "aws: marks integration tests that require AWS authentication and permissions",
+    "aws: marks tests that require AWS credentials and network access",
+    "search: marks tests that require search functionality",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 
 [tool.black]

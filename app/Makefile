@@ -79,9 +79,34 @@ test:
 	fi
 
 test-ci:
-	@echo "Running IAM tests only (skipping search tests)..."
+	@echo "Running CI tests with timeouts (skipping search tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not search"
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not search" --timeout=15 --disable-warnings
+
+test-unit-ci:
+	@echo "Running unit tests only (no AWS calls)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws and not search" --timeout=10 --disable-warnings
+
+test-integration:
+	@echo "Running integration tests with real AWS..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "aws or search" --timeout=60 --disable-warnings
+
+test-aws:
+	@echo "Running AWS-specific integration tests..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "aws" --timeout=60 --disable-warnings
+
+test-search:
+	@echo "Running search integration tests..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "search" --timeout=60 --disable-warnings
+
+test-permissions:
+	@echo "Running permission-specific tests..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/test_permissions.py -v --timeout=60 --disable-warnings
 
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."

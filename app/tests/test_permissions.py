@@ -19,10 +19,13 @@ from quilt_mcp.aws.permission_discovery import (
 )
 
 
+@pytest.mark.aws
 class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
     @pytest.mark.asyncio
+    @pytest.mark.aws
+    @pytest.timeout(10)
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
     async def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""
@@ -114,6 +117,7 @@ class TestAWSPermissionsDiscover:
         assert "Failed to discover AWS permissions" in result["error"]
 
 
+@pytest.mark.aws
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
@@ -178,6 +182,7 @@ class TestBucketAccessCheck:
         assert result["operation_tests"]["write"] is False
 
 
+@pytest.mark.aws
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
@@ -245,6 +250,7 @@ class TestBucketRecommendations:
         assert "temp-work" in recommendations["temporary_storage"]
 
 
+@pytest.mark.aws
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
@@ -318,6 +324,7 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_list is True
 
 
+@pytest.mark.aws
 class TestIntegrationWithS3Package:
     """Test integration between permissions and S3-to-package functionality."""
 
