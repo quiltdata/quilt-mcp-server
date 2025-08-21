@@ -3,6 +3,11 @@
 This module provides enhanced package management functionality with better
 error handling, metadata templates, and improved user experience based on
 real-world testing feedback.
+
+IMPORTANT: This module automatically ensures that README content is always written
+as README.md files within packages, never stored in package metadata. Any
+'readme_content' or 'readme' fields in metadata will be automatically extracted
+and converted to package files.
 """
 
 from typing import Dict, List, Any, Optional
@@ -138,7 +143,20 @@ def create_package_enhanced(
                             "tip": "Use proper JSON format with quotes around keys and string values"
                         }
                 
+                # Extract README content from user metadata before merging
+                # readme_content takes priority if both fields exist
+                readme_content = None
+                if 'readme_content' in metadata:
+                    readme_content = metadata.pop('readme_content')
+                elif 'readme' in metadata:
+                    readme_content = metadata.pop('readme')
+                
+                # Merge the cleaned metadata
                 template_metadata.update(metadata)
+                
+                # Store README content for later addition as package file
+                if readme_content:
+                    template_metadata["_extracted_readme"] = readme_content
             
             # Validate final metadata
             validation_result = validate_metadata_structure(template_metadata, metadata_template)

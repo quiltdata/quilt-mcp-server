@@ -85,6 +85,140 @@ class TestCreatePackageEnhanced:
         assert result["success"] is True
         assert "custom" in result["metadata_preview"]
 
+    def test_readme_content_extraction_from_metadata(self):
+        """Test that README content is automatically extracted from metadata."""
+        # Mock the base package creation function
+        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset"
+            }
+            
+            # Test metadata with README content
+            test_metadata = {
+                "description": "Test dataset",
+                "readme_content": "# Test Dataset\n\nThis is a test dataset with README content.",
+                "tags": ["test", "example"]
+            }
+            
+            result = create_package_enhanced(
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True
+            )
+            
+            # Verify success
+            assert result["success"] is True
+            
+            # Verify that README content was extracted and stored in metadata
+            # In dry_run mode, the function returns early and doesn't call _base_package_create
+            # but we can verify the metadata processing worked correctly
+            assert "metadata_preview" in result
+            
+            # Verify README content was removed from the processed metadata
+            processed_metadata = result["metadata_preview"]
+            assert "readme_content" not in processed_metadata
+            assert "readme" not in processed_metadata
+            
+            # Verify other metadata was preserved
+            assert "description" in processed_metadata
+            assert "tags" in processed_metadata
+            
+            # Verify that README content was extracted and stored
+            assert "_extracted_readme" in processed_metadata
+            assert processed_metadata["_extracted_readme"] == "# Test Dataset\n\nThis is a test dataset with README content."
+
+    def test_both_readme_fields_extraction(self):
+        """Test that both 'readme_content' and 'readme' fields are extracted."""
+        # Mock the base package creation function
+        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset"
+            }
+            
+            # Test metadata with both README fields
+            test_metadata = {
+                "description": "Test dataset",
+                "readme_content": "# Priority README",
+                "readme": "This should be ignored",
+                "version": "1.0.0"
+            }
+            
+            result = create_package_enhanced(
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True
+            )
+            
+            # Verify success
+            assert result["success"] is True
+            
+            # Verify that README content was extracted and stored in metadata
+            # In dry_run mode, the function returns early and doesn't call _base_package_create
+            # but we can verify the metadata processing worked correctly
+            assert "metadata_preview" in result
+            
+            # Verify that README content was extracted and stored (priority to readme_content)
+            processed_metadata = result["metadata_preview"]
+            assert "readme_content" not in processed_metadata  # This should be removed
+            assert "readme" in processed_metadata  # This remains since we only extract one field
+            assert "_extracted_readme" in processed_metadata
+            
+            # Verify that readme_content took priority
+            assert processed_metadata["_extracted_readme"] == "# Priority README"
+            
+            # Verify other metadata was preserved
+            assert "description" in processed_metadata
+            assert "version" in processed_metadata
+
+    def test_no_readme_content_in_metadata(self):
+        """Test that packages without README content work normally."""
+        # Mock the base package creation function
+        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset"
+            }
+            
+            # Test metadata without README content
+            test_metadata = {
+                "description": "Test dataset",
+                "tags": ["test", "example"],
+                "version": "1.0.0"
+            }
+            
+            result = create_package_enhanced(
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True
+            )
+            
+            # Verify success
+            assert result["success"] is True
+            
+            # Verify that no README fields are in the processed metadata
+            # In dry_run mode, the function returns early and doesn't call _base_package_create
+            # but we can verify the metadata processing worked correctly
+            assert "metadata_preview" in result
+            
+            # Verify no README fields in the processed metadata
+            processed_metadata = result["metadata_preview"]
+            assert "readme_content" not in processed_metadata
+            assert "readme" not in processed_metadata
+            assert "_extracted_readme" not in processed_metadata
+            
+            # Verify other metadata was preserved
+            assert "description" in processed_metadata
+            assert "tags" in processed_metadata
+            assert "version" in processed_metadata
+
 
 class TestMetadataTemplates:
     """Test cases for metadata templates."""

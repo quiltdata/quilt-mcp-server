@@ -227,3 +227,140 @@ class TestUtilityFunctions:
         assert result["provided"] == "invalid_value"
         assert "examples" in result
         assert "tip" in result
+
+    def test_readme_content_extraction_from_metadata(self):
+        """Test that README content is automatically extracted from metadata."""
+        # Test metadata with README content
+        test_metadata = {
+            "description": "Test dataset",
+            "readme_content": "# Test Dataset\n\nThis is a test dataset with README content.",
+            "tags": ["test", "example"]
+        }
+        
+        # Mock the file analysis to return S3 sources
+        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False
+            }
+            
+            # Mock the S3 package creation
+            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset"
+                }
+                
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata
+                )
+                
+                # Verify success
+                assert result["status"] == "success"
+                
+                # Verify that the S3 creation function was called with cleaned metadata
+                mock_s3_create.assert_called_once()
+                call_args = mock_s3_create.call_args
+                passed_metadata = call_args[1]["metadata"]
+                
+                # Verify README content was removed from metadata
+                assert "readme_content" not in passed_metadata
+                assert "readme" not in passed_metadata
+                
+                # Verify other metadata was preserved
+                assert "description" in passed_metadata
+                assert "tags" in passed_metadata
+
+    def test_both_readme_fields_extraction(self):
+        """Test that both 'readme_content' and 'readme' fields are extracted."""
+        # Test metadata with both README fields
+        test_metadata = {
+            "description": "Test dataset",
+            "readme_content": "# Priority README",
+            "readme": "This should be ignored",
+            "version": "1.0.0"
+        }
+        
+        # Mock the file analysis to return S3 sources
+        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False
+            }
+            
+            # Mock the S3 package creation
+            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset"
+                }
+                
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata
+                )
+                
+                # Verify success
+                assert result["status"] == "success"
+                
+                # Verify that the S3 creation function was called with cleaned metadata
+                mock_s3_create.assert_called_once()
+                call_args = mock_s3_create.call_args
+                passed_metadata = call_args[1]["metadata"]
+                
+                # Verify both README fields were removed
+                assert "readme_content" not in passed_metadata
+                assert "readme" not in passed_metadata
+                
+                # Verify other metadata was preserved
+                assert "description" in passed_metadata
+                assert "version" in passed_metadata
+
+    def test_no_readme_content_in_metadata(self):
+        """Test that packages without README content work normally."""
+        # Test metadata without README content
+        test_metadata = {
+            "description": "Test dataset",
+            "tags": ["test", "example"],
+            "version": "1.0.0"
+        }
+        
+        # Mock the file analysis to return S3 sources
+        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False
+            }
+            
+            # Mock the S3 package creation
+            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset"
+                }
+                
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata
+                )
+                
+                # Verify success
+                assert result["status"] == "success"
+                
+                # Verify that the S3 creation function was called with unchanged metadata
+                mock_s3_create.assert_called_once()
+                call_args = mock_s3_create.call_args
+                passed_metadata = call_args[1]["metadata"]
+                
+                # Verify metadata was passed unchanged
+                assert passed_metadata == test_metadata
