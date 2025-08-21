@@ -70,8 +70,8 @@ class TestPackageCreateFromS3:
         
         # The function should fail because test-bucket doesn't exist, not because of permissions
         assert result["success"] is False
-        # Check for either "No objects found" or "Cannot access source bucket"
-        assert any(msg in result["error"] for msg in ["No objects found", "Cannot access source bucket", "NoSuchBucket"])
+        # Check for the actual error message about insufficient permissions
+        assert "Cannot access source bucket" in result["error"]
 
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
@@ -104,8 +104,8 @@ class TestPackageCreateFromS3:
         
         # Since test-bucket doesn't exist, this should fail with a clear error
         assert result["success"] is False
-        # Check for either "No objects found" or "Cannot access source bucket"
-        assert any(msg in result["error"] for msg in ["No objects found", "Cannot access source bucket", "NoSuchBucket"])
+        # Check for the actual error message about insufficient permissions
+        assert "Cannot access source bucket" in result["error"]
 
 
 @pytest.mark.aws
@@ -188,8 +188,8 @@ class TestValidation:
             
             # Since test-bucket doesn't exist, this should fail even in dry run mode
             assert result["success"] is False
-            # Check for either "No objects found" or "Cannot access source bucket"
-            assert any(msg in result["error"] for msg in ["No objects found", "Cannot access source bucket", "NoSuchBucket"])
+            # Check for the actual error message about insufficient permissions
+            assert "Cannot access source bucket" in result["error"]
 
     def test_auto_registry_suggestion(self):
         """Test automatic registry suggestion based on source patterns."""
@@ -217,8 +217,8 @@ class TestValidation:
             
             # Since ml-training-data doesn't exist, this should fail
             assert result["success"] is False
-            # Check for either "No objects found" or "Cannot access source bucket"
-            assert any(msg in result["error"] for msg in ["No objects found", "Cannot access source bucket", "NoSuchBucket"])
+            # Check for the actual error message about insufficient permissions
+            assert "Cannot access source bucket" in result["error"]
 
 
 @pytest.mark.aws

@@ -24,7 +24,7 @@ from .tools.auth import (
     configure_catalog,
     filesystem_status,
     switch_catalog,
-    test_permissions,
+
 )
 from .tools.buckets import (
     bucket_object_fetch,
@@ -94,7 +94,7 @@ __all__ = [
     "configure_catalog",
     "filesystem_status",
     "switch_catalog",
-    "test_permissions",
+
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",

@@ -167,6 +167,7 @@ class TestCatalogConfiguration:
         
         # Should return error with available catalogs
         assert result["status"] == "error"
+        # The function should still return available_catalogs even on error
         assert "available_catalogs" in result
         assert "demo" in result["available_catalogs"]
 
