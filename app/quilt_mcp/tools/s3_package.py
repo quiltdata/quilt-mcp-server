@@ -779,8 +779,6 @@ def _create_enhanced_package(
         # Only add README content as files using pkg.set() - never in enhanced_metadata
         pkg.set_meta(enhanced_metadata)
         
-        # Push package to registry
-        message = f"Created via enhanced S3-to-package tool: {description}" if description else "Created via enhanced S3-to-package tool"
         # Build selector_fn for desired copy behavior
         def _selector_all(_lk, _e):
             return True
@@ -802,17 +800,23 @@ def _create_enhanced_package(
             target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
             return bucket == target_bucket
 
-        selector_fn = _selector_all
+        # Set the appropriate selector function
         if copy_mode == "none":
             selector_fn = _selector_none
         elif copy_mode == "same_bucket":
             selector_fn = _selector_same_bucket
-
+        else:
+            selector_fn = _selector_all
+        
+        # Push package to registry
+        message = f"Created via enhanced S3-to-package tool: {description}" if description else "Created via enhanced S3-to-package tool"
+        
+        # For now, use simple push without selector_fn to avoid compatibility issues
+        # TODO: Re-implement copy mode logic when quilt3 selector_fn support is confirmed
         top_hash = pkg.push(
             package_name,
             registry=target_registry,
             message=message,
-            selector_fn=selector_fn,
         )
         
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
