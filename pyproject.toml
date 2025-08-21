@@ -53,7 +53,7 @@ lint = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["app/tests"]
+testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -93,7 +93,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"app/tests/*" = ["B011"]
+"tests/*" = ["B011"]
 
 [tool.mypy]
 python_version = "3.11"
