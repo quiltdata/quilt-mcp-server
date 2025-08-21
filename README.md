@@ -19,6 +19,111 @@ make app
 make validate
 ```
 
+## Using with Claude Desktop (DXT)
+
+The easiest way to use this MCP server in Claude Desktop is via the packaged DXT.
+
+1) Download the latest `.dxt` from the project releases
+   - Open the repository releases in your browser
+   - Download `quilt-mcp-<version>.dxt`
+   - Optional: download and run `check-prereqs.sh` to verify your system
+
+2) Install the DXT
+   - Double‑click the `.dxt` file, or in Claude Desktop open Settings → Extensions → Install from File and pick the `.dxt`
+
+3) Configure the catalog domain
+   - In Claude Desktop Settings → Extensions → Quilt MCP, set your Quilt catalog domain (e.g. `demo.quiltdata.com`)
+   - Ensure Python 3.11+ is available on your user PATH (see Requirements)
+
+4) Verify in Claude
+   - In a new chat, open the Tools panel and confirm Quilt MCP is listed
+   - Try a tool, e.g. “list Quilt packages”
+
+Screenshots (to be added once captured/approved):
+
+![Claude Desktop – Install DXT](docs/images/claude-install-dxt.png)
+![Claude Desktop – Configure Extension](docs/images/claude-configure-extension.png)
+
+Troubleshooting
+- Run `./check-prereqs.sh` from the release assets to validate Python and environment
+- If Python isn’t detected, ensure `python3 --version` reports 3.11+ in your login shell
+
+## Using with Cursor
+
+You can run the MCP server locally and point Cursor to it.
+
+Run the server with uv (pick one):
+
+```bash
+# Run in-repo (development)
+uv run quilt-mcp
+
+# Or run via uvx (no local install needed)
+uvx quilt-mcp
+```
+
+Configure Cursor to launch the server (GUI or JSON):
+
+- Cursor Settings → MCP (or Command Palette → “MCP: Configure Servers”) → Add New Server
+  - Command: `uvx`
+  - Args: `quilt-mcp`
+  - Working directory: repository root (optional)
+
+Or add JSON to your Cursor settings (example):
+
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "uvx",
+      "args": ["quilt-mcp"],
+      "env": {
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+      }
+    }
+  }
+}
+```
+
+Screenshot (to be added once captured/approved):
+
+![Cursor – MCP Server Configuration](docs/images/cursor-mcp-config.png)
+
+## Using with VS Code
+
+For VS Code assistants that support MCP servers, configure a command‑based server entry pointing to this CLI.
+
+Run the server with uv (pick one):
+
+```bash
+# Development
+uv run quilt-mcp
+
+# Ephemeral
+uvx quilt-mcp
+```
+
+Example MCP server configuration (JSON) for extensions that support `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "uvx",
+      "args": ["quilt-mcp"],
+      "env": {
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+      },
+      "description": "Quilt MCP Server"
+    }
+  }
+}
+```
+
+Screenshot (to be added once captured/approved):
+
+![VS Code – MCP Server Configuration](docs/images/vscode-mcp-config.png)
+
 ## Architecture
 
 This project uses a **4-phase deployment pipeline**:
@@ -266,3 +371,99 @@ make destroy
 - Docker builds are isolated and use official base images
 - No secrets are logged or exposed in responses
 - Environment variables are managed via `.env` (not committed)
+
+## Using with Claude Desktop (DXT)
+
+The easiest way to use this MCP server in Claude Desktop is via the packaged DXT.
+
+1) Download the latest `.dxt` from the project releases
+   - Open the repository releases in your browser
+   - Download `quilt-mcp-<version>.dxt`
+   - Optional: download and run `check-prereqs.sh` to verify your system
+
+2) Install the DXT
+   - Double‑click the `.dxt` file, or in Claude Desktop open Settings → Extensions → Install from File and pick the `.dxt`
+
+3) Configure the catalog domain
+   - In Claude Desktop Settings → Extensions → Quilt MCP, set your Quilt catalog domain (e.g. `demo.quiltdata.com`)
+   - Ensure Python 3.11+ is available on your user PATH (see Requirements)
+
+4) Verify in Claude
+   - In a new chat, open the Tools panel and confirm Quilt MCP is listed
+   - Try a tool, e.g. “list Quilt packages”
+
+Troubleshooting
+- Run `./check-prereqs.sh` from the release assets to validate Python and environment
+- If Python isn’t detected, ensure `python3 --version` reports 3.11+ in your login shell
+
+## Using with Cursor
+
+You can run the MCP server locally and point Cursor to it.
+
+Run the server with uv (pick one):
+
+```bash
+# Run in-repo (development)
+uv run quilt-mcp
+
+# Or run via uvx (no local install needed)
+uvx quilt-mcp
+```
+
+Configure Cursor to launch the server (GUI or JSON):
+
+- Cursor Settings → MCP (or Command Palette → “MCP: Configure Servers”) → Add New Server
+  - Command: `uvx`
+  - Args: `quilt-mcp`
+  - Working directory: repository root (optional)
+
+Or add JSON to your Cursor settings (example):
+
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "uvx",
+      "args": ["quilt-mcp"],
+      "env": {
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+      }
+    }
+  }
+}
+```
+
+## Using with VS Code
+
+For VS Code assistants that support MCP servers, configure a command‑based server entry pointing to this CLI.
+
+Run the server with uv (pick one):
+
+```bash
+# Development
+uv run quilt-mcp
+
+# Ephemeral
+uvx quilt-mcp
+```
+
+Example MCP server configuration (JSON) for extensions that support `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "uvx",
+      "args": ["quilt-mcp"],
+      "env": {
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+      },
+      "description": "Quilt MCP Server"
+    }
+  }
+}
+```
+
+Notes
+- If your editor expects a static TCP/WebSocket endpoint instead of a command, you can expose the local server with `make remote-export` and point the client at the printed URL’s `/mcp` path.
+- Ensure your shell environment includes any required Quilt settings (see Configuration) before launching the server.
