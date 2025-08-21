@@ -1,233 +1,62 @@
 # Quilt MCP Server
 
-A local MCP (Model Context Protocol) server for accessing Quilt data.
+A local MCP (Model Context Protocol) server for accessing Quilt data with secure tools for package management, S3 operations, and system utilities.
 
 ## Quick Start
 
+### For Claude Desktop Users
+
+See **[build-dxt/assets/README.md](build-dxt/assets/README.md)** for downloading and installing the pre-built DXT extension.
+
+### Manual Local Setup
+
+1. **Configure environment:**
+
+   ```bash
+   cp env.example .env
+   # Edit .env with your AWS credentials and Quilt settings (see env.example for options)
+   make check-env
+   ```
+
+2. **Run local MCP server:**
+
+   ```bash
+   make app
+   # Server runs on http://127.0.0.1:8000/mcp
+   ```
+
+3. **Configure your MCP client** (Claude Desktop, VS Code, etc.) to connect to:
+   - **Server**: `http://127.0.0.1:8000/mcp`
+   - **Method**: HTTP POST with JSON-RPC 2.0
+
+### Remote Access (via ngrok)
+
+For web apps or remote clients:
+
 ```bash
-# Setup environment
-cp env.example .env
-# Edit .env with your AWS configuration
-
-# Validate environment
-make check-env
-
-# Run locally
+# Terminal 1: Start local server
 make app
 
-# Full deployment pipeline
-make validate
+# Terminal 2: Expose via ngrok
+make run-app-tunnel
+# Use the ngrok HTTPS URL in your MCP client
 ```
 
-## Architecture
+## Available Tools
 
-This project provides a local MCP server with optional Docker containerization:
+To see all available tools dynamically:
 
-```
-quilt-mcp-server/
-├── app/           # Phase 1: Local MCP server (Python)
-├── build-docker/  # Phase 2: Docker containerization  
-├── catalog-push/  # Phase 3: ECR registry operations
-└── shared/        # Common utilities (validation, testing)
+```bash
+cd app && make run-inspector
+# Opens MCP Inspector at http://127.0.0.1:6274
 ```
 
-Each phase is **atomic** and **testable** independently, following SPEC.md validation requirements.
-
-## MCP Tools
-
-This server provides 13 secure tools for Quilt data operations:
-
-### Package Management
-
-- **`packages_list`** - List packages in a registry with optional filtering
-- **`packages_search`** - Search packages using ElasticSearch  
-- **`package_browse`** - Examine package contents and structure
-- **`package_contents_search`** - Search within a specific package
-- **`package_create`** - Create new packages from S3 objects
-- **`package_update`** - Update existing packages with new files
-- **`package_delete`** - Remove packages from registry
-
-### S3 Operations
-
-- **`bucket_objects_list`** - List objects in S3 buckets
-- **`bucket_object_info`** - Get metadata for specific objects
-- **`bucket_object_text`** - Read text content from objects
-- **`bucket_objects_put`** - Upload objects to S3
-- **`bucket_object_fetch`** - Download object data
-
-### System Tools
-
-- **`auth_check`** - Verify Quilt authentication status
-- **`filesystem_check`** - Check system environment details
+Or check **[CLAUDE.md](CLAUDE.md)** for detailed tool documentation and usage examples.
 
 ## Requirements
 
-- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) package manager
-- **Docker** for containerization (optional)
-- **AWS credentials** configured for S3 access to your Quilt buckets
+- **Python 3.11+** and [uv](https://docs.astral.sh/uv/)
+- **AWS credentials** configured for S3 access
+- **Docker** (optional, for containerization)
 
-> **Note**: Claude Desktop uses Python from your user's login shell environment, not from virtual environments. Ensure Python 3.11+ is accessible via `python3` in your shell profile (.bashrc, .zshrc, etc.).
-
-## Configuration
-
-```bash
-# Copy and edit environment configuration
-cp env.example .env
-make check-env
-```
-
-Edit `.env` with your settings:
-
-```bash
-# AWS Configuration
-AWS_PROFILE=default
-
-# Quilt Configuration
-QUILT_CATALOG_DOMAIN=your-catalog-domain.com
-QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
-QUILT_TEST_PACKAGE=yournamespace/testpackage
-QUILT_TEST_ENTRY=README.md
-```
-
-## Makefile Commands
-
-### Phase Commands
-
-```bash
-make app                          # Phase 1: Run local MCP server
-make build                        # Phase 2: Build Docker container
-make catalog                      # Phase 3: Push to ECR registry
-```
-
-### Validation Commands (SPEC-compliant)
-
-```bash
-make validate                     # Validate all phases sequentially
-make validate-app                 # Validate Phase 1 only
-make validate-build               # Validate Phase 2 only
-make validate-catalog             # Validate Phase 3 only
-```
-
-### Testing Commands
-
-```bash
-make test-app                     # Phase 1 testing only
-make test-build                   # Phase 2 testing only
-make coverage                     # Run tests with coverage (fails if <85%)
-```
-
-### Verification Commands (MCP Endpoint Testing)
-
-```bash
-make verify-app                   # Verify Phase 1 MCP endpoint
-make verify-build                 # Verify Phase 2 MCP endpoint
-make verify-catalog               # Verify Phase 3 MCP endpoint
-```
-
-### Initialization & Cleanup
-
-```bash
-make init-app                     # Check Phase 1 preconditions
-make init-build                   # Check Phase 2 preconditions
-make init-catalog                 # Check Phase 3 preconditions
-
-make zero-app                     # Stop Phase 1 processes
-make zero-build                   # Stop Phase 2 containers
-make zero-catalog                 # Stop Phase 3 containers
-```
-
-### Utilities
-
-```bash
-make check-env                    # Validate .env configuration
-make clean                        # Clean build artifacts
-```
-
-## Port Configuration
-
-Each phase uses different ports to avoid conflicts:
-
-| Phase | Description | Port | Endpoint |
-|-------|-------------|------|----------|
-| Phase 1 | Local app | 8000 | `http://127.0.0.1:8000/mcp` |
-| Phase 2 | Docker build | 8001 | `http://127.0.0.1:8001/mcp` |
-| Phase 3 | ECR catalog | 8002 | `http://127.0.0.1:8002/mcp` |
-
-## Development Workflow
-
-### Local Development
-
-```bash
-make app                          # Local server on http://127.0.0.1:8000/mcp
-```
-
-### SPEC-Compliant Pipeline
-
-```bash
-# Complete validation (recommended)
-make validate
-
-# Step-by-step development
-make init-app                     # Check preconditions
-make app                          # Run phase
-make test-app                     # Test artifacts
-make -C app test-tools            # Run tool-focused tests (metadata, buckets, quilt tools)
-make verify-app                   # Verify MCP endpoint
-make zero-app                     # Cleanup processes
-```
-
-### Testing Individual Phases
-
-```bash
-# Test specific phases
-make verify-build                 # Test Docker container
-make verify-catalog               # Test ECR image
-```
-
-## Environment Management
-
-The system automatically loads environment variables from `.env` via `shared/common.sh`:
-
-- Variables are auto-derived when possible (e.g., ECR_REGISTRY from AWS account)
-- Use `make check-env` to see current configuration
-- ECR_REGISTRY is constructed automatically if not provided
-- AWS credentials use your configured AWS CLI profile
-
-## Manual Testing
-
-### MCP Endpoint Testing
-
-```bash
-# Test local server
-curl -X POST http://localhost:8000/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Test Docker container (Phase 2)
-curl -X POST http://localhost:8001/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Test ECR image (Phase 3)
-curl -X POST http://localhost:8002/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
-
-
-## Cleanup
-
-```bash
-# Clean local artifacts
-make clean
-
-# Stop all running containers/processes
-make zero-app zero-build zero-catalog
-```
-
-## Security
-
-- Docker builds are isolated and use official base images
-- No secrets are logged or exposed in responses
-- Environment variables are managed via `.env` (not committed)
-- Local development focused with optional containerization
+> **Note**: Claude Desktop uses Python from your login shell environment. Ensure Python 3.11+ is accessible via `python3` in your shell profile.

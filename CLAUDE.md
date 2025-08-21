@@ -20,6 +20,71 @@ quilt-mcp-server/
 └── shared/        # Common utilities (validation, testing)
 ```
 
+Each phase is **atomic** and **testable** independently, following SPEC.md validation requirements.
+
+## MCP Tools
+
+This server provides 13 secure tools for Quilt data operations:
+
+### Package Management
+
+- **`packages_list`** - List packages in a registry with optional filtering
+- **`packages_search`** - Search packages using ElasticSearch  
+- **`package_browse`** - Examine package contents and structure
+- **`package_contents_search`** - Search within a specific package
+- **`package_create`** - Create new packages from S3 objects
+- **`package_update`** - Update existing packages with new files
+- **`package_delete`** - Remove packages from registry
+
+### S3 Operations
+
+- **`bucket_objects_list`** - List objects in S3 buckets
+- **`bucket_object_info`** - Get metadata for specific objects
+- **`bucket_object_text`** - Read text content from objects
+- **`bucket_objects_put`** - Upload objects to S3
+- **`bucket_object_fetch`** - Download object data
+
+### System Tools
+
+- **`auth_check`** - Verify Quilt authentication status
+- **`filesystem_check`** - Check system environment details
+
+## Manual Testing Commands
+
+### MCP Endpoint Testing
+
+```bash
+# Test local server
+curl -X POST http://localhost:8000/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Test Docker container (Phase 2)
+curl -X POST http://localhost:8001/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
+# Test ECR image (Phase 3)
+curl -X POST http://localhost:8002/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+## Environment Configuration
+
+Edit `.env` with your settings:
+
+```bash
+# AWS Configuration
+AWS_PROFILE=default
+
+# Quilt Configuration
+QUILT_CATALOG_DOMAIN=your-catalog-domain.com
+QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
+QUILT_TEST_PACKAGE=yournamespace/testpackage
+QUILT_TEST_ENTRY=README.md
+```
+
 ## Pre-approved Commands
 
 Claude Code has permission to run the following commands without asking:
@@ -204,6 +269,7 @@ pkill *
 Environment variables are automatically loaded from `.env` and managed by `shared/common.sh`. Use `make check-env` to validate your configuration.
 
 Key variables (see `env.example` for complete list):
+
 - `QUILT_DEFAULT_BUCKET` - S3 bucket for Quilt data
 - `QUILT_CATALOG_DOMAIN` - Quilt catalog domain
 
@@ -289,7 +355,8 @@ Use `remote-export` for:
 - No secrets are logged or exposed in responses
 - Local development focused with optional containerization
 
-# important-instruction-reminders
+## Important Instruction Reminders
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
