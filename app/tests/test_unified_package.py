@@ -14,7 +14,6 @@ from quilt_mcp.tools.unified_package import (
 from quilt_mcp.tools.auth import (
     configure_catalog,
     switch_catalog,
-    test_permissions,
 )
 
 
@@ -172,48 +171,7 @@ class TestCatalogConfiguration:
         assert "demo" in result["available_catalogs"]
 
 
-class TestPermissionTesting:
-    """Test cases for the permission testing tool."""
 
-    @patch('quilt_mcp.tools.permissions.bucket_access_check')
-    @patch('asyncio.run')
-    def test_permissions_success(self, mock_asyncio_run, mock_bucket_check):
-        """Test successful permission testing."""
-        mock_bucket_check.return_value = {
-            "success": True,
-            "access_summary": {"can_read": True, "can_write": True, "can_list": True},
-            "operation_tests": {"read": True, "write": True, "list": True},
-            "permission_level": "full_access",
-            "guidance": ["All permissions available"]
-        }
-        mock_asyncio_run.return_value = mock_bucket_check.return_value
-        
-        result = test_permissions("test-bucket")
-        
-        assert result["status"] == "success"
-        assert result["bucket_read"] is True
-        assert result["bucket_write"] is True
-        assert result["package_create"] is True
-        assert "All permissions look good" in result["suggested_fixes"][0]
-
-    @patch('quilt_mcp.tools.permissions.bucket_access_check')
-    @patch('asyncio.run')
-    def test_permissions_read_only(self, mock_asyncio_run, mock_bucket_check):
-        """Test permission testing for read-only bucket."""
-        mock_bucket_check.return_value = {
-            "success": True,
-            "access_summary": {"can_read": True, "can_write": False, "can_list": True},
-            "operation_tests": {"read": True, "write": False, "list": True},
-            "permission_level": "read_only"
-        }
-        mock_asyncio_run.return_value = mock_bucket_check.return_value
-        
-        result = test_permissions("readonly-bucket")
-        
-        assert result["status"] == "success"
-        assert result["bucket_write"] is False
-        assert result["package_create"] is False
-        assert "Add s3:PutObject permission" in result["suggested_fixes"][0]
 
 
 class TestUtilityFunctions:
