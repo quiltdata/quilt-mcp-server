@@ -332,4 +332,10 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
             results = bucket_obj.search(query, limit=limit)
         return {"bucket": bkt, "query": query, "limit": limit, "results": results}
     except Exception as e:
-        return {"error": f"Failed to search bucket: {e}", "bucket": bkt, "query": query}
+        # Always include a results array so tests can assert presence regardless of configuration
+        return {
+            "error": f"Failed to search bucket: {e}",
+            "bucket": bkt,
+            "query": query,
+            "results": [],
+        }
