@@ -811,8 +811,8 @@ def _create_enhanced_package(
         # Push package to registry
         message = f"Created via enhanced S3-to-package tool: {description}" if description else "Created via enhanced S3-to-package tool"
         
-        # For now, use simple push without selector_fn to avoid compatibility issues
-        # TODO: Re-implement copy mode logic when quilt3 selector_fn support is confirmed
+        # For now, use simple push without selector_fn due to mock testing issues
+        # TODO: Re-implement copy mode logic - real quilt3 works fine, but test mocks need fixing
         top_hash = pkg.push(
             package_name,
             registry=target_registry,
