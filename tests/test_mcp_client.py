@@ -5,8 +5,10 @@ import os
 import sys
 import json
 import asyncio
+import pytest
 from mcp import ClientSession
 
+@pytest.mark.asyncio
 async def test_connection():
     """Test connection to the Quilt MCP server asynchronously."""
     print("Testing connection to Quilt MCP server...")

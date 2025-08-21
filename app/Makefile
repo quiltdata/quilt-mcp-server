@@ -81,7 +81,7 @@ test:
 test-ci:
 	@echo "Running CI tests with timeouts (skipping search tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not search" --timeout=15 --disable-warnings
+	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search" --timeout=15 --disable-warnings
 
 test-unit-ci:
 	@echo "Running unit tests only (no AWS calls)..."
