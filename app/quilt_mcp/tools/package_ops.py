@@ -58,6 +58,44 @@ def _collect_objects_into_package(
     return added
 
 
+def _build_selector_fn(copy_mode: str, target_registry: str):
+    """Build a Quilt selector_fn based on desired copy behavior.
+
+    copy_mode options:
+    - "all": copy all objects to target (default Quilt behavior)
+    - "none": copy none; keep references to external locations
+    - "same_bucket": copy only objects whose physical_key bucket matches target bucket
+    """
+    # Normalize and extract target bucket
+    target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
+
+    def selector_all(_logical_key, _entry):
+        return True
+
+    def selector_none(_logical_key, _entry):
+        return False
+
+    def selector_same_bucket(_logical_key, entry):
+        try:
+            physical_key = str(getattr(entry, "physical_key", ""))
+        except Exception:
+            physical_key = ""
+        if not physical_key.startswith("s3://"):
+            return False
+        try:
+            bucket = physical_key.split("/", 3)[2]
+        except Exception:
+            return False
+        return bucket == target_bucket
+
+    if copy_mode == "none":
+        return selector_none
+    if copy_mode == "same_bucket":
+        return selector_same_bucket
+    # Default
+    return selector_all
+
+
 def package_create(
     package_name: str,
     s3_uris: list[str],
@@ -65,6 +103,7 @@ def package_create(
     metadata: Any = None,
     message: str = "Created via package_create tool",
     flatten: bool = True,
+    copy_mode: str = "all",
 ) -> dict[str, Any]:
     """Create a new Quilt package from S3 objects.
 
@@ -142,7 +181,13 @@ def package_create(
         # Suppress stdout during push to avoid JSON-RPC interference
         from ..utils import suppress_stdout
         with suppress_stdout():
-            top_hash = pkg.push(package_name, registry=normalized_registry, message=message)
+            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
+            top_hash = pkg.push(
+                package_name,
+                registry=normalized_registry,
+                message=message,
+                selector_fn=selector_fn,
+            )
             
     except Exception as e:
         return {
@@ -174,6 +219,7 @@ def package_update(
     metadata: Any = None,
     message: str = "Added objects via package_update tool",
     flatten: bool = True,
+    copy_mode: str = "all",
 ) -> dict[str, Any]:
     """Update an existing Quilt package by adding new S3 objects.
 
@@ -257,7 +303,13 @@ def package_update(
         # Suppress stdout during push to avoid JSON-RPC interference
         from ..utils import suppress_stdout
         with suppress_stdout():
-            top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
+            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
+            top_hash = updated_pkg.push(
+                package_name,
+                registry=normalized_registry,
+                message=message,
+                selector_fn=selector_fn,
+            )
             
     except Exception as e:
         return {
