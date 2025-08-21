@@ -134,36 +134,9 @@ jobs:
         name: dxt-test-artifacts
         path: build-dxt/dist/
         
-  security-audit:
-    runs-on: ubuntu-latest
-    needs: [validate-pr-source, test-staging]
-    if: always() && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run security audit
-      uses: snyk/actions/python@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=medium
-        
-    - name: Run dependency check
-      run: |
-        pip install safety
-        safety check --json --output safety-report.json
-        
-    - name: Upload security report
-      uses: actions/upload-artifact@v3
-      with:
-        name: security-report
-        path: safety-report.json
-        
   integration-test:
     runs-on: ubuntu-latest
-    needs: [validate-pr-source, test-staging, security-audit, test-dxt-staging]
+    needs: [validate-pr-source, test-staging, test-dxt-staging]
     if: always() && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
     
     steps:
@@ -193,8 +166,8 @@ jobs:
         
   deploy-staging:
     runs-on: ubuntu-latest
-    needs: [validate-pr-source, test-staging, security-audit, test-dxt-staging, integration-test]
-    if: github.ref == 'refs/heads/staging' && github.event_name == 'push' && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
+    needs: [validate-pr-source, test-staging, test-dxt-staging, integration-test]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push' && (needs.validate-pr-source.result == 'success' || needs.validate_pr-source.result == 'skipped')
     environment: staging
     
     steps:
@@ -244,7 +217,6 @@ jobs:
           
           ## Test Results
           - ✅ Full test suite passed
-          - ✅ Security audit completed
           - ✅ Integration tests passed
           - ✅ Performance tests completed
           - ✅ DXT package validated

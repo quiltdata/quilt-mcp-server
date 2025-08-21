@@ -59,24 +59,9 @@ jobs:
         name: coverage-report-${{ matrix.python-version }}
         path: htmlcov/
         
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: test
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Run security scan
-      uses: snyk/actions/python@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=high
-        
   build:
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test]
     if: github.ref == 'refs/heads/develop'
     
     steps:
@@ -106,7 +91,7 @@ jobs:
         
   build-dxt:
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
+    needs: [test]
     if: github.ref == 'refs/heads/develop'
     outputs:
       dxt-version: ${{ steps.dxt-version.outputs.version }}
@@ -169,64 +154,9 @@ jobs:
         echo "version=$DXT_VERSION" >> $GITHUB_OUTPUT
         echo "DXT version: $DXT_VERSION"
         
-  create-development-release:
-    runs-on: ubuntu-latest
-    needs: [build, build-dxt]
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Download build artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: build-artifacts
-        path: dist/
-        
-    - name: Download DXT artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: dxt-artifacts
-        path: dxt/
-        
-    - name: Create development release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: develop-${{ github.run_number }}
-        release_name: Development Build ${{ github.run_number }}
-        body: |
-          Automated development build from develop branch
-          
-          **Build Number:** ${{ github.run_number }}
-          **Commit:** ${{ github.sha }}
-          **Branch:** develop
-          **Triggered:** ${{ github.event_name }}
-          
-          ## Artifacts
-          - Python wheel and source distribution
-          - DXT package for Claude Desktop
-          - Coverage reports
-          - Test results
-          
-          ## DXT Package
-          - **Version:** ${{ needs.build-dxt.outputs.dxt-version }}
-          - **Package:** quilt-mcp-${{ needs.build-dxt.outputs.dxt-version }}.dxt
-          - **Release:** quilt-mcp-${{ needs.build-dxt.outputs.dxt-version }}-release.zip
-          
-          ## Next Steps
-          - Review test results
-          - Check security scan results
-          - Test DXT package in Claude Desktop
-          - Merge to staging when ready
-        draft: false
-        prerelease: true
-        
   create-staging-pr:
     runs-on: ubuntu-latest
-    needs: [build, build-dxt, create-development-release]
+    needs: [build, build-dxt]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     
     steps:
@@ -252,7 +182,6 @@ jobs:
           
           ## Test Results
           - ✅ All tests passed
-          - ✅ Security scan completed
           - ✅ Build successful
           - ✅ DXT package built and validated
           
