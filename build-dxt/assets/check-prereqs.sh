@@ -12,12 +12,14 @@ echo
 check_python() {
     echo "Checking Python installation..."
     
-    # Check user's default Python (what Claude Desktop will use from login environment)
-    # Use a clean environment to simulate what Claude Desktop sees
-    python_cmd=$(env -i bash -l -c 'command -v python3' 2>/dev/null)
+    # Check user's default Python (what Claude Desktop will use)
+    # Simulate Claude Desktop's environment - clean login shell without project paths
+    cd "$HOME"
+    clean_path=$(echo $PATH | tr ":" "\n" | grep -v "$(pwd)" | grep -v "\.venv" | tr "\n" ":")
+    python_cmd=$(bash -l -c "export PATH='$clean_path'; command -v python3" 2>/dev/null)
     
     if [ -n "$python_cmd" ]; then
-        python_version=$(env -i bash -l -c "$python_cmd --version" 2>&1 | awk '{print $2}')
+        python_version=$(bash -l -c "export PATH='$clean_path'; $python_cmd --version" 2>&1 | awk '{print $2}')
         major=$(echo $python_version | cut -d. -f1)
         minor=$(echo $python_version | cut -d. -f2)
         
@@ -27,6 +29,7 @@ check_python() {
         else
             echo "❌ User default Python $python_version found at $python_cmd, but 3.11+ is required"
             echo "   Claude Desktop requires Python 3.11+ in the user's login environment"
+            echo "   Note: If you have pyenv installed, ensure it's properly initialized in your shell profile"
             return 1
         fi
     else
