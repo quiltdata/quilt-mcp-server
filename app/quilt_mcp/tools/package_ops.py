@@ -58,13 +58,52 @@ def _collect_objects_into_package(
     return added
 
 
+def _build_selector_fn(copy_mode: str, target_registry: str):
+    """Build a Quilt selector_fn based on desired copy behavior.
+
+    copy_mode options:
+    - "all": copy all objects to target (default Quilt behavior)
+    - "none": copy none; keep references to external locations
+    - "same_bucket": copy only objects whose physical_key bucket matches target bucket
+    """
+    # Normalize and extract target bucket
+    target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
+
+    def selector_all(_logical_key, _entry):
+        return True
+
+    def selector_none(_logical_key, _entry):
+        return False
+
+    def selector_same_bucket(_logical_key, entry):
+        try:
+            physical_key = str(getattr(entry, "physical_key", ""))
+        except Exception:
+            physical_key = ""
+        if not physical_key.startswith("s3://"):
+            return False
+        try:
+            bucket = physical_key.split("/", 3)[2]
+        except Exception:
+            return False
+        return bucket == target_bucket
+
+    if copy_mode == "none":
+        return selector_none
+    if copy_mode == "same_bucket":
+        return selector_same_bucket
+    # Default
+    return selector_all
+
+
 def package_create(
     package_name: str,
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
-    metadata: dict[str, Any] | None = None,
+    metadata: Any = None,
     message: str = "Created via package_create tool",
     flatten: bool = True,
+    copy_mode: str = "all",
 ) -> dict[str, Any]:
     """Create a new Quilt package from S3 objects.
 
@@ -72,15 +111,56 @@ def package_create(
         package_name: Name for the new package (e.g., "username/package-name")
         s3_uris: List of S3 URIs to include in the package
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
-        metadata: Optional metadata dict to attach to the package
+        metadata: Optional metadata dict to attach to the package (JSON object, not string)
         message: Commit message for package creation (default: "Created via package_create tool")
         flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
 
     Returns:
         Dict with creation status, package details, and list of files added.
+        
+    Examples:
+        Basic package creation:
+        package_create("my-team/dataset", ["s3://bucket/file.csv"])
+        
+        With metadata:
+        package_create(
+            "my-team/dataset", 
+            ["s3://bucket/file.csv"],
+            metadata={"description": "My dataset", "type": "research"}
+        )
     """
+    # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
+    elif isinstance(metadata, str):
+        try:
+            import json
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": "Invalid metadata format",
+                "provided": metadata,
+                "expected": "Valid JSON object or Python dict",
+                "json_error": str(e),
+                "examples": [
+                    '{"description": "My dataset", "type": "research"}',
+                    '{"created_by": "analyst", "project": "Q1-analysis"}'
+                ],
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+            }
+    elif not isinstance(metadata, dict):
+        return {
+            "success": False,
+            "error": "Invalid metadata type",
+            "provided_type": type(metadata).__name__,
+            "expected": "Dictionary object or JSON string",
+            "examples": [
+                '{"description": "My dataset", "version": "1.0"}',
+                '{"tags": ["research", "2024"], "author": "scientist"}'
+            ],
+            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+        }
 
     warnings: list[str] = []
     if not s3_uris:
@@ -98,7 +178,17 @@ def package_create(
             warnings.append(f"Failed to set metadata: {e}")
     normalized_registry = _normalize_registry(registry)
     try:
-        top_hash = pkg.push(package_name, registry=normalized_registry, message=message)
+        # Suppress stdout during push to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
+            top_hash = pkg.push(
+                package_name,
+                registry=normalized_registry,
+                message=message,
+                selector_fn=selector_fn,
+            )
+            
     except Exception as e:
         return {
             "error": f"Failed to push package: {e}",
@@ -126,9 +216,10 @@ def package_update(
     package_name: str,
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
-    metadata: dict[str, Any] | None = None,
+    metadata: Any = None,
     message: str = "Added objects via package_update tool",
     flatten: bool = True,
+    copy_mode: str = "all",
 ) -> dict[str, Any]:
     """Update an existing Quilt package by adding new S3 objects.
 
@@ -143,8 +234,38 @@ def package_update(
     Returns:
         Dict with update status, package details, and list of files added.
     """
+    # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
+    elif isinstance(metadata, str):
+        try:
+            import json
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "error": "Invalid metadata format",
+                "provided": metadata,
+                "expected": "Valid JSON object or Python dict",
+                "json_error": str(e),
+                "examples": [
+                    '{"description": "Updated dataset", "version": "2.0"}',
+                    '{"tags": ["updated", "v2"], "quality": "validated"}'
+                ],
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+            }
+    elif not isinstance(metadata, dict):
+        return {
+            "success": False,
+            "error": "Invalid metadata type",
+            "provided_type": type(metadata).__name__,
+            "expected": "Dictionary object or JSON string",
+            "examples": [
+                '{"description": "Updated dataset", "version": "2.0"}',
+                '{"tags": ["updated", "v2"], "author": "scientist"}'
+            ],
+            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+        }
 
     if not s3_uris:
         return {"error": "No S3 URIs provided"}
@@ -153,7 +274,10 @@ def package_update(
     warnings: list[str] = []
     normalized_registry = _normalize_registry(registry)
     try:
-        existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+        # Suppress stdout during browse to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",
@@ -176,7 +300,17 @@ def package_update(
         except Exception as e:
             warnings.append(f"Failed to set merged metadata: {e}")
     try:
-        top_hash = updated_pkg.push(package_name, registry=normalized_registry, message=message)
+        # Suppress stdout during push to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
+            top_hash = updated_pkg.push(
+                package_name,
+                registry=normalized_registry,
+                message=message,
+                selector_fn=selector_fn,
+            )
+            
     except Exception as e:
         return {
             "error": f"Failed to push updated package: {e}",
@@ -215,7 +349,10 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
 
     try:
         normalized_registry = _normalize_registry(registry)
-        quilt3.delete_package(package_name, registry=normalized_registry)
+        # Suppress stdout during delete to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            quilt3.delete_package(package_name, registry=normalized_registry)
         return {
             "status": "success",
             "action": "deleted",

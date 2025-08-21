@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import inspect
 import os
+import re
+import sys
+import io
+import contextlib
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, Dict, Literal
 
 import boto3
 from fastmcp import FastMCP
@@ -48,9 +52,9 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, package_ops, packages
+    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary
 
-    return [auth, buckets, packages, package_ops]
+    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary]
 
 
 def register_tools(
@@ -87,12 +91,62 @@ def register_tools(
             mcp.tool(func)
             tools_registered += 1
             if verbose:
-                print(f"Registered tool: {module.__name__}.{name}")
+                # Use stderr to avoid interfering with JSON-RPC on stdout
+                import sys
+                print(f"Registered tool: {module.__name__}.{name}", file=sys.stderr)
 
     return tools_registered
 
 
-def create_configured_server(verbose: bool = True) -> FastMCP:
+def get_s3_client():
+    """Get an S3 client instance."""
+    return boto3.client("s3")
+
+
+def validate_package_name(package_name: str) -> bool:
+    """Validate package name format (namespace/name)."""
+    if not package_name or "/" not in package_name:
+        return False
+    
+    parts = package_name.split("/")
+    if len(parts) != 2:
+        return False
+    
+    namespace, name = parts
+    
+    # Check for valid characters and format
+    pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-_]*[a-zA-Z0-9])?$"
+    return bool(re.match(pattern, namespace) and re.match(pattern, name))
+
+
+def format_error_response(message: str) -> Dict[str, Any]:
+    """Format a standardized error response."""
+    return {
+        "success": False,
+        "error": message,
+        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+    }
+
+
+@contextlib.contextmanager
+def suppress_stdout():
+    """Context manager to suppress stdout output to prevent JSON-RPC interference.
+    
+    This is critical for MCP servers using stdio transport, as any stdout output
+    that isn't valid JSON-RPC will break the communication protocol.
+    """
+    stdout_capture = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(stdout_capture):
+            yield stdout_capture
+    finally:
+        # Log captured output to stderr if needed for debugging
+        captured_output = stdout_capture.getvalue().strip()
+        if captured_output:
+            print(f"Suppressed stdout: {captured_output}", file=sys.stderr)
+
+
+def create_configured_server(verbose: bool = False) -> FastMCP:
     """Create a fully configured MCP server with all tools registered.
 
     Args:
@@ -105,7 +159,9 @@ def create_configured_server(verbose: bool = True) -> FastMCP:
     tools_count = register_tools(mcp, verbose=verbose)
 
     if verbose:
-        print(f"Successfully registered {tools_count} tools")
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        import sys
+        print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
 
@@ -116,13 +172,13 @@ def run_server() -> None:
         # Create and configure the server
         mcp = create_configured_server()
 
-        # Get transport from environment variable (default to streamable-http)
-        transport_str = os.environ.get("FASTMCP_TRANSPORT", "streamable-http")
+        # Get transport from environment variable (default to stdio for MCP compatibility)
+        transport_str = os.environ.get("FASTMCP_TRANSPORT", "stdio")
 
         # Validate transport string and fall back to default if invalid
         valid_transports = ["stdio", "http", "sse", "streamable-http"]
         if transport_str not in valid_transports:
-            transport_str = "streamable-http"
+            transport_str = "stdio"
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
@@ -130,5 +186,7 @@ def run_server() -> None:
         mcp.run(transport=transport)
 
     except Exception as e:
-        print(f"Error starting MCP server: {e}")
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        import sys
+        print(f"Error starting MCP server: {e}", file=sys.stderr)
         raise

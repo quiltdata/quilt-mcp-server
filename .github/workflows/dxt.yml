@@ -1,17 +1,56 @@
 name: Build and Release DXT
 
 # This workflow builds the Quilt MCP DXT package and creates a GitHub release
-# with the .dxt file and accompanying documentation.
+# with the .dxt file and accompanying documentation for version tags.
+# For feature branches, it builds and uploads DXT files as artifacts for testing.
+# The DXT build only runs after all tests pass successfully.
 
 on:
   push:
     tags:
       - 'v*'  # Trigger on version tags (e.g., v1.0.0)
+    branches:
+      - 'feature/s3-to-package-creation'  # Build DXT for S3-to-package feature branch
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
+  # Run tests first to ensure quality
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      timeout-minutes: 2
+      
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+      timeout-minutes: 3
+        
+    - name: Set up Python
+      run: uv python install ${{ matrix.python-version }}
+      timeout-minutes: 3
+            
+    - name: Run unit tests
+      run: |
+        cd app
+        make test-unit-ci
+      timeout-minutes: 10
+      env:
+        UVRUN: uv run
+        # No AWS credentials - unit tests should use mocks
+        UNIT_TEST_MODE: "true"
+
   build-and-release:
     runs-on: ubuntu-latest
+    needs: test  # Only run DXT build if tests pass
     permissions:
       contents: write  # Required for creating releases
     
@@ -27,16 +66,28 @@ jobs:
     - name: Set up Python
       run: uv python install 3.11
       
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
     - name: Extract version from tag
       id: version
       run: |
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
           VERSION=${GITHUB_REF#refs/tags/v}
+          IS_RELEASE=true
+        elif [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
+          VERSION="dev-$(echo ${{ github.ref_name }} | sed 's/feature\///' | sed 's/\//-/g')-$(date +%Y%m%d-%H%M%S)"
+          IS_RELEASE=false
         else
           VERSION="0.0.0-dev"
+          IS_RELEASE=false
         fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
+        echo "Is Release: $IS_RELEASE"
         
     - name: Build DXT package
       run: |
@@ -55,7 +106,16 @@ jobs:
         make test VERSION=${{ steps.version.outputs.version }}
         echo "✅ DXT package tested successfully"
         
+    - name: Upload DXT artifact for feature branches
+      if: steps.version.outputs.is_release == 'false'
+      uses: actions/upload-artifact@v4
+      with:
+        name: quilt-mcp-${{ steps.version.outputs.version }}-dxt
+        path: build-dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt
+        retention-days: 30
+        
     - name: Prepare release assets
+      if: steps.version.outputs.is_release == 'true'
       run: |
         echo "📦 Preparing release assets..."
         mkdir -p release-assets
@@ -75,6 +135,7 @@ jobs:
         ls -la release-assets/
         
     - name: Generate release notes
+      if: steps.version.outputs.is_release == 'true'
       id: release_notes
       run: |
         VERSION=${{ steps.version.outputs.version }}
@@ -119,6 +180,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
         
     - name: Create GitHub Release
+      if: steps.version.outputs.is_release == 'true'
       uses: softprops/action-gh-release@v2
       with:
         name: "Quilt MCP DXT v${{ steps.version.outputs.version }}"
@@ -131,9 +193,18 @@ jobs:
         prerelease: ${{ contains(steps.version.outputs.version, '-') }}
         generate_release_notes: false
         
-    - name: Output release info
+    - name: Output build info
       run: |
-        echo "✅ Release created successfully!"
-        echo "Version: ${{ steps.version.outputs.version }}"
-        echo "Tag: ${{ github.ref }}"
-        echo "Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+        echo "✅ All tests passed!"
+        if [[ "${{ steps.version.outputs.is_release }}" == "true" ]]; then
+          echo "✅ Release created successfully!"
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Tag: ${{ github.ref }}"
+          echo "Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+        else
+          echo "✅ Feature branch DXT built successfully!"
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "DXT artifact uploaded for testing and validation"
+          echo "Download from: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        fi

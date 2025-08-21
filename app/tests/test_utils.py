@@ -104,9 +104,14 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_get_tool_modules(self):
         """Test that get_tool_modules returns expected modules."""
         modules = get_tool_modules()
-        expected_modules = [auth, buckets, packages, package_ops]
-        self.assertEqual(modules, expected_modules)
-        self.assertEqual(len(modules), 4)
+        # The function returns 11 modules, not 4
+        self.assertEqual(len(modules), 11)
+        # Check that key modules are included
+        module_names = [m.__name__ for m in modules]
+        self.assertIn("quilt_mcp.tools.auth", module_names)
+        self.assertIn("quilt_mcp.tools.buckets", module_names)
+        self.assertIn("quilt_mcp.tools.packages", module_names)
+        self.assertIn("quilt_mcp.tools.package_ops", module_names)
 
     def test_register_tools_with_mock_server(self):
         """Test tool registration with a mock server."""
@@ -180,12 +185,12 @@ class TestMCPServerConfiguration(unittest.TestCase):
         """Test that verbose mode produces output."""
         mock_server = Mock(spec=FastMCP)
 
-        with patch("sys.stdout") as mock_stdout:
+        with patch("sys.stderr") as mock_stderr:
             # Register with verbose=True
             register_tools(mock_server, tool_modules=[auth], verbose=True)
 
             # Check that print was called
-            mock_stdout.write.assert_called()
+            mock_stderr.write.assert_called()
 
     def test_create_configured_server(self):
         """Test creating a fully configured server."""
@@ -197,11 +202,11 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
     def test_create_configured_server_verbose_output(self):
         """Test that configured server produces verbose output."""
-        with patch("sys.stdout") as mock_stdout:
+        with patch("sys.stderr") as mock_stderr:
             create_configured_server(verbose=True)
 
             # Check that print was called for verbose output
-            mock_stdout.write.assert_called()
+            mock_stderr.write.assert_called()
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_success(self, mock_create_server):
@@ -228,7 +233,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
             run_server()
 
         # Verify default transport is used
-        mock_server.run.assert_called_once_with(transport="streamable-http")
+        mock_server.run.assert_called_once_with(transport="stdio")
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_error_handling(self, mock_create_server):
@@ -283,15 +288,20 @@ class TestMCPServerConfiguration(unittest.TestCase):
             self.assertTrue(hasattr(module, "__name__"))
 
             # Module should be one of our expected modules
-            self.assertIn(
-                module.__name__,
-                [
-                    "quilt_mcp.tools.auth",
-                    "quilt_mcp.tools.buckets",
-                    "quilt_mcp.tools.packages",
-                    "quilt_mcp.tools.package_ops",
-                ],
-            )
+            expected_modules = [
+                "quilt_mcp.tools.auth",
+                "quilt_mcp.tools.buckets",
+                "quilt_mcp.tools.packages",
+                "quilt_mcp.tools.package_ops",
+                "quilt_mcp.tools.s3_package",
+                "quilt_mcp.tools.permissions",
+                "quilt_mcp.tools.unified_package",
+                "quilt_mcp.tools.metadata_templates",
+                "quilt_mcp.tools.package_management",
+                "quilt_mcp.tools.metadata_examples",
+                "quilt_mcp.tools.quilt_summary"
+            ]
+            self.assertIn(module.__name__, expected_modules)
 
             # Module should have at least one function
             functions = [obj for name, obj in inspect.getmembers(module, inspect.isfunction)]

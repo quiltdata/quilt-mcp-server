@@ -39,7 +39,10 @@ def packages_list(
     """
     # Normalize registry and pass to quilt3.list_packages(), then apply filtering
     normalized_registry = _normalize_registry(registry)
-    pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
+    # Suppress stdout during list_packages to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
 
     # Apply prefix filtering if specified
     if prefix:
@@ -67,30 +70,49 @@ def packages_search(
     """
     # quilt3.search() only supports query and limit, not registry
     effective_limit = limit if limit > 0 else 10
-    results = quilt3.search(query, limit=effective_limit)
+    # Suppress stdout during search to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        results = quilt3.search(query, limit=effective_limit)
     return {"results": results}
 
 
 def package_browse(
     package_name: str,
     registry: str = DEFAULT_REGISTRY,
+    recursive: bool = True,
+    include_file_info: bool = True,
+    max_depth: int = 0,
     top: int = 0,
     include: list[str] | None = None,
     exclude: list[str] | None = None,
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
-    """Browse the contents of a Quilt package.
+    """Browse the contents of a Quilt package with enhanced file information.
 
     Args:
         package_name: Name of the package to browse (e.g., "username/package-name")
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
+        recursive: Show full file tree instead of just top-level (default: True)
+        include_file_info: Include file sizes, types, and modification dates (default: True)
+        max_depth: Maximum directory depth to show, 0 for unlimited (default: 0)
         top: Limit number of entries returned, 0 for unlimited (default: 0)
         include: Include patterns (currently unused, reserved for future)
         exclude: Exclude patterns (currently unused, reserved for future)
         include_signed_urls: Include presigned download URLs for S3 objects (default: True)
 
     Returns:
-        Dict with list of package contents including logical keys, S3 URIs, and optional download URLs.
+        Dict with comprehensive package contents including file tree, sizes, types, and URLs.
+        
+    Examples:
+        Basic browsing:
+        package_browse("team/dataset")
+        
+        Flat view (top-level only):
+        package_browse("team/dataset", recursive=False)
+        
+        Limited depth:
+        package_browse("team/dataset", max_depth=2)
     """
     # Initialize mutable defaults
     if include is None:
@@ -100,11 +122,34 @@ def package_browse(
 
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
-    pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+    try:
+        # Suppress stdout during browse to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to browse package '{package_name}'",
+            "cause": str(e),
+            "possible_fixes": [
+                "Verify the package name is correct",
+                "Check if you have access to the registry",
+                "Ensure the package exists in the specified registry"
+            ],
+            "suggested_actions": [
+                f"Try: packages_list(registry='{registry}') to see available packages",
+                f"Try: packages_search('{package_name.split('/')[-1]}') to find similar packages"
+            ]
+        }
 
     # Get detailed information about each entry
     entries = []
+    file_tree = {} if recursive else None
     keys = list(pkg.keys())
+    total_size = 0
+    file_types = set()
 
     # Apply top limit if specified
     if top > 0:
@@ -113,34 +158,140 @@ def package_browse(
     for logical_key in keys:
         try:
             entry = pkg[logical_key]
+            
+            # Get file information
+            file_size = getattr(entry, "size", None)
+            file_hash = str(getattr(entry, "hash", ""))
+            physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
+            
+            # Determine file type and properties
+            file_ext = logical_key.split('.')[-1].lower() if '.' in logical_key else 'unknown'
+            file_types.add(file_ext)
+            is_directory = logical_key.endswith('/') or file_size is None
+            
+            # Track total size
+            if file_size:
+                total_size += file_size
+            
             entry_data = {
                 "logical_key": logical_key,
-                "physical_key": str(entry.physical_key) if hasattr(entry, "physical_key") else None,
-                "size": getattr(entry, "size", None),
-                "hash": str(getattr(entry, "hash", "")),
+                "physical_key": physical_key,
+                "size": file_size,
+                "size_human": _format_file_size(file_size) if file_size else None,
+                "hash": file_hash,
+                "file_type": file_ext,
+                "is_directory": is_directory,
             }
+            
+            # Add enhanced file info if requested
+            if include_file_info and physical_key and physical_key.startswith("s3://"):
+                try:
+                    # Try to get additional S3 metadata
+                    import boto3
+                    s3_client = boto3.client("s3")
+                    bucket_name = physical_key.split('/')[2]
+                    object_key = '/'.join(physical_key.split('/')[3:])
+                    
+                    obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
+                    entry_data.update({
+                        "last_modified": str(obj_info.get("LastModified")),
+                        "content_type": obj_info.get("ContentType"),
+                        "storage_class": obj_info.get("StorageClass", "STANDARD")
+                    })
+                except Exception:
+                    # Don't fail if we can't get additional info
+                    pass
 
             # Add S3 URI and signed URL if this is an S3 object
-            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith("s3://"):
-                s3_uri = str(entry.physical_key)
-                entry_data["s3_uri"] = s3_uri
+            if physical_key and physical_key.startswith("s3://"):
+                entry_data["s3_uri"] = physical_key
 
                 if include_signed_urls:
-                    signed_url = generate_signed_url(s3_uri)
+                    signed_url = generate_signed_url(physical_key)
                     if signed_url:
                         entry_data["download_url"] = signed_url
 
             entries.append(entry_data)
-        except Exception:
-            # Fallback to just the logical key if detailed info fails
-            entries.append({"logical_key": logical_key})
+            
+            # Build file tree structure for recursive view
+            if recursive and file_tree is not None:
+                _add_to_file_tree(file_tree, logical_key, entry_data, max_depth)
+                
+        except Exception as e:
+            # Include entry with error info
+            entries.append(
+                {
+                    "logical_key": logical_key,
+                    "physical_key": None,
+                    "size": None,
+                    "hash": "",
+                    "error": str(e),
+                    "file_type": "error"
+                }
+            )
 
-    return {
+    # Prepare comprehensive response
+    response = {
+        "success": True,
         "package_name": package_name,
         "registry": registry,
         "total_entries": len(entries),
-        "entries": entries,
+        "summary": {
+            "total_size": total_size,
+            "total_size_human": _format_file_size(total_size),
+            "file_types": sorted(list(file_types)),
+            "total_files": len([e for e in entries if not e.get("is_directory", False)]),
+            "total_directories": len([e for e in entries if e.get("is_directory", False)])
+        },
+        "view_type": "recursive" if recursive else "flat"
     }
+    
+    if recursive and file_tree:
+        response["file_tree"] = file_tree
+    
+    response["entries"] = entries
+    
+    return response
+
+
+def _add_to_file_tree(tree: dict, path: str, entry_data: dict, max_depth: int):
+    """Add an entry to the file tree structure."""
+    if max_depth > 0:
+        depth = path.count('/')
+        if depth >= max_depth:
+            return
+    
+    parts = path.split('/')
+    current = tree
+    
+    # Navigate to the correct position in the tree
+    for i, part in enumerate(parts[:-1]):
+        if part not in current:
+            current[part] = {"type": "directory", "children": {}}
+        current = current[part]["children"]
+    
+    # Add the final entry
+    final_part = parts[-1]
+    current[final_part] = {
+        "type": "file" if not entry_data.get("is_directory") else "directory",
+        "size": entry_data.get("size"),
+        "size_human": entry_data.get("size_human"),
+        "file_type": entry_data.get("file_type"),
+        "physical_key": entry_data.get("physical_key"),
+        "download_url": entry_data.get("download_url")
+    }
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """Format file size in human-readable format."""
+    if size_bytes is None:
+        return "Unknown"
+    
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} PB"
 
 
 def package_contents_search(
@@ -162,7 +313,11 @@ def package_contents_search(
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
-    pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+    
+    # Suppress stdout during browse to avoid JSON-RPC interference
+    from ..utils import suppress_stdout
+    with suppress_stdout():
+        pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
 
     # Find matching keys
     matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
@@ -220,19 +375,22 @@ def package_diff(
 
     try:
         # Browse packages with optional hash specification
-        if package1_hash:
-            pkg1 = quilt3.Package.browse(
-                package1_name, registry=normalized_registry, top_hash=package1_hash
-            )
-        else:
-            pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
+        # Suppress stdout during browse operations to avoid JSON-RPC interference
+        from ..utils import suppress_stdout
+        with suppress_stdout():
+            if package1_hash:
+                pkg1 = quilt3.Package.browse(
+                    package1_name, registry=normalized_registry, top_hash=package1_hash
+                )
+            else:
+                pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
 
-        if package2_hash:
-            pkg2 = quilt3.Package.browse(
-                package2_name, registry=normalized_registry, top_hash=package2_hash
-            )
-        else:
-            pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
+            if package2_hash:
+                pkg2 = quilt3.Package.browse(
+                    package2_name, registry=normalized_registry, top_hash=package2_hash
+                )
+            else:
+                pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
 
     except Exception as e:
         return {"error": f"Failed to browse packages: {e}"}

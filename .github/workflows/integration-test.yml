@@ -1,0 +1,152 @@
+name: Integration Tests
+
+# Run integration tests with real AWS environment
+# These tests require AWS credentials and take longer to run
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, labeled ]
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      test_scope:
+        description: 'Test scope (all, aws, search, permissions)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - aws
+        - search
+        - permissions
+
+jobs:
+  # Only run integration tests if labeled or on main branch
+  check-run-conditions:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+    - name: Check if integration tests should run
+      id: check
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "should-run=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "should-run=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'test:integration') }}" == "true" ]]; then
+          echo "should-run=true" >> $GITHUB_OUTPUT
+        else
+          echo "should-run=false" >> $GITHUB_OUTPUT
+        fi
+
+  integration-test:
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # Longer timeout for integration tests
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]  # Test fewer versions for integration
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      timeout-minutes: 2
+      
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+      timeout-minutes: 3
+        
+    - name: Set up Python
+      run: uv python install ${{ matrix.python-version }}
+      timeout-minutes: 3
+            
+    - name: Install dependencies
+      run: |
+        cd app
+        uv sync --group test
+      timeout-minutes: 5
+      
+    - name: Run integration tests
+      run: |
+        cd app
+        case "${{ inputs.test_scope || 'all' }}" in
+          "aws")
+            make test-aws
+            ;;
+          "search") 
+            make test-search
+            ;;
+          "permissions")
+            make test-permissions
+            ;;
+          *)
+            make test-integration
+            ;;
+        esac
+      timeout-minutes: 20
+      env:
+        # AWS credentials for integration testing (from organization secrets)
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+        
+        # Quilt-specific settings (from organization secrets)
+        QUILT_READ_POLICY_ARN: ${{ secrets.QUILT_READ_POLICY_ARN }}
+        CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
+        CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
+        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
+        QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
+        
+        # Integration test settings
+        QUILT_INTEGRATION_BUCKET: ${{ secrets.QUILT_INTEGRATION_BUCKET || secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-results-py${{ matrix.python-version }}
+        path: |
+          app/test-results/
+          app/coverage.xml
+        retention-days: 7
+        
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          const success = '${{ job.status }}' === 'success';
+          const emoji = success ? '✅' : '❌';
+          const status = success ? 'PASSED' : 'FAILED';
+          
+          const comment = `## ${emoji} Integration Tests ${status}
+          
+          **Python Version:** ${{ matrix.python-version }}
+          **Test Scope:** ${{ inputs.test_scope || 'all' }}
+          **Duration:** ${{ job.duration || 'N/A' }}
+          
+          ${success ? 
+            'All integration tests passed! The changes work correctly with real AWS services.' : 
+            'Some integration tests failed. Please check the logs and fix any AWS integration issues.'
+          }
+          
+          [View full logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
