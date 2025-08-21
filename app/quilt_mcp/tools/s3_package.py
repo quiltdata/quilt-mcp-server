@@ -596,6 +596,7 @@ def package_create_from_s3(
             description=description,
             enhanced_metadata=enhanced_metadata,
             readme_content=readme_content,
+            summary_files=summary_files,
             copy_mode=copy_mode,
         )
         
@@ -712,6 +713,7 @@ def _create_enhanced_package(
     description: str,
     enhanced_metadata: Dict[str, Any],
     readme_content: Optional[str] = None,
+    summary_files: Optional[Dict[str, Any]] = None,
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
@@ -738,14 +740,32 @@ def _create_enhanced_package(
         
         # Add README.md if generated
         if readme_content:
-            # Create a temporary README file and add it to the package
-            import tempfile
+            # Add README content as a file in the package
             import io
-            
-            # For now, we'll add README content as metadata
-            # In a full implementation, we'd create a temporary file
             pkg.set("README.md", io.StringIO(readme_content))
             logger.info("Added generated README.md to package")
+        
+        # Add summary files if provided
+        if summary_files and summary_files.get("summary_package"):
+            summary_package = summary_files["summary_package"]
+            
+            # Add quilt_summarize.json
+            if "quilt_summarize.json" in summary_package:
+                import json
+                quilt_summary_json = json.dumps(summary_package["quilt_summarize.json"], indent=2)
+                pkg.set("quilt_summarize.json", io.StringIO(quilt_summary_json))
+                logger.info("Added quilt_summarize.json to package")
+            
+            # Add visualizations if they exist
+            if "visualizations" in summary_package and summary_package["visualizations"]:
+                # Create a visualizations directory and add visualization files
+                for viz_name, viz_data in summary_package["visualizations"].items():
+                    if viz_data.get("image_base64"):
+                        import base64
+                        # Decode base64 image and add as file
+                        image_data = base64.b64decode(viz_data["image_base64"])
+                        pkg.set(f"visualizations/{viz_name}.png", io.BytesIO(image_data))
+                        logger.info(f"Added visualization {viz_name}.png to package")
         
         # Set comprehensive metadata
         pkg.set_meta(enhanced_metadata)
@@ -836,5 +856,6 @@ async def _create_package_from_objects(
         target_registry=target_registry,
         description=description,
         enhanced_metadata=enhanced_metadata,
-        readme_content=None
+        readme_content=None,
+        summary_files=None
     )
