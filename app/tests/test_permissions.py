@@ -272,13 +272,14 @@ class TestPermissionDiscoveryEngine:
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
         
-        # Mock successful operations
+        # Mock successful operations - ensure put_object succeeds to indicate write access
         mock_s3.get_bucket_location.return_value = {'LocationConstraint': 'us-west-2'}
         mock_s3.list_objects_v2.return_value = {'Contents': []}
         mock_s3.head_object.side_effect = ClientError(
             {'Error': {'Code': 'NotFound'}}, 'HeadObject'
         )
-        mock_s3.put_object.return_value = {}
+        # This is the key - put_object must succeed to indicate write access
+        mock_s3.put_object.return_value = {'ETag': 'test-etag'}
         mock_s3.delete_object.return_value = {}
         
         discovery = AWSPermissionDiscovery()

@@ -156,10 +156,11 @@ class TestCatalogConfiguration:
     @patch('quilt_mcp.tools.auth.configure_catalog')
     def test_switch_catalog_invalid_name(self, mock_configure):
         """Test switching to invalid catalog name."""
-        # Mock the configure_catalog call to fail
+        # Mock the configure_catalog call to fail but still return available catalogs
         mock_configure.return_value = {
             "status": "error",
-            "error": "Failed to configure catalog"
+            "error": "Failed to configure catalog",
+            "available_catalogs": ["demo", "production", "staging"]
         }
         
         result = switch_catalog("nonexistent-catalog")
