@@ -51,7 +51,7 @@ jobs:
         name: develop-coverage
         
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report-${{ matrix.python-version }}
         path: htmlcov/
@@ -81,7 +81,7 @@ jobs:
         python -m build
         
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
         path: dist/
@@ -138,7 +138,7 @@ jobs:
         make release
         
     - name: Upload DXT artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dxt-artifacts
         path: build-dxt/dist/
