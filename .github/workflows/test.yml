@@ -36,7 +36,7 @@ jobs:
       timeout-minutes: 3
             
     - name: Run unit tests
-      run: make test-unit-ci
+      run: make test-ci
       timeout-minutes: 10
       env:
         UVRUN: uv run
