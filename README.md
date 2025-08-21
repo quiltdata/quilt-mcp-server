@@ -348,7 +348,7 @@ make status
 aws logs tail /ecs/quilt-mcp --follow --region us-east-1
 
 # Test deployed endpoint (requires authentication)
-# See CLAUDE.md for full authentication setup
+# See docs/CLAUDE.md for full authentication setup
 ```
 
 ## Cleanup
