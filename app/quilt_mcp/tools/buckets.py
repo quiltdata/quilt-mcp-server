@@ -340,7 +340,6 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
             "results": [],
         }
 
-
 def bucket_objects_search_graphql(
     bucket: str,
     object_filter: dict | None = None,
