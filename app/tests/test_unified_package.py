@@ -21,10 +21,9 @@ from quilt_mcp.tools.auth import (
 class TestCreatePackage:
     """Test cases for the unified create_package function."""
 
-    @pytest.mark.asyncio
-    async def test_invalid_package_name(self):
+    def test_invalid_package_name(self):
         """Test validation error for invalid package name."""
-        result = await create_package(
+        result = create_package(
             name="invalid-name",  # Missing namespace
             files=["s3://bucket/file.csv"]
         )
@@ -34,10 +33,9 @@ class TestCreatePackage:
         assert "examples" in result
         assert "tip" in result
 
-    @pytest.mark.asyncio
-    async def test_empty_files_list(self):
+    def test_empty_files_list(self):
         """Test validation error for empty files list."""
-        result = await create_package(
+        result = create_package(
             name="test/package",
             files=[]
         )
@@ -46,9 +44,8 @@ class TestCreatePackage:
         assert "Invalid files format" in result["error"]
         assert "examples" in result
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.unified_package.package_create_from_s3')
-    async def test_s3_only_package_creation(self, mock_s3_create):
+    def test_s3_only_package_creation(self, mock_s3_create):
         """Test package creation with S3-only sources."""
         mock_s3_create.return_value = {
             "success": True,
@@ -56,7 +53,7 @@ class TestCreatePackage:
             "registry": "s3://test-bucket"
         }
         
-        result = await create_package(
+        result = create_package(
             name="test/package",
             files=["s3://source-bucket/data.csv", "s3://source-bucket/readme.md"]
         )
@@ -65,10 +62,9 @@ class TestCreatePackage:
         assert result["creation_method"] == "s3_sources"
         assert "user_guidance" in result
 
-    @pytest.mark.asyncio
-    async def test_local_files_not_implemented(self):
+    def test_local_files_not_implemented(self):
         """Test handling of local files (not yet implemented)."""
-        result = await create_package(
+        result = create_package(
             name="test/package",
             files=["/path/to/local/file.csv"]
         )

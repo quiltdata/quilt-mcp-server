@@ -25,10 +25,9 @@ from quilt_mcp.validators import (
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
-    @pytest.mark.asyncio
-    async def test_invalid_package_name(self):
+    def test_invalid_package_name(self):
         """Test that invalid package names are rejected."""
-        result = await package_create_from_s3(
+        result = package_create_from_s3(
             source_bucket="test-bucket",
             package_name="invalid-name",  # Missing namespace
         )
@@ -36,10 +35,9 @@ class TestPackageCreateFromS3:
         assert result["success"] is False
         assert "Invalid package name format" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_missing_required_params(self):
+    def test_missing_required_params(self):
         """Test that missing required parameters are handled."""
-        result = await package_create_from_s3(
+        result = package_create_from_s3(
             source_bucket="",  # Empty bucket
             package_name="test/package",
         )
@@ -47,18 +45,17 @@ class TestPackageCreateFromS3:
         assert result["success"] is False
         assert "source_bucket is required" in result["error"]
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    async def test_no_objects_found(self, mock_discover, mock_validate, mock_s3_client):
+    def test_no_objects_found(self, mock_discover, mock_validate, mock_s3_client):
         """Test handling when no objects are found."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
         mock_validate.return_value = None
         mock_discover.return_value = []  # No objects found
         
-        result = await package_create_from_s3(
+        result = package_create_from_s3(
             source_bucket="test-bucket",
             package_name="test/package",
         )
@@ -66,12 +63,11 @@ class TestPackageCreateFromS3:
         assert result["success"] is False
         assert "No objects found" in result["error"]
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
     @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
     @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
-    async def test_successful_package_creation(self, mock_create, mock_discover, mock_validate, mock_s3_client):
+    def test_successful_package_creation(self, mock_create, mock_discover, mock_validate, mock_s3_client):
         """Test successful package creation."""
         # Setup mocks
         mock_s3_client.return_value = Mock()
@@ -82,7 +78,7 @@ class TestPackageCreateFromS3:
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
         
-        result = await package_create_from_s3(
+        result = package_create_from_s3(
             source_bucket="test-bucket",
             package_name="test/package",
             description="Test package",

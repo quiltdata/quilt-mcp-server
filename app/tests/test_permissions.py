@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
+from botocore.exceptions import ClientError
 
 from quilt_mcp.tools.permissions import (
     aws_permissions_discover,
@@ -23,10 +24,9 @@ from quilt_mcp.aws.permission_discovery import (
 class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
-    @pytest.mark.asyncio
     @pytest.mark.aws
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_discover_permissions_success(self, mock_get_discovery):
+    def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""
         # Setup mocks
         mock_discovery = Mock()
@@ -39,7 +39,7 @@ class TestAWSPermissionsDiscover:
             user_type="user",
             user_name="test-user"
         )
-        mock_discovery.discover_user_identity = AsyncMock(return_value=mock_identity)
+        mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
         
         mock_buckets = [
             BucketInfo(
@@ -61,10 +61,10 @@ class TestAWSPermissionsDiscover:
                 last_checked=datetime.utcnow()
             )
         ]
-        mock_discovery.discover_accessible_buckets = AsyncMock(return_value=mock_buckets)
+        mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
         mock_discovery.get_cache_stats = Mock(return_value={"permission_cache_size": 2})
         
-        result = await aws_permissions_discover()
+        result = aws_permissions_discover()
         
         assert result["success"] is True
         assert result["user_identity"]["user_name"] == "test-user"
@@ -72,9 +72,8 @@ class TestAWSPermissionsDiscover:
         assert len(result["categorized_buckets"]["read_only"]) == 1
         assert "recommendations" in result
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_discover_specific_buckets(self, mock_get_discovery):
+    def test_discover_specific_buckets(self, mock_get_discovery):
         """Test permission discovery for specific buckets."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
@@ -82,7 +81,7 @@ class TestAWSPermissionsDiscover:
         mock_identity = UserIdentity(
             user_id="test", arn="test", account_id="123", user_type="user"
         )
-        mock_discovery.discover_user_identity = AsyncMock(return_value=mock_identity)
+        mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
         
         mock_bucket = BucketInfo(
             name="test-bucket",
@@ -93,24 +92,23 @@ class TestAWSPermissionsDiscover:
             can_list=True,
             last_checked=datetime.utcnow()
         )
-        mock_discovery.discover_bucket_permissions = AsyncMock(return_value=mock_bucket)
+        mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.get_cache_stats = Mock(return_value={})
         
-        result = await aws_permissions_discover(check_buckets=["test-bucket"])
+        result = aws_permissions_discover(check_buckets=["test-bucket"])
         
         assert result["success"] is True
         assert len(result["bucket_permissions"]) == 1
         assert result["bucket_permissions"][0]["name"] == "test-bucket"
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_discover_permissions_error(self, mock_get_discovery):
+    def test_discover_permissions_error(self, mock_get_discovery):
         """Test error handling in permission discovery."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        mock_discovery.discover_user_identity = AsyncMock(side_effect=Exception("AWS error"))
+        mock_discovery.discover_user_identity = Mock(side_effect=Exception("AWS error"))
         
-        result = await aws_permissions_discover()
+        result = aws_permissions_discover()
         
         assert result["success"] is False
         assert "Failed to discover AWS permissions" in result["error"]
@@ -120,9 +118,8 @@ class TestAWSPermissionsDiscover:
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_bucket_access_check_success(self, mock_get_discovery):
+    def test_bucket_access_check_success(self, mock_get_discovery):
         """Test successful bucket access check."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
@@ -136,23 +133,22 @@ class TestBucketAccessCheck:
             can_list=True,
             last_checked=datetime.utcnow()
         )
-        mock_discovery.discover_bucket_permissions = AsyncMock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = AsyncMock(return_value={
+        mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
+        mock_discovery.test_bucket_operations = Mock(return_value={
             "read": True,
             "write": True,
             "list": True
         })
         
-        result = await bucket_access_check("test-bucket")
+        result = bucket_access_check("test-bucket")
         
         assert result["success"] is True
         assert result["bucket_name"] == "test-bucket"
         assert result["permission_level"] == "full_access"
         assert result["access_summary"]["can_write"] is True
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_bucket_access_check_limited(self, mock_get_discovery):
+    def test_bucket_access_check_limited(self, mock_get_discovery):
         """Test bucket access check with limited permissions."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
@@ -166,14 +162,14 @@ class TestBucketAccessCheck:
             can_list=True,
             last_checked=datetime.utcnow()
         )
-        mock_discovery.discover_bucket_permissions = AsyncMock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = AsyncMock(return_value={
+        mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
+        mock_discovery.test_bucket_operations = Mock(return_value={
             "read": True,
             "write": False,
             "list": True
         })
         
-        result = await bucket_access_check("readonly-bucket", ["read", "write", "list"])
+        result = bucket_access_check("readonly-bucket", ["read", "write", "list"])
         
         assert result["success"] is True
         assert result["access_summary"]["can_read"] is True
@@ -185,9 +181,8 @@ class TestBucketAccessCheck:
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
-    @pytest.mark.asyncio
     @patch('quilt_mcp.tools.permissions._get_permission_discovery')
-    async def test_bucket_recommendations_package_creation(self, mock_get_discovery):
+    def test_bucket_recommendations_package_creation(self, mock_get_discovery):
         """Test bucket recommendations for package creation."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
@@ -212,9 +207,9 @@ class TestBucketRecommendations:
                 last_checked=datetime.utcnow()
             )
         ]
-        mock_discovery.discover_accessible_buckets = AsyncMock(return_value=mock_buckets)
+        mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
         
-        result = await bucket_recommendations_get(
+        result = bucket_recommendations_get(
             source_bucket="ml-training-data",
             operation_type="package_creation"
         )
@@ -253,9 +248,8 @@ class TestBucketRecommendations:
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
-    @pytest.mark.asyncio
     @patch('boto3.client')
-    async def test_discover_user_identity(self, mock_boto_client):
+    def test_discover_user_identity(self, mock_boto_client):
         """Test user identity discovery."""
         mock_sts = Mock()
         mock_boto_client.return_value = mock_sts
@@ -266,15 +260,14 @@ class TestPermissionDiscoveryEngine:
         }
         
         discovery = AWSPermissionDiscovery()
-        identity = await discovery.discover_user_identity()
+        identity = discovery.discover_user_identity()
         
         assert identity.user_type == "user"
         assert identity.user_name == "test-user"
         assert identity.account_id == "123456789012"
 
-    @pytest.mark.asyncio
     @patch('boto3.client')
-    async def test_discover_bucket_permissions_full_access(self, mock_boto_client):
+    def test_discover_bucket_permissions_full_access(self, mock_boto_client):
         """Test bucket permission discovery with full access."""
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
@@ -289,7 +282,7 @@ class TestPermissionDiscoveryEngine:
         mock_s3.delete_object.return_value = {}
         
         discovery = AWSPermissionDiscovery()
-        bucket_info = await discovery.discover_bucket_permissions("test-bucket")
+        bucket_info = discovery.discover_bucket_permissions("test-bucket")
         
         assert bucket_info.permission_level == PermissionLevel.FULL_ACCESS
         assert bucket_info.can_read is True
@@ -297,9 +290,8 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_list is True
         assert bucket_info.region == "us-west-2"
 
-    @pytest.mark.asyncio
     @patch('boto3.client')
-    async def test_discover_bucket_permissions_read_only(self, mock_boto_client):
+    def test_discover_bucket_permissions_read_only(self, mock_boto_client):
         """Test bucket permission discovery with read-only access."""
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
@@ -315,7 +307,7 @@ class TestPermissionDiscoveryEngine:
         )
         
         discovery = AWSPermissionDiscovery()
-        bucket_info = await discovery.discover_bucket_permissions("readonly-bucket")
+        bucket_info = discovery.discover_bucket_permissions("readonly-bucket")
         
         assert bucket_info.permission_level == PermissionLevel.READ_ONLY
         assert bucket_info.can_read is True
@@ -327,8 +319,7 @@ class TestPermissionDiscoveryEngine:
 class TestIntegrationWithS3Package:
     """Test integration between permissions and S3-to-package functionality."""
 
-    @pytest.mark.asyncio
-    async def test_enhanced_package_creation_with_permissions(self):
+    def test_enhanced_package_creation_with_permissions(self):
         """Test that enhanced package creation can use permission discovery."""
         # This would test the integration between the permissions system
         # and the S3-to-package creation tool
