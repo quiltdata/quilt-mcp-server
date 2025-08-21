@@ -346,6 +346,7 @@ def package_create_from_s3(
     dry_run: bool = False,
     metadata: Any = None,
     copy_mode: str = "all",
+    force: bool = False,
 ) -> Dict[str, Any]:
     """
     Create a well-organized Quilt package from S3 bucket contents with smart organization.
@@ -624,6 +625,7 @@ def package_create_from_s3(
             readme_content=final_readme_content,
             summary_files=summary_files,
             copy_mode=copy_mode,
+            force=force,
         )
         
         return {
@@ -741,6 +743,7 @@ def _create_enhanced_package(
     readme_content: Optional[str] = None,
     summary_files: Optional[Dict[str, Any]] = None,
     copy_mode: str = "all",
+    force: bool = False,
 ) -> Dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
     try:
@@ -837,6 +840,7 @@ def _create_enhanced_package(
             package_name,
             registry=target_registry,
             message=message,
+            force=force,
         )
         
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
