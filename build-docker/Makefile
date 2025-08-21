@@ -46,7 +46,7 @@ init:
 
 verify:
 	@echo "Verifying Phase 2 MCP endpoint..."
-	@../shared/test-endpoint.sh -p build -t
+	@../scripts/test-endpoint.sh -p build -t
 
 zero:
 	@echo "Stopping Phase 2 (Build) containers..."

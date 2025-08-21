@@ -17,7 +17,7 @@ quilt-mcp-server/
 ├── app/           # Phase 1: Local MCP server (Python)
 ├── build-docker/  # Phase 2: Docker containerization  
 ├── catalog-push/  # Phase 3: ECR registry operations
-└── shared/        # Common utilities (validation, testing)
+└── scripts/       # Common utilities (validation, testing)
 ```
 
 Each phase is **atomic** and **testable** independently, following SPEC.md validation requirements.
@@ -161,15 +161,15 @@ make zero-catalog           # Stop Phase 3 containers
 
 ```bash
 # Environment and validation
-./shared/validate.sh all
-./shared/validate.sh app
-./shared/validate.sh build
-./shared/validate.sh catalog
+./scripts/validate.sh all
+./scripts/validate.sh app
+./scripts/validate.sh build
+./scripts/validate.sh catalog
 
 # MCP endpoint testing
-./shared/test-endpoint.sh -p app -t
-./shared/test-endpoint.sh -p build -t
-./shared/test-endpoint.sh -p catalog -t
+./scripts/test-endpoint.sh -p app -t
+./scripts/test-endpoint.sh -p build -t
+./scripts/test-endpoint.sh -p catalog -t
 ```
 
 ### Docker Operations
@@ -266,7 +266,7 @@ pkill *
 
 ## Environment Variables
 
-Environment variables are automatically loaded from `.env` and managed by `shared/common.sh`. Use `make check-env` to validate your configuration.
+Environment variables are automatically loaded from `.env` and managed by `scripts/common.sh`. Use `make check-env` to validate your configuration.
 
 Key variables (see `env.example` for complete list):
 

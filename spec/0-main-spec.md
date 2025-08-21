@@ -20,7 +20,7 @@ fast-mcp-server/
 ├── deploy-aws/    # Phase 4: ECS/ALB deployment
 │   ├── Makefile   # Phase-specific build targets
 │   └── SPEC.md    # Detailed phase specification
-└── shared/        # Common utilities
+└── scripts/       # Common utilities
 ```
 
 ## Phase Specifications

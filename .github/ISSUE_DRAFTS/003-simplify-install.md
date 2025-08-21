@@ -36,5 +36,5 @@ Proposed Tasks
 
 References
 
-- Files: `Makefile`, `shared/check-env.sh`, `pyproject.toml` (`project.scripts`)
+- Files: `Makefile`, `scripts/check-env.sh`, `pyproject.toml` (`project.scripts`)
 

@@ -48,7 +48,7 @@ init:
 
 verify:
 	@echo "Verifying Phase 3 MCP endpoint..."
-	@../shared/test-endpoint.sh -p catalog -t
+	@../scripts/test-endpoint.sh -p catalog -t
 
 zero:
 	@echo "Stopping Phase 3 (Catalog) containers..."

@@ -110,13 +110,11 @@ run-app:
 	@$(MAKE) -C app run
 
 run-app-tunnel:
-	@echo "Starting app server and tunnel..."
-	@$(MAKE) -C app run & app_pid=$$!; \
-	sleep 3; \
-	./shared/tunnel-endpoint.sh $(APP_ENDPOINT) $(FLAGS) || kill $$app_pid; \
-	kill $$app_pid 2>/dev/null
-
-inspect-app-tunnel:
+	echo "Starting app and tunneling via ngrok..." && 
+	make app > /dev/null 2>&1 & app_pid=$$!; 
+	sleep 3; 
+	./scripts/tunnel-endpoint.sh $(APP_ENDPOINT) $(FLAGS) || kill $$app_pid; 
+	kill $$app_pidinspect-app-tunnel:
 	@$(MAKE) run-app-tunnel "FLAGS=--inspect"
 
 test-endpoint-tunnel: # run app tunnel, then test-endpoint
@@ -124,7 +122,7 @@ test-endpoint-tunnel: # run app tunnel, then test-endpoint
 
 # Utilities
 check-env:
-	@./shared/check-env.sh
+	@./scripts/check-env.sh
 
 clean:
 	@echo "🧹 Cleaning all phase artifacts..."

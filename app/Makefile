@@ -120,7 +120,7 @@ test-tools:
 
 test-endpoint:
 	@echo "Testing MCP endpoint at $(ENDPOINT)..."
-	@../shared/test-endpoint.sh -t "$(ENDPOINT)"
+	@../scripts/test-endpoint.sh -t "$(ENDPOINT)"
 
 validate:
 	@./app.sh validate

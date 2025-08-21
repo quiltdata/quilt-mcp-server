@@ -101,7 +101,7 @@ ipython_config.py
 
 # Local development scripts and wrappers
 benchling-mcp-wrapper.sh
-*.sh
+# Ignore shell scripts in root directory (but not in scripts/ folder)
 #   commonly ignored for libraries.
 #   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
 #poetry.lock

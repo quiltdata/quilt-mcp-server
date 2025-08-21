@@ -32,5 +32,5 @@ Tasks
 
 References
 
-- Existing: `README.md`, `CLAUDE.md`, `shared/test-endpoint.sh`, tool modules in `app/quilt_mcp/tools`
+- Existing: `README.md`, `CLAUDE.md`, `scripts/test-endpoint.sh`, tool modules in `app/quilt_mcp/tools`
 
