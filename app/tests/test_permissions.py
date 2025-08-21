@@ -282,6 +282,11 @@ class TestPermissionDiscoveryEngine:
         mock_s3.put_object.return_value = {'ETag': 'test-etag'}
         mock_s3.delete_object.return_value = {}
         
+        # Mock list_buckets to return test-bucket as owned (for write permission detection)
+        mock_s3.list_buckets.return_value = {
+            'Buckets': [{'Name': 'test-bucket'}, {'Name': 'other-bucket'}]
+        }
+        
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions("test-bucket")
         
