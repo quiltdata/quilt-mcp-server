@@ -256,7 +256,12 @@ def _generate_package_metadata(
     metadata_template: str,
     user_metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Generate comprehensive package metadata following Quilt standards."""
+    """
+    Generate comprehensive package metadata following Quilt standards.
+    
+    NOTE: This function should NEVER include README content in the metadata.
+    README content should only be added as files to the package, not as metadata.
+    """
     total_objects = sum(len(files) for files in organized_structure.values())
     total_size = sum(
         sum(obj.get("Size", 0) for obj in files) 
@@ -521,6 +526,7 @@ def package_create_from_s3(
         )
         
         # Generate README content
+        # IMPORTANT: README content is added as a FILE to the package, not as metadata
         readme_content = None
         if generate_readme:
             readme_content = _generate_readme_content(
@@ -739,6 +745,7 @@ def _create_enhanced_package(
                 logger.debug(f"Added {s3_uri} as {logical_path}")
         
         # Add README.md if generated
+        # IMPORTANT: README content is added as a FILE in the package, never as metadata
         if readme_content:
             # Add README content as a file in the package
             import io
@@ -768,6 +775,8 @@ def _create_enhanced_package(
                         logger.info(f"Added visualization {viz_name}.png to package")
         
         # Set comprehensive metadata
+        # IMPORTANT: README content should NEVER be added to package metadata
+        # Only add README content as files using pkg.set() - never in enhanced_metadata
         pkg.set_meta(enhanced_metadata)
         
         # Push package to registry
