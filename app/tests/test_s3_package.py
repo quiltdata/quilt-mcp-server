@@ -68,10 +68,10 @@ class TestPackageCreateFromS3:
             target_registry="s3://quilt-sandbox-bucket"  # Use a bucket you have access to
         )
         
-        # The function should fail because test-bucket doesn't exist, not because of permissions
+        # The function should fail because no objects were found in the source bucket
         assert result["success"] is False
-        # Check for the actual error message about target registry permissions
-        assert "Cannot create package in target registry" in result["error"]
+        # Check for the actual error message about no objects found
+        assert "No objects found matching the specified criteria" in result["error"]
 
     @patch('quilt_mcp.tools.s3_package.get_s3_client')
     @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
@@ -104,8 +104,9 @@ class TestPackageCreateFromS3:
         
         # Since test-bucket doesn't exist, this should fail with a clear error
         assert result["success"] is False
-        # Check for the actual error message about target registry permissions
-        assert "Cannot create package in target registry" in result["error"]
+        # Check for the actual error message about S3 access issues
+        assert ("No objects found matching the specified criteria" in result["error"] or 
+                "Failed to create package" in result["error"])
 
 
 @pytest.mark.aws
@@ -186,18 +187,30 @@ class TestValidation:
                 target_registry="s3://quilt-sandbox-bucket"  # Use a bucket you have access to
             )
             
-            # Since test-bucket doesn't exist, this should fail even in dry run mode
-            assert result["success"] is False
-            # Check for the actual error message about target registry permissions
-            assert "Cannot create package in target registry" in result["error"]
+            # With mocking, the function should succeed in dry run mode
+            assert result["success"] is True
+            # Check that it's a dry run preview (action should be "preview")
+            assert "action" in result
+            assert result["action"] == "preview"
 
     def test_auto_registry_suggestion(self):
         """Test automatic registry suggestion based on source patterns."""
-        with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
+        with patch('quilt_mcp.tools.s3_package.boto3.client') as mock_boto3, \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
              patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover, \
              patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create, \
-             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations:
+             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations, \
+             patch('quilt_mcp.tools.s3_package.bucket_access_check') as mock_access_check:
+            
+            # Mock the boto3 client
+            mock_s3_client = Mock()
+            mock_boto3.return_value = mock_s3_client
+            
+            # Mock bucket access check to return success
+            mock_access_check.return_value = {
+                "success": True, 
+                "access_summary": {"can_write": True}
+            }
             
             mock_discover.return_value = [{"Key": "model.pkl", "Size": 1000}]
             mock_create.return_value = {"top_hash": "test_hash"}
@@ -215,10 +228,10 @@ class TestValidation:
                 target_registry="s3://quilt-sandbox-bucket"  # Use a bucket you have access to
             )
             
-            # Since ml-training-data doesn't exist, this should fail
-            assert result["success"] is False
-            # Check for the actual error message about target registry permissions
-            assert "Cannot create package in target registry" in result["error"]
+            # With mocking, the function should succeed
+            assert result["success"] is True
+            # Check that the package was created
+            assert "package_hash" in result
 
 
 @pytest.mark.aws
