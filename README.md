@@ -61,9 +61,12 @@ This server provides 13 secure tools for Quilt data operations:
 ## Requirements
 
 - **AWS Account** with CLI configured  
-- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) package manager
+- **Python 3.11+** in user's login environment (required for Claude Desktop usage)
+- **[uv](https://docs.astral.sh/uv/) package manager** for development
 - **Docker** for containerization
 - **IAM Policy ARN** for S3 access to your Quilt buckets
+
+> **Note**: Claude Desktop uses Python from your user's login shell environment, not from virtual environments. Ensure Python 3.11+ is accessible via `python3` in your shell profile (.bashrc, .zshrc, etc.).
 
 ## Configuration
 
