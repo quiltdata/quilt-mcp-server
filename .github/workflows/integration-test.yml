@@ -115,7 +115,6 @@ jobs:
         path: |
           app/test-results/
           app/coverage.xml
-        if-no-files-found: ignore
         retention-days: 7
         
     - name: Comment PR with results
