@@ -317,7 +317,18 @@ def package_contents_search(
     # Suppress stdout during browse to avoid JSON-RPC interference
     from ..utils import suppress_stdout
     with suppress_stdout():
-        pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+        try:
+            pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+        except Exception as e:
+            # Return empty result for nonexistent or inaccessible packages
+            return {
+                "package_name": package_name,
+                "query": query,
+                "matches": [],
+                "count": 0,
+                "success": False,
+                "error": f"Failed to browse package: {e}",
+            }
 
     # Find matching keys
     matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
