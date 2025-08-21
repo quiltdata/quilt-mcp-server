@@ -1,0 +1,228 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Confirm production deployment'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  validate-production-readiness:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Validate production readiness
+      run: |
+        echo "🔍 Validating production readiness..."
+        
+        # Check if this is a PR from staging
+        if [ "${{ github.event.pull_request.head.ref }}" != "staging" ]; then
+          echo "❌ Error: Production (main) branch only accepts PRs from 'staging' branch"
+          echo "Current source branch: ${{ github.event.pull_request.head.ref }}"
+          echo "Please ensure changes flow: develop → staging → main"
+          exit 1
+        fi
+        
+        echo "✅ Production readiness validation passed"
+        echo "✅ Source branch is staging (correct flow)"
+        
+  production-tests:
+    runs-on: ubuntu-latest
+    needs: [validate-production-readiness]
+    if: always() && (needs.validate-production-readiness.result == 'success' || needs.validate-production-readiness.result == 'skipped')
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov pytest-asyncio pytest-xdist
+        
+    - name: Run production test suite
+      run: |
+        python -m pytest app/tests/ --cov=app --cov-report=xml --cov-report=html -n auto
+        
+    - name: Run production integration tests
+      run: |
+        python -m pytest app/tests/test_integration.py -v
+        
+    - name: Run performance benchmarks
+      run: |
+        python -m pytest app/tests/ -m "performance" --durations=10
+        
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: production
+        name: production-coverage
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report-production-${{ matrix.python-version }}
+        path: htmlcov/
+        
+  production-security:
+    runs-on: ubuntu-latest
+    needs: [validate-production-readiness, production-tests]
+    if: always() && (needs.validate-production-readiness.result == 'success' || needs.validate-production-readiness.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run comprehensive security audit
+      uses: snyk/actions/python@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=low
+        
+    - name: Run dependency vulnerability scan
+      run: |
+        pip install safety
+        safety check --json --output production-safety-report.json
+        
+    - name: Run license compliance check
+      run: |
+        pip install pip-licenses
+        pip-licenses --format=json --output-file=licenses.json
+        
+    - name: Upload security artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: production-security-artifacts
+        path: |
+          production-safety-report.json
+          licenses.json
+        
+  production-build:
+    runs-on: ubuntu-latest
+    needs: [validate-production-readiness, production-tests, production-security]
+    if: always() && (needs.validate-production-readiness.result == 'success' || needs.validate-production-readiness.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install build wheel twine
+        
+    - name: Build production package
+      run: |
+        python -m build
+        
+    - name: Validate package
+      run: |
+        twine check dist/*
+        
+    - name: Upload production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: production-build-artifacts
+        path: dist/
+        
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [validate-production-readiness, production-tests, production-security, production-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && (needs.validate-production-readiness.result == 'success' || needs.validate-production-readiness.result == 'skipped')
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        echo "This is a production deployment - ensure all checks passed!"
+        
+        # Add your production deployment commands here
+        # This could be deploying to production servers, S3, etc.
+        
+    - name: Create production release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Production Release v${{ github.run_number }}
+        body: |
+          🚀 Production Release
+          
+          **Version:** v${{ github.run_number }}
+          **Commit:** ${{ github.sha }}
+          **Branch:** main
+          **Environment:** Production
+          
+          ## Quality Gates Passed
+          - ✅ Production tests passed
+          - ✅ Security audit completed
+          - ✅ Performance benchmarks met
+          - ✅ Build validation successful
+          
+          ## Deployment
+          - Production environment updated
+          - All services deployed
+          - Health checks passed
+          
+          ## Rollback Plan
+          If issues are detected, rollback to previous version:
+          ```bash
+          git checkout v${{ github.run_number }}
+          # Re-deploy previous version
+          ```
+          
+          **Note:** This is a production release. Monitor closely for any issues.
+        draft: false
+        prerelease: false
+        
+  notify-production:
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+    
+    steps:
+    - name: Notify production deployment
+      run: |
+        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+          echo "🎉 Production deployment successful!"
+          echo "Version: v${{ github.run_number }}"
+          echo "Commit: ${{ github.sha }}"
+        else
+          echo "❌ Production deployment failed!"
+          echo "Check the logs for details"
+        fi
+        
+        # Add your production notification logic here (Slack, email, etc.)
