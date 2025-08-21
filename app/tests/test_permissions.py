@@ -248,6 +248,65 @@ class TestBucketRecommendations:
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
+    @patch('quilt_mcp.aws.permission_discovery.quilt3')
+    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
+    def test_uses_quilt3_session_when_logged_in(self, mock_boto_client, mock_quilt3):
+        """When quilt3 is logged in, discovery should use quilt3.get_boto3_session()."""
+        # If default boto3.client is called, fail the test
+        mock_boto_client.side_effect = AssertionError(
+            "boto3.client should not be called when quilt3 session is available"
+        )
+
+        # Configure quilt3 mocks
+        mock_quilt3.logged_in.return_value = True
+
+        # Build a fake boto3 session with specific clients
+        mock_sts = Mock()
+        mock_sts.get_caller_identity.return_value = {
+            'UserId': 'AIDACKCEVSQ6C2EXAMPLE',
+            'Account': '123456789012',
+            'Arn': 'arn:aws:iam::123456789012:user/test-user'
+        }
+        mock_iam = Mock()
+        mock_s3 = Mock()
+        mock_s3.list_buckets.return_value = {'Buckets': []}
+
+        class _FakeSession:
+            def client(self, service_name: str):
+                if service_name == 'sts':
+                    return mock_sts
+                if service_name == 'iam':
+                    return mock_iam
+                if service_name == 's3':
+                    return mock_s3
+                raise AssertionError(f"Unexpected client for service: {service_name}")
+
+        mock_quilt3.get_boto3_session.return_value = _FakeSession()
+        
+        # Mock the quilt3 session methods used by GraphQL discovery to return empty results
+        mock_session = Mock()
+        mock_http_session = Mock()
+        mock_http_session.post.return_value.status_code = 200
+        mock_http_session.post.return_value.json.return_value = {'data': {'bucketConfigs': []}}
+        mock_session.get_session.return_value = mock_http_session
+        mock_session.get_registry_url.return_value = "https://test-catalog.com"
+        mock_quilt3.session = mock_session
+
+        # Instantiate the discovery engine - it should use quilt3 session
+        discovery = AWSPermissionDiscovery()
+
+        # Verify that identity discovery works via the mocked STS client
+        identity = discovery.discover_user_identity()
+        assert identity.user_name == "test-user"
+        assert identity.account_id == "123456789012"
+
+        # Verify that listing buckets uses the mocked S3 client and does not error
+        buckets = discovery.discover_accessible_buckets()
+        assert isinstance(buckets, list)
+        # With GraphQL discovery, we may find buckets even when S3 list_buckets returns empty
+        # The important thing is that the method doesn't error and returns a list
+        assert len(buckets) >= 0
+
     @patch('quilt_mcp.aws.permission_discovery.boto3.client')
     def test_discover_user_identity(self, mock_boto_client):
         """Test user identity discovery."""

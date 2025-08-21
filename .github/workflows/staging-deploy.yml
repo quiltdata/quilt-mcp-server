@@ -1,0 +1,240 @@
+name: Staging Deployment
+
+on:
+  push:
+    branches:
+      - staging
+  pull_request:
+    branches:
+      - staging
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - staging-qa
+
+jobs:
+  validate-pr-source:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Validate PR source branch
+      run: |
+        if [ "${{ github.event.pull_request.head.ref }}" != "develop" ] && [[ "${{ github.event.pull_request.head.ref }}" != develop-to-staging-* ]]; then
+          echo "❌ Error: Staging branch only accepts PRs from 'develop' or 'develop-to-staging-*' branches"
+          echo "Current source branch: ${{ github.event.pull_request.head.ref }}"
+          echo "Please create your PR from the develop branch instead."
+          exit 1
+        fi
+        echo "✅ PR source branch validation passed"
+        
+  test-staging:
+    runs-on: ubuntu-latest
+    needs: [validate-pr-source]
+    if: always() && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov pytest-asyncio pytest-xdist
+        
+    - name: Run full test suite
+      run: |
+        python -m pytest app/tests/ --cov=app --cov-report=xml --cov-report=html -n auto
+        
+    - name: Run performance tests
+      run: |
+        python -m pytest app/tests/ -m "performance" --durations=10
+        
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: staging
+        name: staging-coverage
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report-${{ matrix.python-version }}
+        path: htmlcov/
+        
+  test-dxt-staging:
+    runs-on: ubuntu-latest
+    needs: [validate-pr-source, test-staging]
+    if: always() && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install uv package manager
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        
+    - name: Install DXT CLI
+      run: |
+        npm install -g @anthropic-ai/dxt
+        
+    - name: Build DXT package for testing
+      run: |
+        cd build-dxt
+        make build
+        
+    - name: Validate DXT package
+      run: |
+        cd build-dxt
+        make validate
+        
+    - name: Test DXT package
+      run: |
+        cd build-dxt
+        make test
+        
+    - name: Upload DXT test artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dxt-test-artifacts
+        path: build-dxt/dist/
+        
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [validate-pr-source, test-staging, test-dxt-staging]
+    if: always() && (needs.validate-pr-source.result == 'success' || needs.validate-pr-source.result == 'skipped')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        
+    - name: Run integration tests
+      run: |
+        python -m pytest app/tests/test_integration.py -v
+        
+    - name: Test package creation
+      run: |
+        python -c "
+        from app.quilt_mcp.tools.s3_package import package_create_from_s3
+        print('Package creation tools imported successfully')
+        "
+        
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [validate-pr-source, test-staging, test-dxt-staging, integration-test]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push' && (needs.validate-pr-source.result == 'success' || needs.validate_pr-source.result == 'skipped')
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install build wheel
+        
+    - name: Build staging package
+      run: |
+        python -m build
+        
+    - name: Build DXT package for staging
+      run: |
+        cd build-dxt
+        make release
+        
+    - name: Deploy to staging environment
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        # This could be deploying to a staging server, S3 bucket, etc.
+        
+    - name: Create staging release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: staging-${{ github.run_number }}
+        release_name: Staging Release ${{ github.run_number }}
+        body: |
+          Staging deployment from staging branch
+          
+          **Build Number:** ${{ github.run_number }}
+          **Commit:** ${{ github.sha }}
+          **Branch:** staging
+          **Environment:** Staging
+          
+          ## Test Results
+          - ✅ Full test suite passed
+          - ✅ Integration tests passed
+          - ✅ Performance tests completed
+          - ✅ DXT package validated
+          
+          ## Next Steps
+          - Test in staging environment
+          - Verify all functionality works
+          - Create PR to main when ready for production
+        draft: false
+        prerelease: true
+        
+  notify-team:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: always()
+    
+    steps:
+    - name: Notify team of staging deployment
+      run: |
+        echo "Staging deployment completed for commit ${{ github.sha }}"
+        # Add your notification logic here (Slack, email, etc.)

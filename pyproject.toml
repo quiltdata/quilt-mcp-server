@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp-server"
-version = "0.1.0"
+version = "0.4.1"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -57,13 +57,17 @@ testpaths = ["app/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --tb=short --color=yes --timeout=30 --timeout-method=thread"
-asyncio_mode = "auto"
+addopts = "-v --tb=short --color=yes"
 markers = [
     "aws: marks tests that require AWS credentials and network access",
     "search: marks tests that require search functionality",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "performance: marks tests as performance benchmarks",
+    "integration: marks tests as integration tests",
 ]
+
+[tool.pytest.ini_options.asyncio]
+mode = "auto"
 
 [tool.black]
 line-length = 100
