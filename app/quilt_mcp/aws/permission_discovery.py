@@ -72,7 +72,8 @@ class AWSPermissionDiscovery:
             # Prefer Quilt3-provided STS-backed session, if logged in
             session = None
             try:
-                if hasattr(quilt3, 'logged_in') and quilt3.logged_in():
+                disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+                if not disable_quilt3_session and hasattr(quilt3, 'logged_in') and quilt3.logged_in():
                     if hasattr(quilt3, 'get_boto3_session'):
                         session = quilt3.get_boto3_session()
             except Exception:
