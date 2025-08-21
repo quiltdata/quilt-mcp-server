@@ -99,8 +99,6 @@ jobs:
         
         # Quilt-specific settings (from organization secrets)
         QUILT_READ_POLICY_ARN: ${{ secrets.QUILT_READ_POLICY_ARN }}
-        CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
-        CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
         QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}

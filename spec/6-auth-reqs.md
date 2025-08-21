@@ -96,7 +96,7 @@ This needs to work with generic MCP clients (e.g., Claude.AI and Claude Desktop)
 
 - Runbooks for: token outages, DB mapping failures, STS throttling, and role trust misconfig.
 - Canary to continuously verify: token validation, mapping, role assumption, and ABAC access to a test resource.
-- Infrastructure as code (CDK/Terraform) with security reviews for IAM diffs.
+- Infrastructure as code with security reviews for IAM diffs.
 
 ## Backwards Compatibility
 

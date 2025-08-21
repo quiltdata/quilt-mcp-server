@@ -32,8 +32,6 @@ QUILT_TEST_ENTRY           - Known S3 object for testing (e.g., "test-file.csv")
 ```
 QUILT_READ_POLICY_ARN      - IAM policy ARN for read permissions
 QUILT_INTEGRATION_BUCKET   - Separate bucket for integration tests
-CDK_DEFAULT_ACCOUNT        - AWS account ID for CDK deployment tests
-CDK_DEFAULT_REGION         - AWS region for CDK deployment tests
 ```
 
 ## AWS Permissions Setup

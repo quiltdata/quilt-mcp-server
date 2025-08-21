@@ -94,8 +94,8 @@ cp env.example .env
 make check-env
 
 # Required variables
-CDK_DEFAULT_ACCOUNT  # AWS account ID
-CDK_DEFAULT_REGION   # AWS region
+AWS_ACCOUNT_ID       # AWS account ID (optional, auto-detected)
+AWS_DEFAULT_REGION   # AWS region
 QUILT_DEFAULT_BUCKET # S3 bucket for Quilt data
 QUILT_CATALOG_DOMAIN # Quilt catalog domain
 ```

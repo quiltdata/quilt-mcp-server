@@ -71,7 +71,7 @@ catalog-push/
 - `ECR_REGISTRY`: Auto-constructed ECR registry URL
 - `ECR_REPOSITORY`: Repository name (default: quilt-mcp)
 - `AWS_DEFAULT_REGION`: AWS region for ECR operations
-- `CDK_DEFAULT_ACCOUNT`: AWS account ID
+- `AWS_ACCOUNT_ID`: AWS account ID (optional, auto-detected)
 - `VERBOSE`: Enable detailed output
 
 ## AWS Permissions Required
