@@ -24,7 +24,8 @@ def create_package(
     auto_organize: bool = True,
     dry_run: bool = False,
     target_registry: Optional[str] = None,
-    metadata: Any = None
+    metadata: Any = None,
+    copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
     Unified package creation tool that handles everything automatically.
@@ -119,7 +120,8 @@ def create_package(
                 auto_organize=auto_organize,
                 dry_run=dry_run,
                 target_registry=target_registry,
-                metadata=processed_metadata
+                metadata=processed_metadata,
+                copy_mode=copy_mode,
             )
         elif file_analysis["source_type"] == "local_only":
             return _create_package_from_local_sources(
@@ -431,7 +433,8 @@ def _create_package_from_s3_sources(
     auto_organize: bool,
     dry_run: bool,
     target_registry: Optional[str],
-    metadata: Optional[Dict[str, Any]]
+    metadata: Optional[Dict[str, Any]],
+    copy_mode: str,
 ) -> Dict[str, Any]:
     """Create package from S3 sources using enhanced S3-to-package tool."""
     try:
@@ -458,7 +461,8 @@ def _create_package_from_s3_sources(
             description=description,
             auto_organize=auto_organize,
             dry_run=dry_run,
-            metadata=metadata
+            metadata=metadata,
+            copy_mode=copy_mode,
         )
         
         # Enhance the result with unified package creation context

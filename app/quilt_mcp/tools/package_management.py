@@ -25,7 +25,8 @@ def create_package_enhanced(
     metadata: Any = None,
     registry: Optional[str] = None,
     dry_run: bool = False,
-    auto_organize: bool = True
+    auto_organize: bool = True,
+    copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
     Enhanced package creation with better error handling and metadata templates.
@@ -217,7 +218,8 @@ def create_package_enhanced(
                 s3_uris=files,
                 registry=registry,
                 metadata=template_metadata,
-                message=f"Created via enhanced package creation: {description}" if description else "Created via enhanced package creation"
+                message=f"Created via enhanced package creation: {description}" if description else "Created via enhanced package creation",
+                copy_mode=copy_mode,
             )
             
             # Enhance the result with additional information

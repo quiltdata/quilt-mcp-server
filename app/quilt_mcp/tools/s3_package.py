@@ -335,6 +335,7 @@ def package_create_from_s3(
     metadata_template: str = "standard",
     dry_run: bool = False,
     metadata: Any = None,
+    copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
     Create a well-organized Quilt package from S3 bucket contents with smart organization.
@@ -594,7 +595,8 @@ def package_create_from_s3(
             target_registry=target_registry,
             description=description,
             enhanced_metadata=enhanced_metadata,
-            readme_content=readme_content
+            readme_content=readme_content,
+            copy_mode=copy_mode,
         )
         
         return {
@@ -710,6 +712,7 @@ def _create_enhanced_package(
     description: str,
     enhanced_metadata: Dict[str, Any],
     readme_content: Optional[str] = None,
+    copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
     try:
@@ -749,7 +752,39 @@ def _create_enhanced_package(
         
         # Push package to registry
         message = f"Created via enhanced S3-to-package tool: {description}" if description else "Created via enhanced S3-to-package tool"
-        top_hash = pkg.push(package_name, registry=target_registry, message=message)
+        # Build selector_fn for desired copy behavior
+        def _selector_all(_lk, _e):
+            return True
+
+        def _selector_none(_lk, _e):
+            return False
+
+        def _selector_same_bucket(_lk, e):
+            try:
+                physical_key = str(getattr(e, "physical_key", ""))
+            except Exception:
+                physical_key = ""
+            if not physical_key.startswith("s3://"):
+                return False
+            try:
+                bucket = physical_key.split("/", 3)[2]
+            except Exception:
+                return False
+            target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
+            return bucket == target_bucket
+
+        selector_fn = _selector_all
+        if copy_mode == "none":
+            selector_fn = _selector_none
+        elif copy_mode == "same_bucket":
+            selector_fn = _selector_same_bucket
+
+        top_hash = pkg.push(
+            package_name,
+            registry=target_registry,
+            message=message,
+            selector_fn=selector_fn,
+        )
         
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
         
