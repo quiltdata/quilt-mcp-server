@@ -6,6 +6,30 @@ All notable changes to the Quilt MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-08-21
+
+### Added
+
+- GraphQL-based bucket discovery fallback via Quilt Catalog `/graphql` when IAM denies `s3:ListBuckets`/`ListAllMyBuckets` (merges with Glue/Athena fallbacks; de-duplicates)
+- Tests covering GraphQL discovery path, IAM-denied paths, and package operations (`app/tests/test_package_ops.py`)
+- Enhanced permission discovery leveraging `quilt3.get_boto3_session()` when logged in
+
+### Changed
+
+- Improved bucket discovery to prefer catalog-backed enumeration, maintaining AWS-native fallbacks
+- CI: Build DXT after unit tests on `develop`; stop nightly push; upgrade artifact actions
+
+### Fixed
+
+- Ensure `README.md` and Quilt summary files are added to the package files themselves, not only metadata (addresses prior behavior)
+
+### Internal / Maintenance
+
+- Expanded unit tests across package tools and permissions
+- Minor tooling and scripts updates (e.g., `check_all_readme.py`)
+
+Thanks to contributions in [PR #45](https://github.com/quiltdata/quilt-mcp-server/pull/45), [PR #44](https://github.com/quiltdata/quilt-mcp-server/pull/44), and related fixes.
+
 ## [0.3.6] - 2025-08-21
 
 ### Fixed
