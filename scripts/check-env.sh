@@ -5,6 +5,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Parse command line arguments
+CLIENT_TYPE="${1:-default}"
+
 # Load shared utilities
 source "$SCRIPT_DIR/common.sh"
 
@@ -57,3 +60,40 @@ if [ -z "${QUILT_CATALOG_DOMAIN}" ]; then
 fi
 
 log_success "✅ Environment validation complete"
+
+# Provide client-specific instructions if requested
+case "$CLIENT_TYPE" in
+    claude)
+        log_info "📋 CLAUDE DESKTOP NEXT STEPS:"
+        echo "  1. Generate MCP configuration: python scripts/make_mcp_config.py claude"
+        echo "  2. Copy the generated config to your Claude Desktop settings"
+        echo "  3. Restart Claude Desktop"
+        ;;
+    vscode)
+        log_info "📋 VS CODE NEXT STEPS:"
+        echo "  1. Generate MCP configuration: python scripts/make_mcp_config.py vscode"
+        echo "  2. Install the MCP Client extension in VS Code"
+        echo "  3. Add the generated config to VS Code MCP settings"
+        echo "  4. Restart VS Code"
+        ;;
+    cursor)
+        log_info "📋 CURSOR NEXT STEPS:"
+        echo "  1. Generate MCP configuration: python scripts/make_mcp_config.py claude"
+        echo "  2. Copy the generated config to your Cursor settings"
+        echo "  3. Restart Cursor"
+        ;;
+    http)
+        log_info "📋 HTTP MCP SERVER NEXT STEPS:"
+        echo "  1. Start the server: make app"
+        echo "  2. Server will be available at: http://127.0.0.1:8000/mcp"
+        echo "  3. For remote access: make run-app-tunnel"
+        ;;
+    default)
+        # Default behavior - no additional instructions
+        ;;
+    *)
+        log_error "❌ Unknown client type: $CLIENT_TYPE"
+        log_info "Available types: claude, vscode, cursor, http"
+        exit 1
+        ;;
+esac

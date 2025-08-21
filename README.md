@@ -4,11 +4,25 @@ A local MCP (Model Context Protocol) server for accessing Quilt data with secure
 
 ## Quick Start
 
-### For Claude Desktop Users
+### A. For Claude Desktop Users
 
-See **[build-dxt/assets/README.md](build-dxt/assets/README.md)** for downloading and installing the pre-built DXT extension.
+See **[build-dxt/assets/README.md](build-dxt/assets/README.md)** for how to instal the [pre-built DXT extension](https://github.com/quiltdata/quilt-mcp-server/releases). Note that this requires your login shell to have a Python 3.11+ for use by Claude Desktop.
 
-### Manual Local Setup
+### B. Generate MCP Configuration
+
+For local MCP clients (Claude Desktop, VS Code, Cursor, etc.):
+
+```bash
+# Generate configuration for your MCP client
+python scripts/make_mcp_config.py claude    # For Claude Desktop
+python scripts/make_mcp_config.py vscode    # For VS Code
+python scripts/make_mcp_config.py cursor    # For Cursor
+python scripts/make_mcp_config.py all       # Generate all configs
+
+# Follow the generated instructions to configure your client
+```
+
+### C. Manual Local Setup
 
 1. **Configure environment:**
 
@@ -29,7 +43,7 @@ See **[build-dxt/assets/README.md](build-dxt/assets/README.md)** for downloading
    - **Server**: `http://127.0.0.1:8000/mcp`
    - **Method**: HTTP POST with JSON-RPC 2.0
 
-### Remote Access (via ngrok)
+### D. Remote Access (via ngrok)
 
 For web apps or remote clients:
 
