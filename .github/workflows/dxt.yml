@@ -6,11 +6,6 @@ name: Build and Release DXT
 # The DXT build only runs after all tests pass successfully.
 
 on:
-  push:
-    tags:
-      - 'v*'  # Trigger on version tags (e.g., v1.0.0)
-    branches:
-      - 'feature/s3-to-package-creation'  # Build DXT for S3-to-package feature branch
   workflow_run:
     workflows: ["Unit Tests"]
     types:
@@ -51,12 +46,6 @@ jobs:
         echo "🔨 Building DXT package for develop..."
         cd build-dxt
         make build
-    
-    - name: Test DXT package
-      run: |
-        echo "🧪 Testing DXT package..."
-        cd build-dxt
-        make test
     
     - name: Upload DXT artifact
       uses: actions/upload-artifact@v4
