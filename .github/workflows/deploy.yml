@@ -5,9 +5,7 @@ name: Deploy to ECR
 # Requires AWS credentials to be configured in GitHub secrets.
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:  # Manual-only
 
 jobs:
   deploy:

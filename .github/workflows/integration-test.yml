@@ -69,25 +69,23 @@ jobs:
             
     - name: Install dependencies
       run: |
-        cd app
         uv sync --group test
       timeout-minutes: 5
       
     - name: Run integration tests
       run: |
-        cd app
         case "${{ inputs.test_scope || 'all' }}" in
           "aws")
-            make test-aws
+            make -C app test-aws
             ;;
           "search") 
-            make test-search
+            make -C app test-search
             ;;
           "permissions")
-            make test-permissions
+            make -C app test-permissions
             ;;
           *)
-            make test-integration
+            make -C app test-integration
             ;;
         esac
       timeout-minutes: 20

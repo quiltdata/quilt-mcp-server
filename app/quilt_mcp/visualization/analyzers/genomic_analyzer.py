@@ -320,7 +320,7 @@ class GenomicAnalyzer:
                                 if assembly in line:
                                     analysis['genome_assembly'] = assembly
                                     break
-                    elif line.startswith('#'CHROM'):
+                    elif line.startswith('#CHROM'):
                         # Column header
                         parts = line.split('\t')
                         analysis['sample_count'] = max(0, len(parts) - 9)  # VCF has 9 fixed columns

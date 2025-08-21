@@ -40,7 +40,7 @@ config:
 coverage:
 	@echo "Running tests with coverage (≥85% required)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
 
 lint:
 	@echo "Running code linting and auto-fixing..."
@@ -71,8 +71,8 @@ run-inspector:
 test:
 	@echo "Running local tests..."
 	@uv sync --group test
-	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v; \
+	@if [ -d "../tests" ] && [ "$$(find ../tests -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v; \
 	else \
 		echo "No tests found, running import test..."; \
 		export PYTHONPATH="$(PWD)" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
@@ -81,42 +81,50 @@ test:
 test-ci:
 	@echo "Running CI tests with timeouts (skipping search tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not search" --timeout=15 --disable-warnings
+	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search" --timeout=15 --disable-warnings
 
 test-unit-ci:
 	@echo "Running unit tests only (no AWS calls)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws and not search" --timeout=10 --disable-warnings
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not aws and not search" --timeout=10 --disable-warnings
 
 test-integration:
 	@echo "Running integration tests with real AWS..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "aws or search" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws or search" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-aws:
 	@echo "Running AWS-specific integration tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "aws" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-search:
 	@echo "Running search integration tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "search" --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "search" --timeout=120 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-permissions:
 	@echo "Running permission-specific tests..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/test_permissions.py -v --timeout=60 --disable-warnings
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws"
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not aws"
 
 test-tools:
 	@echo "Running tool-focused tests (metadata/buckets/packages)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/test_metadata_examples.py tests/test_bucket_tools.py tests/test_quilt_tools.py -v
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_metadata_examples.py ../tests/test_bucket_tools.py ../tests/test_quilt_tools.py -v
 
 test-endpoint:
 	@echo "Testing MCP endpoint at $(ENDPOINT)..."
