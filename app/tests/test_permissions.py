@@ -248,7 +248,7 @@ class TestBucketRecommendations:
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
-    @patch('boto3.client')
+    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
     def test_discover_user_identity(self, mock_boto_client):
         """Test user identity discovery."""
         mock_sts = Mock()
@@ -266,7 +266,7 @@ class TestPermissionDiscoveryEngine:
         assert identity.user_name == "test-user"
         assert identity.account_id == "123456789012"
 
-    @patch('boto3.client')
+    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
     def test_discover_bucket_permissions_full_access(self, mock_boto_client):
         """Test bucket permission discovery with full access."""
         mock_s3 = Mock()
@@ -290,7 +290,7 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_list is True
         assert bucket_info.region == "us-west-2"
 
-    @patch('boto3.client')
+    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
     def test_discover_bucket_permissions_read_only(self, mock_boto_client):
         """Test bucket permission discovery with read-only access."""
         mock_s3 = Mock()
