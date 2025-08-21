@@ -64,6 +64,7 @@ If you encounter issues:
 2. **Verify AWS credentials**: Run `aws sts get-caller-identity` to confirm your AWS access
 3. **Check catalog domain**: Ensure your catalog domain is correct (without https://)
 4. **Restart Claude Desktop**: After any configuration changes
+5. **Email [support](mailto:support@quilt.bio)**: If this doesn't work with your OS or MCP Client.
 
 ### Common Issues
 

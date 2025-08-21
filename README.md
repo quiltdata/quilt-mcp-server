@@ -23,7 +23,7 @@ make validate
 
 This project uses a **4-phase deployment pipeline**:
 
-```
+```tree
 fast-mcp-server/
 ├── app/           # Phase 1: Local MCP server (Python)
 ├── build-docker/  # Phase 2: Docker containerization  
@@ -39,6 +39,7 @@ Each phase is **atomic** and **testable** independently, following SPEC.md valid
 This server provides 13 secure tools for Quilt data operations:
 
 ### Package Management
+
 - **`packages_list`** - List packages in a registry with optional filtering
 - **`packages_search`** - Search packages using ElasticSearch  
 - **`package_browse`** - Examine package contents and structure
@@ -48,6 +49,7 @@ This server provides 13 secure tools for Quilt data operations:
 - **`package_delete`** - Remove packages from registry
 
 ### S3 Operations
+
 - **`bucket_objects_list`** - List objects in S3 buckets
 - **`bucket_object_info`** - Get metadata for specific objects
 - **`bucket_object_text`** - Read text content from objects
@@ -55,15 +57,19 @@ This server provides 13 secure tools for Quilt data operations:
 - **`bucket_object_fetch`** - Download object data
 
 ### System Tools
+
 - **`auth_check`** - Verify Quilt authentication status
 - **`filesystem_check`** - Check system environment details
 
 ## Requirements
 
 - **AWS Account** with CLI configured  
-- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) package manager
+- **Python 3.11+** in user's login environment (required for Claude Desktop usage)
+- **[uv](https://docs.astral.sh/uv/) package manager** for development
 - **Docker** for containerization
 - **IAM Policy ARN** for S3 access to your Quilt buckets
+
+> **Note**: Claude Desktop uses Python from your user's login shell environment, not from virtual environments. Ensure Python 3.11+ is accessible via `python3` in your shell profile (.bashrc, .zshrc, etc.).
 
 ## Configuration
 
@@ -95,6 +101,7 @@ QUILT_TEST_ENTRY=README.md
 ## Makefile Commands
 
 ### Phase Commands
+
 ```bash
 make app                          # Phase 1: Run local MCP server
 make build                        # Phase 2: Build Docker container
@@ -103,6 +110,7 @@ make deploy                       # Phase 4: Deploy to ECS Fargate
 ```
 
 ### Validation Commands (SPEC-compliant)
+
 ```bash
 make validate                     # Validate all phases sequentially
 make validate-app                 # Validate Phase 1 only
@@ -112,6 +120,7 @@ make validate-deploy              # Validate Phase 4 only
 ```
 
 ### Testing Commands
+
 ```bash
 make test-app                     # Phase 1 testing only
 make test-build                   # Phase 2 testing only
@@ -120,6 +129,7 @@ make coverage                     # Run tests with coverage (fails if <85%)
 ```
 
 ### Verification Commands (MCP Endpoint Testing)
+
 ```bash
 make verify-app                   # Verify Phase 1 MCP endpoint
 make verify-build                 # Verify Phase 2 MCP endpoint
@@ -128,6 +138,7 @@ make verify-deploy                # Verify Phase 4 MCP endpoint
 ```
 
 ### Initialization & Cleanup
+
 ```bash
 make init-app                     # Check Phase 1 preconditions
 make init-build                   # Check Phase 2 preconditions
@@ -141,6 +152,7 @@ make zero-deploy                  # Disable Phase 4 endpoint (preserve stack)
 ```
 
 ### Utilities
+
 ```bash
 make check-env                    # Validate .env configuration
 make clean                        # Clean build artifacts
@@ -162,11 +174,13 @@ Each phase uses different ports to avoid conflicts:
 ## Development Workflow
 
 ### Local Development
+
 ```bash
 make app                          # Local server on http://127.0.0.1:8000/mcp
 ```
 
 ### SPEC-Compliant Pipeline
+
 ```bash
 # Complete validation (recommended)
 make validate
@@ -180,6 +194,7 @@ make zero-app                     # Cleanup processes
 ```
 
 ### Testing Individual Phases
+
 ```bash
 # Test specific phases
 make verify-build                 # Test Docker container
@@ -199,6 +214,7 @@ The system automatically loads environment variables from `.env` via `shared/com
 ## Manual Testing
 
 ### MCP Endpoint Testing
+
 ```bash
 # Test local server
 curl -X POST http://localhost:8000/mcp \
@@ -217,6 +233,7 @@ curl -X POST http://localhost:8002/mcp \
 ```
 
 ### AWS Service Testing
+
 ```bash
 # View deployment status
 make status
