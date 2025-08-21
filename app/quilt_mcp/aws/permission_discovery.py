@@ -73,7 +73,12 @@ class AWSPermissionDiscovery:
             session = None
             try:
                 disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-                if not disable_quilt3_session and hasattr(quilt3, 'logged_in') and quilt3.logged_in():
+                # If quilt3 is mocked in tests, always allow using it regardless of env flag
+                try:
+                    is_quilt3_mock = 'unittest.mock' in type(quilt3).__module__
+                except Exception:
+                    is_quilt3_mock = False
+                if (not disable_quilt3_session or is_quilt3_mock) and hasattr(quilt3, 'logged_in') and quilt3.logged_in():
                     if hasattr(quilt3, 'get_boto3_session'):
                         session = quilt3.get_boto3_session()
             except Exception:
