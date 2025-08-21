@@ -26,6 +26,6 @@ Example usage:
     pkg_list = packages.packages_list()
 """
 
-from . import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary
+from . import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, graphql
 
-__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions", "unified_package", "metadata_templates", "package_management", "metadata_examples", "quilt_summary"]
+__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions", "unified_package", "metadata_templates", "package_management", "metadata_examples", "quilt_summary", "graphql"]
