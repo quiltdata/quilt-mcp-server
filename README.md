@@ -175,6 +175,7 @@ make validate
 make init-app                     # Check preconditions
 make app                          # Run phase
 make test-app                     # Test artifacts
+make -C app test-tools            # Run tool-focused tests (metadata, buckets, quilt tools)
 make verify-app                   # Verify MCP endpoint
 make zero-app                     # Cleanup processes
 ```

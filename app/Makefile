@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8000/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools 
 
 # Default target
 help:
@@ -87,6 +87,11 @@ test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
 	@uv sync --group test
 	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/ -v -m "not aws"
+
+test-tools:
+	@echo "Running tool-focused tests (metadata/buckets/packages)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest tests/test_metadata_examples.py tests/test_bucket_tools.py tests/test_quilt_tools.py -v
 
 test-endpoint:
 	@echo "Testing MCP endpoint at $(ENDPOINT)..."
