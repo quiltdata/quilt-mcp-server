@@ -152,12 +152,21 @@ class TestValidation:
         """Test dry run functionality returns preview without creating package."""
         with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
-             patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover:
+             patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover, \
+             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations:
             
             mock_discover.return_value = [
                 {"Key": "data.csv", "Size": 1000},
                 {"Key": "readme.md", "Size": 500},
             ]
+            
+            mock_recommendations.return_value = {
+                "success": True,
+                "recommendations": {
+                    "package_creation": ["test-bucket"],
+                    "temporary_storage": ["temp-bucket"]
+                }
+            }
             
             result = await package_create_from_s3(
                 source_bucket="test-bucket",
@@ -177,10 +186,18 @@ class TestValidation:
         with patch('quilt_mcp.tools.s3_package.get_s3_client'), \
              patch('quilt_mcp.tools.s3_package._validate_bucket_access'), \
              patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover, \
-             patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create:
+             patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create, \
+             patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations:
             
             mock_discover.return_value = [{"Key": "model.pkl", "Size": 1000}]
             mock_create.return_value = {"top_hash": "test_hash"}
+            mock_recommendations.return_value = {
+                "success": True,
+                "recommendations": {
+                    "package_creation": ["ml-training-data"],
+                    "temporary_storage": ["temp-bucket"]
+                }
+            }
             
             result = await package_create_from_s3(
                 source_bucket="ml-training-data",
