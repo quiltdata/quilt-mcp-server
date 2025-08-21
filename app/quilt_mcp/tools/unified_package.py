@@ -3,6 +3,11 @@
 This module provides a simplified, intelligent package creation interface
 that automatically handles registry detection, validation, permissions checking,
 and provides helpful guidance throughout the process.
+
+IMPORTANT: This module automatically ensures that README content is always written
+as README.md files within packages, never stored in package metadata. Any
+'readme_content' or 'readme' fields in metadata will be automatically extracted
+and converted to package files.
 """
 
 from typing import Dict, List, Any, Optional, Union
@@ -68,6 +73,8 @@ def create_package(
         
         # Handle metadata parameter - support both dict and JSON string for user convenience
         processed_metadata = {}
+        readme_content = None
+        
         if metadata is not None:
             if isinstance(metadata, str):
                 try:
@@ -99,6 +106,17 @@ def create_package(
                     ],
                     "tip": "Pass metadata as a dictionary object or JSON string"
                 }
+            
+            # Extract README content from metadata and store for later addition as package file
+            # readme_content takes priority if both fields exist
+            if 'readme_content' in processed_metadata:
+                readme_content = processed_metadata.pop('readme_content')
+            elif 'readme' in processed_metadata:
+                readme_content = processed_metadata.pop('readme')
+            
+            # Remove any remaining README fields to avoid duplication
+            if 'readme' in processed_metadata:
+                processed_metadata.pop('readme')
         
         # Analyze file sources
         file_analysis = _analyze_file_sources(files)

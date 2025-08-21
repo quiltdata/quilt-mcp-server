@@ -3,6 +3,11 @@
 This module provides advanced functionality to create well-organized Quilt packages 
 directly from S3 bucket contents, with intelligent structure organization, 
 automated documentation generation, and rich metadata management.
+
+IMPORTANT: This module automatically ensures that README content is always written
+as README.md files within packages, never stored in package metadata. Any
+'readme_content' or 'readme' fields in metadata will be automatically extracted
+and converted to package files.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -373,6 +378,8 @@ def package_create_from_s3(
         
         # Handle metadata parameter - support both dict and JSON string for user convenience
         processed_metadata = {}
+        readme_content = None
+        
         if metadata is not None:
             if isinstance(metadata, str):
                 try:
@@ -404,6 +411,13 @@ def package_create_from_s3(
                     ],
                     "tip": "Pass metadata as a dictionary object or JSON string"
                 }
+            
+            # Extract README content from metadata and store for later addition as package file
+            # readme_content takes priority if both fields exist
+            if 'readme_content' in processed_metadata:
+                readme_content = processed_metadata.pop('readme_content')
+            elif 'readme' in processed_metadata:
+                readme_content = processed_metadata.pop('readme')
         
         # Validate and normalize bucket name
         if source_bucket.startswith("s3://"):
@@ -527,9 +541,14 @@ def package_create_from_s3(
         
         # Generate README content
         # IMPORTANT: README content is added as a FILE to the package, not as metadata
-        readme_content = None
-        if generate_readme:
-            readme_content = _generate_readme_content(
+        final_readme_content = None
+        
+        # Use extracted README content from metadata if available, otherwise generate new content
+        if readme_content:
+            final_readme_content = readme_content
+            logger.info("Using README content extracted from metadata")
+        elif generate_readme:
+            final_readme_content = _generate_readme_content(
                 package_name=package_name,
                 description=description,
                 organized_structure=organized_structure,
@@ -537,6 +556,7 @@ def package_create_from_s3(
                 source_info=source_info,
                 metadata_template=metadata_template
             )
+            logger.info("Generated new README content")
         
         # Generate Quilt summary files (quilt_summarize.json + visualizations)
         from .quilt_summary import create_quilt_summary_files
@@ -544,7 +564,7 @@ def package_create_from_s3(
             package_name=package_name,
             package_metadata=enhanced_metadata,
             organized_structure=organized_structure,
-            readme_content=readme_content,
+            readme_content=final_readme_content,
             source_info=source_info,
             metadata_template=metadata_template
         )
@@ -575,7 +595,7 @@ def package_create_from_s3(
                 "package_name": package_name,
                 "registry": target_registry,
                 "structure_preview": confirmation_info,
-                "readme_preview": readme_content[:500] + "..." if readme_content else None,
+                "readme_preview": final_readme_content[:500] + "..." if final_readme_content else None,
                 "metadata_preview": enhanced_metadata,
                 "summary_files_preview": {
                     "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
@@ -601,7 +621,7 @@ def package_create_from_s3(
             target_registry=target_registry,
             description=description,
             enhanced_metadata=enhanced_metadata,
-            readme_content=readme_content,
+            readme_content=final_readme_content,
             summary_files=summary_files,
             copy_mode=copy_mode,
         )

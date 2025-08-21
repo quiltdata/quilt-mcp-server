@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+"""
+Package creation and management operations.
+
+This module provides core functionality for creating and managing Quilt packages,
+including S3 object collection, metadata handling, and package pushing.
+
+IMPORTANT: This module automatically ensures that README content is always written
+as README.md files within packages, never stored in package metadata. Any
+'readme_content' or 'readme' fields in metadata will be automatically extracted
+and converted to package files.
+"""
+
 import os
 from typing import Any
 
@@ -171,9 +183,37 @@ def package_create(
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added:
         return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
-    if metadata:
+    # Process metadata to ensure README content is handled correctly
+    processed_metadata = metadata.copy() if metadata else {}
+    
+    # Extract README content from metadata and add as package file
+    # readme_content takes priority if both fields exist
+    readme_content = None
+    if 'readme_content' in processed_metadata:
+        readme_content = processed_metadata.pop('readme_content')
+        warnings.append("README content moved from metadata to package file (README.md)")
+    
+    elif 'readme' in processed_metadata:
+        readme_content = processed_metadata.pop('readme')
+        warnings.append("README content moved from metadata to package file (README.md)")
+    
+    # Remove any remaining README fields to avoid duplication
+    if 'readme' in processed_metadata:
+        processed_metadata.pop('readme')
+        warnings.append("Removed duplicate 'readme' field from metadata")
+    
+    # Add README.md file if we extracted content
+    if readme_content:
         try:
-            pkg.set_meta(metadata)
+            import io
+            pkg.set("README.md", io.StringIO(readme_content))
+        except Exception as e:
+            warnings.append(f"Failed to add README.md file: {e}")
+    
+    # Set the cleaned metadata (without README content)
+    if processed_metadata:
+        try:
+            pkg.set_meta(processed_metadata)
         except Exception as e:
             warnings.append(f"Failed to set metadata: {e}")
     normalized_registry = _normalize_registry(registry)
