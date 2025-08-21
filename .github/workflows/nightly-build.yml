@@ -1,9 +1,6 @@
 name: Nightly PR (Develop ➜ Staging)
 
 on:
-  schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
