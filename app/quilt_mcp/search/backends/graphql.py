@@ -52,7 +52,15 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 )
                 
                 if response.status_code == 200:
-                    self._update_status(BackendStatus.AVAILABLE)
+                    result = response.json()
+                    if result.get('data'):
+                        self._update_status(BackendStatus.AVAILABLE)
+                    else:
+                        self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint exists but not responding correctly")
+                elif response.status_code == 404:
+                    self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint not available (404) - likely not an Enterprise catalog")
+                elif response.status_code == 405:
+                    self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint not accepting POST requests (405)")
                 else:
                     self._update_status(BackendStatus.ERROR, f"GraphQL endpoint returned {response.status_code}")
             else:
