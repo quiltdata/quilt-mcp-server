@@ -12,6 +12,7 @@ from ..core.query_parser import parse_query, QueryType, SearchScope
 from ..backends.base import BackendRegistry, BackendType, BackendStatus
 from ..backends.elasticsearch import Quilt3ElasticsearchBackend
 from ..backends.s3 import S3FallbackBackend
+from ..backends.graphql import EnterpriseGraphQLBackend
 
 
 class UnifiedSearchEngine:
@@ -31,9 +32,9 @@ class UnifiedSearchEngine:
         s3_backend = S3FallbackBackend()
         self.registry.register(s3_backend)
         
-        # TODO: Register GraphQL backend when implemented
-        # graphql_backend = EnterpriseGraphQLBackend()
-        # self.registry.register(graphql_backend)
+        # Register GraphQL backend
+        graphql_backend = EnterpriseGraphQLBackend()
+        self.registry.register(graphql_backend)
     
     async def search(
         self,
