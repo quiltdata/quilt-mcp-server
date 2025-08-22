@@ -6,18 +6,32 @@ This specification defines a comprehensive, unified search architecture for the 
 
 ## Current State Analysis
 
-### Existing Search Tools
-1. **`packages_search`** - Elasticsearch-based catalog search
+### Existing Quilt Infrastructure (Leveraging Existing Capabilities)
+
+**Quilt Enterprise GraphQL System**:
+- Mature GraphQL schema with `ObjectsSearchContext` and `PackagesSearchContext`
+- Built-in search handlers with pagination and result processing
+- Supports both objects and packages search with unified interface
+- Error handling with `QuerySyntaxError` and validation
+
+**Quilt3 Elasticsearch Integration**:
+- `bucket.search(query, limit)` with Query String and DSL support
+- Searches both `{bucket}` and `{bucket}_packages` indices automatically
+- `/api/search` endpoint with `action=search` (query string) and `action=freeform` (DSL)
+- Built-in session management and authentication
+
+**Existing MCP Tools**:
+1. **`packages_search`** - Uses quilt3 search API
 2. **`package_contents_search`** - Within-package file search
-3. **`bucket_objects_search`** - S3 bucket object search via Elasticsearch
-4. **`bucket_objects_search_graphql`** - GraphQL-based bucket search
+3. **`bucket_objects_search`** - Uses quilt3.Bucket.search()
+4. **`bucket_objects_search_graphql`** - Uses enterprise GraphQL endpoints
 
 ### Current Limitations
-- Fragmented search experience across different backends
-- Users must know which search tool to use for their query
-- No intelligent query routing or fallback mechanisms
-- Limited cross-catalog search capabilities
-- No unified result formatting or ranking
+- No unified interface that leverages all existing capabilities
+- Users must choose between different search paradigms
+- No intelligent query routing between GraphQL and Elasticsearch
+- Limited cross-index search coordination
+- No query optimization or result enhancement
 
 ## Design Goals
 
@@ -26,11 +40,11 @@ This specification defines a comprehensive, unified search architecture for the 
 - Context-aware query interpretation
 - Automatic backend selection based on query type and available services
 
-### 2. Multi-Backend Support
-- **Elasticsearch**: Fast full-text search across indexed content
-- **GraphQL**: Structured queries with package relationship data
-- **Athena**: Complex analytical queries across large datasets
-- **S3 List**: Fallback for basic object enumeration
+### 2. Leverage Existing Infrastructure
+- **Quilt3 Elasticsearch**: Use existing `bucket.search()` and `/api/search` endpoints
+- **Enterprise GraphQL**: Leverage existing `ObjectsSearchContext` and `PackagesSearchContext`
+- **Session Management**: Use existing quilt3 session and authentication
+- **Fallback to S3**: Use existing S3 list operations when search unavailable
 
 ### 3. Intelligent Query Processing
 - Natural language query interpretation
@@ -79,13 +93,13 @@ This specification defines a comprehensive, unified search architecture for the 
                 ┌───────────────┼───────────────┐
                 ▼               ▼               ▼
     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-    │   Elasticsearch │ │     GraphQL     │ │     Athena      │
-    │     Backend     │ │    Backend      │ │    Backend      │
+    │ Quilt3 ES API   │ │ Enterprise GQL  │ │   S3 Fallback   │
+    │    Backend      │ │    Backend      │ │    Backend      │
     └─────────────────┘ └─────────────────┘ └─────────────────┘
                 ▼               ▼               ▼
     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-    │ quilt3.search() │ │ Catalog GraphQL │ │ S3 Select/SQL   │
-    │ bucket.search() │ │   Endpoints     │ │   Queries       │
+    │ bucket.search() │ │ObjectsSearchCtx │ │ list_objects_v2 │
+    │ /api/search     │ │PackagesSearchCtx│ │ Basic filtering │
     └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
 
@@ -289,45 +303,50 @@ def process_results(results: List[BackendResult]) -> UnifiedResult:
 
 ## Backend Implementations
 
-### Elasticsearch Backend
+### Quilt3 Elasticsearch Backend
 ```python
-class ElasticsearchBackend:
-    def search(self, query: ElasticQuery) -> ElasticResult:
+class Quilt3ElasticsearchBackend:
+    def search(self, query: Union[str, dict], bucket: str, limit: int) -> ElasticResult:
         """
+        Leverages existing quilt3.Bucket.search() and /api/search endpoint.
+        
         Features:
-        - Full-text search across indexed content
-        - Faceted search with aggregations
-        - Fuzzy matching and typo tolerance
-        - Real-time suggestions
-        - Fast response times (<100ms)
+        - Uses existing ES infrastructure (no new setup required)
+        - Supports Query String and DSL queries
+        - Searches both {bucket} and {bucket}_packages indices
+        - Built-in authentication via quilt3 session
+        - Fast response times (<100ms for simple queries)
         """
 ```
 
-### GraphQL Backend
+### Enterprise GraphQL Backend
 ```python
-class GraphQLBackend:
-    def search(self, query: GraphQLQuery) -> GraphQLResult:
+class EnterpriseGraphQLBackend:
+    def search(self, context: SearchContext) -> GraphQLResult:
         """
+        Leverages existing Enterprise GraphQL search handlers.
+        
         Features:
-        - Package relationship traversal
-        - Rich metadata queries
-        - Version history search
-        - Dependency analysis
-        - Structured result sets
+        - Uses ObjectsSearchContext and PackagesSearchContext
+        - Built-in pagination and result processing
+        - Rich metadata and relationship queries
+        - Existing error handling and validation
+        - Structured result sets with stats
         """
 ```
 
-### Athena Backend
+### S3 Fallback Backend
 ```python
-class AthenaBackend:
-    def search(self, query: AthenaQuery) -> AthenaResult:
+class S3FallbackBackend:
+    def search(self, prefix: str, bucket: str, filters: dict) -> S3Result:
         """
+        Uses existing S3 list operations when search is unavailable.
+        
         Features:
-        - Complex analytical queries
-        - Large dataset aggregations
-        - Time-series analysis
-        - Custom SQL capabilities
-        - Cost-optimized execution
+        - Basic prefix-based filtering
+        - Metadata-based filtering
+        - No additional infrastructure required
+        - Reliable fallback when ES/GraphQL unavailable
         """
 ```
 
@@ -344,9 +363,9 @@ Query Analysis:
 - Scope: global
 
 Backend Selection:
-1. Elasticsearch (primary) - fast text matching
-2. GraphQL (secondary) - package context
-3. S3 (fallback) - basic enumeration
+1. Quilt3 Elasticsearch (primary) - existing bucket.search() API
+2. Enterprise GraphQL (secondary) - existing ObjectsSearchContext
+3. S3 List (fallback) - existing list_objects_v2
 
 Result: Unified list with package context, file metadata, and relevance scores
 ```
@@ -363,9 +382,9 @@ Query Analysis:
 - Scope: global
 
 Backend Selection:
-1. GraphQL (primary) - package metadata + file filters
-2. Elasticsearch (secondary) - content indexing
-3. Athena (analytical) - size aggregations
+1. Enterprise GraphQL (primary) - existing PackagesSearchContext
+2. Quilt3 Elasticsearch (secondary) - existing /api/search with packages index
+3. S3 List (fallback) - basic enumeration with filtering
 
 Result: Packages with matching criteria, file counts, and access information
 ```
@@ -381,9 +400,9 @@ Query Analysis:
 - Scope: global
 
 Backend Selection:
-1. Athena (primary) - analytical capabilities
-2. GraphQL (secondary) - metadata filtering
-3. Elasticsearch (fallback) - text search
+1. Quilt3 Elasticsearch (primary) - complex DSL queries for analytics
+2. Enterprise GraphQL (secondary) - metadata filtering and aggregation
+3. S3 List (fallback) - basic enumeration with client-side filtering
 
 Result: Analytical report with matching datasets and quality metrics
 ```
@@ -395,9 +414,10 @@ Result: Analytical report with matching datasets and quality metrics
 
 **Deliverables**:
 - Query parser and classifier
-- Backend abstraction layer
+- Backend abstraction layer wrapping existing APIs
 - Basic `unified_search` tool
-- Elasticsearch and S3 backends
+- Quilt3 Elasticsearch backend (wraps bucket.search())
+- S3 fallback backend (wraps existing list operations)
 
 **Success Criteria**:
 - Can route simple file searches to appropriate backends
@@ -409,8 +429,8 @@ Result: Analytical report with matching datasets and quality metrics
 
 **Deliverables**:
 - Natural language query analysis
-- GraphQL backend implementation
-- Result ranking and aggregation
+- Enterprise GraphQL backend (wraps ObjectsSearchContext/PackagesSearchContext)
+- Result ranking and aggregation across existing APIs
 - `search_suggest` tool
 
 **Success Criteria**:
@@ -418,14 +438,14 @@ Result: Analytical report with matching datasets and quality metrics
 - Provides relevant suggestions
 - Merges results from multiple backends
 
-### Phase 3: Analytics (Days 7-9)
-**Goal**: Athena integration and analytical capabilities
+### Phase 3: Advanced Analytics (Days 7-9)
+**Goal**: Enhanced analytical capabilities using existing Elasticsearch DSL
 
 **Deliverables**:
-- Athena backend implementation
-- SQL query generation from natural language
+- Advanced Elasticsearch DSL query generation
+- Complex aggregation and analytics via existing ES infrastructure
 - `search_explain` tool
-- Performance monitoring
+- Performance monitoring and optimization
 
 **Success Criteria**:
 - Can handle analytical queries
