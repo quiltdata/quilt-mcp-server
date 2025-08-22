@@ -165,7 +165,7 @@ class TestS3FallbackBackend:
                     {
                         "Key": "data/test.csv",
                         "Size": 1000,
-                        "LastModified": "2024-01-01T00:00:00Z",
+                        "LastModified": Mock(isoformat=Mock(return_value="2024-01-01T00:00:00Z")),
                         "StorageClass": "STANDARD"
                     }
                 ]
