@@ -183,23 +183,59 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return self._convert_bucket_objects_results(result, bucket)
     
     async def _search_packages_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Search packages globally using GraphQL bucketConfigs (faster than objects search)."""
-        # Use bucketConfigs query which is fast and reliable
-        bucketconfigs_query = "query { bucketConfigs { name } }"
+        """Search packages globally using Enterprise GraphQL searchPackages."""
+        # Use simplified searchPackages query that works reliably
+        graphql_query = """
+        query SearchPackages($searchString: String!) {
+            searchPackages(buckets: [], searchString: $searchString) {
+                ... on PackagesSearchResultSet {
+                    total
+                }
+                ... on EmptySearchResultSet {
+                    _
+                }
+            }
+        }
+        """
+        
+        # Simplified variables
+        variables = {
+            "searchString": query
+        }
         
         try:
-            result = await self._execute_graphql_query(bucketconfigs_query, {})
+            result = await self._execute_graphql_query(graphql_query, variables)
             
             if result.get('errors'):
                 raise Exception(f"GraphQL errors: {result['errors']}")
             
-            # Convert bucket configs to package-like results for now
-            # In a real implementation, we'd use a proper packages search query
-            return self._convert_bucketconfigs_to_packages(result, query, limit)
+            # For now, just return a simple result indicating packages were found
+            data = result.get('data', {})
+            search_result = data.get('searchPackages', {})
+            total = search_result.get('total', 0)
+            
+            if total > 0:
+                # Create a simple result indicating packages found
+                return [SearchResult(
+                    id=f"graphql-packages-{query}",
+                    type='package_search',
+                    title=f"Found {total} packages matching '{query}'",
+                    description=f"GraphQL package search found {total} results",
+                    metadata={'total_packages': total, 'search_query': query},
+                    score=1.0,
+                    backend="graphql"
+                )]
+            else:
+                return []
             
         except Exception as e:
-            # Fallback: return empty results rather than failing
-            return []
+            # Fallback: try simple bucketConfigs if searchPackages fails
+            try:
+                bucketconfigs_query = "query { bucketConfigs { name } }"
+                fallback_result = await self._execute_graphql_query(bucketconfigs_query, {})
+                return self._convert_bucketconfigs_to_packages(fallback_result, query, limit)
+            except:
+                return []
     
     async def _search_objects_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Search objects globally using GraphQL."""
@@ -269,16 +305,17 @@ class EnterpriseGraphQLBackend(SearchBackend):
     
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a GraphQL query using the proven catalog_graphql_query approach."""
-        # Use the existing working GraphQL infrastructure
+        # Use the existing working GraphQL infrastructure (synchronous)
         from ...tools.graphql import catalog_graphql_query
         
+        # catalog_graphql_query is synchronous, so we can call it directly
         result = catalog_graphql_query(query, variables)
         
         if not result.get("success"):
             error_msg = result.get("error") or result.get("errors", "Unknown GraphQL error")
             raise Exception(f"GraphQL query failed: {error_msg}")
         
-        # Return in the expected format
+        # Return in the expected format for our async interface
         return {
             "data": result.get("data"),
             "errors": result.get("errors")
@@ -427,5 +464,90 @@ class EnterpriseGraphQLBackend(SearchBackend):
             )
             
             results.append(result)
+        
+        return results
+
+    def _build_packages_filter(self, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build PackagesSearchFilter from parsed filters."""
+        if not filters:
+            return {}
+        
+        packages_filter = {}
+        
+        # Date filters
+        if filters.get('created_after') or filters.get('created_before'):
+            modified_filter = {}
+            if filters.get('created_after'):
+                modified_filter['gte'] = filters['created_after']
+            if filters.get('created_before'):
+                modified_filter['lte'] = filters['created_before']
+            packages_filter['modified'] = modified_filter
+        
+        # Size filters
+        if filters.get('size_min') or filters.get('size_max'):
+            size_filter = {}
+            if filters.get('size_min'):
+                size_filter['gte'] = filters['size_min']
+            if filters.get('size_max'):
+                size_filter['lte'] = filters['size_max']
+            packages_filter['size'] = size_filter
+        
+        return packages_filter
+    
+    def _build_user_meta_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build user metadata filters for package search."""
+        if not filters:
+            return []
+        
+        user_meta_filters = []
+        
+        # Example: quality_score > 0.8
+        if filters.get('quality_score_min'):
+            user_meta_filters.append({
+                'path': 'quality_score',
+                'number': {
+                    'gte': filters['quality_score_min']
+                }
+            })
+        
+        return user_meta_filters
+    
+    def _convert_packages_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
+        """Convert searchPackages GraphQL results to standard format."""
+        results = []
+        
+        data = graphql_result.get('data', {})
+        search_packages = data.get('searchPackages', {})
+        
+        # Handle union type response
+        if search_packages.get('total') is not None:
+            # PackagesSearchResultSet
+            first_page = search_packages.get('firstPage', {})
+            hits = first_page.get('hits', [])
+            
+            for hit in hits:
+                # Extract rich package metadata from SearchHitPackage
+                result = SearchResult(
+                    id=hit.get('id', ''),
+                    type='package',
+                    title=hit.get('name', ''),
+                    description=hit.get('comment', f"Package: {hit.get('name', 'Unknown')}"),
+                    package_name=hit.get('name'),
+                    size=hit.get('size'),
+                    last_modified=hit.get('modified'),
+                    metadata={
+                        'bucket': hit.get('bucket'),
+                        'hash': hit.get('hash'),
+                        'pointer': hit.get('pointer'),
+                        'total_entries': hit.get('totalEntriesCount'),
+                        'comment': hit.get('comment'),
+                        'workflow': hit.get('workflow'),
+                        'meta': hit.get('meta')  # Full metadata JSON
+                    },
+                    score=hit.get('score', 0.0),
+                    backend="graphql"
+                )
+                
+                results.append(result)
         
         return results
