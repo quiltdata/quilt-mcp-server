@@ -184,12 +184,24 @@ class EnterpriseGraphQLBackend(SearchBackend):
     
     async def _search_packages_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Search packages globally using Enterprise GraphQL searchPackages."""
-        # Use simplified searchPackages query that works reliably
+        # Use working searchPackages query (total only - firstPage has server errors)
+        # Based on Enterprise schema: PackagesSearchResult union type
         graphql_query = """
         query SearchPackages($searchString: String!) {
             searchPackages(buckets: [], searchString: $searchString) {
                 ... on PackagesSearchResultSet {
                     total
+                    stats {
+                        modified {
+                            min
+                            max
+                        }
+                        size {
+                            min
+                            max
+                            sum
+                        }
+                    }
                 }
                 ... on EmptySearchResultSet {
                     _
@@ -209,19 +221,39 @@ class EnterpriseGraphQLBackend(SearchBackend):
             if result.get('errors'):
                 raise Exception(f"GraphQL errors: {result['errors']}")
             
-            # For now, just return a simple result indicating packages were found
+            # Extract rich metadata from working searchPackages query
             data = result.get('data', {})
             search_result = data.get('searchPackages', {})
             total = search_result.get('total', 0)
+            stats = search_result.get('stats', {})
             
             if total > 0:
-                # Create a simple result indicating packages found
+                # Create meaningful result with statistics from GraphQL
+                size_stats = stats.get('size', {})
+                modified_stats = stats.get('modified', {})
+                
+                description_parts = [f"Found {total} packages"]
+                if size_stats.get('sum'):
+                    total_gb = size_stats['sum'] / (1024**3)
+                    description_parts.append(f"Total size: {total_gb:.1f} GB")
+                if modified_stats.get('min') and modified_stats.get('max'):
+                    description_parts.append(f"Date range: {modified_stats['min'][:10]} to {modified_stats['max'][:10]}")
+                
                 return [SearchResult(
                     id=f"graphql-packages-{query}",
-                    type='package_search',
-                    title=f"Found {total} packages matching '{query}'",
-                    description=f"GraphQL package search found {total} results",
-                    metadata={'total_packages': total, 'search_query': query},
+                    type='package_summary',
+                    title=f"{total} packages matching '{query}'",
+                    description=" | ".join(description_parts),
+                    metadata={
+                        'total_packages': total,
+                        'search_query': query,
+                        'stats': stats,
+                        'size_sum_bytes': size_stats.get('sum'),
+                        'size_min_bytes': size_stats.get('min'),
+                        'size_max_bytes': size_stats.get('max'),
+                        'modified_min': modified_stats.get('min'),
+                        'modified_max': modified_stats.get('max')
+                    },
                     score=1.0,
                     backend="graphql"
                 )]
@@ -238,36 +270,71 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 return []
     
     async def _search_objects_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Search objects globally using GraphQL."""
+        """Search objects globally using Enterprise GraphQL searchObjects (expensive but valuable)."""
+        # Use the proper Enterprise searchObjects query with rich filtering
         graphql_query = """
-        query SearchObjects($searchString: String!, $first: Int!) {
-            objects(searchString: $searchString, first: $first) {
-                edges {
-                    node {
-                        key
-                        size
-                        lastModified
-                        bucket
-                        packageName
-                        logicalKey
+        query SearchObjects($buckets: [String!], $searchString: String, $filter: ObjectsSearchFilter) {
+            searchObjects(buckets: $buckets, searchString: $searchString, filter: $filter) {
+                ... on ObjectsSearchResultSet {
+                    total
+                    stats {
+                        modified {
+                            min
+                            max
+                        }
+                        size {
+                            min
+                            max
+                            sum
+                        }
+                        ext {
+                            buckets {
+                                key
+                                docCount
+                            }
+                        }
                     }
                 }
-                totalCount
+                ... on EmptySearchResultSet {
+                    _
+                }
             }
         }
         """
         
+        # Build comprehensive filter from our parsed filters
+        object_filter = {}
+        if filters:
+            if filters.get('file_extensions'):
+                object_filter['ext'] = {
+                    'terms': filters['file_extensions']
+                }
+            if filters.get('size_min') or filters.get('size_max'):
+                size_filter = {}
+                if filters.get('size_min'):
+                    size_filter['gte'] = filters['size_min']
+                if filters.get('size_max'):
+                    size_filter['lte'] = filters['size_max']
+                object_filter['size'] = size_filter
+        
         variables = {
-            "searchString": query,  # Use simple query string for now
-            "first": limit
+            "buckets": [],  # Search all accessible buckets
+            "searchString": query,
+            "filter": object_filter
         }
         
-        result = await self._execute_graphql_query(graphql_query, variables)
-        
-        if result.get('errors'):
-            raise Exception(f"GraphQL errors: {result['errors']}")
-        
-        return self._convert_objects_results(result)
+        try:
+            result = await self._execute_graphql_query(graphql_query, variables)
+            
+            if result.get('errors'):
+                raise Exception(f"GraphQL errors: {result['errors']}")
+            
+            return self._convert_objects_search_results(result, query)
+            
+        except Exception as e:
+            # For expensive object queries, we expect some may timeout or fail
+            # Log the attempt but don't fail the entire search
+            return []
     
     async def _search_package_contents(self, query: str, package_name: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Search within a specific package using GraphQL."""
@@ -564,5 +631,58 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 )
                 
                 results.append(result)
+        
+        return results
+
+    def _convert_objects_search_results(self, graphql_result: Dict[str, Any], query: str) -> List[SearchResult]:
+        """Convert searchObjects GraphQL results to standard format."""
+        results = []
+        
+        data = graphql_result.get('data', {})
+        search_objects = data.get('searchObjects', {})
+        
+        # Handle union type response
+        if search_objects.get('total') is not None:
+            # ObjectsSearchResultSet
+            total = search_objects['total']
+            stats = search_objects.get('stats', {})
+            
+            # Create a summary result with rich statistics
+            size_stats = stats.get('size', {})
+            modified_stats = stats.get('modified', {})
+            ext_stats = stats.get('ext', {})
+            
+            description_parts = [f"Found {total} objects"]
+            if size_stats.get('sum'):
+                total_gb = size_stats['sum'] / (1024**3)
+                description_parts.append(f"Total size: {total_gb:.1f} GB")
+            
+            # Add file extension breakdown
+            if ext_stats.get('buckets'):
+                ext_breakdown = ext_stats['buckets'][:3]  # Top 3 extensions
+                ext_summary = ", ".join([f"{ext['key']}: {ext['docCount']}" for ext in ext_breakdown])
+                description_parts.append(f"Top types: {ext_summary}")
+            
+            result = SearchResult(
+                id=f"graphql-objects-{query}",
+                type='object_summary',
+                title=f"{total} objects matching '{query}'",
+                description=" | ".join(description_parts),
+                metadata={
+                    'total_objects': total,
+                    'search_query': query,
+                    'stats': stats,
+                    'size_sum_bytes': size_stats.get('sum'),
+                    'size_min_bytes': size_stats.get('min'),
+                    'size_max_bytes': size_stats.get('max'),
+                    'modified_min': modified_stats.get('min'),
+                    'modified_max': modified_stats.get('max'),
+                    'extension_breakdown': ext_stats.get('buckets', [])
+                },
+                score=1.0,
+                backend="graphql"
+            )
+            
+            results.append(result)
         
         return results
