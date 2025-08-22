@@ -7,6 +7,7 @@ including ObjectsSearchContext and PackagesSearchContext.
 import json
 import time
 from typing import Dict, List, Any, Optional, Union
+from urllib.parse import urljoin
 
 import requests
 import quilt3
@@ -31,23 +32,28 @@ class EnterpriseGraphQLBackend(SearchBackend):
             self._session = quilt3.session.get_session()
             
             if self._registry_url and self._session:
-                # Test GraphQL endpoint availability
-                graphql_url = f"{self._registry_url}/graphql"
+                # Use the same URL construction as working bucket_objects_search_graphql
+                graphql_url = urljoin(self._registry_url.rstrip("/") + "/", "graphql")
                 
-                # Simple introspection query to test connectivity
+                # Test with a simple objects query like the working implementation
                 test_query = """
-                query TestConnection {
-                    __schema {
-                        queryType {
-                            name
+                query TestConnection($bucket: String!) {
+                    objects(bucket: $bucket, first: 1) {
+                        edges {
+                            node {
+                                key
+                            }
                         }
                     }
                 }
                 """
                 
+                # Use a test bucket that should exist
+                variables = {"bucket": "quilt-example"}
+                
                 response = self._session.post(
                     graphql_url,
-                    json={"query": test_query},
+                    json={"query": test_query, "variables": variables},
                     timeout=5
                 )
                 
@@ -162,29 +168,39 @@ class EnterpriseGraphQLBackend(SearchBackend):
     
     async def _search_bucket_objects(self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Search objects within a specific bucket using GraphQL."""
-        # Build GraphQL query for bucket objects search
+        # Use the same GraphQL query pattern as the working bucket_objects_search_graphql
         graphql_query = """
-        query SearchBucketObjects($bucket: String!, $searchString: String!, $first: Int!) {
-            bucketConfigs(name: $bucket) {
-                objects(searchString: $searchString, first: $first) {
-                    edges {
-                        node {
-                            key
-                            size
-                            lastModified
-                            contentType
-                            etag
+        query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
+            objects(bucket: $bucket, filter: $filter, first: $first) {
+                edges {
+                    node {
+                        key
+                        size
+                        updated
+                        contentType
+                        extension
+                        package {
+                            name
+                            topHash
+                            tag
                         }
                     }
-                    totalCount
+                    cursor
+                }
+                pageInfo {
+                    endCursor
+                    hasNextPage
                 }
             }
         }
         """
         
+        # Build filter from query and filters
+        object_filter = self._build_graphql_filter(query, filters)
+        
         variables = {
             "bucket": bucket.replace('s3://', ''),
-            "searchString": self._build_search_string(query, filters),
+            "filter": object_filter,
             "first": limit
         }
         
@@ -264,30 +280,41 @@ class EnterpriseGraphQLBackend(SearchBackend):
         # For now, return empty results as this is complex to implement without full schema
         return []
     
-    def _build_search_string(self, query: str, filters: Optional[Dict[str, Any]]) -> str:
-        """Build search string from query and filters for GraphQL."""
-        search_parts = [query]
+    def _build_graphql_filter(self, query: str, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build GraphQL filter object from query and filters."""
+        graphql_filter = {}
         
-        if not filters:
-            return query
+        # Add key-based search if query contains terms
+        if query and query.strip():
+            # For simple text queries, use key_contains
+            graphql_filter["key_contains"] = query
         
         # Add file extension filters
-        if filters.get('file_extensions'):
-            for ext in filters['file_extensions']:
-                search_parts.append(f"*.{ext}")
+        if filters and filters.get('file_extensions'):
+            # Use extension filter if available
+            if len(filters['file_extensions']) == 1:
+                graphql_filter["extension"] = filters['file_extensions'][0]
+            else:
+                # For multiple extensions, use key pattern matching
+                ext_patterns = [f"*.{ext}" for ext in filters['file_extensions']]
+                graphql_filter["key_contains"] = " OR ".join(ext_patterns)
         
-        # Add size filters (basic - GraphQL may have limited size query support)
-        if filters.get('size_min'):
-            search_parts.append(f"size:>{filters['size_min']}")
+        # Add size filters
+        if filters:
+            if filters.get('size_min'):
+                graphql_filter["size_gte"] = filters['size_min']
+            if filters.get('size_max'):
+                graphql_filter["size_lte"] = filters['size_max']
         
-        return " ".join(search_parts)
+        return graphql_filter
     
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a GraphQL query against the Enterprise endpoint."""
+        """Execute a GraphQL query using the same method as bucket_objects_search_graphql."""
         if not self._registry_url or not self._session:
             raise Exception("GraphQL endpoint not available")
         
-        graphql_url = f"{self._registry_url}/graphql"
+        # Use the same URL construction as working implementation
+        graphql_url = urljoin(self._registry_url.rstrip("/") + "/", "graphql")
         
         payload = {
             "query": query,
@@ -303,41 +330,54 @@ class EnterpriseGraphQLBackend(SearchBackend):
         if response.status_code != 200:
             raise Exception(f"GraphQL request failed: {response.status_code} - {response.text}")
         
-        return response.json()
+        result = response.json()
+        
+        # Check for GraphQL errors like the working implementation
+        if "errors" in result:
+            raise Exception(f"GraphQL errors: {json.dumps(result['errors'])}")
+        
+        return result
     
     def _convert_bucket_objects_results(self, graphql_result: Dict[str, Any], bucket: str) -> List[SearchResult]:
         """Convert GraphQL bucket objects results to standard format."""
         results = []
         
+        # Use the same result structure as bucket_objects_search_graphql
         data = graphql_result.get('data', {})
-        bucket_configs = data.get('bucketConfigs', [])
+        objects = data.get('objects', {})
+        edges = objects.get('edges', [])
         
-        for bucket_config in bucket_configs:
-            objects = bucket_config.get('objects', {})
-            edges = objects.get('edges', [])
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+                
+            node = edge.get('node', {})
             
-            for edge in edges:
-                node = edge.get('node', {})
-                
-                result = SearchResult(
-                    id=f"graphql-object-{node.get('key', '')}",
-                    type='file',
-                    title=node.get('key', '').split('/')[-1] if node.get('key') else 'Unknown',
-                    description=f"Object in {bucket}",
-                    s3_uri=f"s3://{bucket.replace('s3://', '')}/{node.get('key', '')}",
-                    logical_key=node.get('key'),
-                    size=node.get('size'),
-                    last_modified=node.get('lastModified'),
-                    metadata={
-                        'bucket': bucket,
-                        'content_type': node.get('contentType'),
-                        'etag': node.get('etag')
-                    },
-                    score=1.0,  # GraphQL doesn't provide relevance scores
-                    backend="graphql"
-                )
-                
-                results.append(result)
+            # Extract package information if available
+            package_info = node.get('package', {})
+            package_name = package_info.get('name') if package_info else None
+            
+            result = SearchResult(
+                id=f"graphql-object-{node.get('key', '')}",
+                type='file',
+                title=node.get('key', '').split('/')[-1] if node.get('key') else 'Unknown',
+                description=f"Object in {bucket}" + (f" (package: {package_name})" if package_name else ""),
+                s3_uri=f"s3://{bucket.replace('s3://', '')}/{node.get('key', '')}",
+                package_name=package_name,
+                logical_key=node.get('key'),
+                size=node.get('size'),
+                last_modified=node.get('updated'),  # GraphQL uses 'updated' not 'lastModified'
+                metadata={
+                    'bucket': bucket,
+                    'content_type': node.get('contentType'),
+                    'extension': node.get('extension'),
+                    'package': package_info
+                },
+                score=1.0,  # GraphQL doesn't provide relevance scores
+                backend="graphql"
+            )
+            
+            results.append(result)
         
         return results
     
