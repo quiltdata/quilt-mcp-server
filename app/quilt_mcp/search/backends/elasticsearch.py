@@ -135,6 +135,34 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         
         return self._convert_packages_results(search_result.get('results', []))
     
+    def get_total_count(self, query: str, filters: Optional[Dict[str, Any]] = None) -> int:
+        """Get total count of matching documents using Elasticsearch size=0 query."""
+        from ...tools.packages import packages_search
+        
+        try:
+            # Use size=0 approach like the catalog UI for instant counts
+            search_result = packages_search(query, limit=0)  # size=0 in Elasticsearch
+            
+            if 'error' in search_result:
+                raise Exception(f"Count query failed: {search_result['error']}")
+            
+            # Extract total count from Elasticsearch response
+            total = search_result.get('total')
+            if total is not None:
+                if isinstance(total, dict) and 'value' in total:
+                    return total['value']
+                else:
+                    return int(total)
+            
+            # If no total in response, fall back to counting results
+            results = search_result.get('results', [])
+            return len(results)
+            
+        except Exception as e:
+            raise Exception(f"Failed to get total count: {e}")
+    
+
+    
     def _build_elasticsearch_query(self, query: str, filters: Optional[Dict[str, Any]]) -> Union[str, Dict[str, Any]]:
         """Build Elasticsearch query from natural language and filters."""
         if not filters:
@@ -152,11 +180,17 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             }
         }
         
-        # Add file extension filters
+        # Add file extension filters using the proper 'ext' field
         if filters.get('file_extensions'):
+            ext_terms = []
             for ext in filters['file_extensions']:
+                # Extensions should include the dot prefix as seen in enterprise repo
+                ext_clean = ext.lower().lstrip('.')
+                ext_terms.append(f".{ext_clean}")
+            
+            if ext_terms:
                 dsl_query["query"]["bool"]["filter"].append({
-                    "wildcard": {"key": f"*.{ext}"}
+                    "terms": {"ext": ext_terms}
                 })
         
         # Add size filters

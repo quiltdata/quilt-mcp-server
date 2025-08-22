@@ -71,9 +71,11 @@ class S3FallbackBackend(SearchBackend):
         try:
             if scope == "bucket" and target:
                 results = await self._search_bucket(query, target, filters, limit)
+            elif scope in ["global", "catalog"]:
+                # For global/catalog scope, try to search the default bucket
+                default_bucket = "s3://quilt-example"
+                results = await self._search_bucket(query, default_bucket, filters, limit)
             else:
-                # For global/catalog scope, we can't easily enumerate all buckets
-                # Return empty results with explanation
                 results = []
             
             query_time = (time.time() - start_time) * 1000
@@ -108,7 +110,36 @@ class S3FallbackBackend(SearchBackend):
             prefix = query
             query_terms = []
         else:
-            query_terms = query.lower().split()
+            # Better query term extraction for file searches
+            query_terms = []
+            query_lower = query.lower()
+            
+            # Handle file extension patterns
+            if any(pattern in query_lower for pattern in ['*.', 'csv', 'json', 'parquet', 'txt']):
+                # Extract file extensions from query
+                import re
+                ext_patterns = [
+                    r'\*\.([a-z]{2,5})',                    # *.csv
+                    r'\.([a-z]{2,5})\s+(?:files?|data)',    # .csv files
+                    r'\b([a-z]{2,5})\s+(?:files?|data)',    # csv files
+                ]
+                for pattern in ext_patterns:
+                    matches = re.findall(pattern, query_lower)
+                    if matches:
+                        # Use extension as search term and add to filters if not already there
+                        query_terms.extend(matches)
+                        if filters is None:
+                            filters = {}
+                        if 'file_extensions' not in filters:
+                            filters['file_extensions'] = matches
+                        else:
+                            filters['file_extensions'].extend(matches)
+            
+            # Add other meaningful terms
+            words = query_lower.split()
+            for word in words:
+                if word not in ['find', 'search', 'get', 'files', 'file', 'data', 'show', 'list']:
+                    query_terms.append(word)
         
         try:
             # List objects with prefix
@@ -180,11 +211,14 @@ class S3FallbackBackend(SearchBackend):
         if not filters:
             return True
         
-        # File extension filter
+        key = obj['Key']
+        
+        # File extension filter - improved logic
         if filters.get('file_extensions'):
-            key = obj['Key']
             file_ext = Path(key).suffix.lower().lstrip('.')
-            if file_ext not in filters['file_extensions']:
+            # Also check if any extension matches
+            extensions = filters['file_extensions']
+            if not any(ext.lower().lstrip('.') == file_ext for ext in extensions):
                 return False
         
         # Size filters

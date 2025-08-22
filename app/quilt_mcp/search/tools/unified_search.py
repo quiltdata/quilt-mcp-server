@@ -41,7 +41,7 @@ class UnifiedSearchEngine:
         query: str,
         scope: str = "global",
         target: str = "",
-        backends: List[str] = ["auto"],
+        backends: Optional[List[str]] = None,
         limit: int = 50,
         include_metadata: bool = True,
         include_content_preview: bool = False,
@@ -75,6 +75,9 @@ class UnifiedSearchEngine:
             combined_filters.update(filters)
         
         # Determine which backends to use
+        if backends is None:
+            backends = ["auto"]
+        
         if backends == ["auto"] or "auto" in backends:
             selected_backends = self._select_backends(analysis)
         else:
@@ -87,6 +90,11 @@ class UnifiedSearchEngine:
         
         # Aggregate and rank results
         unified_results = self._aggregate_results(backend_responses, limit)
+        
+        # Apply post-processing filters only for specific cases
+        # Don't apply post-filters if the query already contains ext: syntax
+        if not ("ext:" in query.lower()):
+            unified_results = self._apply_post_filters(unified_results, combined_filters)
         
         # Build response
         total_time = (time.time() - start_time) * 1000
@@ -232,6 +240,47 @@ class UnifiedSearchEngine:
         
         return unique_results[:limit]
     
+    def _apply_post_filters(self, results: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Apply additional filtering to results that backends might have missed."""
+        if not filters:
+            return results
+        
+        filtered_results = []
+        
+        for result in results:
+            # File extension filtering - crucial for accurate CSV file detection
+            if filters.get('file_extensions'):
+                logical_key = result.get('logical_key', '')
+                s3_uri = result.get('s3_uri', '')
+                metadata_key = result.get('metadata', {}).get('key', '') if result.get('metadata') else ''
+                
+                # Extract file extension from logical key, S3 URI, or metadata key
+                file_path = logical_key or metadata_key or (s3_uri.split('/')[-1] if s3_uri else '')
+                if file_path:
+                    file_ext = file_path.split('.')[-1].lower() if '.' in file_path else ''
+                    target_extensions = [ext.lower().lstrip('.') for ext in filters['file_extensions']]
+                    
+                    if file_ext not in target_extensions:
+                        continue  # Skip this result
+            
+            # Size filtering
+            if filters.get('size_min') or filters.get('size_max'):
+                size = result.get('size', 0)
+                if isinstance(size, str):
+                    try:
+                        size = int(size)
+                    except (ValueError, TypeError):
+                        size = 0
+                
+                if filters.get('size_min') and size < filters['size_min']:
+                    continue
+                if filters.get('size_max') and size > filters['size_max']:
+                    continue
+            
+            filtered_results.append(result)
+        
+        return filtered_results
+    
     def _generate_explanation(self, analysis, backend_responses: List, selected_backends: List) -> Dict[str, Any]:
         """Generate explanation of query execution."""
         return {
@@ -269,12 +318,13 @@ async def unified_search(
     query: str,
     scope: str = "global",
     target: str = "",
-    backends: List[str] = ["auto"],
+    backends: Optional[List[str]] = None,
     limit: int = 50,
     include_metadata: bool = True,
     include_content_preview: bool = False,
     explain_query: bool = False,
-    filters: Optional[Dict[str, Any]] = None
+    filters: Optional[Dict[str, Any]] = None,
+    count_only: bool = False
 ) -> Dict[str, Any]:
     """
     Intelligent unified search across Quilt catalogs, packages, and S3 buckets.
@@ -306,6 +356,47 @@ async def unified_search(
         unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
     """
     try:
+        if count_only:
+            # For count-only mode, use the Elasticsearch backend's get_total_count method
+            engine = get_search_engine()
+            elasticsearch_backend = None
+            
+            # Find the Elasticsearch backend
+            available_backends = engine.registry.get_available_backends()
+            elasticsearch_backend = None
+            for backend in available_backends:
+                if backend.backend_type.value == "elasticsearch":
+                    elasticsearch_backend = backend
+                    break
+            
+            if elasticsearch_backend:
+                try:
+                    total_count = elasticsearch_backend.get_total_count(query, filters)
+                    return {
+                        "success": True,
+                        "total_count": total_count,
+                        "query": query,
+                        "scope": scope,
+                        "count_only": True
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "error": f"Count query failed: {e}",
+                        "query": query,
+                        "scope": scope,
+                        "count_only": True
+                    }
+            else:
+                return {
+                    "success": False,
+                    "error": "Elasticsearch backend not available for count queries",
+                    "query": query,
+                    "scope": scope,
+                    "count_only": True
+                }
+        
+        # Regular search mode
         engine = get_search_engine()
         return await engine.search(
             query=query,

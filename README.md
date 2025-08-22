@@ -1,469 +1,282 @@
 # Quilt MCP Server
 
-A secure MCP (Model Context Protocol) server for accessing Quilt data with JWT authentication, deployed on AWS ECS Fargate.
+A secure MCP (Model Context Protocol) server for accessing Quilt data with comprehensive tools for package management, S3 operations, and system utilities.
 
 ## Quick Start
 
+### Option A: Claude Desktop (Easiest)
+
+The simplest way to get started is with the pre-built DXT extension:
+
+1. **Download the DXT**: Get the latest `.dxt` from [project releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
+3. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
+4. **Verify**: Open Tools panel in a new chat and confirm Quilt MCP is available
+
+> **Requirements**: Python 3.11+ accessible in your login shell (`python3 --version`)
+
+### Option B: Automatic Configuration
+
+For any MCP client (Claude Desktop, VS Code, Cursor):
+
 ```bash
-# Setup environment
-cp env.example .env
-# Edit .env with your AWS configuration
+# Generate configuration for your MCP client
+python scripts/make_mcp_config.py claude    # For Claude Desktop
+python scripts/make_mcp_config.py vscode    # For VS Code  
+python scripts/make_mcp_config.py cursor    # For Cursor
+python scripts/make_mcp_config.py all       # Generate all configs
 
-# Validate environment
-make check-env
+# Follow the generated instructions to configure your client
+```
 
-# Run locally
+### Option C: Manual Setup
+
+1. **Environment Setup:**
+   ```bash
+   cp env.example .env
+   # Edit .env with your AWS credentials and Quilt settings
+   scripts/check-env.sh
+   ```
+
+2. **Run Local Server:**
+   ```bash
+   make app
+   # Server runs on http://127.0.0.1:8000/mcp
+   ```
+
+3. **Configure MCP Client:** Point your client to `http://127.0.0.1:8000/mcp`
+
+### Option D: Remote Access
+
+For web applications or remote clients:
+
+```bash
+# Terminal 1: Start server
 make app
 
-# Full deployment pipeline
-make validate
+# Terminal 2: Expose via ngrok  
+make run-app-tunnel
+# Use the provided ngrok HTTPS URL in your MCP client
 ```
 
-## Using with Claude Desktop (DXT)
+## MCP Tools Available
 
-The easiest way to use this MCP server in Claude Desktop is via the packaged DXT.
-
-1) Download the latest `.dxt` from the project releases
-   - Open the repository releases in your browser
-   - Download `quilt-mcp-<version>.dxt`
-   - Optional: download and run `check-prereqs.sh` to verify your system
-
-2) Install the DXT
-   - Double‑click the `.dxt` file, or in Claude Desktop open Settings → Extensions → Install from File and pick the `.dxt`
-
-3) Configure the catalog domain
-   - In Claude Desktop Settings → Extensions → Quilt MCP, set your Quilt catalog domain (e.g. `demo.quiltdata.com`)
-   - Ensure Python 3.11+ is available on your user PATH (see Requirements)
-
-4) Verify in Claude
-   - In a new chat, open the Tools panel and confirm Quilt MCP is listed
-   - Try a tool, e.g. “list Quilt packages”
-
-Screenshots (to be added once captured/approved):
-
-![Claude Desktop – Install DXT](docs/images/claude-install-dxt.png)
-![Claude Desktop – Configure Extension](docs/images/claude-configure-extension.png)
-
-Troubleshooting
-- Run `./check-prereqs.sh` from the release assets to validate Python and environment
-- If Python isn’t detected, ensure `python3 --version` reports 3.11+ in your login shell
-
-## Using with Cursor
-
-You can run the MCP server locally and point Cursor to it.
-
-Run the server with uv (pick one):
-
-```bash
-# Run in-repo (development)
-uv run quilt-mcp
-
-# Or run via uvx (no local install needed)
-uvx quilt-mcp
-```
-
-Configure Cursor to launch the server (GUI or JSON):
-
-- Cursor Settings → MCP (or Command Palette → “MCP: Configure Servers”) → Add New Server
-  - Command: `uvx`
-  - Args: `quilt-mcp`
-  - Working directory: repository root (optional)
-
-Or add JSON to your Cursor settings (example):
-
-```json
-{
-  "mcpServers": {
-    "quilt": {
-      "command": "uvx",
-      "args": ["quilt-mcp"],
-      "env": {
-        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
-      }
-    }
-  }
-}
-```
-
-Screenshot (to be added once captured/approved):
-
-![Cursor – MCP Server Configuration](docs/images/cursor-mcp-config.png)
-
-## Using with VS Code
-
-For VS Code assistants that support MCP servers, configure a command‑based server entry pointing to this CLI.
-
-Run the server with uv (pick one):
-
-```bash
-# Development
-uv run quilt-mcp
-
-# Ephemeral
-uvx quilt-mcp
-```
-
-Example MCP server configuration (JSON) for extensions that support `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "quilt": {
-      "command": "uvx",
-      "args": ["quilt-mcp"],
-      "env": {
-        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
-      },
-      "description": "Quilt MCP Server"
-    }
-  }
-}
-```
-
-Screenshot (to be added once captured/approved):
-
-![VS Code – MCP Server Configuration](docs/images/vscode-mcp-config.png)
-
-## Architecture
-
-This project uses a **4-phase deployment pipeline**:
-
-```tree
-fast-mcp-server/
-├── app/           # Phase 1: Local MCP server (Python)
-├── build-docker/  # Phase 2: Docker containerization  
-├── catalog-push/  # Phase 3: ECR registry operations
-├── deploy-aws/    # Phase 4: ECS/ALB deployment
-└── shared/        # Common utilities (validation, testing)
-```
-
-Each phase is **atomic** and **testable** independently, following SPEC.md validation requirements.
-
-## MCP Tools
-
-This server provides 13 secure tools for Quilt data operations:
+This server provides **comprehensive Quilt data operations**:
 
 ### Package Management
-
-- **`packages_list`** - List packages in a registry with optional filtering
+- **`packages_list`** - List packages in a registry with filtering
 - **`packages_search`** - Search packages using ElasticSearch  
 - **`package_browse`** - Examine package contents and structure
-- **`package_contents_search`** - Search within a specific package
+- **`package_contents_search`** - Search within specific packages
 - **`package_create`** - Create new packages from S3 objects
 - **`package_update`** - Update existing packages with new files
 - **`package_delete`** - Remove packages from registry
 
 ### S3 Operations
-
 - **`bucket_objects_list`** - List objects in S3 buckets
 - **`bucket_object_info`** - Get metadata for specific objects
 - **`bucket_object_text`** - Read text content from objects
 - **`bucket_objects_put`** - Upload objects to S3
 - **`bucket_object_fetch`** - Download object data
 
-### System Tools
-
+### System & Authentication
 - **`auth_check`** - Verify Quilt authentication status
 - **`filesystem_check`** - Check system environment details
 
+### Advanced Tools
+- **`aws_permissions_discover`** - Discover available AWS permissions
+- **`bucket_access_check`** - Validate bucket access permissions
+- **`create_package_enhanced`** - Advanced package creation with templates
+- **`package_validate`** - Validate package integrity
+
+**View all tools interactively:**
+```bash
+cd app && make run-inspector
+# Opens MCP Inspector at http://127.0.0.1:6274
+```
+
+## Architecture
+
+This project supports both **local development** and **cloud deployment**:
+
+### Local-First Approach (Recommended)
+```tree
+fast-mcp-server/
+├── app/           # Core MCP server (Python)
+├── scripts/       # Setup and configuration tools
+└── tests/         # Comprehensive test suite
+```
+
+### Full Pipeline (Advanced)
+```tree
+fast-mcp-server/
+├── app/           # Phase 1: Local MCP server
+├── build-docker/  # Phase 2: Docker containerization  
+├── catalog-push/  # Phase 3: ECR registry operations
+├── deploy-aws/    # Phase 4: ECS/ALB deployment (optional)
+└── scripts/       # Common utilities and tools
+```
+
 ## Requirements
 
-- **AWS Account** with CLI configured  
-- **Python 3.11+** in user's login environment (required for Claude Desktop usage)
-- **[uv](https://docs.astral.sh/uv/) package manager** for development
-- **Docker** for containerization
-- **IAM Policy ARN** for S3 access to your Quilt buckets
+- **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** package manager
+- **AWS CLI configured** with credentials for S3 access
+- **Docker** (optional, for containerization and cloud deployment)
 
-> **Note**: Claude Desktop uses Python from your user's login shell environment, not from virtual environments. Ensure Python 3.11+ is accessible via `python3` in your shell profile (.bashrc, .zshrc, etc.).
+> **Claude Desktop Note**: Ensure Python 3.11+ is accessible via `python3` in your login shell environment, not just in virtual environments.
 
 ## Configuration
 
+### Basic Configuration
 ```bash
-# Copy and edit environment configuration
+# Copy and edit environment
 cp env.example .env
-make check-env
-```
+scripts/check-env.sh
 
-Edit `.env` with your settings:
-
-```bash
-# AWS Configuration (auto-derived from AWS CLI if not set)
-CDK_DEFAULT_ACCOUNT=123456789012
-CDK_DEFAULT_REGION=us-east-1
-AWS_PROFILE=default
-
-# ECR Configuration (auto-constructed if not set)
-ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
-ECR_REPOSITORY=quilt-mcp
-
-# Quilt Configuration
+# Key variables to set in .env:
 QUILT_CATALOG_DOMAIN=your-catalog-domain.com
 QUILT_DEFAULT_BUCKET=s3://your-quilt-bucket
-QUILT_TEST_PACKAGE=yournamespace/testpackage
-QUILT_TEST_ENTRY=README.md
+AWS_PROFILE=default
 ```
 
-## Makefile Commands
-
-### Phase Commands
-
+### Advanced Configuration (Cloud Deployment)
 ```bash
-make app                          # Phase 1: Run local MCP server
-make build                        # Phase 2: Build Docker container
-make catalog                      # Phase 3: Push to ECR registry
-make deploy                       # Phase 4: Deploy to ECS Fargate
+# Additional variables for AWS deployment
+CDK_DEFAULT_ACCOUNT=123456789012
+CDK_DEFAULT_REGION=us-east-1
+ECR_REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
 ```
 
-### Validation Commands (SPEC-compliant)
+## Usage Examples
 
+### Local Development
 ```bash
-make validate                     # Validate all phases sequentially
-make validate-app                 # Validate Phase 1 only
-make validate-build               # Validate Phase 2 only
-make validate-catalog             # Validate Phase 3 only
-make validate-deploy              # Validate Phase 4 only
+# Start local server
+make app                          # Run on http://127.0.0.1:8000/mcp
+
+# Test the server
+curl -X POST http://localhost:8000/mcp \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
-### Testing Commands
-
+### Development Pipeline
 ```bash
-make test-app                     # Phase 1 testing only
-make test-build                   # Phase 2 testing only
-make test-deploy                  # Phase 4 testing only
-make coverage                     # Run tests with coverage (fails if <85%)
+# Complete local validation
+make validate-app                 # Validate local server
+
+# Full pipeline (if using cloud deployment)
+make validate                     # Validate all phases
+make app build catalog deploy     # Execute full pipeline
 ```
 
-### Verification Commands (MCP Endpoint Testing)
-
+### Testing
 ```bash
-make verify-app                   # Verify Phase 1 MCP endpoint
-make verify-build                 # Verify Phase 2 MCP endpoint
-make verify-catalog               # Verify Phase 3 MCP endpoint
-make verify-deploy                # Verify Phase 4 MCP endpoint
+# Run comprehensive tests
+make coverage                     # Run tests with coverage (requires ≥85%)
+make test-app                     # Test local server only
+
+# Test specific components
+cd app && make test-tools         # Test MCP tools specifically
 ```
 
-### Initialization & Cleanup
+## Available Commands
 
+### Core Commands
 ```bash
-make init-app                     # Check Phase 1 preconditions
-make init-build                   # Check Phase 2 preconditions
-make init-catalog                 # Check Phase 3 preconditions
-make init-deploy                  # Check Phase 4 preconditions
+make app                          # Run local MCP server
+make build                        # Build Docker container
+make catalog                      # Push to ECR registry
+make deploy                       # Deploy to AWS ECS (if configured)
+```
 
-make zero-app                     # Stop Phase 1 processes
-make zero-build                   # Stop Phase 2 containers
-make zero-catalog                 # Stop Phase 3 containers
-make zero-deploy                  # Disable Phase 4 endpoint (preserve stack)
+### Validation & Testing
+```bash
+make validate                     # Validate all configured phases
+make validate-app                 # Validate local server only
+make test-app                     # Test local server
+make coverage                     # Run tests with coverage
 ```
 
 ### Utilities
-
 ```bash
-make check-env                    # Validate .env configuration
+make check-env                    # Validate environment configuration
 make clean                        # Clean build artifacts
 make status                       # Show deployment status
-make destroy                      # Clean up AWS resources
+make destroy                      # Clean up AWS resources (if deployed)
+```
+
+### Development Tools
+```bash
+make run-app-tunnel               # Expose local server via ngrok
+cd app && make run-inspector      # Open MCP Inspector for tool testing
 ```
 
 ## Port Configuration
 
-Each phase uses different ports to avoid conflicts:
-
-| Phase | Description | Port | Endpoint |
-|-------|-------------|------|----------|
-| Phase 1 | Local app | 8000 | `http://127.0.0.1:8000/mcp` |
-| Phase 2 | Docker build | 8001 | `http://127.0.0.1:8001/mcp` |
-| Phase 3 | ECR catalog | 8002 | `http://127.0.0.1:8002/mcp` |
-| Phase 4 | AWS deploy | 443/80 | `https://your-alb-url/mcp` |
-
-## Development Workflow
-
-### Local Development
-
-```bash
-make app                          # Local server on http://127.0.0.1:8000/mcp
-```
-
-### SPEC-Compliant Pipeline
-
-```bash
-# Complete validation (recommended)
-make validate
-
-# Step-by-step development
-make init-app                     # Check preconditions
-make app                          # Run phase
-make test-app                     # Test artifacts
-make -C app test-tools            # Run tool-focused tests (metadata, buckets, quilt tools)
-make verify-app                   # Verify MCP endpoint
-make zero-app                     # Cleanup processes
-```
-
-### Testing Individual Phases
-
-```bash
-# Test specific phases
-make verify-build                 # Test Docker container
-make verify-catalog               # Test ECR image
-make verify-deploy                # Test deployed service
-```
-
-## Environment Management
-
-The system automatically loads environment variables from `.env` via `shared/common.sh`:
-
-- Variables are auto-derived when possible (e.g., ECR_REGISTRY from AWS account)
-- Use `make check-env` to see current configuration
-- ECR_REGISTRY is constructed automatically if not provided
-- AWS credentials use your configured AWS CLI profile
-
-## Manual Testing
-
-### MCP Endpoint Testing
-
-```bash
-# Test local server
-curl -X POST http://localhost:8000/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Test Docker container (Phase 2)
-curl -X POST http://localhost:8001/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-
-# Test ECR image (Phase 3)
-curl -X POST http://localhost:8002/mcp \
-     -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
-
-### AWS Service Testing
-
-```bash
-# View deployment status
-make status
-
-# View ECS logs
-aws logs tail /ecs/quilt-mcp --follow --region us-east-1
-
-# Test deployed endpoint (requires authentication)
-# See docs/CLAUDE.md for full authentication setup
-```
-
-## Cleanup
-
-```bash
-# Clean local artifacts
-make clean
-
-# Stop all running containers/processes
-make zero-app zero-build zero-catalog
-
-# Remove AWS resources
-make destroy
-```
+| Usage | Port | Endpoint | Purpose |
+|-------|------|----------|---------|
+| Local Development | 8000 | `http://127.0.0.1:8000/mcp` | Primary local server |
+| Docker Testing | 8001 | `http://127.0.0.1:8001/mcp` | Container validation |
+| ECR Testing | 8002 | `http://127.0.0.1:8002/mcp` | Registry validation |
+| AWS Deployment | 443/80 | `https://your-alb-url/mcp` | Production endpoint |
+| MCP Inspector | 6274 | `http://127.0.0.1:6274` | Tool testing interface |
 
 ## Security
 
-- All ECS tasks use IAM roles with minimal required permissions
-- API endpoints are protected with JWT authentication via ALB
-- Docker builds are isolated and use official base images
-- No secrets are logged or exposed in responses
-- Environment variables are managed via `.env` (not committed)
+- **IAM Integration**: Uses AWS IAM roles and policies for secure S3 access
+- **JWT Authentication**: Supports JWT-based authentication for cloud deployments
+- **Minimal Permissions**: Follows principle of least privilege
+- **Secure Defaults**: No secrets logged or exposed in responses
+- **Environment Isolation**: Credentials managed via `.env` (not committed)
 
-## Using with Claude Desktop (DXT)
+## Troubleshooting
 
-The easiest way to use this MCP server in Claude Desktop is via the packaged DXT.
+### Common Issues
 
-1) Download the latest `.dxt` from the project releases
-   - Open the repository releases in your browser
-   - Download `quilt-mcp-<version>.dxt`
-   - Optional: download and run `check-prereqs.sh` to verify your system
-
-2) Install the DXT
-   - Double‑click the `.dxt` file, or in Claude Desktop open Settings → Extensions → Install from File and pick the `.dxt`
-
-3) Configure the catalog domain
-   - In Claude Desktop Settings → Extensions → Quilt MCP, set your Quilt catalog domain (e.g. `demo.quiltdata.com`)
-   - Ensure Python 3.11+ is available on your user PATH (see Requirements)
-
-4) Verify in Claude
-   - In a new chat, open the Tools panel and confirm Quilt MCP is listed
-   - Try a tool, e.g. “list Quilt packages”
-
-Troubleshooting
-- Run `./check-prereqs.sh` from the release assets to validate Python and environment
-- If Python isn’t detected, ensure `python3 --version` reports 3.11+ in your login shell
-
-## Using with Cursor
-
-You can run the MCP server locally and point Cursor to it.
-
-Run the server with uv (pick one):
-
+**Python Version**: 
 ```bash
-# Run in-repo (development)
-uv run quilt-mcp
-
-# Or run via uvx (no local install needed)
-uvx quilt-mcp
+python3 --version  # Should show 3.11+
+which python3     # Should be in your PATH
 ```
 
-Configure Cursor to launch the server (GUI or JSON):
-
-- Cursor Settings → MCP (or Command Palette → “MCP: Configure Servers”) → Add New Server
-  - Command: `uvx`
-  - Args: `quilt-mcp`
-  - Working directory: repository root (optional)
-
-Or add JSON to your Cursor settings (example):
-
-```json
-{
-  "mcpServers": {
-    "quilt": {
-      "command": "uvx",
-      "args": ["quilt-mcp"],
-      "env": {
-        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
-      }
-    }
-  }
-}
-```
-
-## Using with VS Code
-
-For VS Code assistants that support MCP servers, configure a command‑based server entry pointing to this CLI.
-
-Run the server with uv (pick one):
-
+**AWS Credentials**:
 ```bash
-# Development
-uv run quilt-mcp
-
-# Ephemeral
-uvx quilt-mcp
+aws sts get-caller-identity  # Should show your AWS account
+aws s3 ls s3://your-bucket  # Should list your bucket contents
 ```
 
-Example MCP server configuration (JSON) for extensions that support `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "quilt": {
-      "command": "uvx",
-      "args": ["quilt-mcp"],
-      "env": {
-        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
-      },
-      "description": "Quilt MCP Server"
-    }
-  }
-}
+**Environment Validation**:
+```bash
+scripts/check-env.sh         # Comprehensive environment check
+scripts/check-env.sh claude  # Client-specific validation
 ```
 
-Notes
-- If your editor expects a static TCP/WebSocket endpoint instead of a command, you can expose the local server with `make remote-export` and point the client at the printed URL’s `/mcp` path.
-- Ensure your shell environment includes any required Quilt settings (see Configuration) before launching the server.
+### Getting Help
+
+- **Tool Documentation**: See [docs/CLAUDE.md](docs/CLAUDE.md) for detailed tool usage
+- **MCP Inspector**: Use `cd app && make run-inspector` for interactive tool testing
+- **Validation Scripts**: Run `make validate-app` for comprehensive checks
+
+## Development
+
+### Project Structure
+- **`app/`** - Core MCP server implementation
+- **`scripts/`** - Setup, configuration, and utility scripts  
+- **`tests/`** - Comprehensive test suite with >85% coverage
+- **`build-docker/`** - Docker containerization (optional)
+- **`catalog-push/`** - ECR registry operations (optional)
+- **`deploy-aws/`** - AWS ECS deployment (optional)
+
+### Contributing
+```bash
+# Set up development environment
+uv sync --group test
+make validate-app
+make coverage
+
+# Run full validation before submitting
+make validate
+```
+
+For more details, see the individual phase specifications in `spec/`.

@@ -141,3 +141,5 @@ result = asyncio.run(unified_search("query"))
 - **User Metadata**: Use GraphQL for custom metadata filtering
 - **Relationships**: Leverage package dependency queries
 - **Analytics**: Use GraphQL statistics and faceting capabilities
+
+

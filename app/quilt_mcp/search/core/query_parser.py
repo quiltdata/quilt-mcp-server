@@ -98,8 +98,14 @@ class QueryParser:
         r'\b(?:aggregate|group\s+by|summarize)\b'
     ]
     
-    # File extension patterns
-    FILE_EXT_PATTERN = r'\b([a-z]{2,5})\s+(?:files?|data)\b'
+    # File extension patterns - improved to catch more variations
+    FILE_EXT_PATTERNS = [
+        r'\*\.([a-z]{2,5})\b',                    # *.csv
+        r'\.([a-z]{2,5})\s+(?:files?|data)\b',    # .csv files
+        r'\b([a-z]{2,5})\s+(?:files?|data)\b',    # csv files
+        r'(?:files?\s+with\s+)?\.([a-z]{2,5})\s+(?:extension|format)\b',  # files with .csv extension
+        r'\b([a-z]{2,5})\s+file\s+(?:type|format|extension)\b'  # csv file type
+    ]
     
     # Size patterns
     SIZE_PATTERNS = {
@@ -129,7 +135,7 @@ class QueryParser:
         
         self.size_patterns = {k: re.compile(v, re.IGNORECASE) for k, v in self.SIZE_PATTERNS.items()}
         self.date_patterns = {k: re.compile(v, re.IGNORECASE) for k, v in self.DATE_PATTERNS.items()}
-        self.file_ext_pattern = re.compile(self.FILE_EXT_PATTERN, re.IGNORECASE)
+        self.file_ext_patterns = [re.compile(p, re.IGNORECASE) for p in self.FILE_EXT_PATTERNS]
     
     def parse(self, query: str, scope: str = "global", target: str = "") -> QueryAnalysis:
         """Parse a natural language query and extract search intent.
@@ -236,9 +242,13 @@ class QueryParser:
     
     def _extract_file_extensions(self, query: str) -> List[str]:
         """Extract file extensions mentioned in the query."""
-        # Find both "csv files" and "csv and json files" patterns
-        matches = self.file_ext_pattern.findall(query)
         extensions = []
+        
+        # Try all file extension patterns
+        for pattern in self.file_ext_patterns:
+            matches = pattern.findall(query)
+            if matches:
+                extensions.extend(matches)
         
         # Also look for "CSV and JSON" patterns
         and_pattern = re.compile(r'\b([a-z]{2,5})\s+and\s+([a-z]{2,5})\s+(?:files?|data)\b', re.IGNORECASE)
@@ -247,10 +257,16 @@ class QueryParser:
         for match in and_matches:
             extensions.extend(match)
         
-        # Add regular matches
-        extensions.extend(matches)
+        # Clean and deduplicate extensions
+        clean_extensions = []
+        for ext in extensions:
+            ext_clean = ext.lower().strip()
+            if (len(ext_clean) <= 5 and 
+                ext_clean not in ['data', 'files', 'file', 'with', 'extension', 'format', 'type'] and
+                ext_clean not in clean_extensions):
+                clean_extensions.append(ext_clean)
         
-        return [ext.lower() for ext in extensions if len(ext) <= 5 and ext not in ['data', 'files', 'file']]
+        return clean_extensions
     
     def _extract_size_filters(self, query: str) -> Dict[str, Any]:
         """Extract size-based filters from the query."""
