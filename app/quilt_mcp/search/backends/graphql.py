@@ -312,8 +312,23 @@ class EnterpriseGraphQLBackend(SearchBackend):
         result = catalog_graphql_query(query, variables)
         
         if not result.get("success"):
-            error_msg = result.get("error") or result.get("errors", "Unknown GraphQL error")
-            raise Exception(f"GraphQL query failed: {error_msg}")
+            # Unpack detailed error information for better troubleshooting
+            error_details = []
+            
+            if result.get("error"):
+                error_details.append(f"Error: {result['error']}")
+            
+            if result.get("errors"):
+                for error in result["errors"]:
+                    error_msg = error.get("message", "Unknown error")
+                    error_path = " -> ".join(error.get("path", []))
+                    error_location = error.get("locations", [{}])[0]
+                    location_str = f"line {error_location.get('line', '?')}, col {error_location.get('column', '?')}"
+                    
+                    error_details.append(f"GraphQL Error: {error_msg} (path: {error_path}, location: {location_str})")
+            
+            detailed_error = "; ".join(error_details) if error_details else "Unknown GraphQL error"
+            raise Exception(f"GraphQL query failed: {detailed_error}")
         
         # Return in the expected format for our async interface
         return {
