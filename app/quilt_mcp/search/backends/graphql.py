@@ -25,52 +25,46 @@ class EnterpriseGraphQLBackend(SearchBackend):
         self._check_graphql_access()
     
     def _check_graphql_access(self):
-        """Check if GraphQL endpoint is accessible."""
+        """Check if GraphQL endpoint is accessible using proven infrastructure."""
         try:
-            # Get registry URL from quilt3 session
-            self._registry_url = quilt3.session.get_registry_url()
-            self._session = quilt3.session.get_session()
+            # Use the existing working GraphQL infrastructure
+            from ...tools.graphql import _get_graphql_endpoint, catalog_graphql_query
             
-            if self._registry_url and self._session:
-                # Use the same URL construction as working bucket_objects_search_graphql
-                graphql_url = urljoin(self._registry_url.rstrip("/") + "/", "graphql")
-                
-                # Test with a simple objects query like the working implementation
-                test_query = """
-                query TestConnection($bucket: String!) {
-                    objects(bucket: $bucket, first: 1) {
-                        edges {
-                            node {
-                                key
-                            }
+            session, graphql_url = _get_graphql_endpoint()
+            
+            if not session or not graphql_url:
+                self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint or session unavailable")
+                return
+            
+            self._session = session
+            self._registry_url = quilt3.session.get_registry_url()
+            
+            # Test with a simple query using the working infrastructure
+            test_query = """
+            query TestConnection($bucket: String!) {
+                objects(bucket: $bucket, first: 1) {
+                    edges {
+                        node {
+                            key
                         }
                     }
                 }
-                """
-                
-                # Use a test bucket that should exist
-                variables = {"bucket": "quilt-example"}
-                
-                response = self._session.post(
-                    graphql_url,
-                    json={"query": test_query, "variables": variables},
-                    timeout=5
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get('data'):
-                        self._update_status(BackendStatus.AVAILABLE)
-                    else:
-                        self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint exists but not responding correctly")
-                elif response.status_code == 404:
-                    self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint not available (404) - likely not an Enterprise catalog")
-                elif response.status_code == 405:
-                    self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint not accepting POST requests (405)")
-                else:
-                    self._update_status(BackendStatus.ERROR, f"GraphQL endpoint returned {response.status_code}")
+            }
+            """
+            
+            variables = {"bucket": "quilt-example"}
+            
+            # Use the proven catalog_graphql_query function
+            result = catalog_graphql_query(test_query, variables)
+            
+            if result.get("success"):
+                self._update_status(BackendStatus.AVAILABLE)
             else:
-                self._update_status(BackendStatus.UNAVAILABLE, "No registry URL or session available")
+                error_msg = result.get("error", "Unknown GraphQL error")
+                if "404" in str(error_msg):
+                    self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint not available (likely not Enterprise catalog)")
+                else:
+                    self._update_status(BackendStatus.ERROR, f"GraphQL test failed: {error_msg}")
                 
         except Exception as e:
             self._update_status(BackendStatus.ERROR, f"GraphQL access check failed: {e}")
@@ -309,34 +303,21 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return graphql_filter
     
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a GraphQL query using the same method as bucket_objects_search_graphql."""
-        if not self._registry_url or not self._session:
-            raise Exception("GraphQL endpoint not available")
+        """Execute a GraphQL query using the proven catalog_graphql_query approach."""
+        # Use the existing working GraphQL infrastructure
+        from ...tools.graphql import catalog_graphql_query
         
-        # Use the same URL construction as working implementation
-        graphql_url = urljoin(self._registry_url.rstrip("/") + "/", "graphql")
+        result = catalog_graphql_query(query, variables)
         
-        payload = {
-            "query": query,
-            "variables": variables
+        if not result.get("success"):
+            error_msg = result.get("error") or result.get("errors", "Unknown GraphQL error")
+            raise Exception(f"GraphQL query failed: {error_msg}")
+        
+        # Return in the expected format
+        return {
+            "data": result.get("data"),
+            "errors": result.get("errors")
         }
-        
-        response = self._session.post(
-            graphql_url,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"GraphQL request failed: {response.status_code} - {response.text}")
-        
-        result = response.json()
-        
-        # Check for GraphQL errors like the working implementation
-        if "errors" in result:
-            raise Exception(f"GraphQL errors: {json.dumps(result['errors'])}")
-        
-        return result
     
     def _convert_bucket_objects_results(self, graphql_result: Dict[str, Any], bucket: str) -> List[SearchResult]:
         """Convert GraphQL bucket objects results to standard format."""
