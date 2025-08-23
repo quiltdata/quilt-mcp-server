@@ -1,0 +1,388 @@
+"""
+AWS Athena and Glue Data Catalog Tools
+
+This module provides MCP tools for querying AWS Athena and discovering
+metadata from AWS Glue Data Catalog using SQLAlchemy and PyAthena.
+"""
+
+from __future__ import annotations
+
+import os
+import logging
+from typing import Dict, Any, Optional
+from ..aws.athena_service import AthenaQueryService
+from ..utils import format_error_response
+
+logger = logging.getLogger(__name__)
+
+
+def athena_databases_list(catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
+    """
+    List available databases in AWS Glue Data Catalog.
+    
+    Args:
+        catalog_name: Name of the data catalog (default: AwsDataCatalog)
+        
+    Returns:
+        List of databases with metadata
+    """
+    try:
+        service = AthenaQueryService()
+        return service.discover_databases(catalog_name)
+    except Exception as e:
+        logger.error(f"Failed to list databases: {e}")
+        return format_error_response(f"Failed to list databases: {str(e)}")
+
+
+def athena_tables_list(
+    database_name: str,
+    catalog_name: str = "AwsDataCatalog",
+    table_pattern: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    List tables in a specific database.
+    
+    Args:
+        database_name: Name of the database
+        catalog_name: Name of the data catalog
+        table_pattern: Optional pattern to filter table names
+        
+    Returns:
+        List of tables with metadata and schemas
+    """
+    try:
+        service = AthenaQueryService()
+        return service.discover_tables(database_name, catalog_name, table_pattern)
+    except Exception as e:
+        logger.error(f"Failed to list tables: {e}")
+        return format_error_response(f"Failed to list tables: {str(e)}")
+
+
+def athena_table_schema(
+    database_name: str,
+    table_name: str,
+    catalog_name: str = "AwsDataCatalog"
+) -> Dict[str, Any]:
+    """
+    Get detailed schema information for a specific table.
+    
+    Args:
+        database_name: Name of the database
+        table_name: Name of the table
+        catalog_name: Name of the data catalog
+        
+    Returns:
+        Detailed table schema including columns, types, partitions
+    """
+    try:
+        service = AthenaQueryService()
+        return service.get_table_metadata(database_name, table_name, catalog_name)
+    except Exception as e:
+        logger.error(f"Failed to get table schema: {e}")
+        return format_error_response(f"Failed to get table schema: {str(e)}")
+
+
+def athena_query_execute(
+    query: str,
+    database_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True
+) -> Dict[str, Any]:
+    """
+    Execute SQL query against Athena using SQLAlchemy/PyAthena.
+    
+    IMPORTANT SQL Syntax Requirements:
+    - Use double quotes for table/column names with special characters
+    - Example: SELECT * FROM "table-with-hyphens" WHERE "column-name" = 'value'
+    - Do NOT use backticks (`) - these are not supported by Athena
+    - Athena uses Presto/Trino SQL syntax, not MySQL syntax
+    
+    Args:
+        query: SQL query to execute (must use double quotes, not backticks)
+        database_name: Default database for query context (optional)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+        
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        # Validate inputs
+        if not query or not query.strip():
+            return format_error_response("Query cannot be empty")
+        
+        # Check for backtick syntax early
+        if '`' in query:
+            corrected_query = query.replace('`', '"')
+            return format_error_response(
+                f"Athena does not support backtick identifiers. "
+                f"Use double quotes instead: {corrected_query}"
+            )
+        
+        if max_results < 1 or max_results > 10000:
+            return format_error_response("max_results must be between 1 and 10000")
+        
+        if output_format not in ["json", "csv", "parquet"]:
+            return format_error_response("output_format must be one of: json, csv, parquet")
+        
+        # Execute query
+        service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        result = service.execute_query(query, database_name, max_results)
+        
+        if not result.get('success'):
+            return result
+        
+        # Format results
+        formatted_result = service.format_results(result, output_format)
+        return formatted_result
+        
+    except Exception as e:
+        logger.error(f"Failed to execute query: {e}")
+        return format_error_response(f"Query execution failed: {str(e)}")
+
+
+def athena_query_history(
+    max_results: int = 50,
+    status_filter: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Retrieve query execution history from Athena.
+    
+    Args:
+        max_results: Maximum number of queries to return
+        status_filter: Filter by query status (SUCCEEDED, FAILED, etc.)
+        start_time: Start time for query range (ISO format)
+        end_time: End time for query range (ISO format)
+        
+    Returns:
+        List of historical query executions
+    """
+    try:
+        import boto3
+        from datetime import datetime, timedelta
+        
+        # Create Athena client
+        service = AthenaQueryService()
+        athena_client = boto3.client('athena')
+        
+        # Set default time range if not provided
+        if not start_time:
+            # Default to last 24 hours
+            start_dt = datetime.utcnow() - timedelta(days=1)
+        else:
+            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        
+        if not end_time:
+            end_dt = datetime.utcnow()
+        else:
+            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        
+        # List query executions
+        kwargs = {
+            'MaxResults': min(max_results, 50),  # Athena API limit
+            'WorkGroup': 'primary'
+        }
+        
+        response = athena_client.list_query_executions(**kwargs)
+        execution_ids = response.get('QueryExecutionIds', [])
+        
+        if not execution_ids:
+            return {
+                'success': True,
+                'query_history': [],
+                'count': 0,
+                'message': "No query executions found"
+            }
+        
+        # Get detailed information for each execution
+        batch_response = athena_client.batch_get_query_execution(
+            QueryExecutionIds=execution_ids
+        )
+        
+        executions = []
+        for exec_info in batch_response.get('QueryExecutions', []):
+            # Filter by status if specified
+            status = exec_info.get('Status', {}).get('State', '')
+            if status_filter and status != status_filter:
+                continue
+            
+            # Filter by time range
+            submission_time = exec_info.get('Status', {}).get('SubmissionDateTime')
+            if submission_time:
+                if submission_time < start_dt or submission_time > end_dt:
+                    continue
+            
+            execution_data = {
+                'query_execution_id': exec_info.get('QueryExecutionId'),
+                'query': exec_info.get('Query', ''),
+                'status': status,
+                'submission_time': submission_time.isoformat() if submission_time else None,
+                'completion_time': exec_info.get('Status', {}).get('CompletionDateTime').isoformat() 
+                                 if exec_info.get('Status', {}).get('CompletionDateTime') else None,
+                'execution_time_ms': exec_info.get('Statistics', {}).get('TotalExecutionTimeInMillis'),
+                'data_scanned_bytes': exec_info.get('Statistics', {}).get('DataScannedInBytes'),
+                'result_location': exec_info.get('ResultConfiguration', {}).get('OutputLocation'),
+                'work_group': exec_info.get('WorkGroup'),
+                'database': exec_info.get('QueryExecutionContext', {}).get('Database'),
+                'error_message': exec_info.get('Status', {}).get('StateChangeReason')
+            }
+            executions.append(execution_data)
+        
+        return {
+            'success': True,
+            'query_history': executions,
+            'count': len(executions),
+            'filters': {
+                'status_filter': status_filter,
+                'start_time': start_dt.isoformat(),
+                'end_time': end_dt.isoformat(),
+                'max_results': max_results
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get query history: {e}")
+        return format_error_response(f"Failed to get query history: {str(e)}")
+
+
+def athena_workgroups_list() -> Dict[str, Any]:
+    """
+    List available Athena workgroups.
+    
+    Returns:
+        List of workgroups with configuration details
+    """
+    try:
+        import boto3
+        
+        athena_client = boto3.client('athena')
+        response = athena_client.list_work_groups()
+        
+        workgroups = []
+        for wg in response.get('WorkGroups', []):
+            workgroup_info = {
+                'name': wg.get('Name'),
+                'description': wg.get('Description', ''),
+                'state': wg.get('State'),
+                'creation_time': wg.get('CreationTime').isoformat() if wg.get('CreationTime') else None
+            }
+            workgroups.append(workgroup_info)
+        
+        return {
+            'success': True,
+            'workgroups': workgroups,
+            'count': len(workgroups)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list workgroups: {e}")
+        return format_error_response(f"Failed to list workgroups: {str(e)}")
+
+
+def athena_query_validate(query: str) -> Dict[str, Any]:
+    """
+    Validate SQL query syntax without executing it.
+    
+    Args:
+        query: SQL query to validate
+        
+    Returns:
+        Validation results with syntax check and suggestions
+    """
+    try:
+        import re
+        
+        if not query or not query.strip():
+            return format_error_response("Query cannot be empty")
+        
+        # Basic SQL validation
+        query_upper = query.upper().strip()
+        
+        # Check for dangerous operations first
+        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'CREATE', 'ALTER', 'TRUNCATE']
+        if any(keyword in query_upper for keyword in dangerous_keywords):
+            return {
+                'success': False,
+                'valid': False,
+                'error': "Query contains potentially dangerous operations",
+                'suggestions': [
+                    "This tool only supports read operations (SELECT, SHOW, DESCRIBE)",
+                    "Modify your query to use SELECT instead of data modification operations"
+                ]
+            }
+        
+        # Check for basic SQL structure
+        valid_statements = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN']
+        if not any(query_upper.startswith(stmt) for stmt in valid_statements):
+            return {
+                'success': False,
+                'valid': False,
+                'error': "Query must start with SELECT, WITH, SHOW, DESCRIBE, or EXPLAIN",
+                'suggestions': [
+                    "Start your query with SELECT to retrieve data",
+                    "Use SHOW TABLES to list available tables",
+                    "Use DESCRIBE table_name to see table schema"
+                ]
+            }
+        
+        # Check for unsupported syntax
+        if '`' in query:
+            # Suggest the corrected query
+            corrected_query = query.replace('`', '"')
+            return {
+                'success': False,
+                'valid': False,
+                'error': "Athena does not support backtick identifiers",
+                'suggestions': [
+                    "Use double quotes for identifiers instead of backticks",
+                    "Athena uses Presto/Trino SQL syntax, not MySQL syntax",
+                    f"Corrected query: {corrected_query}",
+                    'Example: SELECT * FROM "table-with-hyphens" WHERE "column-name" = \'value\''
+                ]
+            }
+        
+        # Basic syntax checks
+        open_parens = query.count('(')
+        close_parens = query.count(')')
+        if open_parens != close_parens:
+            return {
+                'success': False,
+                'valid': False,
+                'error': "Mismatched parentheses in query",
+                'suggestions': [
+                    "Check that all opening parentheses have matching closing parentheses"
+                ]
+            }
+        
+        # Check for basic SELECT structure
+        if query_upper.startswith('SELECT'):
+            if ' FROM ' not in query_upper:
+                return {
+                    'success': False,
+                    'valid': False,
+                    'error': "SELECT query must include FROM clause",
+                    'suggestions': [
+                        "Add a FROM clause to specify which table to query",
+                        "Example: SELECT * FROM database_name.table_name"
+                    ]
+                }
+        
+        return {
+            'success': True,
+            'valid': True,
+            'message': "Query syntax appears valid",
+            'query_type': query_upper.split()[0],
+            'suggestions': [
+                "Query validation passed basic syntax checks",
+                "Consider adding LIMIT clause to prevent large result sets",
+                "Use specific column names instead of * for better performance"
+            ]
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to validate query: {e}")
+        return format_error_response(f"Query validation failed: {str(e)}")

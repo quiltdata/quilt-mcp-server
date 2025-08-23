@@ -20,6 +20,8 @@ dependencies = [
     "biopython>=1.81",
     "pybedtools>=0.9.0",
     "pybigwig>=0.3.18",
+    "sqlalchemy>=2.0.0",
+    "pyathena>=3.0.0",
 ]
 
 [project.scripts]

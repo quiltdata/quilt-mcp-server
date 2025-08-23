@@ -194,7 +194,7 @@ class AthenaQueryService:
                 f"awsathena+rest://{credentials['AccessKeyId']}:"
                 f"{credentials['SecretAccessKey']}@athena.{session.region_name}.amazonaws.com/"
                 f"?s3_staging_dir={self._get_s3_staging_dir()}"
-                f"&work_group=primary"
+                f"&work_group=QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup"
                 f"&aws_session_token={credentials.get('SessionToken', '')}"
             )
         else:
@@ -347,6 +347,30 @@ class AthenaQueryService:
 - **Access Control**: Respect Glue catalog permissions and resource policies
 - **Audit Logging**: Log all query executions for security tracking
 
+### SQL Syntax Requirements
+
+**Athena SQL Compatibility:**
+- **Table Identifiers**: Use double quotes for table names with special characters (hyphens, spaces, etc.)
+  - ✅ Correct: `SELECT * FROM "table-with-hyphens"`
+  - ❌ Incorrect: `SELECT * FROM `table-with-hyphens``
+- **Column Identifiers**: Use double quotes for column names with special characters
+  - ✅ Correct: `SELECT "column-name" FROM my_table`
+  - ❌ Incorrect: `SELECT `column-name` FROM my_table`
+- **Standard SQL**: Athena uses Presto/Trino SQL syntax, not MySQL backtick syntax
+- **Query Validation**: The `athena_query_validate` tool will detect and reject backtick usage
+
+**Supported Query Types:**
+- `SELECT` statements with joins, aggregations, and window functions
+- `WITH` clauses for common table expressions
+- `SHOW` statements for catalog exploration
+- `DESCRIBE` statements for schema inspection
+- `EXPLAIN` statements for query planning
+
+**Unsupported Operations:**
+- Data modification operations (`INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`)
+- MySQL-specific syntax including backtick identifiers
+- Stored procedures and user-defined functions
+
 ## User Experience Flow
 
 ### 1. Database Discovery
@@ -403,6 +427,9 @@ MCP: "Table Schema: analytics_db.customer_events
 ### 3. Query Execution
 ```
 User: "Run query: SELECT event_type, COUNT(*) FROM analytics_db.customer_events WHERE date >= '2024-01-01' GROUP BY event_type LIMIT 10"
+
+Note: For tables with hyphens or special characters, use double quotes:
+"SELECT * FROM \"table-with-hyphens\" WHERE \"column-name\" = 'value'"
 
 MCP: "Executing query via SQLAlchemy/PyAthena...
      
@@ -506,6 +533,7 @@ pandas = ">=2.0.0"            # Data manipulation (already included)
 - **Authentication**: Supports AWS credentials, assumed roles, and session tokens
 - **Result Storage**: Configurable S3 staging directory for query results
 - **Workgroup Support**: Integration with Athena workgroups for cost control
+- **Quilt Workgroup**: When using quilt3 credentials, uses workgroup "QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup"
 
 ## Security Considerations
 
@@ -528,7 +556,8 @@ pandas = ">=2.0.0"            # Data manipulation (already included)
 ## Environment Variables
 
 - `ATHENA_QUERY_RESULT_LOCATION`: Default S3 location for query results
-- `ATHENA_WORKGROUP`: Default Athena workgroup (default: primary)
+- `ATHENA_WORKGROUP`: Default Athena workgroup (default: primary for native AWS, QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup for quilt3)
+- `ATHENA_QUILT_WORKGROUP`: Athena workgroup for quilt3 credentials (default: QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup)
 - `ATHENA_QUERY_TIMEOUT`: Query timeout in seconds (default: 300)
 - `ATHENA_MAX_RESULTS_DEFAULT`: Default maximum results per query (default: 1000)
 - `GLUE_CATALOG_NAME`: Default Glue catalog name (default: AwsDataCatalog)
