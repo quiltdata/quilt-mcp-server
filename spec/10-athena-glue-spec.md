@@ -190,20 +190,29 @@ class AthenaQueryService:
             session = quilt3.session.get_session()
             credentials = session.get_credentials()
             
+            # Force region to us-east-1 for Quilt Athena workgroup
+            region = 'us-east-1'
+            workgroup = os.environ.get('ATHENA_QUILT_WORKGROUP', 'QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup')
+            
+            # Create connection string without hardcoded schema
             connection_string = (
                 f"awsathena+rest://{credentials['AccessKeyId']}:"
-                f"{credentials['SecretAccessKey']}@athena.{session.region_name}.amazonaws.com/"
-                f"?s3_staging_dir={self._get_s3_staging_dir()}"
-                f"&work_group=QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup"
-                f"&aws_session_token={credentials.get('SessionToken', '')}"
+                f"{credentials['SecretAccessKey']}@athena.{region}.amazonaws.com:443/"
+                f"?work_group={workgroup}"
             )
+            
+            # Add session token if available
+            if credentials.get('SessionToken'):
+                connection_string += f"&aws_session_token={credentials['SessionToken']}"
         else:
             # Use default AWS credentials
             region = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+            workgroup = os.environ.get('ATHENA_WORKGROUP', 'primary')
+            
+            # Create connection string without hardcoded schema
             connection_string = (
-                f"awsathena+rest://@athena.{region}.amazonaws.com/"
-                f"?s3_staging_dir={self._get_s3_staging_dir()}"
-                f"&work_group=primary"
+                f"awsathena+rest://@athena.{region}.amazonaws.com:443/"
+                f"?work_group={workgroup}"
             )
         
         return create_engine(connection_string, echo=False)

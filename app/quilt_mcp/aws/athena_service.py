@@ -83,10 +83,9 @@ class AthenaQueryService:
                 access_key = quote_plus(credentials.access_key)
                 secret_key = quote_plus(credentials.secret_key)
                 
-                schema = "userathenadatabase-mbq1ihawbzb7"
-
+                # Create connection string without hardcoded schema
                 connection_string = (
-                    f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/{schema}"
+                    f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
                     f"?work_group={workgroup}"
                 )
 
@@ -104,7 +103,7 @@ class AthenaQueryService:
                 workgroup = os.environ.get('ATHENA_WORKGROUP', 'primary')
                 
                 connection_string = (
-                    f"awsathena+rest://@athena.{region}.amazonaws.com/"
+                    f"awsathena+rest://@athena.{region}.amazonaws.com:443/"
                     f"?work_group={workgroup}"
                 )
                 
