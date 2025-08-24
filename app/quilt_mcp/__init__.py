@@ -75,6 +75,14 @@ from .tools.packages import (
     packages_list,
     packages_search,
 )
+from .tools.tabulator import (
+    tabulator_tables_list,
+    tabulator_table_create,
+    tabulator_table_delete,
+    tabulator_table_rename,
+    tabulator_open_query_status,
+    tabulator_open_query_toggle,
+)
 
 __version__ = "0.1.0"
 
@@ -137,4 +145,11 @@ __all__ = [
     "create_quilt_summary_files",
     "generate_quilt_summarize_json",
     "generate_package_visualizations",
+    # Tabulator tools
+    "tabulator_tables_list",
+    "tabulator_table_create",
+    "tabulator_table_delete",
+    "tabulator_table_rename",
+    "tabulator_open_query_status",
+    "tabulator_open_query_toggle",
 ]

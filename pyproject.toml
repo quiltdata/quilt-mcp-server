@@ -22,6 +22,7 @@ dependencies = [
     "pybigwig>=0.3.18",
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
+    "PyYAML>=6.0.0",
 ]
 
 [project.scripts]

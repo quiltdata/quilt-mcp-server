@@ -1,5 +1,31 @@
 # Phase 10: AWS Athena Glue Table Query Specification
 
+## ⚠️ CRITICAL SQL SYNTAX REQUIREMENTS
+
+**Claude MUST use different identifier quoting based on query type:**
+
+### For DML Queries (SELECT, WITH, etc.)
+**Use double quotes for ALL catalog, database, and table identifiers:**
+```sql
+SELECT * FROM "AwsDataCatalog"."my_database"."my_table" 
+```
+
+### For DDL Queries (CREATE, DROP, ALTER, etc.)  
+**Use backticks for ALL catalog, database, and table identifiers:**
+```sql
+CREATE TABLE `my_database`.`my_table` AS SELECT * FROM `source_db`.`source_table`
+DROP TABLE `my_database`.`my_table`
+```
+
+Never mix quoting styles or use unquoted identifiers:
+```sql
+SELECT * FROM my_database.my_table        -- ❌ FORBIDDEN (unquoted)
+CREATE TABLE "my_database"."my_table"     -- ❌ FORBIDDEN (wrong quotes for DDL)  
+SELECT * FROM `my_database`.`my_table`    -- ❌ FORBIDDEN (wrong quotes for DML)
+```
+
+This requirement ensures consistent query execution across all Athena environments and prevents parsing errors.
+
 ## Overview
 
 Phase 10 implements AWS Athena integration functionality that allows the MCP server to discover AWS Glue Data Catalog tables and execute SQL queries against them using Athena. This enables users to query structured data stored in S3 through a familiar SQL interface, with results that can be integrated with Quilt package workflows.
@@ -154,8 +180,12 @@ async def athena_query_execute(
     """
     Execute SQL query against Athena using SQLAlchemy/PyAthena.
     
+    IMPORTANT: The query parameter must use proper identifier quoting:
+    - DML queries (SELECT, WITH, etc.): Use double quotes ("db"."table")
+    - DDL queries (CREATE, DROP, etc.): Use backticks (`db`.`table`)
+    
     Args:
-        query: SQL query to execute
+        query: SQL query to execute (must use correct identifier quoting based on operation type)
         database_name: Default database for query context (optional)
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
         max_results: Maximum number of results to return
@@ -441,27 +471,62 @@ class AthenaQueryService:
 
 ### SQL Syntax Requirements
 
+**CRITICAL: Use Query-Type-Specific Identifier Quoting**
+
+Claude must use different identifier quoting syntax depending on the SQL operation type. This ensures consistent query execution and prevents parsing errors.
+
+**DML Query Identifier Rules (SELECT, WITH, SHOW, DESCRIBE, EXPLAIN):**
+- **Catalog Names**: ALWAYS use double quotes
+  - ✅ Required: `SELECT * FROM "AwsDataCatalog"."database_name"."table_name"`
+  - ❌ Never: `SELECT * FROM AwsDataCatalog.database_name.table_name`
+- **Database Names**: ALWAYS use double quotes  
+  - ✅ Required: `SELECT * FROM "my_database"."my_table"`
+  - ❌ Never: `SELECT * FROM my_database.my_table`
+- **Table Names**: ALWAYS use double quotes
+  - ✅ Required: `SELECT * FROM "analytics_db"."customer_events"`
+  - ❌ Never: `SELECT * FROM analytics_db.customer_events`
+
+**DDL Query Identifier Rules (CREATE, DROP, ALTER, INSERT, UPDATE, DELETE):**
+- **Catalog Names**: ALWAYS use backticks
+  - ✅ Required: `CREATE TABLE `my_database`.`new_table` AS SELECT * FROM `source_db`.`source_table`
+  - ❌ Never: `CREATE TABLE "my_database"."new_table" AS SELECT * FROM "source_db"."source_table"`
+- **Database Names**: ALWAYS use backticks
+  - ✅ Required: `DROP TABLE `my_database`.`old_table``
+  - ❌ Never: `DROP TABLE "my_database"."old_table"`
+- **Table Names**: ALWAYS use backticks
+  - ✅ Required: `ALTER TABLE `analytics_db`.`customer_events` ADD COLUMN new_col STRING`
+  - ❌ Never: `ALTER TABLE "analytics_db"."customer_events" ADD COLUMN new_col STRING`
+
+**Column Name Rules (Both DML and DDL):**
+- **Column Names with Special Characters**: Use double quotes when containing hyphens, spaces, or other special characters
+  - ✅ Correct: `SELECT "column-name", "data source" FROM "my_table"`
+  - ❌ Incorrect: `SELECT column-name, data source FROM "my_table"`
+
 **Athena SQL Compatibility:**
-- **Table Identifiers**: Use double quotes for table names with special characters (hyphens, spaces, etc.)
-  - ✅ Correct: `SELECT * FROM "table-with-hyphens"`
-  - ❌ Incorrect: `SELECT * FROM `table-with-hyphens``
-- **Column Identifiers**: Use double quotes for column names with special characters
-  - ✅ Correct: `SELECT "column-name" FROM my_table`
-  - ❌ Incorrect: `SELECT `column-name` FROM my_table`
-- **Standard SQL**: Athena uses Presto/Trino SQL syntax, not MySQL backtick syntax
-- **Query Validation**: The `athena_query_validate` tool will detect and reject backtick usage
+- **Standard SQL**: Athena uses Presto/Trino SQL syntax with specific identifier quoting rules
+- **Mixed Syntax Forbidden**: Never mix double quotes and backticks for the same query type
+- **Query Validation**: The `athena_query_validate` tool will detect and reject incorrect quoting patterns
 
 **Supported Query Types:**
+
+**DML Operations (use double quotes):**
 - `SELECT` statements with joins, aggregations, and window functions
 - `WITH` clauses for common table expressions
 - `SHOW` statements for catalog exploration
 - `DESCRIBE` statements for schema inspection
 - `EXPLAIN` statements for query planning
 
+**DDL Operations (use backticks):**
+- `CREATE` statements for tables, views, and databases
+- `DROP` statements for tables, views, and databases
+- `ALTER` statements for schema modifications
+- `INSERT` statements for data insertion
+- `UPDATE` and `DELETE` statements for data modification
+
 **Unsupported Operations:**
-- Data modification operations (`INSERT`, `UPDATE`, `DELETE`, `CREATE`, `DROP`)
-- MySQL-specific syntax including backtick identifiers
 - Stored procedures and user-defined functions
+- Cross-database transactions
+- Database administration commands
 
 ## User Experience Flow
 
@@ -493,7 +558,7 @@ MCP: "Discovering databases in AWS Glue Data Catalog...
 ```
 User: "Show me the schema for analytics_db.customer_events"
 
-MCP: "Table Schema: analytics_db.customer_events
+MCP: "Table Schema: "analytics_db"."customer_events"
      
      📋 Table Information:
      ├── Location: s3://analytics-data/customer_events/
@@ -517,11 +582,21 @@ MCP: "Table Schema: analytics_db.customer_events
 ```
 
 ### 3. Query Execution
+
+#### DML Query Example (SELECT)
 ```
 User: "Run query: SELECT event_type, COUNT(*) FROM analytics_db.customer_events WHERE date >= '2024-01-01' GROUP BY event_type LIMIT 10"
 
-Note: For tables with hyphens or special characters, use double quotes:
-"SELECT * FROM \"table-with-hyphens\" WHERE \"column-name\" = 'value'"
+IMPORTANT: Claude will automatically convert DML queries to use double quotes:
+"SELECT event_type, COUNT(*) FROM \"analytics_db\".\"customer_events\" WHERE date >= '2024-01-01' GROUP BY event_type LIMIT 10"
+```
+
+#### DDL Query Example (CREATE)
+```
+User: "Create a summary table: CREATE TABLE analytics_db.daily_summary AS SELECT date, COUNT(*) as event_count FROM analytics_db.customer_events GROUP BY date"
+
+IMPORTANT: Claude will automatically convert DDL queries to use backticks:
+"CREATE TABLE `analytics_db`.`daily_summary` AS SELECT date, COUNT(*) as event_count FROM `analytics_db`.`customer_events` GROUP BY date"
 
 MCP: "Executing query via SQLAlchemy/PyAthena...
      
@@ -580,6 +655,9 @@ The SPEC-compliant validation follows this 6-step process:
 
 - ✅ Successfully discovers Glue databases and tables with complete metadata
 - ✅ Executes SQL queries against Athena with proper error handling
+- ✅ **CRITICAL**: All generated DML queries (SELECT, WITH, etc.) use double-quoted identifiers
+- ✅ **CRITICAL**: All generated DDL queries (CREATE, DROP, etc.) use backtick identifiers  
+- ✅ Query validation rejects unquoted identifiers and incorrect quoting patterns
 - ✅ Handles query results efficiently with pagination and format options
 - ✅ Provides accurate cost estimates and optimization recommendations
 - ✅ Manages long-running queries with status polling and cancellation
