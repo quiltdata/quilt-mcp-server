@@ -73,8 +73,8 @@ class AthenaQueryService:
                 # The QuiltUserAthena workgroup and permissions are configured in us-east-1
                 region = 'us-east-1'
                 
-                # Use Quilt-specific workgroup
-                workgroup = os.environ.get('ATHENA_QUILT_WORKGROUP', 'QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup')
+                # Discover available workgroups dynamically
+                workgroup = self._discover_workgroup(credentials, region)
                 
                 # Create connection string with explicit credentials
                 # URL encode the credentials to handle special characters
@@ -83,7 +83,7 @@ class AthenaQueryService:
                 access_key = quote_plus(credentials.access_key)
                 secret_key = quote_plus(credentials.secret_key)
                 
-                # Create connection string without hardcoded schema
+                # Create connection string without hardcoded schema or workgroup
                 connection_string = (
                     f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
                     f"?work_group={workgroup}"
@@ -100,7 +100,9 @@ class AthenaQueryService:
             else:
                 # Use default AWS credentials
                 region = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
-                workgroup = os.environ.get('ATHENA_WORKGROUP', 'primary')
+                
+                # Discover available workgroups dynamically or fall back to environment
+                workgroup = self._discover_workgroup(None, region) or os.environ.get('ATHENA_WORKGROUP', 'primary')
                 
                 connection_string = (
                     f"awsathena+rest://@athena.{region}.amazonaws.com:443/"
@@ -113,6 +115,61 @@ class AthenaQueryService:
         except Exception as e:
             logger.error(f"Failed to create SQLAlchemy engine: {e}")
             raise
+    
+    def _discover_workgroup(self, credentials, region: str) -> str:
+        """Discover the best available Athena workgroup for the user."""
+        try:
+            import boto3
+            
+            # Create Athena client with provided credentials or default
+            if credentials:
+                athena_client = boto3.client(
+                    'athena',
+                    region_name=region,
+                    aws_access_key_id=credentials.access_key,
+                    aws_secret_access_key=credentials.secret_key,
+                    aws_session_token=credentials.token
+                )
+            else:
+                athena_client = boto3.client('athena', region_name=region)
+            
+            # List all available workgroups
+            response = athena_client.list_work_groups()
+            workgroups = []
+            
+            # Test access to each workgroup and filter valid ones
+            for wg in response.get('WorkGroups', []):
+                name = wg.get('Name')
+                if not name:
+                    continue
+                    
+                try:
+                    # Validate workgroup is accessible and properly configured
+                    wg_details = athena_client.get_work_group(WorkGroup=name)
+                    config = wg_details.get('WorkGroup', {}).get('Configuration', {})
+                    
+                    # Check if workgroup is enabled and has output location
+                    if (wg_details.get('WorkGroup', {}).get('State') == 'ENABLED' and 
+                        config.get('ResultConfiguration', {}).get('OutputLocation')):
+                        workgroups.append(name)
+                except Exception:
+                    # Skip workgroups we can't access
+                    continue
+            
+            # Prioritize workgroups (Quilt workgroups first, then others)
+            quilt_workgroups = [wg for wg in workgroups if 'quilt' in wg.lower()]
+            if quilt_workgroups:
+                return quilt_workgroups[0]
+            elif workgroups:
+                return workgroups[0]
+            else:
+                # Fallback to primary if no workgroups discovered
+                return 'primary'
+                
+        except Exception as e:
+            logger.warning(f"Failed to discover workgroups: {e}")
+            # Fallback to environment variable or primary
+            return os.environ.get('ATHENA_WORKGROUP', 'primary')
     
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""

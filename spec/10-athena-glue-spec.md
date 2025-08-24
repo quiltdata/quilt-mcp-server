@@ -41,14 +41,20 @@ Phase 10 implements AWS Athena integration functionality that allows the MCP ser
 
 **Query Execution Process:**
 1. **Authentication Setup**: Establish AWS credentials via quilt3 assumed role or native AWS permissions
-2. **SQLAlchemy Connection**: Create PyAthena connection string and SQLAlchemy engine
-3. **Catalog Discovery**: Enumerate available databases and tables using Glue APIs
-4. **Schema Validation**: Validate table schemas and column references via SQLAlchemy reflection
-5. **Query Planning**: Analyze query for optimization opportunities
-6. **Query Execution**: Execute SQL via SQLAlchemy with PyAthena driver
-7. **Result Processing**: Process query results using pandas DataFrames
-8. **Result Formatting**: Convert results to requested output format
-9. **Resource Cleanup**: Clean up connections and temporary resources
+2. **Workgroup Discovery**: Dynamically discover available Athena workgroups and select the best one
+3. **SQLAlchemy Connection**: Create PyAthena connection string and SQLAlchemy engine
+4. **Catalog Discovery**: Enumerate available databases and tables using Glue APIs
+5. **Schema Validation**: Validate table schemas and column references via SQLAlchemy reflection
+6. **Query Planning**: Analyze query for optimization opportunities
+7. **Query Execution**: Execute SQL via SQLAlchemy with PyAthena driver
+8. **Result Processing**: Process query results using pandas DataFrames
+
+**Workgroup Discovery Process:**
+1. **List Workgroups**: Use `athena.list_work_groups()` to enumerate all available workgroups
+2. **Validate Access**: Test access to each workgroup using `athena.get_work_group()`
+3. **Filter Valid**: Only include enabled workgroups with proper result configurations
+4. **Prioritize Selection**: Prefer Quilt-specific workgroups, then any accessible workgroup
+5. **Fallback**: Use environment variable or 'primary' if discovery fails
 
 ### Query Result Management
 
@@ -119,11 +125,28 @@ async def athena_table_schema(
     """
 ```
 
+#### `athena_workgroups_list`
+```python
+async def athena_workgroups_list(
+    use_quilt_auth: bool = True
+) -> Dict[str, Any]:
+    """
+    List available Athena workgroups that the user can access.
+    
+    Args:
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+        
+    Returns:
+        List of accessible workgroups with their configurations
+    """
+```
+
 #### `athena_query_execute`
 ```python
 async def athena_query_execute(
     query: str,
     database_name: str = None,
+    workgroup_name: str = None,
     max_results: int = 1000,
     output_format: str = "json",
     use_quilt_auth: bool = True
@@ -134,6 +157,7 @@ async def athena_query_execute(
     Args:
         query: SQL query to execute
         database_name: Default database for query context (optional)
+        workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet)
         use_quilt_auth: Use quilt3 assumed role credentials if available
@@ -190,11 +214,13 @@ class AthenaQueryService:
             session = quilt3.session.get_session()
             credentials = session.get_credentials()
             
-            # Force region to us-east-1 for Quilt Athena workgroup
+            # Force region to us-east-1 for Quilt Athena workgroups
             region = 'us-east-1'
-            workgroup = os.environ.get('ATHENA_QUILT_WORKGROUP', 'QuiltUserAthena-quilt-staging-NonManagedRoleWorkgroup')
             
-            # Create connection string without hardcoded schema
+            # Discover available workgroups dynamically
+            workgroup = self._discover_workgroup(credentials, region)
+            
+            # Create connection string without hardcoded schema or workgroup
             connection_string = (
                 f"awsathena+rest://{credentials['AccessKeyId']}:"
                 f"{credentials['SecretAccessKey']}@athena.{region}.amazonaws.com:443/"
@@ -207,15 +233,72 @@ class AthenaQueryService:
         else:
             # Use default AWS credentials
             region = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
-            workgroup = os.environ.get('ATHENA_WORKGROUP', 'primary')
             
-            # Create connection string without hardcoded schema
+            # Discover available workgroups dynamically or fall back to environment
+            workgroup = self._discover_workgroup(None, region) or os.environ.get('ATHENA_WORKGROUP', 'primary')
+            
+            # Create connection string without hardcoded schema or workgroup
             connection_string = (
                 f"awsathena+rest://@athena.{region}.amazonaws.com:443/"
                 f"?work_group={workgroup}"
             )
         
         return create_engine(connection_string, echo=False)
+    
+    def _discover_workgroup(self, credentials, region: str) -> str:
+        """Discover the best available Athena workgroup for the user."""
+        try:
+            import boto3
+            
+            # Create Athena client with provided credentials or default
+            if credentials:
+                athena_client = boto3.client(
+                    'athena',
+                    region_name=region,
+                    aws_access_key_id=credentials['AccessKeyId'],
+                    aws_secret_access_key=credentials['SecretAccessKey'],
+                    aws_session_token=credentials.get('SessionToken')
+                )
+            else:
+                athena_client = boto3.client('athena', region_name=region)
+            
+            # List all available workgroups
+            response = athena_client.list_work_groups()
+            workgroups = []
+            
+            # Test access to each workgroup and filter valid ones
+            for wg in response.get('WorkGroups', []):
+                name = wg.get('Name')
+                if not name:
+                    continue
+                    
+                try:
+                    # Validate workgroup is accessible and properly configured
+                    wg_details = athena_client.get_work_group(WorkGroup=name)
+                    config = wg_details.get('WorkGroup', {}).get('Configuration', {})
+                    
+                    # Check if workgroup is enabled and has output location
+                    if (wg_details.get('WorkGroup', {}).get('State') == 'ENABLED' and 
+                        config.get('ResultConfiguration', {}).get('OutputLocation')):
+                        workgroups.append(name)
+                except Exception:
+                    # Skip workgroups we can't access
+                    continue
+            
+            # Prioritize workgroups (Quilt workgroups first, then others)
+            quilt_workgroups = [wg for wg in workgroups if 'quilt' in wg.lower()]
+            if quilt_workgroups:
+                return quilt_workgroups[0]
+            elif workgroups:
+                return workgroups[0]
+            else:
+                # Fallback to primary if no workgroups discovered
+                return 'primary'
+                
+        except Exception as e:
+            logger.warning(f"Failed to discover workgroups: {e}")
+            # Fallback to environment variable or primary
+            return os.environ.get('ATHENA_WORKGROUP', 'primary')
     
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""
