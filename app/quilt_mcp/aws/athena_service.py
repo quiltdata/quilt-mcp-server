@@ -203,9 +203,10 @@ class AthenaQueryService:
     def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
         try:
-            # Use Athena SQL to list databases instead of direct Glue API
+            # Use Athena SQL to list schemas (databases) with explicit catalog name
+            query = f"SHOW DATABASES IN `{catalog_name}`"
             with suppress_stdout():
-                df = pd.read_sql_query("SHOW DATABASES", self.engine)
+                df = pd.read_sql_query(query, self.engine)
             
             databases = []
             for _, row in df.iterrows():
