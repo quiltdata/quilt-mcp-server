@@ -406,33 +406,24 @@ class TestAthenaQueryService:
         assert service.use_quilt_auth is False
         assert service.query_cache.maxsize == 100
     
+    @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_discover_databases(self, mock_boto3, mock_create_engine):
+    def test_discover_databases(self, mock_boto3, mock_create_engine, mock_read_sql):
         """Test database discovery."""
         service = AthenaQueryService(use_quilt_auth=False)
         
-        # Mock Glue client
-        mock_glue_client = Mock()
-        service._glue_client = mock_glue_client
-        
-        mock_glue_client.get_databases.return_value = {
-            'DatabaseList': [
-                {
-                    'Name': 'analytics_db',
-                    'Description': 'Analytics database',
-                    'LocationUri': 's3://analytics-data/',
-                    'CreateTime': datetime.utcnow(),
-                    'Parameters': {'key': 'value'}
-                }
-            ]
-        }
+        # Mock pandas DataFrame result from SQL query
+        mock_df = pd.DataFrame({'database_name': ['analytics_db', 'test_db']})
+        mock_read_sql.return_value = mock_df
         
         result = service.discover_databases()
         
         assert result['success'] is True
-        assert len(result['databases']) == 1
+        assert len(result['databases']) == 2
         assert result['databases'][0]['name'] == 'analytics_db'
+        assert result['databases'][1]['name'] == 'test_db'
+        mock_read_sql.assert_called_once()
     
     @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
     @patch('quilt_mcp.aws.athena_service.create_engine')
