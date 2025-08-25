@@ -85,6 +85,7 @@ jobs:
             make -C app test-permissions
             ;;
           *)
+            # Run all integration tests including search
             make -C app test-integration
             ;;
         esac
