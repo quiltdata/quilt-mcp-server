@@ -333,3 +333,4 @@ The following permissions are granted for this repository:
 - Always run IDE diagnostics after implementation
 - Push changes before creating PRs to ensure remote branch is up-to-date
 - **CRITICAL:** Always create specification document in `./spec/` folder before implementation (we skipped this step in issue #60)
+- **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
