@@ -8,7 +8,7 @@ Standardized workflow for processing GitHub issues.
 
 1. **Workflow Initialization**
    1. Delegate entire workflow to `workflow-orchestrator` sub-agent for process management
-   1. Each agent MUST a TODO for itself to ensure it follows this ENTIRE workflow process
+   1. Each agent MUST create a TODO for itself to ensure it follows this ENTIRE workflow process
    1. **Workflow-orchestrator handles all phase transitions and state management**
 
 2. **Phase 1: Investigation** (Orchestrated via `research-analyst` sub-agent)
@@ -16,6 +16,7 @@ Standardized workflow for processing GitHub issues.
    1. **Critical**: Evaluate existing repository scripts and patterns FIRST
    1. Ask the user if anything is unclear
    1. Ensure you have sufficient permissions for the necessary actions
+   1. Create a short, safe "feature-name" to use for child branches
 
 3. **Phase 2: Specification** (Orchestrated via `business-analyst` sub-agent)
    1. **Cross-Validation**: Verify `research-analyst` findings are complete and accurate
