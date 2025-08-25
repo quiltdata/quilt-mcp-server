@@ -37,7 +37,7 @@ jobs:
       timeout-minutes: 3
             
     - name: Run unit and AWS tests
-      run: make test-ci-with-aws
+      run: make -C app test-ci-with-aws
       timeout-minutes: 15
       env:
         UVRUN: uv run
