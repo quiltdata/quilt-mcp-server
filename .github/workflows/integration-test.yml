@@ -5,9 +5,9 @@ name: Integration Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
     types: [ opened, synchronize, labeled ]
   workflow_dispatch:  # Allow manual triggering
     inputs:
@@ -34,7 +34,7 @@ jobs:
       run: |
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           echo "should-run=true" >> $GITHUB_OUTPUT
-        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
           echo "should-run=true" >> $GITHUB_OUTPUT
         elif [[ "${{ contains(github.event.pull_request.labels.*.name, 'test:integration') }}" == "true" ]]; then
           echo "should-run=true" >> $GITHUB_OUTPUT
@@ -90,12 +90,12 @@ jobs:
         esac
       timeout-minutes: 20
       env:
-        # AWS credentials for integration testing (from organization secrets)
+        # AWS credentials for integration testing (from repository secrets)
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
         
-        # Quilt-specific settings (from organization secrets)
+        # Quilt-specific settings (from repository secrets)
         QUILT_READ_POLICY_ARN: ${{ secrets.QUILT_READ_POLICY_ARN }}
         CDK_DEFAULT_ACCOUNT: ${{ secrets.CDK_DEFAULT_ACCOUNT }}
         CDK_DEFAULT_REGION: ${{ secrets.CDK_DEFAULT_REGION }}
