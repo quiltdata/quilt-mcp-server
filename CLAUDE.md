@@ -31,17 +31,6 @@ I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven
 - **Coverage targets**: 100% coverage should be expected at all times, but these tests must ALWAYS be based on business behaviour, not implementation details
 - Tests must document expected business behaviour
 
-### Test Organization
-
-```text
-src/
-  features/
-    payment/
-      payment-processor.py
-      payment-validator.py
-      payment-processor.test.py // The validator is an implementation detail. Validation is fully covered, but by testing the expected business behaviour, treating the validation code itself as an implementation detail
-```
-
 ### Test Data Pattern
 
 Use factory functions with optional overrides for test data:
@@ -60,6 +49,48 @@ Use factory functions with optional overrides for test data:
 - Branch strategy: `spec/<feature>` → `impl/<feature>`
 - BDD test requirements
 - Integration test specifications
+
+### Prefactoring - Feature-Level Preparation
+
+Before implementing any feature, follow this structured approach to ensure solid foundations:
+
+#### 1. Test - Expand the Safety Net
+
+**Objective**: Strengthen test coverage so every future change has clear signals of correctness.
+
+- **Audit existing tests** around the feature area - identify gaps in behavior coverage
+- **Add missing behavioral tests** for edge cases and integration points
+- **Ensure test quality** - tests should verify business behavior, not implementation details
+- **Validate test reliability** - tests should fail when they should, pass when they should
+
+#### 2. Refactor - Prepare the Foundation
+
+**Objective**: Simplify and restructure existing code to make space for new functionality.
+
+- **Eliminate technical debt** in the area where new feature will be added
+- **Extract reusable components** that the new feature will need
+- **Simplify complex conditional logic** that might interact with new feature
+- **Improve naming and structure** to clearly express current intent
+- **Remove dead code** and unused abstractions that might confuse implementation
+
+#### 3. Implement - Build on Solid Ground
+
+**Objective**: Deliver the feature predictably once foundations are solid.
+
+- **Follow TDD micro-cycles** (Red → Green → Refactor) within this phase
+- **Build incrementally** with each change maintaining working state
+- **Focus on clarity** over cleverness in implementation
+- **Verify all safety net tests still pass** throughout implementation
+
+#### Why Prefactoring Matters
+
+- **Reduces implementation risk** by addressing complexity before adding more
+- **Creates predictable development** instead of heroic debugging sessions
+- **Establishes trust in AI-assisted development** through systematic approach
+- **Prevents compounding technical debt** by cleaning before building
+- **Enables confident changes** with comprehensive test coverage
+
+**Remember**: Prefactoring operates at the feature level, while TDD operates at the implementation level. Both are essential for maintainable code evolution.
 
 ### TDD Process - THE FUNDAMENTAL PRACTICE
 
@@ -190,13 +221,14 @@ Before considering refactoring complete, verify:
 When working with my code:
 
 1. **ALWAYS FOLLOW TDD** - No production code without a failing test. This is not negotiable.
-2. **Use TodoWrite tool** - Track progress through workflow steps, especially for complex tasks (see [WORKFLOW.md](./WORKFLOW.md))
-3. **Think deeply** before making any edits
-4. **Understand the full context** of the code and requirements
-5. **Ask clarifying questions** when requirements are ambiguous
-6. **Think from first principles** - don't make assumptions
-7. **Assess refactoring after every green** - Look for opportunities to improve code structure, but only refactor if it adds value
-8. **Keep project docs current** - update them whenever you introduce meaningful changes
+2. **Use Prefactoring for features** - Before implementing, strengthen tests and clean existing code (see Prefactoring section above)
+3. **Use TodoWrite tool** - Track progress through workflow steps, especially for complex tasks (see [WORKFLOW.md](./WORKFLOW.md))
+4. **Think deeply** before making any edits
+5. **Understand the full context** of the code and requirements
+6. **Ask clarifying questions** when requirements are ambiguous
+7. **Think from first principles** - don't make assumptions
+8. **Assess refactoring after every green** - Look for opportunities to improve code structure, but only refactor if it adds value
+9. **Keep project docs current** - update them whenever you introduce meaningful changes
    **At the end of every change, update CLAUDE.md with anything useful you wished you'd known at the start**.
    This is CRITICAL - Claude should capture learnings, gotchas, patterns discovered, or any context that would have made the task easier if known upfront. This continuous documentation ensures future work benefits from accumulated knowledge
 
