@@ -220,6 +220,18 @@ git add *
 git commit -m "*"
 git push
 git clean -fd
+git checkout -b *
+git checkout *
+git branch *
+git merge *
+
+# GitHub CLI operations (for WORKFLOW.md)
+gh issue view *
+gh issue list
+gh pr create --base * --title "*" --body "*"
+gh pr list
+gh pr merge --squash
+gh pr view *
 
 # File operations
 find . -name "*.py" -type f
@@ -228,6 +240,7 @@ mv * *
 cp * *
 rm -f *
 rm -rf *
+touch *
 
 # System utilities  
 chmod +x */.*sh
@@ -236,12 +249,40 @@ head *
 tail *
 cat *
 curl *
+grep -r * *
 
 # Process management
 timeout * *
 sleep *
 kill *
 pkill *
+```
+
+### WORKFLOW.md Specific Permissions
+
+```bash
+# Workflow operations (as defined in WORKFLOW.md)
+mkdir -p spec/
+touch spec/*.md
+git checkout -b spec/*
+git checkout -b impl/*
+git push -u origin spec/*
+git push -u origin impl/*
+
+# Test operations
+npm test
+npm run test:coverage
+npm run test:integration
+pytest
+./scripts/check-env.sh
+
+# Branch and PR operations
+gh pr create --base spec/* --title "test: *" --body "*"
+gh pr create --base * --title "feat: *" --body "*"
+gh pr merge --squash
+
+# Issue analysis
+gh issue view $(git branch --show-current | grep -o '[0-9]\+')
 ```
 
 ## Environment Variables
