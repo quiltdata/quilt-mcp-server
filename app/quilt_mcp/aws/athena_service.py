@@ -388,6 +388,10 @@ class AthenaQueryService:
                 formatted_data = df.to_dict(orient='records')
             elif output_format.lower() == 'csv':
                 formatted_data = df.to_csv(index=False)
+            elif output_format.lower() == 'table':
+                # Format as readable ASCII table
+                from ..formatting import format_as_table
+                formatted_data = format_as_table(df)
             elif output_format.lower() == 'parquet':
                 # For parquet, return base64 encoded bytes
                 import io
@@ -403,6 +407,13 @@ class AthenaQueryService:
             result_copy = result_data.copy()
             result_copy['formatted_data'] = formatted_data
             result_copy['format'] = output_format.lower()
+            
+            # For auto-detection, add table format when appropriate
+            if output_format.lower() in ['json', 'csv']:
+                from ..formatting import should_use_table_format, format_as_table
+                if should_use_table_format(df):
+                    result_copy['formatted_data_table'] = format_as_table(df)
+                    result_copy['display_format'] = 'table'
             
             # Remove the DataFrame to make it JSON serializable
             result_copy.pop('data', None)

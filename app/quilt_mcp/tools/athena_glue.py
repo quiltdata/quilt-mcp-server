@@ -165,13 +165,19 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
             x['name']  # Alphabetical
         ))
         
-        return {
+        result = {
             'success': True,
             'workgroups': workgroups,
             'region': region,
             'count': len(workgroups),
             'accessible_count': len([wg for wg in workgroups if wg['accessible']])
         }
+        
+        # Enhance with table formatting for better readability
+        from ..formatting import enhance_result_with_table_format
+        result = enhance_result_with_table_format(result)
+        
+        return result
         
     except Exception as e:
         logger.error(f"Failed to list workgroups: {e}")
@@ -200,7 +206,7 @@ def athena_query_execute(
         database_name: Default database for query context (optional)
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
         max_results: Maximum number of results to return
-        output_format: Output format (json, csv, parquet)
+        output_format: Output format (json, csv, parquet, table)
         use_quilt_auth: Use quilt3 assumed role credentials if available
         
     Returns:
@@ -222,8 +228,8 @@ def athena_query_execute(
         if max_results < 1 or max_results > 10000:
             return format_error_response("max_results must be between 1 and 10000")
         
-        if output_format not in ["json", "csv", "parquet"]:
-            return format_error_response("output_format must be one of: json, csv, parquet")
+        if output_format not in ["json", "csv", "parquet", "table"]:
+            return format_error_response("output_format must be one of: json, csv, parquet, table")
         
         # Execute query
         service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
@@ -234,6 +240,11 @@ def athena_query_execute(
         
         # Format results
         formatted_result = service.format_results(result, output_format)
+        
+        # Enhance with table formatting for better readability
+        from ..formatting import format_athena_results_as_table
+        formatted_result = format_athena_results_as_table(formatted_result)
+        
         return formatted_result
         
     except Exception as e:
