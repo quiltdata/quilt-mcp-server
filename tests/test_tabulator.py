@@ -83,7 +83,7 @@ class TestTabulatorService:
         service = TabulatorService(use_quilt_auth=False)
         
         # Invalid regex patterns
-        package_pattern = r"^bucket/(?P<date>\d{4-\d{2-\d{2})/package$"  # Invalid regex - unclosed bracket
+        package_pattern = r"^bucket/(?P<date>\d{4-\d{2-\d{2})/package$[unclosed"  # Invalid regex - unclosed bracket
         logical_key_pattern = ""  # Empty pattern
         
         errors = service._validate_patterns(package_pattern, logical_key_pattern)
