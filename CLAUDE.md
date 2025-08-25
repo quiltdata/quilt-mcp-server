@@ -209,6 +209,7 @@ Before considering refactoring complete, verify:
 ### Pull Request Standards
 
 - Every PR must have all tests passing
+- Code must have 100% coverage
 - All linting and quality checks must pass
 - Work in small increments that maintain a working state
 - PRs should be focused on a single feature or fix
