@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch, mock_open
 import pytest
 
-from app.quilt_mcp.auto_configure import (
+from quilt_mcp.auto_configure import (
     generate_config_entry,
     get_config_file_locations,
     add_to_config_file,
@@ -198,7 +198,7 @@ class TestAutoConfigureMain:
         assert "Claude Desktop" in printed_text or "claude_desktop" in printed_text
         assert "Cursor" in printed_text or "cursor" in printed_text
 
-    @patch('app.quilt_mcp.auto_configure.add_to_config_file')
+    @patch('quilt_mcp.auto_configure.add_to_config_file')
     @patch('builtins.print')
     def test_adds_config_to_specified_client_file(self, mock_print, mock_add_to_config):
         """Should add configuration to specified client configuration file."""
@@ -209,7 +209,7 @@ class TestAutoConfigureMain:
         mock_add_to_config.assert_called_once()
         assert "Successfully" in ''.join(call.args[0] for call in mock_print.call_args_list if call.args)
 
-    @patch('app.quilt_mcp.auto_configure.add_to_config_file')
+    @patch('quilt_mcp.auto_configure.add_to_config_file')
     @patch('builtins.print')
     def test_handles_config_file_write_failure(self, mock_print, mock_add_to_config):
         """Should handle configuration file write failures gracefully."""
