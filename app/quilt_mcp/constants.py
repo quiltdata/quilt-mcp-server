@@ -7,6 +7,7 @@ DEFAULT_BUCKET = os.getenv("QUILT_DEFAULT_BUCKET", "s3://quilt-sandbox-bucket")
 DEFAULT_REGISTRY = DEFAULT_BUCKET  # Registry is the same as bucket
 
 # Known test packages and entries (for testing) - read from environment
+# Updated to cellpainting/jump-cpg0016-illumination for CI testing
 KNOWN_TEST_PACKAGE = os.getenv("QUILT_TEST_PACKAGE", "akarve/tmp")
 KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTRY", "README.md")  # Note: keeping the typo from .env
 
