@@ -47,7 +47,7 @@ jobs:
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
         
         # Quilt-specific settings from repository secrets
-        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_DEFAULT_BUCKET: s3://quilt-sandbox-bucket  # Override to use sandbox bucket
         QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
