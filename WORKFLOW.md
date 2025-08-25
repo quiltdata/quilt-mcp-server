@@ -4,64 +4,153 @@ Standardized Workflow for processing GitHub issues (as a precursor to full autom
 
 ## Prerequisites
 
-Ensure you have sufficient permissions:
-- Write access to repository
-- Ability to run scripts
-- Commit permissions
+Before starting, ensure you have:
+- Repository write access
+- Ability to run scripts (`./scripts/*`)
+- Git commit permissions
 - Branch creation permissions
-- Push/read PR permissions
+- GitHub PR read/write permissions
 
 ## Workflow Steps
 
-1. **Retrieve the GitHub Issue for this branch**
-   ```bash
-   gh issue view <issue_number>
-   ```
+### 1. Issue Analysis
+```bash
+# Retrieve and analyze the GitHub Issue for this branch
+gh issue view $(git branch --show-current | grep -o '[0-9]\+')
+```
 
-2. **Ensure you have sufficient permissions**: write, run scripts, commit, branch, push/read PR
+### 2. Permission Verification
+Confirm you have: write, run scripts, commit, branch, push/read PR permissions
 
-3. **Write a spec in the ./spec folder**
-   - Specs should specify the end-user functionality, development process, and recommended technology
-   - Must include comprehensive BDD tests (Behavior, NOT unit test implementation)
-   - Must also include a 'live' integration test against an actual stack
-   - They MUST NOT include actual code; save that for implementation
-   - They MAY suggest function signatures and input/output types
-   - If necessary, break spec into sub-specs for separately mergeable units (e.g. pre-factoring)
-   - Commit the spec
-   - Fix IDE Diagnostics. Commit.
+### 3. Specification Development
+Create specification in `./spec/` folder:
 
-4. **Create a branch for the (first) spec**
-   ```bash
-   git checkout -b spec/<feature-name>
-   ```
+```bash
+# Create spec directory if it doesn't exist
+mkdir -p spec
+# Create spec file
+touch spec/<feature-name>.md
+```
 
-5. **Implement the BDD tests** (commit)
+**Spec Requirements:**
+- Specify end-user functionality, development process, and recommended technology
+- Include comprehensive BDD tests (Behavior-driven, NOT unit tests)
+- Include 'live' integration test specifications against actual stack
+- MUST NOT include actual code implementation
+- MAY suggest function signatures and input/output types
+- Break into sub-specs for separately mergeable units if needed
 
-6. **Verify the tests run and fail due to the missing functionality** (commit)
+```bash
+# Commit the spec
+git add spec/
+git commit -m "spec: Add specification for <feature-name>"
 
-7. **Implement the integration tests and run** (use check-env script to warn if environment not configured)
+# Fix IDE diagnostics and commit if needed
+git add .
+git commit -m "fix: Address IDE diagnostics in spec"
+```
 
-8. **Create a PR for the tests** (against spec branch)
+### 4. Spec Branch Creation
+```bash
+git checkout -b spec/<feature-name>
+git push -u origin spec/<feature-name>
+```
 
-9. **Create a branch for the implementation**: Red / Green / Refactor (commit each step)
-   ```bash
-   git checkout -b impl/<feature-name>
-   ```
+### 5. BDD Test Implementation
+```bash
+# Implement BDD tests based on spec
+git add tests/
+git commit -m "test: Add BDD tests for <feature-name>"
+```
 
-10. **Increase coverage to 100% on the BDD** (commit)
+### 6. Test Validation (Red Phase)
+```bash
+# Run tests to verify they fail (expected behavior)
+npm test # or pytest, etc.
+git add .
+git commit -m "test: Verify BDD tests fail without implementation"
+```
 
-11. **Create PR for the implementation** (against test branch)
+### 7. Integration Test Implementation
+```bash
+# Check environment setup
+./scripts/check-env.sh
+# Implement integration tests
+git add .
+git commit -m "test: Add integration tests for <feature-name>"
+```
 
-12. **Verify integration tests pass**
+### 8. Test Branch PR
+```bash
+gh pr create --base spec/<feature-name> --title "test: BDD and integration tests for <feature-name>" --body "Adds comprehensive test suite as specified in spec/<feature-name>.md"
+```
 
-13. **Squash PR into test branch**
+### 9. Implementation Branch
+```bash
+git checkout -b impl/<feature-name>
+git push -u origin impl/<feature-name>
+```
 
-14. **Repeat for additional specs**
+**Red/Green/Refactor Cycle:**
+```bash
+# RED: Implement minimal code to make tests pass
+git add .
+git commit -m "feat: Initial implementation (red phase)"
 
-## Notes
+# GREEN: Make tests pass
+git add .
+git commit -m "feat: Complete implementation (green phase)"
 
-- Each commit should be atomic and represent a single logical change
-- Always run tests before committing
-- Fix IDE diagnostics immediately after making changes
-- Use descriptive commit messages that explain the "why" not just the "what"
-- Integration tests should use the check-env script to validate environment configuration
+# REFACTOR: Clean up code
+git add .
+git commit -m "refactor: Clean up implementation"
+```
+
+### 10. Coverage Enhancement
+```bash
+# Ensure 100% BDD test coverage
+npm run test:coverage # or equivalent
+git add .
+git commit -m "test: Achieve 100% BDD coverage"
+```
+
+### 11. Implementation PR
+```bash
+gh pr create --base <test-branch> --title "feat: Implementation for <feature-name>" --body "Implements functionality specified in spec/<feature-name>.md with full test coverage"
+```
+
+### 12. Integration Test Verification
+```bash
+# Run full integration test suite
+./scripts/check-env.sh && npm run test:integration
+```
+
+### 13. PR Merge
+```bash
+# Squash and merge PR into test branch
+gh pr merge --squash
+```
+
+### 14. Repeat Process
+For additional specs, return to step 3.
+
+## Execution Guidelines for CLAUDE
+
+- Use `TodoWrite` tool to track progress through workflow steps
+- Always check current branch and git status before proceeding
+- Run IDE diagnostics check after each significant change
+- Verify test commands exist before running (check package.json, Makefile, etc.)
+- Use `gh` commands for all GitHub operations
+- Commit messages should follow conventional commit format
+- Ask for clarification if environment setup scripts don't exist
+
+## Required Repository Permissions
+
+Add to `.claude/permissions.md` or equivalent:
+```markdown
+## Workflow Permissions
+- allow: git checkout, commit, push, branch operations
+- allow: gh issue view, pr create, pr merge
+- allow: npm/python/script execution for testing
+- allow: file creation in spec/, test/, src/ directories
+```
