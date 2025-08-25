@@ -3,7 +3,7 @@
 import os
 
 # Default bucket for S3 operations (also serves as registry) - read from environment
-DEFAULT_BUCKET = os.getenv("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+DEFAULT_BUCKET = os.getenv("QUILT_DEFAULT_BUCKET", "s3://quilt-sandbox-bucket")
 DEFAULT_REGISTRY = DEFAULT_BUCKET  # Registry is the same as bucket
 
 # Known test packages and entries (for testing) - read from environment
