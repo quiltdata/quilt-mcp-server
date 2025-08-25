@@ -28,6 +28,7 @@ echo "Creating test bug report issue..."
 # Create the test issue using gh CLI with template
 ISSUE_URL=$(gh issue create \
     --title "Test Bug Report - Template Validation" \
+    --label "bug" \
     --body "**Bug Description**
 This is a test bug report created to validate the bug report template functionality.
 
