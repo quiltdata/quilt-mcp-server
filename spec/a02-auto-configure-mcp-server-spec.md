@@ -13,10 +13,19 @@ The existing README's instructions for manually configuring a local MCP server a
 - **Duplicative** - Same configuration repeated across multiple client documentation
 - **Incomplete** - Missing edge cases and error handling scenarios
 - **Manual** - Requires users to manually edit JSON configuration files with risk of syntax errors
+- **Incorrect** - It doesn't have the proper commands / make targets for actually running the server.
 
-Users need a streamlined way to configure their local MCP server that reduces friction and potential configuration errors.
+Users need a streamlined and accurate way to configure their local MCP server that reduces friction and potential configuration errors.
 
 ## Functional Requirements
+
+### FR0: Accurate, Concise README
+
+The README needs to:
+
+1. Be optimized for end users seeking to simply install/run the Quilt MCP server
+1. Prioritize the DXT, then autoconfig, then manual invocation
+1. Be completely accurate and tested
 
 ### FR1: Configuration Entry Generation
 
@@ -24,8 +33,6 @@ Users need a streamlined way to configure their local MCP server that reduces fr
 
 **Acceptance Criteria:**
 
-- Generate configuration using `uvx quilt-mcp` command for production usage
-- Generate configuration using `uv run quilt-mcp` command for development mode
 - Include current working directory context in configuration
 - Allow customization of catalog domain (default: `demo.quiltdata.com`)
 - Generate proper JSON structure compatible with MCP client expectations
@@ -110,6 +117,20 @@ Users need a streamlined way to configure their local MCP server that reduces fr
 - Minimal command-line interface complexity
 - Self-documenting help text and usage examples
 - No destructive operations without explicit user consent
+
+### NFR4: Documentation Testing
+
+- README must include testable bash code examples
+- Implement bash doctests to validate all README command examples
+- Integrate bash doctests into CI pipeline or provide local testing capability
+- All README commands must be verified to work as documented
+
+### NFR5: Implementation Strategy
+
+- Survey existing GitHub solutions for bash testing, README validation, and auto-configuration
+- Leverage existing tools and scripts where possible rather than building from scratch
+- Prefer proven, maintained solutions over custom implementations
+- Document any existing tools or patterns found during research
 
 ## Technical Specifications
 
