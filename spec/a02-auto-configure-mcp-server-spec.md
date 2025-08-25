@@ -125,12 +125,43 @@ The README needs to:
 - Integrate bash doctests into CI pipeline or provide local testing capability
 - All README commands must be verified to work as documented
 
+**Implementation Plan (Based on Research):**
+
+- **Primary Solution: Runme** - Modern tool for extracting and executing bash commands from Markdown
+  - Provides CLI + GitHub Action for CI integration
+  - Prevents documentation bitrot through automated testing
+  - Can execute commands directly from README.md files
+- **Alternative: Bats-core** - Proven bash testing framework with strong CI integration
+- **Integration**: Add Runme GitHub Action to existing CI pipeline in `.github/workflows/`
+
 ### NFR5: Implementation Strategy
 
-- Survey existing GitHub solutions for bash testing, README validation, and auto-configuration
-- Leverage existing tools and scripts where possible rather than building from scratch
-- Prefer proven, maintained solutions over custom implementations
-- Document any existing tools or patterns found during research
+- Survey existing GitHub solutions for bash testing, README validation, and auto-configuration ✅
+- Leverage existing tools and scripts where possible rather than building from scratch ✅
+- Prefer proven, maintained solutions over custom implementations ✅
+- Document any existing tools or patterns found during research ✅
+
+**Research Findings:**
+
+**Bash Testing Solutions Identified:**
+
+1. **Runme** - Modern documentation testing platform
+   - Parses and executes bash commands from Markdown
+   - Built-in CI/CD integration capabilities
+   - Prevents documentation drift through automated testing
+   - Available as CLI tool and GitHub Action
+2. **Bats-core** - Established bash testing framework
+   - TAP-compliant testing for bash scripts
+   - Strong ecosystem and CI integration
+   - Can be used to test extracted markdown commands
+3. **markdown-doctest** - JavaScript-focused but provides patterns for other languages
+
+**Make Target Integration Pattern:**
+
+- Existing `app/Makefile` follows consistent `.PHONY` declaration pattern
+- Help text format: `make <target> - Description`
+- Execution pattern: `@export PYTHONPATH="$(PWD)" && uv run python -m <module>`
+- `mcp_config` target should follow: `@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure`
 
 ## Technical Specifications
 
