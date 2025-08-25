@@ -48,33 +48,35 @@ Add a GitHub issue template specifically for bug reports to improve issue qualit
 
 ## Validation Plan
 
-### Test-Driven Development Approach
+### Post-Merge Manual Testing
 
-Using red-green-refactor methodology:
+After the template is merged and deployed:
 
-1. **Red Phase**: Run test script before template exists - should fail
-2. **Green Phase**: Create minimal bug report template to make test pass  
-3. **Refactor Phase**: Improve template structure and content while keeping test passing
+1. **Template Availability**
+   - Navigate to GitHub repository issue creation page
+   - Verify "Bug Report" appears in template selection dropdown
+   - Confirm template description shows correctly
 
-### Automated Test Script (`test-bug-report.sh`)
+2. **Template Functionality**  
+   - Select "Bug Report" template
+   - Verify all required sections are pre-populated
+   - Confirm "bug" label is automatically applied when template is selected
+   - Test that title prefix "[BUG]" is applied
 
-Script validates template functionality by:
+3. **User Experience Validation**
+   - Create a real test bug report using the template
+   - Verify all sections provide clear guidance
+   - Confirm HTML comments render as helpful hints
+   - Test that checklist encourages complete submissions
 
-1. Creating test bug report issue using `gh issue create`
-2. Verifying issue exists with correct "bug" label applied
-3. Confirming all template fields are present in issue body
-4. Cleaning up by closing the test issue
+4. **Integration Testing**
+   - Verify template works across different browsers
+   - Test template on mobile GitHub interface
+   - Confirm template is accessible and readable
 
-### Test Success Criteria
+### Success Criteria
 
-- Script runs without errors
-- Test issue created with "bug" label automatically applied
-- Issue body contains all required template sections
-- Issue can be successfully closed after validation
-
-### Manual Validation (Post-Implementation)
-
-1. Navigate to GitHub repository issue creation page
-2. Verify "Bug Report" template appears in template selection
-3. Select template and confirm all required fields are present
-4. Verify template provides clear guidance for each section
+- Template appears correctly in GitHub's issue creation interface
+- "Bug" label automatically applied when template selected
+- All template sections render with proper formatting
+- Template improves bug report quality and completeness
