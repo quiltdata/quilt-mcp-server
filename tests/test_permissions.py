@@ -325,10 +325,36 @@ class TestPermissionDiscoveryEngine:
         assert identity.account_id is not None
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_discover_bucket_permissions(self):
+        """Test bucket permission discovery with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            s3 = boto3.client('s3')
+            s3.list_buckets()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available")
+        
+        discovery = AWSPermissionDiscovery()
+        
+        # Test with a known public bucket (should have at least read access)
+        bucket_info = discovery.discover_bucket_permissions("quilt-example")
+        
+        # Should succeed or fail gracefully with AWS error
+        assert isinstance(bucket_info, BucketInfo)
+        assert bucket_info.name == "quilt-example"
+        assert bucket_info.permission_level in [PermissionLevel.READ_ONLY, PermissionLevel.FULL_ACCESS, PermissionLevel.NO_ACCESS]
+        
+        # If we have any access, should be able to list
+        if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
+            assert bucket_info.can_list is True
+    
     @pytest.mark.skip(reason="Integration test - requires specific AWS setup")
     @patch('quilt_mcp.aws.permission_discovery.boto3.client')
-    def test_discover_bucket_permissions_full_access(self, mock_boto_client):
-        """Test bucket permission discovery with full access."""
+    def test_discover_bucket_permissions_mocked(self, mock_boto_client):
+        """Test bucket permission discovery with full access (mocked)."""
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
         

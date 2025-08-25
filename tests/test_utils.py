@@ -3,6 +3,7 @@
 import inspect
 import os
 import unittest
+import pytest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
@@ -31,9 +32,31 @@ class TestUtils(unittest.TestCase):
         # Empty string
         self.assertIsNone(generate_signed_url(""))
 
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_generate_signed_url_success(self):
+        """Test URL generation with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            s3 = boto3.client('s3')
+            s3.list_buckets()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available")
+        
+        # Use a known public bucket for testing (quilt-example is publicly readable)
+        result = generate_signed_url("s3://quilt-example/README.md", 1800)
+        
+        # Should return a valid presigned URL or None if bucket doesn't exist
+        if result is not None:
+            self.assertIsInstance(result, str)
+            self.assertTrue(result.startswith("https://"))
+            self.assertIn("quilt-example", result)
+            self.assertIn("README.md", result)
+
     @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_success(self, mock_boto_client):
-        """Test successful URL generation."""
+    def test_generate_signed_url_mocked(self, mock_boto_client):
+        """Test successful URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
         mock_boto_client.return_value = mock_client

@@ -227,10 +227,41 @@ class TestAthenaQueryExecute:
 class TestAthenaQueryHistory:
     """Test athena_query_history function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_query_history_success(self):
+        """Test query history retrieval with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            athena = boto3.client('athena')
+            athena.list_work_groups()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available or Athena not accessible")
+        
+        result = athena_query_history(max_results=10)
+        
+        # Should succeed or fail gracefully with AWS error
+        assert isinstance(result, dict)
+        assert 'success' in result
+        
+        if result['success']:
+            assert 'query_history' in result
+            assert isinstance(result['query_history'], list)
+            assert 'count' in result
+            # Each query should have required fields
+            for query in result['query_history']:
+                assert 'query_execution_id' in query
+                assert 'status' in query
+        else:
+            # Should have error message if failed
+            assert 'error' in result
+            assert isinstance(result['error'], str)
+    
     @patch('boto3.client')
     @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
-    def test_query_history_success(self, mock_service_class, mock_boto3_client):
-        """Test successful query history retrieval."""
+    def test_query_history_mocked(self, mock_service_class, mock_boto3_client):
+        """Test successful query history retrieval with mocks (unit test)."""
         mock_service = Mock()
         mock_service_class.return_value = mock_service
         
@@ -297,9 +328,40 @@ class TestAthenaQueryHistory:
 class TestAthenaWorkgroupsList:
     """Test athena_workgroups_list function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration  
+    def test_list_workgroups_success(self):
+        """Test workgroups listing with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            athena = boto3.client('athena')
+            athena.list_work_groups()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available or Athena not accessible")
+        
+        result = athena_workgroups_list()
+        
+        # Should succeed or fail gracefully with AWS error
+        assert isinstance(result, dict)
+        assert 'success' in result
+        
+        if result['success']:
+            assert 'workgroups' in result
+            assert isinstance(result['workgroups'], list)
+            assert 'count' in result
+            # Each workgroup should have required fields
+            for wg in result['workgroups']:
+                assert 'name' in wg
+                assert 'accessible' in wg
+        else:
+            # Should have error message if failed
+            assert 'error' in result
+            assert isinstance(result['error'], str)
+    
     @patch('boto3.client')
-    def test_list_workgroups_success(self, mock_boto3_client):
-        """Test successful workgroups listing."""
+    def test_list_workgroups_mocked(self, mock_boto3_client):
+        """Test successful workgroups listing with mocks (unit test)."""
         mock_athena_client = Mock()
         mock_boto3_client.return_value = mock_athena_client
         
@@ -397,10 +459,56 @@ class TestAthenaQueryValidate:
 class TestAthenaQueryService:
     """Test AthenaQueryService class."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_service_initialization(self):
+        """Test service initialization with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            athena = boto3.client('athena')
+            athena.list_work_groups()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available or Athena not accessible")
+        
+        # Test both with and without quilt auth
+        service_no_auth = AthenaQueryService(use_quilt_auth=False)
+        assert service_no_auth.use_quilt_auth is False
+        
+        service_with_auth = AthenaQueryService(use_quilt_auth=True)
+        assert service_with_auth.use_quilt_auth is True
+    
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_discover_databases(self):
+        """Test database discovery with real AWS connection."""
+        # Skip if AWS credentials not available
+        try:
+            import boto3
+            athena = boto3.client('athena')
+            athena.list_work_groups()  # Test basic connectivity
+        except Exception:
+            pytest.skip("AWS credentials not available or Athena not accessible")
+        
+        service = AthenaQueryService(use_quilt_auth=False)
+        result = service.discover_databases()
+        
+        # Should succeed or fail gracefully with AWS error
+        assert isinstance(result, dict)
+        assert 'success' in result
+        
+        if result['success']:
+            assert 'databases' in result
+            assert isinstance(result['databases'], list)
+        else:
+            # Should have error message if failed
+            assert 'error' in result
+            assert isinstance(result['error'], str)
+    
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_service_initialization(self, mock_boto3, mock_create_engine):
-        """Test service initialization."""
+    def test_service_initialization_mocked(self, mock_boto3, mock_create_engine):
+        """Test service initialization with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
         
         assert service.use_quilt_auth is False
