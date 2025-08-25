@@ -53,15 +53,40 @@ Use factory functions with optional overrides for test data:
 
 ## Development Workflow
 
+### Spec-Driven Development (aligned with WORKFLOW.md)
+
+Before any implementation begins:
+
+1. **Create specification** in `./spec/` folder:
+   - Specify end-user functionality, development process, and recommended technology
+   - Include comprehensive BDD tests (Behavior-driven, NOT unit tests)
+   - Include 'live' integration test specifications against actual stack
+   - MUST NOT include actual code implementation
+   - MAY suggest function signatures and input/output types
+   - Break into sub-specs for separately mergeable units if needed
+
+2. **Branch strategy**:
+   - `spec/<feature-name>` for specifications
+   - `impl/<feature-name>` for implementation
+   - PRs: tests against spec branch, implementation against test branch
+
 ### TDD Process - THE FUNDAMENTAL PRACTICE
 
 **CRITICAL**: TDD is not optional. Every feature, every bug fix, every change MUST follow this process:
 
-Follow Red-Green-Refactor strictly:
+Follow Red-Green-Refactor strictly (aligned with WORKFLOW.md steps 6, 9, 10):
 
 1. **Red**: Write a failing test for the desired behavior. NO PRODUCTION CODE until you have a failing test.
+   - Commit: `"test: Add BDD tests for <feature-name>"`
+   - Verify tests fail: `"test: Verify BDD tests fail without implementation"`
+   
 2. **Green**: Write the MINIMUM code to make the test pass. Resist the urge to write more than needed.
-3. **Refactor**: Assess the code for improvement opportunities. If refactoring would add value, clean up the code while keeping tests green. If the code is already clean and expressive, move on.
+   - Initial: `"feat: Initial implementation (red phase)"`  
+   - Complete: `"feat: Complete implementation (green phase)"`
+   
+3. **Refactor**: Assess the code for improvement opportunities. If refactoring would add value, clean up the code while keeping tests green.
+   - Commit: `"refactor: Clean up implementation"`
+   - Coverage: `"test: Achieve 100% BDD coverage"`
 
 **Common TDD Violations to Avoid:**
 
@@ -184,12 +209,13 @@ Before considering refactoring complete, verify:
 When working with my code:
 
 1. **ALWAYS FOLLOW TDD** - No production code without a failing test. This is not negotiable.
-2. **Think deeply** before making any edits
-3. **Understand the full context** of the code and requirements
-4. **Ask clarifying questions** when requirements are ambiguous
-5. **Think from first principles** - don't make assumptions
-6. **Assess refactoring after every green** - Look for opportunities to improve code structure, but only refactor if it adds value
-7. **Keep project docs current** - update them whenever you introduce meaningful changes
+2. **Use TodoWrite tool** - Track progress through workflow steps, especially for complex tasks (see WORKFLOW.md)
+3. **Think deeply** before making any edits
+4. **Understand the full context** of the code and requirements
+5. **Ask clarifying questions** when requirements are ambiguous
+6. **Think from first principles** - don't make assumptions
+7. **Assess refactoring after every green** - Look for opportunities to improve code structure, but only refactor if it adds value
+8. **Keep project docs current** - update them whenever you introduce meaningful changes
    **At the end of every change, update CLAUDE.md with anything useful you wished you'd known at the start**.
    This is CRITICAL - Claude should capture learnings, gotchas, patterns discovered, or any context that would have made the task easier if known upfront. This continuous documentation ensures future work benefits from accumulated knowledge
 
@@ -206,6 +232,19 @@ When suggesting or making changes:
 - Provide rationale for significant design decisions
 
 **If you find yourself writing production code without a failing test, STOP immediately and write the test first.**
+
+### WORKFLOW.md Execution Guidelines
+
+When following the standardized workflow:
+
+- **Always check current branch and git status** before proceeding with any step
+- **Run IDE diagnostics check** after each significant change and commit fixes immediately
+- **Verify test commands exist** before running (check package.json, Makefile, etc.)
+- **Use `gh` commands for all GitHub operations** (issue view, pr create, pr merge)
+- **Follow conventional commit format** for all commits
+- **Ask for clarification** if environment setup scripts don't exist (./scripts/check-env.sh)
+- **Use issue analysis command**: `gh issue view $(git branch --show-current | grep -o '[0-9]\+')`
+- **Create proper branch hierarchy**: spec/<feature> → test branch → impl/<feature>
 
 ### Communication
 
@@ -488,6 +527,7 @@ gh issue view $(git branch --show-current | grep -o '[0-9]\+')
 Environment variables are automatically loaded from `.env` and managed by `shared/common.sh`. Use `make check-env` to validate your configuration.
 
 Key variables (see `env.example` for complete list):
+
 - `CDK_DEFAULT_ACCOUNT` - AWS account ID (auto-derived from AWS CLI)
 - `CDK_DEFAULT_REGION` - AWS region (default: us-east-1)
 - `ECR_REGISTRY` - ECR registry URL (auto-constructed if not set)
