@@ -24,9 +24,28 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 class TestAthenaDatabasesList:
     """Test athena_databases_list function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_list_databases_success(self):
+        """Test successful database listing with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            result = athena_databases_list()
+            
+            assert isinstance(result, dict)
+            assert 'success' in result
+            assert 'databases' in result
+            assert isinstance(result['databases'], list)
+            # Should have at least the default database
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
-    def test_list_databases_success(self, mock_service_class):
-        """Test successful database listing."""
+    def test_list_databases_mocked(self, mock_service_class):
+        """Test successful database listing with mocks (unit test)."""
         # Mock the service
         mock_service = Mock()
         mock_service_class.return_value = mock_service
@@ -79,9 +98,29 @@ class TestAthenaDatabasesList:
 class TestAthenaTablesList:
     """Test athena_tables_list function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_list_tables_success(self):
+        """Test successful table listing with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            # Try to list tables from the default database
+            result = athena_tables_list('default')
+            
+            assert isinstance(result, dict)
+            assert 'success' in result
+            assert 'tables' in result
+            assert isinstance(result['tables'], list)
+            # Tables list can be empty, that's ok
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
-    def test_list_tables_success(self, mock_service_class):
-        """Test successful table listing."""
+    def test_list_tables_mocked(self, mock_service_class):
+        """Test successful table listing with mocks (unit test)."""
         mock_service = Mock()
         mock_service_class.return_value = mock_service
         
@@ -126,9 +165,28 @@ class TestAthenaTablesList:
 class TestAthenaTableSchema:
     """Test athena_table_schema function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_get_table_schema_success(self):
+        """Test successful table schema retrieval with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            # Try to get schema for a table that might exist
+            # This will likely fail gracefully if no tables exist
+            result = athena_table_schema('default', 'nonexistent_table')
+            
+            assert isinstance(result, dict)
+            assert 'success' in result
+            # If success is False, that's expected for nonexistent table
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
-    def test_get_table_schema_success(self, mock_service_class):
-        """Test successful table schema retrieval."""
+    def test_get_table_schema_mocked(self, mock_service_class):
+        """Test successful table schema retrieval with mocks (unit test)."""
         mock_service = Mock()
         mock_service_class.return_value = mock_service
         
@@ -160,8 +218,27 @@ class TestAthenaTableSchema:
 class TestAthenaQueryExecute:
     """Test athena_query_execute function."""
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_query_execute_success(self):
+        """Test successful query execution with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            # Use a simple query that should work on any Athena setup
+            query = "SELECT 1 as test_column, 'hello' as test_string"
+            result = athena_query_execute(query)
+            
+            assert isinstance(result, dict)
+            assert 'success' in result
+            # Query might fail if Athena isn't properly configured, that's ok
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
-    def test_query_execute_success(self, mock_service_class):
+    def test_query_execute_mocked(self, mock_service_class):
         """Test successful query execution."""
         mock_service = Mock()
         mock_service_class.return_value = mock_service

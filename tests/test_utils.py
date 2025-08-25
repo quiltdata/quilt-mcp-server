@@ -69,9 +69,30 @@ class TestUtils(unittest.TestCase):
             "get_object", Params={"Bucket": "my-bucket", "Key": "my-key.txt"}, ExpiresIn=1800
         )
 
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_generate_signed_url_expiration_limits(self):
+        """Test expiration time limits with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        from quilt_mcp.constants import DEFAULT_BUCKET
+        
+        # Extract bucket name from DEFAULT_BUCKET
+        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        test_s3_uri = f"s3://{bucket_name}/test-key.txt"
+        
+        # Test minimum expiration (0 should become 1)
+        result1 = generate_signed_url(test_s3_uri, 0)
+        assert result1.startswith("https://")
+        
+        # Test maximum expiration (more than 7 days should become 7 days)
+        result2 = generate_signed_url(test_s3_uri, 700000)  # > 7 days
+        assert result2.startswith("https://")
+    
     @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_expiration_limits(self, mock_boto_client):
-        """Test expiration time limits."""
+    def test_generate_signed_url_expiration_limits_mocked(self, mock_boto_client):
+        """Test expiration time limits with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
         mock_boto_client.return_value = mock_client
@@ -88,16 +109,29 @@ class TestUtils(unittest.TestCase):
             "get_object", Params={"Bucket": "bucket", "Key": "key"}, ExpiresIn=604800  # 7 days
         )
 
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_generate_signed_url_exception(self):
+        """Test handling of exceptions with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        # Try to generate URL for a bucket that doesn't exist
+        result = generate_signed_url("s3://definitely-nonexistent-bucket-12345/key")
+        
+        # Should handle the error gracefully and return None
+        assert result is None
+    
     @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_exception(self, mock_boto_client):
-        """Test handling of exceptions during URL generation."""
+    def test_generate_signed_url_exception_mocked(self, mock_boto_client):
+        """Test handling of exceptions during URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.side_effect = Exception("AWS Error")
         mock_boto_client.return_value = mock_client
 
         result = generate_signed_url("s3://bucket/key")
 
-        self.assertIsNone(result)
+        assert result is None
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
