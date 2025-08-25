@@ -383,7 +383,8 @@ Use `remote-export` for:
 - No secrets are logged or exposed in responses
 - All network traffic goes through ALB with security groups
 
-# important-instruction-reminders
+## Important Instruction Reminders
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
