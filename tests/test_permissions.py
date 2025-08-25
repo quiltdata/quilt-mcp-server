@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime
+from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
 from quilt_mcp.tools.permissions import (
@@ -49,7 +49,7 @@ class TestAWSPermissionsDiscover:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.utcnow()
+                last_checked=datetime.now(timezone.utc)
             ),
             BucketInfo(
                 name="shared-readonly",
@@ -58,7 +58,7 @@ class TestAWSPermissionsDiscover:
                 can_read=True,
                 can_write=False,
                 can_list=True,
-                last_checked=datetime.utcnow()
+                last_checked=datetime.now(timezone.utc)
             )
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
@@ -90,7 +90,7 @@ class TestAWSPermissionsDiscover:
             can_read=True,
             can_write=True,
             can_list=True,
-            last_checked=datetime.utcnow()
+            last_checked=datetime.now(timezone.utc)
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.get_cache_stats = Mock(return_value={})
@@ -131,7 +131,7 @@ class TestBucketAccessCheck:
             can_read=True,
             can_write=True,
             can_list=True,
-            last_checked=datetime.utcnow()
+            last_checked=datetime.now(timezone.utc)
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.test_bucket_operations = Mock(return_value={
@@ -160,7 +160,7 @@ class TestBucketAccessCheck:
             can_read=True,
             can_write=False,
             can_list=True,
-            last_checked=datetime.utcnow()
+            last_checked=datetime.now(timezone.utc)
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.test_bucket_operations = Mock(return_value={
@@ -195,7 +195,7 @@ class TestBucketRecommendations:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.utcnow()
+                last_checked=datetime.now(timezone.utc)
             ),
             BucketInfo(
                 name="temp-storage",
@@ -204,7 +204,7 @@ class TestBucketRecommendations:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.utcnow()
+                last_checked=datetime.now(timezone.utc)
             )
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)

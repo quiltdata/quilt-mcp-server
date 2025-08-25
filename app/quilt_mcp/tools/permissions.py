@@ -6,7 +6,7 @@ intelligent bucket recommendations based on user's actual access levels.
 
 from typing import Dict, List, Any, Optional
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..aws.permission_discovery import AWSPermissionDiscovery, PermissionLevel
 from ..utils import format_error_response
@@ -101,7 +101,7 @@ def aws_permissions_discover(
             "categorized_buckets": categorized_buckets,
             "recommendations": recommendations,
             "cache_stats": cache_stats,
-            "discovery_timestamp": datetime.utcnow().isoformat(),
+            "discovery_timestamp": datetime.now(timezone.utc).isoformat(),
             "total_buckets_checked": len(bucket_permissions)
         }
         
@@ -218,7 +218,7 @@ def bucket_recommendations_get(
             "recommendations": recommendations,
             "total_writable_buckets": len(writable_buckets),
             "total_accessible_buckets": len(accessible_buckets),
-            "recommendation_timestamp": datetime.utcnow().isoformat()
+            "recommendation_timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:

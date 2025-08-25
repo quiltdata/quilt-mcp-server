@@ -124,7 +124,7 @@ def format_error_response(message: str) -> Dict[str, Any]:
     return {
         "success": False,
         "error": message,
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+        "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
 
 

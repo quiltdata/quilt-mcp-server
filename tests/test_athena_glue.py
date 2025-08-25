@@ -6,7 +6,7 @@ Tests for AWS Athena and Glue Data Catalog tools
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 
 from quilt_mcp.tools.athena_glue import (
     athena_databases_list,
@@ -243,7 +243,7 @@ class TestAthenaQueryHistory:
         }
         
         # Mock batch_get_query_execution response
-        mock_execution_time = datetime.utcnow()
+        mock_execution_time = datetime.now(timezone.utc)
         mock_athena_client.batch_get_query_execution.return_value = {
             'QueryExecutions': [
                 {
@@ -303,7 +303,7 @@ class TestAthenaWorkgroupsList:
         mock_athena_client = Mock()
         mock_boto3_client.return_value = mock_athena_client
         
-        mock_time = datetime.utcnow()
+        mock_time = datetime.now(timezone.utc)
         mock_athena_client.list_work_groups.return_value = {
             'WorkGroups': [
                 {
@@ -325,8 +325,8 @@ class TestAthenaWorkgroupsList:
         
         assert result['success'] is True
         assert len(result['workgroups']) == 2
-        assert result['workgroups'][0]['name'] == 'primary'
-        assert result['workgroups'][1]['name'] == 'analytics'
+        assert result['workgroups'][0]['name'] == 'analytics'  # Sorted alphabetically 
+        assert result['workgroups'][1]['name'] == 'primary'
 
 
 class TestAthenaQueryValidate:

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from ..aws.athena_service import AthenaQueryService
 from ..utils import format_error_response
@@ -269,12 +270,12 @@ def athena_query_history(
         # Set default time range if not provided
         if not start_time:
             # Default to last 24 hours
-            start_dt = datetime.utcnow() - timedelta(days=1)
+            start_dt = datetime.now(timezone.utc) - timedelta(days=1)
         else:
             start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
         
         if not end_time:
-            end_dt = datetime.utcnow()
+            end_dt = datetime.now(timezone.utc)
         else:
             end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
         
@@ -344,40 +345,6 @@ def athena_query_history(
     except Exception as e:
         logger.error(f"Failed to get query history: {e}")
         return format_error_response(f"Failed to get query history: {str(e)}")
-
-
-def athena_workgroups_list() -> Dict[str, Any]:
-    """
-    List available Athena workgroups.
-    
-    Returns:
-        List of workgroups with configuration details
-    """
-    try:
-        import boto3
-        
-        athena_client = boto3.client('athena')
-        response = athena_client.list_work_groups()
-        
-        workgroups = []
-        for wg in response.get('WorkGroups', []):
-            workgroup_info = {
-                'name': wg.get('Name'),
-                'description': wg.get('Description', ''),
-                'state': wg.get('State'),
-                'creation_time': wg.get('CreationTime').isoformat() if wg.get('CreationTime') else None
-            }
-            workgroups.append(workgroup_info)
-        
-        return {
-            'success': True,
-            'workgroups': workgroups,
-            'count': len(workgroups)
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to list workgroups: {e}")
-        return format_error_response(f"Failed to list workgroups: {str(e)}")
 
 
 def athena_query_validate(query: str) -> Dict[str, Any]:
