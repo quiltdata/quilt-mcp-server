@@ -1,5 +1,7 @@
 """Tests for AWS permissions discovery functionality."""
 
+import os
+import time
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
@@ -351,10 +353,34 @@ class TestPermissionDiscoveryEngine:
         if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
             assert bucket_info.can_list is True
     
-    @pytest.mark.skip(reason="Integration test - requires specific AWS setup")
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_discover_bucket_permissions_full_access(self):
+        """Test bucket permission discovery with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        from quilt_mcp.constants import DEFAULT_BUCKET
+        
+        # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
+        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        
+        discovery = AWSPermissionDiscovery()
+        bucket_info = discovery.discover_bucket_permissions(bucket_name)
+        
+        # Should get bucket info regardless of access level
+        assert bucket_info.name == bucket_name
+        # Basic assertions that should work for any bucket check
+        assert isinstance(bucket_info.can_list, bool)
+        assert isinstance(bucket_info.can_read, bool)
+        assert isinstance(bucket_info.can_write, bool)
+        assert isinstance(bucket_info.permission_level, PermissionLevel)
+        # Should have a timestamp
+        assert bucket_info.last_checked is not None
+    
     @patch('quilt_mcp.aws.permission_discovery.boto3.client')
     def test_discover_bucket_permissions_mocked(self, mock_boto_client):
-        """Test bucket permission discovery with full access (mocked)."""
+        """Test bucket permission discovery with full access (mocked unit test)."""
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
         
@@ -382,10 +408,29 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_list is True
         assert bucket_info.region == "us-west-2"
 
-    @pytest.mark.skip(reason="Integration test - requires specific AWS setup")
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_discover_bucket_permissions_nonexistent_bucket(self):
+        """Test bucket permission discovery with nonexistent bucket (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        # Use a bucket name that definitely doesn't exist
+        nonexistent_bucket = f"definitely-nonexistent-bucket-{int(time.time())}"
+        
+        discovery = AWSPermissionDiscovery()
+        bucket_info = discovery.discover_bucket_permissions(nonexistent_bucket)
+        
+        # Should have no access to nonexistent bucket
+        assert bucket_info.name == nonexistent_bucket
+        assert bucket_info.permission_level == PermissionLevel.NO_ACCESS
+        assert bucket_info.can_list is False
+        assert bucket_info.can_read is False
+        assert bucket_info.can_write is False
+    
     @patch('quilt_mcp.aws.permission_discovery.boto3.client')
-    def test_discover_bucket_permissions_read_only(self, mock_boto_client):
-        """Test bucket permission discovery with read-only access."""
+    def test_discover_bucket_permissions_read_only_mocked(self, mock_boto_client):
+        """Test bucket permission discovery with read-only access (mocked unit test)."""
         mock_s3 = Mock()
         mock_boto_client.return_value = mock_s3
         

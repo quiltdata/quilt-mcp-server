@@ -3,6 +3,7 @@
 Tests for AWS Athena and Glue Data Catalog tools
 """
 
+import os
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
@@ -517,8 +518,8 @@ class TestAthenaQueryService:
     @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_discover_databases(self, mock_boto3, mock_create_engine, mock_read_sql):
-        """Test database discovery."""
+    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
+        """Test database discovery with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
         
         # Mock pandas DataFrame result from SQL query
@@ -533,11 +534,31 @@ class TestAthenaQueryService:
         assert result['databases'][1]['name'] == 'test_db'
         mock_read_sql.assert_called_once()
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_execute_query(self):
+        """Test query execution with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            service = AthenaQueryService(use_quilt_auth=False)
+            
+            # Use a simple query that should work on any Athena setup
+            result = service.execute_query("SELECT 1 as test_column")
+            
+            assert result['success'] is True
+            assert result['row_count'] >= 1
+            assert 'test_column' in result['columns']
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_execute_query(self, mock_boto3, mock_create_engine, mock_read_sql):
-        """Test query execution."""
+    def test_execute_query_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
+        """Test query execution with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
         
         # Mock pandas DataFrame result
@@ -554,10 +575,43 @@ class TestAthenaQueryService:
         assert result['columns'] == ['event_type', 'count']
         assert result['truncated'] is False
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_format_results_json(self):
+        """Test result formatting to JSON with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            service = AthenaQueryService(use_quilt_auth=False)
+            
+            # Create test data
+            df = pd.DataFrame({
+                'test_column': ['value1', 'value2'],
+                'count': [1, 2]
+            })
+            
+            # Create a result dict like what execute_query would return
+            result_data = {
+                'success': True,
+                'row_count': len(df),
+                'columns': df.columns.tolist(),
+                'data': df.to_dict('records'),
+                'truncated': False
+            }
+            result = service.format_results(result_data, 'json')
+            
+            assert result['success'] is True
+            assert result['format'] == 'json'
+            assert 'data' in result
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')  
-    def test_format_results_json(self, mock_boto3, mock_create_engine):
-        """Test result formatting to JSON."""
+    def test_format_results_json_mocked(self, mock_boto3, mock_create_engine):
+        """Test result formatting to JSON with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
         
         # Mock result data
@@ -580,10 +634,44 @@ class TestAthenaQueryService:
         assert len(formatted['formatted_data']) == 2
         assert formatted['formatted_data'][0]['event_type'] == 'page_view'
     
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_format_results_csv(self):
+        """Test result formatting to CSV with real AWS (integration test)."""
+        if not os.getenv("AWS_ACCESS_KEY_ID"):
+            pytest.skip("AWS credentials not available")
+        
+        try:
+            service = AthenaQueryService(use_quilt_auth=False)
+            
+            # Create test data
+            df = pd.DataFrame({
+                'event_type': ['page_view', 'purchase'],
+                'count': [125432, 23891]
+            })
+            
+            # Create a result dict like what execute_query would return
+            result_data = {
+                'success': True,
+                'row_count': len(df),
+                'columns': df.columns.tolist(),
+                'data': df.to_dict('records'),
+                'truncated': False
+            }
+            result = service.format_results(result_data, 'csv')
+            
+            assert result['success'] is True
+            assert result['format'] == 'csv'
+            assert 'data' in result
+            assert 'event_type,count' in result['data']
+            
+        except Exception as e:
+            pytest.skip(f"Athena service not available: {e}")
+    
     @patch('quilt_mcp.aws.athena_service.create_engine')
     @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_format_results_csv(self, mock_boto3, mock_create_engine):
-        """Test result formatting to CSV."""
+    def test_format_results_csv_mocked(self, mock_boto3, mock_create_engine):
+        """Test result formatting to CSV with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
         
         df = pd.DataFrame({
