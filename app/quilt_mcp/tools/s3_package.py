@@ -15,7 +15,7 @@ import asyncio
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -209,7 +209,7 @@ data = pkg["{logical_path}"]()
 
 """
     
-    readme_content += f"""- **Created**: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+    readme_content += f"""- **Created**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC
 - **Source**: {source_info.get('bucket', 'Unknown')}
 - **Total Size**: {total_size_mb:.1f} MB
 - **File Count**: {total_files}
@@ -285,7 +285,7 @@ def _generate_package_metadata(
     metadata = {
         "quilt": {
             "created_by": "mcp-s3-package-tool-enhanced",
-            "creation_date": datetime.utcnow().isoformat() + "Z",
+            "creation_date": datetime.now(timezone.utc).isoformat() + "Z",
             "package_version": "1.0.0",
             "source": {
                 "type": "s3_bucket",
@@ -649,7 +649,7 @@ def package_create_from_s3(
             },
             "confirmation": confirmation_info,
             "package_hash": package_result.get("top_hash"),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "summary_files": {
                 "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
                 "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),

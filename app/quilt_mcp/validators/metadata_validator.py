@@ -196,7 +196,7 @@ def enhance_metadata_quality(metadata: Dict[str, Any]) -> Dict[str, Any]:
     enhanced["quilt"]["metadata_quality"] = {
         "version": "1.0",
         "enhanced_by": "mcp-metadata-validator",
-        "enhancement_date": datetime.utcnow().isoformat() + "Z"
+        "enhancement_date": datetime.now(datetime.timezone.utc).isoformat() + "Z"
     }
     
     # Add missing recommended fields with defaults
