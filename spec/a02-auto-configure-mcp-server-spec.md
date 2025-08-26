@@ -74,28 +74,43 @@ The README needs to:
 - Create necessary parent directories automatically
 - Provide clear error messages for permission issues
 
-### FR5: Flexible Usage Modes
+### FR5: Interactive Auto-Detection and Configuration
 
-**Behavior:** The system shall support both display-only and direct-modification modes
+**Behavior:** The system shall intelligently detect existing client configurations and offer interactive modification
 
 **Acceptance Criteria:**
 
-- Display configuration entry when no specific action is requested
-- Show all relevant configuration file locations for manual setup
-- Allow direct modification of specified client configuration files
-- Allow explicit file path specification to override client detection
-- Provide success/failure feedback for file operations
+- **Auto-detect existing client config files** on the current OS and report their status (exists/missing)
+- **Interactive mode**: When no specific action is requested, prompt user to select which detected clients to configure
+- **Batch mode**: Support non-interactive flag for scripting/CI usage
+- **Smart client discovery**: Check all known client locations and show which clients are installed
+- **Direct modification**: Offer to directly edit detected configuration files with user confirmation
+- **Rollback capability**: Create backups before modification and offer rollback on errors
+- **Progress feedback**: Show clear success/failure status for each configuration operation
 
-### FR6: Make Target Integration
+### FR6: Externalized Client Configuration
+
+**Behavior:** The system shall support externalized client definitions for easy extensibility
+
+**Acceptance Criteria:**
+
+- **Client definitions file**: Store client configurations (paths, formats, detection logic) in external JSON/YAML file
+- **Easy extensibility**: Adding new MCP clients should only require updating the config file, not code changes
+- **Version compatibility**: Support different client versions with different config file locations
+- **Custom client support**: Allow users to define custom client configurations via config file
+- **Validation**: Validate client configuration schema on startup
+
+### FR7: Make Target Integration
 
 **Behavior:** The system shall integrate with the project's Make-based build system
 
 **Acceptance Criteria:**
 
-- Provide `make mcp_config` target in root Makefile
-- Delegate to appropriate phase-specific Makefile
-- Follow existing Makefile conventions and patterns
-- Include help text in `make help` output
+- **Interactive by default**: `make mcp_config` runs in interactive mode, detecting and prompting for client selection
+- **Non-interactive support**: `make mcp_config BATCH=1` for CI/scripting usage
+- **Client-specific targets**: `make mcp_config CLIENT=claude_desktop` for direct client configuration
+- **Delegate to app phase**: Follow existing Makefile delegation patterns
+- **Include help text**: Update `make help` output with new interactive capabilities
 
 ## Non-Functional Requirements
 
@@ -171,36 +186,61 @@ The README needs to:
 ### Command-Line Interface
 
 ```bash
-# Display configuration entry and file locations (local development mode)
+# Interactive mode: Auto-detect clients and prompt for selection
 python -m quilt_mcp.auto_configure
 
-# Add configuration to specific client
-python -m quilt_mcp.auto_configure --client claude_desktop
-python -m quilt_mcp.auto_configure --client cursor
-python -m quilt_mcp.auto_configure --client vscode
+# Non-interactive mode: Display config without prompts
+python -m quilt_mcp.auto_configure --batch
 
-# Add configuration to specific file path
+# Configure specific detected client directly
+python -m quilt_mcp.auto_configure --client claude_desktop
+
+# List all detectable clients and their status
+python -m quilt_mcp.auto_configure --list-clients
+
+# Add configuration to specific file path (bypass auto-detection)
 python -m quilt_mcp.auto_configure --config-file /path/to/config.json
 
-# Use custom catalog domain (three ways to specify):
+# Use custom catalog domain with any mode:
 python -m quilt_mcp.auto_configure --catalog-domain custom.quiltdata.com  # CLI flag
 QUILT_CATALOG_DOMAIN=custom.quiltdata.com python -m quilt_mcp.auto_configure  # Environment variable
 # OR set QUILT_CATALOG_DOMAIN in .env file and use common.sh integration
+
+# Rollback last configuration changes (if backup exists)
+python -m quilt_mcp.auto_configure --rollback
 ```
 
-**Note:** The `--development` flag has been removed as this specification only covers local development usage. All configurations will automatically include the `cwd` field pointing to the project root.
+**Interactive Mode Behavior:**
+
+1. Auto-detects all client config files on current OS
+2. Shows status: "✅ Found" / "❌ Missing" / "⚠️  Invalid JSON"  
+3. Prompts user to select which clients to configure
+4. Creates backups before modification
+5. Shows success/failure for each operation
 
 ### Make Target Integration
 
 ```bash
-# Generate MCP configuration for local development
+# Interactive mode: Auto-detect and prompt for client selection  
 make mcp_config
 
-# Generate with custom catalog domain (if not set in .env)
+# Non-interactive mode: Display config only (for CI/scripts)
+make mcp_config BATCH=1
+
+# Configure specific client directly
+make mcp_config CLIENT=claude_desktop
+
+# List detectable clients and their status
+make mcp_config LIST=1
+
+# Use with custom catalog domain
 QUILT_CATALOG_DOMAIN=custom.quiltdata.com make mcp_config
+
+# Rollback last changes
+make mcp_config ROLLBACK=1
 ```
 
-**Note:** Make targets will automatically use local development settings with `cwd` pointing to project root. Catalog domain can be specified via environment variable or .env file integration.
+**Note:** All Make targets use interactive mode by default. Use BATCH=1 for non-interactive usage in CI/scripts.
 
 ### Configuration File Structure
 
@@ -243,54 +283,153 @@ Generated configuration entries shall follow this structure:
 | Linux | Cursor | `~/.config/Cursor/User/settings.json` |
 | Linux | VS Code | `~/.config/Code/User/settings.json` |
 
+### Client Configuration File
+
+The system shall use an external configuration file to define client specifications:
+
+**Location:** `app/quilt_mcp/clients.json`
+
+**Structure:**
+```json
+{
+  "clients": {
+    "claude_desktop": {
+      "name": "Claude Desktop",
+      "config_type": "mcp_servers",
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Claude/claude_desktop_config.json",
+        "Windows": "%APPDATA%/Claude/claude_desktop_config.json", 
+        "Linux": "~/.config/claude/claude_desktop_config.json"
+      },
+      "detection": {
+        "check_executable": ["claude", "Claude Desktop.app"],
+        "check_directory": true
+      }
+    },
+    "cursor": {
+      "name": "Cursor", 
+      "config_type": "mcp_servers",
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Cursor/User/settings.json",
+        "Windows": "%APPDATA%/Cursor/User/settings.json",
+        "Linux": "~/.config/Cursor/User/settings.json"
+      },
+      "detection": {
+        "check_executable": ["cursor"],
+        "check_directory": true  
+      }
+    },
+    "vscode": {
+      "name": "VS Code",
+      "config_type": "mcp_servers", 
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Code/User/settings.json",
+        "Windows": "%APPDATA%/Code/User/settings.json",
+        "Linux": "~/.config/Code/User/settings.json"
+      },
+      "detection": {
+        "check_executable": ["code"],
+        "check_directory": true
+      }
+    }
+  }
+}
+```
+
+**Benefits:**
+- Easy to add new clients without code changes
+- Supports platform-specific paths and detection logic
+- Enables community contributions for additional clients
+- Version-specific client support can be added via separate entries
+
 ## BDD Test Scenarios
 
-### Scenario 1: Basic Configuration Generation
+### Scenario 1: Interactive Auto-Detection and Configuration
 
 ```gherkin
-Given I want to generate an MCP server configuration for local development
-When I run the auto-configure script
-Then it should generate a config with uv run command
-And it should include the current working directory pointing to project root
-And it should use the default catalog domain
+Given I have Claude Desktop and Cursor installed on my system
+When I run the auto-configure script in interactive mode
+Then it should auto-detect both client config files
+And it should show "✅ Found" for existing config files
+And it should show "❌ Missing" for non-existent config files  
+And it should prompt me to select which clients to configure
+And it should create backups before modifying any files
+And it should show success/failure status for each operation
 ```
 
-### Scenario 2: Custom Catalog Domain Configuration
+### Scenario 2: Non-Interactive Batch Mode
 
 ```gherkin
-Given I want to generate a configuration with a custom catalog domain
-When I run the auto-configure script with --catalog-domain flag
-Then it should generate a config with the specified domain
-And it should still include local development settings (uv run, cwd)
+Given I want to use auto-configure in a CI script
+When I run the auto-configure script with --batch flag
+Then it should display the generated config without prompts
+And it should not attempt to modify any files
+And it should exit cleanly for scripting usage
 ```
 
-### Scenario 3: Cross-Platform File Location Detection
+### Scenario 3: Client-Specific Direct Configuration
 
 ```gherkin
-Given I am on a [macOS|Windows|Linux] system
-When I request configuration file locations
-Then it should return platform-appropriate paths
-And it should include paths for all supported clients
+Given I want to configure only Claude Desktop
+When I run the auto-configure script with --client claude_desktop
+Then it should detect the Claude Desktop config file location
+And it should configure only that client without prompting
+And it should create a backup before modification
 ```
 
-### Scenario 4: Safe File Modification
+### Scenario 4: Client Status Listing
+
+```gherkin
+Given I want to see which MCP clients are available on my system
+When I run the auto-configure script with --list-clients flag
+Then it should show all supported clients for my platform
+And it should indicate which config files exist
+And it should show which clients are actually installed
+And it should not modify any configuration files
+```
+
+### Scenario 5: Rollback Functionality
+
+```gherkin
+Given I have previously modified client configuration files
+When I run the auto-configure script with --rollback flag
+Then it should detect existing backup files
+And it should restore the original configuration files
+And it should show success/failure status for each rollback operation
+And it should clean up backup files after successful rollback
+```
+
+### Scenario 6: Externalized Client Configuration
+
+```gherkin
+Given the client definitions are stored in an external JSON file
+When I add a new client to the clients.json file
+Then the auto-configure script should detect the new client
+And it should support the new client without code changes
+And it should validate the client configuration schema
+```
+
+### Scenario 7: Safe File Modification with Backup
 
 ```gherkin
 Given an existing configuration file with other MCP servers
-When I add the Quilt MCP server configuration
-Then it should preserve the existing servers
-And it should add the new Quilt server configuration
+When I configure the Quilt MCP server
+Then it should create a backup of the original file
+And it should preserve the existing servers
+And it should add the new Quilt server configuration  
 And the file should remain valid JSON
+And it should offer rollback if the operation fails
 ```
 
-### Scenario 5: Error Handling
+### Scenario 8: Error Handling and Recovery
 
 ```gherkin
 Given a configuration file with malformed JSON
-When I attempt to add MCP configuration
+When I attempt to configure the MCP server
 Then it should detect the malformed JSON
-And it should return an error without corrupting the file
-And it should provide guidance for manual recovery
+And it should show a clear error message
+And it should not attempt to modify the file
+And it should suggest manual recovery steps
 ```
 
 ## Integration Test Requirements
