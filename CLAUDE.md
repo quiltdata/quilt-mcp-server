@@ -2,6 +2,15 @@
 
 ## Core Philosophy
 
+### Spec-Driven Development
+
+**For complex features, follow [WORKFLOW.md](./WORKFLOW.md)** which defines:
+
+- Specification creation in `./spec/` folder
+- Branch strategy: `spec/<feature>` → `impl/<feature>`
+- BDD test requirements
+- Integration test specifications
+
 **TEST-DRIVEN DEVELOPMENT IS NON-NEGOTIABLE.** Every single line of production code must be written in response to a failing test. No exceptions. This is not a suggestion or a preference - it is the fundamental practice that enables all other principles in this document.
 
 I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven testing and functional programming principles. All work should be done in small, incremental changes that maintain a working state throughout development.
@@ -40,15 +49,6 @@ Use factory functions with optional overrides for test data:
 - Mathematical operations where order is conventional
 
 ## Development Workflow
-
-### Spec-Driven Development
-
-**For complex features, follow [WORKFLOW.md](./WORKFLOW.md)** which defines:
-
-- Specification creation in `./spec/` folder
-- Branch strategy: `spec/<feature>` → `impl/<feature>`
-- BDD test requirements
-- Integration test specifications
 
 ### Prefactoring - Feature-Level Preparation
 
@@ -281,7 +281,7 @@ The key is to write clean, testable, functional code that evolves through small,
 
 For this repository's specific commands and permissions, see [docs/CLAUDE.md](./docs/CLAUDE.md) which contains:
 
-- Pre-approved Makefile targets
+- Pre-approved Makefile targets (use those to run tests when possible)
 - Phase-specific commands (app, build, catalog, deploy)
 - Testing and validation procedures
 - AWS operations and deployment commands
@@ -290,7 +290,47 @@ For this repository's specific commands and permissions, see [docs/CLAUDE.md](./
 
 ## Important Instruction Reminders
 
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+**CRITICAL: Do what has been asked; nothing more, nothing less.**
+
+- If asked to "create a spec", ONLY create the specification document - do NOT implement it
+- If asked to "write documentation", ONLY write the documentation - do NOT implement the features described
+- If asked to "analyze code", ONLY analyze - do NOT modify or implement changes
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User
+- NEVER implement features when only asked to specify or document them
+
+## Permissions
+
+The following permissions are granted for this repository:
+
+- You may run any pre-approved `make` targets as defined in the Makefile.
+- You are permitted to use `gh` (GitHub CLI) commands for repository operations, including issue management, PR creation, and branch handling.
+- You may execute local scripts located in the repository (e.g., shell scripts, Python scripts) as long as they are referenced in documentation or Makefile targets.
+- You are permitted to use `uv` for Python dependency management and installation, provided its usage is documented in the repository or referenced by Makefile targets.
+
+**Note:** Only use these commands/scripts as documented or when required by the workflow. Do not introduce new scripts or commands without explicit approval.
+
+## Testing Gotchas & Patterns
+
+**Dependency Management:**
+
+- Always use `uv sync --group test` to install test dependencies before running tests
+- Use `make coverage` for full test runs, but beware matplotlib import conflicts can occur in mixed environments
+- For isolated module testing, use `PYTHONPATH=app uv run pytest tests/test_<module>.py -v`
+
+**BDD Test Patterns:**
+
+- Use `tempfile.NamedTemporaryFile()` and `tempfile.TemporaryDirectory()` for file system tests
+- Always clean up temp files with try/finally blocks
+- Test both success and failure scenarios for file operations
+- Mock external dependencies (platform detection, file systems) for reliable cross-platform tests
+
+**WORKFLOW Execution:**
+
+- Check git status and current branch before starting any workflow
+- Use TodoWrite tool to track multi-step processes
+- Always run IDE diagnostics after implementation
+- Push changes before creating PRs to ensure remote branch is up-to-date
+- **CRITICAL:** Always create specification document in `./spec/` folder before implementation (we skipped this step in issue #60)
+- **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
