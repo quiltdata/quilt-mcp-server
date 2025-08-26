@@ -1,16 +1,14 @@
 """UV Package Publishing functionality.
 
-This module provides functions for publishing packages to PyPI and TestPyPI
-using UV commands, including environment validation and configuration.
-
-This is a stub implementation that will cause tests to fail until properly implemented.
+This module provides functions for building and publishing Python packages
+using UV to TestPyPI and PyPI, with environment validation and CI/CD integration.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Any
 import os
 import subprocess
 import time
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Any
 
 
 @dataclass
@@ -31,50 +29,116 @@ class PublishResult:
 
 
 def validate_testpypi_environment(env_vars: Dict[str, str]) -> ValidationResult:
-    """
-    Validate TestPyPI environment configuration.
+    """Validate TestPyPI publishing environment variables.
     
     Args:
         env_vars: Dictionary of environment variables to validate
         
     Returns:
-        ValidationResult indicating whether configuration is valid
+        ValidationResult with validation status and messages
     """
-    # This stub implementation will cause tests to fail
-    raise NotImplementedError("validate_testpypi_environment not yet implemented")
+    missing_variables = []
+    
+    # Check required TestPyPI token
+    if not env_vars.get("TESTPYPI_TOKEN"):
+        missing_variables.append("TESTPYPI_TOKEN")
+    
+    if missing_variables:
+        return ValidationResult(
+            is_valid=False,
+            missing_variables=missing_variables,
+            error_message="TestPyPI credentials not configured"
+        )
+    
+    return ValidationResult(
+        is_valid=True,
+        missing_variables=[],
+        success_message="TestPyPI configuration valid"
+    )
 
 
 def build_package() -> PublishResult:
-    """
-    Build package using UV build command.
+    """Build the package using UV.
     
     Returns:
-        PublishResult indicating build success/failure
+        PublishResult with build status and output
     """
-    # This stub implementation will cause tests to fail
-    raise NotImplementedError("build_package not yet implemented")
+    try:
+        result = subprocess.run(
+            ["uv", "build"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        return PublishResult(
+            success=result.returncode == 0,
+            output=result.stdout,
+            error=result.stderr if result.returncode != 0 else ""
+        )
+    except subprocess.TimeoutExpired:
+        return PublishResult(
+            success=False,
+            output="",
+            error="UV build timed out after 120 seconds"
+        )
+    except FileNotFoundError:
+        return PublishResult(
+            success=False,
+            output="",
+            error="UV command not found. Please install UV first."
+        )
 
 
 def publish_to_testpypi(config: Dict[str, str]) -> PublishResult:
-    """
-    Publish package to TestPyPI using UV publish command.
+    """Publish package to TestPyPI using UV.
     
     Args:
-        config: Configuration dictionary with TestPyPI credentials
+        config: Configuration dictionary with TESTPYPI_TOKEN and optional UV_PUBLISH_URL
         
     Returns:
-        PublishResult indicating publish success/failure
+        PublishResult with publish status and output
     """
-    # This stub implementation will cause tests to fail
-    raise NotImplementedError("publish_to_testpypi not yet implemented")
+    env = os.environ.copy()
+    env.update({
+        "UV_PUBLISH_TOKEN": config["TESTPYPI_TOKEN"],
+        "UV_PUBLISH_URL": config.get("UV_PUBLISH_URL", "https://test.pypi.org/legacy/")
+    })
+    
+    try:
+        result = subprocess.run(
+            ["uv", "publish"],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180
+        )
+        
+        return PublishResult(
+            success=result.returncode == 0,
+            output=result.stdout,
+            error=result.stderr if result.returncode != 0 else ""
+        )
+    except subprocess.TimeoutExpired:
+        return PublishResult(
+            success=False,
+            output="",
+            error="UV publish timed out after 180 seconds"
+        )
+    except FileNotFoundError:
+        return PublishResult(
+            success=False,
+            output="",
+            error="UV command not found. Please install UV first."
+        )
 
 
 def generate_test_version() -> str:
-    """
-    Generate unique test version for TestPyPI publishing.
+    """Generate a unique test version for TestPyPI publishing.
     
     Returns:
-        Version string in format "0.4.1-test-{timestamp}"
+        Test version string in format: 0.4.1-test-{timestamp_ns}
     """
-    # This stub implementation will cause tests to fail
-    raise NotImplementedError("generate_test_version not yet implemented")
+    # Use nanosecond precision for uniqueness
+    timestamp_ns = time.time_ns()
+    return f"0.4.1-test-{timestamp_ns}"
