@@ -4,11 +4,13 @@ Standardized workflow for processing GitHub issues.
 
 ## Process Overview
 
-**PRIMARY WORKFLOW ORCHESTRATION**: Use the `workflow-orchestrator` sub-agent to manage the entire process flow, state transitions, and coordination between phases. This ensures reliable execution of complex multi-phase workflows.
+**PRIMARY WORKFLOW ORCHESTRATION**:  
+Use the `workflow-orchestrator` sub-agent to manage the entire process flow, state transitions,  
+and coordination between phases. This ensures reliable execution of complex multi-phase workflows.
 
 1. **Workflow Initialization**
    1. Delegate entire workflow to `workflow-orchestrator` sub-agent for process management
-   1. Each agent MUST a TODO for itself to ensure it follows this ENTIRE workflow process
+   1. Each agent MUST create a TODO for itself to ensure together they follow the ENTIRE workflow process
    1. **Workflow-orchestrator handles all phase transitions and state management**
 
 2. **Phase 1: Investigation** (Orchestrated via `research-analyst` sub-agent)
@@ -110,6 +112,7 @@ Standardized workflow for processing GitHub issues.
 - `code-reviewer` (Phase 6) MUST verify that all previous phases' requirements have been satisfied
 
 **Validation Checkpoints**: At each phase transition, the receiving sub-agent must:
+
 1. Review all artifacts from previous phases
 2. Identify any gaps, inconsistencies, or missing requirements
 3. Flag issues for correction before proceeding
