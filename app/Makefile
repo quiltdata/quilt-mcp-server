@@ -155,4 +155,4 @@ zero:
 
 mcp_config:
 	@echo "Generating MCP server configuration..."
-	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure --development
+	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure

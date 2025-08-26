@@ -2,7 +2,9 @@
 
 ## Overview
 
-This specification defines the behavior for automatically configuring local MCP (Model Context Protocol) server setup for common clients including Claude Desktop, VS Code, Cursor, and other MCP-compatible editors.
+This specification defines the behavior for automatically configuring **local development** MCP (Model Context Protocol) server setup for common clients including Claude Desktop, VS Code, Cursor, and other MCP-compatible editors.
+
+**Scope:** This specification covers **local development usage only** - running the MCP server directly from a git repository clone using `uv run`. Production usage via packaged installation (e.g., `uvx install quilt-mcp`) is covered by separate issue #67.
 
 **GitHub Issue:** #60 - Auto-configure local MCP server for common clients (Claude Desktop, VS Code, Cursor, etc.)
 
@@ -33,9 +35,10 @@ The README needs to:
 
 **Acceptance Criteria:**
 
-- Include current working directory context in configuration
-- Allow customization of catalog domain (default: `demo.quiltdata.com`)
+- Include current working directory context in configuration (automatically set `cwd` to project root)
+- Allow customization of catalog domain via command line flag, environment variable, or .env file
 - Generate proper JSON structure compatible with MCP client expectations
+- Configuration must use `uv run quilt-mcp` command for local development
 
 ### FR2: Multi-Client Support  
 
@@ -168,7 +171,7 @@ The README needs to:
 ### Command-Line Interface
 
 ```bash
-# Display configuration entry and file locations
+# Display configuration entry and file locations (local development mode)
 python -m quilt_mcp.auto_configure
 
 # Add configuration to specific client
@@ -179,25 +182,25 @@ python -m quilt_mcp.auto_configure --client vscode
 # Add configuration to specific file path
 python -m quilt_mcp.auto_configure --config-file /path/to/config.json
 
-# Use development mode
-python -m quilt_mcp.auto_configure --development
-
-# Use custom catalog domain
-python -m quilt_mcp.auto_configure --catalog-domain custom.quiltdata.com
+# Use custom catalog domain (three ways to specify):
+python -m quilt_mcp.auto_configure --catalog-domain custom.quiltdata.com  # CLI flag
+QUILT_CATALOG_DOMAIN=custom.quiltdata.com python -m quilt_mcp.auto_configure  # Environment variable
+# OR set QUILT_CATALOG_DOMAIN in .env file and use common.sh integration
 ```
+
+**Note:** The `--development` flag has been removed as this specification only covers local development usage. All configurations will automatically include the `cwd` field pointing to the project root.
 
 ### Make Target Integration
 
 ```bash
-# Auto-configure for development
+# Generate MCP configuration for local development
 make mcp_config
 
-# Auto-configure for specific client
-make mcp_config CLIENT=claude_desktop
-
-# Auto-configure with custom domain
-make mcp_config DOMAIN=custom.quiltdata.com
+# Generate with custom catalog domain (if not set in .env)
+QUILT_CATALOG_DOMAIN=custom.quiltdata.com make mcp_config
 ```
+
+**Note:** Make targets will automatically use local development settings with `cwd` pointing to project root. Catalog domain can be specified via environment variable or .env file integration.
 
 ### Configuration File Structure
 
@@ -207,8 +210,9 @@ Generated configuration entries shall follow this structure:
 {
   "mcpServers": {
     "quilt": {
-      "command": "uvx",
-      "args": ["quilt-mcp"],
+      "command": "uv",
+      "args": ["run", "quilt-mcp"],
+      "cwd": "/path/to/quilt-mcp-server",
       "env": {
         "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
       },
@@ -217,6 +221,13 @@ Generated configuration entries shall follow this structure:
   }
 }
 ```
+
+**Key Requirements:**
+
+- `command`: Must be `"uv"` for local development
+- `args`: Must be `["run", "quilt-mcp"]` for local development  
+- `cwd`: Must point to the project root directory (where `pyproject.toml` exists)
+- `env.QUILT_CATALOG_DOMAIN`: User-configurable via CLI flag, environment variable, or .env file
 
 ### File Location Mapping
 
@@ -237,20 +248,20 @@ Generated configuration entries shall follow this structure:
 ### Scenario 1: Basic Configuration Generation
 
 ```gherkin
-Given I want to generate an MCP server configuration
+Given I want to generate an MCP server configuration for local development
 When I run the auto-configure script
-Then it should generate a config with uvx command
-And it should include the current working directory context
+Then it should generate a config with uv run command
+And it should include the current working directory pointing to project root
 And it should use the default catalog domain
 ```
 
-### Scenario 2: Development Mode Configuration
+### Scenario 2: Custom Catalog Domain Configuration
 
 ```gherkin
-Given I want to generate a development configuration
-When I run the auto-configure script with --development flag
-Then it should generate a config with uv run command
-And it should include development-appropriate settings
+Given I want to generate a configuration with a custom catalog domain
+When I run the auto-configure script with --catalog-domain flag
+Then it should generate a config with the specified domain
+And it should still include local development settings (uv run, cwd)
 ```
 
 ### Scenario 3: Cross-Platform File Location Detection

@@ -149,21 +149,23 @@ def add_to_config_file(config_file_path: str, mcp_config: Dict[str, Any]) -> boo
 def auto_configure_main(
     client: Optional[str] = None,
     config_file_path: Optional[str] = None,
-    catalog_domain: str = "demo.quiltdata.com",
-    development_mode: bool = False
+    catalog_domain: Optional[str] = None
 ) -> None:
-    """Main auto-configuration workflow.
+    """Main auto-configuration workflow for local development.
     
     Args:
         client: Specific client to configure (e.g., 'cursor', 'claude_desktop', 'vscode')
         config_file_path: Explicit path to configuration file (overrides client detection)
-        catalog_domain: Quilt catalog domain to use
-        development_mode: Whether to use development mode configuration
+        catalog_domain: Quilt catalog domain to use (overrides environment variable)
     """
-    # Generate the configuration entry
+    # Determine catalog domain: CLI arg > env var > default
+    if catalog_domain is None:
+        catalog_domain = os.environ.get("QUILT_CATALOG_DOMAIN", "demo.quiltdata.com")
+    
+    # Generate the configuration entry (always development mode for this spec)
     config_entry = generate_config_entry(
         catalog_domain=catalog_domain,
-        development_mode=development_mode
+        development_mode=True
     )
     
     print("Generated MCP Server Configuration:")
@@ -208,20 +210,17 @@ def auto_configure_main(
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Auto-configure Quilt MCP server for various editors")
+    parser = argparse.ArgumentParser(description="Auto-configure Quilt MCP server for local development")
     parser.add_argument("--client", choices=["cursor", "claude_desktop", "vscode"], 
                        help="Client to configure")
     parser.add_argument("--config-file", help="Explicit path to configuration file")
-    parser.add_argument("--catalog-domain", default="demo.quiltdata.com",
-                       help="Quilt catalog domain (default: demo.quiltdata.com)")
-    parser.add_argument("--development", action="store_true",
-                       help="Use development mode (uv run instead of uvx)")
+    parser.add_argument("--catalog-domain",
+                       help="Quilt catalog domain (overrides QUILT_CATALOG_DOMAIN env var, default: demo.quiltdata.com)")
     
     args = parser.parse_args()
     
     auto_configure_main(
         client=args.client,
         config_file_path=args.config_file,
-        catalog_domain=args.catalog_domain,
-        development_mode=args.development
+        catalog_domain=args.catalog_domain
     )
