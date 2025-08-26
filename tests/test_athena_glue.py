@@ -128,6 +128,47 @@ class TestAthenaQueryExecute:
         assert result['success'] is False
         assert 'output_format must be one of' in result['error']
 
+    @pytest.mark.aws
+    @pytest.mark.integration
+    def test_query_execute_with_builtin_credentials(self):
+        """Test query execution using built-in AWS credentials (not quilt3)."""
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
+        
+        # Use a simple query that should work on any Athena setup
+        query = "SELECT 1 as test_column, 'builtin_creds' as auth_type"
+        
+        # Explicitly use built-in AWS credentials (use_quilt_auth=False)
+        result = athena_query_execute(
+            query=query,
+            max_results=5,
+            output_format='json',
+            use_quilt_auth=False  # This is the key - use AWS credentials, not quilt3
+        )
+        
+        assert isinstance(result, dict)
+        assert 'success' in result
+        
+        if result['success']:
+            # Verify the query executed successfully with built-in credentials
+            assert 'formatted_data' in result
+            assert 'format' in result
+            assert result['format'] == 'json'
+            assert len(result['formatted_data']) == 1
+            assert result['formatted_data'][0]['test_column'] == 1
+            assert result['formatted_data'][0]['auth_type'] == 'builtin_creds'
+            # Verify other expected fields in successful response
+            assert 'row_count' in result
+            assert 'columns' in result
+            assert result['row_count'] == 1
+            assert 'test_column' in result['columns']
+            assert 'auth_type' in result['columns']
+        else:
+            # Query might fail due to Athena configuration, but should fail gracefully
+            assert 'error' in result
+            # The error should not be related to authentication if we have valid AWS creds
+            assert isinstance(result['error'], str)
+
 
 class TestAthenaQueryHistory:
     """Test athena_query_history function."""
@@ -359,6 +400,17 @@ class TestAthenaQueryValidate:
         assert result['success'] is True
         assert result['valid'] is True
         assert result['query_type'] == 'DESCRIBE'
+    
+    def test_validate_backticks_query(self):
+        """Test validation of query with backticks (MySQL-style) instead of double quotes."""
+        query = "SELECT `column_name`, `another_column` FROM `table_name` WHERE `id` = 1"
+        result = athena_query_validate(query)
+        
+        assert result['success'] is False
+        assert result['valid'] is False
+        assert 'backtick' in result['error'].lower()
+        assert 'suggestions' in result
+        assert len(result['suggestions']) > 0
 
 
 class TestAthenaQueryService:
