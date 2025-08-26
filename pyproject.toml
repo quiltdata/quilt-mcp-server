@@ -71,6 +71,7 @@ markers = [
     "performance: marks tests as performance benchmarks",
     "integration: marks tests as integration tests",
     "error_handling: marks tests as error handling tests",
+    "asyncio: marks tests as async tests",
 ]
 
 [tool.pytest.ini_options.asyncio]

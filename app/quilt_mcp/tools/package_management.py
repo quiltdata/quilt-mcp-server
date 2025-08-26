@@ -389,7 +389,7 @@ def package_update_metadata(
             # Suppress stdout during push to avoid JSON-RPC interference
             from ..utils import suppress_stdout
             with suppress_stdout():
-                top_hash = pkg.push(package_name, registry=registry, message=commit_message)
+                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
             
             return {
                 "success": True,

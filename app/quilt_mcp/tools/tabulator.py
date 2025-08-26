@@ -153,12 +153,18 @@ class TabulatorService:
                 
                 enriched_tables.append(table_info)
             
-            return {
+            result = {
                 'success': True,
                 'tables': enriched_tables,
                 'bucket_name': bucket_name,
                 'count': len(enriched_tables)
             }
+            
+            # Enhance with table formatting for better readability
+            from ..formatting import format_tabulator_results_as_table
+            result = format_tabulator_results_as_table(result)
+            
+            return result
             
         except Exception as e:
             logger.error(f"Failed to list tabulator tables: {e}")

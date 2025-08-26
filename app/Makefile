@@ -83,6 +83,16 @@ test-ci:
 	@uv sync --group test
 	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search" --timeout=15 --disable-warnings
 
+test-ci-with-aws:
+	@echo "Running CI tests with real AWS credentials..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not slow" --timeout=30 --disable-warnings
+
+test-ci-with-aws-no-search:
+	@echo "Running CI tests with real AWS credentials (excluding search)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings
+
 test-unit-ci:
 	@echo "Running unit tests only (no AWS calls)..."
 	@uv sync --group test
