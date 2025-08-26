@@ -1,144 +1,181 @@
-"""UV Package Publishing functionality.
+"""UV Publishing Module for TestPyPI and PyPI package publishing.
 
-This module provides functions for building and publishing Python packages
-using UV to TestPyPI and PyPI, with environment validation and CI/CD integration.
+This module provides environment validation and publishing utilities
+for the Quilt MCP server package using UV commands.
 """
 
 import os
 import subprocess
-import time
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Tuple
 
 
-@dataclass
-class ValidationResult:
-    """Result of environment validation."""
-    is_valid: bool
-    missing_variables: List[str]
-    error_message: str = ""
-    success_message: str = ""
+class PublishingError(Exception):
+    """Raised when publishing operations fail."""
+    pass
 
 
-@dataclass
-class PublishResult:
-    """Result of package publishing operation."""
-    success: bool
-    output: str
-    error: str = ""
+class EnvironmentValidationError(Exception):
+    """Raised when environment validation fails."""
+    pass
 
 
-def validate_testpypi_environment(env_vars: Dict[str, str]) -> ValidationResult:
-    """Validate TestPyPI publishing environment variables.
-    
-    Args:
-        env_vars: Dictionary of environment variables to validate
-        
-    Returns:
-        ValidationResult with validation status and messages
+def validate_testpypi_environment() -> Tuple[bool, List[str]]:
     """
-    missing_variables = []
-    
-    # Check required TestPyPI token
-    if not env_vars.get("TESTPYPI_TOKEN"):
-        missing_variables.append("TESTPYPI_TOKEN")
-    
-    if missing_variables:
-        return ValidationResult(
-            is_valid=False,
-            missing_variables=missing_variables,
-            error_message="TestPyPI credentials not configured"
-        )
-    
-    return ValidationResult(
-        is_valid=True,
-        missing_variables=[],
-        success_message="TestPyPI configuration valid"
-    )
-
-
-def build_package() -> PublishResult:
-    """Build the package using UV.
+    Validate TestPyPI publishing environment variables.
     
     Returns:
-        PublishResult with build status and output
+        Tuple of (is_valid, missing_variables)
+        
+    Raises:
+        EnvironmentValidationError: If validation fails with details
+    """
+    required_vars = [
+        'TESTPYPI_TOKEN'
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    is_valid = len(missing_vars) == 0
+    
+    if not is_valid:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        raise EnvironmentValidationError(error_msg)
+    
+    return is_valid, missing_vars
+
+
+def validate_uv_availability() -> bool:
+    """
+    Check if UV command is available in the system.
+    
+    Returns:
+        True if UV is available, False otherwise
     """
     try:
         result = subprocess.run(
-            ["uv", "build"],
+            ['uv', '--version'],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=10
         )
-        
-        return PublishResult(
-            success=result.returncode == 0,
-            output=result.stdout,
-            error=result.stderr if result.returncode != 0 else ""
-        )
-    except subprocess.TimeoutExpired:
-        return PublishResult(
-            success=False,
-            output="",
-            error="UV build timed out after 120 seconds"
-        )
-    except FileNotFoundError:
-        return PublishResult(
-            success=False,
-            output="",
-            error="UV command not found. Please install UV first."
-        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
 
 
-def publish_to_testpypi(config: Dict[str, str]) -> PublishResult:
-    """Publish package to TestPyPI using UV.
+def build_package(directory: str = ".") -> Tuple[bool, str]:
+    """
+    Build package using UV build command.
     
     Args:
-        config: Configuration dictionary with TESTPYPI_TOKEN and optional UV_PUBLISH_URL
+        directory: Directory to build from (default: current directory)
         
     Returns:
-        PublishResult with publish status and output
+        Tuple of (success, output_message)
+        
+    Raises:
+        PublishingError: If build fails
     """
+    try:
+        result = subprocess.run(
+            ['uv', 'build'],
+            cwd=directory,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minutes max for build
+        )
+        
+        if result.returncode == 0:
+            return True, result.stdout
+        else:
+            error_msg = f"Build failed: {result.stderr}"
+            raise PublishingError(error_msg)
+            
+    except subprocess.TimeoutExpired:
+        raise PublishingError("Build timed out after 5 minutes")
+    except Exception as e:
+        raise PublishingError(f"Build failed: {str(e)}")
+
+
+def publish_to_testpypi(directory: str = ".") -> Tuple[bool, str]:
+    """
+    Publish package to TestPyPI using UV publish command.
+    
+    Args:
+        directory: Directory containing built packages
+        
+    Returns:
+        Tuple of (success, output_message)
+        
+    Raises:
+        PublishingError: If publishing fails
+        EnvironmentValidationError: If environment is not configured
+    """
+    # Validate environment first
+    validate_testpypi_environment()
+    
+    # Set up environment variables for UV publish
     env = os.environ.copy()
-    env.update({
-        "UV_PUBLISH_TOKEN": config["TESTPYPI_TOKEN"],
-        "UV_PUBLISH_URL": config.get("UV_PUBLISH_URL", "https://test.pypi.org/legacy/")
-    })
+    env['UV_PUBLISH_URL'] = 'https://test.pypi.org/legacy/'
+    env['UV_PUBLISH_TOKEN'] = os.getenv('TESTPYPI_TOKEN')
     
     try:
         result = subprocess.run(
-            ["uv", "publish"],
+            ['uv', 'publish'],
+            cwd=directory,
+            env=env,
             capture_output=True,
             text=True,
-            env=env,
-            timeout=180
+            timeout=300  # 5 minutes max for publish
         )
         
-        return PublishResult(
-            success=result.returncode == 0,
-            output=result.stdout,
-            error=result.stderr if result.returncode != 0 else ""
-        )
+        if result.returncode == 0:
+            return True, result.stdout
+        else:
+            error_msg = f"Publishing failed: {result.stderr}"
+            raise PublishingError(error_msg)
+            
     except subprocess.TimeoutExpired:
-        return PublishResult(
-            success=False,
-            output="",
-            error="UV publish timed out after 180 seconds"
-        )
-    except FileNotFoundError:
-        return PublishResult(
-            success=False,
-            output="",
-            error="UV command not found. Please install UV first."
-        )
+        raise PublishingError("Publishing timed out after 5 minutes")
+    except Exception as e:
+        raise PublishingError(f"Publishing failed: {str(e)}")
 
 
 def generate_test_version() -> str:
-    """Generate a unique test version for TestPyPI publishing.
+    """
+    Generate a unique test version string for TestPyPI publishing.
     
     Returns:
-        Test version string in format: 0.4.1-test-{timestamp_ns}
+        Version string in format "0.4.1-test-{timestamp}"
     """
-    # Use nanosecond precision for uniqueness
-    timestamp_ns = time.time_ns()
-    return f"0.4.1-test-{timestamp_ns}"
+    import time
+    timestamp = int(time.time())
+    return f"0.4.1-test-{timestamp}"
+
+
+def get_publishing_environment_status() -> Dict[str, any]:
+    """
+    Get comprehensive status of publishing environment.
+    
+    Returns:
+        Dictionary with environment status information
+    """
+    status = {
+        'uv_available': validate_uv_availability(),
+        'testpypi_configured': False,
+        'missing_variables': [],
+        'errors': []
+    }
+    
+    try:
+        is_valid, missing_vars = validate_testpypi_environment()
+        status['testpypi_configured'] = is_valid
+        status['missing_variables'] = missing_vars
+    except EnvironmentValidationError as e:
+        status['errors'].append(str(e))
+        status['missing_variables'] = ['TESTPYPI_TOKEN']
+    
+    return status
