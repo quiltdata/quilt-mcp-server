@@ -357,8 +357,8 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.integration
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         from quilt_mcp.constants import DEFAULT_BUCKET
         
@@ -383,8 +383,8 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.integration
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         # Use a bucket name that definitely doesn't exist
         nonexistent_bucket = f"definitely-nonexistent-bucket-{int(time.time())}"

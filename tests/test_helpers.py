@@ -18,8 +18,9 @@ def skip_if_no_aws_credentials():
             sts = boto3.client('sts')
             
         sts.get_caller_identity()
-    except Exception:
-        pytest.skip("AWS credentials not available")
+    except Exception as e:
+        print(e)
+        #pytest.skip("AWS credentials not available")
 
 
 def has_aws_credentials() -> bool:

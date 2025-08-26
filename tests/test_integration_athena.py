@@ -162,8 +162,8 @@ class TestQuiltAuthIntegration:
         import os
         
         # Skip if no AWS credentials
-        if not (os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY')):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             service = AthenaQueryService(use_quilt_auth=True)
@@ -216,8 +216,8 @@ class TestAthenaPerformance:
     @pytest.mark.integration
     def test_concurrent_database_discovery(self):
         """Test concurrent database discovery operations with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             import threading
@@ -263,8 +263,8 @@ class TestAthenaPerformance:
         import time
         
         # Skip if no AWS credentials
-        if not (os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY')):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         results = []
         errors = []
@@ -344,8 +344,8 @@ class TestAthenaErrorHandling:
         import os
         
         # Skip if no AWS credentials
-        if not (os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY')):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         # Try to access a non-existent catalog to trigger an error
         result = athena_databases_list(catalog_name="nonexistent-catalog-12345")
@@ -384,8 +384,8 @@ class TestAthenaErrorHandling:
         import os
         
         # Skip if no AWS credentials
-        if not (os.getenv('AWS_ACCESS_KEY_ID') and os.getenv('AWS_SECRET_ACCESS_KEY')):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         # Execute invalid SQL to trigger a syntax error
         result = athena_query_execute("SELECT FROM WHERE")  # Invalid SQL

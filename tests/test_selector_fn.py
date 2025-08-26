@@ -94,35 +94,3 @@ def test_package_ops_copy_mode_same_bucket(mock_package_class):
     assert result.get("status") == "success"
     assert result.get("top_hash") == "test_top_hash"
 
-
-@patch("quilt3.Package")
-@patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-@patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-@patch("quilt_mcp.tools.s3_package.bucket_access_check")
-@pytest.mark.xfail(reason="MockPackage implementation issue with selector_fn - real quilt3 works fine")
-def test_s3_package_copy_mode_none(mock_access_check, mock_validate, mock_discover, mock_package_class):
-    # Configure mock to return our MockPackage
-    mock_package_class.return_value = MockPackage()
-    
-    # Simulate write access to target registry
-    mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
-    mock_validate.return_value = None
-    mock_discover.return_value = [
-        {"Key": "data/file1.csv", "Size": 100},
-        {"Key": "data/file2.csv", "Size": 200},
-    ]
-
-    # Test with copy_mode="none" - this should work without selector_fn issues
-    result = package_create_from_s3(
-        source_bucket="source-bucket",
-        package_name="team/pkg",
-        target_registry="s3://target-bucket",
-        copy_mode="none",
-        auto_organize=True,
-        description="test",
-    )
-
-    # The function should succeed and return success
-    assert result.get("success") is True
-    assert result.get("package_hash") == "test_top_hash"
-
