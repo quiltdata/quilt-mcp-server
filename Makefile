@@ -5,6 +5,7 @@
 
 # Define phases
 sinclude .env
+export
 PHASES := app build catalog deploy
 
 # Endpoint configuration
@@ -13,7 +14,7 @@ BUILD_ENDPOINT ?= http://127.0.0.1:8001/mcp
 CATALOG_ENDPOINT ?= http://127.0.0.1:8002/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo
+.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo publish-test check-publish-env
 
 # Default target
 help:
@@ -29,6 +30,10 @@ help:
 	@echo "  make run-app      - Run Phase 1 MCP server locally"
 	@echo "  make run-app-tunnel - Expose local server via ngrok tunnel"
 	@echo "  make run-app-tunnel-inspector - Expose MCP Inspector via ngrok tunnel"
+	@echo ""
+	@echo "📦 Publishing Commands:"
+	@echo "  make publish-test      - Publish package to TestPyPI"
+	@echo "  make check-publish-env - Validate publishing environment"
 	@echo ""
 	@echo "🧹 Cleanup Commands:"
 	@echo "  make clean      - Clean all phase artifacts"
@@ -110,6 +115,34 @@ test-catalog:
 
 test-deploy:
 	@$(MAKE) -C deploy-aws test
+
+
+# Publishing Commands
+publish-test: check-publish-env
+	@echo "📦 Publishing package to TestPyPI..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "❌ UV not found. Please install UV first."; \
+		echo "   pip install uv"; \
+		exit 1; \
+	fi
+	@echo "🔨 Building package with UV..."
+	@cd app && uv build
+	@echo "🚀 Publishing to TestPyPI..."
+	@cd app && UV_PUBLISH_URL=https://test.pypi.org/legacy/ UV_PUBLISH_TOKEN="$$TESTPYPI_TOKEN" uv publish
+	@echo "✅ Package published to TestPyPI successfully!"
+
+check-publish-env:
+	@echo "🔍 Validating publishing environment..."
+	@if [ -z "$$TESTPYPI_TOKEN" ]; then \
+		echo "❌ Missing required environment variables:"; \
+		echo "   - TESTPYPI_TOKEN"; \
+		echo ""; \
+		echo "TestPyPI credentials not configured"; \
+		echo "Please add TESTPYPI_TOKEN to .env file"; \
+		exit 1; \
+	fi
+	@echo "✅ TestPyPI configuration valid"
+	@echo "✅ UV publishing environment ready"
 
 
 # Server Commands
