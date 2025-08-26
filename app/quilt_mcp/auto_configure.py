@@ -30,12 +30,30 @@ def generate_config_entry(
     if development_mode:
         command = "uv"
         args = ["run", "quilt-mcp"]
+        # For development, we need to specify the working directory
+        # Find the project root (where pyproject.toml exists)
+        current_dir = Path.cwd()
+        project_root = current_dir
+        # Look for pyproject.toml in current and parent directories
+        while project_root != project_root.parent:
+            if (project_root / "pyproject.toml").exists():
+                break
+            project_root = project_root.parent
+        
+        config_entry = {
+            "command": command,
+            "args": args,
+            "cwd": str(project_root),
+            "env": {
+                "QUILT_CATALOG_DOMAIN": catalog_domain
+            },
+            "description": "Quilt MCP Server"
+        }
     else:
         command = "uvx"
         args = ["quilt-mcp"]
-    
-    config = {
-        server_name: {
+        # For production (uvx), no cwd needed as it should be globally available
+        config_entry = {
             "command": command,
             "args": args,
             "env": {
@@ -43,6 +61,9 @@ def generate_config_entry(
             },
             "description": "Quilt MCP Server"
         }
+    
+    config = {
+        server_name: config_entry
     }
     
     return config
