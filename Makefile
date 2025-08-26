@@ -5,6 +5,7 @@
 
 # Define phases
 sinclude .env
+export
 PHASES := app build catalog deploy
 
 # Endpoint configuration
@@ -13,7 +14,7 @@ BUILD_ENDPOINT ?= http://127.0.0.1:8001/mcp
 CATALOG_ENDPOINT ?= http://127.0.0.1:8002/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo
+.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo publish-test check-publish-env
 
 # Default target
 help:
@@ -30,6 +31,10 @@ help:
 	@echo "  make run-app-tunnel - Expose local server via ngrok tunnel"
 	@echo "  make run-app-tunnel-inspector - Expose MCP Inspector via ngrok tunnel"
 	@echo ""
+	@echo "📦 Publishing Commands:"
+	@echo "  make publish-test      - Publish package to TestPyPI"
+	@echo "  make check-publish-env - Validate publishing environment"
+	@echo ""
 	@echo "🧹 Cleanup Commands:"
 	@echo "  make clean      - Clean all phase artifacts"
 	@echo "  make destroy    - Clean up AWS resources"
@@ -43,62 +48,76 @@ help:
 	@echo ""
 	@echo "⚙️  Utilities:"
 	@echo "  make check-env    - Validate .env configuration"
-	@echo "  make status       - Show deployment status"
-	@echo "  make coverage     - Run tests with coverage"
+	@echo "  make coverage     - Run tests with coverage report"
+	@echo "  make tag-release  - Tag release version"
+	@echo "  make tag-prerelease - Tag prerelease version"
+	@echo "  make tag-dev      - Tag development version"
 	@echo ""
-	@echo "🏷️  Release Management:"
-	@echo "  make tag         - Create tag using version from manifest.json"
-	@echo "  make tag-release VERSION=x.y.z  - Create release tag (triggers DXT build)"
-	@echo "  make tag-prerelease VERSION=x.y.z-rc.1 - Create prerelease tag"
-	@echo "  make tag-dev VERSION=x.y.z-dev  - Create development tag"
-	@echo ""
-	@echo "📖 Phase Documentation:"
-	@echo "  Each phase has its own Makefile and SPEC.md:"
-	@echo "  - app/Makefile + app/SPEC.md"
-	@echo "  - build-docker/Makefile + build-docker/SPEC.md"
-	@echo "  - catalog-push/Makefile + catalog-push/SPEC.md"
-	@echo "  - deploy-aws/Makefile + deploy-aws/SPEC.md"
+	@echo "For detailed phase help: make <phase>"
 
-# Phase Commands - delegate to phase-specific Makefiles
+# Check environment configuration
+check-env:
+	@echo "Checking environment configuration..."
+	@shared/check-env.sh
+
+# Clean all phase artifacts
+clean:
+	@echo "Cleaning all phase artifacts..."
+	@for phase in $(PHASES); do \
+		if [ -f $$phase*/Makefile ]; then \
+			echo "Cleaning $$phase..."; \
+			$(MAKE) -C $$phase* clean 2>/dev/null || true; \
+		fi; \
+	done
+	@echo "Clean complete."
+
+# Run coverage testing
+coverage:
+	@$(MAKE) -C app coverage
+
+# Destroy AWS resources
+destroy:
+	@echo "🔥 Destroying AWS resources..."
+	@$(MAKE) -C deploy-aws destroy
+
+# Show status across all phases
+status:
+	@echo "=== Quilt MCP Server Status ==="
+	@for phase in $(PHASES); do \
+		if [ -f $$phase*/Makefile ]; then \
+			echo; \
+			echo "📋 $$phase status:"; \
+			$(MAKE) -C $$phase* status 2>/dev/null || echo "  No status available for $$phase"; \
+		fi; \
+	done
+
+# Phase delegate targets
 app:
-	@$(MAKE) -C app run
+	@$(MAKE) -C app
 
 build:
-	@$(MAKE) -C build-docker build
+	@$(MAKE) -C build-docker
 
 catalog:
-	@$(MAKE) -C catalog-push push
+	@$(MAKE) -C catalog-push
 
 deploy:
-	@$(MAKE) -C deploy-aws deploy
+	@$(MAKE) -C deploy-aws
 
-test-ci:
-	@$(MAKE) -C app test-ci
+# Initialize phases
+init-app:
+	@$(MAKE) -C app init
 
-# Validation Commands - delegate to phase-specific Makefiles
-validate:
-	@echo "🔍 Running full validation pipeline (all phases)..."
-	@$(MAKE) validate-app validate-build validate-catalog validate-deploy
-	@echo "✅ All phases validated successfully!"
+init-build:
+	@$(MAKE) -C build-docker init
 
-validate-app:
-	@echo "🔍 Validating Phase 1 (App)..."
-	@$(MAKE) -C app validate
+init-catalog:
+	@$(MAKE) -C catalog-push init
 
-validate-build:
-	@echo "🔍 Validating Phase 2 (Build-Docker)..."
-	@$(MAKE) -C build-docker validate
+init-deploy:
+	@$(MAKE) -C deploy-aws init
 
-validate-catalog:
-	@echo "🔍 Validating Phase 3 (Catalog-Push)..."
-	@$(MAKE) -C catalog-push validate
-
-validate-deploy:
-	@echo "🔍 Validating Phase 4 (Deploy-AWS)..."
-	@$(MAKE) -C deploy-aws validate
-
-
-# Test Commands - delegate to phase-specific Makefiles
+# Test phases individually
 test-app:
 	@$(MAKE) -C app test
 
@@ -110,6 +129,34 @@ test-catalog:
 
 test-deploy:
 	@$(MAKE) -C deploy-aws test
+
+
+# Publishing Commands
+publish-test: check-publish-env
+	@echo "📦 Publishing package to TestPyPI..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "❌ UV not found. Please install UV first."; \
+		echo "   pip install uv"; \
+		exit 1; \
+	fi
+	@echo "🔨 Building package with UV..."
+	@uv build
+	@echo "🚀 Publishing to TestPyPI..."
+	@UV_PUBLISH_URL=https://test.pypi.org/legacy/ UV_PUBLISH_TOKEN="$$TESTPYPI_TOKEN" uv publish
+	@echo "✅ Package published to TestPyPI successfully!"
+
+check-publish-env:
+	@echo "🔍 Validating publishing environment..."
+	@if [ -z "$$TESTPYPI_TOKEN" ]; then \
+		echo "❌ Missing required environment variables:"; \
+		echo "   - TESTPYPI_TOKEN"; \
+		echo ""; \
+		echo "TestPyPI credentials not configured"; \
+		echo "Please add TESTPYPI_TOKEN to .env file"; \
+		exit 1; \
+	fi
+	@echo "✅ TestPyPI configuration valid"
+	@echo "✅ UV publishing environment ready"
 
 
 # Server Commands
@@ -127,129 +174,77 @@ inspect-app-tunnel:
 	@$(MAKE) run-app-tunnel "FLAGS=--inspect"
 
 test-endpoint-tunnel: # run app tunnel, then test-endpoint
+	@$(MAKE) run-app-tunnel "FLAGS=--test-endpoint"
 
+# Cloud-Enabled Tunneled Endpoints (tunnel + test)
+run-build:
+	@echo "Starting build server and tunnel..."
+	@$(MAKE) -C build-docker run & build_pid=$$!; \
+	sleep 5; \
+	./shared/tunnel-endpoint.sh $(BUILD_ENDPOINT) $(FLAGS) || kill $$build_pid; \
+	kill $$build_pid 2>/dev/null
 
-# Utilities
-check-env:
-	@./shared/check-env.sh
+run-catalog:
+	@echo "Starting catalog server and tunnel..."
+	@$(MAKE) -C catalog-push run & catalog_pid=$$!; \
+	sleep 5; \
+	./shared/tunnel-endpoint.sh $(CATALOG_ENDPOINT) $(FLAGS) || kill $$catalog_pid; \
+	kill $$catalog_pid 2>/dev/null
 
-clean:
-	@echo "🧹 Cleaning all phase artifacts..."
-	@$(MAKE) -C app clean
-	@$(MAKE) -C build-docker clean
+run-all-tunnel:
+	@echo "🚀 Starting all phase servers with tunnels..."
+	@echo "This will take a moment to initialize all services..."
+	@$(MAKE) run-app-tunnel & app_tunnel_pid=$$!; \
+	sleep 2; \
+	$(MAKE) run-build-tunnel & build_tunnel_pid=$$!; \
+	sleep 2; \
+	$(MAKE) run-catalog-tunnel & catalog_tunnel_pid=$$!; \
+	sleep 5; \
+	echo "All services running. Press Ctrl+C to stop all..."; \
+	trap 'kill $$app_tunnel_pid $$build_tunnel_pid $$catalog_tunnel_pid 2>/dev/null' INT; \
+	wait
 
-coverage:
-	@$(MAKE) -C app coverage
+# Validation phase targets
+validate-app:
+	@$(MAKE) -C app validate
 
-destroy:
-	@$(MAKE) -C deploy-aws destroy
+validate-build:
+	@$(MAKE) -C build-docker validate
 
-status:
-	@$(MAKE) -C deploy-aws status
+validate-catalog:
+	@$(MAKE) -C catalog-push validate
+
+validate-deploy:
+	@$(MAKE) -C deploy-aws validate
+
+# Sequential validation across all phases
+validate: validate-app validate-build validate-catalog validate-deploy
+	@echo "✅ All phases validated successfully!"
 
 # Release Management
 check-clean-repo:
-	@echo "🔍 Checking repository state..."
 	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "❌ Repository has uncommitted changes. Please commit or stash them first."; \
+		echo "❌ Repository has uncommitted changes:"; \
 		git status --short; \
+		echo "Please commit or stash changes before tagging."; \
 		exit 1; \
 	fi
-	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
-		echo "❌ Not on main branch. Please switch to main branch first."; \
-		echo "Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
-		exit 1; \
-	fi
-	@echo "✅ Repository is clean and on main branch"
+	@echo "✅ Repository is clean"
 
 tag-release: check-clean-repo
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ VERSION is required. Usage: make tag-release VERSION=1.0.0"; \
-		exit 1; \
-	fi
-	@echo "🏷️  Creating release tag v$(VERSION)..."
-	@if git tag | grep -q "^v$(VERSION)$$"; then \
-		echo "❌ Tag v$(VERSION) already exists"; \
-		exit 1; \
-	fi
-	@git pull origin main
-	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
-	@git push origin "v$(VERSION)"
-	@echo "✅ Release tag v$(VERSION) created and pushed"
-	@echo "🚀 GitHub Actions will now build and publish the DXT package"
-	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+	@echo "🏷️  Tagging release version..."
+	@./shared/tag-version.sh release
 
 tag-prerelease: check-clean-repo
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ VERSION is required. Usage: make tag-prerelease VERSION=1.0.0-rc.1"; \
-		exit 1; \
-	fi
-	@if ! echo "$(VERSION)" | grep -q -- "-"; then \
-		echo "❌ Prerelease version must contain a hyphen (e.g., 1.0.0-rc.1, 1.0.0-beta.1)"; \
-		exit 1; \
-	fi
-	@echo "🏷️  Creating prerelease tag v$(VERSION)..."
-	@if git tag | grep -q "^v$(VERSION)$$"; then \
-		echo "❌ Tag v$(VERSION) already exists"; \
-		exit 1; \
-	fi
-	@git pull origin main
-	@git tag -a "v$(VERSION)" -m "Prerelease v$(VERSION)"
-	@git push origin "v$(VERSION)"
-	@echo "✅ Prerelease tag v$(VERSION) created and pushed"
-	@echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
-	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+	@echo "🏷️  Tagging prerelease version..."
+	@./shared/tag-version.sh prerelease
 
-tag-dev: check-clean-repo
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ VERSION is required. Usage: make tag-dev VERSION=1.0.0-dev"; \
-		exit 1; \
-	fi
-	@if ! echo "$(VERSION)" | grep -q "dev"; then \
-		echo "❌ Development version must contain 'dev' (e.g., 1.0.0-dev, 1.0.0-dev.1)"; \
-		exit 1; \
-	fi
-	@echo "🏷️  Creating development tag v$(VERSION)..."
-	@if git tag | grep -q "^v$(VERSION)$$"; then \
-		echo "❌ Tag v$(VERSION) already exists"; \
-		exit 1; \
-	fi
-	@git pull origin main
-	@git tag -a "v$(VERSION)" -m "Development build v$(VERSION)"
-	@git push origin "v$(VERSION)"
-	@echo "✅ Development tag v$(VERSION) created and pushed"
-	@echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
-	@echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$(VERSION)"
+tag-dev: 
+	@echo "🏷️  Tagging development version..."
+	@./shared/tag-version.sh dev
 
-tag: check-clean-repo
-	@echo "🔍 Reading version from build-dxt/assets/manifest.json..."
-	@if [ ! -f "build-dxt/assets/manifest.json" ]; then \
-		echo "❌ manifest.json not found at build-dxt/assets/manifest.json"; \
-		exit 1; \
-	fi
-	@MANIFEST_VERSION=$$(python3 -c "import json; print(json.load(open('build-dxt/assets/manifest.json'))['version'])"); \
-	if [ -z "$$MANIFEST_VERSION" ]; then \
-		echo "❌ Could not read version from manifest.json"; \
-		exit 1; \
-	fi; \
-	echo "📋 Found version: $$MANIFEST_VERSION"; \
-	if git tag | grep -q "^v$$MANIFEST_VERSION$$"; then \
-		echo "❌ Tag v$$MANIFEST_VERSION already exists"; \
-		exit 1; \
-	fi; \
-	if echo "$$MANIFEST_VERSION" | grep -q "dev"; then \
-		echo "🏷️  Creating development tag v$$MANIFEST_VERSION..."; \
-		TAG_TYPE="Development build"; \
-	elif echo "$$MANIFEST_VERSION" | grep -q -- "-"; then \
-		echo "🏷️  Creating prerelease tag v$$MANIFEST_VERSION..."; \
-		TAG_TYPE="Prerelease"; \
-	else \
-		echo "🏷️  Creating release tag v$$MANIFEST_VERSION..."; \
-		TAG_TYPE="Release"; \
-	fi; \
-	git pull origin main; \
-	git tag -a "v$$MANIFEST_VERSION" -m "$$TAG_TYPE v$$MANIFEST_VERSION"; \
-	git push origin "v$$MANIFEST_VERSION"; \
-	echo "✅ Tag v$$MANIFEST_VERSION created and pushed"; \
-	echo "🚀 GitHub Actions will now build and publish the DXT package"; \
-	echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$$MANIFEST_VERSION"
+tag:
+	@echo "🏷️  Available tagging options:"
+	@echo "  make tag-release    - Tag stable release (vX.Y.Z)"
+	@echo "  make tag-prerelease - Tag prerelease (vX.Y.Z-rcN)"
+	@echo "  make tag-dev        - Tag development (vX.Y.Z-devN)"
