@@ -44,3 +44,9 @@ jobs:
         # No AWS credentials - unit tests should use mocks
         UNIT_TEST_MODE: "true"
         # Note: AWS credentials available as organization secrets for integration tests
+        
+    - name: Test README commands (NFR4)
+      run: make test-readme
+      timeout-minutes: 5
+      env:
+        QUILT_CATALOG_DOMAIN: "demo.quiltdata.com"
