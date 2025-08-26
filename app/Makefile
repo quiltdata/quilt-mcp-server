@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools mcp_config 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools mcp-config 
 
 # Default target
 help:
@@ -27,7 +27,7 @@ help:
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
 	@echo "  make run-inspector - Launch MCP Inspector for visual testing"
-	@echo "  make mcp_config   - Generate MCP server configuration for editors"
+	@echo "  make mcp-config   - Generate MCP server configuration for editors"
 
 clean:
 	@echo "Cleaning Python cache..."
@@ -153,6 +153,6 @@ zero:
 	@pkill -f "python.*main.py" 2>/dev/null || true
 	@echo "✅ Phase 1 processes stopped"
 
-mcp_config:
+mcp-config:
 	@echo "Generating MCP server configuration..."
 	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure

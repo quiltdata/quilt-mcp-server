@@ -106,9 +106,9 @@ The README needs to:
 
 **Acceptance Criteria:**
 
-- **Interactive by default**: `make mcp_config` runs in interactive mode, detecting and prompting for client selection
-- **Non-interactive support**: `make mcp_config BATCH=1` for CI/scripting usage
-- **Client-specific targets**: `make mcp_config CLIENT=claude_desktop` for direct client configuration
+- **Interactive by default**: `make mcp-config` runs in interactive mode, detecting and prompting for client selection
+- **Non-interactive support**: `make mcp-config BATCH=1` for CI/scripting usage
+- **Client-specific targets**: `make mcp-config CLIENT=claude_desktop` for direct client configuration
 - **Delegate to app phase**: Follow existing Makefile delegation patterns
 - **Include help text**: Update `make help` output with new interactive capabilities
 
@@ -179,7 +179,7 @@ The README needs to:
 - Existing `app/Makefile` follows consistent `.PHONY` declaration pattern
 - Help text format: `make <target> - Description`
 - Execution pattern: `@export PYTHONPATH="$(PWD)" && uv run python -m <module>`
-- `mcp_config` target should follow: `@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure`
+- `mcp-config` target should follow: `@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure`
 
 ## Technical Specifications
 
@@ -222,22 +222,22 @@ python -m quilt_mcp.auto_configure --rollback
 
 ```bash
 # Interactive mode: Auto-detect and prompt for client selection  
-make mcp_config
+make mcp-config
 
 # Non-interactive mode: Display config only (for CI/scripts)
-make mcp_config BATCH=1
+make mcp-config BATCH=1
 
 # Configure specific client directly
-make mcp_config CLIENT=claude_desktop
+make mcp-config CLIENT=claude_desktop
 
 # List detectable clients and their status
-make mcp_config LIST=1
+make mcp-config LIST=1
 
 # Use with custom catalog domain
-QUILT_CATALOG_DOMAIN=custom.quiltdata.com make mcp_config
+QUILT_CATALOG_DOMAIN=custom.quiltdata.com make mcp-config
 
 # Rollback last changes
-make mcp_config ROLLBACK=1
+make mcp-config ROLLBACK=1
 ```
 
 **Note:** All Make targets use interactive mode by default. Use BATCH=1 for non-interactive usage in CI/scripts.
@@ -290,6 +290,7 @@ The system shall use an external configuration file to define client specificati
 **Location:** `app/quilt_mcp/clients.json`
 
 **Structure:**
+
 ```json
 {
   "clients": {
@@ -337,6 +338,7 @@ The system shall use an external configuration file to define client specificati
 ```
 
 **Benefits:**
+
 - Easy to add new clients without code changes
 - Supports platform-specific paths and detection logic
 - Enables community contributions for additional clients

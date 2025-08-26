@@ -13,7 +13,7 @@ BUILD_ENDPOINT ?= http://127.0.0.1:8001/mcp
 CATALOG_ENDPOINT ?= http://127.0.0.1:8002/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo mcp_config test-readme
+.PHONY: help check-env clean coverage destroy status $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo mcp-config test-readme
 
 # Default target
 help:
@@ -45,7 +45,7 @@ help:
 	@echo "  make check-env    - Validate .env configuration"
 	@echo "  make status       - Show deployment status"
 	@echo "  make coverage     - Run tests with coverage"
-	@echo "  make mcp_config   - Generate MCP server configuration for editors"
+	@echo "  make mcp-config   - Generate MCP server configuration for editors"
 	@echo "  make test-readme  - Test bash commands from README.md (NFR4 compliance)"
 	@echo ""
 	@echo "🏷️  Release Management:"
@@ -149,8 +149,8 @@ destroy:
 status:
 	@$(MAKE) -C deploy-aws status
 
-mcp_config:
-	@$(MAKE) -C app mcp_config
+mcp-config:
+	@$(MAKE) -C app mcp-config
 
 test-readme:
 	@echo "Testing README.md bash commands..."
