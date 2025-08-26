@@ -1,0 +1,43 @@
+{
+  "clients": {
+    "claude_desktop": {
+      "name": "Claude Desktop",
+      "config_type": "mcp_servers",
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Claude/claude_desktop_config.json",
+        "Windows": "%APPDATA%/Claude/claude_desktop_config.json",
+        "Linux": "~/.config/claude/claude_desktop_config.json"
+      },
+      "detection": {
+        "check_executable": ["claude", "Claude Desktop.app"],
+        "check_directory": true
+      }
+    },
+    "cursor": {
+      "name": "Cursor",
+      "config_type": "mcp_servers",
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Cursor/User/settings.json",
+        "Windows": "%APPDATA%/Cursor/User/settings.json",
+        "Linux": "~/.config/Cursor/User/settings.json"
+      },
+      "detection": {
+        "check_executable": ["cursor"],
+        "check_directory": true
+      }
+    },
+    "vscode": {
+      "name": "VS Code",
+      "config_type": "mcp_servers",
+      "platforms": {
+        "Darwin": "~/Library/Application Support/Code/User/settings.json",
+        "Windows": "%APPDATA%/Code/User/settings.json",
+        "Linux": "~/.config/Code/User/settings.json"
+      },
+      "detection": {
+        "check_executable": ["code"],
+        "check_directory": true
+      }
+    }
+  }
+}

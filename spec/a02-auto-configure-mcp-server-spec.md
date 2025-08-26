@@ -451,8 +451,23 @@ And it should suggest manual recovery steps
 ### IT3: Client Configuration Compatibility
 
 - Validate generated configurations work with actual MCP clients
-- Test configuration loading in supported editors
+- Test configuration loading in supported editors  
 - Verify environment variable handling
+
+### IT4: MCP Server Functional Testing - **CRITICAL**
+
+**Requirement**: All generated MCP configurations MUST be tested for actual server startup
+
+**Test Requirements**:
+- **Server startup test**: Generated command + args + cwd must successfully start the MCP server
+- **MCP protocol test**: Server must respond to basic MCP protocol messages (initialize, list_tools)
+- **Command validation**: `uv run python main.py` from generated cwd must work
+- **Integration test**: Test full client → server connection using generated config
+- **CI integration**: Add server startup test to CI pipeline to prevent regressions
+
+**Failure Criteria**: If generated MCP config cannot start the server, the test MUST fail
+
+This addresses the critical gap where configurations were generated but never tested for actual functionality.
 
 ## Implementation Notes
 

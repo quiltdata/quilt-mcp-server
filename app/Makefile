@@ -27,7 +27,11 @@ help:
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
 	@echo "  make run-inspector - Launch MCP Inspector for visual testing"
-	@echo "  make mcp-config   - Generate MCP server configuration for editors"
+	@echo "  make mcp-config   - Interactive MCP server configuration for editors"
+	@echo "                      BATCH=1: Non-interactive mode"
+	@echo "                      CLIENT=<name>: Configure specific client"
+	@echo "                      LIST=1: List detectable clients"
+	@echo "                      ROLLBACK=1: Restore previous configurations"
 
 clean:
 	@echo "Cleaning Python cache..."
@@ -154,5 +158,9 @@ zero:
 	@echo "✅ Phase 1 processes stopped"
 
 mcp-config:
-	@echo "Generating MCP server configuration..."
-	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure
+	@echo "Quilt MCP Server Auto-Configuration..."
+	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure \
+		$(if $(BATCH),--batch) \
+		$(if $(CLIENT),--client $(CLIENT)) \
+		$(if $(LIST),--list-clients) \
+		$(if $(ROLLBACK),--rollback)

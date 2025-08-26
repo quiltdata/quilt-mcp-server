@@ -8,6 +8,7 @@ that generates MCP server configuration entries for different editors.
 import json
 import os
 import platform
+import shutil
 import stat
 import tempfile
 from pathlib import Path
@@ -184,7 +185,7 @@ class TestAutoConfigureMain:
     @patch('builtins.print')
     def test_displays_config_entry_when_no_client_specified(self, mock_print):
         """Should display generated config entry when no specific client is specified."""
-        auto_configure_main()
+        auto_configure_main(batch_mode=True)
         
         # Should have printed the configuration
         assert mock_print.called
@@ -194,7 +195,7 @@ class TestAutoConfigureMain:
     @patch('builtins.print')
     def test_displays_config_file_locations(self, mock_print):
         """Should display configuration file locations for different editors."""
-        auto_configure_main()
+        auto_configure_main(batch_mode=True)
         
         printed_text = ''.join(call.args[0] for call in mock_print.call_args_list if call.args)
         assert "Claude Desktop" in printed_text or "claude_desktop" in printed_text
@@ -430,3 +431,342 @@ class TestRealFileSystemIntegration:
                 
             finally:
                 os.chdir(original_cwd)
+
+
+class TestClientConfiguration:
+    """Test externalized client configuration behavior (FR6)."""
+
+    def test_loads_client_definitions_from_json_file(self):
+        """Should load client definitions from external JSON file."""
+        # Test will fail until we implement load_client_definitions
+        from quilt_mcp.auto_configure import load_client_definitions
+        
+        clients = load_client_definitions()
+        
+        assert isinstance(clients, dict)
+        assert "claude_desktop" in clients
+        assert "cursor" in clients
+        assert "vscode" in clients
+
+    def test_validates_client_configuration_schema(self):
+        """Should validate client configuration against expected schema."""
+        from quilt_mcp.auto_configure import load_client_definitions
+        
+        clients = load_client_definitions()
+        
+        for client_id, client_config in clients.items():
+            assert "name" in client_config
+            assert "config_type" in client_config
+            assert "platforms" in client_config
+            assert "detection" in client_config
+            
+            # Validate platform paths
+            platforms = client_config["platforms"]
+            assert "Darwin" in platforms
+            assert "Windows" in platforms
+            assert "Linux" in platforms
+
+    def test_supports_platform_specific_paths(self):
+        """Should provide platform-specific configuration file paths."""
+        from quilt_mcp.auto_configure import get_client_config_path
+        
+        # Test with mocked platform
+        with patch('platform.system', return_value='Darwin'):
+            path = get_client_config_path("claude_desktop")
+            assert "Library/Application Support" in path
+            
+        with patch('platform.system', return_value='Windows'):
+            path = get_client_config_path("claude_desktop")
+            assert "AppData" in path or "APPDATA" in path
+
+
+class TestClientAutoDetection:
+    """Test client auto-detection and status checking behavior (FR5)."""
+
+    def test_detects_existing_client_config_files(self):
+        """Should auto-detect existing client configuration files."""
+        from quilt_mcp.auto_configure import detect_clients
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create mock config files
+            claude_config = Path(temp_dir) / "claude_desktop_config.json"
+            claude_config.parent.mkdir(parents=True, exist_ok=True)
+            with open(claude_config, 'w') as f:
+                json.dump({"mcpServers": {}}, f)
+            
+            with patch('quilt_mcp.auto_configure.get_client_config_path') as mock_path:
+                mock_path.return_value = str(claude_config)
+                
+                clients_status = detect_clients()
+                
+                assert isinstance(clients_status, dict)
+                assert "claude_desktop" in clients_status
+                assert clients_status["claude_desktop"]["config_exists"] is True
+                assert clients_status["claude_desktop"]["config_valid"] is True
+
+    def test_shows_status_for_missing_config_files(self):
+        """Should show status for missing configuration files."""
+        from quilt_mcp.auto_configure import detect_clients
+        
+        with patch('quilt_mcp.auto_configure.get_client_config_path') as mock_path:
+            mock_path.return_value = "/nonexistent/path/config.json"
+            
+            clients_status = detect_clients()
+            
+            assert "claude_desktop" in clients_status
+            assert clients_status["claude_desktop"]["config_exists"] is False
+
+    def test_detects_invalid_json_config_files(self):
+        """Should detect invalid JSON in configuration files."""
+        from quilt_mcp.auto_configure import detect_clients
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create invalid JSON file
+            invalid_config = Path(temp_dir) / "invalid_config.json"
+            with open(invalid_config, 'w') as f:
+                f.write("invalid json content")
+            
+            with patch('quilt_mcp.auto_configure.get_client_config_path') as mock_path:
+                mock_path.return_value = str(invalid_config)
+                
+                clients_status = detect_clients()
+                
+                assert clients_status["claude_desktop"]["config_exists"] is True
+                assert clients_status["claude_desktop"]["config_valid"] is False
+
+    def test_checks_for_client_executables(self):
+        """Should check for client executables in addition to config files."""
+        from quilt_mcp.auto_configure import detect_clients
+        
+        with patch('shutil.which') as mock_which:
+            mock_which.side_effect = lambda cmd: "/usr/bin/cursor" if cmd == "cursor" else None
+            
+            clients_status = detect_clients()
+            
+            assert "cursor" in clients_status
+            assert clients_status["cursor"]["executable_found"] is True
+            assert clients_status["vscode"]["executable_found"] is False
+
+
+class TestInteractivePrompts:
+    """Test interactive prompts and user selection behavior (FR5)."""
+
+    @patch('builtins.input')
+    def test_prompts_user_to_select_clients_to_configure(self, mock_input):
+        """Should prompt user to select which clients to configure."""
+        from quilt_mcp.auto_configure import interactive_client_selection
+        
+        mock_input.return_value = "1,2"  # Select first two clients
+        
+        available_clients = {
+            "claude_desktop": {"config_exists": True, "config_valid": True},
+            "cursor": {"config_exists": False},
+            "vscode": {"config_exists": True, "config_valid": False}
+        }
+        
+        selected = interactive_client_selection(available_clients)
+        
+        assert isinstance(selected, list)
+        assert len(selected) == 2
+
+    @patch('builtins.input')
+    def test_handles_user_cancellation_gracefully(self, mock_input):
+        """Should handle user cancellation gracefully."""
+        from quilt_mcp.auto_configure import interactive_client_selection
+        
+        mock_input.return_value = "q"  # User quits
+        
+        available_clients = {"claude_desktop": {"config_exists": True}}
+        selected = interactive_client_selection(available_clients)
+        
+        assert selected == []
+
+    @patch('builtins.input')
+    def test_shows_clear_status_indicators(self, mock_input):
+        """Should show clear visual status indicators for each client."""
+        from quilt_mcp.auto_configure import display_client_status
+        
+        mock_input.return_value = "q"
+        
+        clients_status = {
+            "claude_desktop": {"config_exists": True, "config_valid": True},
+            "cursor": {"config_exists": False},
+            "vscode": {"config_exists": True, "config_valid": False}
+        }
+        
+        with patch('builtins.print') as mock_print:
+            display_client_status(clients_status)
+            
+            printed_text = ''.join(call.args[0] for call in mock_print.call_args_list if call.args)
+            assert "✅" in printed_text  # Found and valid
+            assert "❌" in printed_text  # Missing
+            assert "⚠️" in printed_text  # Invalid JSON
+
+
+class TestBackupAndRollback:
+    """Test backup and rollback functionality behavior."""
+
+    def test_creates_backup_before_modifying_config_file(self):
+        """Should create backup before modifying configuration files."""
+        from quilt_mcp.auto_configure import create_backup, add_to_config_file_with_backup
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "config.json"
+            original_config = {"existing": "data"}
+            
+            with open(config_file, 'w') as f:
+                json.dump(original_config, f)
+            
+            backup_path = create_backup(str(config_file))
+            
+            assert backup_path is not None
+            assert Path(backup_path).exists()
+            
+            # Verify backup content matches original
+            with open(backup_path, 'r') as f:
+                backup_config = json.load(f)
+            assert backup_config == original_config
+
+    def test_rollback_restores_previous_configuration(self):
+        """Should restore previous configuration from backup files."""
+        from quilt_mcp.auto_configure import rollback_configuration
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "config.json"
+            backup_file = Path(temp_dir) / "config.json.backup.20240101_120000"
+            
+            # Create current (modified) config
+            current_config = {"mcpServers": {"quilt": {"command": "uv"}}}
+            with open(config_file, 'w') as f:
+                json.dump(current_config, f)
+            
+            # Create backup (original) config
+            original_config = {"existing": "data"}
+            with open(backup_file, 'w') as f:
+                json.dump(original_config, f)
+            
+            # Perform rollback
+            result = rollback_configuration(str(config_file))
+            
+            assert result is True
+            
+            # Verify original content restored
+            with open(config_file, 'r') as f:
+                restored_config = json.load(f)
+            assert restored_config == original_config
+
+    def test_stores_backup_metadata_with_timestamp(self):
+        """Should store backup metadata including timestamp and original location."""
+        from quilt_mcp.auto_configure import create_backup_with_metadata
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "config.json"
+            with open(config_file, 'w') as f:
+                json.dump({"test": "data"}, f)
+            
+            backup_info = create_backup_with_metadata(str(config_file))
+            
+            assert "backup_path" in backup_info
+            assert "timestamp" in backup_info
+            assert "original_path" in backup_info
+            assert backup_info["original_path"] == str(config_file)
+
+    def test_cleans_up_old_backups_after_successful_operation(self):
+        """Should clean up old backup files after successful operations."""
+        from quilt_mcp.auto_configure import cleanup_old_backups
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create multiple backup files with different timestamps
+            old_backup = Path(temp_dir) / "config.json.backup.20240101_120000"
+            recent_backup = Path(temp_dir) / "config.json.backup.20240110_120000"
+            
+            for backup_file in [old_backup, recent_backup]:
+                with open(backup_file, 'w') as f:
+                    json.dump({"backup": "data"}, f)
+            
+            cleanup_old_backups(str(Path(temp_dir) / "config.json"), keep_count=1)
+            
+            # Should keep only the most recent backup
+            assert not old_backup.exists()
+            assert recent_backup.exists()
+
+
+class TestNewCLIFlags:
+    """Test new CLI flags behavior."""
+
+    @patch('builtins.print')
+    def test_batch_mode_displays_config_without_prompts(self, mock_print):
+        """Should display config without prompts in batch mode."""
+        from quilt_mcp.auto_configure import auto_configure_main
+        
+        auto_configure_main(batch_mode=True)
+        
+        # Should print config but not call any interactive functions
+        assert mock_print.called
+        printed_text = ''.join(call.args[0] for call in mock_print.call_args_list if call.args)
+        assert "quilt" in printed_text
+
+    @patch('builtins.print')
+    def test_list_clients_shows_all_detectable_clients(self, mock_print):
+        """Should show all detectable clients and their status with --list-clients."""
+        from quilt_mcp.auto_configure import auto_configure_main
+        
+        auto_configure_main(list_clients=True)
+        
+        printed_text = ''.join(call.args[0] for call in mock_print.call_args_list if call.args)
+        assert "Claude Desktop" in printed_text or "claude_desktop" in printed_text
+        assert "Cursor" in printed_text
+        assert "VS Code" in printed_text or "vscode" in printed_text
+
+    def test_rollback_flag_restores_previous_configurations(self):
+        """Should restore previous configurations with --rollback flag."""
+        from quilt_mcp.auto_configure import auto_configure_main
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Setup mock backup scenario
+            with patch('quilt_mcp.auto_configure.find_backup_files') as mock_find:
+                mock_find.return_value = ["backup1.json", "backup2.json"]
+                
+                with patch('quilt_mcp.auto_configure.rollback_configuration') as mock_rollback:
+                    mock_rollback.return_value = True
+                    
+                    result = auto_configure_main(rollback=True)
+                    
+                    # Should attempt rollback
+                    mock_rollback.assert_called()
+
+    def test_maintains_backward_compatibility_with_existing_flags(self):
+        """Should maintain backward compatibility with existing CLI flags."""
+        from quilt_mcp.auto_configure import auto_configure_main
+        
+        # Existing flags should still work
+        with patch('quilt_mcp.auto_configure.add_to_config_file') as mock_add:
+            mock_add.return_value = True
+            
+            # Test existing client flag
+            auto_configure_main(client="cursor")
+            mock_add.assert_called_once()
+            
+            # Test existing config-file flag  
+            mock_add.reset_mock()
+            auto_configure_main(config_file_path="/path/to/config.json")
+            mock_add.assert_called_once()
+
+
+class TestMakeTargetIntegration:
+    """Test Make target integration with variables (FR7)."""
+
+    def test_supports_batch_mode_via_make_variable(self):
+        """Should support BATCH=1 make variable for non-interactive mode."""
+        # This would be tested by checking that the Makefile passes BATCH=1 
+        # as --batch flag to the Python script
+        pass  # Integration test - would be tested separately
+
+    def test_supports_client_specific_configuration_via_make(self):
+        """Should support CLIENT=client_name make variable."""
+        # This would test that CLIENT=claude_desktop gets passed as --client flag
+        pass  # Integration test - would be tested separately
+
+    def test_supports_list_clients_via_make_variable(self):
+        """Should support LIST=1 make variable."""
+        pass  # Integration test - would be tested separately
