@@ -28,8 +28,8 @@ class TestAthenaDatabasesList:
     @pytest.mark.integration
     def test_list_databases_success(self):
         """Test successful database listing with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             result = athena_databases_list()
@@ -102,8 +102,8 @@ class TestAthenaTablesList:
     @pytest.mark.integration
     def test_list_tables_success(self):
         """Test successful table listing with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             # Try to list tables from the default database
@@ -169,8 +169,8 @@ class TestAthenaTableSchema:
     @pytest.mark.integration
     def test_get_table_schema_success(self):
         """Test successful table schema retrieval with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             # Try to get schema for a table that might exist
@@ -222,8 +222,8 @@ class TestAthenaQueryExecute:
     @pytest.mark.integration
     def test_query_execute_success(self):
         """Test successful query execution with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             # Use a simple query that should work on any Athena setup
@@ -615,8 +615,8 @@ class TestAthenaQueryService:
     @pytest.mark.integration
     def test_execute_query(self):
         """Test query execution with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             service = AthenaQueryService(use_quilt_auth=False)
@@ -656,8 +656,8 @@ class TestAthenaQueryService:
     @pytest.mark.integration
     def test_format_results_json(self):
         """Test result formatting to JSON with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             service = AthenaQueryService(use_quilt_auth=False)
@@ -715,8 +715,8 @@ class TestAthenaQueryService:
     @pytest.mark.integration
     def test_format_results_csv(self):
         """Test result formatting to CSV with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         try:
             service = AthenaQueryService(use_quilt_auth=False)

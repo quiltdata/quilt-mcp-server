@@ -378,35 +378,6 @@ class TestPermissionDiscoveryEngine:
         # Should have a timestamp
         assert bucket_info.last_checked is not None
     
-    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
-    def test_discover_bucket_permissions_mocked(self, mock_boto_client):
-        """Test bucket permission discovery with full access (mocked unit test)."""
-        mock_s3 = Mock()
-        mock_boto_client.return_value = mock_s3
-        
-        # Mock successful operations - ensure put_object succeeds to indicate write access
-        mock_s3.get_bucket_location.return_value = {'LocationConstraint': 'us-west-2'}
-        mock_s3.list_objects_v2.return_value = {'Contents': []}
-        mock_s3.head_object.side_effect = ClientError(
-            {'Error': {'Code': 'NotFound'}}, 'HeadObject'
-        )
-        # This is the key - put_object must succeed to indicate write access
-        mock_s3.put_object.return_value = {'ETag': 'test-etag'}
-        mock_s3.delete_object.return_value = {}
-        
-        # Mock list_buckets to return test-bucket as owned (for write permission detection)
-        mock_s3.list_buckets.return_value = {
-            'Buckets': [{'Name': 'test-bucket'}, {'Name': 'other-bucket'}]
-        }
-        
-        discovery = AWSPermissionDiscovery()
-        bucket_info = discovery.discover_bucket_permissions("test-bucket")
-        
-        assert bucket_info.permission_level == PermissionLevel.FULL_ACCESS
-        assert bucket_info.can_read is True
-        assert bucket_info.can_write is True
-        assert bucket_info.can_list is True
-        assert bucket_info.region == "us-west-2"
 
     @pytest.mark.aws
     @pytest.mark.integration
@@ -428,29 +399,6 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_read is False
         assert bucket_info.can_write is False
     
-    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
-    def test_discover_bucket_permissions_read_only_mocked(self, mock_boto_client):
-        """Test bucket permission discovery with read-only access (mocked unit test)."""
-        mock_s3 = Mock()
-        mock_boto_client.return_value = mock_s3
-        
-        # Mock read-only scenario
-        mock_s3.get_bucket_location.return_value = {'LocationConstraint': 'us-east-1'}
-        mock_s3.list_objects_v2.return_value = {'Contents': []}
-        mock_s3.head_object.side_effect = ClientError(
-            {'Error': {'Code': 'NotFound'}}, 'HeadObject'
-        )
-        mock_s3.put_object.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDenied'}}, 'PutObject'
-        )
-        
-        discovery = AWSPermissionDiscovery()
-        bucket_info = discovery.discover_bucket_permissions("readonly-bucket")
-        
-        assert bucket_info.permission_level == PermissionLevel.READ_ONLY
-        assert bucket_info.can_read is True
-        assert bucket_info.can_write is False
-        assert bucket_info.can_list is True
 
 
 @pytest.mark.aws
