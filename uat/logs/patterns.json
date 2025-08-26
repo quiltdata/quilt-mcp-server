@@ -1,0 +1,52 @@
+{
+  "clients": {
+    "claude_desktop": {
+      "success_patterns": [
+        "Server started and connected successfully",
+        "Message from client.*initialize"
+      ],
+      "failure_patterns": [
+        "spawn .* ENOENT",
+        "Server disconnected",
+        "can't open file",
+        "No such file or directory",
+        "Failed to spawn"
+      ],
+      "log_file": "~/Library/Logs/Claude/mcp-server-quilt.log",
+      "description": "Claude Desktop MCP server logs"
+    },
+    "vscode": {
+      "success_patterns": [
+        "MCP server.*connected",
+        "Extension Host.*MCP.*ready",
+        "mcpServers.*initialized"
+      ],
+      "failure_patterns": [
+        "MCP server.*failed",
+        "Extension.*error.*MCP",
+        "mcpServers.*error"
+      ],
+      "log_file": null,
+      "description": "VS Code requires manual log inspection via Developer Console"
+    },
+    "cursor": {
+      "success_patterns": [
+        "MCP.*connected successfully",
+        "Server.*ready",
+        "MCP extension.*loaded"
+      ],
+      "failure_patterns": [
+        "MCP.*connection failed",
+        "Server.*error",
+        "MCP extension.*error"
+      ],
+      "log_file": null,
+      "description": "Cursor requires manual log inspection via Developer Console"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Log patterns for MCP client connection analysis",
+    "last_updated": "2025-08-26"
+  }
+}

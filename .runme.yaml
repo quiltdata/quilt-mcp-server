@@ -1,0 +1,103 @@
+version: v1
+project:
+  name: "Quilt MCP Server"
+  description: "Auto-configuration and command testing for Quilt MCP Server"
+  
+# Configuration for testing README.md commands  
+runner:
+  # Use bash shell for executing commands
+  shell: bash
+  
+  # Environment variables for testing
+  env:
+    QUILT_CATALOG_DOMAIN: "demo.quiltdata.com"
+    PYTHONPATH: "./app"
+    
+  # Working directory should be repository root
+  cwd: "."
+
+# Document settings
+document:
+  # Primary documentation file
+  filename: "README.md"
+  
+  # Enable extraction of bash code blocks
+  filter:
+    language: ["bash", "shell", "sh"]
+    
+# Session configuration for reproducible testing
+session:
+  # Ensure clean environment for each test
+  clean: true
+  
+  # Timeout for command execution
+  timeout: "30s"
+  
+# Categories of commands for organized testing
+categories:
+  setup:
+    description: "Environment setup and configuration commands"
+    commands:
+      - "cp env.example .env"
+      - "make check-env"
+      
+  mcp_config:
+    description: "MCP server configuration commands"
+    commands:
+      - "make mcp_config"
+      - "python -m quilt_mcp.auto_configure --help"
+      - "python -m quilt_mcp.auto_configure"
+      
+  testing:
+    description: "Testing and validation commands"
+    commands:
+      - "make test"
+      - "make coverage"
+      - "make validate"
+      
+  development:
+    description: "Development workflow commands"
+    commands:
+      - "make app"
+      - "make clean"
+      - "make init-app"
+
+# Define safe command patterns for automated testing
+safe_commands:
+  - pattern: "make help"
+    description: "Show available make targets"
+    
+  - pattern: "make mcp_config"
+    description: "Generate MCP configuration (safe, no side effects)"
+    
+  - pattern: "python -m quilt_mcp.auto_configure --help"
+    description: "Show auto-configure help (safe, no side effects)"
+    
+  - pattern: "python -m quilt_mcp.auto_configure$"
+    description: "Display configuration without modifying files"
+    
+  - pattern: "make test.*"
+    description: "Run test suites (safe in CI environment)"
+    
+  - pattern: "make coverage"
+    description: "Run test coverage (safe in CI environment)"
+    
+  - pattern: "make clean"
+    description: "Clean build artifacts (safe)"
+
+# Commands that should NOT be run in automated testing
+unsafe_commands:
+  - pattern: ".*--client.*"
+    reason: "Modifies actual configuration files"
+    
+  - pattern: ".*--config-file.*"  
+    reason: "Unless using temporary files"
+    
+  - pattern: "make deploy"
+    reason: "Deploys to AWS (expensive/destructive)"
+    
+  - pattern: "make destroy"
+    reason: "Destroys AWS resources (destructive)"
+    
+  - pattern: "aws .*"
+    reason: "Direct AWS commands may have side effects"

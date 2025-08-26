@@ -101,7 +101,7 @@ ipython_config.py
 
 # Local development scripts and wrappers
 benchling-mcp-wrapper.sh
-*.sh
+
 #   commonly ignored for libraries.
 #   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
 #poetry.lock
@@ -196,3 +196,4 @@ __marimo__/
 # Old test event files (now use tests/events/ via Makefile)
 deployment/packager/test-event*.json
 /deploy-aws/cdk.out
+.DS_Store
