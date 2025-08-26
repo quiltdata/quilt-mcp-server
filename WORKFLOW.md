@@ -10,7 +10,7 @@ and coordination between phases. This ensures reliable execution of complex mult
 
 1. **Workflow Initialization**
    1. Delegate entire workflow to `workflow-orchestrator` sub-agent for process management
-   1. Each agent MUST a TODO for itself to ensure it follows this ENTIRE workflow process
+   1. Each agent MUST create a TODO for itself to ensure together they follow the ENTIRE workflow process
    1. **Workflow-orchestrator handles all phase transitions and state management**
 
 2. **Phase 1: Investigation** (Orchestrated via `research-analyst` sub-agent)
