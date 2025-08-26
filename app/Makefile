@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools mcp-config 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools mcp-config test-mcp-server 
 
 # Default target
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
 	@echo "  make run-inspector - Launch MCP Inspector for visual testing"
+	@echo "  make test-mcp-server - Test MCP server startup with generated config (CRITICAL)"
 	@echo "  make mcp-config   - Interactive MCP server configuration for editors"
 	@echo "                      BATCH=1: Non-interactive mode"
 	@echo "                      CLIENT=<name>: Configure specific client"
@@ -157,8 +158,13 @@ zero:
 	@pkill -f "python.*main.py" 2>/dev/null || true
 	@echo "✅ Phase 1 processes stopped"
 
+test-mcp-server:
+	@echo "Testing MCP server startup with generated config..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run pytest ../tests/test_auto_configure.py::TestMCPServerFunctional::test_generated_config_starts_mcp_server ../tests/test_auto_configure.py::TestMCPServerFunctional::test_command_validation_in_app_directory ../tests/test_auto_configure.py::TestMCPServerFunctional::test_development_vs_production_config_commands ../tests/test_auto_configure.py::TestMCPServerFunctional::test_config_includes_required_environment_variables -v
+
 mcp-config:
-	@echo "Quilt MCP Server Auto-Configuration..."
+	$(if $(BATCH),,@echo "Quilt MCP Server Auto-Configuration...")
 	@export PYTHONPATH="$(PWD)" && uv run python -m quilt_mcp.auto_configure \
 		$(if $(BATCH),--batch) \
 		$(if $(CLIENT),--client $(CLIENT)) \

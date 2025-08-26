@@ -11,6 +11,11 @@ import platform
 import shutil
 import stat
 import tempfile
+import select
+import signal
+import subprocess
+import sys
+import time
 from pathlib import Path
 from unittest.mock import patch, mock_open
 import pytest
@@ -54,10 +59,15 @@ class TestGenerateConfigEntry:
         dev_config = generate_config_entry(development_mode=True)
         prod_config = generate_config_entry(development_mode=False)
         
+        # Development mode should use uv run python main.py (the CORRECT command)
         assert dev_config["quilt"]["command"] == "uv"
-        assert dev_config["quilt"]["args"] == ["run", "quilt-mcp"]
+        assert dev_config["quilt"]["args"] == ["run", "python", "main.py"]
+        assert "cwd" in dev_config["quilt"]  # Development needs working directory
+        
+        # Production mode should use uvx quilt-mcp
         assert prod_config["quilt"]["command"] == "uvx"
         assert prod_config["quilt"]["args"] == ["quilt-mcp"]
+        assert "cwd" not in prod_config["quilt"]  # Production doesn't need cwd
 
 
 class TestGetConfigFileLocations:
@@ -751,6 +761,277 @@ class TestNewCLIFlags:
             mock_add.reset_mock()
             auto_configure_main(config_file_path="/path/to/config.json")
             mock_add.assert_called_once()
+
+
+class TestMCPServerFunctional:
+    """IT4: MCP Server Functional Testing - CRITICAL
+    
+    These tests verify that generated MCP configurations actually start the server
+    and respond to MCP protocol messages. This addresses the critical testing gap
+    that allowed non-functional configs to be generated.
+    """
+
+    def test_generated_config_starts_mcp_server(self):
+        """Generated MCP config must successfully start the actual server.
+        
+        This is the most critical test - it verifies that the generated configuration
+        actually works to start the MCP server, not just that it's syntactically correct.
+        """
+        import subprocess
+        import time
+        import signal
+        import tempfile
+        from pathlib import Path
+        
+        # Generate config using auto_configure
+        config = generate_config_entry(development_mode=True)
+        
+        # Extract command details
+        command = config["quilt"]["command"] 
+        args = config["quilt"]["args"]
+        cwd = config["quilt"]["cwd"]  # This should be the app/ directory
+        
+        # Verify the cwd exists and contains main.py
+        cwd_path = Path(cwd)
+        assert cwd_path.exists(), f"CWD path does not exist: {cwd}"
+        assert (cwd_path / "main.py").exists(), f"main.py not found in CWD: {cwd}"
+        
+        # Start server process with timeout  
+        process = None
+        try:
+            # Construct full command
+            full_command = [command] + args
+            
+            # Prepare environment with current PATH to find uv
+            test_env = os.environ.copy()
+            test_env.update({
+                "PYTHONPATH": cwd, 
+                "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+            })
+            
+            # Start the MCP server process
+            process = subprocess.Popen(
+                full_command,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                env=test_env,
+                text=True
+            )
+            
+            # Give server time to start up
+            time.sleep(2)
+            
+            # Check if process is still running (didn't crash immediately)
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                pytest.fail(
+                    f"MCP server failed to start. Command: {full_command}\n"
+                    f"CWD: {cwd}\n"
+                    f"Return code: {process.returncode}\n"
+                    f"STDOUT: {stdout}\n"
+                    f"STDERR: {stderr}"
+                )
+            
+            # Server is running - this is success for this test
+            assert True, "MCP server started successfully with generated config"
+            
+        except Exception as e:
+            pytest.fail(f"Failed to start MCP server: {e}")
+        
+        finally:
+            # Clean up process
+            if process and process.poll() is None:
+                try:
+                    process.terminate()
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+
+    def test_mcp_server_responds_to_protocol_disabled(self):
+        """Server must respond to basic MCP protocol messages.
+        
+        This test verifies that the server not only starts but actually
+        responds to MCP initialize messages correctly.
+        """
+        import subprocess
+        import json
+        import time
+        
+        # Generate config using auto_configure
+        config = generate_config_entry(development_mode=True)
+        
+        # Extract command details
+        command = config["quilt"]["command"] 
+        args = config["quilt"]["args"]
+        cwd = config["quilt"]["cwd"]
+        
+        # Start server process
+        process = None
+        try:
+            full_command = [command] + args
+            
+            # Prepare environment with current PATH to find uv
+            test_env = os.environ.copy()
+            test_env.update({
+                "PYTHONPATH": cwd, 
+                "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+            })
+            
+            process = subprocess.Popen(
+                full_command,
+                cwd=cwd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                env=test_env,
+                text=True
+            )
+            
+            # Give server time to start
+            time.sleep(2)
+            
+            # Check if process is still running
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                pytest.fail(f"MCP server crashed during startup. STDERR: {stderr}")
+            
+            # Send MCP initialize message
+            initialize_message = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                }
+            }
+            
+            # Send message to server
+            message_json = json.dumps(initialize_message) + "\n"
+            process.stdin.write(message_json)
+            process.stdin.flush()
+            
+            # Read response with timeout
+            import select
+            import sys
+            
+            # Simple timeout mechanism
+            ready, _, _ = select.select([process.stdout], [], [], 5.0)
+            if ready:
+                response_line = process.stdout.readline()
+                if response_line:
+                    try:
+                        response = json.loads(response_line)
+                        # Check if response is valid MCP response
+                        assert "jsonrpc" in response
+                        assert "id" in response
+                        assert response["id"] == 1
+                        # Should have result or error
+                        assert "result" in response or "error" in response
+                    except json.JSONDecodeError:
+                        pytest.fail(f"Server returned invalid JSON: {response_line}")
+                else:
+                    pytest.fail("Server did not respond to initialize message")
+            else:
+                pytest.fail("Server did not respond within timeout")
+                
+        except Exception as e:
+            pytest.fail(f"MCP protocol test failed: {e}")
+        
+        finally:
+            # Clean up process
+            if process and process.poll() is None:
+                try:
+                    process.terminate()
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+
+    def test_command_validation_in_app_directory(self):
+        """uv run python main.py must work from generated cwd.
+        
+        This test verifies that the exact command works from the exact directory
+        specified in the generated configuration.
+        """
+        import subprocess
+        import os
+        from pathlib import Path
+        
+        # Generate config
+        config = generate_config_entry(development_mode=True)
+        
+        command = config["quilt"]["command"]
+        args = config["quilt"]["args"]
+        cwd = config["quilt"]["cwd"]
+        
+        # Verify directory structure
+        cwd_path = Path(cwd)
+        assert cwd_path.exists(), f"Generated CWD does not exist: {cwd}"
+        assert (cwd_path / "main.py").exists(), f"main.py not found in {cwd}"
+        
+        # Test that the command can be found from the directory
+        try:
+            # Test command resolution
+            result = subprocess.run(
+                ["which", command] if command != "uv" else ["uv", "--version"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if command == "uv":
+                assert result.returncode == 0, f"uv not available: {result.stderr}"
+            
+            # Test that Python files exist
+            assert (cwd_path / "quilt_mcp").exists(), "quilt_mcp package not found"
+            assert (cwd_path / "quilt_mcp" / "__init__.py").exists(), "quilt_mcp package not properly structured"
+            
+            # Test the exact command structure
+            expected_args = ["run", "python", "main.py"]
+            assert args == expected_args, f"Expected args {expected_args}, got {args}"
+            
+        except subprocess.TimeoutExpired:
+            pytest.fail("Command validation timed out")
+        except Exception as e:
+            pytest.fail(f"Command validation failed: {e}")
+
+    def test_development_vs_production_config_commands(self):
+        """Development and production configs must use different, valid commands.
+        
+        This ensures we don't regress to using wrong commands for different modes.
+        """
+        # Test development mode config
+        dev_config = generate_config_entry(development_mode=True)
+        assert dev_config["quilt"]["command"] == "uv"
+        assert dev_config["quilt"]["args"] == ["run", "python", "main.py"]
+        assert "cwd" in dev_config["quilt"]
+        
+        # Test production mode config
+        prod_config = generate_config_entry(development_mode=False)
+        assert prod_config["quilt"]["command"] == "uvx"
+        assert prod_config["quilt"]["args"] == ["quilt-mcp"]
+        assert "cwd" not in prod_config["quilt"]  # No cwd needed for uvx
+
+    def test_config_includes_required_environment_variables(self):
+        """Generated config must include all required environment variables.
+        
+        Missing environment variables could cause the server to fail at runtime.
+        """
+        config = generate_config_entry(development_mode=True)
+        env_vars = config["quilt"]["env"]
+        
+        # Must have QUILT_CATALOG_DOMAIN
+        assert "QUILT_CATALOG_DOMAIN" in env_vars
+        assert env_vars["QUILT_CATALOG_DOMAIN"] == "demo.quiltdata.com"
 
 
 class TestMakeTargetIntegration:

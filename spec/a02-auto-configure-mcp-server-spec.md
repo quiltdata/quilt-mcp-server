@@ -456,18 +456,48 @@ And it should suggest manual recovery steps
 
 ### IT4: MCP Server Functional Testing - **CRITICAL**
 
-**Requirement**: All generated MCP configurations MUST be tested for actual server startup
+**Requirement**: All generated MCP configurations MUST be tested for actual server startup AND end-to-end functionality
 
-**Test Requirements**:
+**Automated Test Requirements**:
+- **Path handling validation**: Generated cwd + command must resolve correctly (no `//` path errors)
 - **Server startup test**: Generated command + args + cwd must successfully start the MCP server
-- **MCP protocol test**: Server must respond to basic MCP protocol messages (initialize, list_tools)
-- **Command validation**: `uv run python main.py` from generated cwd must work
-- **Integration test**: Test full client → server connection using generated config
-- **CI integration**: Add server startup test to CI pipeline to prevent regressions
+- **MCP protocol test**: Server must respond to basic MCP protocol messages (initialize, list_tools)  
+- **Command validation**: Exact generated command must work from exact generated cwd
+- **Cross-platform path testing**: Test path resolution on macOS, Windows, Linux
+- **JSON schema validation**: Generated configs must be valid MCP server JSON
+- **CI integration**: All tests must run in CI pipeline to prevent regressions
 
-**Failure Criteria**: If generated MCP config cannot start the server, the test MUST fail
+**Semi-Automated Test Requirements** (UAT Folder):
+- **Real client integration**: Test actual Claude Desktop, VS Code, Cursor with generated configs
+- **Config reload testing**: Verify clients pick up configuration changes correctly
+- **Log analysis automation**: Parse MCP client logs for success/failure patterns
+- **User acceptance scenarios**: End-to-end workflows from config generation to successful MCP calls
 
-This addresses the critical gap where configurations were generated but never tested for actual functionality.
+**Failure Criteria**: 
+- If generated MCP config cannot start the server, tests MUST fail
+- If path handling produces invalid paths (e.g., `//main.py`), tests MUST fail  
+- If real client integration fails in UAT, deployment MUST be blocked
+
+**UAT Folder Structure**: 
+- `uat/README.md` - Comprehensive testing procedures and automation scripts
+- `uat/scripts/client-test.sh` - Automated MCP client configuration testing script
+- `uat/scripts/log-analyzer.py` - Log analysis automation for connection success/failure detection
+- `uat/scripts/validate-uat.py` - Complete UAT setup validation script  
+- `uat/logs/patterns.json` - Success/failure log patterns for each supported client
+- `uat/logs/analysis.md` - Manual log analysis procedures and troubleshooting guide
+- `uat/scenarios/claude-desktop.md` - Claude Desktop integration test scenarios
+- `uat/scenarios/vscode.md` - VS Code integration test scenarios  
+- `uat/scenarios/cursor.md` - Cursor integration test scenarios
+
+**UAT Validation Requirements**:
+
+- `python uat/scripts/validate-uat.py` MUST pass in CI/CD pipeline
+- All UAT scripts MUST be executable and functional
+- Generated configurations MUST be tested with `uat/scripts/client-test.sh`
+- Log analysis tools MUST successfully parse client logs for connection patterns
+- UAT validation MUST run after each change to auto-configuration functionality
+
+This addresses critical gaps in both automated testing AND real-world deployment validation.
 
 ## Implementation Notes
 

@@ -86,6 +86,9 @@ validate:
 validate-app:
 	@echo "🔍 Validating Phase 1 (App)..."
 	@$(MAKE) -C app validate
+	@echo "🧪 Running CRITICAL MCP server configuration tests..."
+	@$(MAKE) -C app test-mcp-server || (echo "❌ CRITICAL: MCP server configuration tests failed" && exit 1)
+	@echo "✅ MCP server configuration validated"
 
 validate-build:
 	@echo "🔍 Validating Phase 2 (Build-Docker)..."

@@ -30,25 +30,23 @@ def generate_config_entry(
         Dictionary containing the MCP server configuration
     """
     if development_mode:
-        command = "uv"
-        args = ["run", "python", "main.py"]
-        # For development, we need to specify the working directory
-        # Find the project root (where pyproject.toml exists) then point to app/ subdirectory
+        # Use make target - much more robust than trying to handle paths manually
+        command = "make"
+        args = ["-C", "app", "run"]
+        
+        # Find the project root (where Makefile exists)
         current_dir = Path.cwd()
         project_root = current_dir
-        # Look for pyproject.toml in current and parent directories
+        # Look for Makefile in current and parent directories
         while project_root != project_root.parent:
-            if (project_root / "pyproject.toml").exists():
+            if (project_root / "Makefile").exists():
                 break
             project_root = project_root.parent
-        
-        # MCP server needs to run from the app/ subdirectory
-        app_dir = project_root / "app"
         
         config_entry = {
             "command": command,
             "args": args,
-            "cwd": str(app_dir),
+            "cwd": str(project_root),
             "env": {
                 "QUILT_CATALOG_DOMAIN": catalog_domain
             },
@@ -556,19 +554,8 @@ def auto_configure_main(
     
     # Handle batch mode (non-interactive)
     if batch_mode:
-        print("Generated MCP Server Configuration (Batch Mode):")
-        print("=" * 50)
+        # In batch mode, only output JSON for scripting compatibility
         print(json.dumps({"mcpServers": config_entry}, indent=2))
-        print()
-        
-        # Show client locations but don't prompt
-        clients_status = detect_clients()
-        print("Detected Clients:")
-        for client_id, status in clients_status.items():
-            name = status.get("name", client_id)
-            config_path = status.get("config_path", "Unknown")
-            config_exists = "✅ Found" if status.get("config_exists") else "❌ Missing"
-            print(f"  {name}: {config_exists} ({config_path})")
         return
     
     # Handle specific client or config file (direct configuration)
