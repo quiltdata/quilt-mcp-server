@@ -45,7 +45,7 @@ help:
 	@echo "  make check-env    - Validate .env configuration"
 	@echo "  make status       - Show deployment status"
 	@echo "  make coverage     - Run tests with coverage"
-	@echo "  make update-cursor-rules - Update Cursor IDE rules from docs/CLAUDE.md"
+	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
 	@echo "🏷️  Release Management:"
 	@echo "  make tag         - Create tag using version from manifest.json"
@@ -259,9 +259,9 @@ tag: check-clean-repo
 update-cursor-rules:
 	@echo "📝 Updating Cursor IDE rules..."
 	@mkdir -p .cursor/rules
-	@if [ -f docs/CLAUDE.md ]; then \
-		cp docs/CLAUDE.md .cursor/rules/; \
-		echo "✅ Cursor rules updated from docs/CLAUDE.md"; \
+	@if [ -f CLAUDE.md ]; then \
+		cp CLAUDE.md .cursor/rules/; \
+		echo "✅ Cursor rules updated from CLAUDE.md"; \
 	else \
-		echo "⚠️  docs/CLAUDE.md not found, skipping cursor rules update"; \
+		echo "⚠️  CLAUDE.md not found, skipping cursor rules update"; \
 	fi
