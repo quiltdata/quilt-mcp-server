@@ -145,7 +145,7 @@ class TestQuiltTools:
     def test_packages_search_authentication_error(self):
         """Test packages_search with authentication error."""
         # Mock the build_stack_search_indices to fail
-        with patch("quilt_mcp.tools.packages.build_stack_search_indices", side_effect=Exception("401 Unauthorized")):
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("401 Unauthorized")):
             result = packages_search("test query")
             
             assert isinstance(result, dict)
@@ -156,7 +156,7 @@ class TestQuiltTools:
     def test_packages_search_config_error(self):
         """Test packages_search with configuration error."""
         # Mock the build_stack_search_indices to fail with config error
-        with patch("quilt_mcp.tools.packages.build_stack_search_indices", side_effect=Exception("Invalid URL - No scheme supplied")):
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("Invalid URL - No scheme supplied")):
             result = packages_search("test query")
             
             assert isinstance(result, dict)
@@ -178,7 +178,7 @@ class TestQuiltTools:
             "timed_out": False
         }
 
-        with patch("quilt_mcp.tools.packages.build_stack_search_indices", return_value="test-bucket"):
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", return_value="test-bucket"):
             with patch("quilt3.search_util.search_api", return_value=mock_search_results):
                 result = packages_search("test query", limit=2)
 

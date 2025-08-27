@@ -138,7 +138,7 @@ class TestGraphQLBackend:
         mock_quilt3.session.get_session.return_value = None
         
         # Mock the GraphQL endpoint function to return None
-        with patch('quilt_mcp.search.backends.graphql._get_graphql_endpoint', return_value=(None, None)):
+        with patch('quilt_mcp.tools.graphql._get_graphql_endpoint', return_value=(None, None)):
             backend = EnterpriseGraphQLBackend()
             assert backend.status == BackendStatus.UNAVAILABLE
     
