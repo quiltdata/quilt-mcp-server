@@ -18,10 +18,7 @@ quilt-mcp-server/
 ├── 📁 documentation/         # Project documentation artifacts
 ├── 📁 shared/                # Shared utilities and scripts
 ├── 📁 spec/                  # Technical specifications
-├── 📁 build-docker/          # Docker containerization
 ├── 📁 build-dxt/             # Claude Desktop extension build
-├── 📁 catalog-push/          # ECR registry operations  
-├── 📁 deploy-aws/            # AWS deployment configuration
 ├── 📁 weather/               # Example/demo data
 ├── 📄 README.md              # Main project documentation
 ├── 📄 CHANGELOG.md           # Version history and changes
@@ -225,15 +222,6 @@ configs/
 
 ## 🚀 Deployment and Build
 
-### `build-docker/` - Docker Containerization
-
-```
-build-docker/
-├── 📄 Dockerfile           # Multi-stage Docker build
-├── 📄 docker-compose.yml   # Local development composition
-├── 📄 build-docker.sh      # Docker build script
-└── 📄 Makefile             # Docker-specific commands
-```
 
 ### `build-dxt/` - Claude Desktop Extension
 
@@ -250,23 +238,6 @@ build-dxt/
 └── 📄 Makefile             # DXT build commands
 ```
 
-### `catalog-push/` - ECR Registry Operations
-
-```
-catalog-push/
-├── 📄 catalog-push.sh      # ECR push script
-└── 📄 Makefile             # Registry commands
-```
-
-### `deploy-aws/` - AWS Deployment
-
-```
-deploy-aws/
-├── 📄 app.py               # CDK deployment stack
-├── 📄 cdk.context.json     # CDK context configuration
-├── 📄 deploy-aws.sh        # Deployment script
-└── 📄 Makefile             # AWS deployment commands
-```
 
 ## 📊 Analysis and Reporting
 
@@ -301,10 +272,8 @@ Detailed technical specifications for each component:
 
 ```
 spec/
-├── 📄 app.md               # MCP server specification
-├── 📄 build-docker.md     # Docker build specification
-├── 📄 catalog-push.md     # Registry operations specification
-├── 📄 deploy-aws.md       # AWS deployment specification
+├── 📄 1-app-spec.md        # MCP server specification
+├── 📄 5-dxt-spec.md        # DXT build specification
 ├── 📄 shared.md           # Shared utilities specification
 └── ... (18 total specification files)
 ```
@@ -347,7 +316,7 @@ spec/
 1. **Code Structure**: [`app/quilt_mcp/`](../app/quilt_mcp/) - Core implementation
 2. **Testing**: [`tests/`](../tests/) and [`test_cases/`](../test_cases/)
 3. **Build Tools**: [`Makefile`](../Makefile) and phase-specific Makefiles
-4. **Deployment**: [`deploy-aws/`](../deploy-aws/) and [`build-docker/`](../build-docker/)
+4. **Build System**: [`build-dxt/`](../build-dxt/) for Claude Desktop Extension packaging
 
 ## 🔄 File Organization Principles
 

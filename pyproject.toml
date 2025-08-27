@@ -31,7 +31,7 @@ quilt-mcp = "app.main:main"
 [tool.setuptools.packages.find]
 where = ["app"]
 include = ["quilt_mcp*"]
-exclude = ["shared", "build-docker", "catalog-push", "deploy-aws", "scripts"]
+exclude = ["shared", "scripts"]
 
 [tool.setuptools.package-dir]
 "" = "app"
