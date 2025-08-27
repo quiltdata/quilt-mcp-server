@@ -350,11 +350,7 @@ class TestIntegration:
     
     def test_telemetry_interceptor_integration(self):
         """Test integration between telemetry and interceptor."""
-        # Configure telemetry
-        config = TelemetryConfig(enabled=True, level=TelemetryLevel.STANDARD)
-        collector = TelemetryCollector(config)
-        
-        # Create interceptor
+        # Create interceptor (which creates its own telemetry collector)
         interceptor = ToolCallInterceptor()
         
         # Mock function
@@ -369,8 +365,8 @@ class TestIntegration:
         
         assert result == "result_test"
         
-        # Check telemetry was collected
-        session = collector.sessions[context.sequence_id]
+        # Check telemetry was collected using the interceptor's telemetry collector
+        session = interceptor.telemetry.sessions[context.sequence_id]
         assert len(session.tool_calls) == 1
     
     @pytest.mark.asyncio

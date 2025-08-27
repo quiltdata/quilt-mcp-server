@@ -163,8 +163,8 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_get_tool_modules(self):
         """Test that get_tool_modules returns expected modules."""
         modules = get_tool_modules()
-        # The function returns 11 modules, not 4
-        self.assertEqual(len(modules), 13)
+        # The function returns 16 modules after adding new features
+        self.assertEqual(len(modules), 16)
         # Check that key modules are included
         module_names = [m.__name__ for m in modules]
         self.assertIn("quilt_mcp.tools.auth", module_names)
@@ -360,7 +360,11 @@ class TestMCPServerConfiguration(unittest.TestCase):
                 "quilt_mcp.tools.metadata_examples",
                 "quilt_mcp.tools.quilt_summary",
                 "quilt_mcp.tools.athena_glue",
-                "quilt_mcp.tools.tabulator"
+                "quilt_mcp.tools.tabulator",
+                "quilt_mcp.tools.graphql",
+                "quilt_mcp.tools.governance",
+                "quilt_mcp.tools.search",
+                "quilt_mcp.tools.workflow_orchestration"
             ]
             self.assertIn(module.__name__, expected_modules)
 

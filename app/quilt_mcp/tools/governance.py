@@ -57,8 +57,9 @@ class GovernanceService:
         elif isinstance(e, Quilt3AdminError):
             return format_error_response(f"Admin operation failed: {str(e)}")
         else:
-            logger.error(f"Failed to {operation}: {e}")
-            return format_error_response(f"Failed to {operation}: {str(e)}")
+            operation_str = operation or "perform admin operation"
+            logger.error(f"Failed to {operation_str}: {e}")
+            return format_error_response(f"Failed to {operation_str}: {str(e)}")
 
 
 # User Management Functions
