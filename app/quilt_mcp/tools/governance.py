@@ -58,8 +58,9 @@ class GovernanceService:
             return format_error_response(f"Admin operation failed: {str(e)}")
         else:
             operation_str = operation or "perform admin operation"
-            logger.error(f"Failed to {operation_str}: {e}")
-            return format_error_response(f"Failed to {operation_str}: {str(e)}")
+            error_str = str(e) if e is not None else "Unknown error"
+            logger.error(f"Failed to {operation_str}: {error_str}")
+            return format_error_response(f"Failed to {operation_str}: {error_str}")
 
 
 # User Management Functions
