@@ -197,3 +197,7 @@ __marimo__/
 deployment/packager/test-event*.json
 /deploy-aws/cdk.out
 .DS_Store
+
+# Exclude external repositories
+enterprise/
+quilt/
