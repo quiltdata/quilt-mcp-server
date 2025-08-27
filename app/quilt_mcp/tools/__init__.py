@@ -10,6 +10,8 @@ This package contains all the MCP tool implementations organized by functionalit
 - unified_package: Simplified, intelligent package creation interface
 - metadata_templates: Metadata templates and validation utilities
 - package_management: Enhanced package management with better UX
+- athena_glue: AWS Athena queries and Glue Data Catalog discovery
+- tabulator: Quilt tabulator table management for SQL querying across packages
 
 These tools are pure functions that are registered by the tools module.
 
@@ -26,6 +28,6 @@ Example usage:
     pkg_list = packages.packages_list()
 """
 
-from . import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary
+from . import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, graphql, athena_glue, tabulator
 
-__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions", "unified_package", "metadata_templates", "package_management", "metadata_examples", "quilt_summary"]
+__all__ = ["auth", "buckets", "packages", "package_ops", "s3_package", "permissions", "unified_package", "metadata_templates", "package_management", "metadata_examples", "quilt_summary", "graphql", "athena_glue", "tabulator"]

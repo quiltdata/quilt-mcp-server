@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional, NamedTuple, Set
 from enum import Enum
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 import boto3
@@ -196,7 +196,7 @@ class AWSPermissionDiscovery:
                         can_read=False,
                         can_write=False,
                         can_list=False,
-                        last_checked=datetime.utcnow(),
+                        last_checked=datetime.now(timezone.utc),
                         error_message=str(e)
                     ))
             
@@ -231,7 +231,7 @@ class AWSPermissionDiscovery:
                                     can_read=False,
                                     can_write=False,
                                     can_list=False,
-                                    last_checked=datetime.utcnow(),
+                                    last_checked=datetime.now(timezone.utc),
                                     error_message=str(e)
                                 ))
             except Exception as e:
@@ -254,7 +254,7 @@ class AWSPermissionDiscovery:
                                     can_read=False,
                                     can_write=False,
                                     can_list=False,
-                                    last_checked=datetime.utcnow(),
+                                    last_checked=datetime.now(timezone.utc),
                                     error_message=str(e)
                                 ))
                 except Exception as e:
@@ -275,7 +275,7 @@ class AWSPermissionDiscovery:
                                 can_read=False,
                                 can_write=False,
                                 can_list=False,
-                                last_checked=datetime.utcnow(),
+                                last_checked=datetime.now(timezone.utc),
                                 error_message=str(e)
                             ))
             except Exception as e:
@@ -312,7 +312,7 @@ class AWSPermissionDiscovery:
                             can_read=False,
                             can_write=False,
                             can_list=False,
-                            last_checked=datetime.utcnow(),
+                            last_checked=datetime.now(timezone.utc),
                             error_message=str(e)
                         ))
         
@@ -351,7 +351,7 @@ class AWSPermissionDiscovery:
                         can_read=False,
                         can_write=False,
                         can_list=False,
-                        last_checked=datetime.utcnow(),
+                        last_checked=datetime.now(timezone.utc),
                         error_message=error_message
                     )
                 else:
@@ -373,7 +373,7 @@ class AWSPermissionDiscovery:
                 try:
                     # Try to read a non-existent key - should get 404 if we have read permission,
                     # 403 if we don't
-                    test_key = f"__permission_test_{datetime.utcnow().timestamp()}.tmp"
+                    test_key = f"__permission_test_{datetime.now(timezone.utc).timestamp()}.tmp"
                     self.s3_client.head_object(Bucket=bucket_name, Key=test_key)
                 except ClientError as e:
                     if e.response['Error']['Code'] == 'NotFound':
@@ -443,7 +443,7 @@ class AWSPermissionDiscovery:
             can_read=can_read,
             can_write=can_write,
             can_list=can_list,
-            last_checked=datetime.utcnow(),
+            last_checked=datetime.now(timezone.utc),
             error_message=error_message
         )
         
@@ -464,7 +464,7 @@ class AWSPermissionDiscovery:
                     
                 elif operation == "read":
                     # Test read with non-existent key
-                    test_key = f"__test_{datetime.utcnow().timestamp()}.tmp"
+                    test_key = f"__test_{datetime.now(timezone.utc).timestamp()}.tmp"
                     try:
                         self.s3_client.head_object(Bucket=bucket_name, Key=test_key)
                     except ClientError as e:

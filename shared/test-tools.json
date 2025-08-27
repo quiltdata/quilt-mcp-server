@@ -64,7 +64,7 @@
       "description": "Create a new package from S3 objects",
       "arguments": {
         "package_name": "raw/test-mcp",
-        "s3_uris": ["s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP1/quant.sf"]
+        "s3_uris": ["s3://quilt-sandbox-bucket/salmon/RAP1_UNINDUCED_REP1/quant.sf"]
       },
       "validations": {
         "expect_keys": ["status", "package_name", "entries_added"],
@@ -76,7 +76,7 @@
       "description": "Update existing package with new S3 objects",
       "arguments": {
         "package_name": "raw/test-mcp",
-        "s3_uris": ["s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP2/quant.sf"]
+        "s3_uris": ["s3://quilt-sandbox-bucket/salmon/RAP1_UNINDUCED_REP2/quant.sf"]
       },
       "validations": {
         "expect_keys": ["status", "package_name", "new_entries_added"],
@@ -108,7 +108,7 @@
     "bucket_object_info": {
       "description": "Get S3 object metadata",
       "arguments": {
-        "s3_uri": "s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP1/quant.sf"
+        "s3_uri": "s3://quilt-sandbox-bucket/salmon/RAP1_UNINDUCED_REP1/quant.sf"
       },
       "validations": {
         "expect_keys": ["bucket", "key", "size"],
@@ -118,7 +118,7 @@
     "bucket_object_text": {
       "description": "Read text content from S3 object",
       "arguments": {
-        "s3_uri": "s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP1/quant.sf",
+        "s3_uri": "s3://quilt-sandbox-bucket/salmon/RAP1_UNINDUCED_REP1/quant.sf",
         "max_bytes": 1024
       },
       "validations": {
@@ -129,7 +129,7 @@
     "bucket_objects_put": {
       "description": "Upload test objects to S3",
       "arguments": {
-        "bucket": "quilt-ernest-staging",
+        "bucket": "quilt-sandbox-bucket",
         "items": [
           {
             "key": "test/hello.txt",
@@ -146,7 +146,7 @@
     "bucket_object_fetch": {
       "description": "Fetch binary/text data from S3",
       "arguments": {
-        "s3_uri": "s3://quilt-ernest-staging/salmon/RAP1_UNINDUCED_REP1/quant.sf",
+        "s3_uri": "s3://quilt-sandbox-bucket/salmon/RAP1_UNINDUCED_REP1/quant.sf",
         "max_bytes": 1024,
         "base64_encode": false
       },

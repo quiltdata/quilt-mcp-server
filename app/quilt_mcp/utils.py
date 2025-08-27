@@ -8,8 +8,7 @@ import re
 import sys
 import io
 import contextlib
-from collections.abc import Callable
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Callable
 
 import boto3
 from fastmcp import FastMCP
@@ -52,9 +51,9 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary
+    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, athena_glue, tabulator
 
-    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary]
+    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, athena_glue, tabulator]
 
 
 def register_tools(
@@ -92,7 +91,6 @@ def register_tools(
             tools_registered += 1
             if verbose:
                 # Use stderr to avoid interfering with JSON-RPC on stdout
-                import sys
                 print(f"Registered tool: {module.__name__}.{name}", file=sys.stderr)
 
     return tools_registered
@@ -124,7 +122,7 @@ def format_error_response(message: str) -> Dict[str, Any]:
     return {
         "success": False,
         "error": message,
-        "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
+        "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
 
 
@@ -160,7 +158,6 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        import sys
         print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
@@ -187,6 +184,5 @@ def run_server() -> None:
 
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        import sys
         print(f"Error starting MCP server: {e}", file=sys.stderr)
         raise

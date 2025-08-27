@@ -14,6 +14,7 @@ from typing import Dict, List, Any, Optional
 import logging
 from pathlib import Path
 
+from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
 from .metadata_templates import get_metadata_template, validate_metadata_structure, list_metadata_templates
 from .package_ops import package_create as _base_package_create
@@ -225,9 +226,9 @@ def create_package_enhanced(
                     registry = f"s3://{top_rec['bucket_name']}"
                     logger.info(f"Auto-selected registry: {registry}")
                 else:
-                    registry = "s3://quilt-example"  # Fallback
+                    registry = DEFAULT_REGISTRY  # Fallback to configured default
             except Exception:
-                registry = "s3://quilt-example"  # Safe fallback
+                registry = DEFAULT_REGISTRY  # Safe fallback to configured default
         
         # Create the package using the base function with enhanced error handling
         try:
@@ -389,7 +390,7 @@ def package_update_metadata(
             # Suppress stdout during push to avoid JSON-RPC interference
             from ..utils import suppress_stdout
             with suppress_stdout():
-                top_hash = pkg.push(package_name, registry=registry, message=commit_message)
+                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
             
             return {
                 "success": True,
@@ -451,7 +452,7 @@ def package_validate(
     """
     try:
         # Browse the package to get file information
-        browse_result = package_browse(package_name, registry=registry or "s3://quilt-example")
+        browse_result = package_browse(package_name, registry=registry or DEFAULT_REGISTRY)
         
         if not browse_result.get("success"):
             return {
