@@ -69,7 +69,7 @@ def test_athena_service_creation():
         traceback.print_exc()
         return None
 
-def test_sqlalchemy_engine_creation(service):
+def check_sqlalchemy_engine_creation(service):
     """Test SQLAlchemy engine creation"""
     print("\n" + "=" * 60)
     print("Testing SQLAlchemy engine creation")
@@ -93,7 +93,7 @@ def test_sqlalchemy_engine_creation(service):
         traceback.print_exc()
         return None
 
-def test_engine_connection(engine):
+def check_engine_connection(engine):
     """Test actual connection to Athena"""
     print("\n" + "=" * 60)
     print("Testing engine connection to Athena")
@@ -121,7 +121,7 @@ def test_engine_connection(engine):
         traceback.print_exc()
         return False
 
-def test_glue_client(service):
+def check_glue_client(service):
     """Test Glue client creation and basic operation"""
     print("\n" + "=" * 60)
     print("Testing Glue client")
@@ -207,13 +207,13 @@ def main():
     service = test_athena_service_creation()
     
     # Test 3: Engine creation
-    engine = test_sqlalchemy_engine_creation(service)
+    engine = check_sqlalchemy_engine_creation(service)
     
     # Test 4: Actual connection
-    connection_success = test_engine_connection(engine)
+    connection_success = check_engine_connection(engine)
     
     # Test 5: Glue client
-    glue_success = test_glue_client(service)
+    glue_success = check_glue_client(service)
     
     # Test 6: MCP tools
     mcp_success = test_mcp_tools()

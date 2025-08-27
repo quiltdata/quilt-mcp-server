@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools update-cursor-rules 
 
 # Default target
 help:
@@ -23,10 +23,11 @@ help:
 	@echo "  make validate     - Full SPEC-compliant validation"
 	@echo "  make clean        - Clean Python cache"
 	@echo "  make config       - Generate .config file with test results"
-	@echo "  make init         - Check preconditions"
+	@echo "  make init         - Check preconditions and update Cursor rules"
 	@echo "  make verify       - Verify MCP endpoint"
 	@echo "  make zero         - Stop running processes"
 	@echo "  make run-inspector - Launch MCP Inspector for visual testing"
+	@echo "  make update-cursor-rules - Update Cursor IDE rules from docs/CLAUDE.md"
 
 clean:
 	@echo "Cleaning Python cache..."
@@ -146,7 +147,18 @@ validate:
 init:
 	@echo "Checking Phase 1 (App) preconditions..."
 	@command -v uv >/dev/null || (echo "Error: uv not found. Please install uv first." && exit 1)
+	@$(MAKE) update-cursor-rules
 	@echo "✅ Phase 1 preconditions met"
+
+update-cursor-rules:
+	@echo "📝 Updating Cursor IDE rules..."
+	@mkdir -p ../.cursor/rules
+	@if [ -f ../docs/CLAUDE.md ]; then \
+		cp ../docs/CLAUDE.md ../.cursor/rules/; \
+		echo "✅ Cursor rules updated from docs/CLAUDE.md"; \
+	else \
+		echo "⚠️  docs/CLAUDE.md not found, skipping cursor rules update"; \
+	fi
 
 verify:
 	@echo "Verifying MCP endpoint by starting server and running tests..."

@@ -12,12 +12,12 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 
-from app.quilt_mcp.telemetry.collector import TelemetryCollector, TelemetryConfig, TelemetryLevel
-from app.quilt_mcp.telemetry.privacy import PrivacyManager, DataAnonymizer
-from app.quilt_mcp.optimization.interceptor import ToolCallInterceptor, OptimizationContext
-from app.quilt_mcp.optimization.testing import TestScenario, TestStep, ScenarioRunner, TestScenarioType
-from app.quilt_mcp.optimization.autonomous import AutonomousOptimizer, OptimizationRule
-from app.quilt_mcp.optimization.scenarios import create_all_test_scenarios
+from quilt_mcp.telemetry.collector import TelemetryCollector, TelemetryConfig, TelemetryLevel
+from quilt_mcp.telemetry.privacy import PrivacyManager, DataAnonymizer
+from quilt_mcp.optimization.interceptor import ToolCallInterceptor, OptimizationContext
+from quilt_mcp.optimization.testing import TestScenario, TestStep, ScenarioRunner, TestScenarioType
+from quilt_mcp.optimization.autonomous import AutonomousOptimizer, OptimizationRule
+from quilt_mcp.optimization.scenarios import create_all_test_scenarios
 
 
 class TestTelemetryCollector:
