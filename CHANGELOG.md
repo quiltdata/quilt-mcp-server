@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<<<<<<< HEAD
+## [0.5.6] - 2025-01-27
+
+### Fixed
+
+- **DXT Release Generation**: Restored .dxt file generation for releases
+  - Fixed GitHub Actions workflow paths after repository reorganization
+  - Updated build-dxt/ to tools/dxt/ in all workflow steps
+  - Added tag push trigger for releases (v* tags)
+  - Fixed DXT artifact paths and asset copying
+  - Resolves missing .dxt files in releases since v0.4.0
+
+- **Unit Test Infrastructure**: Resolved test failures and configuration issues
+  - Fixed import paths from 'app.quilt_mcp' to 'quilt_mcp' after reorganization
+  - Updated test discovery paths in app.sh validation script
+  - Resolved pytest fixture errors in test_athena_connection.py
+  - Fixed config generation hanging during 'make app' startup
+  - Optimized test subset for faster server startup validation
+
+- **Repository Organization**: Completed comprehensive cleanup
+  - Moved scattered files into organized directories (tools/, docs/, test_cases/)
+  - Updated all internal documentation links and references
+  - Restored CLAUDE.md and WORKFLOW.md to active locations
+  - Added Cursor IDE integration with automatic rules copying
+
+### Improved
+
+- **CI/CD Pipeline**: Enhanced reliability and performance
+  - All unit tests now passing: 378+ tests locally, 383+ on remote
+  - Fixed test coverage reporting and validation
+  - Improved GitHub Actions workflow triggers and conditions
+  - Added comprehensive PR templates and issue forms
+
+- **Developer Experience**: Streamlined development workflow
+  - Fast server startup with optimized config generation
+  - Better error messages and troubleshooting guides
+  - Comprehensive documentation reorganization
+  - Automated development environment setup
+
 ## [0.5.5] - 2025-08-27
 
 ### Added
