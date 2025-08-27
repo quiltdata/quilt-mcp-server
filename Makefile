@@ -11,7 +11,7 @@ PHASES := app build-dxt
 APP_ENDPOINT ?= http://127.0.0.1:8000/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo
+.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo update-cursor-rules
 
 # Default target
 help:
@@ -37,6 +37,7 @@ help:
 	@echo "⚙️  Utilities:"
 	@echo "  make check-env    - Validate .env configuration"
 	@echo "  make coverage     - Run tests with coverage"
+	@echo "  make update-cursor-rules - Update Cursor IDE rules from docs/CLAUDE.md"
 	@echo ""
 	@echo "🏷️  Release Management:"
 	@echo "  make tag         - Create tag using version from manifest.json"
@@ -218,3 +219,14 @@ tag: check-clean-repo
 	echo "✅ Tag v$$MANIFEST_VERSION created and pushed"; \
 	echo "🚀 GitHub Actions will now build and publish the DXT package"; \
 	echo "📦 Release will be available at: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/releases/tag/v$$MANIFEST_VERSION"
+
+# Cursor IDE Rules Update
+update-cursor-rules:
+	@echo "📝 Updating Cursor IDE rules..."
+	@mkdir -p .cursor/rules
+	@if [ -f docs/CLAUDE.md ]; then \
+		cp docs/CLAUDE.md .cursor/rules/; \
+		echo "✅ Cursor rules updated from docs/CLAUDE.md"; \
+	else \
+		echo "⚠️  docs/CLAUDE.md not found, skipping cursor rules update"; \
+	fi

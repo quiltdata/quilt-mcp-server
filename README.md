@@ -234,11 +234,11 @@ python test_cases/sail_user_stories_real_test.py
 python test_cases/mcp_comprehensive_test_simulation.py
 ```
 
-**[Complete testing guide →](docs/TESTING.md)**
+**[Complete testing guide →](docs/developer/TESTING.md)**
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](docs/developer/CONTRIBUTING.md) for details.
 
 ### Quick Contribution Setup
 
@@ -321,7 +321,7 @@ graph LR
 - **🧪 Tests**: Additional test coverage and real-world scenarios
 - **🔧 Tools**: New MCP tools for Quilt operations
 
-**[Detailed contribution guidelines →](docs/CONTRIBUTING.md)**
+**[Detailed contribution guidelines →](docs/developer/CONTRIBUTING.md)**
 
 ## 📋 Requirements
 
@@ -454,7 +454,7 @@ cd quilt-mcp-server && make app
 
 ### Getting Help
 
-- **📖 Documentation**: Check [docs/](docs/) for detailed guides
+- **📖 Documentation**: Check [docs/](docs/) for detailed guides ([Documentation Index](docs/README.md))
 - **🔧 Tool Explorer**: Use `make run-inspector` for interactive testing
 - **✅ Validation**: Run `make validate-app` for comprehensive checks
 - **🐛 Issues**: Report bugs via [GitHub Issues](https://github.com/quiltdata/quilt-mcp-server/issues)
@@ -472,4 +472,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LI
 
 ---
 
-**Ready to get started?** Follow our [Installation Guide](docs/INSTALLATION.md) or jump right in with the [Quick Start](#-quick-start) above!
+**Ready to get started?** Follow our [Installation Guide](docs/user/INSTALLATION.md) or jump right in with the [Quick Start](#-quick-start) above!

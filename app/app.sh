@@ -31,10 +31,10 @@ case "${1:-validate}" in
         
         # SPEC REQUIREMENT: All tests with ≥85% coverage
         log_info "Running all tests with ≥85% coverage requirement..."
-        if [ -d "tests" ] && [ "$(find tests -name "*.py" | wc -l)" -gt 0 ]; then
-            uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+        if [ -d "../tests" ] && [ "$(find ../tests -name "*.py" | wc -l)" -gt 0 ]; then
+            uv run python -m pytest ../tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
         else
-            log_error "❌ SPEC violation: No tests found in tests/ directory"
+            log_error "❌ SPEC violation: No tests found in ../tests/ directory"
             log_error "SPEC requires tests with ≥85% coverage"
             exit 1
         fi
