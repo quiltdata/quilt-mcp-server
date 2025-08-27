@@ -1,0 +1,487 @@
+[
+  {
+    "id": "R001",
+    "persona": "Bench Scientist",
+    "utterance": "Find all packages containing RNA-seq data from human samples.",
+    "intent_tags": [
+      "search",
+      "metadata",
+      "nlq"
+    ],
+    "success_criteria": "Returns packages with metadata containing organism=human, assay=RNA-seq or similar terms.",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_bucket_objects_search"],
+    "realistic_changes": "Removed specific RIN filtering (not standard in Quilt metadata) and hepatocyte specificity (too narrow for general testing)"
+  },
+  {
+    "id": "R002",
+    "persona": "Bench Scientist", 
+    "utterance": "Show me the contents and metadata of the latest version of a specific package.",
+    "intent_tags": [
+      "browse",
+      "versioning",
+      "metadata"
+    ],
+    "success_criteria": "Opens latest package version, displays file tree and package metadata.",
+    "mcp_tools": ["mcp_quilt_package_browse", "mcp_quilt_packages_list"],
+    "realistic_changes": "Removed QC table specificity and Tabulator reference - Quilt shows package contents and metadata, not specific QC summaries"
+  },
+  {
+    "id": "R003",
+    "persona": "Bench Scientist",
+    "utterance": "Create a new package with metadata and validate the metadata structure.",
+    "intent_tags": [
+      "metadata",
+      "validation",
+      "package_creation"
+    ],
+    "success_criteria": "Package created with valid metadata; validation passes or shows specific errors.",
+    "mcp_tools": ["mcp_quilt_create_package_enhanced", "mcp_quilt_validate_metadata_structure"],
+    "realistic_changes": "Changed from 'attaching to existing run' to creating new package - Quilt creates packages, doesn't attach to runs"
+  },
+  {
+    "id": "R004",
+    "persona": "Bench Scientist",
+    "utterance": "Create a package from S3 objects and add appropriate metadata.",
+    "intent_tags": [
+      "package_creation",
+      "s3_integration",
+      "metadata"
+    ],
+    "success_criteria": "Package created from S3 objects with metadata attached.",
+    "mcp_tools": ["mcp_quilt_package_create_from_s3", "mcp_quilt_create_metadata_from_template"],
+    "realistic_changes": "Removed workflow/approval concepts - Quilt doesn't have built-in approval workflows"
+  },
+  {
+    "id": "R005",
+    "persona": "Bench Scientist",
+    "utterance": "Compare two versions of the same package to see what changed.",
+    "intent_tags": [
+      "diff",
+      "versioning"
+    ],
+    "success_criteria": "Shows differences in files and metadata between package versions.",
+    "mcp_tools": ["mcp_quilt_package_diff"],
+    "realistic_changes": "Kept as-is - this is exactly what Quilt package diff does"
+  },
+  {
+    "id": "R006",
+    "persona": "Bioinformatician",
+    "utterance": "Create a package from analysis outputs and link to input data packages.",
+    "intent_tags": [
+      "lineage",
+      "package_creation",
+      "metadata"
+    ],
+    "success_criteria": "Creates package with metadata linking to input packages.",
+    "mcp_tools": ["mcp_quilt_create_package", "mcp_quilt_create_metadata_from_template"],
+    "realistic_changes": "Removed Nextflow-specific integration - Quilt doesn't have built-in Nextflow integration, but can reference other packages in metadata"
+  },
+  {
+    "id": "R007",
+    "persona": "Bioinformatician",
+    "utterance": "Search for files containing specific text across multiple packages.",
+    "intent_tags": [
+      "content_search",
+      "cross_package"
+    ],
+    "success_criteria": "Returns files matching text search with package context.",
+    "mcp_tools": ["mcp_quilt_bucket_objects_search", "mcp_quilt_packages_search"],
+    "realistic_changes": "Simplified to bucket-level content search - Quilt searches at bucket/object level, not deep content indexing"
+  },
+  {
+    "id": "R008",
+    "persona": "Bioinformatician",
+    "utterance": "Generate a presigned download URL for a specific file in a package.",
+    "intent_tags": [
+      "download",
+      "presigned_urls"
+    ],
+    "success_criteria": "Returns valid presigned URL for file download.",
+    "mcp_tools": ["mcp_quilt_bucket_object_link", "mcp_quilt_package_browse"],
+    "realistic_changes": "Removed range request testing - focused on core presigned URL functionality"
+  },
+  {
+    "id": "R009",
+    "persona": "Bioinformatician",
+    "utterance": "Update an existing package with new files while preserving existing content.",
+    "intent_tags": [
+      "package_update",
+      "versioning"
+    ],
+    "success_criteria": "Package updated with new version containing additional files.",
+    "mcp_tools": ["mcp_quilt_package_update"],
+    "realistic_changes": "Changed from 're-ingest' concept to package update - Quilt creates new versions, doesn't re-ingest"
+  },
+  {
+    "id": "R010",
+    "persona": "Bioinformatician",
+    "utterance": "List all packages in a registry and check their basic metadata.",
+    "intent_tags": [
+      "inventory",
+      "metadata"
+    ],
+    "success_criteria": "Returns list of packages with basic metadata summary.",
+    "mcp_tools": ["mcp_quilt_packages_list", "mcp_quilt_package_browse"],
+    "realistic_changes": "Removed cross-bucket copying with checksum verification - simplified to basic package listing"
+  },
+  {
+    "id": "R011",
+    "persona": "Data Engineer",
+    "utterance": "Check my AWS permissions and discover which buckets I can access.",
+    "intent_tags": [
+      "permissions",
+      "aws_integration"
+    ],
+    "success_criteria": "Returns detailed permissions report for accessible buckets.",
+    "mcp_tools": ["mcp_quilt_aws_permissions_discover", "mcp_quilt_bucket_access_check"],
+    "realistic_changes": "Removed package-level ACL concepts - Quilt uses S3/IAM permissions, not package-level ACLs"
+  },
+  {
+    "id": "R012",
+    "persona": "Data Engineer",
+    "utterance": "List all objects in a specific S3 bucket with pagination.",
+    "intent_tags": [
+      "s3_operations",
+      "pagination"
+    ],
+    "success_criteria": "Returns paginated list of S3 objects without rate limiting issues.",
+    "mcp_tools": ["mcp_quilt_bucket_objects_list"],
+    "realistic_changes": "Kept core functionality but removed explicit rate limiting mentions - Quilt handles this internally"
+  },
+  {
+    "id": "R013",
+    "persona": "Data Engineer",
+    "utterance": "Update package metadata to remove sensitive information and show the changes.",
+    "intent_tags": [
+      "metadata_update",
+      "privacy"
+    ],
+    "success_criteria": "Metadata updated with sensitive fields removed; shows before/after comparison.",
+    "mcp_tools": ["mcp_quilt_package_update_metadata", "mcp_quilt_package_diff"],
+    "realistic_changes": "Changed from automatic PII detection to manual metadata update - Quilt doesn't have built-in PII detection"
+  },
+  {
+    "id": "R014",
+    "persona": "Data Engineer",
+    "utterance": "Validate the integrity of files in a package.",
+    "intent_tags": [
+      "integrity",
+      "validation"
+    ],
+    "success_criteria": "Reports on file integrity status and any issues found.",
+    "mcp_tools": ["mcp_quilt_package_validate"],
+    "realistic_changes": "Changed from simulating corruption to checking existing integrity - Quilt validates existing packages"
+  },
+  {
+    "id": "R015",
+    "persona": "Data Engineer",
+    "utterance": "Check authentication status and catalog configuration.",
+    "intent_tags": [
+      "auth",
+      "configuration"
+    ],
+    "success_criteria": "Returns authentication status and catalog connection details.",
+    "mcp_tools": ["mcp_quilt_auth_status", "mcp_quilt_catalog_info"],
+    "realistic_changes": "Simplified from multi-tenant auth to basic auth status - removed complex IdP mapping"
+  },
+  {
+    "id": "R016",
+    "persona": "R&D IT",
+    "utterance": "Create a package with structured metadata using a template.",
+    "intent_tags": [
+      "metadata_templates",
+      "package_creation"
+    ],
+    "success_criteria": "Package created with well-structured metadata from template.",
+    "mcp_tools": ["mcp_quilt_create_package_enhanced", "mcp_quilt_get_metadata_template"],
+    "realistic_changes": "Removed Benchling integration - changed to generic metadata templating which Quilt supports"
+  },
+  {
+    "id": "R017",
+    "persona": "R&D IT",
+    "utterance": "Get a shareable catalog URL for a specific package.",
+    "intent_tags": [
+      "catalog",
+      "sharing"
+    ],
+    "success_criteria": "Returns catalog URL that can be shared with others.",
+    "mcp_tools": ["mcp_quilt_catalog_url"],
+    "realistic_changes": "Kept core functionality - Quilt catalog URLs are shareable"
+  },
+  {
+    "id": "R018",
+    "persona": "R&D IT",
+    "utterance": "Get information about filesystem access and available tools.",
+    "intent_tags": [
+      "system_info",
+      "capabilities"
+    ],
+    "success_criteria": "Returns filesystem status and available tool information.",
+    "mcp_tools": ["mcp_quilt_filesystem_status", "mcp_quilt_list_package_tools"],
+    "realistic_changes": "Changed from audit logs to system capabilities - Quilt MCP shows system status, not audit trails"
+  },
+  {
+    "id": "R019",
+    "persona": "R&D IT",
+    "utterance": "Create a tabulator table configuration for querying package data.",
+    "intent_tags": [
+      "tabulator",
+      "sql_interface"
+    ],
+    "success_criteria": "Tabulator table created and queryable via SQL interface.",
+    "mcp_tools": ["mcp_quilt_tabulator_table_create", "mcp_quilt_tabulator_tables_list"],
+    "realistic_changes": "Kept tabulator functionality - this is a real Quilt feature"
+  },
+  {
+    "id": "R020",
+    "persona": "R&D IT",
+    "utterance": "Validate metadata structure against available templates.",
+    "intent_tags": [
+      "validation",
+      "metadata_templates"
+    ],
+    "success_criteria": "Metadata validation results with specific error messages if invalid.",
+    "mcp_tools": ["mcp_quilt_validate_metadata_structure", "mcp_quilt_list_metadata_templates"],
+    "realistic_changes": "Removed scheduling/alerting - changed to on-demand validation which Quilt supports"
+  },
+  {
+    "id": "R021",
+    "persona": "Scientist",
+    "utterance": "Search for packages with specific metadata criteria.",
+    "intent_tags": [
+      "search",
+      "metadata_filtering"
+    ],
+    "success_criteria": "Returns packages matching metadata criteria with counts.",
+    "mcp_tools": ["mcp_quilt_packages_search"],
+    "realistic_changes": "Simplified from complex biological metadata to general metadata search - more broadly applicable"
+  },
+  {
+    "id": "R022",
+    "persona": "Scientist",
+    "utterance": "Generate visualizations for package data using Quilt's visualization engine.",
+    "intent_tags": [
+      "visualization",
+      "data_analysis"
+    ],
+    "success_criteria": "Returns visualization data or configuration for package contents.",
+    "mcp_tools": ["mcp_quilt_generate_package_visualizations"],
+    "realistic_changes": "Changed from tabulator plotting to Quilt's built-in visualization generation"
+  },
+  {
+    "id": "R023",
+    "persona": "Scientist",
+    "utterance": "Browse package contents and read text files directly.",
+    "intent_tags": [
+      "file_access",
+      "content_preview"
+    ],
+    "success_criteria": "Package contents displayed with ability to preview text files.",
+    "mcp_tools": ["mcp_quilt_package_browse", "mcp_quilt_bucket_object_text"],
+    "realistic_changes": "Removed notebook rendering - changed to general file browsing and text preview"
+  },
+  {
+    "id": "R024",
+    "persona": "Scientist",
+    "utterance": "Execute an Athena query against tabulated package data.",
+    "intent_tags": [
+      "athena",
+      "sql_query"
+    ],
+    "success_criteria": "Query executes successfully and returns results.",
+    "mcp_tools": ["mcp_quilt_athena_query_execute", "mcp_quilt_athena_tables_list"],
+    "realistic_changes": "Changed from statistical analysis to direct Athena querying - Quilt integrates with Athena"
+  },
+  {
+    "id": "R025",
+    "persona": "Scientist",
+    "utterance": "Create a comprehensive package summary with README and metadata.",
+    "intent_tags": [
+      "documentation",
+      "package_summary"
+    ],
+    "success_criteria": "Package summary created with README, metadata, and file inventory.",
+    "mcp_tools": ["mcp_quilt_create_quilt_summary_files", "mcp_quilt_generate_quilt_summarize_json"],
+    "realistic_changes": "Changed from email bundles to Quilt summary generation - aligns with Quilt's documentation features"
+  },
+  {
+    "id": "R026",
+    "persona": "Program Manager",
+    "utterance": "Get a report of all packages in a registry with their metadata.",
+    "intent_tags": [
+      "reporting",
+      "inventory"
+    ],
+    "success_criteria": "Returns comprehensive list of packages with creation dates and metadata.",
+    "mcp_tools": ["mcp_quilt_packages_list", "mcp_quilt_package_browse"],
+    "realistic_changes": "Removed governance/approval concepts - simplified to basic package inventory reporting"
+  },
+  {
+    "id": "R027",
+    "persona": "Program Manager",
+    "utterance": "Check which packages have complete metadata using validation.",
+    "intent_tags": [
+      "compliance",
+      "validation"
+    ],
+    "success_criteria": "Returns validation status for packages, identifying incomplete metadata.",
+    "mcp_tools": ["mcp_quilt_package_validate", "mcp_quilt_validate_metadata_structure"],
+    "realistic_changes": "Kept validation concept but removed schema enforcement - Quilt validates structure, not business rules"
+  },
+  {
+    "id": "R028",
+    "persona": "Program Manager",
+    "utterance": "Get package creation and update history for analysis.",
+    "intent_tags": [
+      "analytics",
+      "package_history"
+    ],
+    "success_criteria": "Returns package version history with timestamps for trend analysis.",
+    "mcp_tools": ["mcp_quilt_packages_list", "mcp_quilt_package_browse"],
+    "realistic_changes": "Simplified from time-to-publish metrics to basic version history - Quilt tracks versions, not workflow timing"
+  },
+  {
+    "id": "R029",
+    "persona": "Program Manager",
+    "utterance": "Generate documentation for a package based on its contents and metadata.",
+    "intent_tags": [
+      "documentation",
+      "automation"
+    ],
+    "success_criteria": "Creates comprehensive documentation including file descriptions and metadata.",
+    "mcp_tools": ["mcp_quilt_create_quilt_summary_files", "mcp_quilt_package_browse"],
+    "realistic_changes": "Changed from release notes to general documentation generation - aligns with Quilt's summary capabilities"
+  },
+  {
+    "id": "R030",
+    "persona": "Program Manager",
+    "utterance": "Get recommendations for bucket usage and package organization.",
+    "intent_tags": [
+      "recommendations",
+      "best_practices"
+    ],
+    "success_criteria": "Returns recommendations for bucket selection and package organization.",
+    "mcp_tools": ["mcp_quilt_bucket_recommendations_get", "mcp_quilt_list_available_resources"],
+    "realistic_changes": "Removed workflow/SLA concepts - changed to resource recommendations which Quilt provides"
+  },
+  {
+    "id": "R031",
+    "persona": "Analyst",
+    "utterance": "Query tabulated data across multiple packages using SQL.",
+    "intent_tags": [
+      "tabulator",
+      "cross_package_analysis"
+    ],
+    "success_criteria": "SQL query executes across tabulated package data with results.",
+    "mcp_tools": ["mcp_quilt_athena_query_execute", "mcp_quilt_tabulator_tables_list"],
+    "realistic_changes": "Kept tabulator/SQL concept - this is core Quilt functionality"
+  },
+  {
+    "id": "R032",
+    "persona": "Analyst",
+    "utterance": "Export package data in different formats.",
+    "intent_tags": [
+      "export",
+      "data_formats"
+    ],
+    "success_criteria": "Package data exported in requested format with download link.",
+    "mcp_tools": ["mcp_quilt_bucket_object_fetch", "mcp_quilt_bucket_object_link"],
+    "realistic_changes": "Simplified from multi-package Parquet export to single file export - aligns with Quilt's file access patterns"
+  },
+  {
+    "id": "R033",
+    "persona": "Analyst",
+    "utterance": "Find large files across packages and get their details.",
+    "intent_tags": [
+      "inventory",
+      "file_analysis"
+    ],
+    "success_criteria": "Returns list of large files with sizes and package information.",
+    "mcp_tools": ["mcp_quilt_bucket_objects_search", "mcp_quilt_package_browse"],
+    "realistic_changes": "Kept core functionality - Quilt can search and analyze file sizes"
+  },
+  {
+    "id": "R034",
+    "persona": "Analyst",
+    "utterance": "Get quick start guidance for using Quilt effectively.",
+    "intent_tags": [
+      "onboarding",
+      "guidance"
+    ],
+    "success_criteria": "Returns step-by-step guidance for getting started with Quilt.",
+    "mcp_tools": ["mcp_quilt_quick_start", "mcp_quilt_list_package_tools"],
+    "realistic_changes": "Changed from subscription/notification to onboarding guidance - Quilt provides getting started help"
+  },
+  {
+    "id": "R035",
+    "persona": "Analyst",
+    "utterance": "Analyze metadata patterns across packages to understand common fields.",
+    "intent_tags": [
+      "metadata_analysis",
+      "discovery"
+    ],
+    "success_criteria": "Returns analysis of metadata field usage across packages.",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_show_metadata_examples"],
+    "realistic_changes": "Kept metadata analysis concept but simplified implementation - uses existing search and example tools"
+  },
+  {
+    "id": "R036",
+    "persona": "Any User",
+    "utterance": "Try to create a package with invalid metadata and see detailed error messages.",
+    "intent_tags": [
+      "error_handling",
+      "validation"
+    ],
+    "success_criteria": "Clear error messages explaining exactly what's wrong with the metadata.",
+    "mcp_tools": ["mcp_quilt_validate_metadata_structure", "mcp_quilt_fix_metadata_validation_issues"],
+    "realistic_changes": "Kept error handling focus - Quilt provides detailed validation error messages"
+  },
+  {
+    "id": "R037",
+    "persona": "Any User",
+    "utterance": "Check bucket access permissions and understand what operations are allowed.",
+    "intent_tags": [
+      "permissions",
+      "access_control"
+    ],
+    "success_criteria": "Clear explanation of current permissions and allowed operations.",
+    "mcp_tools": ["mcp_quilt_bucket_access_check", "mcp_quilt_aws_permissions_discover"],
+    "realistic_changes": "Changed from package-level ACLs to bucket-level permissions - aligns with S3/IAM model"
+  },
+  {
+    "id": "R038",
+    "persona": "Any User",
+    "utterance": "Understand why a package operation failed and get troubleshooting guidance.",
+    "intent_tags": [
+      "troubleshooting",
+      "error_diagnosis"
+    ],
+    "success_criteria": "Detailed explanation of failure cause with specific remediation steps.",
+    "mcp_tools": ["mcp_quilt_package_validate", "mcp_quilt_fix_metadata_validation_issues"],
+    "realistic_changes": "Kept troubleshooting concept but focused on validation failures rather than integrity corruption"
+  },
+  {
+    "id": "R039",
+    "persona": "Any User",
+    "utterance": "Browse different versions of a package and understand version history.",
+    "intent_tags": [
+      "versioning",
+      "package_history"
+    ],
+    "success_criteria": "Shows package version history with ability to browse different versions.",
+    "mcp_tools": ["mcp_quilt_package_browse", "mcp_quilt_package_diff"],
+    "realistic_changes": "Changed from rollback to version browsing - Quilt shows version history but rollback is less common"
+  },
+  {
+    "id": "R040",
+    "persona": "Any User",
+    "utterance": "Test MCP server performance with repeated operations.",
+    "intent_tags": [
+      "performance",
+      "caching"
+    ],
+    "success_criteria": "Demonstrates consistent performance across repeated operations.",
+    "mcp_tools": ["mcp_quilt_auth_status", "mcp_quilt_packages_list"],
+    "realistic_changes": "Removed Qurator reference (not a standard Quilt feature) - changed to general performance testing"
+  }
+]

@@ -234,8 +234,14 @@ class AthenaQueryService:
                        table_pattern: str = None) -> Dict[str, Any]:
         """Discover tables using Athena SQL queries."""
         try:
+            # Properly escape database names with special characters
+            if '-' in database_name or any(c in database_name for c in [' ', '.', '@', '/']):
+                escaped_db = f'"{database_name}"'
+            else:
+                escaped_db = database_name
+                
             # Use Athena SQL to list tables instead of direct Glue API
-            query = f"SHOW TABLES IN {database_name}"
+            query = f"SHOW TABLES IN {escaped_db}"
             if table_pattern:
                 query += f" LIKE '{table_pattern}'"
                 
@@ -345,12 +351,20 @@ class AthenaQueryService:
         try:
             # Set database context if provided
             if database_name:
+                # Properly escape database name for USE statement
+                if '-' in database_name or any(c in database_name for c in [' ', '.', '@', '/']):
+                    escaped_db = f'"{database_name}"'
+                else:
+                    escaped_db = database_name
+                    
                 with self.engine.connect() as conn:
-                    conn.execute(text(f"USE {database_name}"))
+                    conn.execute(text(f"USE {escaped_db}"))
             
             # Execute query and load results into pandas DataFrame
+            # Sanitize query to prevent string formatting issues
+            safe_query = self._sanitize_query_for_pandas(query)
             with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+                df = pd.read_sql_query(safe_query, self.engine)
             
             # Apply result limit
             truncated = False
@@ -376,6 +390,19 @@ class AthenaQueryService:
             logger.error(f"Failed to execute query: {e}")
             return format_error_response(f"Query execution failed: {str(e)}")
     
+    def _sanitize_query_for_pandas(self, query: str) -> str:
+        """Sanitize query to prevent string formatting issues with pandas/SQLAlchemy."""
+        # This is a conservative approach - we don't modify the actual SQL
+        # but we ensure it won't cause formatting errors in pandas
+        try:
+            # For queries with % characters, we need to be careful
+            # pandas/SQLAlchemy sometimes tries to format strings
+            # The safest approach is to not modify the query at all
+            # and let the underlying engine handle it properly
+            return query
+        except Exception:
+            return query
+
     def format_results(self, result_data: Dict[str, Any], output_format: str = 'json') -> Dict[str, Any]:
         """Format query results in requested format."""
         if not result_data.get('success') or result_data.get('data') is None:

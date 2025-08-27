@@ -57,12 +57,27 @@ def format_as_table(
             truncated_msg = ""
             
         # Format the table with pandas styling
-        table_str = df_display.to_string(
-            index=False,
-            max_cols=None,
-            max_colwidth=30,
-            justify='left'
-        )
+        try:
+            # Create a copy of the dataframe and sanitize string values
+            df_safe = df_display.copy()
+            for col in df_safe.columns:
+                if df_safe[col].dtype == 'object':  # String columns
+                    df_safe[col] = df_safe[col].astype(str).str.replace('%', '%%', regex=False)
+            
+            table_str = df_safe.to_string(
+                index=False,
+                max_cols=None,
+                max_colwidth=30,
+                justify='left'
+            )
+        except (ValueError, TypeError) as e:
+            # Handle formatting issues with special characters
+            logger.warning(f"Table formatting failed, using simple representation: {e}")
+            try:
+                # Fallback: convert to simple string representation
+                table_str = str(df_display.values.tolist())
+            except Exception:
+                table_str = f"[Data display error: {len(df_display)} rows x {len(df_display.columns)} columns]"
         
         # Add truncation message if needed
         if truncated_msg:

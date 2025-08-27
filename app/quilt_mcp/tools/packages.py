@@ -56,7 +56,7 @@ def packages_list(
 
 
 def packages_search(
-    query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10
+    query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0
 ) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
 
@@ -68,7 +68,9 @@ def packages_search(
     Returns:
         Dict with search results including package names and metadata.
     """
-    effective_limit = limit if limit > 0 else 10
+    # HYBRID APPROACH: Use unified search architecture but scope to specified registry
+    # This prevents inappropriate searches across buckets not in user's stack
+    effective_limit = limit if limit >= 0 else 10
     
     # Extract bucket name from registry for targeted search
     normalized_registry = _normalize_registry(registry)
@@ -76,20 +78,113 @@ def packages_search(
     
     # Suppress stdout during search to avoid JSON-RPC interference
     from ..utils import suppress_stdout
-    with suppress_stdout():
-        try:
-            # Use bucket-specific search instead of global search
-            bucket_obj = quilt3.Bucket(normalized_registry)
-            results = bucket_obj.search(query, limit=effective_limit)
-            return {"results": results, "registry": normalized_registry, "bucket": bucket_name}
-        except Exception as e:
-            # Fallback to empty results if bucket search fails
-            return {
-                "results": [],
-                "registry": normalized_registry,
-                "bucket": bucket_name,
-                "error": f"Search failed: {e}"
-            }
+    
+    try:
+        with suppress_stdout():
+            # UNIFIED SEARCH: Try advanced search API first, but scoped to specific registry
+            try:
+                from quilt3.search_util import search_api
+                
+                # For count queries (limit=0), use a simple DSL query with size=0
+                if effective_limit == 0:
+                    dsl_query = {
+                        "size": 0,  # This is the key for fast counts!
+                        "query": {
+                            "query_string": {
+                                "query": query
+                            }
+                        }
+                    }
+                else:
+                    # Regular query with pagination
+                    if isinstance(query, str) and not query.strip().startswith('{'):
+                        # Convert string query to DSL with pagination
+                        dsl_query = {
+                            "from": from_,
+                            "size": effective_limit,
+                            "query": {
+                                "query_string": {
+                                    "query": query
+                                }
+                            }
+                        }
+                    else:
+                        # Already a DSL query
+                        import json
+                        if isinstance(query, str):
+                            dsl_query = json.loads(query)
+                        else:
+                            dsl_query = query
+                        
+                        # Add pagination
+                        dsl_query["from"] = from_
+                        dsl_query["size"] = effective_limit
+                
+                # STACK SCOPING: Use all buckets in the stack, not just the registry bucket
+                # This enables proper cross-bucket search across the entire stack
+                from .stack_buckets import build_stack_search_indices
+                index_name = build_stack_search_indices()
+                
+                # Fallback to single bucket if stack discovery fails
+                if not index_name:
+                    index_name = f"{bucket_name},{bucket_name}_packages"
+                
+                # Use registry-specific index instead of '_all'
+                full_result = search_api(
+                    query=dsl_query,
+                    index=index_name,
+                    limit=effective_limit
+                )
+                
+                # Return unified search format with bucket context
+                hits = full_result.get("hits", {}).get("hits", [])
+                total_count = full_result.get("hits", {}).get("total", {})
+                if isinstance(total_count, dict):
+                    count = total_count.get('value', 0)
+                else:
+                    count = total_count
+                
+                return {
+                    "results": hits,
+                    "total_count": count,
+                    "query": query,
+                    "limit": effective_limit,
+                    "from": from_,
+                    "registry": normalized_registry,
+                    "bucket": bucket_name,
+                    "took": full_result.get("took", 0),
+                    "timed_out": full_result.get("timed_out", False)
+                }
+                
+            except Exception as search_api_error:
+                # FALLBACK: Use bucket-specific search if advanced API fails
+                bucket_obj = quilt3.Bucket(normalized_registry)
+                results = bucket_obj.search(query, limit=effective_limit)
+                
+                return {
+                    "results": results,
+                    "total_count": len(results) if results else 0,
+                    "query": query,
+                    "limit": effective_limit,
+                    "from": from_,
+                    "registry": normalized_registry,
+                    "bucket": bucket_name,
+                    "fallback_used": "bucket_search",
+                    "search_api_error": str(search_api_error)
+                }
+                
+    except Exception as e:
+        # Final fallback with error context
+        return {
+            "results": [],
+            "total_count": 0,
+            "query": query,
+            "limit": effective_limit,
+            "from": from_,
+            "registry": normalized_registry,
+            "bucket": bucket_name,
+            "error": f"All search methods failed: {e}"
+        }
 
 
 def package_browse(

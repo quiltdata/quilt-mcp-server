@@ -1,0 +1,655 @@
+{
+  "test_suite": "Sail Biomedicines MCP User Stories",
+  "description": "Implementation-ready MCP use-cases synthesized from Sail Biomedicines transcripts (May 27 & June 10). Focus: federated Q&A across Benchling and Quilt, NGS lifecycle, QC curation, protocol/version awareness, cohort→pipeline automation, and operational guardrails.",
+  "target_audience": "Quilt MCP engineering, product, computational biologists, bioinformaticians, data stewards",
+  "data_context": {
+    "systems": ["Benchling (entities, results tables, notebooks, templates)", "Quilt Catalog & Packages", "Quilt Tabulator (Athena/Glue; optionally Snowflake/Databricks via Iceberg)", "Seqera Platform (Tower)", "PubMed"],
+    "data_types": ["FASTQ (raw)", "NGS expression (TPM/counts)", "ELISA/qPCR results", "Protocol templates & notebook entries", "Package manifests (JSON-L + Iceberg mirror)"],
+    "processing": "NGS pipelines (e.g., nf-core/rnaseq); per-sample expression views; cohort/sample-sheet generation; optional reprocessing with new pipeline versions"
+  },
+  "test_cases": [
+    {
+      "id": "SB001",
+      "category": "Federated Discovery",
+      "user_story": "US1: Ask plain-English questions that join Benchling results and Quilt Tabulator",
+      "persona": "Scientist",
+      "objective": "Query expressed genes from NGS and correlate with ELISA for selected samples without writing SQL",
+      "business_value": "Removes SQL barrier; faster hypothesis testing",
+      "query": "Which genes are highly expressed in samples S1–S20 and do they correlate with ELISA protein levels?",
+      "intent_tags": ["federated_query", "correlation_analysis", "text_to_sql", "cross_system"],
+      "expected_workflow": [
+        "Discover available tables/views across Benchling and Tabulator",
+        "Text-to-SQL generates explicit SQL with QC predicates",
+        "Execute joins and return ranked correlations with provenance",
+        "Export a CSV for downstream analysis"
+      ],
+      "expected_tools": [
+        "benchling_search_entities",
+        "quilt_text_to_sql_ask",
+        "tabulator_sql_run",
+        "dataframes_export"
+      ],
+      "mcp_tools": [
+        "benchling_search_entities",
+        "mcp_quilt_athena_databases_list",
+        "mcp_quilt_athena_tables_list", 
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_tabulator_tables_list"
+      ],
+      "expected_sql": "SELECT e.sample_id, e.gene_symbol, e.tpm, el.protein_value FROM expression_view e JOIN elisa_results el ON el.sample_id = e.sample_id WHERE e.sample_id IN ('S1','S2',...,'S20') AND COALESCE(e.qc_status,'approved')='approved' AND COALESCE(el.qc_status,'approved')='approved';",
+      "success_criteria": [
+        "Generated SQL is returned alongside results",
+        "Results include r and p-values per gene with top-N ranking",
+        "QC-only constraint is enforced in SQL",
+        "Provenance lists all source tables/views"
+      ],
+      "data_requirements": {
+        "tables": ["expression_view (Tabulator)", "elisa_results (Benchling)"],
+        "columns": ["sample_id", "gene_symbol", "tpm", "protein_value", "qc_status"],
+        "filters": ["qc_status = 'approved'"]
+      }
+    },
+    {
+      "id": "SB002",
+      "category": "Summarization",
+      "user_story": "US2: Summarize files and Benchling notebooks with key metrics",
+      "persona": "Scientist",
+      "objective": "Get a concise summary of QC reports and notebook entries with extracted metrics",
+      "business_value": "Faster review and communication",
+      "query": "Summarize notebook NB-123 and highlight library prep kit, protocol version, and key QC outcomes",
+      "intent_tags": ["summarization", "metadata_extraction", "protocol_awareness", "qc_metrics"],
+      "expected_workflow": [
+        "Fetch notebook JSON and associated files",
+        "Extract structured fields (template/version, kit, parameters)",
+        "Summarize content and emit a metric table",
+        "Return links back to original sources"
+      ],
+      "expected_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "quilt_objects_summarize"
+      ],
+      "mcp_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "mcp_quilt_bucket_object_fetch",
+        "mcp_quilt_bucket_object_text",
+        "mcp_quilt_generate_quilt_summarize_json"
+      ],
+      "expected_features": [
+        "Template/version surfaced if present",
+        "10–20 line summary + metrics list",
+        "Source links for verification"
+      ],
+      "success_criteria": [
+        "Summary includes template_id and version",
+        "Extracted metrics match notebook fields",
+        "No hallucinated fields when missing (fails closed)"
+      ]
+    },
+    {
+      "id": "SB003",
+      "category": "Literature Enrichment",
+      "user_story": "US3: Annotate gene lists with PubMed abstracts",
+      "persona": "Scientist",
+      "objective": "Enrich analysis output with top PubMed abstracts per gene",
+      "business_value": "Accelerates literature triage",
+      "query": "Add 0–3 PubMed abstracts for each gene in my result table",
+      "intent_tags": ["literature_search", "gene_annotation", "pubmed_integration", "data_enrichment"],
+      "expected_workflow": [
+        "Search PubMed by gene symbol",
+        "Attach titles/PMIDs/links to each row",
+        "Return an augmented dataframe"
+      ],
+      "expected_tools": [
+        "pubmed_search",
+        "quilt_resultframe_annotate_literature"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_bucket_objects_search",
+        "mcp_quilt_athena_query_execute"
+      ],
+      "success_criteria": [
+        "PMIDs and titles appended per gene",
+        "Rate limits handled; partial success tolerated with flags"
+      ],
+      "data_requirements": {
+        "columns": ["gene_symbol"]
+      },
+      "realistic_changes": "PubMed integration not currently available in MCP - would need external API integration"
+    },
+    {
+      "id": "SB004",
+      "category": "NGS Lifecycle",
+      "user_story": "US4: Auto-package FASTQs and link to Benchling entities/libraries",
+      "persona": "Bioinformatician",
+      "objective": "On new run arrival, create Quilt package and link it to the correct Benchling entity/library",
+      "business_value": "Traceability and reproducibility",
+      "query": "Package FASTQs under s3://runs/2025-06-01/ and link to Library L-789",
+      "intent_tags": ["package_creation", "fastq_management", "entity_linking", "ngs_lifecycle"],
+      "expected_workflow": [
+        "Create Quilt package with checksums and sample sheet",
+        "Store back-links to Benchling entity/library",
+        "Emit package_id and manifest"
+      ],
+      "expected_tools": [
+        "quilt_ngs_package_fastq",
+        "benchling_get_projects",
+        "benchling_search_entities"
+      ],
+      "mcp_tools": [
+        "benchling_get_projects",
+        "benchling_search_entities",
+        "mcp_quilt_package_create_from_s3",
+        "mcp_quilt_create_package_enhanced",
+        "mcp_quilt_create_metadata_from_template"
+      ],
+      "expected_features": [
+        "Versioned package with sample-sheet artifact",
+        "Multiple sequencing runs supported per library"
+      ],
+      "success_criteria": [
+        "Package appears in catalog within minutes",
+        "Link visible from Benchling entity/library"
+      ],
+      "realistic_changes": "Benchling integration not currently available - focus on Quilt package creation with metadata"
+    },
+    {
+      "id": "SB005",
+      "category": "Data Hygiene",
+      "user_story": "US5: Build/maintain sample name mapping (sequencer→Benchling)",
+      "persona": "Data engineer",
+      "objective": "Produce a mapping table that aligns sample IDs from FASTQs/sample sheets to Benchling entities",
+      "business_value": "Robust joins across systems",
+      "query": "Generate mapping from sample_sheet.csv to Benchling entities table",
+      "intent_tags": ["data_mapping", "sample_tracking", "data_hygiene", "entity_resolution"],
+      "expected_workflow": [
+        "Parse sample sheet and filenames",
+        "Match to Benchling entity table",
+        "Emit mapping with confidence scores and ambiguities"
+      ],
+      "expected_tools": [
+        "quilt_ngs_build_mapping"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_bucket_object_text",
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_create_package_enhanced"
+      ],
+      "success_criteria": [
+        "≥95% auto-match rate",
+        "Ambiguity report for manual review",
+        "Versioned mapping table saved to catalog"
+      ],
+      "data_requirements": {
+        "inputs": ["sample_sheet_uri", "benchling_entity_table"],
+        "outputs": ["mapping_table (sample_name, entity_id, confidence)"]
+      }
+    },
+    {
+      "id": "SB006",
+      "category": "Tabulator Views",
+      "user_story": "US6: Upsert per-sample expression views for easy joins",
+      "persona": "Bioinformatician",
+      "objective": "Expose expression (TPM, counts) as partitioned Tabulator views",
+      "business_value": "Fast, SQL-friendly analytics",
+      "query": "Publish expression_per_sample with partitions by sample_id and pipeline_version",
+      "intent_tags": ["tabulator_management", "view_creation", "data_partitioning", "sql_analytics"],
+      "expected_workflow": [
+        "Define schema and partitions",
+        "Upsert view pointer to Parquet/manifest location",
+        "Validate queryability"
+      ],
+      "expected_tools": [
+        "tabulator_views_upsert",
+        "tabulator_sql_run"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_tabulator_table_create",
+        "mcp_quilt_tabulator_tables_list",
+        "mcp_quilt_athena_query_execute"
+      ],
+      "success_criteria": [
+        "View visible via Glue/Athena",
+        "New samples queryable within seconds"
+      ]
+    },
+    {
+      "id": "SB007",
+      "category": "Storage Policy",
+      "user_story": "US7: Tier raw FASTQs to Glacier after N days",
+      "persona": "Data steward",
+      "objective": "Reduce storage costs while preserving lineage",
+      "business_value": "Cost control",
+      "query": "Apply Glacier policy to raw FASTQ packages older than 30 days",
+      "intent_tags": ["storage_management", "cost_optimization", "lifecycle_policy", "data_tiering"],
+      "expected_workflow": [
+        "Identify eligible packages/keys",
+        "Apply lifecycle policy",
+        "Dry-run report; then execute"
+      ],
+      "expected_tools": [
+        "quilt_storage_apply_policy"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_packages_list",
+        "mcp_quilt_package_browse",
+        "mcp_quilt_aws_permissions_discover"
+      ],
+      "success_criteria": [
+        "FASTQs transition to Glacier; results remain hot",
+        "Links and provenance stay valid"
+      ],
+      "realistic_changes": "Storage lifecycle policies are typically managed at S3 bucket level, not through Quilt MCP"
+    },
+    {
+      "id": "SB008",
+      "category": "Reprocessing",
+      "user_story": "US8: Re-run selected samples with new pipeline version; keep side-by-side",
+      "persona": "Scientist",
+      "objective": "Compare outputs across pipeline versions",
+      "business_value": "Method improvement without data loss",
+      "query": "Reprocess samples S10–S20 with pipeline v2.1 starting from FASTQ",
+      "intent_tags": ["pipeline_versioning", "reprocessing", "version_comparison", "workflow_management"],
+      "expected_workflow": [
+        "Trigger pipeline run with versioned params",
+        "Publish new outputs and tag with pipeline_version",
+        "Maintain old outputs; show lineage graph"
+      ],
+      "expected_tools": [
+        "pipeline_trigger",
+        "quilt_ngs_link_results",
+        "tabulator_views_upsert"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_package_browse",
+        "mcp_quilt_create_package_enhanced",
+        "mcp_quilt_package_diff"
+      ],
+      "success_criteria": [
+        "Both versions queryable with partition on pipeline_version",
+        "Lineage shows old↔new relationship"
+      ],
+      "realistic_changes": "Pipeline triggering not available in MCP - focus on package comparison and versioning"
+    },
+    {
+      "id": "SB009",
+      "category": "QC Curation",
+      "user_story": "US9: Experiment-level QC flag cascades to all result rows",
+      "persona": "PI / Data steward",
+      "objective": "Mark a notebook/experiment QC status and have downstream queries respect it",
+      "business_value": "Trustworthy analytics",
+      "query": "Mark NB-123 as QC approved and filter queries to approved rows only",
+      "intent_tags": ["qc_management", "data_curation", "quality_control", "metadata_propagation"],
+      "expected_workflow": [
+        "Set QC on experiment/notebook entry",
+        "Expand to related tables/rows",
+        "Tag rows and enforce in text-to-SQL"
+      ],
+      "expected_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "quilt_text_to_sql_ask"
+      ],
+      "mcp_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "mcp_quilt_package_update_metadata",
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_validate_metadata_structure"
+      ],
+      "expected_sql": "/* Generated SQL must include WHERE COALESCE(qc_status,'approved')='approved' */",
+      "success_criteria": [
+        "QC status appears as filter in generated SQL",
+        "Downstream queries exclude non-approved rows"
+      ],
+      "realistic_changes": "Benchling integration not available - focus on Quilt package metadata QC flags"
+    },
+    {
+      "id": "SB010",
+      "category": "Protocol Awareness",
+      "user_story": "US10: Surface protocol template/version and provide quick diffs",
+      "persona": "Scientist",
+      "objective": "Explain differences between runs due to protocol changes",
+      "business_value": "Interpretability of results",
+      "query": "Show protocol template/version for NB-456 and diff vs version 5",
+      "intent_tags": ["protocol_versioning", "version_comparison", "metadata_analysis", "provenance"],
+      "expected_workflow": [
+        "Fetch template/version metadata",
+        "Render human-readable change summary",
+        "Attach to summaries and exports"
+      ],
+      "expected_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "analytics_compare_protocols"
+      ],
+      "mcp_tools": [
+        "benchling_get_entries",
+        "benchling_get_entry_by_id",
+        "mcp_quilt_package_browse",
+        "mcp_quilt_package_diff",
+        "mcp_quilt_show_metadata_examples"
+      ],
+      "success_criteria": [
+        "Template/version always shown when present",
+        "Diff summary enumerates change notes"
+      ],
+      "realistic_changes": "Focus on Quilt package metadata versioning and comparison rather than Benchling protocols"
+    },
+    {
+      "id": "SB011",
+      "category": "Privacy/Local",
+      "user_story": "US11: Local-first MCP index & Q&A (no raw data upload)",
+      "persona": "Scientist",
+      "objective": "Run MCP on laptop to keep data local while enabling LLM assistance",
+      "business_value": "Data privacy and offline usability",
+      "query": "Index my allowed Benchling exports and Quilt packages, then answer questions locally",
+      "intent_tags": ["local_processing", "privacy", "offline_capability", "data_security"],
+      "expected_workflow": [
+        "Build local index from selected sources",
+        "Answer questions using local index only",
+        "Return provenance with local URIs"
+      ],
+      "expected_tools": [
+        "mcp_local_index",
+        "mcp_local_ask"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_packages_list",
+        "mcp_quilt_bucket_objects_list",
+        "mcp_quilt_catalog_info"
+      ],
+      "success_criteria": [
+        "Answers generated offline after indexing",
+        "No network calls beyond initial auth",
+        "Provenance lists only local references"
+      ],
+      "realistic_changes": "Local indexing not currently available - focus on catalog browsing and package discovery"
+    },
+    {
+      "id": "SB012",
+      "category": "Event-Driven",
+      "user_story": "US12: Benchling webhooks trigger Quilt actions",
+      "persona": "Integrations engineer",
+      "objective": "Automate packaging, mapping, and view updates on entity/results changes",
+      "business_value": "Hands-off data ops",
+      "query": "On entity.updated, update mapping; on results.updated, refresh views",
+      "intent_tags": ["event_driven", "automation", "webhook_integration", "workflow_orchestration"],
+      "expected_workflow": [
+        "Consume webhook",
+        "Run orchestration flow",
+        "Log step-by-step results"
+      ],
+      "expected_tools": [
+        "benchling_search_entities",
+        "orchestrations_run"
+      ],
+      "mcp_tools": [
+        "benchling_search_entities",
+        "mcp_quilt_create_package_enhanced",
+        "mcp_quilt_tabulator_table_create"
+      ],
+      "success_criteria": [
+        "End-to-end completion < 5 minutes",
+        "Run logs show each action and outcome"
+      ],
+      "realistic_changes": "Webhook integration not available - focus on manual package creation and tabulator management"
+    },
+    {
+      "id": "SB013",
+      "category": "Performance",
+      "user_story": "US13: Iceberg-accelerated manifest queries (multi-engine)",
+      "persona": "Analyst",
+      "objective": "Query package manifests faster and via alternate engines",
+      "business_value": "Speed and portability",
+      "query": "List all objects for package P-123 via Iceberg (Athena and Snowflake)",
+      "intent_tags": ["performance_optimization", "iceberg_integration", "multi_engine", "manifest_querying"],
+      "expected_workflow": [
+        "Query Iceberg table in Athena",
+        "Repeat in Snowflake/Databricks",
+        "Compare row counts with legacy JSON-L path"
+      ],
+      "expected_tools": [
+        "quilt_manifest_query"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_package_browse",
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_athena_databases_list"
+      ],
+      "success_criteria": [
+        "≥3× latency improvement vs legacy",
+        "Identical row counts across engines"
+      ],
+      "realistic_changes": "Iceberg integration not yet available - focus on standard Athena querying of package contents"
+    },
+    {
+      "id": "SB014",
+      "category": "Cohort→Pipeline",
+      "user_story": "US14: Build cohort → samplesheet → launch Tower",
+      "persona": "Scientist",
+      "objective": "Go from filtered cohort to nf-core run with one flow",
+      "business_value": "Streamlined analysis starts",
+      "query": "Filter cohort (e.g., females with melanoma), generate samplesheet, and run nf-core/rnaseq on Tower",
+      "intent_tags": ["cohort_building", "samplesheet_generation", "pipeline_launch", "nf_core"],
+      "expected_workflow": [
+        "Build cohort from Tabulator filters",
+        "Generate nf-core samplesheet.csv",
+        "Create package capturing cohort + sheet",
+        "Launch Tower job and return job_id"
+      ],
+      "expected_tools": [
+        "cohorts_build",
+        "nfcore_samplesheet_generate",
+        "quilt_packages_create",
+        "tower_run"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_create_package_enhanced",
+        "mcp_quilt_bucket_objects_put"
+      ],
+      "success_criteria": [
+        "Valid samplesheet stored and versioned",
+        "Tower job submitted; job_id returned"
+      ],
+      "realistic_changes": "Tower integration not available - focus on cohort filtering and samplesheet generation"
+    },
+    {
+      "id": "SB015",
+      "category": "UX/Sync",
+      "user_story": "US15: One-click 'Open with Quilt Sync' from MCP",
+      "persona": "Scientist",
+      "objective": "Open a package directly in the desktop client",
+      "business_value": "Reduce friction for local sync",
+      "query": "Open package P-123 in Quilt Sync",
+      "intent_tags": ["desktop_integration", "sync_client", "user_experience", "deep_linking"],
+      "expected_workflow": [
+        "Resolve package URI",
+        "Invoke OS deep link to Quilt Sync",
+        "Confirm launch"
+      ],
+      "expected_tools": [
+        "quilt_sync_open"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_catalog_uri",
+        "mcp_quilt_catalog_url",
+        "mcp_quilt_package_browse"
+      ],
+      "success_criteria": [
+        "Sync app opens with package preselected",
+        "Works on macOS and Windows"
+      ],
+      "realistic_changes": "Deep linking not available - focus on generating catalog URLs for packages"
+    },
+    {
+      "id": "SB016",
+      "category": "Search",
+      "user_story": "US16: Unified search across packages and objects",
+      "persona": "Any user",
+      "objective": "Get package-level and object-level hits in one query",
+      "business_value": "Faster discovery",
+      "query": "Search for 'RNA-seq melanoma TPM'",
+      "intent_tags": ["unified_search", "cross_index_search", "discovery", "faceted_search"],
+      "expected_workflow": [
+        "Search both indices",
+        "Group results with facets",
+        "Provide deep links"
+      ],
+      "expected_tools": [
+        "search_unified"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_packages_search",
+        "mcp_quilt_bucket_objects_search"
+      ],
+      "success_criteria": [
+        "Mixed result set with package and object hits",
+        "Facet filters applied correctly"
+      ]
+    },
+    {
+      "id": "SB017",
+      "category": "Admin/Ops",
+      "user_story": "US17: Check stack version and request upgrade",
+      "persona": "Admin",
+      "objective": "Know if my stack is behind and file an upgrade ticket",
+      "business_value": "Stay current with minimal overhead",
+      "query": "Am I on the latest Quilt release? If not, create an upgrade request for the next weekend window",
+      "intent_tags": ["version_management", "upgrade_planning", "admin_operations", "maintenance"],
+      "expected_workflow": [
+        "Compare current vs latest",
+        "Show highlights/deltas",
+        "Create upgrade request payload"
+      ],
+      "expected_tools": [
+        "admin_upgrade_check",
+        "admin_upgrade_request"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_catalog_info",
+        "mcp_quilt_admin_users_list",
+        "mcp_quilt_admin_roles_list"
+      ],
+      "success_criteria": [
+        "Accurate version comparison and changelog",
+        "Ticket/request id returned"
+      ],
+      "realistic_changes": "Version checking and upgrade requests not available - focus on catalog configuration info"
+    },
+    {
+      "id": "SB018",
+      "category": "Dashboards",
+      "user_story": "US18: Generate lightweight dashboards from SQL",
+      "persona": "Analyst",
+      "objective": "Publish a simple, live dashboard without Tableau",
+      "business_value": "Self-serve analytics",
+      "query": "Create a dashboard showing objects by extension and expression counts by tissue",
+      "intent_tags": ["dashboard_creation", "data_visualization", "sql_analytics", "self_service"],
+      "expected_workflow": [
+        "Provide tiles with SQL + viz types",
+        "Publish to catalog",
+        "Return URL"
+      ],
+      "expected_tools": [
+        "dashboards_generate"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_generate_package_visualizations",
+        "mcp_quilt_create_quilt_summary_files"
+      ],
+      "success_criteria": [
+        "Dashboard URL loads with live charts",
+        "Latency acceptable for interactive use"
+      ],
+      "realistic_changes": "Dashboard generation not available - focus on data visualization and summary generation"
+    },
+    {
+      "id": "SB019",
+      "category": "Model Control",
+      "user_story": "US19: Choose model per request (Claude 3.7 vs 4.0)",
+      "persona": "Scientist / Analyst",
+      "objective": "Trade off speed vs quality for ask/summarize",
+      "business_value": "Cost/latency control",
+      "query": "Run the same question with claude-3.7 and claude-4.0 and compare outputs",
+      "intent_tags": ["model_selection", "performance_tuning", "cost_optimization", "quality_control"],
+      "expected_workflow": [
+        "Specify model in tool call",
+        "Echo chosen model in metadata",
+        "Return both outputs for comparison"
+      ],
+      "expected_tools": [
+        "quilt_text_to_sql_ask (model param)",
+        "quilt_objects_summarize (model param)"
+      ],
+      "mcp_tools": [
+        "mcp_quilt_show_metadata_examples",
+        "mcp_quilt_generate_quilt_summarize_json"
+      ],
+      "success_criteria": [
+        "Model choice honored and logged",
+        "Outputs clearly labeled by model"
+      ],
+      "realistic_changes": "Model selection not available in MCP tools - focus on metadata and summarization capabilities"
+    }
+  ],
+  "technical_specifications": {
+    "sql_engines": ["Athena/Presto", "Snowflake (via Iceberg)", "Databricks (via Iceberg)"],
+    "data_formats": ["Parquet", "JSON-L", "CSV", "FASTQ", "BAM", "VCF"],
+    "integration_points": ["Benchling API", "Seqera Tower API", "PubMed API", "AWS Glue", "S3"],
+    "performance_targets": {
+      "query_latency": "<5s for Tabulator queries",
+      "package_creation": "<30s for small packages",
+      "search_response": "<3s for unified search",
+      "file_access": "<10s for presigned URLs"
+    }
+  },
+  "validation_criteria": {
+    "functional_requirements": [
+      "All Athena queries execute successfully",
+      "Package creation and metadata validation works",
+      "Search returns relevant results",
+      "File access URLs are accessible"
+    ],
+    "integration_requirements": [
+      "Tabulator tables are queryable",
+      "Package metadata is structured correctly",
+      "Cross-system data joins work where possible",
+      "Provenance and lineage are maintained"
+    ],
+    "usability_requirements": [
+      "Clear error messages for unsupported operations",
+      "Realistic expectations set for missing integrations",
+      "Alternative workflows provided where direct integration unavailable"
+    ]
+  },
+  "implementation_gaps": {
+    "missing_integrations": [
+      "PubMed API integration", 
+      "Seqera Tower integration",
+      "Local indexing capabilities",
+      "Webhook consumption",
+      "Deep linking to desktop apps"
+    ],
+    "available_integrations": [
+      "Benchling MCP server (benchling_get_entries, benchling_get_entry_by_id, benchling_search_entities, benchling_get_projects, benchling_get_dna_sequences, etc.)",
+      "Quilt MCP server (full package, search, Athena, and tabulator capabilities)"
+    ],
+    "workarounds_available": [
+      "Manual literature annotation instead of PubMed API",
+      "Package creation instead of pipeline triggering",
+      "Catalog URLs instead of deep links",
+      "Manual workflow orchestration instead of event-driven"
+    ],
+    "future_development": [
+      "External API integration framework",
+      "Local MCP capabilities",
+      "Enhanced workflow orchestration",
+      "Multi-model support in tools"
+    ]
+  }
+}
+
