@@ -6,7 +6,7 @@ A secure MCP (Model Context Protocol) server for accessing Quilt data with compr
 
 ### Option A: Claude Desktop (Easiest)
 
-The simplest way to get started is with the pre-built DXT extension:
+The easiest way to get started is with the pre-built DXT extension:
 
 1. **Download the DXT**: Get the latest `.dxt` from [project releases](https://github.com/quiltdata/quilt-mcp-server/releases)
 2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
@@ -15,38 +15,66 @@ The simplest way to get started is with the pre-built DXT extension:
 
 > **Requirements**: Python 3.11+ accessible in your login shell (`python3 --version`)
 
-### Option B: Automatic Configuration
+### Option B: Local Development Setup
 
-For any MCP client (Claude Desktop, VS Code, Cursor):
+For development or when you want to run the server locally:
 
 ```bash
-# Generate configuration for your MCP client
-python scripts/make_mcp_config.py claude    # For Claude Desktop
-python scripts/make_mcp_config.py vscode    # For VS Code  
-python scripts/make_mcp_config.py cursor    # For Cursor
-python scripts/make_mcp_config.py all       # Generate all configs
+# 1. Clone and setup environment
+git clone https://github.com/quiltdata/quilt-mcp-server.git
+cd quilt-mcp-server
+cp env.example .env
+# Edit .env with your AWS credentials and Quilt settings
 
-# Follow the generated instructions to configure your client
+# 2. Install dependencies
+uv sync
+
+# 3. Run local server
+make app
+# Server runs on http://127.0.0.1:8000/mcp
 ```
 
-### Option C: Manual Setup
+### Option C: Cursor Configuration
 
-1. **Environment Setup:**
-   ```bash
-   cp env.example .env
-   # Edit .env with your AWS credentials and Quilt settings
-   scripts/check-env.sh
-   ```
+Configure Cursor to use the local development server:
 
-2. **Run Local Server:**
-   ```bash
-   make app
-   # Server runs on http://127.0.0.1:8000/mcp
-   ```
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "/Users/your-username/path/to/fast-mcp-server/.venv/bin/python",
+      "args": ["/Users/your-username/path/to/fast-mcp-server/app/main.py"],
+      "env": {
+        "PYTHONPATH": "/Users/your-username/path/to/fast-mcp-server/app",
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com",
+        "QUILT_DEFAULT_BUCKET": "s3://your-bucket"
+      }
+    }
+  }
+}
+```
 
-3. **Configure MCP Client:** Point your client to `http://127.0.0.1:8000/mcp`
+### Option D: VS Code Configuration
 
-### Option D: Remote Access
+For VS Code with MCP support:
+
+```json
+{
+  "mcpServers": {
+    "quilt": {
+      "command": "/Users/your-username/path/to/fast-mcp-server/.venv/bin/python",
+      "args": ["/Users/your-username/path/to/fast-mcp-server/app/main.py"],
+      "env": {
+        "PYTHONPATH": "/Users/your-username/path/to/fast-mcp-server/app",
+        "QUILT_CATALOG_DOMAIN": "demo.quiltdata.com"
+      },
+      "description": "Quilt MCP Server"
+    }
+  }
+}
+```
+
+### Option E: Remote Access (ngrok)
 
 For web applications or remote clients:
 
@@ -57,36 +85,11 @@ make app
 # Terminal 2: Expose via ngrok  
 make run-app-tunnel
 # Use the provided ngrok HTTPS URL in your MCP client
-
-# Run MCP optimization (NEW!)
-python optimize_mcp.py
 ```
-
-## 🚀 NEW: MCP Optimization System
-
-This server now includes an **autonomous optimization system** that can:
-
-- 🔍 **Analyze Performance**: Automatically detect optimization opportunities
-- ⚡ **Improve Efficiency**: Reduce tool calls and response times by 25-50%
-- 🧪 **Test Real Scenarios**: Comprehensive testing with real-world workflows
-- 🤖 **Self-Optimize**: Autonomous improvements without manual intervention
-- 📊 **Provide Insights**: Detailed analytics and actionable recommendations
-
-### Quick Optimization
-
-```bash
-# Run immediate optimization analysis
-python optimize_mcp.py
-
-# Run comprehensive analysis with all test scenarios  
-python optimize_mcp.py analyze
-```
-
-See [MCP Optimization Documentation](docs/MCP_OPTIMIZATION.md) for complete details.
 
 ## MCP Tools Available
 
-This server provides **comprehensive Quilt data operations**:
+This server provides **66+ comprehensive Quilt data operations**:
 
 ### Package Management
 - **`packages_list`** - List packages in a registry with filtering
@@ -96,6 +99,7 @@ This server provides **comprehensive Quilt data operations**:
 - **`package_create`** - Create new packages from S3 objects
 - **`package_update`** - Update existing packages with new files
 - **`package_delete`** - Remove packages from registry
+- **`package_validate`** - Validate package integrity
 
 ### S3 Operations
 - **`bucket_objects_list`** - List objects in S3 buckets
@@ -103,16 +107,26 @@ This server provides **comprehensive Quilt data operations**:
 - **`bucket_object_text`** - Read text content from objects
 - **`bucket_objects_put`** - Upload objects to S3
 - **`bucket_object_fetch`** - Download object data
+- **`bucket_objects_search`** - Search objects using Elasticsearch
+
+### Analytics & SQL
+- **`athena_databases_list`** - List available Athena databases
+- **`athena_tables_list`** - List tables in a database
+- **`athena_query_execute`** - Execute SQL queries via Athena
+- **`tabulator_tables_list`** - List Quilt Tabulator tables
+- **`unified_search`** - Multi-backend intelligent search
 
 ### System & Authentication
 - **`auth_check`** - Verify Quilt authentication status
 - **`filesystem_check`** - Check system environment details
-
-### Advanced Tools
 - **`aws_permissions_discover`** - Discover available AWS permissions
 - **`bucket_access_check`** - Validate bucket access permissions
+
+### Advanced Features
 - **`create_package_enhanced`** - Advanced package creation with templates
-- **`package_validate`** - Validate package integrity
+- **`workflow_create`** - Create multi-step workflows
+- **`metadata_templates`** - Generate metadata templates (genomics, ML, etc.)
+- **`generate_quilt_summarize_json`** - Create package summaries
 
 **View all tools interactively:**
 ```bash
@@ -277,9 +291,16 @@ scripts/check-env.sh         # Comprehensive environment check
 scripts/check-env.sh claude  # Client-specific validation
 ```
 
+**Module Import Errors**:
+```bash
+# Ensure PYTHONPATH is set correctly
+export PYTHONPATH=/path/to/fast-mcp-server/app
+cd /path/to/fast-mcp-server && make app
+```
+
 ### Getting Help
 
-- **Tool Documentation**: See [docs/CLAUDE.md](docs/CLAUDE.md) for detailed tool usage
+- **Tool Documentation**: See [CLAUDE.md](CLAUDE.md) for detailed tool usage
 - **MCP Inspector**: Use `cd app && make run-inspector` for interactive tool testing
 - **Validation Scripts**: Run `make validate-app` for comprehensive checks
 
@@ -303,5 +324,14 @@ make coverage
 # Run full validation before submitting
 make validate
 ```
+
+### Development Workflow
+
+1. **Clone repository**: `git clone https://github.com/quiltdata/quilt-mcp-server.git`
+2. **Setup environment**: `cp env.example .env` and edit with your settings
+3. **Install dependencies**: `uv sync`
+4. **Run tests**: `make coverage`
+5. **Start development**: `make app`
+6. **Test changes**: Use MCP Inspector at `http://127.0.0.1:6274`
 
 For more details, see the individual phase specifications in `spec/`.
