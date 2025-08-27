@@ -29,7 +29,7 @@ def create_package(
     auto_organize: bool = True,
     dry_run: bool = False,
     target_registry: Optional[str] = None,
-    metadata: Any = None,
+    metadata: dict[str, Any] | None = None,
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """

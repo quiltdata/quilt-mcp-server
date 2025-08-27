@@ -4,12 +4,15 @@ This backend leverages the existing Quilt3 Elasticsearch integration
 rather than building new infrastructure.
 """
 
+import logging
 import time
 from typing import Dict, List, Any, Optional, Union
 
 import quilt3
 from ..core.query_parser import QueryAnalysis, QueryType
 from .base import SearchBackend, BackendType, BackendStatus, SearchResult, BackendResponse
+
+logger = logging.getLogger(__name__)
 
 
 class Quilt3ElasticsearchBackend(SearchBackend):
@@ -124,10 +127,15 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         return []
     
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Global search using the packages search API."""
+        """Global search across all stack buckets using the packages search API."""
         from ...tools.packages import packages_search
+        from ...tools.stack_buckets import get_stack_buckets
         
-        # Use existing packages_search tool
+        # Get all buckets in the stack for comprehensive search
+        stack_buckets = get_stack_buckets()
+        logger.debug(f"Searching across {len(stack_buckets)} stack buckets: {stack_buckets}")
+        
+        # Use existing packages_search tool (now updated to search across stack)
         search_result = packages_search(query, limit=limit)
         
         if 'error' in search_result:

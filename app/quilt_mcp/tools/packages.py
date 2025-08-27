@@ -120,9 +120,14 @@ def packages_search(
                         dsl_query["from"] = from_
                         dsl_query["size"] = effective_limit
                 
-                # BUCKET SCOPING: Use only the specified registry's index, not '_all'
-                # This prevents inappropriate searches of buckets like quilt-example
-                index_name = f"{bucket_name},{bucket_name}_packages"
+                # STACK SCOPING: Use all buckets in the stack, not just the registry bucket
+                # This enables proper cross-bucket search across the entire stack
+                from .stack_buckets import build_stack_search_indices
+                index_name = build_stack_search_indices()
+                
+                # Fallback to single bucket if stack discovery fails
+                if not index_name:
+                    index_name = f"{bucket_name},{bucket_name}_packages"
                 
                 # Use registry-specific index instead of '_all'
                 full_result = search_api(

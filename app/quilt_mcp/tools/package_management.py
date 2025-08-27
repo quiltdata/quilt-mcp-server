@@ -28,7 +28,7 @@ def create_package_enhanced(
     files: List[str],
     description: str = "",
     metadata_template: str = "standard",
-    metadata: Any = None,
+    metadata: dict[str, Any] | None = None,
     registry: Optional[str] = None,
     dry_run: bool = False,
     auto_organize: bool = True,

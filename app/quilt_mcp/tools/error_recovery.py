@@ -15,7 +15,7 @@ from ..utils import format_error_response
 logger = logging.getLogger(__name__)
 
 
-def with_fallback(
+def _with_fallback_internal(
     primary_func: Callable,
     fallback_func: Callable,
     fallback_condition: Optional[Callable[[Exception], bool]] = None
@@ -419,7 +419,7 @@ def _get_health_next_steps(overall_health: str, recovery_recommendations: List[s
 
 
 # Convenience functions for common error recovery patterns
-def safe_package_operation(operation_func: Callable, package_name: str) -> Dict[str, Any]:
+def _safe_package_operation_internal(operation_func: Callable, package_name: str) -> Dict[str, Any]:
     """Safely execute a package operation with common fallbacks."""
     def fallback():
         return {
@@ -436,7 +436,7 @@ def safe_package_operation(operation_func: Callable, package_name: str) -> Dict[
     return safe_operation(f"package_operation_{package_name}", operation_func, fallback_value=fallback())
 
 
-def safe_bucket_operation(operation_func: Callable, bucket_name: str) -> Dict[str, Any]:
+def _safe_bucket_operation_internal(operation_func: Callable, bucket_name: str) -> Dict[str, Any]:
     """Safely execute a bucket operation with common fallbacks."""
     def fallback():
         return {
@@ -453,7 +453,7 @@ def safe_bucket_operation(operation_func: Callable, bucket_name: str) -> Dict[st
     return safe_operation(f"bucket_operation_{bucket_name}", operation_func, fallback_value=fallback())
 
 
-def safe_athena_operation(operation_func: Callable, query: str = None) -> Dict[str, Any]:
+def _safe_athena_operation_internal(operation_func: Callable, query: str = None) -> Dict[str, Any]:
     """Safely execute an Athena operation with common fallbacks."""
     def fallback():
         return {

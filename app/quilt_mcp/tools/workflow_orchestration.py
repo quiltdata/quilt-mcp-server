@@ -391,20 +391,29 @@ def workflow_template_apply(
         Workflow creation result with template-specific steps
     """
     try:
-        templates = {
-            "cross-package-aggregation": _create_cross_package_template,
-            "environment-promotion": _create_promotion_template,
-            "longitudinal-analysis": _create_analysis_template,
-            "data-validation": _create_validation_template
-        }
+        # Use string-based template selection instead of function references
+        # to avoid Pydantic serialization issues
+        available_templates = [
+            "cross-package-aggregation",
+            "environment-promotion", 
+            "longitudinal-analysis",
+            "data-validation"
+        ]
         
-        if template_name not in templates:
-            available = list(templates.keys())
-            return format_error_response(f"Unknown template '{template_name}'. Available: {available}")
+        if template_name not in available_templates:
+            return format_error_response(f"Unknown template '{template_name}'. Available: {available_templates}")
         
-        # Create workflow from template
-        template_func = templates[template_name]
-        workflow_config = template_func(params)
+        # Create workflow from template using string-based dispatch
+        if template_name == "cross-package-aggregation":
+            workflow_config = _create_cross_package_template(params)
+        elif template_name == "environment-promotion":
+            workflow_config = _create_promotion_template(params)
+        elif template_name == "longitudinal-analysis":
+            workflow_config = _create_analysis_template(params)
+        elif template_name == "data-validation":
+            workflow_config = _create_validation_template(params)
+        else:
+            return format_error_response(f"Template implementation not found: {template_name}")
         
         # Create the workflow
         create_result = workflow_create(
