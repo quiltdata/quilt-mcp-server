@@ -1,0 +1,388 @@
+{
+  "test_suite": "CCLE Computational Biology User Stories",
+  "execution_timestamp": "2025-08-27T19:22:48.987321+00:00",
+  "execution_time_seconds": 11.15,
+  "summary": {
+    "total_tests": 6,
+    "passed_tests": 0,
+    "failed_tests": 6,
+    "success_rate": 0.0
+  },
+  "results_by_category": {
+    "Molecular Target Discovery": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB001",
+          "category": "Molecular Target Discovery",
+          "user_story": "US1: Identifying Relevant Cell Lines Using Molecular and Clinical Data",
+          "success": false,
+          "steps_completed": [
+            "workflow_orchestration"
+          ],
+          "steps_failed": [
+            "tabulator_connectivity",
+            "ccle_data_discovery",
+            "erbb2_expression_query"
+          ],
+          "execution_time_ms": 3402.74,
+          "tools_used": [
+            "workflow_create"
+          ],
+          "data_accessed": [],
+          "errors": [
+            "Tabulator check failed: 'coroutine' object has no attribute 'get'",
+            "No CCLE expression data found",
+            "Athena query failed: SQL execution error: Can't load plugin: sqlalchemy.dialects:awsathena.rest"
+          ],
+          "recommendations": [
+            "Workflow orchestration available for complex CCLE analyses"
+          ]
+        }
+      ]
+    },
+    "Tool Benchmarking": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB002",
+          "category": "Tool Benchmarking",
+          "user_story": "US2: Benchmarking RNA-seq Analysis Tool Using CCLE FASTQs",
+          "success": false,
+          "steps_completed": [],
+          "steps_failed": [
+            "fastq_discovery",
+            "package_structure_analysis",
+            "presigned_url_generation",
+            "salmon_results_discovery"
+          ],
+          "execution_time_ms": 677.07,
+          "tools_used": [],
+          "data_accessed": [],
+          "errors": [
+            "No CCLE FASTQ packages found",
+            "Package browsing failed: Missing bucket",
+            "Presigned URL generation failed",
+            "Salmon results not found"
+          ],
+          "recommendations": []
+        }
+      ]
+    },
+    "Visual Data Exploration": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB003",
+          "category": "Visual Data Exploration",
+          "user_story": "US3: Visualizing CCLE Alignments to Validate RNA-seq Anomalies",
+          "success": false,
+          "steps_completed": [],
+          "steps_failed": [
+            "bam_discovery",
+            "igv_integration",
+            "bam_file_access"
+          ],
+          "execution_time_ms": 1077.75,
+          "tools_used": [],
+          "data_accessed": [],
+          "errors": [
+            "No CCLE BAM packages found",
+            "Catalog URL generation failed",
+            "BAM file access validation failed"
+          ],
+          "recommendations": []
+        }
+      ]
+    },
+    "Cross-Package Analysis": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB004",
+          "category": "Cross-Package Analysis",
+          "user_story": "Multi-omics Integration Workflow",
+          "success": false,
+          "steps_completed": [
+            "multiomics_workflow"
+          ],
+          "steps_failed": [
+            "expression_discovery",
+            "mutation_discovery",
+            "drug-response_discovery"
+          ],
+          "execution_time_ms": 1267.32,
+          "tools_used": [
+            "workflow_template_apply"
+          ],
+          "data_accessed": [],
+          "errors": [
+            "No CCLE expression data found",
+            "No CCLE mutation data found",
+            "No CCLE drug-response data found"
+          ],
+          "recommendations": [
+            "Cross-package workflow templates available for multi-omics integration"
+          ]
+        }
+      ]
+    },
+    "Longitudinal Analysis": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB005",
+          "category": "Longitudinal Analysis",
+          "user_story": "CCLE Data Processing Pipeline Monitoring",
+          "success": false,
+          "steps_completed": [
+            "athena_connectivity"
+          ],
+          "steps_failed": [
+            "temporal_analysis"
+          ],
+          "execution_time_ms": 4483.38,
+          "tools_used": [
+            "athena_workgroups_list"
+          ],
+          "data_accessed": [],
+          "errors": [
+            "Temporal query failed: SQL execution error: Can't load plugin: sqlalchemy.dialects:awsathena.rest"
+          ],
+          "recommendations": []
+        }
+      ]
+    },
+    "Collaborative Research": {
+      "passed": 0,
+      "failed": 1,
+      "tests": [
+        {
+          "test_id": "CB006",
+          "category": "Collaborative Research",
+          "user_story": "CCLE Data Sharing for Multi-Institution Study",
+          "success": false,
+          "steps_completed": [
+            "collaborative_package_creation"
+          ],
+          "steps_failed": [
+            "package_validation",
+            "shareable_url_generation"
+          ],
+          "execution_time_ms": 237.22,
+          "tools_used": [
+            "create_package_enhanced"
+          ],
+          "data_accessed": [],
+          "errors": [
+            "Package validation failed: Missing bucket",
+            "Shareable URL generation failed"
+          ],
+          "recommendations": [
+            "Package creation available for data sharing"
+          ]
+        }
+      ]
+    }
+  },
+  "tools_coverage": {
+    "tools_used": [
+      "athena_workgroups_list",
+      "create_package_enhanced",
+      "workflow_create",
+      "workflow_template_apply"
+    ],
+    "total_tools_used": 4
+  },
+  "detailed_results": [
+    {
+      "test_id": "CB001",
+      "category": "Molecular Target Discovery",
+      "user_story": "US1: Identifying Relevant Cell Lines Using Molecular and Clinical Data",
+      "success": false,
+      "steps_completed": [
+        "workflow_orchestration"
+      ],
+      "steps_failed": [
+        "tabulator_connectivity",
+        "ccle_data_discovery",
+        "erbb2_expression_query"
+      ],
+      "execution_time_ms": 3402.74,
+      "tools_used": [
+        "workflow_create"
+      ],
+      "data_accessed": [],
+      "errors": [
+        "Tabulator check failed: 'coroutine' object has no attribute 'get'",
+        "No CCLE expression data found",
+        "Athena query failed: SQL execution error: Can't load plugin: sqlalchemy.dialects:awsathena.rest"
+      ],
+      "recommendations": [
+        "Workflow orchestration available for complex CCLE analyses"
+      ]
+    },
+    {
+      "test_id": "CB002",
+      "category": "Tool Benchmarking",
+      "user_story": "US2: Benchmarking RNA-seq Analysis Tool Using CCLE FASTQs",
+      "success": false,
+      "steps_completed": [],
+      "steps_failed": [
+        "fastq_discovery",
+        "package_structure_analysis",
+        "presigned_url_generation",
+        "salmon_results_discovery"
+      ],
+      "execution_time_ms": 677.07,
+      "tools_used": [],
+      "data_accessed": [],
+      "errors": [
+        "No CCLE FASTQ packages found",
+        "Package browsing failed: Missing bucket",
+        "Presigned URL generation failed",
+        "Salmon results not found"
+      ],
+      "recommendations": []
+    },
+    {
+      "test_id": "CB003",
+      "category": "Visual Data Exploration",
+      "user_story": "US3: Visualizing CCLE Alignments to Validate RNA-seq Anomalies",
+      "success": false,
+      "steps_completed": [],
+      "steps_failed": [
+        "bam_discovery",
+        "igv_integration",
+        "bam_file_access"
+      ],
+      "execution_time_ms": 1077.75,
+      "tools_used": [],
+      "data_accessed": [],
+      "errors": [
+        "No CCLE BAM packages found",
+        "Catalog URL generation failed",
+        "BAM file access validation failed"
+      ],
+      "recommendations": []
+    },
+    {
+      "test_id": "CB004",
+      "category": "Cross-Package Analysis",
+      "user_story": "Multi-omics Integration Workflow",
+      "success": false,
+      "steps_completed": [
+        "multiomics_workflow"
+      ],
+      "steps_failed": [
+        "expression_discovery",
+        "mutation_discovery",
+        "drug-response_discovery"
+      ],
+      "execution_time_ms": 1267.32,
+      "tools_used": [
+        "workflow_template_apply"
+      ],
+      "data_accessed": [],
+      "errors": [
+        "No CCLE expression data found",
+        "No CCLE mutation data found",
+        "No CCLE drug-response data found"
+      ],
+      "recommendations": [
+        "Cross-package workflow templates available for multi-omics integration"
+      ]
+    },
+    {
+      "test_id": "CB005",
+      "category": "Longitudinal Analysis",
+      "user_story": "CCLE Data Processing Pipeline Monitoring",
+      "success": false,
+      "steps_completed": [
+        "athena_connectivity"
+      ],
+      "steps_failed": [
+        "temporal_analysis"
+      ],
+      "execution_time_ms": 4483.38,
+      "tools_used": [
+        "athena_workgroups_list"
+      ],
+      "data_accessed": [],
+      "errors": [
+        "Temporal query failed: SQL execution error: Can't load plugin: sqlalchemy.dialects:awsathena.rest"
+      ],
+      "recommendations": []
+    },
+    {
+      "test_id": "CB006",
+      "category": "Collaborative Research",
+      "user_story": "CCLE Data Sharing for Multi-Institution Study",
+      "success": false,
+      "steps_completed": [
+        "collaborative_package_creation"
+      ],
+      "steps_failed": [
+        "package_validation",
+        "shareable_url_generation"
+      ],
+      "execution_time_ms": 237.22,
+      "tools_used": [
+        "create_package_enhanced"
+      ],
+      "data_accessed": [],
+      "errors": [
+        "Package validation failed: Missing bucket",
+        "Shareable URL generation failed"
+      ],
+      "recommendations": [
+        "Package creation available for data sharing"
+      ]
+    }
+  ],
+  "error_summary": {
+    "total_errors": 16,
+    "unique_errors": 15,
+    "common_errors": [
+      {
+        "error_type": "Other errors",
+        "count": 14
+      },
+      {
+        "error_type": "Athena connectivity issues",
+        "count": 2
+      }
+    ]
+  },
+  "recommendations": {
+    "total_recommendations": 3,
+    "unique_recommendations": [
+      "Package creation available for data sharing",
+      "Cross-package workflow templates available for multi-omics integration",
+      "Workflow orchestration available for complex CCLE analyses"
+    ]
+  },
+  "computational_biology_assessment": {
+    "capabilities": {
+      "genomics_data_access": false,
+      "sql_analytics": true,
+      "workflow_orchestration": true,
+      "data_sharing": false,
+      "visualization_support": false
+    },
+    "readiness_score": 40.0,
+    "readiness_level": "Needs Development"
+  },
+  "next_steps": [
+    "Set up CCLE Tabulator tables for expression and metadata queries",
+    "Populate test environment with CCLE sample packages",
+    "Create CCLE-specific documentation and tutorials",
+    "Set up monitoring for computational biology workflow performance",
+    "Implement CCLE data validation and quality checks"
+  ]
+}

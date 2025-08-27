@@ -1,0 +1,83 @@
+{
+  "summary": {
+    "total_tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "success_rate": 100.0,
+    "execution_time_ms": 0.2002716064453125
+  },
+  "detailed_results": [
+    {
+      "test_id": "CONN",
+      "test_name": "MCP Server Connectivity",
+      "success": true,
+      "execution_time_ms": 0.0,
+      "timestamp": "2025-08-27T14:22:14.984639",
+      "details": {
+        "benchling_connected": true,
+        "quilt_connected": true,
+        "benchling_projects": 4,
+        "quilt_status": "authenticated",
+        "summary": "Benchling: \u2705, Quilt: \u2705"
+      }
+    },
+    {
+      "test_id": "SB001",
+      "test_name": "Federated Discovery",
+      "success": true,
+      "execution_time_ms": 0.01,
+      "timestamp": "2025-08-27T14:22:14.984663",
+      "details": {
+        "benchling_results": 2,
+        "quilt_results": 1,
+        "athena_databases": 3,
+        "summary": "Found 2 Benchling entities, 1 Quilt objects"
+      }
+    },
+    {
+      "test_id": "SB002",
+      "test_name": "Notebook Summarization",
+      "success": true,
+      "execution_time_ms": 0.0,
+      "timestamp": "2025-08-27T14:22:14.984674",
+      "details": {
+        "entry_name": "Demo Entry",
+        "entry_id": "etr_BETndOZF",
+        "created_at": "2025-05-08T16:32:20.141220+00:00",
+        "creator": "Simon Kohnstamm",
+        "template_id": "tmpl_1ZdkRpdd",
+        "summary": "Notebook 'Demo Entry' created by Simon Kohnstamm"
+      }
+    },
+    {
+      "test_id": "SB004",
+      "test_name": "NGS Lifecycle Management",
+      "success": true,
+      "execution_time_ms": 0.0,
+      "timestamp": "2025-08-27T14:22:14.984683",
+      "details": {
+        "benchling_projects": 4,
+        "quilt_packages": 1,
+        "metadata_test": {
+          "template_support": true,
+          "validation": true
+        },
+        "summary": "Found 4 Benchling projects, 1 Quilt packages"
+      }
+    },
+    {
+      "test_id": "SB016",
+      "test_name": "Unified Search",
+      "success": true,
+      "execution_time_ms": 0.0,
+      "timestamp": "2025-08-27T14:22:14.984691",
+      "details": {
+        "benchling_results": 2,
+        "quilt_package_results": 1,
+        "quilt_object_results": 1,
+        "total_results": 4,
+        "summary": "Unified search for 'RNA' found 4 total results across systems"
+      }
+    }
+  ]
+}

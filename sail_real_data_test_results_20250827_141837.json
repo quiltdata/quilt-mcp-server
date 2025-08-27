@@ -1,0 +1,174 @@
+{
+  "summary": {
+    "total_tests": 4,
+    "passed": 4,
+    "failed": 0,
+    "success_rate": 100.0,
+    "execution_time_ms": 0.4780292510986328,
+    "real_data_used": true
+  },
+  "data_sources": {
+    "benchling_domain": "quilt-dtt.benchling.com",
+    "quilt_registry": "s3://quilt-sandbox-bucket",
+    "real_entries_tested": {
+      "rna_entry": "etr_FFW6vEAy",
+      "test_sequence": "seq_xy1L3OoCJa",
+      "projects": [
+        "src_1L4hWLPg",
+        "src_9uVlVvGx"
+      ]
+    },
+    "real_files_found": {
+      "rna_files": [
+        "benchling-rnaseq/TestRNA_metadata.json",
+        "cellpainting-gallery/jump-workflow-overview/README.md"
+      ],
+      "packages": [
+        "benchling/quilt-dev-sequences",
+        "cellpainting-gallery/jump-pilot-analysis-BR00116991-A01-s1"
+      ],
+      "search_terms": [
+        "RNA",
+        "TestRNA",
+        "benchling"
+      ]
+    }
+  },
+  "detailed_results": [
+    {
+      "test_id": "SB001-REAL",
+      "test_name": "Real Federated Discovery",
+      "success": true,
+      "execution_time_ms": 0.01,
+      "timestamp": "2025-08-27T14:18:37.507051",
+      "details": {
+        "benchling_entry": {
+          "name": "RNA-Seq Analysis: TestRNA Sequence & Quilt Package Integration",
+          "id": "etr_FFW6vEAy",
+          "creator": "Ernest Prabhakar"
+        },
+        "benchling_sequence": {
+          "name": "TestRNA",
+          "length": 46,
+          "bases": "ATGCCGTACTGAAGGTCCCTTAGCTAATTGCGAGCTAACGGGATCC..."
+        },
+        "quilt_rna_results": 89,
+        "quilt_testrna_results": 12,
+        "federated_correlation": "Found matching TestRNA data in both systems",
+        "summary": "Successfully correlated RNA-seq entry 'RNA-Seq Analysis: TestRNA Sequence & Quilt Package Integration' with 89 Quilt RNA datasets"
+      },
+      "data_sources": {
+        "benchling": "quilt-dtt.benchling.com",
+        "quilt": "s3://quilt-sandbox-bucket"
+      }
+    },
+    {
+      "test_id": "SB002-REAL",
+      "test_name": "Real Notebook Summarization",
+      "success": true,
+      "execution_time_ms": 0.01,
+      "timestamp": "2025-08-27T14:18:37.507075",
+      "details": {
+        "entry_name": "RNA-Seq Analysis: TestRNA Sequence & Quilt Package Integration",
+        "entry_id": "etr_FFW6vEAy",
+        "display_id": "EXP25000017",
+        "created_at": "2025-04-03T15:15:57.603868+00:00",
+        "modified_at": "2025-08-22T15:44:18.004187+00:00",
+        "creator": "Ernest Prabhakar",
+        "template_id": null,
+        "web_url": "https://quilt-dtt.benchling.com/quilt-dev/f/lib_uz14ul16-quilt-integration/etr_FFW6vEAy-rna-seq-analysis-testrna-sequence-quilt-package-integration/edit",
+        "analysis_type": "RNA-Seq Analysis",
+        "integration_focus": "Quilt Package Integration",
+        "summary": "RNA-Seq analysis notebook 'RNA-Seq Analysis: TestRNA Sequence & Quilt Package Integration' created by Ernest Prabhakar on 2025-04-03, focusing on TestRNA sequence and Quilt package integration"
+      },
+      "data_sources": {
+        "benchling": "quilt-dtt.benchling.com",
+        "quilt": "s3://quilt-sandbox-bucket"
+      }
+    },
+    {
+      "test_id": "SB004-REAL",
+      "test_name": "Real NGS Lifecycle Management",
+      "success": true,
+      "execution_time_ms": 0.01,
+      "timestamp": "2025-08-27T14:18:37.507090",
+      "details": {
+        "benchling_projects": 4,
+        "rna_sequence": {
+          "name": "TestRNA",
+          "id": "seq_xy1L3OoCJa",
+          "length": 46
+        },
+        "quilt_packages": 3,
+        "metadata_linking": {
+          "sequence_id": "seq_xy1L3OoCJa",
+          "linked_project": "src_9uVlVvGx",
+          "metadata_fields": {
+            "benchling_sequence_id": "seq_xy1L3OoCJa",
+            "benchling_project_id": "src_9uVlVvGx",
+            "sequence_name": "TestRNA",
+            "sequence_length": 46,
+            "created_by": "Ernest Prabhakar"
+          },
+          "success": true
+        },
+        "integration_points": [
+          "Benchling sequence seq_xy1L3OoCJa \u2192 Quilt package metadata",
+          "Project src_1L4hWLPg \u2192 Package provenance",
+          "Cross-system traceability established"
+        ],
+        "summary": "Successfully linked RNA sequence 'TestRNA' to 4 projects and 3 Quilt packages"
+      },
+      "data_sources": {
+        "benchling": "quilt-dtt.benchling.com",
+        "quilt": "s3://quilt-sandbox-bucket"
+      }
+    },
+    {
+      "test_id": "SB016-REAL",
+      "test_name": "Real Unified Search",
+      "success": true,
+      "execution_time_ms": 0.01,
+      "timestamp": "2025-08-27T14:18:37.507103",
+      "details": {
+        "search_results": {
+          "RNA": {
+            "benchling": 2,
+            "quilt": 89,
+            "total": 91
+          },
+          "TestRNA": {
+            "benchling": 2,
+            "quilt": 12,
+            "total": 14
+          },
+          "benchling": {
+            "benchling": 0,
+            "quilt": 7,
+            "total": 7
+          }
+        },
+        "total_cross_system_results": 112,
+        "best_matches": [
+          {
+            "term": "RNA",
+            "results": 91
+          },
+          {
+            "term": "TestRNA",
+            "results": 14
+          },
+          {
+            "term": "benchling",
+            "results": 7
+          }
+        ],
+        "summary": "Unified search across both systems found 112 total results for RNA-related terms"
+      },
+      "data_sources": {
+        "benchling": "quilt-dtt.benchling.com",
+        "quilt": "s3://quilt-sandbox-bucket"
+      }
+    }
+  ]
+}

@@ -670,7 +670,7 @@ class CCLEComputationalBiologyTester:
         if any("discovery" in step for step in failed_steps):
             next_steps.append("Populate test environment with CCLE sample packages")
         
-        if any("permission" in str(self.test_results).lower()):
+        if any("permission" in str(result).lower() for result in self.test_results):
             next_steps.append("Review and fix AWS permissions for comprehensive data access")
         
         # Add general recommendations

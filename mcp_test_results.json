@@ -1,5 +1,5 @@
 {
-  "timestamp": 1756300853.43224,
+  "timestamp": 1756322600.423549,
   "server_info": {
     "server_type": "FastMCP",
     "tools_registered": 0
@@ -101,7 +101,7 @@
     "concurrent_test": {
       "total_calls": 5,
       "successful_calls": 0,
-      "total_time_ms": 0.15,
+      "total_time_ms": 0.16,
       "average_time_ms": 0.0,
       "results": [
         {
@@ -112,7 +112,7 @@
             "call_id": 0
           },
           "error": "'FastMCP' object has no attribute 'call_tool'",
-          "execution_time_ms": 0.01
+          "execution_time_ms": 0.0
         },
         {
           "success": false,
