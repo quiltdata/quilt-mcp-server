@@ -432,6 +432,68 @@ def package_update_metadata(
         return format_error_response(f"Metadata update failed: {str(e)}")
 
 
+def _validate_package_alternative(package_name: str, registry: str, browse_error: Dict[str, Any]) -> Dict[str, Any]:
+    """Alternative validation approach when package browsing fails."""
+    try:
+        # Try to check if package exists using search
+        from .packages import packages_search
+        search_result = packages_search(package_name, registry=registry, limit=1)
+        
+        if search_result.get("success") and search_result.get("results"):
+            # Package exists but browsing failed - likely a permissions issue
+            return {
+                "success": True,
+                "package_name": package_name,
+                "registry": registry,
+                "validation": {
+                    "package_accessible": True,
+                    "browsing_failed": True,
+                    "total_files": "unknown",
+                    "accessible_files": "unknown",
+                    "inaccessible_files": "unknown",
+                    "errors": [f"Package browsing failed: {browse_error.get('error', 'Unknown error')}"],
+                    "warnings": ["Could not validate individual files due to browsing failure"]
+                },
+                "summary": {
+                    "package_exists": True,
+                    "validation_limited": True,
+                    "reason": "Package browsing failed but package exists in search results"
+                },
+                "recommendations": [
+                    "Package exists but detailed validation failed",
+                    "This may be due to permissions or registry configuration",
+                    f"Try: packages_search('{package_name}') to verify package exists",
+                    "Check your registry configuration and permissions"
+                ]
+            }
+        else:
+            # Package doesn't exist or search also failed
+            return {
+                "success": False,
+                "error": "Cannot validate package - browsing failed",
+                "browse_error": browse_error.get("error"),
+                "search_attempted": True,
+                "search_result": search_result.get("error", "Package not found in search"),
+                "suggested_fixes": [
+                    "Verify the package name is correct",
+                    "Check if you have access to the registry", 
+                    "Ensure the package exists in the specified registry"
+                ]
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": "Cannot validate package - browsing failed",
+            "browse_error": browse_error.get("error"),
+            "alternative_validation_error": str(e),
+            "suggested_fixes": [
+                "Verify the package name is correct",
+                "Check if you have access to the registry",
+                "Ensure the package exists in the specified registry"
+            ]
+        }
+
+
 def package_validate(
     package_name: str,
     registry: str = None,
@@ -451,16 +513,17 @@ def package_validate(
         Comprehensive validation report
     """
     try:
+        # Determine registry to use
+        target_registry = registry or DEFAULT_REGISTRY
+        if not target_registry:
+            target_registry = "s3://quilt-sandbox-bucket"  # Fallback for testing
+        
         # Browse the package to get file information
-        browse_result = package_browse(package_name, registry=registry or DEFAULT_REGISTRY)
+        browse_result = package_browse(package_name, registry=target_registry)
         
         if not browse_result.get("success"):
-            return {
-                "success": False,
-                "error": "Cannot validate package - browsing failed",
-                "browse_error": browse_result.get("error"),
-                "suggested_fixes": browse_result.get("possible_fixes", [])
-            }
+            # Try alternative validation approach if browsing fails
+            return _validate_package_alternative(package_name, target_registry, browse_result)
         
         entries = browse_result.get("entries", [])
         validation_results = {

@@ -286,9 +286,8 @@ def athena_query_execute(
         
     except Exception as e:
         error_str = str(e)
-        # Sanitize error message to prevent formatting issues
-        safe_error = _sanitize_query_for_logging(error_str)
-        logger.error("Failed to execute query: %s", safe_error)
+        # Use safe logging to prevent formatting issues
+        logger.error("Failed to execute query: %s", error_str)
         
         # Provide specific guidance for common errors
         if "glue:GetDatabase" in error_str:
