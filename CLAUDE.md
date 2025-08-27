@@ -279,7 +279,7 @@ The key is to write clean, testable, functional code that evolves through small,
 
 ## Repository-Specific Commands
 
-For this repository's specific commands and permissions, see [docs/CLAUDE.md](./docs/CLAUDE.md) which contains:
+For this repository's specific commands and permissions, see this CLAUDE.md file which contains:
 
 - Pre-approved Makefile targets (use those to run tests when possible)
 - Phase-specific commands (app, build, catalog, deploy)
