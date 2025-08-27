@@ -1,0 +1,160 @@
+{
+  "timestamp": 1756300853.43224,
+  "server_info": {
+    "server_type": "FastMCP",
+    "tools_registered": 0
+  },
+  "basic_functionality": {
+    "list_tools": {
+      "success": false,
+      "error": "'FastMCP' object has no attribute 'list_tools'"
+    },
+    "tool_calls": [
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_auth_status",
+        "arguments": {
+          "random_string": "test"
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.01
+      },
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_filesystem_status",
+        "arguments": {
+          "random_string": "test"
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      },
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_catalog_info",
+        "arguments": {
+          "random_string": "test"
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      }
+    ]
+  },
+  "search_functionality": {
+    "search_tests": [
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_packages_search",
+        "arguments": {
+          "query": "data",
+          "limit": 3
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      },
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_bucket_objects_search",
+        "arguments": {
+          "bucket": "s3://quilt-sandbox-bucket",
+          "query": "data",
+          "limit": 3
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      }
+    ]
+  },
+  "error_handling": {
+    "error_tests": [
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_packages_search",
+        "arguments": {
+          "query": "",
+          "limit": -1
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      },
+      {
+        "success": false,
+        "tool_name": "mcp_quilt_bucket_objects_search",
+        "arguments": {
+          "bucket": "invalid-bucket",
+          "query": "test"
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      },
+      {
+        "success": false,
+        "tool_name": "nonexistent_tool",
+        "arguments": {
+          "any": "args"
+        },
+        "error": "'FastMCP' object has no attribute 'call_tool'",
+        "execution_time_ms": 0.0
+      }
+    ]
+  },
+  "performance": {
+    "concurrent_test": {
+      "total_calls": 5,
+      "successful_calls": 0,
+      "total_time_ms": 0.15,
+      "average_time_ms": 0.0,
+      "results": [
+        {
+          "success": false,
+          "tool_name": "mcp_quilt_auth_status",
+          "arguments": {
+            "random_string": "perf_test",
+            "call_id": 0
+          },
+          "error": "'FastMCP' object has no attribute 'call_tool'",
+          "execution_time_ms": 0.01
+        },
+        {
+          "success": false,
+          "tool_name": "mcp_quilt_auth_status",
+          "arguments": {
+            "random_string": "perf_test",
+            "call_id": 1
+          },
+          "error": "'FastMCP' object has no attribute 'call_tool'",
+          "execution_time_ms": 0.0
+        },
+        {
+          "success": false,
+          "tool_name": "mcp_quilt_auth_status",
+          "arguments": {
+            "random_string": "perf_test",
+            "call_id": 2
+          },
+          "error": "'FastMCP' object has no attribute 'call_tool'",
+          "execution_time_ms": 0.0
+        },
+        {
+          "success": false,
+          "tool_name": "mcp_quilt_auth_status",
+          "arguments": {
+            "random_string": "perf_test",
+            "call_id": 3
+          },
+          "error": "'FastMCP' object has no attribute 'call_tool'",
+          "execution_time_ms": 0.0
+        },
+        {
+          "success": false,
+          "tool_name": "mcp_quilt_auth_status",
+          "arguments": {
+            "random_string": "perf_test",
+            "call_id": 4
+          },
+          "error": "'FastMCP' object has no attribute 'call_tool'",
+          "execution_time_ms": 0.0
+        }
+      ]
+    }
+  }
+}

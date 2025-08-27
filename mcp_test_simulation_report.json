@@ -1,0 +1,681 @@
+{
+  "summary": {
+    "total_tests": 40,
+    "passed": 24,
+    "failed": 4,
+    "skipped": 12,
+    "errors": 0,
+    "success_rate": 60.0,
+    "total_time_seconds": 0.0,
+    "average_test_time_ms": 0.0
+  },
+  "errors_by_type": {
+    "General": [
+      {
+        "test_id": "R002",
+        "message": "No validation tools available",
+        "tools": []
+      },
+      {
+        "test_id": "R010",
+        "message": "No validation tools available",
+        "tools": []
+      }
+    ],
+    "AuthenticationError": [
+      {
+        "test_id": "R024",
+        "message": "Athena authentication failed - credentials not configured",
+        "tools": [
+          "mcp_quilt_athena_query_execute"
+        ]
+      },
+      {
+        "test_id": "R031",
+        "message": "Athena authentication failed - credentials not configured",
+        "tools": [
+          "mcp_quilt_athena_query_execute",
+          "mcp_quilt_tabulator_tables_list"
+        ]
+      }
+    ]
+  },
+  "top_recommendations": [
+    [
+      "Implement missing MCP tool: mcp_quilt_package_validate",
+      3
+    ],
+    [
+      "Add comprehensive validation capabilities",
+      2
+    ],
+    [
+      "Implement missing MCP tool: mcp_quilt_create_metadata_from_template",
+      2
+    ],
+    [
+      "Consider caching permission results for better performance",
+      2
+    ],
+    [
+      "Ensure Athena credentials are properly configured",
+      2
+    ],
+    [
+      "Add better error messages for authentication failures",
+      2
+    ],
+    [
+      "Provide fallback options when Athena is unavailable",
+      2
+    ],
+    [
+      "Implement missing MCP tool: mcp_quilt_fix_metadata_validation_issues",
+      2
+    ],
+    [
+      "Implement missing MCP tool: mcp_quilt_package_create_from_s3",
+      1
+    ],
+    [
+      "Implement missing MCP tool: mcp_quilt_create_package",
+      1
+    ]
+  ],
+  "detailed_results": [
+    {
+      "test_id": "R001",
+      "persona": "Bench Scientist",
+      "utterance": "Find all packages containing RNA-seq data from human samples.",
+      "status": "PASS",
+      "execution_time_ms": 0.01,
+      "tools_used": [
+        "mcp_quilt_packages_search"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Found 3-5 packages matching search criteria",
+      "recommendations": []
+    },
+    {
+      "test_id": "R002",
+      "persona": "Bench Scientist",
+      "utterance": "Show me the contents and metadata of the latest version of a specific package.",
+      "status": "FAIL",
+      "execution_time_ms": 0.01,
+      "tools_used": [],
+      "error_message": "No validation tools available",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Add comprehensive validation capabilities"
+      ]
+    },
+    {
+      "test_id": "R003",
+      "persona": "Bench Scientist",
+      "utterance": "Create a new package with metadata and validate the metadata structure.",
+      "status": "PASS",
+      "execution_time_ms": 0.01,
+      "tools_used": [
+        "mcp_quilt_create_package_enhanced"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Package operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R004",
+      "persona": "Bench Scientist",
+      "utterance": "Create a package from S3 objects and add appropriate metadata.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_package_create_from_s3', 'mcp_quilt_create_metadata_from_template']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_package_create_from_s3",
+        "Implement missing MCP tool: mcp_quilt_create_metadata_from_template"
+      ]
+    },
+    {
+      "test_id": "R005",
+      "persona": "Bench Scientist",
+      "utterance": "Compare two versions of the same package to see what changed.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_package_diff"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R006",
+      "persona": "Bioinformatician",
+      "utterance": "Create a package from analysis outputs and link to input data packages.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_create_package', 'mcp_quilt_create_metadata_from_template']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_create_package",
+        "Implement missing MCP tool: mcp_quilt_create_metadata_from_template"
+      ]
+    },
+    {
+      "test_id": "R007",
+      "persona": "Bioinformatician",
+      "utterance": "Search for files containing specific text across multiple packages.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_bucket_objects_search",
+        "mcp_quilt_packages_search"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R008",
+      "persona": "Bioinformatician",
+      "utterance": "Generate a presigned download URL for a specific file in a package.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_bucket_object_link",
+        "mcp_quilt_package_browse"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R009",
+      "persona": "Bioinformatician",
+      "utterance": "Update an existing package with new files while preserving existing content.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_package_update"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Package operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R010",
+      "persona": "Bioinformatician",
+      "utterance": "List all packages in a registry and check their basic metadata.",
+      "status": "FAIL",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "No validation tools available",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Add comprehensive validation capabilities"
+      ]
+    },
+    {
+      "test_id": "R011",
+      "persona": "Data Engineer",
+      "utterance": "Check my AWS permissions and discover which buckets I can access.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_aws_permissions_discover",
+        "mcp_quilt_bucket_access_check"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Permissions analyzed successfully",
+      "recommendations": [
+        "Consider caching permission results for better performance"
+      ]
+    },
+    {
+      "test_id": "R012",
+      "persona": "Data Engineer",
+      "utterance": "List all objects in a specific S3 bucket with pagination.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_bucket_objects_list"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R013",
+      "persona": "Data Engineer",
+      "utterance": "Update package metadata to remove sensitive information and show the changes.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_package_update_metadata']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_package_update_metadata"
+      ]
+    },
+    {
+      "test_id": "R014",
+      "persona": "Data Engineer",
+      "utterance": "Validate the integrity of files in a package.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_package_validate']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_package_validate"
+      ]
+    },
+    {
+      "test_id": "R015",
+      "persona": "Data Engineer",
+      "utterance": "Check authentication status and catalog configuration.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_auth_status",
+        "mcp_quilt_catalog_info"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R016",
+      "persona": "R&D IT",
+      "utterance": "Create a package with structured metadata using a template.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_create_package_enhanced"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Package operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R017",
+      "persona": "R&D IT",
+      "utterance": "Get a shareable catalog URL for a specific package.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_catalog_url']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_catalog_url"
+      ]
+    },
+    {
+      "test_id": "R018",
+      "persona": "R&D IT",
+      "utterance": "Get information about filesystem access and available tools.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_filesystem_status",
+        "mcp_quilt_list_package_tools"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R019",
+      "persona": "R&D IT",
+      "utterance": "Create a tabulator table configuration for querying package data.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_tabulator_tables_list",
+        "mcp_quilt_tabulator_table_create"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Tabulator operations completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R020",
+      "persona": "R&D IT",
+      "utterance": "Validate metadata structure against available templates.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_validate_metadata_structure"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Validation completed with detailed feedback",
+      "recommendations": []
+    },
+    {
+      "test_id": "R021",
+      "persona": "Scientist",
+      "utterance": "Search for packages with specific metadata criteria.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_packages_search"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Found 3-5 packages matching search criteria",
+      "recommendations": []
+    },
+    {
+      "test_id": "R022",
+      "persona": "Scientist",
+      "utterance": "Generate visualizations for package data using Quilt's visualization engine.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_generate_package_visualizations"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R023",
+      "persona": "Scientist",
+      "utterance": "Browse package contents and read text files directly.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_package_browse",
+        "mcp_quilt_bucket_object_text"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R024",
+      "persona": "Scientist",
+      "utterance": "Execute an Athena query against tabulated package data.",
+      "status": "FAIL",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_athena_query_execute"
+      ],
+      "error_message": "Athena authentication failed - credentials not configured",
+      "error_type": "AuthenticationError",
+      "response_summary": null,
+      "recommendations": [
+        "Ensure Athena credentials are properly configured",
+        "Add better error messages for authentication failures",
+        "Provide fallback options when Athena is unavailable"
+      ]
+    },
+    {
+      "test_id": "R025",
+      "persona": "Scientist",
+      "utterance": "Create a comprehensive package summary with README and metadata.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_generate_quilt_summarize_json']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_generate_quilt_summarize_json"
+      ]
+    },
+    {
+      "test_id": "R026",
+      "persona": "Program Manager",
+      "utterance": "Get a report of all packages in a registry with their metadata.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_packages_list",
+        "mcp_quilt_package_browse"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R027",
+      "persona": "Program Manager",
+      "utterance": "Check which packages have complete metadata using validation.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_package_validate']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_package_validate"
+      ]
+    },
+    {
+      "test_id": "R028",
+      "persona": "Program Manager",
+      "utterance": "Get package creation and update history for analysis.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_packages_list",
+        "mcp_quilt_package_browse"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R029",
+      "persona": "Program Manager",
+      "utterance": "Generate documentation for a package based on its contents and metadata.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_create_quilt_summary_files",
+        "mcp_quilt_package_browse"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R030",
+      "persona": "Program Manager",
+      "utterance": "Get recommendations for bucket usage and package organization.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_bucket_recommendations_get', 'mcp_quilt_list_available_resources']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_bucket_recommendations_get",
+        "Implement missing MCP tool: mcp_quilt_list_available_resources"
+      ]
+    },
+    {
+      "test_id": "R031",
+      "persona": "Analyst",
+      "utterance": "Query tabulated data across multiple packages using SQL.",
+      "status": "FAIL",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_athena_query_execute",
+        "mcp_quilt_tabulator_tables_list"
+      ],
+      "error_message": "Athena authentication failed - credentials not configured",
+      "error_type": "AuthenticationError",
+      "response_summary": null,
+      "recommendations": [
+        "Ensure Athena credentials are properly configured",
+        "Add better error messages for authentication failures",
+        "Provide fallback options when Athena is unavailable"
+      ]
+    },
+    {
+      "test_id": "R032",
+      "persona": "Analyst",
+      "utterance": "Export package data in different formats.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_bucket_object_fetch']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_bucket_object_fetch"
+      ]
+    },
+    {
+      "test_id": "R033",
+      "persona": "Analyst",
+      "utterance": "Find large files across packages and get their details.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_bucket_objects_search",
+        "mcp_quilt_package_browse"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R034",
+      "persona": "Analyst",
+      "utterance": "Get quick start guidance for using Quilt effectively.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_quick_start",
+        "mcp_quilt_list_package_tools"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R035",
+      "persona": "Analyst",
+      "utterance": "Analyze metadata patterns across packages to understand common fields.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_show_metadata_examples']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_show_metadata_examples"
+      ]
+    },
+    {
+      "test_id": "R036",
+      "persona": "Any User",
+      "utterance": "Try to create a package with invalid metadata and see detailed error messages.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_fix_metadata_validation_issues']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_fix_metadata_validation_issues"
+      ]
+    },
+    {
+      "test_id": "R037",
+      "persona": "Any User",
+      "utterance": "Check bucket access permissions and understand what operations are allowed.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_aws_permissions_discover",
+        "mcp_quilt_bucket_access_check"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Permissions analyzed successfully",
+      "recommendations": [
+        "Consider caching permission results for better performance"
+      ]
+    },
+    {
+      "test_id": "R038",
+      "persona": "Any User",
+      "utterance": "Understand why a package operation failed and get troubleshooting guidance.",
+      "status": "SKIP",
+      "execution_time_ms": 0.0,
+      "tools_used": [],
+      "error_message": "Missing required tools: ['mcp_quilt_package_validate', 'mcp_quilt_fix_metadata_validation_issues']",
+      "error_type": null,
+      "response_summary": null,
+      "recommendations": [
+        "Implement missing MCP tool: mcp_quilt_package_validate",
+        "Implement missing MCP tool: mcp_quilt_fix_metadata_validation_issues"
+      ]
+    },
+    {
+      "test_id": "R039",
+      "persona": "Any User",
+      "utterance": "Browse different versions of a package and understand version history.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_package_browse",
+        "mcp_quilt_package_diff"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "General operation completed successfully",
+      "recommendations": []
+    },
+    {
+      "test_id": "R040",
+      "persona": "Any User",
+      "utterance": "Test MCP server performance with repeated operations.",
+      "status": "PASS",
+      "execution_time_ms": 0.0,
+      "tools_used": [
+        "mcp_quilt_auth_status",
+        "mcp_quilt_packages_list"
+      ],
+      "error_message": null,
+      "error_type": null,
+      "response_summary": "Performance test completed within acceptable limits",
+      "recommendations": [
+        "Monitor performance in production environment"
+      ]
+    }
+  ]
+}
