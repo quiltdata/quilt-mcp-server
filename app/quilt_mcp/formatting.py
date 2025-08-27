@@ -57,12 +57,17 @@ def format_as_table(
             truncated_msg = ""
             
         # Format the table with pandas styling
-        table_str = df_display.to_string(
-            index=False,
-            max_cols=None,
-            max_colwidth=30,
-            justify='left'
-        )
+        try:
+            table_str = df_display.to_string(
+                index=False,
+                max_cols=None,
+                max_colwidth=30,
+                justify='left'
+            )
+        except (ValueError, TypeError) as e:
+            # Handle formatting issues with special characters
+            logger.warning(f"Table formatting failed, using simple representation: {e}")
+            table_str = str(df_display)
         
         # Add truncation message if needed
         if truncated_msg:
