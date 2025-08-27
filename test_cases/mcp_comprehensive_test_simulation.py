@@ -476,7 +476,7 @@ def main():
     simulator = MCPTestSimulator()
     
     # Run the comprehensive test
-    test_suite = simulator.run_comprehensive_test("test_cases/realistic_quilt_test_cases.json")
+    test_suite = simulator.run_comprehensive_test("realistic_quilt_test_cases.json")
     
     # Generate report
     report = simulator.generate_report()

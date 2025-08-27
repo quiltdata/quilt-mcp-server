@@ -16,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Advanced workflow simulation with 40 realistic test cases
   - Integration tests covering all 84 MCP tools
 - **Enhanced Test Coverage**: Added test runners for real data validation
-  - `sail_user_stories_real_test.py` - Tests with actual Benchling and Quilt data
-  - `ccle_computational_biology_test_runner.py` - Genomics workflow validation
-  - `mcp_comprehensive_test_simulation.py` - Advanced workflow testing
+  - `test_cases/sail_user_stories_real_test.py` - Tests with actual Benchling and Quilt data
+  - `test_cases/ccle_computational_biology_test_runner.py` - Genomics workflow validation
+  - `test_cases/mcp_comprehensive_test_simulation.py` - Advanced workflow testing
 - **Unified Search Architecture**: Fully tested multi-backend search system
   - Natural language query processing (100% test success)
   - Parallel execution across GraphQL, Elasticsearch, and S3 backends
@@ -66,7 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Test Results Archive**: Comprehensive test result files added
   - `sail_real_data_test_results_*.json` - Real data validation results
-  - `ccle_computational_biology_test_report.json` - Genomics workflow analysis
+  - `test_cases/ccle_computational_biology_test_report.json` - Genomics workflow analysis
   - `mcp_test_simulation_report.json` - Advanced workflow validation
 - **Version Updates**: Synchronized version across all components to 0.5.5
 - **Release Preparation**: Complete validation for production deployment
