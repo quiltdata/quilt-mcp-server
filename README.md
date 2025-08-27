@@ -262,6 +262,57 @@ make validate
 git push origin feature/your-feature-name
 ```
 
+### 🌿 Development Workflow
+
+We use a simplified Git flow with two main branches:
+
+```mermaid
+graph LR
+    A[Feature Branch] --> B[develop]
+    B --> C[main]
+    C --> D[Release Tag]
+```
+
+**Branch Strategy:**
+- **`main`** - Production-ready code with tagged releases
+- **`develop`** - Integration branch for new features
+- **Feature branches** - Individual features and fixes
+
+**Process:**
+1. **Create feature branch** from `develop`:
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Develop and test** your changes:
+   ```bash
+   make validate-app  # Run all checks
+   make coverage      # Ensure test coverage
+   ```
+
+3. **Submit PR to develop**:
+   ```bash
+   git push origin feature/your-feature-name
+   # Create PR targeting 'develop' branch
+   ```
+
+4. **Release process** (maintainers):
+   ```bash
+   # Merge develop to main for releases
+   git checkout main
+   git merge develop
+   git tag v0.x.x
+   git push origin main --tags
+   ```
+
+**Branch Naming Convention:**
+- `feature/feature-name` - New features
+- `fix/issue-description` - Bug fixes  
+- `docs/documentation-topic` - Documentation
+- `chore/maintenance-task` - Maintenance
+
 ### What We're Looking For
 
 - **🐛 Bug Reports**: Clear reproduction steps and expected behavior
