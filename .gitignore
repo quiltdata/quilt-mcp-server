@@ -104,6 +104,8 @@ benchling-mcp-wrapper.sh
 *.sh
 # But allow scripts in the scripts/ directory
 !scripts/*.sh
+# Allow tools directory scripts
+!tools/**/*.sh
 #   commonly ignored for libraries.
 #   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
 #poetry.lock
