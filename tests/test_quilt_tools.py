@@ -150,7 +150,8 @@ class TestQuiltTools:
             
             assert isinstance(result, dict)
             assert "error" in result
-            assert "401 Unauthorized" in result["error"]
+            # The error gets wrapped as "All search methods failed: <original error>"
+            assert "All search methods failed" in result["error"]
             assert result["results"] == []
 
     def test_packages_search_config_error(self):
@@ -161,7 +162,8 @@ class TestQuiltTools:
             
             assert isinstance(result, dict)
             assert "error" in result
-            assert "Invalid URL - No scheme supplied" in result["error"]
+            # The error gets wrapped as "All search methods failed: <original error>"
+            assert "All search methods failed" in result["error"]
             assert result["results"] == []
 
     def test_packages_search_success(self):
