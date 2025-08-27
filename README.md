@@ -36,9 +36,12 @@ cp env.example .env
 # 2. Install dependencies
 uv sync
 
-# 3. Run server
-make app
-# Server available at http://127.0.0.1:8000/mcp
+# 3. Run and test server
+make app &
+SERVER_PID=$!
+sleep 8
+shared/test-endpoint.sh http://127.0.0.1:8000/mcp/
+kill $SERVER_PID
 ```
 
 #### Option C: IDE Integration

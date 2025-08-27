@@ -36,6 +36,12 @@ jobs:
       run: uv python install ${{ matrix.python-version }}
       timeout-minutes: 3
             
+    - name: Test README commands work
+      run: make test-readme
+      timeout-minutes: 2
+      env:
+        UVRUN: uv run
+
     - name: Run unit, AWS, and search tests
       run: make -C app test-ci-with-aws
       timeout-minutes: 20
