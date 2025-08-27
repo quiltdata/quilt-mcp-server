@@ -205,3 +205,6 @@ deployment/packager/test-event*.json
 # Exclude external repositories
 enterprise/
 quilt/
+
+# Cursor IDE
+.cursor/

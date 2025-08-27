@@ -15,6 +15,7 @@ Welcome to the Quilt MCP Server documentation! This directory is organized by au
 - [`developer/REPOSITORY.md`](developer/REPOSITORY.md) - Repository structure and organization
 - [`developer/TESTING.md`](developer/TESTING.md) - Testing philosophy and practices
 - [`developer/AWS_INTEGRATION_TESTING.md`](developer/AWS_INTEGRATION_TESTING.md) - AWS integration testing guide
+- [`CLAUDE.md`](CLAUDE.md) - Development guidelines for Claude AI assistant
 
 ## 🏗️ **Architecture & Design**
 
@@ -46,6 +47,7 @@ Welcome to the Quilt MCP Server documentation! This directory is organized by au
 | **Use MCP tools** | [`api/TOOLS.md`](api/TOOLS.md) |
 | **Run tests** | [`developer/TESTING.md`](developer/TESTING.md) |
 | **Troubleshoot issues** | [`user/SEARCH_TROUBLESHOOTING.md`](user/SEARCH_TROUBLESHOOTING.md) |
+| **AI development guidelines** | [`CLAUDE.md`](CLAUDE.md) |
 
 ## 📝 **Documentation Standards**
 
