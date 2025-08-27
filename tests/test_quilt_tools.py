@@ -144,21 +144,29 @@ class TestQuiltTools:
 
     def test_packages_search_authentication_error(self):
         """Test packages_search with authentication error."""
-        with patch("quilt3.search", side_effect=Exception("401 Unauthorized")):
-            try:
-                packages_search("test query")
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "401 Unauthorized" in str(e)
+        with patch("quilt3.Bucket") as mock_bucket_class:
+            mock_bucket = mock_bucket_class.return_value
+            mock_bucket.search.side_effect = Exception("401 Unauthorized")
+            
+            result = packages_search("test query")
+            
+            assert isinstance(result, dict)
+            assert "error" in result
+            assert "401 Unauthorized" in result["error"]
+            assert result["results"] == []
 
     def test_packages_search_config_error(self):
         """Test packages_search with configuration error."""
-        with patch("quilt3.search", side_effect=Exception("Invalid URL - No scheme supplied")):
-            try:
-                packages_search("test query")
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "Invalid URL - No scheme supplied" in str(e)
+        with patch("quilt3.Bucket") as mock_bucket_class:
+            mock_bucket = mock_bucket_class.return_value
+            mock_bucket.search.side_effect = Exception("Invalid URL - No scheme supplied")
+            
+            result = packages_search("test query")
+            
+            assert isinstance(result, dict)
+            assert "error" in result
+            assert "Invalid URL - No scheme supplied" in result["error"]
+            assert result["results"] == []
 
     def test_packages_search_success(self):
         """Test packages_search with successful results."""
@@ -167,12 +175,16 @@ class TestQuiltTools:
             {"name": "user/package2", "description": "Test package 2"},
         ]
 
-        with patch("quilt3.config"), patch("quilt3.search", return_value=mock_results):
+        with patch("quilt3.Bucket") as mock_bucket_class:
+            mock_bucket = mock_bucket_class.return_value
+            mock_bucket.search.return_value = mock_results
 
             result = packages_search("test query")
 
             assert isinstance(result, dict)
             assert "results" in result
+            assert "registry" in result
+            assert "bucket" in result
             assert len(result["results"]) == 2
             assert result["results"][0]["name"] == "user/package1"
             assert result["results"][1]["name"] == "user/package2"
