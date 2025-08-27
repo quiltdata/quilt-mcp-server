@@ -84,7 +84,7 @@ from .tools.tabulator import (
     tabulator_open_query_toggle,
 )
 
-__version__ = "0.5.5"
+__version__ = "0.5.6"
 
 __all__ = [
     # Constants

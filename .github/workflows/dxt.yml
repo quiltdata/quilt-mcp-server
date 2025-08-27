@@ -10,6 +10,9 @@ on:
     workflows: ["Unit Tests"]
     types:
       - completed
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
@@ -44,19 +47,26 @@ jobs:
     - name: Build DXT package
       run: |
         echo "🔨 Building DXT package for develop..."
-        cd build-dxt
+        cd tools/dxt
         make build
     
     - name: Upload DXT artifact
       uses: actions/upload-artifact@v4
       with:
         name: quilt-mcp-develop-dxt
-        path: build-dxt/dist/*.dxt
+        path: tools/dxt/dist/*.dxt
         retention-days: 14
 
   build-and-release:
     runs-on: ubuntu-latest
     # This job runs on tag pushes or allowed branches
+    if: >-
+      ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') ||
+          github.event_name == 'workflow_run' && 
+          github.event.workflow_run.conclusion == 'success' &&
+          (github.event.workflow_run.head_branch == 'develop' || 
+           github.event.workflow_run.head_branch == 'main') ||
+          github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: write  # Required for creating releases
     
@@ -98,7 +108,7 @@ jobs:
     - name: Build DXT package
       run: |
         echo "🔨 Building DXT package..."
-        cd build-dxt
+        cd tools/dxt
         make build VERSION=${{ steps.version.outputs.version }}
         
         # Verify the DXT was built
@@ -108,7 +118,7 @@ jobs:
     - name: Test DXT package
       run: |
         echo "🧪 Testing DXT package..."
-        cd build-dxt
+        cd tools/dxt
         make test VERSION=${{ steps.version.outputs.version }}
         echo "✅ DXT package tested successfully"
         
@@ -117,7 +127,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: quilt-mcp-${{ steps.version.outputs.version }}-dxt
-        path: build-dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt
+        path: tools/dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt
         retention-days: 30
         
     - name: Prepare release assets
@@ -127,11 +137,11 @@ jobs:
         mkdir -p release-assets
         
         # Copy DXT file
-        cp build-dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt release-assets/
+        cp tools/dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt release-assets/
         
         # Copy documentation
-        cp build-dxt/assets/README.md release-assets/
-        cp build-dxt/assets/check-prereqs.sh release-assets/
+        cp tools/dxt/assets/README.md release-assets/
+        cp tools/dxt/assets/check-prereqs.sh release-assets/
         
         # Make check-prereqs executable
         chmod +x release-assets/check-prereqs.sh
