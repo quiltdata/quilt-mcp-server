@@ -120,12 +120,7 @@ check-clean-repo:
 		git status --short; \
 		exit 1; \
 	fi
-	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
-		echo "❌ Not on main branch. Please switch to main branch first."; \
-		echo "Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
-		exit 1; \
-	fi
-	@echo "✅ Repository is clean and on main branch"
+	@echo "✅ Repository is clean"
 
 tag-release: check-clean-repo
 	@if [ -z "$(VERSION)" ]; then \
@@ -137,7 +132,6 @@ tag-release: check-clean-repo
 		echo "❌ Tag v$(VERSION) already exists"; \
 		exit 1; \
 	fi
-	@git pull origin main
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	@git push origin "v$(VERSION)"
 	@echo "✅ Release tag v$(VERSION) created and pushed"
@@ -158,7 +152,6 @@ tag-prerelease: check-clean-repo
 		echo "❌ Tag v$(VERSION) already exists"; \
 		exit 1; \
 	fi
-	@git pull origin main
 	@git tag -a "v$(VERSION)" -m "Prerelease v$(VERSION)"
 	@git push origin "v$(VERSION)"
 	@echo "✅ Prerelease tag v$(VERSION) created and pushed"
@@ -179,7 +172,6 @@ tag-dev: check-clean-repo
 		echo "❌ Tag v$(VERSION) already exists"; \
 		exit 1; \
 	fi
-	@git pull origin main
 	@git tag -a "v$(VERSION)" -m "Development build v$(VERSION)"
 	@git push origin "v$(VERSION)"
 	@echo "✅ Development tag v$(VERSION) created and pushed"
@@ -212,7 +204,6 @@ tag: check-clean-repo
 		echo "🏷️  Creating release tag v$$MANIFEST_VERSION..."; \
 		TAG_TYPE="Release"; \
 	fi; \
-	git pull origin main; \
 	git tag -a "v$$MANIFEST_VERSION" -m "$$TAG_TYPE v$$MANIFEST_VERSION"; \
 	git push origin "v$$MANIFEST_VERSION"; \
 	echo "✅ Tag v$$MANIFEST_VERSION created and pushed"; \
