@@ -57,12 +57,27 @@ def format_as_table(
             truncated_msg = ""
             
         # Format the table with pandas styling
-        table_str = df_display.to_string(
-            index=False,
-            max_cols=None,
-            max_colwidth=30,
-            justify='left'
-        )
+        try:
+            # Create a copy of the dataframe and sanitize string values
+            df_safe = df_display.copy()
+            for col in df_safe.columns:
+                if df_safe[col].dtype == 'object':  # String columns
+                    df_safe[col] = df_safe[col].astype(str).str.replace('%', '%%', regex=False)
+            
+            table_str = df_safe.to_string(
+                index=False,
+                max_cols=None,
+                max_colwidth=30,
+                justify='left'
+            )
+        except (ValueError, TypeError) as e:
+            # Handle formatting issues with special characters
+            logger.warning(f"Table formatting failed, using simple representation: {e}")
+            try:
+                # Fallback: convert to simple string representation
+                table_str = str(df_display.values.tolist())
+            except Exception:
+                table_str = f"[Data display error: {len(df_display)} rows x {len(df_display.columns)} columns]"
         
         # Add truncation message if needed
         if truncated_msg:
@@ -186,6 +201,89 @@ def format_athena_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
             result['display_format'] = 'table'
             
     return result
+
+
+def format_users_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Format user list results with table display.
+    
+    Args:
+        result: Result dictionary containing users list
+        
+    Returns:
+        Enhanced result with formatted table
+    """
+    if not result.get('success') or not result.get('users'):
+        return result
+    
+    try:
+        users = result['users']
+        
+        # Create a simplified view for table display
+        table_data = []
+        for user in users:
+            table_data.append({
+                'Name': user.get('name', ''),
+                'Email': user.get('email', ''),
+                'Active': '✓' if user.get('is_active') else '✗',
+                'Admin': '✓' if user.get('is_admin') else '✗',
+                'SSO Only': '✓' if user.get('is_sso_only') else '✗',
+                'Service': '✓' if user.get('is_service') else '✗',
+                'Role': user.get('role', ''),
+                'Extra Roles': ', '.join(user.get('extra_roles', [])) if user.get('extra_roles') else '',
+                'Last Login': user.get('last_login', '').split('T')[0] if user.get('last_login') else 'Never'
+            })
+        
+        # Generate table
+        table_str = format_as_table(table_data, max_width=150)
+        
+        # Add table to result
+        result['formatted_table'] = table_str
+        result['display_hint'] = 'Use formatted_table for better readability'
+        
+        return result
+        
+    except Exception as e:
+        logger.warning(f"Failed to format users as table: {e}")
+        return result
+
+
+def format_roles_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Format role list results with table display.
+    
+    Args:
+        result: Result dictionary containing roles list
+        
+    Returns:
+        Enhanced result with formatted table
+    """
+    if not result.get('success') or not result.get('roles'):
+        return result
+    
+    try:
+        roles = result['roles']
+        
+        # Create a simplified view for table display
+        table_data = []
+        for role in roles:
+            table_data.append({
+                'ID': role.get('id', ''),
+                'Name': role.get('name', ''),
+                'Type': role.get('type', ''),
+                'ARN': role.get('arn', '')[:60] + '...' if len(role.get('arn', '')) > 60 else role.get('arn', '')
+            })
+        
+        # Generate table
+        table_str = format_as_table(table_data, max_width=150)
+        
+        # Add table to result
+        result['formatted_table'] = table_str
+        result['display_hint'] = 'Use formatted_table for better readability'
+        
+        return result
+        
+    except Exception as e:
+        logger.warning(f"Failed to format roles as table: {e}")
+        return result
 
 
 def format_tabulator_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:

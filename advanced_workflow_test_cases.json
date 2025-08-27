@@ -1,0 +1,323 @@
+[
+  {
+    "id": "AW001",
+    "category": "Longitudinal Querying",
+    "persona": "Data Analyst",
+    "utterance": "Show me the trend of experiment success rates across all packages created in the last 6 months using SQL",
+    "intent_tags": [
+      "longitudinal_analysis",
+      "athena",
+      "sql_query",
+      "time_series"
+    ],
+    "success_criteria": "SQL query executes across tabulated data showing success rate trends over time",
+    "mcp_tools": ["mcp_quilt_athena_query_execute", "mcp_quilt_tabulator_tables_list"],
+    "complexity": "high",
+    "workflow_steps": [
+      "List available tabulator tables",
+      "Construct time-series SQL query",
+      "Execute query with date filtering",
+      "Return trend analysis results"
+    ]
+  },
+  {
+    "id": "AW002", 
+    "category": "Longitudinal Querying",
+    "persona": "Bioinformatician",
+    "utterance": "Query all RNA-seq experiments to find samples with read counts above 10M, grouped by month and tissue type",
+    "intent_tags": [
+      "longitudinal_analysis",
+      "tabulator",
+      "filtering",
+      "aggregation"
+    ],
+    "success_criteria": "Tabulator query returns aggregated results grouped by time and tissue",
+    "mcp_tools": ["mcp_quilt_tabulator_tables_list", "mcp_quilt_athena_query_execute"],
+    "complexity": "high",
+    "workflow_steps": [
+      "Identify tables with RNA-seq data",
+      "Create SQL query with read count filtering",
+      "Group by month and tissue type",
+      "Execute aggregation query"
+    ]
+  },
+  {
+    "id": "AW003",
+    "category": "Cross-Package Creation",
+    "persona": "Data Engineer", 
+    "utterance": "Create a new package combining the best QC samples from 3 different cell painting packages across multiple buckets",
+    "intent_tags": [
+      "cross_package",
+      "data_aggregation",
+      "package_creation",
+      "multi_bucket"
+    ],
+    "success_criteria": "New package created with files sourced from multiple existing packages",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_package_browse", "mcp_quilt_create_package_enhanced"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Search for cell painting packages",
+      "Browse each package to identify QC files",
+      "Select best samples based on criteria",
+      "Create new package with aggregated data",
+      "Add metadata linking to source packages"
+    ]
+  },
+  {
+    "id": "AW004",
+    "category": "Cross-Package Creation",
+    "persona": "Research Scientist",
+    "utterance": "Build a meta-analysis package by collecting all CSV files with 'results' in the name from genomics packages across the entire catalog",
+    "intent_tags": [
+      "cross_package",
+      "meta_analysis", 
+      "file_aggregation",
+      "catalog_wide"
+    ],
+    "success_criteria": "Meta-analysis package created with results files from multiple genomics packages",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_bucket_objects_search", "mcp_quilt_create_package_enhanced"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Search for all genomics packages",
+      "Search within each package for CSV files with 'results'",
+      "Aggregate file references",
+      "Create meta-analysis package",
+      "Generate comprehensive metadata with source tracking"
+    ]
+  },
+  {
+    "id": "AW005",
+    "category": "Package Promotion",
+    "persona": "DevOps Engineer",
+    "utterance": "Promote the validated genomics package from quilt-sales-raw to quilt-sales-staging with proper versioning and validation",
+    "intent_tags": [
+      "package_promotion",
+      "environment_migration", 
+      "validation",
+      "versioning"
+    ],
+    "success_criteria": "Package successfully copied to staging environment with validation checks",
+    "mcp_tools": ["mcp_quilt_package_browse", "mcp_quilt_package_validate", "mcp_quilt_create_package_enhanced"],
+    "complexity": "high",
+    "workflow_steps": [
+      "Validate source package integrity",
+      "Check target bucket permissions",
+      "Copy package to staging bucket",
+      "Update metadata for new environment",
+      "Verify successful promotion"
+    ]
+  },
+  {
+    "id": "AW006",
+    "category": "Package Promotion", 
+    "persona": "Data Manager",
+    "utterance": "Move all approved packages from the sandbox to production, ensuring they meet quality standards and have proper documentation",
+    "intent_tags": [
+      "batch_promotion",
+      "quality_assurance",
+      "documentation_check",
+      "production_deployment"
+    ],
+    "success_criteria": "Batch promotion of approved packages with quality validation",
+    "mcp_tools": ["mcp_quilt_packages_list", "mcp_quilt_package_validate", "mcp_quilt_create_package_enhanced"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "List all packages in sandbox",
+      "Filter for approved packages",
+      "Validate each package quality",
+      "Check documentation completeness", 
+      "Batch promote to production",
+      "Generate promotion report"
+    ]
+  },
+  {
+    "id": "AW007",
+    "category": "Search Iterations - Broad",
+    "persona": "Research Scientist",
+    "utterance": "Find all data related to cancer research in our catalog",
+    "intent_tags": [
+      "broad_search",
+      "domain_search",
+      "discovery"
+    ],
+    "success_criteria": "Comprehensive results showing all cancer-related packages and files",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_bucket_objects_search"],
+    "complexity": "medium",
+    "workflow_steps": [
+      "Search packages for cancer-related terms",
+      "Search objects for cancer-related content",
+      "Aggregate and rank results",
+      "Present comprehensive overview"
+    ]
+  },
+  {
+    "id": "AW008",
+    "category": "Search Iterations - Medium",
+    "persona": "Research Scientist", 
+    "utterance": "Narrow down to breast cancer RNA-seq studies with at least 50 samples",
+    "intent_tags": [
+      "refined_search",
+      "specific_criteria",
+      "sample_size_filtering"
+    ],
+    "success_criteria": "Filtered results showing only breast cancer RNA-seq with sample size criteria",
+    "mcp_tools": ["mcp_quilt_packages_search", "mcp_quilt_package_browse"],
+    "complexity": "medium",
+    "workflow_steps": [
+      "Refine search to breast cancer + RNA-seq",
+      "Browse packages to check sample counts",
+      "Filter by sample size criteria",
+      "Return refined results"
+    ]
+  },
+  {
+    "id": "AW009",
+    "category": "Search Iterations - Very Specific",
+    "persona": "Research Scientist",
+    "utterance": "Find the exact file 'BRCA_samples_metadata.csv' from the Johnson lab's 2024 breast cancer study",
+    "intent_tags": [
+      "exact_file_search",
+      "specific_attribution",
+      "precise_targeting"
+    ],
+    "success_criteria": "Exact file located with full path and download information",
+    "mcp_tools": ["mcp_quilt_bucket_objects_search", "mcp_quilt_packages_search"],
+    "complexity": "low",
+    "workflow_steps": [
+      "Search for exact filename",
+      "Filter by lab attribution",
+      "Verify year and study context",
+      "Return precise file location"
+    ]
+  },
+  {
+    "id": "AW010",
+    "category": "Search Iterations - Pattern Matching",
+    "persona": "Bioinformatician",
+    "utterance": "Find all files that follow the pattern '*_QC_report_*.csv' across all genomics packages",
+    "intent_tags": [
+      "pattern_search",
+      "file_naming_convention",
+      "cross_package_search"
+    ],
+    "success_criteria": "All files matching the QC report pattern with package context",
+    "mcp_tools": ["mcp_quilt_bucket_objects_search", "mcp_quilt_packages_search"],
+    "complexity": "medium",
+    "workflow_steps": [
+      "Search for pattern across all packages",
+      "Filter to genomics packages only",
+      "Return matches with package context",
+      "Provide file access information"
+    ]
+  },
+  {
+    "id": "AW011",
+    "category": "Complex Workflow Integration",
+    "persona": "Principal Investigator",
+    "utterance": "Create a longitudinal analysis dashboard showing how our lab's data quality metrics have improved over the past year, then package the analysis for sharing",
+    "intent_tags": [
+      "longitudinal_analysis",
+      "quality_metrics",
+      "dashboard_creation",
+      "package_sharing"
+    ],
+    "success_criteria": "Analysis completed, dashboard created, and shareable package generated",
+    "mcp_tools": ["mcp_quilt_athena_query_execute", "mcp_quilt_generate_package_visualizations", "mcp_quilt_create_package_enhanced"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Query historical quality metrics",
+      "Perform longitudinal analysis",
+      "Generate visualization dashboard",
+      "Package analysis for sharing",
+      "Create shareable catalog URL"
+    ]
+  },
+  {
+    "id": "AW012",
+    "category": "Multi-Environment Data Pipeline",
+    "persona": "Data Engineer",
+    "utterance": "Set up a pipeline that automatically promotes packages from raw to staging when they pass validation, then creates summary reports",
+    "intent_tags": [
+      "automation_pipeline",
+      "multi_environment",
+      "validation_workflow",
+      "reporting"
+    ],
+    "success_criteria": "Pipeline configuration created with validation gates and reporting",
+    "mcp_tools": ["mcp_quilt_package_validate", "mcp_quilt_create_package_enhanced", "mcp_quilt_create_quilt_summary_files"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Define validation criteria",
+      "Set up promotion workflow",
+      "Configure automated reporting",
+      "Test pipeline with sample package",
+      "Generate pipeline documentation"
+    ]
+  },
+  {
+    "id": "AW013",
+    "category": "Advanced Analytics Integration",
+    "persona": "Data Scientist",
+    "utterance": "Run a cohort analysis across all patient data packages to identify trends, then create a new research package with the findings",
+    "intent_tags": [
+      "cohort_analysis",
+      "cross_package_analytics",
+      "research_package_creation",
+      "clinical_data"
+    ],
+    "success_criteria": "Cohort analysis completed and research package created with findings",
+    "mcp_tools": ["mcp_quilt_athena_query_execute", "mcp_quilt_packages_search", "mcp_quilt_create_package_enhanced"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Identify all patient data packages",
+      "Execute cohort analysis queries",
+      "Analyze trends and patterns",
+      "Generate research findings",
+      "Create shareable research package"
+    ]
+  },
+  {
+    "id": "AW014",
+    "category": "Federated Search and Aggregation",
+    "persona": "Research Coordinator",
+    "utterance": "Search across all our partner institutions' buckets to find collaborative datasets, then create a federated catalog view",
+    "intent_tags": [
+      "federated_search",
+      "multi_institution",
+      "catalog_aggregation",
+      "collaboration"
+    ],
+    "success_criteria": "Federated search completed and collaborative catalog view created",
+    "mcp_tools": ["mcp_quilt_aws_permissions_discover", "mcp_quilt_packages_search", "mcp_quilt_bucket_objects_search"],
+    "complexity": "very_high",
+    "workflow_steps": [
+      "Discover accessible partner buckets",
+      "Search across federated buckets",
+      "Identify collaborative datasets",
+      "Create unified catalog view",
+      "Generate collaboration report"
+    ]
+  },
+  {
+    "id": "AW015",
+    "category": "Temporal Data Versioning",
+    "persona": "Compliance Officer",
+    "utterance": "Track all changes to patient data packages over the last 2 years for audit compliance, showing who made changes when",
+    "intent_tags": [
+      "audit_trail",
+      "temporal_versioning",
+      "compliance",
+      "change_tracking"
+    ],
+    "success_criteria": "Comprehensive audit trail showing all package changes with attribution",
+    "mcp_tools": ["mcp_quilt_packages_list", "mcp_quilt_package_diff", "mcp_quilt_athena_query_execute"],
+    "complexity": "high",
+    "workflow_steps": [
+      "Identify all patient data packages",
+      "Query version history for each package",
+      "Track changes and attribution",
+      "Generate compliance report",
+      "Create audit documentation"
+    ]
+  }
+]

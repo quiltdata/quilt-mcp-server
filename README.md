@@ -4,11 +4,11 @@ A secure MCP (Model Context Protocol) server for accessing Quilt data with compr
 
 ## Quick Start
 
-### Option A: Claude Desktop (DXT Extension - Recommended)
+### Option A: Claude Desktop (Easiest)
 
 The easiest way to get started is with the pre-built DXT extension:
 
-1. **Download the DXT**: Get the latest `.dxt` from [project releases](https://github.com/quiltdata/fast-mcp-server/releases)
+1. **Download the DXT**: Get the latest `.dxt` from [project releases](https://github.com/quiltdata/quilt-mcp-server/releases)
 2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
 3. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
 4. **Verify**: Open Tools panel in a new chat and confirm Quilt MCP is available
@@ -21,8 +21,8 @@ For development or when you want to run the server locally:
 
 ```bash
 # 1. Clone and setup environment
-git clone https://github.com/quiltdata/fast-mcp-server.git
-cd fast-mcp-server
+git clone https://github.com/quiltdata/quilt-mcp-server.git
+cd quilt-mcp-server
 cp env.example .env
 # Edit .env with your AWS credentials and Quilt settings
 
@@ -327,7 +327,7 @@ make validate
 
 ### Development Workflow
 
-1. **Clone repository**: `git clone https://github.com/quiltdata/fast-mcp-server.git`
+1. **Clone repository**: `git clone https://github.com/quiltdata/quilt-mcp-server.git`
 2. **Setup environment**: `cp env.example .env` and edit with your settings
 3. **Install dependencies**: `uv sync`
 4. **Run tests**: `make coverage`

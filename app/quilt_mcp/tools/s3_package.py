@@ -344,7 +344,7 @@ def package_create_from_s3(
     confirm_structure: bool = True,
     metadata_template: str = "standard",
     dry_run: bool = False,
-    metadata: Any = None,
+    metadata: dict[str, Any] | None = None,
     copy_mode: str = "all",
     force: bool = False,
 ) -> Dict[str, Any]:

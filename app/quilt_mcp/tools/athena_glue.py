@@ -17,6 +17,30 @@ from ..utils import format_error_response
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_query_for_logging(query: str) -> str:
+    """Sanitize query string to prevent formatting issues in logging."""
+    # Replace % with %% to prevent string formatting issues
+    return query.replace('%', '%%')
+
+
+def _suggest_query_fix(query: str, error_message: str) -> str:
+    """Suggest fixes for common query issues."""
+    suggestions = []
+    
+    if "mismatched input" in error_message and "-" in query:
+        suggestions.append("Try wrapping database/table names with hyphens in double quotes")
+    
+    if "TABLE_NOT_FOUND" in error_message:
+        suggestions.append("Use 'SHOW DATABASES' and 'SELECT table_name FROM information_schema.tables' to discover tables")
+    
+    if "%" in query and "format string" in error_message:
+        suggestions.append("Queries with '%' characters may cause formatting issues - try using different patterns")
+    
+    if suggestions:
+        return " Suggestions: " + "; ".join(suggestions)
+    return ""
+
+
 def athena_databases_list(catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
     """
     List available databases in AWS Glue Data Catalog.
@@ -225,6 +249,19 @@ def athena_query_execute(
                 f"Use double quotes instead: {corrected_query}"
             )
         
+        # Validate database name format if provided
+        if database_name and ('-' in database_name or any(c in database_name for c in [' ', '.', '@', '/'])):
+            # Suggest proper escaping for complex database names
+            logger.info(f"Using database with special characters: {database_name}")
+            
+        # Pre-validate common query patterns that might cause issues
+        query_upper = query.upper().strip()
+        if 'SHOW TABLES IN' in query_upper and database_name:
+            # For SHOW TABLES queries, suggest using information_schema instead
+            if '-' in database_name:
+                suggestion = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{database_name}'"
+                logger.info(f"Alternative query for database with hyphens: {suggestion}")
+        
         if max_results < 1 or max_results > 10000:
             return format_error_response("max_results must be between 1 and 10000")
         
@@ -248,8 +285,44 @@ def athena_query_execute(
         return formatted_result
         
     except Exception as e:
-        logger.error(f"Failed to execute query: {e}")
-        return format_error_response(f"Query execution failed: {str(e)}")
+        error_str = str(e)
+        # Use safe logging to prevent formatting issues
+        logger.error("Failed to execute query: %s", error_str)
+        
+        # Provide specific guidance for common errors
+        if "glue:GetDatabase" in error_str:
+            return format_error_response(
+                f"Athena authentication failed - missing Glue permissions. "
+                f"Add glue:GetDatabase, glue:GetTable permissions to your IAM role. "
+                f"Original error: {error_str}"
+            )
+        elif "TABLE_NOT_FOUND" in error_str or "does not exist" in error_str:
+            return format_error_response(
+                f"Table not found. Use 'SHOW DATABASES' and 'SELECT table_name FROM information_schema.tables' "
+                f"to discover available tables. Original error: {error_str}"
+            )
+        elif "SCHEMA_NOT_FOUND" in error_str or "Schema" in error_str and "does not exist" in error_str:
+            return format_error_response(
+                f"Database/schema not found. Use 'SHOW DATABASES' to see available databases. "
+                f"For databases with hyphens, use double quotes. Original error: {error_str}"
+            )
+        elif "mismatched input" in error_str and "expecting" in error_str:
+            return format_error_response(
+                f"SQL syntax error. Athena uses Presto/Trino syntax. "
+                f"Use double quotes for identifiers with special characters. "
+                f"Original error: {error_str}"
+            )
+        elif "not enough arguments for format string" in error_str:
+            return format_error_response(
+                f"Query contains characters that interfere with formatting. "
+                f"This is a known issue with queries containing '%' characters. "
+                f"Try simplifying the query or using different patterns. "
+                f"Original error: {error_str}"
+            )
+        else:
+            # Add query-specific suggestions
+            suggestions = _suggest_query_fix(query, error_str)
+            return format_error_response(f"Query execution failed: {error_str}{suggestions}")
 
 
 def athena_query_history(

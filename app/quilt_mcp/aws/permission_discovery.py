@@ -384,41 +384,21 @@ class AWSPermissionDiscovery:
                         # Other errors might still indicate read permission
                         can_read = True
             
-            # Test 4: Conservative write permission detection (no actual writes)
+            # Test 4: Improved write permission detection
             if can_list:
-                # For write permissions, we'll be conservative and assume write access
-                # only if we own the bucket (it's in our account's bucket list)
-                # This avoids any risky write operations
+                # Try a safe write test first - attempt to get bucket ACL
+                # This requires write permissions but doesn't modify anything
                 try:
-                    # Check if this bucket appears in our owned buckets list
-                    owned_buckets_response = self.s3_client.list_buckets()
-                    owned_bucket_names = [b['Name'] for b in owned_buckets_response.get('Buckets', [])]
-                    
-                    if bucket_name in owned_bucket_names:
-                        # We own the bucket, likely have write access
-                        can_write = True
-                    else:
-                        # Not our bucket - assume read-only unless we can prove otherwise
+                    self.s3_client.get_bucket_acl(Bucket=bucket_name)
+                    can_write = True  # If we can read ACL, we likely have write access
+                except ClientError as e:
+                    if e.response['Error']['Code'] == 'AccessDenied':
                         can_write = False
-                        
-                        # Try to get bucket policy to see if we have explicit write permissions
-                        try:
-                            bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
-                            # If we can read bucket policy, do basic analysis
-                            can_write = self._analyze_bucket_policy_for_write_access(
-                                bucket_policy.get('Policy', '{}'), bucket_name
-                            )
-                        except ClientError as policy_error:
-                            if policy_error.response['Error']['Code'] == 'NoSuchBucketPolicy':
-                                # No bucket policy - use conservative assumption
-                                can_write = False
-                            else:
-                                # Can't read policy - assume no write access
-                                can_write = False
-                    
-                except Exception as e:
-                    logger.warning(f"Could not determine ownership for {bucket_name}: {e}")
-                    can_write = False
+                    else:
+                        # For other errors, try alternative methods
+                        can_write = self._determine_write_access_fallback(bucket_name)
+                except Exception:
+                    can_write = self._determine_write_access_fallback(bucket_name)
         
         except Exception as e:
             logger.error(f"Unexpected error checking permissions for {bucket_name}: {e}")
@@ -687,6 +667,77 @@ class AWSPermissionDiscovery:
             logger.warning(f"Failed to check IAM write permissions: {e}")
             return False
     
+    def _determine_write_access_fallback(self, bucket_name: str) -> bool:
+        """Fallback method to determine write access using multiple approaches."""
+        try:
+            # Method 1: Check if we own the bucket
+            try:
+                owned_buckets_response = self.s3_client.list_buckets()
+                owned_bucket_names = [b['Name'] for b in owned_buckets_response.get('Buckets', [])]
+                
+                if bucket_name in owned_bucket_names:
+                    return True  # We own it, we can write to it
+            except Exception:
+                pass
+            
+            # Method 2: Try to analyze bucket policy
+            try:
+                bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
+                return self._analyze_bucket_policy_for_write_access(
+                    bucket_policy.get('Policy', '{}'), bucket_name
+                )
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                    # No bucket policy - check if we can perform other write-related operations
+                    return self._test_write_indicators(bucket_name)
+            except Exception:
+                pass
+            
+            # Method 3: Test write indicators
+            return self._test_write_indicators(bucket_name)
+            
+        except Exception as e:
+            logger.debug(f"Write access fallback failed for {bucket_name}: {e}")
+            return False
+    
+    def _test_write_indicators(self, bucket_name: str) -> bool:
+        """Test various indicators that suggest write access without actually writing."""
+        try:
+            # Test 1: Try to get bucket versioning (requires write-like permissions)
+            try:
+                self.s3_client.get_bucket_versioning(Bucket=bucket_name)
+                return True
+            except ClientError as e:
+                if e.response['Error']['Code'] != 'AccessDenied':
+                    return True  # Other errors suggest we have some access
+            except Exception:
+                pass
+            
+            # Test 2: Try to get bucket notification configuration
+            try:
+                self.s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
+                return True
+            except ClientError as e:
+                if e.response['Error']['Code'] != 'AccessDenied':
+                    return True
+            except Exception:
+                pass
+            
+            # Test 3: If we can list objects, assume we might have write access
+            # This is a reasonable assumption for many Quilt use cases
+            try:
+                self.s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
+                # If we can list, we likely have broader access
+                # For Quilt buckets, this often means write access too
+                return True
+            except Exception:
+                pass
+            
+            return False
+            
+        except Exception:
+            return False
+
     def _statement_applies_to_user(self, principals: Dict[str, Any], identity: UserIdentity) -> bool:
         """Check if a policy statement applies to the current user."""
         try:

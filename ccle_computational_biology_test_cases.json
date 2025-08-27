@@ -1,0 +1,265 @@
+{
+  "test_suite": "CCLE Computational Biology User Stories",
+  "description": "Real-world bioinformatics workflows using CCLE data in Quilt packages",
+  "target_audience": "Computational biologists, bioinformaticians, data scientists",
+  "data_context": {
+    "dataset": "Cancer Cell Line Encyclopedia (CCLE)",
+    "data_types": ["RNA-seq FASTQs", "BAM alignments", "Salmon quantification", "Cell line metadata"],
+    "scale": "~1000 cell lines, terabytes of genomics data",
+    "processing": "nf-core/rnaseq pipeline with Salmon quantification"
+  },
+  "test_cases": [
+    {
+      "id": "CB001",
+      "category": "Molecular Target Discovery",
+      "user_story": "US1: Identifying Relevant Cell Lines Using Molecular and Clinical Data",
+      "persona": "Computational biologist/data scientist",
+      "objective": "Identify breast cancer cell lines with high ERBB2 (HER2) expression for preclinical drug testing",
+      "business_value": "Streamline cell line selection for HER2+ breast cancer drug combination studies",
+      "query": "Find breast cancer cell lines ranked by ERBB2 expression for Herceptin combination therapy research",
+      "expected_workflow": [
+        "Use Tabulator to join cell line metadata with gene expression data",
+        "Filter for breast cancer subtype cell lines", 
+        "Query ERBB2 expression levels from Salmon quantification results",
+        "Rank cell lines by ERBB2 expression (high to low)",
+        "Export focused DataFrame for experimental team"
+      ],
+      "expected_tools": [
+        "tabulator_tables_list",
+        "athena_query_execute", 
+        "bucket_objects_search",
+        "package_browse"
+      ],
+      "expected_sql": "SELECT cell_line_name, tissue_type, ERBB2_tpm FROM ccle_expression_data WHERE tissue_type = 'breast' ORDER BY ERBB2_tpm DESC LIMIT 20",
+      "success_criteria": [
+        "Successfully connect to CCLE Tabulator tables",
+        "Execute SQL query joining metadata and expression data",
+        "Return ranked list of breast cancer cell lines by ERBB2 expression",
+        "Provide actionable results for experimental validation"
+      ],
+      "data_requirements": {
+        "tables": ["ccle_metadata", "ccle_salmon_expression"],
+        "columns": ["cell_line_name", "tissue_type", "subtype", "ERBB2_tpm", "ERBB2_counts"],
+        "filters": ["tissue_type == 'breast'", "ERBB2_tpm > 0"]
+      }
+    },
+    {
+      "id": "CB002", 
+      "category": "Tool Benchmarking",
+      "user_story": "US2: Benchmarking RNA-seq Analysis Tool Using CCLE FASTQs",
+      "persona": "Computational biologist/ML scientist",
+      "objective": "Access raw FASTQ files to benchmark new deep learning RNA-seq quantification tool",
+      "business_value": "Validate new tool performance against gold-standard Salmon results without infrastructure overhead",
+      "query": "Get CCLE FASTQ files and corresponding Salmon results for benchmarking new transcript quantification method",
+      "expected_workflow": [
+        "Search for CCLE packages containing raw FASTQ files",
+        "Browse package structure to locate FASTQs and metadata",
+        "Access corresponding Salmon quantification results",
+        "Generate S3 URIs or Quilt package URIs for analysis pipeline",
+        "Download validation matrices for comparison"
+      ],
+      "expected_tools": [
+        "packages_search",
+        "package_browse", 
+        "bucket_objects_search",
+        "bucket_object_link",
+        "package_contents_search"
+      ],
+      "expected_data_access": [
+        "Raw FASTQ files (R1/R2 paired-end)",
+        "Salmon transcript quantification (TPM, counts)",
+        "Sample metadata (cell line, tissue type, batch)",
+        "Pipeline provenance information"
+      ],
+      "success_criteria": [
+        "Locate CCLE packages with FASTQ files",
+        "Access both raw data and processed results",
+        "Generate accessible URIs for computational pipeline",
+        "Provide metadata for proper sample handling"
+      ],
+      "technical_requirements": {
+        "file_types": ["*.fastq.gz", "quant.sf", "*.tsv"],
+        "data_volume": "50-100GB per sample",
+        "access_pattern": "Streaming access via S3 URIs"
+      }
+    },
+    {
+      "id": "CB003",
+      "category": "Visual Data Exploration", 
+      "user_story": "US3: Visualizing CCLE Alignments to Validate RNA-seq Anomalies",
+      "persona": "Computational biologist/bioinformatician",
+      "objective": "Access BAM files with IGV integration to inspect alignments and validate expression anomalies",
+      "business_value": "Visual validation of RNA-seq data quality and splicing events without local infrastructure",
+      "query": "Access CCLE BAM files with IGV viewer to investigate unexpected gene expression patterns",
+      "expected_workflow": [
+        "Search for CCLE packages containing BAM alignments",
+        "Browse package to locate BAM files and indices",
+        "Access IGV integration or generate IGV-compatible URLs",
+        "Inspect specific genomic regions for quality control",
+        "Validate splicing events and expression anomalies"
+      ],
+      "expected_tools": [
+        "packages_search",
+        "package_browse",
+        "bucket_object_link",
+        "catalog_url"
+      ],
+      "expected_features": [
+        "BAM file access with indices (.bai)",
+        "IGV browser integration",
+        "Genomic coordinate navigation",
+        "Sample metadata integration"
+      ],
+      "success_criteria": [
+        "Locate CCLE BAM files in packages",
+        "Generate accessible URLs for IGV viewing",
+        "Enable visual inspection of alignments",
+        "Support quality control workflows"
+      ],
+      "technical_requirements": {
+        "file_types": ["*.bam", "*.bai", "*.bed"],
+        "viewer_integration": "IGV browser support",
+        "coordinate_system": "Human genome reference (GRCh38/hg38)"
+      }
+    },
+    {
+      "id": "CB004",
+      "category": "Cross-Package Analysis",
+      "user_story": "Multi-omics Integration Workflow",
+      "persona": "Systems biologist",
+      "objective": "Integrate CCLE RNA-seq data with mutation and drug response data for comprehensive analysis",
+      "business_value": "Enable multi-omics analysis without manual data integration overhead",
+      "query": "Combine CCLE expression, mutation, and drug sensitivity data for comprehensive cancer cell line characterization",
+      "expected_workflow": [
+        "Search for multiple CCLE data packages (expression, mutations, drug response)",
+        "Create workflow to integrate data across packages",
+        "Join datasets by cell line identifiers",
+        "Export integrated dataset for analysis"
+      ],
+      "expected_tools": [
+        "packages_search",
+        "workflow_create",
+        "workflow_template_apply",
+        "create_package_enhanced"
+      ],
+      "success_criteria": [
+        "Discover related CCLE packages",
+        "Successfully integrate multi-omics data",
+        "Create new integrated package",
+        "Maintain data provenance"
+      ]
+    },
+    {
+      "id": "CB005",
+      "category": "Longitudinal Analysis",
+      "user_story": "CCLE Data Processing Pipeline Monitoring",
+      "persona": "Bioinformatics pipeline developer",
+      "objective": "Monitor CCLE data processing across time to identify batch effects and quality trends",
+      "business_value": "Ensure consistent data quality and identify processing improvements over time",
+      "query": "Analyze CCLE processing metrics over time to identify batch effects and quality trends",
+      "expected_workflow": [
+        "Query Tabulator for processing metrics across time",
+        "Analyze quality metrics by batch/processing date",
+        "Identify outliers and batch effects",
+        "Generate quality control reports"
+      ],
+      "expected_tools": [
+        "athena_query_execute",
+        "tabulator_tables_list",
+        "workflow_create"
+      ],
+      "expected_sql": "SELECT processing_date, batch_id, AVG(mapping_rate), AVG(duplication_rate) FROM ccle_qc_metrics GROUP BY processing_date, batch_id ORDER BY processing_date",
+      "success_criteria": [
+        "Execute temporal analysis queries",
+        "Identify quality trends over time",
+        "Generate actionable QC insights"
+      ]
+    },
+    {
+      "id": "CB006",
+      "category": "Collaborative Research",
+      "user_story": "CCLE Data Sharing for Multi-Institution Study",
+      "persona": "Research collaboration coordinator",
+      "objective": "Share specific CCLE subsets with external collaborators while maintaining data provenance",
+      "business_value": "Enable secure, traceable data sharing for collaborative cancer research",
+      "query": "Create shareable CCLE data packages for specific cancer types with collaborator access",
+      "expected_workflow": [
+        "Filter CCLE data by cancer type/research focus",
+        "Create focused packages for sharing",
+        "Generate catalog URLs for collaborator access",
+        "Validate package integrity and accessibility"
+      ],
+      "expected_tools": [
+        "packages_search",
+        "create_package_enhanced", 
+        "package_validate",
+        "catalog_url"
+      ],
+      "success_criteria": [
+        "Create focused, shareable packages",
+        "Generate accessible URLs for collaborators",
+        "Maintain full data provenance",
+        "Validate data integrity"
+      ]
+    }
+  ],
+  "technical_specifications": {
+    "data_scale": {
+      "cell_lines": "~1000 cancer cell lines",
+      "file_sizes": "50-100GB BAM files, 1-5GB FASTQ pairs",
+      "expression_matrix": "~60K transcripts x 1000 cell lines",
+      "metadata_records": "~1000 cell line annotations"
+    },
+    "performance_requirements": {
+      "query_response_time": "<5 seconds for Tabulator queries",
+      "file_access_time": "<30 seconds for presigned URL generation",
+      "package_browsing": "<10 seconds for package structure",
+      "workflow_execution": "<2 minutes for multi-step workflows"
+    },
+    "integration_requirements": {
+      "sql_compatibility": "Athena/Presto SQL syntax",
+      "file_formats": ["FASTQ", "BAM", "TSV", "CSV", "Parquet"],
+      "genomics_tools": ["IGV", "Salmon", "nf-core pipelines"],
+      "cloud_platforms": ["AWS S3", "Athena", "Glue Data Catalog"]
+    }
+  },
+  "validation_criteria": {
+    "functional_requirements": [
+      "All SQL queries execute successfully",
+      "File access URLs are generated and accessible", 
+      "Package browsing returns expected structure",
+      "Workflow orchestration completes end-to-end"
+    ],
+    "performance_requirements": [
+      "Query response times meet specifications",
+      "Large file access is efficient",
+      "Concurrent user access is supported"
+    ],
+    "usability_requirements": [
+      "Clear error messages for failed operations",
+      "Intuitive workflow progression",
+      "Comprehensive result metadata",
+      "Actionable next steps provided"
+    ]
+  },
+  "expected_bottlenecks": {
+    "resolved_by_quilt": [
+      "No need for SRA downloads via SRAtools",
+      "Eliminates local compute infrastructure requirements",
+      "Avoids redundant data processing",
+      "Provides standardized, reproducible outputs",
+      "Enables immediate cloud-based access",
+      "Integrates metadata with raw/processed data"
+    ],
+    "traditional_workflow_pain_points": [
+      "Manual SRA data downloads (hours/days)",
+      "Local storage requirements (terabytes)",
+      "Inconsistent processing pipelines",
+      "Metadata integration challenges",
+      "Infrastructure setup overhead",
+      "Data transfer and synchronization issues"
+    ]
+  }
+}
+
+

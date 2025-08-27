@@ -144,50 +144,53 @@ class TestQuiltTools:
 
     def test_packages_search_authentication_error(self):
         """Test packages_search with authentication error."""
-        with patch("quilt3.Bucket") as mock_bucket_class:
-            mock_bucket = mock_bucket_class.return_value
-            mock_bucket.search.side_effect = Exception("401 Unauthorized")
-            
+        # Mock the build_stack_search_indices to fail
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("401 Unauthorized")):
             result = packages_search("test query")
             
             assert isinstance(result, dict)
             assert "error" in result
-            assert "401 Unauthorized" in result["error"]
+            # The error gets wrapped as "All search methods failed: <original error>"
+            assert "All search methods failed" in result["error"]
             assert result["results"] == []
 
     def test_packages_search_config_error(self):
         """Test packages_search with configuration error."""
-        with patch("quilt3.Bucket") as mock_bucket_class:
-            mock_bucket = mock_bucket_class.return_value
-            mock_bucket.search.side_effect = Exception("Invalid URL - No scheme supplied")
-            
+        # Mock the build_stack_search_indices to fail with config error
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("Invalid URL - No scheme supplied")):
             result = packages_search("test query")
             
             assert isinstance(result, dict)
             assert "error" in result
-            assert "Invalid URL - No scheme supplied" in result["error"]
+            # The error gets wrapped as "All search methods failed: <original error>"
+            assert "All search methods failed" in result["error"]
             assert result["results"] == []
 
     def test_packages_search_success(self):
         """Test packages_search with successful results."""
-        mock_results = [
-            {"name": "user/package1", "description": "Test package 1"},
-            {"name": "user/package2", "description": "Test package 2"},
-        ]
+        mock_search_results = {
+            "hits": {
+                "hits": [
+                    {"_source": {"name": "user/package1", "description": "Test package 1"}},
+                    {"_source": {"name": "user/package2", "description": "Test package 2"}},
+                ],
+                "total": {"value": 2}
+            },
+            "took": 10,
+            "timed_out": False
+        }
 
-        with patch("quilt3.Bucket") as mock_bucket_class:
-            mock_bucket = mock_bucket_class.return_value
-            mock_bucket.search.return_value = mock_results
+        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", return_value="test-bucket"):
+            with patch("quilt3.search_util.search_api", return_value=mock_search_results):
+                result = packages_search("test query", limit=2)
 
-            result = packages_search("test query")
-
-            assert isinstance(result, dict)
-            assert "results" in result
-            assert "registry" in result
-            assert "bucket" in result
-            assert len(result["results"]) == 2
-            assert result["results"][0]["name"] == "user/package1"
-            assert result["results"][1]["name"] == "user/package2"
+                assert isinstance(result, dict)
+                assert "results" in result
+                assert "registry" in result
+                assert "bucket" in result
+                assert len(result["results"]) == 2
+                assert result["results"][0]["_source"]["name"] == "user/package1"
+                assert result["results"][1]["_source"]["name"] == "user/package2"
 
     def test_catalog_info_success(self):
         """Test catalog_info with successful response."""
