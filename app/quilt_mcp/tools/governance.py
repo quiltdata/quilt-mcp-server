@@ -50,17 +50,22 @@ class GovernanceService:
     
     def _handle_admin_error(self, e: Exception, operation: str) -> Dict[str, Any]:
         """Handle admin operation errors with appropriate messaging."""
-        if isinstance(e, UserNotFoundError):
-            return format_error_response(f"User not found: {str(e)}")
-        elif isinstance(e, BucketNotFoundError):
-            return format_error_response(f"Bucket not found: {str(e)}")
-        elif isinstance(e, Quilt3AdminError):
-            return format_error_response(f"Admin operation failed: {str(e)}")
-        else:
-            operation_str = operation or "perform admin operation"
-            error_str = str(e) if e is not None else "Unknown error"
-            logger.error(f"Failed to {operation_str}: {error_str}")
-            return format_error_response(f"Failed to {operation_str}: {error_str}")
+        try:
+            if isinstance(e, UserNotFoundError):
+                return format_error_response(f"User not found: {str(e)}")
+            elif isinstance(e, BucketNotFoundError):
+                return format_error_response(f"Bucket not found: {str(e)}")
+            elif isinstance(e, Quilt3AdminError):
+                return format_error_response(f"Admin operation failed: {str(e)}")
+            else:
+                operation_str = str(operation) if operation is not None else "perform admin operation"
+                error_str = str(e) if e is not None else "Unknown error"
+                logger.error(f"Failed to {operation_str}: {error_str}")
+                return format_error_response(f"Failed to {operation_str}: {error_str}")
+        except Exception as format_error:
+            # Fallback if even error formatting fails
+            logger.error(f"Error handling failed: {format_error}")
+            return format_error_response("Admin operation failed due to an error in error handling")
 
 
 # User Management Functions
@@ -576,10 +581,10 @@ async def admin_roles_list() -> Dict[str, Any]:
         roles_data = []
         for role in roles:
             role_dict = {
-                'id': role.id,
-                'name': role.name,
-                'arn': role.arn,
-                'type': role.typename__
+                'id': getattr(role, 'id', None),
+                'name': getattr(role, 'name', None),
+                'arn': getattr(role, 'arn', None),
+                'type': getattr(role, 'typename', getattr(role, 'type', 'unknown'))
             }
             roles_data.append(role_dict)
         
