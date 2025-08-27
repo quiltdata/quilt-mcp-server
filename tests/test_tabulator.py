@@ -13,7 +13,8 @@ from quilt_mcp.tools.tabulator import (
     tabulator_table_rename,
     tabulator_open_query_status,
     tabulator_open_query_toggle,
-    TabulatorService
+    TabulatorService,
+    get_tabulator_service
 )
 
 
@@ -119,6 +120,66 @@ class TestTabulatorService:
         errors = service._validate_parser_config(invalid_config)
         assert len(errors) == 1
         assert "Invalid format 'xml'" in errors[0]
+
+    def test_validate_parser_config_edge_cases(self):
+        """Test parser config validation edge cases."""
+        service = TabulatorService(use_quilt_auth=False)
+        
+        # Test Parquet format (should be valid)
+        parquet_config = {'format': 'parquet'}
+        errors = service._validate_parser_config(parquet_config)
+        assert errors == []
+        
+        # Test TSV format (should be valid)
+        tsv_config = {'format': 'tsv', 'delimiter': '\t'}
+        errors = service._validate_parser_config(tsv_config)
+        assert errors == []
+        
+        # Test JSON format (should be invalid)
+        json_config = {'format': 'json'}
+        errors = service._validate_parser_config(json_config)
+        assert len(errors) == 1
+        assert "Invalid format 'json'" in errors[0]
+
+    def test_validate_schema_edge_cases(self):
+        """Test schema validation edge cases."""
+        service = TabulatorService(use_quilt_auth=False)
+        
+        # Test all valid column types
+        valid_types = ['STRING', 'INT', 'FLOAT', 'BOOLEAN', 'TIMESTAMP']
+        for col_type in valid_types:
+            schema = [{'name': 'test_col', 'type': col_type}]
+            errors = service._validate_schema(schema)
+            assert errors == [], f"Type {col_type} should be valid"
+        
+        # Test invalid type
+        invalid_schema = [{'name': 'test_col', 'type': 'DATE'}]
+        errors = service._validate_schema(invalid_schema)
+        assert len(errors) == 1
+        assert "Invalid type 'DATE'" in errors[0]
+        
+        # Test schema with multiple columns
+        large_schema = [
+            {'name': f'col_{i}', 'type': 'STRING'} for i in range(10)
+        ]
+        errors = service._validate_schema(large_schema)
+        assert errors == []
+
+    def test_validate_patterns_edge_cases(self):
+        """Test pattern validation edge cases."""
+        service = TabulatorService(use_quilt_auth=False)
+        
+        # Test complex but valid patterns
+        complex_package = r"^bucket/(?P<year>\d{4})/(?P<month>\d{2})/package$"
+        complex_key = r"data/(?P<category>[^/]+)/(?P<file>[^/]+\.(csv|tsv|json))$"
+        
+        errors = service._validate_patterns(complex_package, complex_key)
+        assert errors == []
+        
+        # Test escaped patterns
+        escaped_pattern = r"^bucket/package\[test\]$"
+        errors = service._validate_patterns(escaped_pattern, "data/.*.csv$")
+        assert errors == []
     
     def test_build_tabulator_config(self):
         """Test YAML configuration building."""
@@ -138,6 +199,57 @@ class TestTabulatorService:
         assert 'source:' in config_yaml
         assert 'parser:' in config_yaml
         assert 'quilt-packages' in config_yaml
+
+    # Add tests for service methods without mocking AWS responses
+    def test_service_methods_no_admin_available(self):
+        """Test all service methods when admin not available."""
+        service = TabulatorService(use_quilt_auth=False)
+        
+        # Test all methods return appropriate error when admin not available
+        result = service.list_tables('test-bucket')
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+        
+        result = service.create_table('bucket', 'table', [], 'pattern', 'pattern', {})
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+        
+        result = service.delete_table('bucket', 'table')
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+        
+        result = service.rename_table('bucket', 'old', 'new')
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+        
+        result = service.get_open_query_status()
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+        
+        result = service.set_open_query(True)
+        assert result['success'] is False
+        assert 'Admin functionality not available' in result['error']
+
+    @patch('quilt_mcp.tools.tabulator.ADMIN_AVAILABLE', True)
+    def test_create_table_validation_errors(self):
+        """Test TabulatorService.create_table with validation errors."""
+        service = TabulatorService(use_quilt_auth=True)
+        
+        # Empty inputs should trigger validation errors
+        result = service.create_table('', '', [], '', '', {})
+        
+        assert result['success'] is False
+        assert 'Validation errors' in result['error']
+
+
+class TestGetTabulatorService:
+    """Test get_tabulator_service utility function."""
+    
+    def test_get_tabulator_service(self):
+        """Test get_tabulator_service returns TabulatorService instance."""
+        service = get_tabulator_service()
+        assert isinstance(service, TabulatorService)
+        assert service.use_quilt_auth is True
 
 
 class TestTabulatorTablesList:
@@ -245,6 +357,26 @@ class TestTabulatorTableCreate:
         assert parser_config['header'] is False
         assert parser_config['skip_rows'] == 1
 
+    @patch('quilt_mcp.tools.tabulator.get_tabulator_service')
+    @pytest.mark.asyncio
+    async def test_create_table_error_handling(self, mock_get_service):
+        """Test table creation error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.create_table.side_effect = Exception("Unexpected error")
+        
+        schema = [{'name': 'col1', 'type': 'STRING'}]
+        result = await tabulator_table_create(
+            bucket_name='test-bucket',
+            table_name='test_table',
+            schema=schema,
+            package_pattern='^test-bucket/package$',
+            logical_key_pattern='data/*.csv$'
+        )
+        
+        assert result['success'] is False
+        assert 'Unexpected error' in result['error']
+
 
 class TestTabulatorTableDelete:
     """Test tabulator_table_delete function."""
@@ -268,6 +400,19 @@ class TestTabulatorTableDelete:
         assert result['success'] is True
         assert result['table_name'] == 'test_table'
         mock_service.delete_table.assert_called_once_with('test-bucket', 'test_table')
+
+    @patch('quilt_mcp.tools.tabulator.get_tabulator_service')
+    @pytest.mark.asyncio
+    async def test_delete_table_error_handling(self, mock_get_service):
+        """Test table deletion error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.delete_table.side_effect = Exception("Delete failed")
+        
+        result = await tabulator_table_delete('test-bucket', 'test_table')
+        
+        assert result['success'] is False
+        assert 'Delete failed' in result['error']
 
 
 class TestTabulatorTableRename:
@@ -293,6 +438,19 @@ class TestTabulatorTableRename:
         assert result['old_table_name'] == 'old_table'
         assert result['new_table_name'] == 'new_table'
         mock_service.rename_table.assert_called_once_with('test-bucket', 'old_table', 'new_table')
+
+    @patch('quilt_mcp.tools.tabulator.get_tabulator_service')
+    @pytest.mark.asyncio
+    async def test_rename_table_error_handling(self, mock_get_service):
+        """Test table rename error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.rename_table.side_effect = Exception("Rename failed")
+        
+        result = await tabulator_table_rename('test-bucket', 'old_table', 'new_table')
+        
+        assert result['success'] is False
+        assert 'Rename failed' in result['error']
 
 
 class TestTabulatorOpenQuery:
@@ -335,6 +493,32 @@ class TestTabulatorOpenQuery:
         assert result['open_query_enabled'] is False
         assert 'disabled' in result['message']
         mock_service.set_open_query.assert_called_once_with(False)
+
+    @patch('quilt_mcp.tools.tabulator.get_tabulator_service')
+    @pytest.mark.asyncio
+    async def test_open_query_status_error_handling(self, mock_get_service):
+        """Test open query status error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.get_open_query_status.side_effect = Exception("Status check failed")
+        
+        result = await tabulator_open_query_status()
+        
+        assert result['success'] is False
+        assert 'Status check failed' in result['error']
+
+    @patch('quilt_mcp.tools.tabulator.get_tabulator_service')
+    @pytest.mark.asyncio
+    async def test_open_query_toggle_error_handling(self, mock_get_service):
+        """Test open query toggle error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.set_open_query.side_effect = Exception("Toggle failed")
+        
+        result = await tabulator_open_query_toggle(True)
+        
+        assert result['success'] is False
+        assert 'Toggle failed' in result['error']
 
 
 if __name__ == "__main__":
