@@ -73,8 +73,8 @@ class TestUtils(unittest.TestCase):
     @pytest.mark.integration
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         from quilt_mcp.constants import DEFAULT_BUCKET
         
@@ -113,8 +113,8 @@ class TestUtils(unittest.TestCase):
     @pytest.mark.integration
     def test_generate_signed_url_exception(self):
         """Test handling of exceptions with real AWS (integration test)."""
-        if not os.getenv("AWS_ACCESS_KEY_ID"):
-            pytest.skip("AWS credentials not available")
+        from tests.test_helpers import skip_if_no_aws_credentials
+        skip_if_no_aws_credentials()
         
         # Try to generate URL for a bucket that doesn't exist
         result = generate_signed_url("s3://definitely-nonexistent-bucket-12345/key")
