@@ -68,39 +68,27 @@ def packages_search(
     Returns:
         Dict with search results including package names and metadata.
     """
-    # Use the raw search API to get total count information
-    # Allow limit=0 for count-only queries (size=0 in Elasticsearch)
+    # HYBRID APPROACH: Use unified search architecture but scope to specified registry
+    # This prevents inappropriate searches across buckets not in user's stack
     effective_limit = limit if limit >= 0 else 10
+    
+    # Extract bucket name from registry for targeted search
+    normalized_registry = _normalize_registry(registry)
+    bucket_name = normalized_registry.replace("s3://", "")
     
     # Suppress stdout during search to avoid JSON-RPC interference
     from ..utils import suppress_stdout
     
     try:
         with suppress_stdout():
-            # Try to use the search_util API directly to get full response
-            from quilt3.search_util import search_api
-            
-            # Use '_all' index like the working quilt3.search() function
-            # This is the key insight from the quilt3 source code
-            
-            # For count queries (limit=0), use a simple DSL query with size=0
-            if effective_limit == 0:
-                # Count-only query using size=0 like the catalog UI
-                dsl_query = {
-                    "size": 0,  # This is the key for fast counts!
-                    "query": {
-                        "query_string": {
-                            "query": query
-                        }
-                    }
-                }
-            else:
-                # Regular query with pagination
-                if isinstance(query, str) and not query.strip().startswith('{'):
-                    # Convert string query to DSL with pagination
+            # UNIFIED SEARCH: Try advanced search API first, but scoped to specific registry
+            try:
+                from quilt3.search_util import search_api
+                
+                # For count queries (limit=0), use a simple DSL query with size=0
+                if effective_limit == 0:
                     dsl_query = {
-                        "from": from_,
-                        "size": effective_limit,
+                        "size": 0,  # This is the key for fast counts!
                         "query": {
                             "query_string": {
                                 "query": query
@@ -108,66 +96,90 @@ def packages_search(
                         }
                     }
                 else:
-                    # Already a DSL query
-                    import json
-                    if isinstance(query, str):
-                        dsl_query = json.loads(query)
+                    # Regular query with pagination
+                    if isinstance(query, str) and not query.strip().startswith('{'):
+                        # Convert string query to DSL with pagination
+                        dsl_query = {
+                            "from": from_,
+                            "size": effective_limit,
+                            "query": {
+                                "query_string": {
+                                    "query": query
+                                }
+                            }
+                        }
                     else:
-                        dsl_query = query
-                    
-                    # Add pagination
-                    dsl_query["from"] = from_
-                    dsl_query["size"] = effective_limit
-            
-            # Get all available bucket indices for comprehensive search
-            index_names = '_all'  # Default fallback
-            
-            try:
-                # Try to get all available buckets from GraphQL
-                from ..tools.graphql import catalog_graphql_query
+                        # Already a DSL query
+                        import json
+                        if isinstance(query, str):
+                            dsl_query = json.loads(query)
+                        else:
+                            dsl_query = query
+                        
+                        # Add pagination
+                        dsl_query["from"] = from_
+                        dsl_query["size"] = effective_limit
                 
-                bucket_query = "query { bucketConfigs { name } }"
-                bucket_result = catalog_graphql_query(bucket_query, {})
+                # BUCKET SCOPING: Use only the specified registry's index, not '_all'
+                # This prevents inappropriate searches of buckets like quilt-example
+                index_name = f"{bucket_name},{bucket_name}_packages"
                 
-                if bucket_result.get("success"):
-                    bucket_configs = bucket_result.get("data", {}).get("bucketConfigs", [])
-                    bucket_names = [b.get("name") for b in bucket_configs if b.get("name")]
-                    
-                    if bucket_names:
-                        # Create comma-separated index list for all buckets
-                        index_names = ",".join(bucket_names)
-                        print(f"Searching across {len(bucket_names)} bucket indices")
-                    else:
-                        print("No buckets found via GraphQL, using _all")
+                # Use registry-specific index instead of '_all'
+                full_result = search_api(
+                    query=dsl_query,
+                    index=index_name,
+                    limit=effective_limit
+                )
+                
+                # Return unified search format with bucket context
+                hits = full_result.get("hits", {}).get("hits", [])
+                total_count = full_result.get("hits", {}).get("total", {})
+                if isinstance(total_count, dict):
+                    count = total_count.get('value', 0)
                 else:
-                    print("GraphQL bucket discovery failed, using _all")
-                    
-            except Exception as e:
-                print(f"Bucket discovery failed: {e}, using _all")
-            
-            # Use comprehensive index list
-            full_result = search_api(
-                query=dsl_query,
-                index=index_names,
-                limit=effective_limit
-            )
-            
-            # Return both results and total count
-            return {
-                "results": full_result.get("hits", {}).get("hits", []),
-                "total": full_result.get("hits", {}).get("total", 0),
-                "took": full_result.get("took", 0),
-                "timed_out": full_result.get("timed_out", False)
-            }
-            
+                    count = total_count
+                
+                return {
+                    "results": hits,
+                    "total_count": count,
+                    "query": query,
+                    "limit": effective_limit,
+                    "from": from_,
+                    "registry": normalized_registry,
+                    "bucket": bucket_name,
+                    "took": full_result.get("took", 0),
+                    "timed_out": full_result.get("timed_out", False)
+                }
+                
+            except Exception as search_api_error:
+                # FALLBACK: Use bucket-specific search if advanced API fails
+                bucket_obj = quilt3.Bucket(normalized_registry)
+                results = bucket_obj.search(query, limit=effective_limit)
+                
+                return {
+                    "results": results,
+                    "total_count": len(results) if results else 0,
+                    "query": query,
+                    "limit": effective_limit,
+                    "from": from_,
+                    "registry": normalized_registry,
+                    "bucket": bucket_name,
+                    "fallback_used": "bucket_search",
+                    "search_api_error": str(search_api_error)
+                }
+                
     except Exception as e:
-        # Fallback to original quilt3.search if search_api fails
-        try:
-            with suppress_stdout():
-                results = quilt3.search(query, limit=effective_limit)
-            return {"results": results}
-        except Exception as fallback_error:
-            return {"error": f"Search failed: {e}. Fallback also failed: {fallback_error}"}
+        # Final fallback with error context
+        return {
+            "results": [],
+            "total_count": 0,
+            "query": query,
+            "limit": effective_limit,
+            "from": from_,
+            "registry": normalized_registry,
+            "bucket": bucket_name,
+            "error": f"All search methods failed: {e}"
+        }
 
 
 def package_browse(

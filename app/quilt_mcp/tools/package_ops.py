@@ -227,6 +227,7 @@ def package_create(
                 registry=normalized_registry,
                 message=message,
                 selector_fn=selector_fn,
+                force=True,
             )
             
     except Exception as e:
@@ -349,6 +350,7 @@ def package_update(
                 registry=normalized_registry,
                 message=message,
                 selector_fn=selector_fn,
+                force=True,
             )
             
     except Exception as e:

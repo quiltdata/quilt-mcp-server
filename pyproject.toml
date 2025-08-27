@@ -20,6 +20,9 @@ dependencies = [
     "biopython>=1.81",
     "pybedtools>=0.9.0",
     "pybigwig>=0.3.18",
+    "sqlalchemy>=2.0.0",
+    "pyathena>=3.0.0",
+    "PyYAML>=6.0.0",
 ]
 
 [project.scripts]
@@ -54,6 +57,9 @@ lint = [
     "mypy>=1.5.0",
     "yamllint>=1.35.0",
 ]
+dev = [
+    "pytest-xdist>=3.8.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -67,6 +73,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "performance: marks tests as performance benchmarks",
     "integration: marks tests as integration tests",
+    "error_handling: marks tests as error handling tests",
+    "asyncio: marks tests as async tests",
 ]
 
 [tool.pytest.ini_options.asyncio]
