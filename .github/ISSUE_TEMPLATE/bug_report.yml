@@ -1,0 +1,145 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with the Quilt MCP Server
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please provide as much detail as possible to help us reproduce and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe what happened and what you expected to happen.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you using?
+      options:
+        - Claude Desktop
+        - Cursor
+        - VS Code
+        - Local Development
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Server Version
+      description: What version of the Quilt MCP Server are you using?
+      placeholder: "0.5.5"
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python Version
+      description: What Python version are you using?
+      placeholder: "3.11.5"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      placeholder: "macOS 14.5 / Ubuntu 22.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: Relevant environment variables and configuration (redact sensitive information)
+      placeholder: |
+        QUILT_CATALOG_DOMAIN=demo.quiltdata.com
+        QUILT_DEFAULT_BUCKET=s3://my-bucket
+        # ... other relevant config
+      render: bash
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Clear, numbered steps to reproduce the issue
+      placeholder: |
+        1. Start the MCP server with `make app`
+        2. Call tool `package_browse` with parameters: {...}
+        3. Observe error in response
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: Should return package contents with file listing
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Returns 500 error with message "Connection timeout"
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_messages
+    attributes:
+      label: Error Messages
+      description: Full error messages and stack traces
+      placeholder: |
+        [ERROR] 2024-08-27 14:30:15 - Connection timeout after 30s
+        Traceback (most recent call last):
+          ...
+      render: text
+
+  - type: textarea
+    id: minimal_example
+    attributes:
+      label: Minimal Example
+      description: Smallest code example that reproduces the issue
+      placeholder: |
+        ```python
+        result = await mcp_client.call_tool("package_browse", {
+            "package_name": "test/package",
+            "registry": "s3://test-bucket"
+        })
+        ```
+      render: python
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem
+      placeholder: This started happening after updating to version 0.5.5
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided all required information above
+          required: true
+        - label: I have redacted any sensitive information from logs and configuration
+          required: true

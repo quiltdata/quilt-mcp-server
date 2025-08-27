@@ -1,0 +1,105 @@
+name: 📚 Documentation Issue
+description: Report issues with documentation or suggest improvements
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve our documentation! Clear documentation is essential for a great developer experience.
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - Bug/Error in Documentation
+        - Missing Documentation
+        - Unclear/Confusing Documentation
+        - Documentation Improvement
+        - New Documentation Request
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation issue located?
+      placeholder: "docs/TOOLS.md, README.md section 'Quick Start', etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue_description
+    attributes:
+      label: Issue Description
+      description: Describe the documentation issue
+      placeholder: |
+        The example code in the "Package Creation" section shows incorrect parameter names.
+        The parameter should be 'package_name' but the example uses 'name'.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_content
+    attributes:
+      label: Current Content (if applicable)
+      description: Copy the current documentation content that has issues
+      placeholder: |
+        ```python
+        result = await mcp_client.call_tool("package_create", {
+            "name": "genomics/study-001",  # This should be "package_name"
+            "files": ["s3://bucket/file.csv"]
+        })
+        ```
+
+  - type: textarea
+    id: suggested_content
+    attributes:
+      label: Suggested Content
+      description: How should the documentation be improved?
+      placeholder: |
+        ```python
+        result = await mcp_client.call_tool("package_create", {
+            "package_name": "genomics/study-001",  # Corrected parameter name
+            "files": ["s3://bucket/file.csv"]
+        })
+        ```
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any additional context about the documentation issue
+      placeholder: |
+        This confusion led to several users reporting errors when following the quick start guide.
+        The correct parameter name is documented in the API reference but not in the examples.
+
+  - type: checkboxes
+    id: improvement_type
+    attributes:
+      label: Improvement Type (select all that apply)
+      options:
+        - label: Fix typos or grammar
+        - label: Correct technical errors
+        - label: Add missing examples
+        - label: Improve code examples
+        - label: Add more detailed explanations
+        - label: Improve organization/structure
+        - label: Add troubleshooting information
+        - label: Add visual aids (diagrams, screenshots)
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have checked that this documentation issue doesn't already exist
+          required: true
+        - label: I have provided specific location and description of the issue
+          required: true
+        - label: I am willing to help improve the documentation if needed
+          required: false

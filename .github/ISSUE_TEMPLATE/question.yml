@@ -1,0 +1,102 @@
+name: ❓ Question
+description: Ask a question about using the Quilt MCP Server
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about using the Quilt MCP Server? We're here to help! 
+        
+        **Before asking:** Please check our [documentation](https://github.com/quiltdata/quilt-mcp-server/tree/main/docs) and [existing issues](https://github.com/quiltdata/quilt-mcp-server/issues) first.
+
+  - type: dropdown
+    id: question_type
+    attributes:
+      label: Question Type
+      description: What type of question is this?
+      options:
+        - Installation/Setup
+        - Tool Usage
+        - Configuration
+        - Integration (Claude Desktop, Cursor, etc.)
+        - Performance
+        - Best Practices
+        - Troubleshooting
+        - General Usage
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+      placeholder: |
+        How do I configure the MCP server to work with my private Quilt catalog?
+        I'm getting authentication errors when trying to create packages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide context about what you're trying to accomplish
+      placeholder: |
+        I'm trying to set up the MCP server for my genomics research team. 
+        We have a private Quilt catalog at genomics.ourcompany.com and need to create packages from our S3 data.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_tried
+    attributes:
+      label: What Have You Tried?
+      description: What have you already attempted?
+      placeholder: |
+        - Followed the installation guide in README.md
+        - Set QUILT_CATALOG_DOMAIN=genomics.ourcompany.com
+        - Ran `make app` but getting authentication errors
+        - Checked AWS credentials with `aws sts get-caller-identity`
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you using?
+      placeholder: "Claude Desktop 1.2.3, macOS 14.5, Python 3.11.5"
+
+  - type: textarea
+    id: error_messages
+    attributes:
+      label: Error Messages (if any)
+      description: Include any error messages you're seeing
+      placeholder: |
+        [ERROR] 2024-08-27 14:30:15 - Authentication failed: Invalid credentials
+        {"success": false, "error": "Unauthorized access to catalog"}
+      render: text
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration (if relevant)
+      description: Share relevant configuration (redact sensitive info)
+      placeholder: |
+        QUILT_CATALOG_DOMAIN=genomics.ourcompany.com
+        QUILT_DEFAULT_BUCKET=s3://our-genomics-data
+        AWS_PROFILE=genomics-dev
+      render: bash
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and documentation
+          required: true
+        - label: I have provided sufficient context about my question
+          required: true
+        - label: I have redacted any sensitive information
+          required: true
