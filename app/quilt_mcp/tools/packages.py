@@ -68,13 +68,28 @@ def packages_search(
     Returns:
         Dict with search results including package names and metadata.
     """
-    # quilt3.search() only supports query and limit, not registry
     effective_limit = limit if limit > 0 else 10
+    
+    # Extract bucket name from registry for targeted search
+    normalized_registry = _normalize_registry(registry)
+    bucket_name = normalized_registry.replace("s3://", "")
+    
     # Suppress stdout during search to avoid JSON-RPC interference
     from ..utils import suppress_stdout
     with suppress_stdout():
-        results = quilt3.search(query, limit=effective_limit)
-    return {"results": results}
+        try:
+            # Use bucket-specific search instead of global search
+            bucket_obj = quilt3.Bucket(normalized_registry)
+            results = bucket_obj.search(query, limit=effective_limit)
+            return {"results": results, "registry": normalized_registry, "bucket": bucket_name}
+        except Exception as e:
+            # Fallback to empty results if bucket search fails
+            return {
+                "results": [],
+                "registry": normalized_registry,
+                "bucket": bucket_name,
+                "error": f"Search failed: {e}"
+            }
 
 
 def package_browse(
