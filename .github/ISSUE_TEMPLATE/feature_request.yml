@@ -1,0 +1,159 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for the Quilt MCP Server
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please provide detailed information to help us understand and prioritize your request.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: Brief description of the proposed feature
+      placeholder: Add support for genomic coordinate-based search
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Detailed explanation of why this feature is needed
+      placeholder: |
+        As a bioinformatics researcher, I often need to find datasets that overlap with specific genomic regions. 
+        Currently, I have to manually search through packages and check metadata, which is time-consuming and error-prone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User Story
+      description: Describe the feature as a user story
+      placeholder: |
+        As a [user type], I want [goal] so that [benefit].
+        
+        Example: As a genomics researcher, I want to search for packages by genomic coordinates 
+        so that I can find relevant datasets for my analysis region.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What category does this feature belong to?
+      options:
+        - New MCP Tool
+        - Search Enhancement
+        - Package Management
+        - Analytics/SQL
+        - Authentication/Security
+        - Performance Improvement
+        - Documentation
+        - Developer Experience
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Important for my workflow
+        - Critical - Blocking my work
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know when this feature is complete?
+      placeholder: |
+        - [ ] Support genomic coordinate queries (chr:start-end format)
+        - [ ] Integrate with existing unified search system
+        - [ ] Return packages with overlapping genomic regions
+        - [ ] Include confidence scores for matches
+        - [ ] Handle multiple genome builds (GRCh38, GRCh37)
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation_ideas
+    attributes:
+      label: Implementation Ideas
+      description: Suggestions for how to implement this feature (optional)
+      placeholder: |
+        - Add genomic coordinate parser to search module
+        - Extend GraphQL queries to include genomic metadata
+        - Create new tool `search_by_coordinates`
+        - Add genomic interval tree for efficient overlap detection
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Other solutions you've considered
+      placeholder: |
+        - Manual filtering of search results
+        - External genomic database integration
+        - Custom scripts for coordinate-based filtering
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Usage Examples
+      description: Show how you would use this feature
+      placeholder: |
+        ```python
+        # Search for packages overlapping genomic region
+        result = await mcp_client.call_tool("search_by_coordinates", {
+            "coordinates": "chr1:1000000-2000000",
+            "genome_build": "GRCh38",
+            "overlap_threshold": 0.5
+        })
+        
+        # Search with multiple regions
+        result = await mcp_client.call_tool("unified_search", {
+            "query": "RNA-seq data",
+            "filters": {
+                "genomic_regions": ["chr1:1000000-2000000", "chr2:5000000-6000000"]
+            }
+        })
+        ```
+      render: python
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references
+      placeholder: |
+        This would support our genomics workflow where we need to find datasets 
+        overlapping specific chromosomal regions for comparative analysis.
+        
+        Similar functionality exists in tools like:
+        - UCSC Genome Browser
+        - Ensembl Genome Browser
+        - Galaxy Project
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this is not a duplicate
+          required: true
+        - label: I have provided clear use cases and acceptance criteria
+          required: true
+        - label: I understand this is a request and not a guarantee of implementation
+          required: true
