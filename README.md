@@ -31,8 +31,6 @@ For development or custom configurations:
 git clone https://github.com/quiltdata/quilt-mcp-server.git
 cd quilt-mcp-server
 cp env.example .env
-# Intentional syntax error to test validation
-echo "missing quote
 # Edit .env with your AWS credentials and Quilt settings
 
 # 2. Install dependencies
