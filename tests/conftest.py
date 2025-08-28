@@ -3,6 +3,10 @@
 import sys
 import os
 import boto3
+import pytest
+import tempfile
+from pathlib import Path
+from typing import Dict, Any
 
 # Load environment variables from .env file
 try:
@@ -29,6 +33,8 @@ app_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app')
 if app_dir not in sys.path:
     sys.path.insert(0, app_dir)
 
+# Removed unused README test framework imports
+
 
 def pytest_configure(config):
     """Configure pytest and set up AWS session if needed."""
@@ -36,3 +42,14 @@ def pytest_configure(config):
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
         boto3.setup_default_session(profile_name=os.getenv("AWS_PROFILE"))
+    
+    # Add custom markers
+    config.addinivalue_line(
+        "markers",
+        "integration: mark test as integration test"  
+    )
+    config.addinivalue_line(
+        "markers", 
+        "slow: mark test as slow-running test"
+    )
+

@@ -11,7 +11,7 @@ PHASES := app build-dxt
 APP_ENDPOINT ?= http://127.0.0.1:8000/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo update-cursor-rules
+.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo update-cursor-rules test-readme
 
 # Default target
 help:
@@ -37,6 +37,7 @@ help:
 	@echo "⚙️  Utilities:"
 	@echo "  make check-env    - Validate .env configuration"
 	@echo "  make coverage     - Run tests with coverage"
+	@echo "  make test-readme  - Test README installation commands work"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
 	@echo "🏷️  Release Management:"
@@ -111,6 +112,12 @@ clean:
 
 coverage:
 	@$(MAKE) -C app coverage
+
+test-readme:
+	@echo "Validating README bash code blocks..."
+	@uv sync --group test
+	@uv run python -m pytest tests/test_readme.py -v
+	@echo "✅ README bash validation complete"
 
 
 # Release Management

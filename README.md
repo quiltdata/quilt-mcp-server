@@ -1,6 +1,7 @@
 # Quilt MCP Server
 
-A production-ready MCP (Model Context Protocol) server providing secure access to Quilt data with 84+ comprehensive tools for package management, S3 operations, analytics, and system utilities.
+A production-ready MCP (Model Context Protocol) server providing secure access to Quilt data with 84+ comprehensive tools
+for package management, S3 operations, analytics, and system utilities.
 
 [![Tests](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)](https://github.com/quiltdata/quilt-mcp-server)
@@ -16,9 +17,11 @@ A production-ready MCP (Model Context Protocol) server providing secure access t
 The easiest way to get started:
 
 1. **Download**: Get the latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
-2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
-3. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
-4. **Verify**: Open Tools panel in a new chat and confirm Quilt MCP is available
+1. **Authenticate**: Run `quilt3 login` so you can access your catalog
+    1. May require first setting `quilt3 config your-quilt-catalog.yourcompany.com`
+1. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
+1. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
+1. **Verify**: Open Tools panel in a new chat and confirm Quilt MCP is available
 
 > **Requirements**: Python 3.11+ accessible in your login shell (`python3 --version`)
 
@@ -30,20 +33,26 @@ For development or custom configurations:
 # 1. Clone and setup
 git clone https://github.com/quiltdata/quilt-mcp-server.git
 cd quilt-mcp-server
-cp env.example .env
+cp -i env.example .env
 # Edit .env with your AWS credentials and Quilt settings
 
 # 2. Install dependencies
 uv sync
 
-# 3. Run server
-make app
-# Server available at http://127.0.0.1:8000/mcp
+# 3. Run server (in background)
+make app &
+SERVER_PID=$!
+
+# 4. Verify that it works
+sleep 8
+shared/test-endpoint.sh http://127.0.0.1:8000/mcp/
+kill $SERVER_PID
 ```
 
 #### Option C: IDE Integration
 
 **Cursor Configuration:**
+
 ```json
 {
   \"mcpServers\": {
@@ -61,6 +70,7 @@ make app
 ```
 
 **VS Code Configuration:**
+
 ```json
 {
   \"mcpServers\": {
@@ -77,24 +87,21 @@ make app
 }
 ```
 
-### Getting Started
+### Development
 
 1. **Verify Installation**:
+
    ```bash
    # Check Python version
    python3 --version  # Should be 3.11+
    
-   # Test server
-   make app
-   curl -X POST http://localhost:8000/mcp \\
-        -H \"Content-Type: application/json\" \\
-        -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'
    ```
 
 2. **Configure Environment**:
+
    ```bash
    # Copy example configuration
-   cp env.example .env
+   cp -i env.example .env
    
    # Edit with your settings
    QUILT_CATALOG_DOMAIN=your-catalog.com
@@ -106,7 +113,13 @@ make app
    ```
 
 3. **Explore Tools**:
+
    ```bash
+   # Test server
+   make app
+   curl -X POST http://localhost:8000/mcp \\
+        -H \"Content-Type: application/json\" \\
+        -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'
    # Open interactive tool explorer
    cd app && make run-inspector
    # Visit http://127.0.0.1:6274
@@ -126,6 +139,7 @@ make app
 This server provides **84+ comprehensive tools** organized into categories:
 
 ### 📦 Package Management
+
 - `packages_list` - List packages with filtering and search
 - `package_browse` - Explore package contents and structure  
 - `package_create` - Create packages from S3 objects
@@ -134,6 +148,7 @@ This server provides **84+ comprehensive tools** organized into categories:
 - `create_package_enhanced` - Advanced creation with templates
 
 ### 🗄️ S3 Operations  
+
 - `bucket_objects_list` - List and filter S3 objects
 - `bucket_object_info` - Get detailed object metadata
 - `bucket_object_text` - Read text content from objects
@@ -141,45 +156,26 @@ This server provides **84+ comprehensive tools** organized into categories:
 - `bucket_objects_search` - Search using Elasticsearch
 
 ### 📊 Analytics & SQL
+
 - `athena_query_execute` - Run SQL queries via Athena
 - `athena_databases_list` - List available databases
 - `tabulator_tables_list` - Manage Quilt Tabulator tables
 - `unified_search` - Multi-backend intelligent search
 
 ### 🔐 Authentication & Permissions
+
 - `auth_status` - Check Quilt authentication
 - `aws_permissions_discover` - Discover AWS permissions
 - `bucket_access_check` - Validate bucket access
 
 ### 🔧 Advanced Features
+
 - `workflow_create` - Multi-step workflow management
 - `metadata_templates` - Generate metadata (genomics, ML, etc.)
 - `generate_quilt_summarize_json` - Create package summaries
 - `create_package_from_s3` - Smart S3-to-package conversion
 
 **[View complete tool reference →](docs/TOOLS.md)**
-
-## 🏗️ Architecture
-
-### Repository Structure
-
-```
-quilt-mcp-server/
-├── 📁 app/                    # Core MCP server implementation
-│   ├── quilt_mcp/            # Main server package
-│   │   ├── tools/            # 84+ MCP tools
-│   │   ├── search/           # Multi-backend search system
-│   │   ├── aws/              # AWS integration
-│   │   └── validators/       # Input validation
-│   └── main.py               # Server entry point
-├── 📁 docs/                  # Comprehensive documentation
-├── 📁 tests/                 # Test suite (85%+ coverage)
-├── 📁 test_cases/            # Real-world test scenarios
-├── 📁 scripts/               # Utility scripts
-├── 📁 configs/               # Configuration files
-├── 📁 analysis/              # Performance analysis
-└── 📁 build-*/               # Deployment configurations
-```
 
 **[Detailed repository layout →](docs/REPOSITORY.md)**
 
@@ -274,12 +270,15 @@ graph LR
 ```
 
 **Branch Strategy:**
+
 - **`main`** - Production-ready code with tagged releases
 - **`develop`** - Integration branch for new features
 - **Feature branches** - Individual features and fixes
 
 **Process:**
+
 1. **Create feature branch** from `develop`:
+
    ```bash
    git checkout develop
    git pull origin develop
@@ -287,18 +286,21 @@ graph LR
    ```
 
 2. **Develop and test** your changes:
+
    ```bash
    make validate-app  # Run all checks
    make coverage      # Ensure test coverage
    ```
 
 3. **Submit PR to develop**:
+
    ```bash
    git push origin feature/your-feature-name
    # Create PR targeting 'develop' branch
    ```
 
 4. **Release process** (maintainers):
+
    ```bash
    # Merge develop to main for releases
    git checkout main
@@ -308,6 +310,7 @@ graph LR
    ```
 
 **Branch Naming Convention:**
+
 - `feature/feature-name` - New features
 - `fix/issue-description` - Bug fixes  
 - `docs/documentation-topic` - Documentation
@@ -435,18 +438,21 @@ make deploy               # Deploy to AWS
 ### Common Issues
 
 **Python Version Problems:**
+
 ```bash
 python3 --version  # Should show 3.11+
 which python3     # Should be in PATH
 ```
 
 **AWS Credential Issues:**
+
 ```bash
 aws sts get-caller-identity  # Verify AWS access
 aws s3 ls s3://your-bucket  # Test S3 permissions
 ```
 
 **Module Import Errors:**
+
 ```bash
 export PYTHONPATH=/path/to/quilt-mcp-server/app
 cd quilt-mcp-server && make app
@@ -472,4 +478,5 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LI
 
 ---
 
-**Ready to get started?** Follow our [Installation Guide](docs/user/INSTALLATION.md) or jump right in with the [Quick Start](#-quick-start) above!
+**Ready to get started?** Follow our [Installation Guide](docs/user/INSTALLATION.md)
+or jump right in with the [Quick Start](#-quick-start) above!
