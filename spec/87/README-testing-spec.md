@@ -82,10 +82,17 @@ The goal is NOT to build complex testing infrastructure, but to extract and vali
 
 ## Implementation Details
 
+### Actual Implementation Status
+**✅ IMPLEMENTED**: This specification has been implemented with the following simplifications:
+- Focus on bash syntax validation using `bash -n`
+- Basic command availability checking (cp, uv)
+- No full server startup or MCP protocol testing
+- Simplified test structure for maintainability
+
 ### File Structure
 ```
 tests/
-├── test_readme_bash_validation.py    # Single test file
+├── test_readme.py                    # Single test file (actual implementation)
 └── conftest.py                       # Existing pytest config
 ```
 
@@ -97,20 +104,20 @@ tests/
 
 ### Test Structure
 ```python
+def test_extract_bash_from_markdown():
+    """Test that we can extract bash scripts from markdown using a test string."""
+    
 def test_readme_bash_syntax():
-    """Test all bash blocks have valid syntax"""
+    """Test that all bash blocks in README have valid syntax."""
     
-def test_readme_file_references():  
-    """Test referenced files exist in repository"""
-    
-def test_installation_commands():
-    """Test Option B contains expected commands"""
+def test_readme_commands_work():
+    """Test the actual commands from README.md work in a temp directory."""
 ```
 
 ### Integration Points
 - **Makefile**: `make test-readme` runs the validation
 - **CI**: GitHub Actions includes README validation step  
-- **Local development**: Developers can run `pytest tests/test_readme_bash_validation.py`
+- **Local development**: Developers can run `pytest tests/test_readme.py`
 
 ## Acceptance Criteria
 
