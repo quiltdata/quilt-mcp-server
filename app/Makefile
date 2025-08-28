@@ -127,8 +127,6 @@ test-permissions:
 	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings \
 		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
-
-
 test-unit:
 	@echo "Running unit tests only (skipping integration tests)..."
 	@uv sync --group test
