@@ -114,8 +114,10 @@ coverage:
 	@$(MAKE) -C app coverage
 
 test-readme:
-	@echo "Testing README installation commands..."
-	@$(MAKE) -C app test-readme
+	@echo "Validating README bash code blocks..."
+	@uv sync --group test
+	@uv run python -m pytest tests/test_readme_bash_validation.py -v
+	@echo "✅ README bash validation complete"
 
 
 # Release Management

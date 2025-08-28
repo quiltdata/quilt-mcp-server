@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools test-readme update-cursor-rules 
+.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools update-cursor-rules 
 
 # Default target
 help:
@@ -18,7 +18,6 @@ help:
 	@echo "  make test         - Run unit and integration tests"
 	@echo "  make test-unit    - Run unit tests only (skip integration tests)"
 	@echo "  make test-endpoint - Start server and test MCP endpoint"
-	@echo "  make test-readme  - Test README installation commands work"
 	@echo "  make coverage     - Run tests with coverage (≥85% required)"
 	@echo "  make lint         - Run code linting (auto-fixes formatting, reports remaining issues)"
 	@echo "  make validate     - Full SPEC-compliant validation"
@@ -128,11 +127,6 @@ test-permissions:
 	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings \
 		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
-test-readme:
-	@echo "Validating README bash code blocks..."
-	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_readme_bash_validation.py -v
-	@echo "✅ README bash validation complete"
 
 
 test-unit:
