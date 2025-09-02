@@ -27,7 +27,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: help contents build test validate release assess clean check-tools debug
+.PHONY: help contents build test validate release assess clean check-tools debug test-dxt-package test-mcp-integration test-environments test-dxt-performance test-dxt-fast test-dxt-comprehensive
 
 # Check for required tools
 check-tools:
@@ -137,6 +137,30 @@ assess:
 		echo "❌ check-prereqs.sh not found in $(ASSETS_DIR)"; \
 		exit 1; \
 	fi
+
+# Comprehensive DXT Testing Targets
+
+test-dxt-package: build
+	@echo "Testing the actual built DXT package..."
+	@cd . && python -m pytest tests/package/ -v
+
+test-mcp-integration: build
+	@echo "Testing DXT as MCP server with simulated Claude Desktop..."
+	@cd . && python -m pytest tests/mcp_integration/ -v
+
+test-environments: build
+	@echo "Testing DXT in different customer environments..."
+	@cd . && python -m pytest tests/environments/ -v
+
+test-dxt-performance: build
+	@echo "Testing DXT performance characteristics..."
+	@cd . && python -m pytest tests/performance/ -v
+
+test-dxt-fast: test-dxt-package test-mcp-integration
+	@echo "Fast DXT validation complete (P0 critical tests)"
+
+test-dxt-comprehensive: test test-dxt-fast test-environments test-dxt-performance
+	@echo "Comprehensive DXT testing complete"
 
 clean:
 	@echo "Cleaning build artifacts..."

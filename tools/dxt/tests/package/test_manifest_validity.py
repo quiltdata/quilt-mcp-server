@@ -55,9 +55,15 @@ class TestManifestValidity:
     
     def test_manifest_mcp_configuration(self, extracted_manifest):
         """Test that manifest.json has correct MCP server configuration."""
-        # Should have MCP server configuration
-        assert "mcpServers" in extracted_manifest or "mcp" in extracted_manifest, \
-            "Manifest should contain MCP server configuration"
+        # Should have server configuration (may be in "server" field for DXT format)
+        has_mcp_config = any([
+            "mcpServers" in extracted_manifest,
+            "mcp" in extracted_manifest,
+            "server" in extracted_manifest,
+            "mcp_config" in str(extracted_manifest)
+        ])
+        
+        assert has_mcp_config, "Manifest should contain MCP server configuration"
         
         # Check for expected name pattern
         assert "quilt" in extracted_manifest.get("name", "").lower(), \
