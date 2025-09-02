@@ -27,7 +27,7 @@ If you have just completed an MVP with BMad, and you want to continue with post-
 
 ## The Complete Brownfield Workflow
 
-1. **Follow the [<ins>User Guide - Installation</ins>](user-guide.md#installation) steps to setup your agent in the web.**
+1. Follow the [**User Guide - Installation**](user-guide.md#installation) steps to setup your agent in the web.
 2. **Generate a 'flattened' single file of your entire codebase** run: `npx bmad-method flatten`
 
 ### Choose Your Approach
@@ -225,7 +225,7 @@ The PO ensures:
 
 ### Phase 5: Transition to Development
 
-**Follow the [<ins>Enhanced IDE Development Workflow</ins>](enhanced-ide-development-workflow.md)**
+Follow the [**Enhanced IDE Development Workflow**](enhanced-ide-development-workflow.md)
 
 ## Brownfield Best Practices
 
