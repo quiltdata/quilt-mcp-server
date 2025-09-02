@@ -45,17 +45,27 @@
 
 #### AC3: DXT Configuration Validation
 
-- [ ] Test that different DXT configurations (with/without authentication) work correctly
-- [ ] Validate that environment variables are properly passed to the bundled server
-- [ ] Test DXT behavior with different Claude Desktop versions (if applicable)
-- [ ] Verify that DXT logging doesn't interfere with MCP protocol communication
+- [ ] Test authentication vs. non-authenticated DXT modes work correctly
+- [ ] Validate environment variable propagation to bundled server (including edge cases)
+- [ ] Test DXT compatibility matrix with different Claude Desktop versions
+- [ ] Verify DXT logging doesn't interfere with MCP protocol communication
+- [ ] Test concurrent Claude Desktop instance connections
 
 #### AC4: Customer Environment Simulation
 
 - [ ] Test DXT package in clean environments (no existing Python/dependencies)
 - [ ] Validate DXT works with different Python versions available on system
 - [ ] Test common customer failure scenarios (permission issues, network restrictions)
+- [ ] Test resource-constrained environments (memory/CPU limits)
+- [ ] Test network resilience scenarios (timeouts, proxy configurations)
 - [ ] Verify DXT package integrity and checksums before testing
+
+#### AC5: Performance and Reliability Validation
+
+- [ ] Test DXT startup time performance benchmarks
+- [ ] Validate tool execution speed under normal and load conditions
+- [ ] Test memory usage patterns and resource cleanup
+- [ ] Verify version drift handling for dependency mismatches
 
 ### Technical Approach
 
@@ -67,18 +77,27 @@ tools/dxt/tests/
 │   ├── test_dxt_loading.py     # Test DXT package loads correctly
 │   ├── test_manifest_validity.py # Validate manifest.json configuration
 │   ├── test_bootstrap_execution.py # Test bootstrap.py in clean environment
-│   └── test_dxt_main_startup.py   # Test dxt_main.py MCP server startup
+│   ├── test_dxt_main_startup.py   # Test dxt_main.py MCP server startup
+│   └── test_package_integrity.py  # Test checksums and structure validation
 ├── mcp_integration/            # Test DXT as MCP server
-│   ├── test_mcp_client_communication.py # Simulate Claude Desktop communication
+│   ├── test_mcp_handshake.py   # Test MCP handshake with timeout scenarios
 │   ├── test_tool_discovery.py  # Test all tools are discoverable via DXT
 │   ├── test_tool_execution.py  # Test tools work through DXT package
+│   ├── test_concurrent_access.py # Test multiple Claude Desktop connections
+│   ├── test_error_recovery.py  # Test failure and recovery scenarios
 │   └── fixtures/               # MCP protocol test fixtures
 ├── environments/               # Test DXT in different environments
 │   ├── test_clean_environment.py # Test in environment with no dependencies
 │   ├── test_python_versions.py   # Test with different Python versions
-│   └── test_restricted_permissions.py # Test with limited permissions
+│   ├── test_restricted_permissions.py # Test with limited permissions
+│   ├── test_resource_constraints.py # Test memory/CPU limited environments
+│   └── test_network_scenarios.py # Test timeout/proxy scenarios
+├── performance/                # Performance and reliability testing
+│   ├── test_startup_time.py    # Test DXT startup performance
+│   ├── test_tool_execution_speed.py # Test tool execution performance
+│   ├── test_memory_usage.py    # Test memory usage and cleanup
+│   └── test_version_drift.py   # Test dependency version handling
 └── validation/                 # DXT package validation
-    ├── test_package_integrity.py # Test DXT package checksums and structure
     └── test_configuration_variants.py # Test different DXT configurations
 ```
 
@@ -87,19 +106,26 @@ tools/dxt/tests/
 ```makefile
 # Add to tools/dxt/Makefile
 test-dxt-package: build
- @echo "Testing the actual built DXT package..."
- cd tests && python -m pytest package/ -v
+    @echo "Testing the actual built DXT package..."
+    cd tests && python -m pytest package/ -v
 
 test-mcp-integration: build
- @echo "Testing DXT as MCP server with simulated Claude Desktop..."
- cd tests && python -m pytest mcp_integration/ -v
+    @echo "Testing DXT as MCP server with simulated Claude Desktop..."
+    cd tests && python -m pytest mcp_integration/ -v
 
 test-environments: build
- @echo "Testing DXT in different customer environments..."
- cd tests && python -m pytest environments/ -v
+    @echo "Testing DXT in different customer environments..."
+    cd tests && python -m pytest environments/ -v
 
-test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environments
- @echo "All DXT package tests completed successfully"
+test-dxt-performance: build
+    @echo "Testing DXT performance characteristics..."
+    cd tests && python -m pytest performance/ -v
+
+test-dxt-fast: test-dxt-package test-mcp-integration
+    @echo "Fast DXT validation complete (P0 critical tests)"
+
+test-dxt-comprehensive: test test-dxt-fast test-environments test-dxt-performance
+    @echo "Comprehensive DXT testing complete"
 ```
 
 ### Implementation Details
@@ -107,6 +133,7 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
 #### Phase 1: DXT Package Loading and Validation
 
 1. **Test actual DXT package loading**:
+
    ```python
    # Test that built .dxt package can be loaded by @anthropic-ai/dxt CLI
    def test_dxt_package_loads():
@@ -123,6 +150,7 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
 #### Phase 2: Claude Desktop MCP Integration Testing
 
 1. **Simulate Claude Desktop MCP client**:
+
    ```python
    # Test DXT communicates correctly with MCP client via stdio
    def test_mcp_client_communication():
@@ -146,6 +174,7 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
 #### Phase 3: Customer Environment Testing
 
 1. **Clean environment testing**:
+
    ```python
    # Test DXT package works in environment with no pre-existing dependencies
    def test_clean_environment_installation():
@@ -155,10 +184,67 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
            # Verify DXT starts correctly without any pre-existing setup
    ```
 
-2. **Different Python version testing**:
+2. **Resource constraint testing**:
+
+   ```python
+   # Test DXT behavior under memory/CPU constraints
+   def test_resource_constrained_environment():
+       # Limit available memory and CPU
+       # Test DXT startup and tool execution
+       # Verify graceful degradation or failure messages
+   ```
+
+3. **Network resilience testing**:
+
+   ```python
+   # Test DXT handles network issues during operation
+   def test_network_timeout_scenarios():
+       # Simulate network timeouts during tool execution
+       # Test proxy configuration scenarios
+       # Verify recovery and error handling
+   ```
+
+4. **Different Python version testing**:
    - Test DXT package with Python 3.11, 3.12, etc.
    - Verify graceful failure with unsupported Python versions
    - Test that DXT finds and uses correct Python executable
+
+#### Phase 4: Performance and Reliability Testing
+
+1. **Performance benchmarking**:
+
+   ```python
+   # Test DXT startup performance
+   def test_dxt_startup_time():
+       start_time = time.time()
+       dxt_process = start_dxt_package()
+       startup_time = time.time() - start_time
+       assert startup_time < 5.0  # 5 second startup SLA
+   
+   # Test tool execution performance
+   def test_tool_execution_speed():
+       # Measure time for common tool operations
+       # Verify performance within acceptable thresholds
+   ```
+
+2. **Concurrent access testing**:
+
+   ```python
+   # Test multiple Claude Desktop instances
+   def test_concurrent_claude_connections():
+       # Start multiple MCP clients simultaneously
+       # Verify all can connect and execute tools
+       # Test resource sharing and isolation
+   ```
+
+3. **Version drift handling**:
+
+   ```python
+   # Test DXT handles dependency version mismatches
+   def test_dependency_version_compatibility():
+       # Test with different dependency versions
+       # Verify graceful handling of version conflicts
+   ```
 
 ### Dependencies
 
@@ -175,22 +261,50 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
 - Current `bootstrap.py`, `dxt_main.py`, and `manifest.json` assets
 - Actual MCP server code in `app/quilt_mcp/` (as bundled in DXT)
 
+### Test Priority Framework
+
+**P0 Critical (Must Pass):**
+
+- DXT package loads via @anthropic-ai/dxt CLI
+- MCP handshake succeeds with timeout handling
+- All 84+ tools discoverable and executable
+- Bootstrap creates environment correctly
+
+**P1 High (Should Pass):**
+
+- Tool execution through DXT package under normal conditions
+- Error handling and recovery scenarios
+- Clean environment installation
+- Different Python version compatibility
+
+**P2 Medium (Nice to Pass):**
+
+- Performance under load conditions
+- Advanced configuration scenarios
+- Detailed logging validation
+- Concurrent access scenarios
+
 ### Risks and Mitigations
 
-**Risk 1: DXT package testing requires complex setup and dependencies**
+#### Risk 1: Performance testing may identify bottlenecks requiring optimization
 
-- **Mitigation**: Use existing `@anthropic-ai/dxt` CLI, create reusable test fixtures
-- **Fallback**: Start with basic DXT loading tests, expand gradually
+- **Mitigation**: Establish baseline performance metrics, implement tiered testing (P0 fast, P1/P2 comprehensive)
+- **Fallback**: Performance issues become separate optimization stories
 
-**Risk 2: MCP protocol testing is complex and may be flaky**
+#### Risk 2: Concurrent access testing complexity
 
-- **Mitigation**: Create robust MCP test client, use timeouts and retries
-- **Fallback**: Focus on DXT package validation first, add MCP testing incrementally
+- **Mitigation**: Start with simple dual-client scenarios, expand based on real usage patterns
+- **Fallback**: Document concurrent usage limitations if complex scenarios fail
 
-**Risk 3: Testing actual DXT packages significantly increases build time**
+#### Risk 3: Resource constraint testing may be environment-specific
 
-- **Mitigation**: Make DXT package testing optional separate target, run in parallel
-- **Fallback**: Implement fast smoke tests vs. comprehensive validation modes
+- **Mitigation**: Use containerization for consistent resource limitation, test on representative hardware
+- **Fallback**: Document minimum system requirements based on test results
+
+#### Risk 4: Testing actual DXT packages increases build time
+
+- **Mitigation**: Implement fast/comprehensive modes, run P0 tests in parallel
+- **Fallback**: Make comprehensive testing optional for development builds
 
 ### Definition of Done
 
@@ -203,15 +317,53 @@ test-dxt-comprehensive: test test-dxt-package test-mcp-integration test-environm
 
 ### Success Metrics
 
-- **DXT Package Validation**: 100% of built DXT packages pass loading and startup tests
-- **MCP Integration**: All 84+ tools discoverable and executable through DXT package
+- **DXT Package Validation**: 100% of built DXT packages pass P0 critical tests
+- **MCP Integration**: All 84+ tools discoverable and executable with <2s average response time
 - **Environment Compatibility**: DXT package works in >95% of tested customer environments
-- **Build Reliability**: 0% DXT packages released that fail basic functionality tests
+- **Performance Standards**: DXT startup <5s, tool execution <10s average
+- **Reliability**: 0% DXT packages released that fail P0 critical functionality tests
+- **Concurrent Support**: Handle ≥2 simultaneous Claude Desktop connections
 
 ---
 
 **Story Type**: Enhancement  
 **Epic**: DXT Reliability Enhancement  
-**Estimate**: 5 story points  
+**Estimate**: 8 story points  
 **Priority**: High  
-**Created**: 2025-01-02
+**Created**: 2025-01-02  
+**Updated**: 2025-01-02 (Integrated QA recommendations)
+
+---
+
+## QA Results
+
+**Reviewed by**: Quinn (Test Architect)  
+**Review Date**: 2025-01-02  
+**Updated by**: Sarah (Product Owner)  
+**Integration Date**: 2025-01-02  
+**Quality Gate**: **APPROVED - READY FOR IMPLEMENTATION** ✅
+
+### Integration Summary
+
+**QA Recommendations Successfully Integrated:**
+
+- ✅ **Enhanced Test Structure**: Added performance testing directory and comprehensive test scenarios
+- ✅ **Expanded Acceptance Criteria**: AC3, AC4, and new AC5 now include concurrent access, resource constraints, and performance validation
+- ✅ **Priority Framework**: Implemented P0/P1/P2 classification for efficient test execution
+- ✅ **Risk Mitigation**: Enhanced risk assessment with performance and concurrency considerations
+- ✅ **Success Metrics**: Added quantifiable performance standards and reliability targets
+
+### Story Quality Assessment
+
+**Completeness**: ✅ **EXCELLENT** - All critical testing scenarios identified and specified  
+**Actionability**: ✅ **HIGH** - Clear implementation phases with specific test examples  
+**Measurability**: ✅ **STRONG** - Quantified success metrics and performance standards  
+**Risk Coverage**: ✅ **COMPREHENSIVE** - Performance, concurrency, and environment risks addressed
+
+### Development Readiness
+
+**Estimate Adjustment**: Increased from 5 to 8 story points to reflect expanded scope  
+**Implementation Confidence**: **HIGH** (90%)  
+**Blocking Issues**: None identified  
+
+**Ready for Sprint Planning**: This story is well-specified with clear acceptance criteria, comprehensive test architecture, and appropriate risk mitigation strategies.
