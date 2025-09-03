@@ -24,7 +24,7 @@ quilt-mcp.dxt (ZIP archive)
 
 ### Manifest Configuration
 
-See [`build-dxt/manifest.json`](../build-dxt/manifest.json) for the complete DXT manifest configuration.
+See [`tools/dxt/assets/manifest.json`](../tools/dxt/assets/manifest.json) for the complete DXT manifest configuration.
 
 ## Implementation Strategy
 
@@ -72,29 +72,38 @@ See [`build-dxt/manifest.json`](../build-dxt/manifest.json) for the complete DXT
 
 ### Directory Structure
 
-The DXT build assets are organized in a dedicated `build-dxt/` directory:
+The DXT build assets are organized in the `tools/dxt/` directory:
 
 ```tree
-build-dxt/
-├── manifest.json         # DXT manifest configuration
-├── README.md             # User installation guide
-├── LICENSE.txt           # License file (generated)
-├── check-prereqs.sh      # Prerequisites validation script
-└── icon.png              # Quilt logo (optional)
+tools/dxt/
+├── assets/
+│   ├── manifest.json     # DXT manifest configuration
+│   ├── README.md         # User installation guide
+│   ├── LICENSE.txt       # License file
+│   ├── check-prereqs.sh  # Prerequisites validation script
+│   └── icon.png          # Quilt logo
+├── build/                # Build artifacts (generated)
+├── dist/                 # Final DXT packages (generated)
+└── Makefile              # Build automation
 ```
 
 ### Development Workflow
 
-From inside the `build-dxt` folder:
+From the repository root:
 
 ```bash
-make build # Build DXT locally during development
+make dxt           # Build DXT using top-level Makefile
+make validate-dxt  # Validate the DXT package
+```
 
-make test # Is there any way to test it?
+Or from inside the `tools/dxt/` folder:
 
-make release # Build the standalone release package
-
-make assess # Run check-prereqs.sh script
+```bash
+make build    # Build DXT locally during development
+make test     # Test the bootstrap script
+make validate # Validate DXT package with official tools
+make release  # Build the standalone release package
+make assess   # Run check-prereqs.sh script
 ```
 
 ### CI/CD Integration
