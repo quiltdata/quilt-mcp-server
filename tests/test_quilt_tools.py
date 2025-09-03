@@ -144,27 +144,39 @@ class TestQuiltTools:
 
     def test_packages_search_authentication_error(self):
         """Test packages_search with authentication error."""
-        # Mock the build_stack_search_indices to fail
+        # Mock both the build_stack_search_indices to fail AND the bucket search fallback
         with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("401 Unauthorized")):
-            result = packages_search("test query")
-            
-            assert isinstance(result, dict)
-            assert "error" in result
-            # The error gets wrapped as "All search methods failed: <original error>"
-            assert "All search methods failed" in result["error"]
-            assert result["results"] == []
+            with patch("quilt3.Bucket") as mock_bucket_class:
+                # Make bucket search also fail
+                mock_bucket = Mock()
+                mock_bucket.search.side_effect = Exception("401 Unauthorized - fallback failed")
+                mock_bucket_class.return_value = mock_bucket
+                
+                result = packages_search("test query")
+                
+                assert isinstance(result, dict)
+                assert "error" in result
+                # The error gets wrapped as "All search methods failed: <original error>"
+                assert "All search methods failed" in result["error"]
+                assert result["results"] == []
 
     def test_packages_search_config_error(self):
         """Test packages_search with configuration error."""
-        # Mock the build_stack_search_indices to fail with config error
+        # Mock both the build_stack_search_indices to fail AND the bucket search fallback
         with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("Invalid URL - No scheme supplied")):
-            result = packages_search("test query")
-            
-            assert isinstance(result, dict)
-            assert "error" in result
-            # The error gets wrapped as "All search methods failed: <original error>"
-            assert "All search methods failed" in result["error"]
-            assert result["results"] == []
+            with patch("quilt3.Bucket") as mock_bucket_class:
+                # Make bucket search also fail
+                mock_bucket = Mock()
+                mock_bucket.search.side_effect = Exception("Invalid URL - No scheme supplied - fallback failed")
+                mock_bucket_class.return_value = mock_bucket
+                
+                result = packages_search("test query")
+                
+                assert isinstance(result, dict)
+                assert "error" in result
+                # The error gets wrapped as "All search methods failed: <original error>"
+                assert "All search methods failed" in result["error"]
+                assert result["results"] == []
 
     def test_packages_search_success(self):
         """Test packages_search with successful results."""
