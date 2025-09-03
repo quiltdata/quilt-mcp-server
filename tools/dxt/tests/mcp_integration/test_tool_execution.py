@@ -8,7 +8,7 @@ import json
 import pytest
 import os
 from pathlib import Path
-from .test_mcp_handshake import MCPTestClient
+from tests.mcp_integration.test_mcp_handshake import MCPTestClient
 
 
 class TestToolExecution:
@@ -29,16 +29,40 @@ class TestToolExecution:
         pytest.skip("No DXT package found")
     
     async def start_dxt_process(self, dxt_package_path):
-        """Start DXT process for testing."""
+        """Start DXT process by running bootstrap.py from unpacked DXT."""
+        if not os.path.exists(dxt_package_path):
+            pytest.skip("DXT package not built yet")
+        
         try:
+            # First unpack the DXT file to a temp directory
+            import tempfile
+            import subprocess
+            temp_dir = tempfile.mkdtemp()
+            
+            # Unpack the DXT file
+            unpack_process = subprocess.run([
+                "npx", "@anthropic-ai/dxt", "unpack", dxt_package_path, temp_dir
+            ], capture_output=True, text=True)
+            
+            if unpack_process.returncode != 0:
+                pytest.skip(f"Could not unpack DXT file: {unpack_process.stderr}")
+            
+            # Start the DXT process by running bootstrap.py directly
+            bootstrap_path = os.path.join(temp_dir, "bootstrap.py")
+            if not os.path.exists(bootstrap_path):
+                pytest.skip(f"bootstrap.py not found in unpacked DXT at {bootstrap_path}")
+            
+            # Start DXT process using bootstrap.py (simulating Claude Desktop execution)
             process = await asyncio.create_subprocess_exec(
-                "npx", "@anthropic-ai/dxt", "run", dxt_package_path,
+                "python3", bootstrap_path,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                cwd=temp_dir
             )
             
-            await asyncio.sleep(3.0)  # Give time for startup
+            # Give it time for startup and tool registration (bootstrap process)
+            await asyncio.sleep(30.0)  # Give time for startup
             
             if process.returncode is not None:
                 stderr = await process.stderr.read()

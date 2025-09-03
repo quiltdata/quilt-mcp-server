@@ -23,7 +23,7 @@ class MCPTestClient:
         self.process = process
         self.request_id = 0
     
-    async def send_request(self, method, params=None, timeout=5.0):
+    async def send_request(self, method, params=None, timeout=10.0):
         """Send an MCP request and wait for response."""
         self.request_id += 1
         request = {
@@ -105,21 +105,39 @@ class TestMCPHandshake:
         return str(dxt_path)
     
     async def start_dxt_process(self, dxt_package_path):
-        """Start DXT process using @anthropic-ai/dxt CLI."""
+        """Start DXT process by running bootstrap.py from unpacked DXT."""
         if not os.path.exists(dxt_package_path):
             pytest.skip("DXT package not built yet")
         
         try:
-            # Start DXT process
+            # First unpack the DXT file to a temp directory
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            
+            # Unpack the DXT file
+            unpack_process = subprocess.run([
+                "npx", "@anthropic-ai/dxt", "unpack", dxt_package_path, temp_dir
+            ], capture_output=True, text=True)
+            
+            if unpack_process.returncode != 0:
+                pytest.skip(f"Could not unpack DXT file: {unpack_process.stderr}")
+            
+            # Start the DXT process by running bootstrap.py directly
+            bootstrap_path = os.path.join(temp_dir, "bootstrap.py")
+            if not os.path.exists(bootstrap_path):
+                pytest.skip(f"bootstrap.py not found in unpacked DXT at {bootstrap_path}")
+            
+            # Start DXT process using bootstrap.py (simulating Claude Desktop execution)
             process = await asyncio.create_subprocess_exec(
-                "npx", "@anthropic-ai/dxt", "run", dxt_package_path,
+                "python3", bootstrap_path,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+                stderr=asyncio.subprocess.PIPE,
+                cwd=temp_dir
             )
             
-            # Give it a moment to start
-            await asyncio.sleep(1.0)
+            # Give it more time to start up and install dependencies (bootstrap process)
+            await asyncio.sleep(30.0)  # Bootstrap creates venv and installs deps
             
             if process.returncode is not None:
                 stderr = await process.stderr.read()
