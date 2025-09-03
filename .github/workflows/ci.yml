@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [main, '89-dxt-error']
   workflow_dispatch:
 
 jobs:
