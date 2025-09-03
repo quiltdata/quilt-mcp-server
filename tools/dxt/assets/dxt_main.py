@@ -9,7 +9,7 @@ base_dir = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(base_dir, 'lib'))
 sys.path.insert(0, base_dir)
 
-from quilt_mcp.utils import run_server # pyright: ignore[reportMissingImports]
+from app.quilt_mcp.utils import run_server # pyright: ignore[reportMissingImports]
 
 
 def setup_dxt_environment() -> None:

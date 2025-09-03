@@ -211,3 +211,5 @@ quilt/
 
 # Cursor IDE
 .cursor/
+/tools/dxt/temp-test
+/tools/dxt/temp-unpack
