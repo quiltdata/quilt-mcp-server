@@ -11,7 +11,7 @@
 
 ### QA Testing Results
 
-The comprehensive testing framework implemented in **story-1-comprehensive-dxt-testing.md** has revealed what appear to be actual DXT bugs, not just test issues. These are the real DXT functionality problems we were concerned about originally.
+The comprehensive testing framework implemented in **story-1-comprehensive-dxt-testing.md** has revealed what appear to be actual DXT bugs, not just test issues. These could be the real DXT functionality problems we were concerned about originally.
 
 **Critical Issues Discovered:**
 
