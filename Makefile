@@ -116,10 +116,10 @@ clean:
 coverage:
 	@$(MAKE) -C app coverage
 
-# Release Management
-REPO_URL = $(shell git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+# Release Management  
+REPO_URL := $(shell git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
 
-define check_git_clean
+check-clean-repo:
 	@echo "🔍 Checking repository state..."
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "❌ Repository has uncommitted changes. Please commit or stash them first."; \
@@ -127,24 +127,6 @@ define check_git_clean
 		exit 1; \
 	fi
 	@echo "✅ Repository is clean"
-endef
-
-define create_and_push_tag
-	if git tag | grep -q "^v$(1)$$"; then \
-		echo "❌ Tag v$(1) already exists"; \
-		exit 1; \
-	fi; \
-	echo "🏷️  Creating $(2) tag v$(1)..."; \
-	git pull origin $(3); \
-	git tag -a "v$(1)" -m "$(2) v$(1)"; \
-	git push origin "v$(1)"; \
-	echo "✅ Tag v$(1) created and pushed"; \
-	echo "🚀 GitHub Actions will now build and publish the DXT package"; \
-	echo "📦 Release will be available at: https://github.com/$(REPO_URL)/releases/tag/v$(1)"
-endef
-
-check-clean-repo:
-	$(call check_git_clean)
 
 tag-dev: check-clean-repo
 	@echo "🔍 Reading base version from pyproject.toml..."
@@ -156,7 +138,17 @@ tag-dev: check-clean-repo
 	TIMESTAMP=$$(date +%Y%m%d%H%M%S); \
 	DEV_VERSION="$$BASE_VERSION-dev-$$TIMESTAMP"; \
 	echo "📋 Generated dev version: $$DEV_VERSION"; \
-	@$(call create_and_push_tag,$$DEV_VERSION,Development build,$$(git rev-parse --abbrev-ref HEAD))
+	if git tag | grep -q "^v$$DEV_VERSION$$"; then \
+		echo "❌ Tag v$$DEV_VERSION already exists"; \
+		exit 1; \
+	fi; \
+	echo "🏷️  Creating development tag v$$DEV_VERSION..."; \
+	git pull origin $$(git rev-parse --abbrev-ref HEAD); \
+	git tag -a "v$$DEV_VERSION" -m "Development build v$$DEV_VERSION"; \
+	git push origin "v$$DEV_VERSION"; \
+	echo "✅ Development tag v$$DEV_VERSION created and pushed"; \
+	echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"; \
+	echo "📦 Release will be available at: https://github.com/$(REPO_URL)/releases/tag/v$$DEV_VERSION"
 
 tag: check-clean-repo
 	@echo "🔍 Reading version from tools/dxt/assets/manifest.json..."
@@ -171,13 +163,25 @@ tag: check-clean-repo
 	fi; \
 	echo "📋 Found version: $$MANIFEST_VERSION"; \
 	if echo "$$MANIFEST_VERSION" | grep -q "dev"; then \
+		echo "🏷️  Creating development tag v$$MANIFEST_VERSION..."; \
 		TAG_TYPE="Development build"; \
 	elif echo "$$MANIFEST_VERSION" | grep -q -- "-"; then \
+		echo "🏷️  Creating prerelease tag v$$MANIFEST_VERSION..."; \
 		TAG_TYPE="Prerelease"; \
 	else \
+		echo "🏷️  Creating release tag v$$MANIFEST_VERSION..."; \
 		TAG_TYPE="Release"; \
 	fi; \
-	@$(call create_and_push_tag,$$MANIFEST_VERSION,$$TAG_TYPE,main)
+	if git tag | grep -q "^v$$MANIFEST_VERSION$$"; then \
+		echo "❌ Tag v$$MANIFEST_VERSION already exists"; \
+		exit 1; \
+	fi; \
+	git pull origin main; \
+	git tag -a "v$$MANIFEST_VERSION" -m "$$TAG_TYPE v$$MANIFEST_VERSION"; \
+	git push origin "v$$MANIFEST_VERSION"; \
+	echo "✅ Tag v$$MANIFEST_VERSION created and pushed"; \
+	echo "🚀 GitHub Actions will now build and publish the DXT package"; \
+	echo "📦 Release will be available at: https://github.com/$(REPO_URL)/releases/tag/v$$MANIFEST_VERSION"
 
 # Cursor IDE Rules Update
 update-cursor-rules:
