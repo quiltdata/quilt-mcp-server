@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.1",
   "name": "quilt-mcp",
-  "version": "0.5.9",
+  "version": "{{ version }}",
   "description": "Access Quilt data packages through Claude Desktop",
   "author": {
     "name": "Quilt Data, Inc.",
@@ -18,9 +18,7 @@
     "entry_point": "bootstrap.py",
     "mcp_config": {
       "command": "python3",
-      "args": [
-        "${__dirname}/bootstrap.py"
-      ],
+      "args": ["${__dirname}/bootstrap.py"],
       "env": {
         "PYTHONNOUSERSITE": "1"
       }
