@@ -14,7 +14,6 @@ from quilt_mcp.constants import DEFAULT_BUCKET
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 def test_bucket_objects_list_success():
     """Test bucket objects listing with real AWS (integration test)."""
     from tests.test_helpers import skip_if_no_aws_credentials
@@ -36,7 +35,6 @@ def test_bucket_objects_list_error():
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 def test_bucket_object_info_success():
     """Test bucket object info with real AWS (integration test)."""
     from tests.test_helpers import skip_if_no_aws_credentials
@@ -63,7 +61,6 @@ def test_bucket_object_info_invalid_uri():
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 def test_bucket_objects_put_success():
     """Test bucket objects upload with real AWS (integration test)."""
     from tests.test_helpers import skip_if_no_aws_credentials
@@ -89,7 +86,6 @@ def test_bucket_objects_put_success():
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 def test_bucket_object_fetch_base64():
     """Test bucket object fetch with real AWS (integration test)."""
     from tests.test_helpers import skip_if_no_aws_credentials
@@ -112,7 +108,6 @@ def test_bucket_object_fetch_base64():
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 def test_bucket_object_link_success():
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     from tests.test_helpers import skip_if_no_aws_credentials

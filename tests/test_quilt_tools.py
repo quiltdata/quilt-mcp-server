@@ -1,4 +1,5 @@
 from unittest.mock import Mock, patch
+import pytest
 
 from quilt_mcp.tools.auth import (
     auth_status,
@@ -142,22 +143,20 @@ class TestQuiltTools:
             assert len(result["matches"]) == 1  # Only 'test_file.txt' matches 'test'
             assert result["matches"][0]["logical_key"] == "test_file.txt"
 
-    def test_packages_search_authentication_error(self):
-        """Test packages_search with authentication error."""
-        # Mock the build_stack_search_indices to fail
-        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("401 Unauthorized")):
-            result = packages_search("test query")
-            
-            assert isinstance(result, dict)
-            assert "error" in result
-            # The error gets wrapped as "All search methods failed: <original error>"
-            assert "All search methods failed" in result["error"]
-            assert result["results"] == []
-
-    def test_packages_search_config_error(self):
-        """Test packages_search with configuration error."""
-        # Mock the build_stack_search_indices to fail with config error
-        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", side_effect=Exception("Invalid URL - No scheme supplied")):
+    @pytest.mark.parametrize("error_message,test_description", [
+        ("401 Unauthorized", "authentication error"),
+        ("Invalid URL - No scheme supplied", "configuration error"),
+    ])
+    def test_packages_search_error_scenarios(self, error_message, test_description):
+        """Test packages_search with various error scenarios."""
+        # Mock both search methods to fail using patch.multiple for cleaner code
+        mock_bucket = Mock()
+        mock_bucket.search.side_effect = Exception(f"{error_message} - fallback failed")
+        
+        with patch.multiple(
+            "quilt_mcp.tools.stack_buckets",
+            build_stack_search_indices=Mock(side_effect=Exception(error_message))
+        ), patch("quilt3.Bucket", return_value=mock_bucket):
             result = packages_search("test query")
             
             assert isinstance(result, dict)

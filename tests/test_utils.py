@@ -33,7 +33,6 @@ class TestUtils(unittest.TestCase):
         self.assertIsNone(generate_signed_url(""))
 
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_generate_signed_url_success(self):
         """Test URL generation with real AWS connection."""
         # Skip if AWS credentials not available
@@ -70,7 +69,6 @@ class TestUtils(unittest.TestCase):
         )
 
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -110,7 +108,6 @@ class TestUtils(unittest.TestCase):
         )
 
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_generate_signed_url_exception(self):
         """Test handling of exceptions with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials

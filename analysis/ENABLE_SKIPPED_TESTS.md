@@ -25,9 +25,9 @@ AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
 ### 3. **Updated Test Targets**
 ```makefile
 # app/Makefile - New target for AWS-enabled CI tests
-test-ci-with-aws:
-	@echo "Running CI tests with real AWS credentials..."
-	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings
+# Old target removed - use simplified targets:
+# test-ci for CI-safe subset
+# test for full local testing
 ```
 - ✅ Increased timeout to 30s for AWS calls
 - ✅ Still excludes search and slow tests for CI efficiency

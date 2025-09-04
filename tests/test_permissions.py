@@ -328,7 +328,6 @@ class TestPermissionDiscoveryEngine:
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_discover_bucket_permissions(self):
         """Test bucket permission discovery with real AWS connection."""
         # Skip if AWS credentials not available
@@ -354,7 +353,6 @@ class TestPermissionDiscoveryEngine:
             assert bucket_info.can_list is True
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -380,7 +378,6 @@ class TestPermissionDiscoveryEngine:
     
 
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials

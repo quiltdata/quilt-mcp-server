@@ -31,7 +31,6 @@ QUILT_TEST_ENTRY           - Known S3 object for testing (e.g., "test-file.csv")
 ### Optional Advanced Settings
 ```
 QUILT_READ_POLICY_ARN      - IAM policy ARN for read permissions
-QUILT_INTEGRATION_BUCKET   - Separate bucket for integration tests
 CDK_DEFAULT_ACCOUNT        - AWS account ID for CDK deployment tests
 CDK_DEFAULT_REGION         - AWS region for CDK deployment tests
 ```
@@ -117,17 +116,15 @@ export AWS_SECRET_ACCESS_KEY=your_secret
 export QUILT_DEFAULT_BUCKET=your-test-bucket
 
 # Run all integration tests
-cd app && make test-integration
+cd app && make test
 
-# Run specific test suites
-make test-aws          # AWS-specific tests
-make test-search       # Search functionality tests  
-make test-permissions  # Permission discovery tests
+# Run specific test suites (all included in main test suite)
+make test              # Full local test suite including AWS, search, permissions
 ```
 
 ### Running Unit Tests (No AWS)
 ```bash
-cd app && make test-unit-ci
+cd app && make test-ci
 ```
 
 ## Test Organization
