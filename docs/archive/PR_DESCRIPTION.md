@@ -45,7 +45,7 @@ This PR adds comprehensive table formatting functionality to the Quilt MCP Serve
 
 ### **CI/Test Infrastructure:**
 - ✅ `pyproject.toml` - Added asyncio marker configuration
-- ✅ `app/Makefile` - Added `test-ci-with-aws` target for real AWS testing
+- ✅ `app/Makefile` - Added `test-ci` target for real AWS testing
 - ✅ `.github/workflows/test.yml` - Updated to run AWS tests with real credentials
 - ✅ `.github/workflows/integration-test.yml` - Extended to run on develop branch
 - ✅ `app/quilt_mcp/constants.py` - Updated default bucket to `quilt-sandbox-bucket`

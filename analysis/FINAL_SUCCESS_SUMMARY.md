@@ -46,7 +46,7 @@ PR #64 successfully delivers **two major improvements** to the Quilt MCP Server:
 ### **2. AWS Test Infrastructure Overhaul**
 - ✅ Fixed asyncio marker configuration (eliminated pytest warnings)
 - ✅ Enabled 89 AWS tests with real credentials (`quilt-sandbox-bucket`)
-- ✅ Fixed CI Makefile path issue (`make -C app test-ci-with-aws`)
+- ✅ Fixed CI Makefile path issue (`make -C app test-ci`)
 - ✅ Updated repository secrets to use accessible bucket
 - ✅ Extended integration tests to run on develop branch
 - ✅ Real AWS service integration (Athena, S3, permissions)
@@ -71,7 +71,7 @@ PR #64 successfully delivers **two major improvements** to the Quilt MCP Server:
 
 ### **CI/Infrastructure:**
 - `pyproject.toml` - Added asyncio marker
-- `app/Makefile` - Added `test-ci-with-aws` target
+- `app/Makefile` - Added `test-ci` target
 - `.github/workflows/test.yml` - Updated for AWS testing
 - `.github/workflows/integration-test.yml` - Extended to develop branch
 - `app/quilt_mcp/constants.py` - Updated default bucket

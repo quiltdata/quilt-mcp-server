@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-endpoint validate init verify zero run-inspector test-tools update-cursor-rules 
+.PHONY: help clean config coverage lint run test test-unit test-ci test-endpoint validate init verify zero run-inspector update-cursor-rules 
 
 # Default target
 help:
@@ -15,8 +15,9 @@ help:
 	@echo ""
 	@echo "Commands:"
 	@echo "  make run          - Start local MCP server on $(ENDPOINT)"
-	@echo "  make test         - Run unit and integration tests"
-	@echo "  make test-unit    - Run unit tests only (skip integration tests)"
+	@echo "  make test         - Run all tests locally"
+	@echo "  make test-unit    - Run unit tests only (no AWS/integration tests)"
+	@echo "  make test-ci      - Run CI-safe tests (no search/slow tests)"
 	@echo "  make test-endpoint - Start server and test MCP endpoint"
 	@echo "  make coverage     - Run tests with coverage (≥85% required)"
 	@echo "  make lint         - Run code linting (auto-fixes formatting, reports remaining issues)"
@@ -79,63 +80,17 @@ test:
 		export PYTHONPATH="$(PWD)" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
 	fi
 
-test-ci:
-	@echo "Running CI tests with timeouts (skipping search tests)..."
-	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search" --timeout=15 --disable-warnings
-
-test-ci-with-aws:
-	@echo "Running CI tests with real AWS credentials..."
-	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not slow" --timeout=30 --disable-warnings
-
-test-ci-with-aws-no-search:
-	@echo "Running CI tests with real AWS credentials (excluding search)..."
-	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings
-
-test-unit-ci:
-	@echo "Running unit tests only (no AWS calls)..."
-	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not aws and not search" --timeout=10 --disable-warnings
-
-test-integration:
-	@echo "Running integration tests with real AWS..."
-	@uv sync --group test
-	@mkdir -p test-results
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws or search" --timeout=120 --disable-warnings \
-		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
-
-test-aws:
-	@echo "Running AWS-specific integration tests..."
-	@uv sync --group test
-	@mkdir -p test-results
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "aws" --timeout=120 --disable-warnings \
-		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
-
-test-search:
-	@echo "Running search integration tests..."
-	@uv sync --group test
-	@mkdir -p test-results
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "search" --timeout=120 --disable-warnings \
-		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
-
-test-permissions:
-	@echo "Running permission-specific tests..."
-	@uv sync --group test
-	@mkdir -p test-results
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_permissions.py -v --timeout=60 --disable-warnings \
-		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
-
 test-unit:
-	@echo "Running unit tests only (skipping integration tests)..."
+	@echo "Running unit tests only (no AWS/integration tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not aws"
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -v -m "not aws and not search"
 
-test-tools:
-	@echo "Running tool-focused tests (metadata/buckets/packages)..."
+test-ci:
+	@echo "Running CI tests (skipping search/slow tests)..."
 	@uv sync --group test
-	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/test_metadata_examples.py ../tests/test_bucket_tools.py ../tests/test_quilt_tools.py -v
+	@mkdir -p test-results
+	@export PYTHONPATH="$(PWD)" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest ../tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings \
+		--junitxml=test-results/results.xml --cov=quilt_mcp --cov-report=xml:coverage.xml
 
 test-endpoint:
 	@echo "Testing MCP endpoint at $(ENDPOINT)..."

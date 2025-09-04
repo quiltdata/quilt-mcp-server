@@ -11,7 +11,7 @@ PHASES := app build-dxt
 APP_ENDPOINT ?= http://127.0.0.1:8000/mcp
 FLAGS ?=
 
-.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) $(addprefix test-,$(PHASES)) $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo update-cursor-rules test-readme
+.PHONY: help check-env clean coverage $(PHASES) $(addprefix init-,$(PHASES)) test-ci test-app test-endpoint $(addprefix validate-,$(PHASES)) validate run-app run-app-tunnel run-app-tunnel-inspector tag-release tag-prerelease tag-dev tag check-clean-repo update-cursor-rules test-readme
 
 # Default target
 help:
@@ -36,6 +36,9 @@ help:
 	@echo ""
 	@echo "⚙️  Utilities:"
 	@echo "  make check-env    - Validate .env configuration"
+	@echo "  make test-ci      - Run CI-safe tests"
+	@echo "  make test-app     - Run all app tests locally"
+	@echo "  make test-endpoint - Test MCP endpoint"
 	@echo "  make coverage     - Run tests with coverage"
 	@echo "  make test-readme  - Test README installation commands work"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
@@ -80,8 +83,8 @@ validate-build-dxt:
 test-app:
 	@$(MAKE) -C app test
 
-test-build-dxt:
-	@$(MAKE) -C build-dxt test
+test-endpoint:
+	@$(MAKE) -C app test-endpoint
 
 
 # Server Commands

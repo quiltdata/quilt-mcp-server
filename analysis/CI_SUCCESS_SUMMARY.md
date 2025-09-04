@@ -16,8 +16,8 @@
 ## 🔧 **Issues Fixed**
 
 ### 1. **Makefile Path Issue**
-- **Problem**: `make: *** No rule to make target 'test-ci-with-aws'. Stop.`
-- **Solution**: Changed `make test-ci-with-aws` to `make -C app test-ci-with-aws`
+- **Problem**: `make: *** No rule to make target 'test-ci'. Stop.`
+- **Solution**: Changed `make test-ci` to `make -C app test-ci`
 - **Root Cause**: GitHub Actions runs from repo root, but Makefile is in `app/` directory
 
 ### 2. **AWS Credentials Working**
