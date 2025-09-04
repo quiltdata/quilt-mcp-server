@@ -1,0 +1,63 @@
+name: 'Create Release'
+description: 'Build DXT package and create GitHub release with bundle'
+inputs:
+  tag-version:
+    description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
+    required: true
+
+outputs:
+  release-url:
+    description: 'URL of the created release'
+    value: ${{ steps.create-release.outputs.url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build DXT package
+      shell: bash  
+      run: make dxt
+      
+    - name: Validate DXT package
+      shell: bash
+      run: make validate-dxt
+
+    - name: Extract manifest version
+      id: manifest
+      shell: bash
+      run: |
+        MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('tools/dxt/assets/manifest.json'))['version'])")
+        echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
+        echo "Manifest Version: $MANIFEST_VERSION"
+
+    - name: Create release bundle
+      shell: bash
+      run: |
+        mkdir -p release-bundle
+        cp tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt release-bundle/
+        cp tools/dxt/assets/README.md release-bundle/
+        cp tools/dxt/assets/check-prereqs.sh release-bundle/
+        cd release-bundle
+        zip -r ../quilt-mcp-${{ inputs.tag-version }}-bundle.zip .
+        cd ..
+        echo "Bundle created: quilt-mcp-${{ inputs.tag-version }}-bundle.zip"
+
+    - name: Create GitHub Release
+      id: create-release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Quilt MCP DXT v${{ inputs.tag-version }}"
+        files: |
+          tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt
+          tools/dxt/assets/README.md
+          tools/dxt/assets/check-prereqs.sh
+          quilt-mcp-${{ inputs.tag-version }}-bundle.zip
+        draft: false
+        prerelease: ${{ contains(inputs.tag-version, '-') }}
+        generate_release_notes: true
+        
+    - name: Upload DXT artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dxt-package
+        path: tools/dxt/dist/*.dxt
+        retention-days: 90
