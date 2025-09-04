@@ -56,8 +56,21 @@ app:
 dxt:
 	@$(MAKE) -C tools/dxt build
 
-test-ci:
+test-ci: test-readme
 	@$(MAKE) -C app test-ci
+
+# Test Commands
+test-app:
+	@$(MAKE) -C app test
+
+test-dxt:
+	@$(MAKE) -C tools/dxt test
+
+test-readme:
+	@echo "Validating README bash code blocks..."
+	@uv sync --group test
+	@uv run python -m pytest tests/test_readme.py -v
+	@echo "✅ README bash validation complete"
 
 # Validation Commands - delegate to phase-specific Makefiles
 validate:
@@ -72,14 +85,6 @@ validate-app:
 validate-dxt:
 	@echo "🔍 Validating Phase 2 (DXT)..."
 	@$(MAKE) -C tools/dxt validate
-
-
-# Test Commands - delegate to phase-specific Makefiles
-test-app:
-	@$(MAKE) -C app test
-
-test-dxt:
-	@$(MAKE) -C tools/dxt test
 
 
 # Server Commands
@@ -110,13 +115,6 @@ clean:
 
 coverage:
 	@$(MAKE) -C app coverage
-
-test-readme:
-	@echo "Validating README bash code blocks..."
-	@uv sync --group test
-	@uv run python -m pytest tests/test_readme.py -v
-	@echo "✅ README bash validation complete"
-
 
 # Release Management
 check-clean-repo:
