@@ -48,20 +48,39 @@ jobs:
     - name: Extract version from tag
       id: version
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        echo "Tag Version: $TAG_VERSION"
+
+    - name: Extract manifest version
+      id: manifest
+      run: |
+        MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('tools/dxt/assets/manifest.json'))['version'])")
+        echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
+        echo "Manifest Version: $MANIFEST_VERSION"
+
+    - name: Create release bundle
+      run: |
+        mkdir -p release-bundle
+        cp tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt release-bundle/
+        cp tools/dxt/assets/README.md release-bundle/
+        cp tools/dxt/assets/check-prereqs.sh release-bundle/
+        cd release-bundle
+        zip -r ../quilt-mcp-${{ steps.version.outputs.tag_version }}-bundle.zip .
+        cd ..
+        echo "Bundle created: quilt-mcp-${{ steps.version.outputs.tag_version }}-bundle.zip"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        name: "Quilt MCP DXT v${{ steps.version.outputs.version }}"
+        name: "Quilt MCP DXT v${{ steps.version.outputs.tag_version }}"
         files: |
-          tools/dxt/dist/quilt-mcp-${{ steps.version.outputs.version }}.dxt
+          tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt
           tools/dxt/assets/README.md
           tools/dxt/assets/check-prereqs.sh
+          quilt-mcp-${{ steps.version.outputs.tag_version }}-bundle.zip
         draft: false
-        prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+        prerelease: ${{ contains(steps.version.outputs.tag_version, '-') }}
         generate_release_notes: true
         
     - name: Upload DXT artifacts
