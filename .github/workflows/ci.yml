@@ -50,7 +50,7 @@ jobs:
           app/coverage.xml
         retention-days: 7
 
-  release:
+  build-and-release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: ubuntu-latest
@@ -63,6 +63,7 @@ jobs:
     - name: Setup build environment
       uses: ./.github/actions/setup-build-env
       with:
+        python-version: '3.11'
         include-nodejs: 'true'
 
     - name: Extract version from tag
