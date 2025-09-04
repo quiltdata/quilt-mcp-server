@@ -86,9 +86,11 @@ $(DEPS_MARKER): ../../pyproject.toml
 	@echo "Installing Python dependencies..."
 	@mkdir -p $(BUILD_PKGS_DIR)
 	@cd ../.. && uv pip install --target $(CURDIR)/$(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
+	# Clean up duplicate directory structure - keep only lib/quilt_mcp
+	@if [ -d "$(BUILD_PKGS_DIR)/app" ]; then rm -rf "$(BUILD_PKGS_DIR)/app"; fi
 	@touch $@
 
-contents: $(ASSETS_MARKER) $(APP_MARKER) $(DEPS_MARKER)
+contents: $(ASSETS_MARKER) $(DEPS_MARKER)
 
 # Build the DXT package only if dependencies have changed
 $(PACKAGE_NAME): contents
