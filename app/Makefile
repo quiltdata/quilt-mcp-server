@@ -7,7 +7,7 @@ export
 
 ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: help clean config coverage lint run test test-unit test-ci test-endpoint validate init verify zero run-inspector update-cursor-rules 
+.PHONY: help clean config coverage coverage-unit lint run test test-unit test-ci test-endpoint validate init verify zero run-inspector update-cursor-rules 
 
 # Default target
 help:
@@ -20,6 +20,7 @@ help:
 	@echo "  make test-ci      - Run CI-safe tests (no search/slow tests)"
 	@echo "  make test-endpoint - Start server and test MCP endpoint"
 	@echo "  make coverage     - Run tests with coverage (≥85% required)"
+	@echo "  make coverage-unit - Run unit tests with coverage (fast)"
 	@echo "  make lint         - Run code linting (auto-fixes formatting, reports remaining issues)"
 	@echo "  make validate     - Full SPEC-compliant validation"
 	@echo "  make clean        - Clean Python cache"
@@ -43,6 +44,11 @@ coverage:
 	@echo "Running tests with coverage (≥85% required)..."
 	@uv sync --group test
 	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+
+coverage-unit:
+	@echo "Running unit tests with coverage (fast)..."
+	@uv sync --group test
+	@export PYTHONPATH="$(PWD)" && uv run python -m pytest ../tests/ -m "not aws and not search" --cov=quilt_mcp --cov-report=term-missing -v
 
 lint:
 	@echo "Running code linting and auto-fixing..."
