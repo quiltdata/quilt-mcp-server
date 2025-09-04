@@ -10,9 +10,9 @@ DIST_DIR := dist
 
 # Variables
 DXT_NAME := quilt-mcp
-# Allow VERSION to be overridden from command line, otherwise read from manifest.json
-MANIFEST_VERSION := $(shell grep '"version"' assets/manifest.json | sed 's/.*"version": "\([^"]*\)".*/\1/' 2>/dev/null || echo "dev")
-PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
+# Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
+PYPROJECT_VERSION := $(shell cd ../.. && python -c "import tomllib; f=open('pyproject.toml','rb'); data=tomllib.load(f); print(data['project']['version'])" 2>/dev/null || echo "dev")
+PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(PYPROJECT_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
 PACKAGE_NAME := $(PACKAGE_ID).dxt
 RELEASE_NAME := $(PACKAGE_ID)-release.zip
@@ -71,6 +71,9 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@mkdir -p $(BUILD_DIR)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
 	@chmod +x $(BUILD_DIR)/check-prereqs.sh
+	@echo "Generating manifest.json from template..."
+	@python -c "import jinja2; t=jinja2.Template(open('$(BUILD_DIR)/manifest.json.j2').read()); open('$(BUILD_DIR)/manifest.json','w').write(t.render(version='$(PACKAGE_VERSION)'))"
+	@rm $(BUILD_DIR)/manifest.json.j2
 	@touch $@
 
 $(APP_MARKER): $(APP_FILES)
@@ -116,8 +119,8 @@ validate: check-tools $(PACKAGE_NAME)
 	@echo "Validating DXT package..."
 	@echo "Validating with official DXT CLI..."
 	@npx @anthropic-ai/dxt info $(PACKAGE_NAME)
-	@echo "Validating manifest.json..."
-	@npx @anthropic-ai/dxt validate $(ASSETS_DIR)/manifest.json
+	@echo "Validating generated manifest.json..."
+	@npx @anthropic-ai/dxt validate $(BUILD_DIR)/manifest.json
 	@echo "✅ DXT package validation passed"
 
 release: validate $(RELEASE_NAME)
