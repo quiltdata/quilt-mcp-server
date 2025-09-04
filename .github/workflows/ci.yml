@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
-    branches: [main, '89-dxt-error']
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -112,7 +112,7 @@ jobs:
         QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
-        QUILT_INTEGRATION_BUCKET: ${{ secrets.QUILT_INTEGRATION_BUCKET || secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_INTEGRATION_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
         QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
 
     - name: Build DXT package
