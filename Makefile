@@ -131,12 +131,7 @@ check-clean-repo:
 		git status --short; \
 		exit 1; \
 	fi
-	@if [ "$$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then \
-		echo "❌ Not on main branch. Please switch to main branch first."; \
-		echo "Current branch: $$(git rev-parse --abbrev-ref HEAD)"; \
-		exit 1; \
-	fi
-	@echo "✅ Repository is clean and on main branch"
+	@echo "✅ Repository is clean"
 
 tag-release: check-clean-repo
 	@if [ -z "$(VERSION)" ]; then \
