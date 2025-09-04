@@ -27,7 +27,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: help contents build test validate release assess clean check-tools debug
+.PHONY: help contents build test test-imports test-bootstrap validate release assess clean check-tools debug
 
 # Check for required tools
 check-tools:
@@ -37,14 +37,16 @@ check-tools:
 
 help:
 	@echo "Available targets:"
-	@echo "  build      - Build DXT package using official dxt pack"
-	@echo "  test       - Test import structure in build directory before packaging"
-	@echo "  validate   - Validate the DXT package (with official validator)"
-	@echo "  release    - Build the standalone release package"
-	@echo "  assess     - Run check-prereqs.sh script"
-	@echo "  check-tools - Check for required tools"
-	@echo "  debug      - Show build variables and configuration"
-	@echo "  clean      - Clean build artifacts"
+	@echo "  build         - Build DXT package using official dxt pack"
+	@echo "  test          - Run all DXT tests (imports + bootstrap)"
+	@echo "  test-imports  - Test DXT import resolution (diagnoses Issue #89)"
+	@echo "  test-bootstrap - Test bootstrap script functionality"
+	@echo "  validate      - Validate the DXT package (with official validator)"
+	@echo "  release       - Build the standalone release package"
+	@echo "  assess        - Run check-prereqs.sh script"
+	@echo "  check-tools   - Check for required tools"
+	@echo "  debug         - Show build variables and configuration"
+	@echo "  clean         - Clean build artifacts"
 
 debug: check-tools
 	@echo "DXT_NAME=$(DXT_NAME)"
@@ -119,7 +121,14 @@ validate: check-tools $(PACKAGE_NAME)
 release: validate $(RELEASE_NAME)
 	@echo "✅ Release package $(RELEASE_NAME) ready for distribution"
 
-test: contents
+test: contents test-imports
+	@echo "✅ All DXT tests passed"
+
+test-imports: contents
+	@echo "Testing DXT import resolution..."
+	@python ../../scripts/test-dxt-imports.py
+
+test-bootstrap: contents
 	@echo "Testing bootstrap script in build directory..."
 	@echo "Verifying bootstrap.py can import dependencies and start setup..."
 	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')" && echo "✅ Bootstrap test passed"
