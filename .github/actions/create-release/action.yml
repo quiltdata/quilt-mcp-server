@@ -29,17 +29,17 @@ runs:
         echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
         echo "Manifest Version: $MANIFEST_VERSION"
 
-    - name: Create release bundle
+    - name: Create release package
       shell: bash
       run: |
-        mkdir -p release-bundle
-        cp tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt release-bundle/
-        cp tools/dxt/assets/README.md release-bundle/
-        cp tools/dxt/assets/check-prereqs.sh release-bundle/
-        cd release-bundle
-        zip -r ../quilt-mcp-${{ inputs.tag-version }}-bundle.zip .
+        mkdir -p release-package
+        cp tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt release-package/
+        cp tools/dxt/assets/README.md release-package/
+        cp tools/dxt/assets/check-prereqs.sh release-package/
+        cd release-package
+        zip -r ../quilt-mcp-${{ inputs.tag-version }}.zip .
         cd ..
-        echo "Bundle created: quilt-mcp-${{ inputs.tag-version }}-bundle.zip"
+        echo "Package created: quilt-mcp-${{ inputs.tag-version }}.zip"
 
     - name: Create GitHub Release
       id: create-release
@@ -47,10 +47,7 @@ runs:
       with:
         name: "Quilt MCP DXT v${{ inputs.tag-version }}"
         files: |
-          tools/dxt/dist/quilt-mcp-${{ steps.manifest.outputs.manifest_version }}.dxt
-          tools/dxt/assets/README.md
-          tools/dxt/assets/check-prereqs.sh
-          quilt-mcp-${{ inputs.tag-version }}-bundle.zip
+          quilt-mcp-${{ inputs.tag-version }}.zip
         draft: false
         prerelease: ${{ contains(inputs.tag-version, '-') }}
         generate_release_notes: true
