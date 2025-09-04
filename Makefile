@@ -130,7 +130,7 @@ define check_git_clean
 endef
 
 define create_and_push_tag
-	@if git tag | grep -q "^v$(1)$$"; then \
+	if git tag | grep -q "^v$(1)$$"; then \
 		echo "❌ Tag v$(1) already exists"; \
 		exit 1; \
 	fi; \
@@ -156,7 +156,7 @@ tag-dev: check-clean-repo
 	TIMESTAMP=$$(date +%Y%m%d%H%M%S); \
 	DEV_VERSION="$$BASE_VERSION-dev-$$TIMESTAMP"; \
 	echo "📋 Generated dev version: $$DEV_VERSION"; \
-	$(call create_and_push_tag,$$DEV_VERSION,Development build,$$(git rev-parse --abbrev-ref HEAD))
+	@$(call create_and_push_tag,$$DEV_VERSION,Development build,$$(git rev-parse --abbrev-ref HEAD))
 
 tag: check-clean-repo
 	@echo "🔍 Reading version from tools/dxt/assets/manifest.json..."
@@ -177,7 +177,7 @@ tag: check-clean-repo
 	else \
 		TAG_TYPE="Release"; \
 	fi; \
-	$(call create_and_push_tag,$$MANIFEST_VERSION,$$TAG_TYPE,main)
+	@$(call create_and_push_tag,$$MANIFEST_VERSION,$$TAG_TYPE,main)
 
 # Cursor IDE Rules Update
 update-cursor-rules:
