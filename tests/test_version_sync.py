@@ -32,11 +32,14 @@ version = "1.2.3"
 description = "Test project"
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-            f.write(pyproject_content)
-            f.flush()
-            
-            version = read_project_version(Path(f.name))
-            assert version == "1.2.3"
+            try:
+                f.write(pyproject_content)
+                f.flush()
+                
+                version = read_project_version(Path(f.name))
+                assert version == "1.2.3"
+            finally:
+                Path(f.name).unlink(missing_ok=True)
 
     def test_handles_complex_version_formats(self):
         """Should handle prerelease and development versions."""
@@ -54,11 +57,14 @@ name = "test-project"
 version = "{version}"
 """
             with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-                f.write(pyproject_content)
-                f.flush()
-                
-                result = read_project_version(Path(f.name))
-                assert result == version
+                try:
+                    f.write(pyproject_content)
+                    f.flush()
+                    
+                    result = read_project_version(Path(f.name))
+                    assert result == version
+                finally:
+                    Path(f.name).unlink(missing_ok=True)
 
     def test_raises_error_for_missing_file(self):
         """Should raise FileNotFoundError for non-existent pyproject.toml."""
@@ -73,11 +79,14 @@ name = "test-project"
 description = "Test project without version"
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-            f.write(pyproject_content)
-            f.flush()
-            
-            with pytest.raises(KeyError, match="version"):
-                read_project_version(Path(f.name))
+            try:
+                f.write(pyproject_content)
+                f.flush()
+                
+                with pytest.raises(KeyError, match="version"):
+                    read_project_version(Path(f.name))
+            finally:
+                Path(f.name).unlink(missing_ok=True)
 
     def test_raises_error_for_missing_project_section(self):
         """Should raise KeyError when [project] section is missing."""
@@ -86,11 +95,14 @@ description = "Test project without version"
 requires = ["setuptools"]
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-            f.write(pyproject_content)
-            f.flush()
-            
-            with pytest.raises(KeyError, match="project"):
-                read_project_version(Path(f.name))
+            try:
+                f.write(pyproject_content)
+                f.flush()
+                
+                with pytest.raises(KeyError, match="project"):
+                    read_project_version(Path(f.name))
+            finally:
+                Path(f.name).unlink(missing_ok=True)
 
 
 class TestTemplateProcessing:
@@ -111,24 +123,30 @@ class TestTemplateProcessing:
 }
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.j2', delete=False) as template_file:
-            template_file.write(template_content)
-            template_file.flush()
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
-                generate_manifest_from_template(
-                    template_path=Path(template_file.name),
-                    output_path=Path(output_file.name),
-                    version="1.2.3"
-                )
+            try:
+                template_file.write(template_content)
+                template_file.flush()
                 
-                # Verify the generated file
-                with open(output_file.name, 'r') as f:
-                    manifest = json.load(f)
-                
-                assert manifest["version"] == "1.2.3"
-                assert manifest["name"] == "test-extension"
-                assert manifest["dxt_version"] == "0.1"
-                assert manifest["author"]["name"] == "Test Author"
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
+                    try:
+                        generate_manifest_from_template(
+                            template_path=Path(template_file.name),
+                            output_path=Path(output_file.name),
+                            version="1.2.3"
+                        )
+                        
+                        # Verify the generated file
+                        with open(output_file.name, 'r') as f:
+                            manifest = json.load(f)
+                        
+                        assert manifest["version"] == "1.2.3"
+                        assert manifest["name"] == "test-extension"
+                        assert manifest["dxt_version"] == "0.1"
+                        assert manifest["author"]["name"] == "Test Author"
+                    finally:
+                        Path(output_file.name).unlink(missing_ok=True)
+            finally:
+                Path(template_file.name).unlink(missing_ok=True)
 
     def test_preserves_all_non_version_fields(self):
         """Should preserve complex nested structures and all fields except version."""
@@ -163,36 +181,45 @@ class TestTemplateProcessing:
 }
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.j2', delete=False) as template_file:
-            template_file.write(template_content)
-            template_file.flush()
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
-                generate_manifest_from_template(
-                    template_path=Path(template_file.name),
-                    output_path=Path(output_file.name),
-                    version="2.0.0"
-                )
+            try:
+                template_file.write(template_content)
+                template_file.flush()
                 
-                with open(output_file.name, 'r') as f:
-                    manifest = json.load(f)
-                
-                # Check version was substituted
-                assert manifest["version"] == "2.0.0"
-                
-                # Check all other fields preserved
-                assert manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"] == "1"
-                assert manifest["user_config"]["catalog_domain"]["required"] is True
-                assert len(manifest["server"]["mcp_config"]["args"]) == 1
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
+                    try:
+                        generate_manifest_from_template(
+                            template_path=Path(template_file.name),
+                            output_path=Path(output_file.name),
+                            version="2.0.0"
+                        )
+                        
+                        with open(output_file.name, 'r') as f:
+                            manifest = json.load(f)
+                        
+                        # Check version was substituted
+                        assert manifest["version"] == "2.0.0"
+                        
+                        # Check all other fields preserved
+                        assert manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"] == "1"
+                        assert manifest["user_config"]["catalog_domain"]["required"] is True
+                        assert len(manifest["server"]["mcp_config"]["args"]) == 1
+                    finally:
+                        Path(output_file.name).unlink(missing_ok=True)
+            finally:
+                Path(template_file.name).unlink(missing_ok=True)
 
     def test_raises_error_for_missing_template(self):
         """Should raise FileNotFoundError for non-existent template."""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
-            with pytest.raises(FileNotFoundError):
-                generate_manifest_from_template(
-                    template_path=Path("/non/existent/template.j2"),
-                    output_path=Path(output_file.name),
-                    version="1.0.0"
-                )
+            try:
+                with pytest.raises(FileNotFoundError):
+                    generate_manifest_from_template(
+                        template_path=Path("/non/existent/template.j2"),
+                        output_path=Path(output_file.name),
+                        version="1.0.0"
+                    )
+            finally:
+                Path(output_file.name).unlink(missing_ok=True)
 
     def test_handles_invalid_json_template(self):
         """Should raise appropriate error for malformed JSON template."""
@@ -204,16 +231,22 @@ class TestTemplateProcessing:
 }
 """
         with tempfile.NamedTemporaryFile(mode='w', suffix='.j2', delete=False) as template_file:
-            template_file.write(invalid_template)
-            template_file.flush()
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
-                with pytest.raises(json.JSONDecodeError):
-                    generate_manifest_from_template(
-                        template_path=Path(template_file.name),
-                        output_path=Path(output_file.name),
-                        version="1.0.0"
-                    )
+            try:
+                template_file.write(invalid_template)
+                template_file.flush()
+                
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
+                    try:
+                        with pytest.raises(json.JSONDecodeError):
+                            generate_manifest_from_template(
+                                template_path=Path(template_file.name),
+                                output_path=Path(output_file.name),
+                                version="1.0.0"
+                            )
+                    finally:
+                        Path(output_file.name).unlink(missing_ok=True)
+            finally:
+                Path(template_file.name).unlink(missing_ok=True)
 
 
 class TestSyncDetection:
@@ -233,19 +266,25 @@ version = "1.2.3"
         }
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
-            pyproject_file.write(pyproject_content)
-            pyproject_file.flush()
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
-                json.dump(manifest_content, manifest_file)
-                manifest_file.flush()
+            try:
+                pyproject_file.write(pyproject_content)
+                pyproject_file.flush()
                 
-                result = check_version_sync_required(
-                    pyproject_path=Path(pyproject_file.name),
-                    manifest_path=Path(manifest_file.name)
-                )
-                
-                assert result is True
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
+                    try:
+                        json.dump(manifest_content, manifest_file)
+                        manifest_file.flush()
+                        
+                        result = check_version_sync_required(
+                            pyproject_path=Path(pyproject_file.name),
+                            manifest_path=Path(manifest_file.name)
+                        )
+                        
+                        assert result is True
+                    finally:
+                        Path(manifest_file.name).unlink(missing_ok=True)
+            finally:
+                Path(pyproject_file.name).unlink(missing_ok=True)
 
     def test_detects_versions_in_sync_no_sync_needed(self):
         """Should return False when versions match."""
@@ -261,19 +300,25 @@ version = "1.2.3"
         }
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
-            pyproject_file.write(pyproject_content)
-            pyproject_file.flush()
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
-                json.dump(manifest_content, manifest_file)
-                manifest_file.flush()
+            try:
+                pyproject_file.write(pyproject_content)
+                pyproject_file.flush()
                 
-                result = check_version_sync_required(
-                    pyproject_path=Path(pyproject_file.name),
-                    manifest_path=Path(manifest_file.name)
-                )
-                
-                assert result is False
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
+                    try:
+                        json.dump(manifest_content, manifest_file)
+                        manifest_file.flush()
+                        
+                        result = check_version_sync_required(
+                            pyproject_path=Path(pyproject_file.name),
+                            manifest_path=Path(manifest_file.name)
+                        )
+                        
+                        assert result is False
+                    finally:
+                        Path(manifest_file.name).unlink(missing_ok=True)
+            finally:
+                Path(pyproject_file.name).unlink(missing_ok=True)
 
     def test_handles_missing_manifest_file(self):
         """Should return True when manifest.json doesn't exist (sync needed to create it)."""
@@ -284,15 +329,18 @@ version = "1.2.3"
 """
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
-            pyproject_file.write(pyproject_content)
-            pyproject_file.flush()
-            
-            result = check_version_sync_required(
-                pyproject_path=Path(pyproject_file.name),
-                manifest_path=Path("/non/existent/manifest.json")
-            )
-            
-            assert result is True
+            try:
+                pyproject_file.write(pyproject_content)
+                pyproject_file.flush()
+                
+                result = check_version_sync_required(
+                    pyproject_path=Path(pyproject_file.name),
+                    manifest_path=Path("/non/existent/manifest.json")
+                )
+                
+                assert result is True
+            finally:
+                Path(pyproject_file.name).unlink(missing_ok=True)
 
 
 class TestBuildIntegration:

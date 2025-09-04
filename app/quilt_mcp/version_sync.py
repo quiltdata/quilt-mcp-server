@@ -54,8 +54,12 @@ def generate_manifest_from_template(
     with open(template_path, 'r') as f:
         template_content = f.read()
     
-    # Render template with version
-    template = jinja2.Template(template_content)
+    # Render template with version using safe environment
+    env = jinja2.Environment(
+        autoescape=True,
+        undefined=jinja2.StrictUndefined
+    )
+    template = env.from_string(template_content)
     rendered_content = template.render(version=version)
     
     # Validate that rendered content is valid JSON
