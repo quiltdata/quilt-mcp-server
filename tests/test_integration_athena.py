@@ -20,7 +20,6 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 
 
 @pytest.mark.aws
-@pytest.mark.integration
 class TestAthenaIntegration:
     """Integration tests for Athena functionality."""
     
@@ -135,8 +134,7 @@ class TestAthenaIntegration:
             pytest.skip(f"AWS access issue: {e}")
 
 
-@pytest.mark.aws  
-@pytest.mark.integration
+@pytest.mark.aws
 @pytest.mark.slow
 class TestQuiltAuthIntegration:
     """Integration tests for quilt3 authentication."""
@@ -156,7 +154,6 @@ class TestQuiltAuthIntegration:
             pytest.skip(f"Quilt3 configuration issue: {e}")
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_service_with_quilt_auth(self):
         """Test service initialization with quilt3 authentication."""
         import os
@@ -213,7 +210,6 @@ class TestAthenaPerformance:
     """Performance tests for Athena functionality."""
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_concurrent_database_discovery(self):
         """Test concurrent database discovery operations with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -255,7 +251,6 @@ class TestAthenaPerformance:
             pytest.skip(f"Athena service not available: {e}")
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_concurrent_database_discovery_real_aws(self):
         """Test concurrent database discovery operations with real AWS."""
         import os
@@ -338,7 +333,6 @@ class TestAthenaErrorHandling:
     """Test error handling scenarios."""
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_glue_connection_error_real_aws(self):
         """Test handling of Glue connection errors with real AWS."""
         import os
@@ -378,7 +372,6 @@ class TestAthenaErrorHandling:
         assert 'Connection failed' in result['error']
     
     @pytest.mark.aws
-    @pytest.mark.integration
     def test_sql_syntax_error_real_aws(self):
         """Test handling of SQL syntax errors with real AWS."""
         import os
