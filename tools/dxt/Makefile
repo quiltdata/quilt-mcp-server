@@ -2,7 +2,7 @@
 # Build Claude Desktop Extension (.dxt) for Quilt MCP Server
 
 # Paths
-APP_DIR := ../app
+APP_DIR := ../../app
 ASSETS_DIR := assets
 BUILD_DIR := build
 BUILD_PKGS_DIR := $(BUILD_DIR)/lib
@@ -82,13 +82,13 @@ $(APP_MARKER): $(APP_FILES)
 	done
 	@touch $@
 
-$(DEPS_MARKER): ../pyproject.toml
+$(DEPS_MARKER): ../../pyproject.toml
 	@echo "Installing Python dependencies..."
 	@mkdir -p $(BUILD_PKGS_DIR)
-	@cd .. && uv pip install --target $(CURDIR)/$(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
+	@cd ../.. && uv pip install --target $(CURDIR)/$(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
 	@touch $@
 
-contents: $(ASSETS_MARKER) $(APP_MARKER)
+contents: $(ASSETS_MARKER) $(APP_MARKER) $(DEPS_MARKER)
 
 # Build the DXT package only if dependencies have changed
 $(PACKAGE_NAME): contents
