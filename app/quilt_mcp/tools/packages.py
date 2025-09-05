@@ -24,9 +24,7 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     return f"s3://{bucket_or_uri}"
 
 
-def packages_list(
-    registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = ""
-) -> dict[str, Any]:
+def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
     """List all available Quilt packages in a registry.
 
     Args:
@@ -41,6 +39,7 @@ def packages_list(
     normalized_registry = _normalize_registry(registry)
     # Suppress stdout during list_packages to avoid JSON-RPC interference
     from ..utils import suppress_stdout
+
     with suppress_stdout():
         pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
 
@@ -55,9 +54,7 @@ def packages_list(
     return {"packages": pkgs}
 
 
-def packages_search(
-    query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0
-) -> dict[str, Any]:
+def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
 
     Args:
@@ -71,29 +68,25 @@ def packages_search(
     # HYBRID APPROACH: Use unified search architecture but scope to specified registry
     # This prevents inappropriate searches across buckets not in user's stack
     effective_limit = limit if limit >= 0 else 10
-    
+
     # Extract bucket name from registry for targeted search
     normalized_registry = _normalize_registry(registry)
     bucket_name = normalized_registry.replace("s3://", "")
-    
+
     # Suppress stdout during search to avoid JSON-RPC interference
     from ..utils import suppress_stdout
-    
+
     try:
         with suppress_stdout():
             # UNIFIED SEARCH: Try advanced search API first, but scoped to specific registry
             try:
                 from quilt3.search_util import search_api
-                
+
                 # For count queries (limit=0), use a simple DSL query with size=0
                 if effective_limit == 0:
                     dsl_query = {
                         "size": 0,  # This is the key for fast counts!
-                        "query": {
-                            "query_string": {
-                                "query": query
-                            }
-                        }
+                        "query": {"query_string": {"query": query}},
                     }
                 else:
                     # Regular query with pagination
@@ -102,40 +95,34 @@ def packages_search(
                         dsl_query = {
                             "from": from_,
                             "size": effective_limit,
-                            "query": {
-                                "query_string": {
-                                    "query": query
-                                }
-                            }
+                            "query": {"query_string": {"query": query}},
                         }
                     else:
                         # Already a DSL query
                         import json
+
                         if isinstance(query, str):
                             dsl_query = json.loads(query)
                         else:
                             dsl_query = query
-                        
+
                         # Add pagination
                         dsl_query["from"] = from_
                         dsl_query["size"] = effective_limit
-                
+
                 # STACK SCOPING: Use all buckets in the stack, not just the registry bucket
                 # This enables proper cross-bucket search across the entire stack
                 from .stack_buckets import build_stack_search_indices
+
                 index_name = build_stack_search_indices()
-                
+
                 # Fallback to single bucket if stack discovery fails
                 if not index_name:
                     index_name = f"{bucket_name},{bucket_name}_packages"
-                
+
                 # Use registry-specific index instead of '_all'
-                full_result = search_api(
-                    query=dsl_query,
-                    index=index_name,
-                    limit=effective_limit
-                )
-                
+                full_result = search_api(query=dsl_query, index=index_name, limit=effective_limit)
+
                 # Return unified search format with bucket context
                 hits = full_result.get("hits", {}).get("hits", [])
                 total_count = full_result.get("hits", {}).get("total", {})
@@ -143,7 +130,7 @@ def packages_search(
                     count = total_count.get('value', 0)
                 else:
                     count = total_count
-                
+
                 return {
                     "results": hits,
                     "total_count": count,
@@ -153,14 +140,14 @@ def packages_search(
                     "registry": normalized_registry,
                     "bucket": bucket_name,
                     "took": full_result.get("took", 0),
-                    "timed_out": full_result.get("timed_out", False)
+                    "timed_out": full_result.get("timed_out", False),
                 }
-                
+
             except Exception as search_api_error:
                 # FALLBACK: Use bucket-specific search if advanced API fails
                 bucket_obj = quilt3.Bucket(normalized_registry)
                 results = bucket_obj.search(query, limit=effective_limit)
-                
+
                 return {
                     "results": results,
                     "total_count": len(results) if results else 0,
@@ -170,9 +157,9 @@ def packages_search(
                     "registry": normalized_registry,
                     "bucket": bucket_name,
                     "fallback_used": "bucket_search",
-                    "search_api_error": str(search_api_error)
+                    "search_api_error": str(search_api_error),
                 }
-                
+
     except Exception as e:
         # Final fallback with error context
         return {
@@ -183,7 +170,7 @@ def packages_search(
             "from": from_,
             "registry": normalized_registry,
             "bucket": bucket_name,
-            "error": f"All search methods failed: {e}"
+            "error": f"All search methods failed: {e}",
         }
 
 
@@ -213,14 +200,14 @@ def package_browse(
 
     Returns:
         Dict with comprehensive package contents including file tree, sizes, types, and URLs.
-        
+
     Examples:
         Basic browsing:
         package_browse("team/dataset")
-        
+
         Flat view (top-level only):
         package_browse("team/dataset", recursive=False)
-        
+
         Limited depth:
         package_browse("team/dataset", max_depth=2)
     """
@@ -235,9 +222,10 @@ def package_browse(
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
-            
+
     except Exception as e:
         return {
             "success": False,
@@ -246,12 +234,12 @@ def package_browse(
             "possible_fixes": [
                 "Verify the package name is correct",
                 "Check if you have access to the registry",
-                "Ensure the package exists in the specified registry"
+                "Ensure the package exists in the specified registry",
             ],
             "suggested_actions": [
                 f"Try: packages_list(registry='{registry}') to see available packages",
-                f"Try: packages_search('{package_name.split('/')[-1]}') to find similar packages"
-            ]
+                f"Try: packages_search('{package_name.split('/')[-1]}') to find similar packages",
+            ],
         }
 
     # Get detailed information about each entry
@@ -268,21 +256,21 @@ def package_browse(
     for logical_key in keys:
         try:
             entry = pkg[logical_key]
-            
+
             # Get file information
             file_size = getattr(entry, "size", None)
             file_hash = str(getattr(entry, "hash", ""))
             physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
-            
+
             # Determine file type and properties
             file_ext = logical_key.split('.')[-1].lower() if '.' in logical_key else 'unknown'
             file_types.add(file_ext)
             is_directory = logical_key.endswith('/') or file_size is None
-            
+
             # Track total size
             if file_size:
                 total_size += file_size
-            
+
             entry_data = {
                 "logical_key": logical_key,
                 "physical_key": physical_key,
@@ -292,22 +280,25 @@ def package_browse(
                 "file_type": file_ext,
                 "is_directory": is_directory,
             }
-            
+
             # Add enhanced file info if requested
             if include_file_info and physical_key and physical_key.startswith("s3://"):
                 try:
                     # Try to get additional S3 metadata
                     import boto3
+
                     s3_client = boto3.client("s3")
                     bucket_name = physical_key.split('/')[2]
                     object_key = '/'.join(physical_key.split('/')[3:])
-                    
+
                     obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-                    entry_data.update({
-                        "last_modified": str(obj_info.get("LastModified")),
-                        "content_type": obj_info.get("ContentType"),
-                        "storage_class": obj_info.get("StorageClass", "STANDARD")
-                    })
+                    entry_data.update(
+                        {
+                            "last_modified": str(obj_info.get("LastModified")),
+                            "content_type": obj_info.get("ContentType"),
+                            "storage_class": obj_info.get("StorageClass", "STANDARD"),
+                        }
+                    )
                 except Exception:
                     # Don't fail if we can't get additional info
                     pass
@@ -322,11 +313,11 @@ def package_browse(
                         entry_data["download_url"] = signed_url
 
             entries.append(entry_data)
-            
+
             # Build file tree structure for recursive view
             if recursive and file_tree is not None:
                 _add_to_file_tree(file_tree, logical_key, entry_data, max_depth)
-                
+
         except Exception as e:
             # Include entry with error info
             entries.append(
@@ -336,7 +327,7 @@ def package_browse(
                     "size": None,
                     "hash": "",
                     "error": str(e),
-                    "file_type": "error"
+                    "file_type": "error",
                 }
             )
 
@@ -351,16 +342,16 @@ def package_browse(
             "total_size_human": _format_file_size(total_size),
             "file_types": sorted(list(file_types)),
             "total_files": len([e for e in entries if not e.get("is_directory", False)]),
-            "total_directories": len([e for e in entries if e.get("is_directory", False)])
+            "total_directories": len([e for e in entries if e.get("is_directory", False)]),
         },
-        "view_type": "recursive" if recursive else "flat"
+        "view_type": "recursive" if recursive else "flat",
     }
-    
+
     if recursive and file_tree:
         response["file_tree"] = file_tree
-    
+
     response["entries"] = entries
-    
+
     return response
 
 
@@ -370,16 +361,16 @@ def _add_to_file_tree(tree: dict, path: str, entry_data: dict, max_depth: int):
         depth = path.count('/')
         if depth >= max_depth:
             return
-    
+
     parts = path.split('/')
     current = tree
-    
+
     # Navigate to the correct position in the tree
     for i, part in enumerate(parts[:-1]):
         if part not in current:
             current[part] = {"type": "directory", "children": {}}
         current = current[part]["children"]
-    
+
     # Add the final entry
     final_part = parts[-1]
     current[final_part] = {
@@ -388,7 +379,7 @@ def _add_to_file_tree(tree: dict, path: str, entry_data: dict, max_depth: int):
         "size_human": entry_data.get("size_human"),
         "file_type": entry_data.get("file_type"),
         "physical_key": entry_data.get("physical_key"),
-        "download_url": entry_data.get("download_url")
+        "download_url": entry_data.get("download_url"),
     }
 
 
@@ -396,7 +387,7 @@ def _format_file_size(size_bytes: int) -> str:
     """Format file size in human-readable format."""
     if size_bytes is None:
         return "Unknown"
-    
+
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"
@@ -423,9 +414,10 @@ def package_contents_search(
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
-    
+
     # Suppress stdout during browse to avoid JSON-RPC interference
     from ..utils import suppress_stdout
+
     with suppress_stdout():
         try:
             pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
@@ -498,18 +490,15 @@ def package_diff(
         # Browse packages with optional hash specification
         # Suppress stdout during browse operations to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             if package1_hash:
-                pkg1 = quilt3.Package.browse(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
+                pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry, top_hash=package1_hash)
             else:
                 pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
 
             if package2_hash:
-                pkg2 = quilt3.Package.browse(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
+                pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry, top_hash=package2_hash)
             else:
                 pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
 

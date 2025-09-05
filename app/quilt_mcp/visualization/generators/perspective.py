@@ -9,11 +9,7 @@ from typing import Dict, List, Any, Optional
 
 class PerspectiveGenerator:
     """Generates interactive data grids using Perspective."""
-    
+
     def __init__(self):
         """Initialize the Perspective generator."""
         pass
-
-
-
-

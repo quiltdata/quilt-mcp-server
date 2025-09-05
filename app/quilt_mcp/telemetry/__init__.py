@@ -20,5 +20,5 @@ __all__ = [
     "PrivacyManager",
     "DataAnonymizer",
     "MetricsCalculator",
-    "PerformanceMetrics"
+    "PerformanceMetrics",
 ]

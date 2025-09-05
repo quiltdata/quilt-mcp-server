@@ -33,16 +33,16 @@ class TestAWSPermissionsDiscover:
         # Setup mocks
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        
+
         mock_identity = UserIdentity(
             user_id="AIDACKCEVSQ6C2EXAMPLE",
             arn="arn:aws:iam::123456789012:user/test-user",
             account_id="123456789012",
             user_type="user",
-            user_name="test-user"
+            user_name="test-user",
         )
         mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
-        
+
         mock_buckets = [
             BucketInfo(
                 name="my-data-packages",
@@ -51,23 +51,23 @@ class TestAWSPermissionsDiscover:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.now(timezone.utc)
+                last_checked=datetime.now(timezone.utc),
             ),
             BucketInfo(
                 name="shared-readonly",
-                region="us-east-1", 
+                region="us-east-1",
                 permission_level=PermissionLevel.READ_ONLY,
                 can_read=True,
                 can_write=False,
                 can_list=True,
-                last_checked=datetime.now(timezone.utc)
-            )
+                last_checked=datetime.now(timezone.utc),
+            ),
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
         mock_discovery.get_cache_stats = Mock(return_value={"permission_cache_size": 2})
-        
+
         result = aws_permissions_discover()
-        
+
         assert result["success"] is True
         assert result["user_identity"]["user_name"] == "test-user"
         assert len(result["categorized_buckets"]["full_access"]) == 1
@@ -79,12 +79,10 @@ class TestAWSPermissionsDiscover:
         """Test permission discovery for specific buckets."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        
-        mock_identity = UserIdentity(
-            user_id="test", arn="test", account_id="123", user_type="user"
-        )
+
+        mock_identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
         mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
-        
+
         mock_bucket = BucketInfo(
             name="test-bucket",
             region="us-east-1",
@@ -92,13 +90,13 @@ class TestAWSPermissionsDiscover:
             can_read=True,
             can_write=True,
             can_list=True,
-            last_checked=datetime.now(timezone.utc)
+            last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.get_cache_stats = Mock(return_value={})
-        
+
         result = aws_permissions_discover(check_buckets=["test-bucket"])
-        
+
         assert result["success"] is True
         assert len(result["bucket_permissions"]) == 1
         assert result["bucket_permissions"][0]["name"] == "test-bucket"
@@ -109,9 +107,9 @@ class TestAWSPermissionsDiscover:
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
         mock_discovery.discover_user_identity = Mock(side_effect=Exception("AWS error"))
-        
+
         result = aws_permissions_discover()
-        
+
         assert result["success"] is False
         assert "Failed to discover AWS permissions" in result["error"]
 
@@ -125,7 +123,7 @@ class TestBucketAccessCheck:
         """Test successful bucket access check."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        
+
         mock_bucket = BucketInfo(
             name="test-bucket",
             region="us-west-2",
@@ -133,17 +131,13 @@ class TestBucketAccessCheck:
             can_read=True,
             can_write=True,
             can_list=True,
-            last_checked=datetime.now(timezone.utc)
+            last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(return_value={
-            "read": True,
-            "write": True,
-            "list": True
-        })
-        
+        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": True, "list": True})
+
         result = bucket_access_check("test-bucket")
-        
+
         assert result["success"] is True
         assert result["bucket_name"] == "test-bucket"
         assert result["permission_level"] == "full_access"
@@ -154,7 +148,7 @@ class TestBucketAccessCheck:
         """Test bucket access check with limited permissions."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        
+
         mock_bucket = BucketInfo(
             name="readonly-bucket",
             region="us-east-1",
@@ -162,17 +156,13 @@ class TestBucketAccessCheck:
             can_read=True,
             can_write=False,
             can_list=True,
-            last_checked=datetime.now(timezone.utc)
+            last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(return_value={
-            "read": True,
-            "write": False,
-            "list": True
-        })
-        
+        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": False, "list": True})
+
         result = bucket_access_check("readonly-bucket", ["read", "write", "list"])
-        
+
         assert result["success"] is True
         assert result["access_summary"]["can_read"] is True
         assert result["access_summary"]["can_write"] is False
@@ -188,7 +178,7 @@ class TestBucketRecommendations:
         """Test bucket recommendations for package creation."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
-        
+
         mock_buckets = [
             BucketInfo(
                 name="my-packages",
@@ -197,7 +187,7 @@ class TestBucketRecommendations:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.now(timezone.utc)
+                last_checked=datetime.now(timezone.utc),
             ),
             BucketInfo(
                 name="temp-storage",
@@ -206,16 +196,13 @@ class TestBucketRecommendations:
                 can_read=True,
                 can_write=True,
                 can_list=True,
-                last_checked=datetime.now(timezone.utc)
-            )
+                last_checked=datetime.now(timezone.utc),
+            ),
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
-        
-        result = bucket_recommendations_get(
-            source_bucket="ml-training-data",
-            operation_type="package_creation"
-        )
-        
+
+        result = bucket_recommendations_get(source_bucket="ml-training-data", operation_type="package_creation")
+
         assert result["success"] is True
         assert result["operation_type"] == "package_creation"
         assert "recommendations" in result
@@ -227,19 +214,17 @@ class TestBucketRecommendations:
             {"name": "my-packages", "permission_level": "full_access"},
             {"name": "data-warehouse", "permission_level": "read_write"},
             {"name": "temp-work", "permission_level": "full_access"},
-            {"name": "readonly-data", "permission_level": "read_only"}
+            {"name": "readonly-data", "permission_level": "read_only"},
         ]
-        
-        identity = UserIdentity(
-            user_id="test", arn="test", account_id="123", user_type="user"
-        )
-        
+
+        identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
+
         recommendations = _generate_bucket_recommendations(bucket_permissions, identity)
-        
+
         assert "package_creation" in recommendations
         assert "data_storage" in recommendations
         assert "temporary_storage" in recommendations
-        
+
         # Packages bucket should be recommended for package creation
         assert "my-packages" in recommendations["package_creation"]
         # Temp bucket should be in temporary storage
@@ -267,7 +252,7 @@ class TestPermissionDiscoveryEngine:
         mock_sts.get_caller_identity.return_value = {
             'UserId': 'AIDACKCEVSQ6C2EXAMPLE',
             'Account': '123456789012',
-            'Arn': 'arn:aws:iam::123456789012:user/test-user'
+            'Arn': 'arn:aws:iam::123456789012:user/test-user',
         }
         mock_iam = Mock()
         mock_s3 = Mock()
@@ -284,7 +269,7 @@ class TestPermissionDiscoveryEngine:
                 raise AssertionError(f"Unexpected client for service: {service_name}")
 
         mock_quilt3.get_boto3_session.return_value = _FakeSession()
-        
+
         # Mock the quilt3 session methods used by GraphQL discovery to return empty results
         mock_session = Mock()
         mock_http_session = Mock()
@@ -314,14 +299,15 @@ class TestPermissionDiscoveryEngine:
         # Skip if AWS credentials not available
         try:
             import boto3
+
             sts = boto3.client('sts')
             sts.get_caller_identity()
         except Exception:
             pytest.skip("AWS credentials not available")
-        
+
         discovery = AWSPermissionDiscovery()
         identity = discovery.discover_user_identity()
-        
+
         # Just verify we get some identity back - exact values depend on AWS setup
         assert identity is not None
         assert identity.account_id is not None
@@ -333,39 +319,45 @@ class TestPermissionDiscoveryEngine:
         # Skip if AWS credentials not available
         try:
             import boto3
+
             s3 = boto3.client('s3')
             s3.list_buckets()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available")
-        
+
         discovery = AWSPermissionDiscovery()
-        
+
         # Test with a known public bucket (should have at least read access)
         bucket_info = discovery.discover_bucket_permissions("quilt-example")
-        
+
         # Should succeed or fail gracefully with AWS error
         assert isinstance(bucket_info, BucketInfo)
         assert bucket_info.name == "quilt-example"
-        assert bucket_info.permission_level in [PermissionLevel.READ_ONLY, PermissionLevel.FULL_ACCESS, PermissionLevel.NO_ACCESS]
-        
+        assert bucket_info.permission_level in [
+            PermissionLevel.READ_ONLY,
+            PermissionLevel.FULL_ACCESS,
+            PermissionLevel.NO_ACCESS,
+        ]
+
         # If we have any access, should be able to list
         if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
             assert bucket_info.can_list is True
-    
+
     @pytest.mark.aws
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
+
         skip_if_no_aws_credentials()
-        
+
         from quilt_mcp.constants import DEFAULT_BUCKET
-        
+
         # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
         bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
-        
+
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions(bucket_name)
-        
+
         # Should get bucket info regardless of access level
         assert bucket_info.name == bucket_name
         # Basic assertions that should work for any bucket check
@@ -375,27 +367,26 @@ class TestPermissionDiscoveryEngine:
         assert isinstance(bucket_info.permission_level, PermissionLevel)
         # Should have a timestamp
         assert bucket_info.last_checked is not None
-    
 
     @pytest.mark.aws
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
+
         skip_if_no_aws_credentials()
-        
+
         # Use a bucket name that definitely doesn't exist
         nonexistent_bucket = f"definitely-nonexistent-bucket-{int(time.time())}"
-        
+
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions(nonexistent_bucket)
-        
+
         # Should have no access to nonexistent bucket
         assert bucket_info.name == nonexistent_bucket
         assert bucket_info.permission_level == PermissionLevel.NO_ACCESS
         assert bucket_info.can_list is False
         assert bucket_info.can_read is False
         assert bucket_info.can_write is False
-    
 
 
 @pytest.mark.aws
@@ -406,12 +397,12 @@ class TestIntegrationWithS3Package:
         """Test that enhanced package creation can use permission discovery."""
         # This would test the integration between the permissions system
         # and the S3-to-package creation tool
-        
+
         # For now, this is a placeholder for integration testing
         # In a full implementation, this would:
         # 1. Mock permission discovery to return specific bucket permissions
         # 2. Call package_create_from_s3 without target_registry
         # 3. Verify that the tool automatically selects an appropriate writable bucket
         # 4. Confirm that the tool provides helpful error messages for insufficient permissions
-        
+
         assert True  # Placeholder

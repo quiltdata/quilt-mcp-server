@@ -10,7 +10,7 @@ from .naming_validator import validate_package_naming, suggest_package_name
 
 __all__ = [
     "validate_package_structure",
-    "validate_folder_structure", 
+    "validate_folder_structure",
     "validate_metadata_compliance",
     "validate_quilt_metadata",
     "validate_package_naming",

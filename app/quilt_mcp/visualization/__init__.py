@@ -21,7 +21,7 @@ from .utils.file_utils import FileUtils
 __all__ = [
     "VisualizationEngine",
     "EChartsGenerator",
-    "VegaLiteGenerator", 
+    "VegaLiteGenerator",
     "IGVGenerator",
     "MatplotlibGenerator",
     "PerspectiveGenerator",
@@ -34,7 +34,3 @@ __all__ = [
 ]
 
 __version__ = "0.1.0"
-
-
-
-

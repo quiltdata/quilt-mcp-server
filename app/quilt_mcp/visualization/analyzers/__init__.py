@@ -8,12 +8,4 @@ from .data_analyzer import DataAnalyzer
 from .file_analyzer import FileAnalyzer
 from .genomic_analyzer import GenomicAnalyzer
 
-__all__ = [
-    "DataAnalyzer",
-    "FileAnalyzer",
-    "GenomicAnalyzer"
-]
-
-
-
-
+__all__ = ["DataAnalyzer", "FileAnalyzer", "GenomicAnalyzer"]

@@ -129,14 +129,14 @@ def package_create(
 
     Returns:
         Dict with creation status, package details, and list of files added.
-        
+
     Examples:
         Basic package creation:
         package_create("my-team/dataset", ["s3://bucket/file.csv"])
-        
+
         With metadata:
         package_create(
-            "my-team/dataset", 
+            "my-team/dataset",
             ["s3://bucket/file.csv"],
             metadata={"description": "My dataset", "type": "research"}
         )
@@ -147,6 +147,7 @@ def package_create(
     elif isinstance(metadata, str):
         try:
             import json
+
             metadata = json.loads(metadata)
         except json.JSONDecodeError as e:
             return {
@@ -157,9 +158,9 @@ def package_create(
                 "json_error": str(e),
                 "examples": [
                     '{"description": "My dataset", "type": "research"}',
-                    '{"created_by": "analyst", "project": "Q1-analysis"}'
+                    '{"created_by": "analyst", "project": "Q1-analysis"}',
                 ],
-                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values",
             }
     elif not isinstance(metadata, dict):
         return {
@@ -169,9 +170,9 @@ def package_create(
             "expected": "Dictionary object or JSON string",
             "examples": [
                 '{"description": "My dataset", "version": "1.0"}',
-                '{"tags": ["research", "2024"], "author": "scientist"}'
+                '{"tags": ["research", "2024"], "author": "scientist"}',
             ],
-            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+            "tip": "Pass metadata as a dictionary object, not as individual parameters",
         }
 
     warnings: list[str] = []
@@ -185,31 +186,32 @@ def package_create(
         return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
     # Process metadata to ensure README content is handled correctly
     processed_metadata = metadata.copy() if metadata else {}
-    
+
     # Extract README content from metadata and add as package file
     # readme_content takes priority if both fields exist
     readme_content = None
     if 'readme_content' in processed_metadata:
         readme_content = processed_metadata.pop('readme_content')
         warnings.append("README content moved from metadata to package file (README.md)")
-    
+
     elif 'readme' in processed_metadata:
         readme_content = processed_metadata.pop('readme')
         warnings.append("README content moved from metadata to package file (README.md)")
-    
+
     # Remove any remaining README fields to avoid duplication
     if 'readme' in processed_metadata:
         processed_metadata.pop('readme')
         warnings.append("Removed duplicate 'readme' field from metadata")
-    
+
     # Add README.md file if we extracted content
     if readme_content:
         try:
             import io
+
             pkg.set("README.md", io.StringIO(readme_content))
         except Exception as e:
             warnings.append(f"Failed to add README.md file: {e}")
-    
+
     # Set the cleaned metadata (without README content)
     if processed_metadata:
         try:
@@ -220,6 +222,7 @@ def package_create(
     try:
         # Suppress stdout during push to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             selector_fn = _build_selector_fn(copy_mode, normalized_registry)
             top_hash = pkg.push(
@@ -229,7 +232,7 @@ def package_create(
                 selector_fn=selector_fn,
                 force=True,
             )
-            
+
     except Exception as e:
         return {
             "error": f"Failed to push package: {e}",
@@ -281,6 +284,7 @@ def package_update(
     elif isinstance(metadata, str):
         try:
             import json
+
             metadata = json.loads(metadata)
         except json.JSONDecodeError as e:
             return {
@@ -291,9 +295,9 @@ def package_update(
                 "json_error": str(e),
                 "examples": [
                     '{"description": "Updated dataset", "version": "2.0"}',
-                    '{"tags": ["updated", "v2"], "quality": "validated"}'
+                    '{"tags": ["updated", "v2"], "quality": "validated"}',
                 ],
-                "tip": "Ensure JSON is properly formatted with quotes around keys and string values"
+                "tip": "Ensure JSON is properly formatted with quotes around keys and string values",
             }
     elif not isinstance(metadata, dict):
         return {
@@ -303,9 +307,9 @@ def package_update(
             "expected": "Dictionary object or JSON string",
             "examples": [
                 '{"description": "Updated dataset", "version": "2.0"}',
-                '{"tags": ["updated", "v2"], "author": "scientist"}'
+                '{"tags": ["updated", "v2"], "author": "scientist"}',
             ],
-            "tip": "Pass metadata as a dictionary object, not as individual parameters"
+            "tip": "Pass metadata as a dictionary object, not as individual parameters",
         }
 
     if not s3_uris:
@@ -317,6 +321,7 @@ def package_update(
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
     except Exception as e:
@@ -343,6 +348,7 @@ def package_update(
     try:
         # Suppress stdout during push to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             selector_fn = _build_selector_fn(copy_mode, normalized_registry)
             top_hash = updated_pkg.push(
@@ -352,7 +358,7 @@ def package_update(
                 selector_fn=selector_fn,
                 force=True,
             )
-            
+
     except Exception as e:
         return {
             "error": f"Failed to push updated package: {e}",
@@ -393,6 +399,7 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
         normalized_registry = _normalize_registry(registry)
         # Suppress stdout during delete to avoid JSON-RPC interference
         from ..utils import suppress_stdout
+
         with suppress_stdout():
             quilt3.delete_package(package_name, registry=normalized_registry)
         return {
