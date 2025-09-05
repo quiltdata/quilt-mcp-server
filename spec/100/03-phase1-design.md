@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Phase 1 Design: Makefile Consolidation
 
 **Issue**: [#100 - cleanup repo/make](https://github.com/quiltdata/quilt-mcp-server/issues/100)  
@@ -10,18 +11,21 @@
 ### Existing Makefiles
 
 **Root `Makefile`** (199 lines, 26 targets):
+
 - Orchestration: `help`, `validate`, `clean`, `release management`
 - Delegation: `app`, `dxt`, `test-*`, `validate-*`
 - Server operations: `run-app*`, `inspect-app-tunnel`
 - Utilities: `check-env`, `coverage`, `update-cursor-rules`
 
 **`app/Makefile`** (137 lines, 19 targets):
+
 - Development: `run`, `test*`, `coverage*`, `lint`
 - Validation: `validate`, `verify`, `test-endpoint`
 - Utilities: `clean`, `config`, `init`, `zero`
 - IDE integration: `run-inspector`, `update-cursor-rules`
 
 **`tools/dxt/Makefile`** (148 lines, 13 targets):
+
 - Build pipeline: `build`, `test`, `validate`, `release`
 - DXT operations: `contents`, `assess`, `bootstrap`
 - Utilities: `clean`, `debug`, `check-tools`
@@ -31,11 +35,13 @@
 ### Main `Makefile` Targets (~30 lines)
 
 **Coordination targets** (keep):
+
 - `help` - Display all available targets by category
 - `clean` - Coordinate cleanup across all includes  
 - `release` - Full release workflow (test → build → package)
 
 **Remove from main** (delegate to includes):
+
 - All phase-specific targets (`app`, `dxt`, `test-*`, `validate-*`)
 - Server operations (`run-app*`, `inspect-app-tunnel`)
 - Direct utility calls (`coverage`, `check-env`)
