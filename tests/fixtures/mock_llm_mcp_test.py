@@ -16,7 +16,7 @@ import traceback
 from dataclasses import dataclass
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 from quilt_mcp.utils import create_mcp_server, register_tools
 
@@ -77,7 +77,7 @@ class MockLLMClient:
 
             # Simulate LLM routing the call to the MCP tool
             # FunctionTool objects have a 'run' method
-            if hasattr(tool_obj, 'run'):
+            if hasattr(tool_obj, "run"):
                 result = await tool_obj.run(**tool_call.arguments)
             elif callable(tool_obj):
                 if asyncio.iscoroutinefunction(tool_obj):
@@ -90,13 +90,18 @@ class MockLLMClient:
             end_time = time.time()
 
             return MockToolResult(
-                success=True, content=result, execution_time_ms=round((end_time - start_time) * 1000, 2)
+                success=True,
+                content=result,
+                execution_time_ms=round((end_time - start_time) * 1000, 2),
             )
 
         except Exception as e:
             end_time = time.time()
             return MockToolResult(
-                success=False, content=None, execution_time_ms=round((end_time - start_time) * 1000, 2), error=str(e)
+                success=False,
+                content=None,
+                execution_time_ms=round((end_time - start_time) * 1000, 2),
+                error=str(e),
             )
 
     def get_available_tools(self) -> List[str]:
@@ -121,7 +126,11 @@ class MockLLMClient:
             else:
                 print(f"   ❌ Tool failed: {result.error}")
 
-        return {"user_query": user_query, "tool_calls": results, "total_tools_called": len(results)}
+        return {
+            "user_query": user_query,
+            "tool_calls": results,
+            "total_tools_called": len(results),
+        }
 
     def _analyze_query_and_select_tools(self, query: str) -> List[MockToolCall]:
         """Simulate LLM analyzing query and selecting appropriate tools"""
@@ -142,7 +151,13 @@ class MockLLMClient:
             if "unified_search" in self.tools:
                 tool_calls.append(
                     MockToolCall(
-                        "unified_search", {"query": query, "scope": "catalog", "limit": 3, "explain_query": True}
+                        "unified_search",
+                        {
+                            "query": query,
+                            "scope": "catalog",
+                            "limit": 3,
+                            "explain_query": True,
+                        },
                     )
                 )
 
@@ -152,7 +167,12 @@ class MockLLMClient:
         if "bucket" in query_lower:
             tool_calls.append(
                 MockToolCall(
-                    "bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}
+                    "bucket_objects_search",
+                    {
+                        "bucket": "s3://quilt-sandbox-bucket",
+                        "query": "data",
+                        "limit": 3,
+                    },
                 )
             )
 
@@ -178,7 +198,11 @@ class MockLLMMCPTester:
         print("\n📋 Testing basic functionality via LLM routing...")
 
         # Simulate various user queries that would trigger basic tools
-        test_queries = ["What's my authentication status?", "Check system status", "Get catalog information"]
+        test_queries = [
+            "What's my authentication status?",
+            "Check system status",
+            "Get catalog information",
+        ]
 
         results = []
         for query in test_queries:
@@ -308,7 +332,13 @@ class MockLLMMCPTester:
         available_tools = self.llm_client.get_available_tools()
 
         # Check for key tools
-        key_tools = ["auth_status", "packages_search", "packages_list", "bucket_objects_search", "unified_search"]
+        key_tools = [
+            "auth_status",
+            "packages_search",
+            "packages_list",
+            "bucket_objects_search",
+            "unified_search",
+        ]
 
         found_tools = [tool for tool in key_tools if tool in available_tools]
         missing_tools = [tool for tool in key_tools if tool not in available_tools]
@@ -408,10 +438,10 @@ async def main():
         print(f"   Average tool response: {perf['average_tool_time_ms']}ms")
 
         # Overall assessment
-        tool_availability_ok = len(tools['key_tools_found']) >= 4
+        tool_availability_ok = len(tools["key_tools_found"]) >= 4
         functionality_ok = (successful_basic + successful_search + successful_unified) >= 6
         error_handling_ok = handled_errors >= len(error_tests) * 0.8
-        performance_ok = perf['successful_conversations'] >= 4 and perf['average_tool_time_ms'] < 1000
+        performance_ok = perf["successful_conversations"] >= 4 and perf["average_tool_time_ms"] < 1000
 
         categories_passed = sum([tool_availability_ok, functionality_ok, error_handling_ok, performance_ok])
 
@@ -429,7 +459,7 @@ async def main():
             print("❌ ISSUES DETECTED - MCP server needs attention")
 
         # Efficiency assessment
-        avg_time = perf['average_tool_time_ms']
+        avg_time = perf["average_tool_time_ms"]
         if avg_time < 50:
             print("🚀 HIGHLY EFFICIENT - Sub-50ms average tool response")
         elif avg_time < 200:

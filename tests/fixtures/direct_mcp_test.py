@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 import traceback
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 from quilt_mcp.utils import create_mcp_server, register_tools
 
@@ -91,7 +91,11 @@ class DirectMCPTester:
                 params = list(sig.parameters.keys())
 
                 tools_info.append(
-                    {"name": tool_name, "parameters": params, "is_async": asyncio.iscoroutinefunction(tool_func)}
+                    {
+                        "name": tool_name,
+                        "parameters": params,
+                        "is_async": asyncio.iscoroutinefunction(tool_func),
+                    }
                 )
             except Exception as e:
                 tools_info.append({"name": tool_name, "error": str(e)})
@@ -140,14 +144,25 @@ class DirectMCPTester:
         # Test different search functions
         search_tests = [
             ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
-            ("mcp_quilt_bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}),
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+            ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
 
         # Add unified search if available
         if "unified_search" in self.tools:
             search_tests.append(
-                ("unified_search", {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True})
+                (
+                    "unified_search",
+                    {
+                        "query": "CSV files",
+                        "scope": "catalog",
+                        "limit": 3,
+                        "explain_query": True,
+                    },
+                )
             )
 
         for tool_name, args in search_tests:
@@ -182,7 +197,10 @@ class DirectMCPTester:
         # Test with invalid inputs
         error_tests = [
             ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid limit
-            ("mcp_quilt_bucket_objects_search", {"bucket": "invalid-bucket", "query": "test"}),  # Invalid bucket
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "invalid-bucket", "query": "test"},
+            ),  # Invalid bucket
             ("mcp_quilt_auth_status", {}),  # Missing required parameter
         ]
 
@@ -254,9 +272,19 @@ class DirectMCPTester:
         # Test unified search if available
         if "unified_search" in self.tools:
             unified_tests = [
-                {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True},
+                {
+                    "query": "CSV files",
+                    "scope": "catalog",
+                    "limit": 3,
+                    "explain_query": True,
+                },
                 {"query": "genomics data", "scope": "global", "limit": 2},
-                {"query": "test", "scope": "bucket", "target": "s3://quilt-sandbox-bucket", "limit": 1},
+                {
+                    "query": "test",
+                    "scope": "bucket",
+                    "target": "s3://quilt-sandbox-bucket",
+                    "limit": 1,
+                },
             ]
 
             for test_args in unified_tests:
@@ -352,7 +380,7 @@ async def main():
         # Performance summary
         perf = results["performance"].get("concurrent_test", {})
         if "error" not in perf:
-            successful_perf = perf.get('successful_calls', 0)
+            successful_perf = perf.get("successful_calls", 0)
             print(f"⚡ Performance: {successful_perf}/5 concurrent calls successful")
             print(f"   Average response time: {perf.get('average_time_ms', 0)}ms")
         else:
@@ -375,7 +403,7 @@ async def main():
             passed_categories += 1
         if handled_errors >= total_errors * 0.8:
             passed_categories += 1
-        if "error" not in perf and perf.get('successful_calls', 0) >= 4:
+        if "error" not in perf and perf.get("successful_calls", 0) >= 4:
             passed_categories += 1
         if successful_unified >= max(1, total_unified * 0.8):
             passed_categories += 1
@@ -392,7 +420,7 @@ async def main():
 
         # Performance assessment
         if "error" not in perf:
-            avg_time = perf.get('average_time_ms', 0)
+            avg_time = perf.get("average_time_ms", 0)
             if avg_time < 100:
                 print("🚀 EXCELLENT PERFORMANCE - Average response time < 100ms")
             elif avg_time < 500:

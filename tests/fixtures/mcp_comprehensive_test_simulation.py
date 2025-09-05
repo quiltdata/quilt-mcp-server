@@ -133,7 +133,10 @@ class MCPTestSimulator:
                 tools_used=[],
                 error_message=str(e),
                 error_type=type(e).__name__,
-                recommendations=["Fix test simulation error", "Add proper error handling"],
+                recommendations=[
+                    "Fix test simulation error",
+                    "Add proper error handling",
+                ],
             )
 
     def _simulate_by_intent(
@@ -242,7 +245,10 @@ class MCPTestSimulator:
         self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
     ) -> TestResult:
         """Simulate validation-related tests"""
-        validation_tools = ["mcp_quilt_validate_metadata_structure", "mcp_quilt_package_validate"]
+        validation_tools = [
+            "mcp_quilt_validate_metadata_structure",
+            "mcp_quilt_package_validate",
+        ]
         available_validation = [tool for tool in validation_tools if tool in mcp_tools]
 
         if available_validation:
@@ -272,7 +278,10 @@ class MCPTestSimulator:
         self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
     ) -> TestResult:
         """Simulate permissions-related tests"""
-        perm_tools = ["mcp_quilt_aws_permissions_discover", "mcp_quilt_bucket_access_check"]
+        perm_tools = [
+            "mcp_quilt_aws_permissions_discover",
+            "mcp_quilt_bucket_access_check",
+        ]
         available_perm = [tool for tool in perm_tools if tool in mcp_tools]
 
         if available_perm:
@@ -286,9 +295,9 @@ class MCPTestSimulator:
                 execution_time_ms=simulated_time,
                 tools_used=available_perm,
                 response_summary="Permissions analyzed successfully",
-                recommendations=["Consider caching permission results for better performance"]
-                if simulated_time > 2000
-                else [],
+                recommendations=(
+                    ["Consider caching permission results for better performance"] if simulated_time > 2000 else []
+                ),
             )
         else:
             return TestResult(
@@ -414,7 +423,7 @@ class MCPTestSimulator:
         print("=" * 60)
 
         # Load test cases
-        with open(test_cases_file, 'r') as f:
+        with open(test_cases_file, "r") as f:
             test_cases = json.load(f)
 
         self.test_suite.total_tests = len(test_cases)
@@ -461,7 +470,11 @@ class MCPTestSimulator:
                 if error_type not in errors_by_type:
                     errors_by_type[error_type] = []
                 errors_by_type[error_type].append(
-                    {"test_id": result.test_id, "message": result.error_message, "tools": result.tools_used}
+                    {
+                        "test_id": result.test_id,
+                        "message": result.error_message,
+                        "tools": result.tools_used,
+                    }
                 )
 
             if result.recommendations:
@@ -481,7 +494,7 @@ class MCPTestSimulator:
                 "failed": suite.failed,
                 "skipped": suite.skipped,
                 "errors": suite.errors,
-                "success_rate": round((suite.passed / suite.total_tests) * 100, 1) if suite.total_tests > 0 else 0,
+                "success_rate": (round((suite.passed / suite.total_tests) * 100, 1) if suite.total_tests > 0 else 0),
                 "total_time_seconds": round(total_time, 2),
                 "average_test_time_ms": round(avg_time, 2),
             },

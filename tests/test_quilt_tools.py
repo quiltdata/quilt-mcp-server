@@ -156,7 +156,8 @@ class TestQuiltTools:
 
         with (
             patch.multiple(
-                "quilt_mcp.tools.stack_buckets", build_stack_search_indices=Mock(side_effect=Exception(error_message))
+                "quilt_mcp.tools.stack_buckets",
+                build_stack_search_indices=Mock(side_effect=Exception(error_message)),
             ),
             patch("quilt3.Bucket", return_value=mock_bucket),
         ):
@@ -173,8 +174,18 @@ class TestQuiltTools:
         mock_search_results = {
             "hits": {
                 "hits": [
-                    {"_source": {"name": "user/package1", "description": "Test package 1"}},
-                    {"_source": {"name": "user/package2", "description": "Test package 2"}},
+                    {
+                        "_source": {
+                            "name": "user/package1",
+                            "description": "Test package 1",
+                        }
+                    },
+                    {
+                        "_source": {
+                            "name": "user/package2",
+                            "description": "Test package 2",
+                        }
+                    },
                 ],
                 "total": {"value": 2},
             },
@@ -182,7 +193,10 @@ class TestQuiltTools:
             "timed_out": False,
         }
 
-        with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", return_value="test-bucket"):
+        with patch(
+            "quilt_mcp.tools.stack_buckets.build_stack_search_indices",
+            return_value="test-bucket",
+        ):
             with patch("quilt3.search_util.search_api", return_value=mock_search_results):
                 result = packages_search("test query", limit=2)
 
@@ -217,7 +231,10 @@ class TestQuiltTools:
         """Test catalog_info when not authenticated."""
         with (
             patch("quilt3.logged_in", return_value=None),
-            patch("quilt3.config", return_value={"navigator_url": "https://test.catalog.com"}),
+            patch(
+                "quilt3.config",
+                return_value={"navigator_url": "https://test.catalog.com"},
+            ),
         ):
             result = catalog_info()
 
@@ -244,7 +261,10 @@ class TestQuiltTools:
         """Test catalog_name when detected from config."""
         with (
             patch("quilt3.logged_in", return_value=None),
-            patch("quilt3.config", return_value={"navigator_url": "https://config.catalog.com"}),
+            patch(
+                "quilt3.config",
+                return_value={"navigator_url": "https://config.catalog.com"},
+            ),
         ):
             result = catalog_name()
 
@@ -257,7 +277,11 @@ class TestQuiltTools:
     def test_catalog_url_package_view(self):
         """Test catalog_url for package view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_url(registry="s3://test-bucket", package_name="user/package", path="data.csv")
+            result = catalog_url(
+                registry="s3://test-bucket",
+                package_name="user/package",
+                path="data.csv",
+            )
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -282,7 +306,11 @@ class TestQuiltTools:
     def test_catalog_uri_basic(self):
         """Test catalog_uri with basic parameters."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", path="data.csv")
+            result = catalog_uri(
+                registry="s3://test-bucket",
+                package_name="user/package",
+                path="data.csv",
+            )
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -295,7 +323,11 @@ class TestQuiltTools:
     def test_catalog_uri_with_version(self):
         """Test catalog_uri with version hash."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", top_hash="abc123def456")
+            result = catalog_uri(
+                registry="s3://test-bucket",
+                package_name="user/package",
+                top_hash="abc123def456",
+            )
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -385,7 +417,12 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            result = package_diff("user/package1", "user/package2", package1_hash="abc123", package2_hash="def456")
+            result = package_diff(
+                "user/package1",
+                "user/package2",
+                package1_hash="abc123",
+                package2_hash="def456",
+            )
 
             assert isinstance(result, dict)
             assert result["package1"] == "user/package1"
@@ -399,13 +436,22 @@ class TestQuiltTools:
         """Test package_diff comparing different versions of same package."""
         mock_pkg1 = Mock()
         mock_pkg2 = Mock()
-        mock_diff_result = {"added": [], "deleted": [], "modified": ["updated_file.txt"]}
+        mock_diff_result = {
+            "added": [],
+            "deleted": [],
+            "modified": ["updated_file.txt"],
+        }
         mock_pkg1.diff.return_value = mock_diff_result
 
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            result = package_diff("user/package", "user/package", package1_hash="old_hash", package2_hash="new_hash")
+            result = package_diff(
+                "user/package",
+                "user/package",
+                package1_hash="old_hash",
+                package2_hash="new_hash",
+            )
 
             assert isinstance(result, dict)
             assert result["package1"] == "user/package"

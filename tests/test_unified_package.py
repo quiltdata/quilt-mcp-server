@@ -40,13 +40,18 @@ class TestCreatePackage:
         assert "Invalid files format" in result["error"]
         assert "examples" in result
 
-    @patch('quilt_mcp.tools.unified_package.package_create_from_s3')
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
     def test_s3_only_package_creation(self, mock_s3_create):
         """Test package creation with S3-only sources."""
-        mock_s3_create.return_value = {"success": True, "package_name": "test/package", "registry": "s3://test-bucket"}
+        mock_s3_create.return_value = {
+            "success": True,
+            "package_name": "test/package",
+            "registry": "s3://test-bucket",
+        }
 
         result = create_package(
-            name="test/package", files=["s3://source-bucket/data.csv", "s3://source-bucket/readme.md"]
+            name="test/package",
+            files=["s3://source-bucket/data.csv", "s3://source-bucket/readme.md"],
         )
 
         assert result["success"] is True
@@ -64,10 +69,13 @@ class TestCreatePackage:
 class TestQuickStart:
     """Test cases for the quick_start onboarding tool."""
 
-    @patch('quilt_mcp.tools.auth.auth_status')
+    @patch("quilt_mcp.tools.auth.auth_status")
     def test_quick_start_authenticated(self, mock_auth_status):
         """Test quick start for authenticated user."""
-        mock_auth_status.return_value = {"status": "authenticated", "catalog_name": "demo.quiltdata.com"}
+        mock_auth_status.return_value = {
+            "status": "authenticated",
+            "catalog_name": "demo.quiltdata.com",
+        }
 
         result = quick_start()
 
@@ -76,7 +84,7 @@ class TestQuickStart:
         assert "next_actions" in result
         assert len(result["next_actions"]) > 0
 
-    @patch('quilt_mcp.tools.auth.auth_status')
+    @patch("quilt_mcp.tools.auth.auth_status")
     def test_quick_start_not_authenticated(self, mock_auth_status):
         """Test quick start for non-authenticated user."""
         mock_auth_status.return_value = {"status": "not_authenticated"}
@@ -88,10 +96,13 @@ class TestQuickStart:
         assert "setup_flow" in result
         assert len(result["setup_flow"]) >= 4
 
-    @patch('quilt_mcp.tools.auth.auth_status')
+    @patch("quilt_mcp.tools.auth.auth_status")
     def test_quick_start_error_state(self, mock_auth_status):
         """Test quick start for error state."""
-        mock_auth_status.return_value = {"status": "error", "error": "AWS credentials not found"}
+        mock_auth_status.return_value = {
+            "status": "error",
+            "error": "AWS credentials not found",
+        }
 
         result = quick_start()
 
@@ -103,7 +114,7 @@ class TestQuickStart:
 class TestCatalogConfiguration:
     """Test cases for catalog configuration tools."""
 
-    @patch('quilt3.config')
+    @patch("quilt3.config")
     def test_configure_catalog_success(self, mock_config):
         """Test successful catalog configuration."""
         mock_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
@@ -123,7 +134,7 @@ class TestCatalogConfiguration:
         assert "expected" in result
         assert "example" in result
 
-    @patch('quilt_mcp.tools.auth.configure_catalog')
+    @patch("quilt_mcp.tools.auth.configure_catalog")
     def test_switch_catalog_by_name(self, mock_configure):
         """Test switching catalog by friendly name."""
         mock_configure.return_value = {"status": "success"}
@@ -134,7 +145,7 @@ class TestCatalogConfiguration:
         assert result["action"] == "switched"
         mock_configure.assert_called_with("https://demo.quiltdata.com")
 
-    @patch('quilt_mcp.tools.auth.configure_catalog')
+    @patch("quilt_mcp.tools.auth.configure_catalog")
     def test_switch_catalog_invalid_name(self, mock_configure):
         """Test switching to invalid catalog name."""
         # Mock the configure_catalog call to fail but still return available catalogs
@@ -216,7 +227,7 @@ class TestUtilityFunctions:
         }
 
         # Mock the file analysis to return S3 sources
-        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -225,10 +236,17 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
-                mock_s3_create.return_value = {"status": "success", "package_name": "test/dataset"}
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset",
+                }
 
-                result = create_package(name="test/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata)
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata,
+                )
 
                 # Verify success
                 assert result["status"] == "success"
@@ -257,7 +275,7 @@ class TestUtilityFunctions:
         }
 
         # Mock the file analysis to return S3 sources
-        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -266,10 +284,17 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
-                mock_s3_create.return_value = {"status": "success", "package_name": "test/dataset"}
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset",
+                }
 
-                result = create_package(name="test/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata)
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata,
+                )
 
                 # Verify success
                 assert result["status"] == "success"
@@ -290,10 +315,14 @@ class TestUtilityFunctions:
     def test_no_readme_content_in_metadata(self):
         """Test that packages without README content work normally."""
         # Test metadata without README content
-        test_metadata = {"description": "Test dataset", "tags": ["test", "example"], "version": "1.0.0"}
+        test_metadata = {
+            "description": "Test dataset",
+            "tags": ["test", "example"],
+            "version": "1.0.0",
+        }
 
         # Mock the file analysis to return S3 sources
-        with patch('quilt_mcp.tools.unified_package._analyze_file_sources') as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -302,10 +331,17 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch('quilt_mcp.tools.unified_package._create_package_from_s3_sources') as mock_s3_create:
-                mock_s3_create.return_value = {"status": "success", "package_name": "test/dataset"}
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
+                mock_s3_create.return_value = {
+                    "status": "success",
+                    "package_name": "test/dataset",
+                }
 
-                result = create_package(name="test/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata)
+                result = create_package(
+                    name="test/dataset",
+                    files=["s3://bucket/file.csv"],
+                    metadata=test_metadata,
+                )
 
                 # Verify success
                 assert result["status"] == "success"

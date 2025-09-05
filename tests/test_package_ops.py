@@ -13,9 +13,9 @@ from quilt_mcp.tools.package_ops import package_create, _collect_objects_into_pa
 class TestPackageCreate:
     """Test cases for the package_create function."""
 
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     def test_readme_content_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that README content is automatically extracted from metadata and added as package file."""
         # Setup mocks
@@ -56,9 +56,9 @@ class TestPackageCreate:
         # Check that warnings were generated (they might not be returned in the result)
         # The important thing is that the README was extracted and added as a file
 
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     def test_readme_field_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that 'readme' field is also extracted from metadata."""
         # Setup mocks
@@ -72,7 +72,11 @@ class TestPackageCreate:
         mock_pkg.push.return_value = "test_hash_123"
 
         # Test metadata with 'readme' field
-        test_metadata = {"description": "Test package", "readme": "This is a simple README.", "version": "1.0.0"}
+        test_metadata = {
+            "description": "Test package",
+            "readme": "This is a simple README.",
+            "version": "1.0.0",
+        }
 
         result = package_create(
             package_name="test/package",
@@ -95,9 +99,9 @@ class TestPackageCreate:
         # Check that warnings were generated (they might not be returned in the result)
         # The important thing is that the README was extracted and added as a file
 
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     def test_both_readme_fields_extraction(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
         # Setup mocks
@@ -137,9 +141,9 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     def test_no_readme_content_in_metadata(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that packages without README content in metadata work normally."""
         # Setup mocks
@@ -172,9 +176,9 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     def test_readme_file_creation_failure_handling(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that README file creation failures are handled gracefully."""
         # Setup mocks
@@ -188,8 +192,8 @@ class TestPackageCreate:
         mock_pkg.push.return_value = "test_hash_123"
 
         # Mock README file creation failure
-        mock_pkg.set.side_effect = (
-            lambda logical_path, content: Mock() if logical_path != "README.md" else Exception("File system error")
+        mock_pkg.set.side_effect = lambda logical_path, content: (
+            Mock() if logical_path != "README.md" else Exception("File system error")
         )
 
         # Test metadata with README content
@@ -213,9 +217,9 @@ class TestPackageCreate:
         expected_metadata = {"description": "Test package", "tags": ["test"]}
         mock_pkg.set_meta.assert_called_with(expected_metadata)
 
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     def test_empty_metadata_handling(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that empty metadata is handled correctly."""
         # Setup mocks
@@ -241,9 +245,9 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch('quilt_mcp.tools.package_ops.quilt3.Package')
-    @patch('quilt_mcp.tools.package_ops._collect_objects_into_package')
-    @patch('quilt_mcp.tools.package_ops._build_selector_fn')
+    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
+    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
+    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     def test_metadata_without_readme_fields(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that metadata without README fields is processed normally."""
         # Setup mocks
@@ -292,7 +296,11 @@ class TestCollectObjectsIntoPackage:
         # Mock the package to handle the 'in' operator for logical path checking
         mock_pkg.__contains__ = Mock(return_value=False)
 
-        s3_uris = ["s3://bucket/file1.txt", "s3://bucket/file2.csv", "s3://bucket/subfolder/file3.json"]
+        s3_uris = [
+            "s3://bucket/file1.txt",
+            "s3://bucket/file2.csv",
+            "s3://bucket/subfolder/file3.json",
+        ]
         warnings = []
 
         result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
