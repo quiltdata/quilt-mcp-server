@@ -1,6 +1,7 @@
 # Contributing to Quilt MCP Server
 
-Thank you for your interest in contributing to the Quilt MCP Server! This guide will help you get started with contributing code, documentation, bug reports, and feature requests.
+Thank you for your interest in contributing to the Quilt MCP Server! This guide will help you get started with
+contributing code, documentation, bug reports, and feature requests.
 
 ## 🚀 Quick Start for Contributors
 
@@ -72,6 +73,7 @@ git push origin feature/your-feature-name
 When reporting bugs, please include:
 
 **Required Information:**
+
 - **Environment**: OS, Python version, MCP client (Claude Desktop, Cursor, etc.)
 - **Configuration**: Relevant environment variables (redact sensitive info)
 - **Steps to Reproduce**: Clear, numbered steps
@@ -79,88 +81,6 @@ When reporting bugs, please include:
 - **Actual Behavior**: What actually happens
 - **Error Messages**: Full error messages and stack traces
 - **Minimal Example**: Smallest code example that reproduces the issue
-
-**Bug Report Template:**
-```markdown
-## Bug Description
-Brief description of the issue
-
-## Environment
-- OS: macOS 14.5 / Ubuntu 22.04 / Windows 11
-- Python: 3.11.5
-- MCP Client: Claude Desktop 1.2.3
-- Server Version: 0.5.5
-
-## Configuration
-```bash
-QUILT_CATALOG_DOMAIN=demo.quiltdata.com
-QUILT_DEFAULT_BUCKET=s3://my-bucket
-# ... other relevant config
-```
-
-## Steps to Reproduce
-1. Start the MCP server with `make run`
-2. Call tool `package_browse` with parameters: {...}
-3. Observe error in response
-
-## Expected Behavior
-Should return package contents with file listing
-
-## Actual Behavior
-Returns 500 error with message \"Connection timeout\"
-
-## Error Messages
-```
-[ERROR] 2024-08-27 14:30:15 - Connection timeout after 30s
-Traceback (most recent call last):
-  ...
-```
-
-## Additional Context
-This started happening after updating to version 0.5.5
-```
-
-### ✨ Feature Requests
-
-When requesting features, please include:
-
-**Required Information:**
-- **Use Case**: Why is this feature needed?
-- **User Story**: \"As a [user type], I want [goal] so that [benefit]\"
-- **Acceptance Criteria**: How do we know when it's complete?
-- **Implementation Ideas**: Suggestions for how to implement (optional)
-- **Alternatives Considered**: Other solutions you've considered
-
-**Feature Request Template:**
-```markdown
-## Feature Summary
-Brief description of the proposed feature
-
-## Use Case
-Detailed explanation of why this feature is needed
-
-## User Story
-As a bioinformatics researcher, I want to search for packages by genomic coordinates so that I can find relevant datasets for my analysis region.
-
-## Acceptance Criteria
-- [ ] Support genomic coordinate queries (chr:start-end format)
-- [ ] Integrate with existing unified search system
-- [ ] Return packages with overlapping genomic regions
-- [ ] Include confidence scores for matches
-- [ ] Handle multiple genome builds (GRCh38, GRCh37)
-
-## Implementation Ideas
-- Add genomic coordinate parser to search module
-- Extend GraphQL queries to include genomic metadata
-- Create new tool `search_by_coordinates`
-
-## Alternatives Considered
-- Manual filtering of search results
-- External genomic database integration
-
-## Additional Context
-This would support our genomics workflow where we need to find datasets overlapping specific chromosomal regions.
-```
 
 ### 🔧 Code Contributions
 
@@ -217,6 +137,7 @@ async def your_new_tool(
 ```
 
 **Tool Requirements:**
+
 - **Async Support**: All tools must be async-compatible
 - **Error Handling**: Graceful error handling with meaningful messages
 - **Input Validation**: Validate all inputs using our validator functions
@@ -227,6 +148,7 @@ async def your_new_tool(
 #### Testing Requirements
 
 **Unit Tests:**
+
 ```python
 # tests/test_your_new_tool.py
 
@@ -263,6 +185,7 @@ class TestYourNewTool:
 ```
 
 **Integration Tests:**
+
 ```python
 # Add to test_cases/comprehensive_test_scenarios.json
 {
@@ -291,6 +214,7 @@ We welcome improvements to:
 - **Examples**: Real-world usage scenarios
 
 **Documentation Standards:**
+
 - Use clear, concise language
 - Include code examples for all features
 - Test all code examples to ensure they work
@@ -375,7 +299,7 @@ if not package_name or '/' not in package_name:
 
 Use conventional commit format:
 
-```
+```commit
 type(scope): brief description
 
 Detailed explanation of changes, including:
@@ -388,6 +312,7 @@ Closes #456
 ```
 
 **Types:**
+
 - `feat`: New features
 - `fix`: Bug fixes  
 - `docs`: Documentation changes
@@ -471,6 +396,7 @@ Relates to #456
 ### Milestones
 
 We organize work into milestones:
+
 - **v0.6.0**: Next minor release
 - **v1.0.0**: Major release milestone
 - **Backlog**: Future considerations
@@ -502,18 +428,21 @@ We organize work into milestones:
 Looking for ways to contribute? Here are some areas where we'd love help:
 
 ### High Priority
+
 - **New MCP Tools**: Additional Quilt operations
 - **Performance Optimization**: Faster search and data operations
 - **Error Handling**: Better error messages and recovery
 - **Documentation**: User guides and examples
 
 ### Medium Priority  
+
 - **Testing**: Additional real-world test scenarios
 - **Monitoring**: Observability and metrics
 - **Security**: Security audits and improvements
 - **Integrations**: Support for additional MCP clients
 
 ### Good First Issues
+
 - **Documentation Fixes**: Typos and clarity improvements
 - **Test Coverage**: Tests for existing functionality
 - **Code Cleanup**: Refactoring and code organization
