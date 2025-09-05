@@ -105,8 +105,6 @@ ipython_config.py
 # Local development scripts and wrappers
 benchling-mcp-wrapper.sh
 *.sh
-# But allow scripts in the scripts/ directory
-!scripts/*.sh
 # Allow tools directory scripts
 !tools/**/*.sh
 #   commonly ignored for libraries.
