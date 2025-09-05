@@ -29,7 +29,7 @@ dependencies = [
 quilt-mcp = "app.main:main"
 
 [tool.setuptools.packages.find]
-where = ["app"]
+where = ["src"]
 include = ["quilt_mcp*"]
 exclude = ["shared", "scripts"]
 
