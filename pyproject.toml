@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-quilt-mcp = "app.main:main"
+quilt-mcp = "src.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -34,7 +34,7 @@ include = ["quilt_mcp*"]
 exclude = ["shared", "scripts"]
 
 [tool.setuptools.package-dir]
-"" = "app"
+"" = "src"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
