@@ -35,7 +35,7 @@ description = "Test project"
             try:
                 f.write(pyproject_content)
                 f.flush()
-                
+
                 version = read_project_version(Path(f.name))
                 assert version == "1.2.3"
             finally:
@@ -43,13 +43,8 @@ description = "Test project"
 
     def test_handles_complex_version_formats(self):
         """Should handle prerelease and development versions."""
-        test_cases = [
-            "1.0.0-rc.1",
-            "2.3.4-beta.2", 
-            "1.5.0-dev",
-            "0.1.0-alpha.1+build.123"
-        ]
-        
+        test_cases = ["1.0.0-rc.1", "2.3.4-beta.2", "1.5.0-dev", "0.1.0-alpha.1+build.123"]
+
         for version in test_cases:
             pyproject_content = f"""
 [project]
@@ -60,7 +55,7 @@ version = "{version}"
                 try:
                     f.write(pyproject_content)
                     f.flush()
-                    
+
                     result = read_project_version(Path(f.name))
                     assert result == version
                 finally:
@@ -82,7 +77,7 @@ description = "Test project without version"
             try:
                 f.write(pyproject_content)
                 f.flush()
-                
+
                 with pytest.raises(KeyError, match="version"):
                     read_project_version(Path(f.name))
             finally:
@@ -98,7 +93,7 @@ requires = ["setuptools"]
             try:
                 f.write(pyproject_content)
                 f.flush()
-                
+
                 with pytest.raises(KeyError, match="project"):
                     read_project_version(Path(f.name))
             finally:
@@ -126,19 +121,17 @@ class TestTemplateProcessing:
             try:
                 template_file.write(template_content)
                 template_file.flush()
-                
+
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
                     try:
                         generate_manifest_from_template(
-                            template_path=Path(template_file.name),
-                            output_path=Path(output_file.name),
-                            version="1.2.3"
+                            template_path=Path(template_file.name), output_path=Path(output_file.name), version="1.2.3"
                         )
-                        
+
                         # Verify the generated file
                         with open(output_file.name, 'r') as f:
                             manifest = json.load(f)
-                        
+
                         assert manifest["version"] == "1.2.3"
                         assert manifest["name"] == "test-extension"
                         assert manifest["dxt_version"] == "0.1"
@@ -184,21 +177,19 @@ class TestTemplateProcessing:
             try:
                 template_file.write(template_content)
                 template_file.flush()
-                
+
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
                     try:
                         generate_manifest_from_template(
-                            template_path=Path(template_file.name),
-                            output_path=Path(output_file.name),
-                            version="2.0.0"
+                            template_path=Path(template_file.name), output_path=Path(output_file.name), version="2.0.0"
                         )
-                        
+
                         with open(output_file.name, 'r') as f:
                             manifest = json.load(f)
-                        
+
                         # Check version was substituted
                         assert manifest["version"] == "2.0.0"
-                        
+
                         # Check all other fields preserved
                         assert manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"] == "1"
                         assert manifest["user_config"]["catalog_domain"]["required"] is True
@@ -216,7 +207,7 @@ class TestTemplateProcessing:
                     generate_manifest_from_template(
                         template_path=Path("/non/existent/template.j2"),
                         output_path=Path(output_file.name),
-                        version="1.0.0"
+                        version="1.0.0",
                     )
             finally:
                 Path(output_file.name).unlink(missing_ok=True)
@@ -234,14 +225,14 @@ class TestTemplateProcessing:
             try:
                 template_file.write(invalid_template)
                 template_file.flush()
-                
+
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as output_file:
                     try:
                         with pytest.raises(json.JSONDecodeError):
                             generate_manifest_from_template(
                                 template_path=Path(template_file.name),
                                 output_path=Path(output_file.name),
-                                version="1.0.0"
+                                version="1.0.0",
                             )
                     finally:
                         Path(output_file.name).unlink(missing_ok=True)
@@ -259,27 +250,22 @@ class TestSyncDetection:
 name = "test-project"
 version = "1.2.3"
 """
-        manifest_content = {
-            "name": "test-extension",
-            "version": "1.2.2",
-            "description": "Test extension"
-        }
-        
+        manifest_content = {"name": "test-extension", "version": "1.2.2", "description": "Test extension"}
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()
-                
+
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
                     try:
                         json.dump(manifest_content, manifest_file)
                         manifest_file.flush()
-                        
+
                         result = check_version_sync_required(
-                            pyproject_path=Path(pyproject_file.name),
-                            manifest_path=Path(manifest_file.name)
+                            pyproject_path=Path(pyproject_file.name), manifest_path=Path(manifest_file.name)
                         )
-                        
+
                         assert result is True
                     finally:
                         Path(manifest_file.name).unlink(missing_ok=True)
@@ -293,27 +279,22 @@ version = "1.2.3"
 name = "test-project"
 version = "1.2.3"
 """
-        manifest_content = {
-            "name": "test-extension", 
-            "version": "1.2.3",
-            "description": "Test extension"
-        }
-        
+        manifest_content = {"name": "test-extension", "version": "1.2.3", "description": "Test extension"}
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()
-                
+
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as manifest_file:
                     try:
                         json.dump(manifest_content, manifest_file)
                         manifest_file.flush()
-                        
+
                         result = check_version_sync_required(
-                            pyproject_path=Path(pyproject_file.name),
-                            manifest_path=Path(manifest_file.name)
+                            pyproject_path=Path(pyproject_file.name), manifest_path=Path(manifest_file.name)
                         )
-                        
+
                         assert result is False
                     finally:
                         Path(manifest_file.name).unlink(missing_ok=True)
@@ -327,17 +308,16 @@ version = "1.2.3"
 name = "test-project"
 version = "1.2.3"
 """
-        
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()
-                
+
                 result = check_version_sync_required(
-                    pyproject_path=Path(pyproject_file.name),
-                    manifest_path=Path("/non/existent/manifest.json")
+                    pyproject_path=Path(pyproject_file.name), manifest_path=Path("/non/existent/manifest.json")
                 )
-                
+
                 assert result is True
             finally:
                 Path(pyproject_file.name).unlink(missing_ok=True)
@@ -354,7 +334,7 @@ name = "integration-test"
 version = "3.0.0-beta.1"
 description = "Integration test project"
 """
-        
+
         template_content = """
 {
   "dxt_version": "0.1",
@@ -363,30 +343,26 @@ description = "Integration test project"
   "description": "Integration test extension"
 }
 """
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             pyproject_path = temp_path / "pyproject.toml"
             template_path = temp_path / "manifest.json.j2"
             manifest_path = temp_path / "manifest.json"
-            
+
             # Create input files
             pyproject_path.write_text(pyproject_content)
             template_path.write_text(template_content)
-            
+
             # Run the sync process
-            sync_versions(
-                pyproject_path=pyproject_path,
-                template_path=template_path,
-                manifest_path=manifest_path
-            )
-            
+            sync_versions(pyproject_path=pyproject_path, template_path=template_path, manifest_path=manifest_path)
+
             # Verify the result
             assert manifest_path.exists()
-            
+
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
-            
+
             assert manifest["version"] == "3.0.0-beta.1"
             assert manifest["name"] == "integration-extension"
             assert manifest["dxt_version"] == "0.1"
@@ -399,7 +375,7 @@ name = "quilt-mcp-server"
 version = "0.5.7"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 """
-        
+
         # Based on the actual manifest.json structure
         template_content = """
 {
@@ -457,28 +433,24 @@ description = "Secure MCP server for accessing Quilt data with JWT authenticatio
   }
 }
 """
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             pyproject_path = temp_path / "pyproject.toml"
             template_path = temp_path / "manifest.json.j2"
             manifest_path = temp_path / "manifest.json"
-            
+
             pyproject_path.write_text(pyproject_content)
             template_path.write_text(template_content)
-            
-            sync_versions(
-                pyproject_path=pyproject_path,
-                template_path=template_path,
-                manifest_path=manifest_path
-            )
-            
+
+            sync_versions(pyproject_path=pyproject_path, template_path=template_path, manifest_path=manifest_path)
+
             with open(manifest_path, 'r') as f:
                 manifest = json.load(f)
-            
+
             # Verify version substitution
             assert manifest["version"] == "0.5.7"
-            
+
             # Verify complex nested structure preservation
             assert manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"] == "1"
             assert manifest["user_config"]["catalog_domain"]["required"] is True
@@ -488,22 +460,22 @@ description = "Secure MCP server for accessing Quilt data with JWT authenticatio
         """Should provide clear error messages for common failure scenarios."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
+
             # Test missing pyproject.toml
             with pytest.raises(FileNotFoundError):
                 sync_versions(
                     pyproject_path=temp_path / "missing.toml",
                     template_path=temp_path / "template.j2",
-                    manifest_path=temp_path / "output.json"
+                    manifest_path=temp_path / "output.json",
                 )
-            
+
             # Test missing template
             pyproject_path = temp_path / "pyproject.toml"
             pyproject_path.write_text('[project]\nname="test"\nversion="1.0.0"')
-            
+
             with pytest.raises(FileNotFoundError):
                 sync_versions(
                     pyproject_path=pyproject_path,
                     template_path=temp_path / "missing_template.j2",
-                    manifest_path=temp_path / "output.json"
+                    manifest_path=temp_path / "output.json",
                 )

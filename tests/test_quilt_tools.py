@@ -58,7 +58,6 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-
             result = packages_list()
 
             # Result now has packages structure
@@ -80,7 +79,6 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-
             result = packages_list(prefix="user/")
 
             # Result now has packages structure
@@ -120,7 +118,7 @@ class TestQuiltTools:
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
             result = package_browse("user/nonexistent")
-            
+
             assert result["success"] is False
             assert "Failed to browse package" in result["error"]
             assert "Package not found" in result["cause"]
@@ -143,22 +141,27 @@ class TestQuiltTools:
             assert len(result["matches"]) == 1  # Only 'test_file.txt' matches 'test'
             assert result["matches"][0]["logical_key"] == "test_file.txt"
 
-    @pytest.mark.parametrize("error_message,test_description", [
-        ("401 Unauthorized", "authentication error"),
-        ("Invalid URL - No scheme supplied", "configuration error"),
-    ])
+    @pytest.mark.parametrize(
+        "error_message,test_description",
+        [
+            ("401 Unauthorized", "authentication error"),
+            ("Invalid URL - No scheme supplied", "configuration error"),
+        ],
+    )
     def test_packages_search_error_scenarios(self, error_message, test_description):
         """Test packages_search with various error scenarios."""
         # Mock both search methods to fail using patch.multiple for cleaner code
         mock_bucket = Mock()
         mock_bucket.search.side_effect = Exception(f"{error_message} - fallback failed")
-        
-        with patch.multiple(
-            "quilt_mcp.tools.stack_buckets",
-            build_stack_search_indices=Mock(side_effect=Exception(error_message))
-        ), patch("quilt3.Bucket", return_value=mock_bucket):
+
+        with (
+            patch.multiple(
+                "quilt_mcp.tools.stack_buckets", build_stack_search_indices=Mock(side_effect=Exception(error_message))
+            ),
+            patch("quilt3.Bucket", return_value=mock_bucket),
+        ):
             result = packages_search("test query")
-            
+
             assert isinstance(result, dict)
             assert "error" in result
             # The error gets wrapped as "All search methods failed: <original error>"
@@ -173,10 +176,10 @@ class TestQuiltTools:
                     {"_source": {"name": "user/package1", "description": "Test package 1"}},
                     {"_source": {"name": "user/package2", "description": "Test package 2"}},
                 ],
-                "total": {"value": 2}
+                "total": {"value": 2},
             },
             "took": 10,
-            "timed_out": False
+            "timed_out": False,
         }
 
         with patch("quilt_mcp.tools.stack_buckets.build_stack_search_indices", return_value="test-bucket"):
@@ -201,7 +204,6 @@ class TestQuiltTools:
                     "registryUrl": "https://registry.test.com",
                 },
             ):
-
                 result = catalog_info()
 
                 assert isinstance(result, dict)
@@ -217,7 +219,6 @@ class TestQuiltTools:
             patch("quilt3.logged_in", return_value=None),
             patch("quilt3.config", return_value={"navigator_url": "https://test.catalog.com"}),
         ):
-
             result = catalog_info()
 
             assert isinstance(result, dict)
@@ -231,7 +232,6 @@ class TestQuiltTools:
             patch("quilt3.logged_in", return_value="https://test.catalog.com"),
             patch("quilt3.config", return_value={}),
         ):
-
             result = catalog_name()
 
             assert isinstance(result, dict)
@@ -246,7 +246,6 @@ class TestQuiltTools:
             patch("quilt3.logged_in", return_value=None),
             patch("quilt3.config", return_value={"navigator_url": "https://config.catalog.com"}),
         ):
-
             result = catalog_name()
 
             assert isinstance(result, dict)
@@ -258,9 +257,7 @@ class TestQuiltTools:
     def test_catalog_url_package_view(self):
         """Test catalog_url for package view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_url(
-                registry="s3://test-bucket", package_name="user/package", path="data.csv"
-            )
+            result = catalog_url(registry="s3://test-bucket", package_name="user/package", path="data.csv")
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -279,17 +276,13 @@ class TestQuiltTools:
             assert isinstance(result, dict)
             assert result["status"] == "success"
             assert result["view_type"] == "bucket"
-            assert (
-                result["catalog_url"] == "https://test.catalog.com/b/test-bucket/tree/data/file.csv"
-            )
+            assert result["catalog_url"] == "https://test.catalog.com/b/test-bucket/tree/data/file.csv"
             assert result["bucket"] == "test-bucket"
 
     def test_catalog_uri_basic(self):
         """Test catalog_uri with basic parameters."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(
-                registry="s3://test-bucket", package_name="user/package", path="data.csv"
-            )
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", path="data.csv")
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -302,9 +295,7 @@ class TestQuiltTools:
     def test_catalog_uri_with_version(self):
         """Test catalog_uri with version hash."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(
-                registry="s3://test-bucket", package_name="user/package", top_hash="abc123def456"
-            )
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", top_hash="abc123def456")
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -314,9 +305,7 @@ class TestQuiltTools:
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with version tag."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(
-                registry="s3://test-bucket", package_name="user/package", tag="v1.0"
-            )
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -396,9 +385,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            result = package_diff(
-                "user/package1", "user/package2", package1_hash="abc123", package2_hash="def456"
-            )
+            result = package_diff("user/package1", "user/package2", package1_hash="abc123", package2_hash="def456")
 
             assert isinstance(result, dict)
             assert result["package1"] == "user/package1"
@@ -418,9 +405,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            result = package_diff(
-                "user/package", "user/package", package1_hash="old_hash", package2_hash="new_hash"
-            )
+            result = package_diff("user/package", "user/package", package1_hash="old_hash", package2_hash="new_hash")
 
             assert isinstance(result, dict)
             assert result["package1"] == "user/package"

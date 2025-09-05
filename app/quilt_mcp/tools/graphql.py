@@ -124,7 +124,7 @@ def objects_search_graphql(
         for edge in edges
         if isinstance(edge, dict)
     ]
-    page_info = (conn.get("pageInfo") or {})
+    page_info = conn.get("pageInfo") or {}
     return {
         "success": True,
         "bucket": bkt,
@@ -135,5 +135,3 @@ def objects_search_graphql(
         },
         "filter": variables["filter"],
     }
-
-

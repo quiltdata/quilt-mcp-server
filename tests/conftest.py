@@ -11,6 +11,7 @@ from typing import Dict, Any
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
+
     # Load from .env file in the project root
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
     if os.path.exists(env_path):
@@ -42,14 +43,7 @@ def pytest_configure(config):
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
         boto3.setup_default_session(profile_name=os.getenv("AWS_PROFILE"))
-    
-    # Add custom markers
-    config.addinivalue_line(
-        "markers",
-        "integration: mark test as integration test"  
-    )
-    config.addinivalue_line(
-        "markers", 
-        "slow: mark test as slow-running test"
-    )
 
+    # Add custom markers
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "slow: mark test as slow-running test")
