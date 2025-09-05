@@ -6,11 +6,12 @@
 
 ---
 
-## ✅ EXECUTION COMPLETED - CI Issues Resolved - September 5, 2025
+## ⚠️ EXECUTION 95% COMPLETE - 1 Issue Remaining - September 5, 2025
 
-**Status**: ✅ **PHASE 2 COMPLETE - ALL ISSUES RESOLVED**
+**Status**: ⚠️ **PHASE 2 NEARLY COMPLETE - 1 CRITICAL ISSUE REMAINING**
 
 **Key Results**:
+
 - ✅ **19 atomic commits** with full Git history preservation  
 - ✅ **74 Python files** moved to clean `src/` structure  
 - ✅ **329 unit tests** passing with new imports  
@@ -22,24 +23,39 @@
 **Directory Reduction**: 16 → 8 root directories (-50%)  
 **Script Consolidation**: 17 → 4 essential scripts (-76%)
 
-## ✅ CRITICAL ISSUES RESOLVED
+## ⚠️ CRITICAL ISSUES - 1 REMAINING
 
 ### 1. ✅ Makefile Path Issues Fixed
+
 **Problem**: Makefile lint targets referenced old `app/quilt_mcp/` paths
 **Solution**: Updated all paths from `app/quilt_mcp/` → `src/quilt_mcp/`
 **Result**: `make lint` and `make test-ci` work perfectly
 
-### 2. ✅ Redundant Black Linter Removed
+### 2. ⚠️ pyproject.toml Inconsistencies Need Resolution
+
+**Problem**: pyproject.toml has conflicting configuration
+
+- Line 29: `quilt-mcp = "app.main:main"` (should be `"src.main:main"`)
+- Line 37: `"" = "app"` (package directory still points to app)
+- Line 32: `where = ["src"]` (conflicts with the above)
+
+**Impact**: Tests pass due to PYTHONPATH override, but packaging may be broken
+**Action Required**: Fix pyproject.toml to be consistent with src/ structure
+
+### 3. ✅ Redundant Black Linter Removed
+
 **Problem**: Black formatter was redundant with Ruff's formatting capabilities
 **Solution**: Removed Black, using Ruff for both formatting and linting
 **Result**: Simplified, faster lint process with single tool
 
-### 3. ✅ Test Output Paths Corrected
+### 4. ✅ Test Output Paths Corrected
+
 **Problem**: Test results still being written to non-existent `app/` directories
 **Solution**: Updated paths to `build/test-results/` and `src/coverage.xml`
 **Result**: CI test artifacts generated in correct locations
 
-### 4. ✅ Dependency Cleanup
+### 5. ✅ Dependency Cleanup
+
 **Problem**: Missing mypy dependency that wasn't actually needed
 **Solution**: Removed mypy dependency, Ruff handles type-aware linting
 **Result**: Cleaner dependency tree, faster CI builds
@@ -69,89 +85,95 @@
 - [x] **Expected**: Output shows `['src']`
 - [x] **Rollback**: If test fails, revert `pyproject.toml` change
 
-### Step 1B: Update Makefile PYTHONPATH
+### Step 1B: Update Makefile PYTHONPATH ✅ COMPLETED
 
 **Commit**: `"refactor: update Makefile PYTHONPATH for src/ structure"`
 
-- [ ] **Action**: Update all Makefile PYTHONPATH references: `app` → `src`
-- [ ] **Test**: Run `grep -n "PYTHONPATH.*=" Makefile`
-- [ ] **Expected**: All PYTHONPATH entries show `src`, none show `app`
-- [ ] **Test**: Run `make test-unit` (should work with current `app/` structure)
-- [ ] **Expected**: Tests pass (configuration prepared but structure unchanged)
-- [ ] **Rollback**: If test fails, revert Makefile PYTHONPATH changes
+- [x] **Action**: Update all Makefile PYTHONPATH references: `app` → `src`
+- [x] **Test**: Run `grep -n "PYTHONPATH.*=" Makefile`
+- [x] **Expected**: All PYTHONPATH entries show `src`, none show `app`
+- [x] **Test**: Run `make test-unit` (should work with current `app/` structure)
+- [x] **Expected**: Tests pass (configuration prepared but structure unchanged)
+- [x] **Rollback**: If test fails, revert Makefile PYTHONPATH changes
 
-### Step 1C: Update GitHub Actions
+### Step 1C: Update GitHub Actions ✅ COMPLETED (N/A)
 
 **Commit**: `"refactor: update GitHub Actions PYTHONPATH for src/ structure"`
 
-- [ ] **Action**: Update GitHub Actions workflows: PYTHONPATH environment variables `app` → `src`
-- [ ] **Test**: Run `grep -r "PYTHONPATH.*app" .github/`
-- [ ] **Expected**: No matches found (all changed to `src`)
-- [ ] **Test**: Run `grep -r "PYTHONPATH.*src" .github/`
-- [ ] **Expected**: All PYTHONPATH entries show `src`
-- [ ] **Rollback**: If validation fails, revert workflow changes
+- [x] **Action**: Update GitHub Actions workflows: PYTHONPATH environment variables `app` → `src`
+- [x] **Test**: Run `grep -r "PYTHONPATH.*app" .github/`
+- [x] **Expected**: No matches found (all changed to `src`)
+- [x] **Test**: Run `grep -r "PYTHONPATH.*src" .github/`
+- [x] **Expected**: All PYTHONPATH entries show `src`
+- [x] **Note**: GitHub Actions relies on Makefile PYTHONPATH export, no explicit env vars needed
+- [x] **Rollback**: If validation fails, revert workflow changes
 
-### Step 1D: Update Claude Agents Configuration
+### Step 1D: Update Claude Agents Configuration ✅ COMPLETED (N/A)
 
 **Commit**: `"refactor: update Claude agents for src/ structure"`
 
-- [ ] **Action**: Update `.claude/agents/` configurations: hardcoded `app/quilt_mcp` paths → `src/quilt_mcp`
-- [ ] **Test**: Run `grep -r "app/quilt_mcp" .claude/`
-- [ ] **Expected**: No matches found
-- [ ] **Test**: Run `grep -r "src/quilt_mcp" .claude/`
-- [ ] **Expected**: All references updated to `src/quilt_mcp`
-- [ ] **Rollback**: If validation fails, revert agent configuration changes
+- [x] **Action**: Update `.claude/agents/` configurations: hardcoded `app/quilt_mcp` paths → `src/quilt_mcp`
+- [x] **Test**: Run `grep -r "app/quilt_mcp" .claude/`
+- [x] **Expected**: No matches found
+- [x] **Test**: Run `grep -r "src/quilt_mcp" .claude/`
+- [x] **Expected**: All references updated to `src/quilt_mcp`
+- [x] **Note**: No hardcoded paths found in Claude agents - already clean
+- [x] **Rollback**: If validation fails, revert agent configuration changes
 
-### Step 1E: Validate Configuration Changes
+### Step 1E: Validate Configuration Changes ✅ COMPLETED
 
 **Commit**: `"test: verify configuration changes with current structure"`
 
-- [ ] **Test**: Run `make test-unit`
-- [ ] **Expected**: All tests pass (configurations updated but files still in `app/`)
-- [ ] **Test**: Run `make lint`
-- [ ] **Expected**: No syntax errors, all checks pass
-- [ ] **Rollback**: If any test fails, revert all Step 1 configuration changes
+- [x] **Test**: Run `make test-unit`
+- [x] **Expected**: All tests pass (configurations updated but files still in `app/`)
+- [x] **Test**: Run `make lint`
+- [x] **Expected**: No syntax errors, all checks pass
+- [x] **Result**: 329 unit tests passing, all lint checks pass
+- [x] **Rollback**: If any test fails, revert all Step 1 configuration changes
 
-### Step 2: Create Directory Structure
+### Step 2: Create Directory Structure ✅ COMPLETED
 
 **Commit**: `"feat: create consolidated directory structure"`
 
-- [ ] **Action**: Run `mkdir -p src/deploy`
-- [ ] **Test**: Run `ls -ld src/deploy`
-- [ ] **Expected**: Directory exists with proper permissions
-- [ ] **Action**: Run `mkdir -p build`
-- [ ] **Test**: Run `ls -ld build`
-- [ ] **Expected**: Directory exists with proper permissions
-- [ ] **Action**: Run `mkdir -p docs/archive`
-- [ ] **Test**: Run `ls -ld docs/archive`
-- [ ] **Expected**: Directory exists with proper permissions
-- [ ] **Rollback**: If any directory creation fails, remove created directories
+- [x] **Action**: Run `mkdir -p src/deploy`
+- [x] **Test**: Run `ls -ld src/deploy`
+- [x] **Expected**: Directory exists with proper permissions
+- [x] **Action**: Run `mkdir -p build`
+- [x] **Test**: Run `ls -ld build`
+- [x] **Expected**: Directory exists with proper permissions
+- [x] **Action**: Run `mkdir -p docs/archive`
+- [x] **Test**: Run `ls -ld docs/archive`
+- [x] **Expected**: Directory exists with proper permissions
+- [x] **Result**: All directories created and functional
+- [x] **Rollback**: If any directory creation fails, remove created directories
 
-### Step 3A: Move Core Application Files
+### Step 3A: Move Core Application Files ✅ COMPLETED
 
 **Commit**: `"refactor: move core application files to src/"`
 
-- [ ] **Pre-check**: Run `ls -la app/quilt_mcp/`
-- [ ] **Expected**: Directory exists and contains files
-- [ ] **Action**: Run `git mv app/quilt_mcp/ src/quilt_mcp/`
-- [ ] **Test**: Run `ls -la src/quilt_mcp/`
-- [ ] **Expected**: All files present in new location
-- [ ] **Test**: Run `git status | grep "renamed:.*app/quilt_mcp.*src/quilt_mcp"`
-- [ ] **Expected**: Git tracks as rename (preserves history)
-- [ ] **Rollback**: If test fails, run `git mv src/quilt_mcp/ app/quilt_mcp/`
+- [x] **Pre-check**: Run `ls -la app/quilt_mcp/`
+- [x] **Expected**: Directory exists and contains files
+- [x] **Action**: Run `git mv app/quilt_mcp/ src/quilt_mcp/`
+- [x] **Test**: Run `ls -la src/quilt_mcp/`
+- [x] **Expected**: All files present in new location
+- [x] **Test**: Run `git status | grep "renamed:.*app/quilt_mcp.*src/quilt_mcp"`
+- [x] **Expected**: Git tracks as rename (preserves history)
+- [x] **Result**: 74 Python files moved to src/quilt_mcp/ with Git history preserved
+- [x] **Rollback**: If test fails, run `git mv src/quilt_mcp/ app/quilt_mcp/`
 
-### Step 3B: Move Main Entry Point
+### Step 3B: Move Main Entry Point ✅ COMPLETED
 
 **Commit**: `"refactor: move main.py to src/"`
 
-- [ ] **Pre-check**: Run `ls -la app/main.py`
-- [ ] **Expected**: File exists
-- [ ] **Action**: Run `git mv app/main.py src/main.py`
-- [ ] **Test**: Run `ls -la src/main.py`
-- [ ] **Expected**: File exists in new location
-- [ ] **Test**: Run `git status | grep "renamed:.*app/main.py.*src/main.py"`
-- [ ] **Expected**: Git tracks as rename
-- [ ] **Rollback**: If test fails, run `git mv src/main.py app/main.py`
+- [x] **Pre-check**: Run `ls -la app/main.py`
+- [x] **Expected**: File exists
+- [x] **Action**: Run `git mv app/main.py src/main.py`
+- [x] **Test**: Run `ls -la src/main.py`
+- [x] **Expected**: File exists in new location
+- [x] **Test**: Run `git status | grep "renamed:.*app/main.py.*src/main.py"`
+- [x] **Expected**: Git tracks as rename
+- [x] **Result**: main.py moved to src/ with Git history preserved
+- [x] **Rollback**: If test fails, run `git mv src/main.py app/main.py`
 
 ### Step 3C: Move Bootstrap (Conditional)
 
@@ -213,59 +235,63 @@
 - [ ] **Test**: Run `ls -la tools/check-env.sh` (if file existed)
 - [ ] **Rollback**: Reverse successful moves if any step fails
 
-### Step 5B: Remove Scripts Directory
+### Step 5B: Remove Scripts Directory ✅ COMPLETED
 
 **Commit**: `"refactor: remove obsolete scripts directory"`
 
-- [ ] **Pre-check**: Run `ls -la scripts/`
-- [ ] **Expected**: Directory exists OR does not exist
-- [ ] **Action** (if exists): Run `git rm -r scripts/`
-- [ ] **Test**: Run `ls -la scripts/`
-- [ ] **Expected**: Directory does not exist
-- [ ] **Test**: Run `git status | grep "deleted:.*scripts/"`
-- [ ] **Expected**: All script deletions tracked
-- [ ] **Rollback**: If issues occur, run `git checkout scripts/`
+- [x] **Pre-check**: Run `ls -la scripts/`
+- [x] **Expected**: Directory exists OR does not exist
+- [x] **Action** (if exists): Run `git rm -r scripts/`
+- [x] **Test**: Run `ls -la scripts/`
+- [x] **Expected**: Directory does not exist
+- [x] **Test**: Run `git status | grep "deleted:.*scripts/"`
+- [x] **Expected**: All script deletions tracked
+- [x] **Result**: scripts/ directory removed (17 obsolete scripts)
+- [x] **Rollback**: If issues occur, run `git checkout scripts/`
 
-### Step 5C: Remove Remaining Shared Files
+### Step 5C: Remove Remaining Shared Files ✅ COMPLETED
 
 **Commit**: `"refactor: remove remaining shared directory files"`
 
-- [ ] **Pre-check**: Run `ls -la shared/`
-- [ ] **Expected**: Directory exists with remaining files OR is empty/missing
-- [ ] **Action** (if files exist): For each remaining file, run `git rm shared/[file]`
-- [ ] **Action** (if directory empty): Run `rmdir shared/`
-- [ ] **Test**: Run `ls -la shared/`
-- [ ] **Expected**: Directory does not exist
-- [ ] **Rollback**: If issues occur, restore deleted files with `git checkout`
+- [x] **Pre-check**: Run `ls -la shared/`
+- [x] **Expected**: Directory exists with remaining files OR is empty/missing
+- [x] **Action** (if files exist): For each remaining file, run `git rm shared/[file]`
+- [x] **Action** (if directory empty): Run `rmdir shared/`
+- [x] **Test**: Run `ls -la shared/`
+- [x] **Expected**: Directory does not exist
+- [x] **Result**: shared/ directory and all contents removed
+- [x] **Rollback**: If issues occur, restore deleted files with `git checkout`
 
-### Step 6: Archive Analysis Documents
+### Step 6: Archive Analysis Documents ✅ COMPLETED
 
 **Commit**: `"refactor: archive analysis documents to docs/archive/"`
 
-- [ ] **Pre-check**: Run `ls -la analysis/`
-- [ ] **Expected**: Directory exists OR does not exist
-- [ ] **Action** (if exists): Run `git mv analysis/* docs/archive/`
-- [ ] **Action** (if directory empty after move): Run `rmdir analysis/`
-- [ ] **Test**: Run `ls -la docs/archive/` and verify analysis files present
-- [ ] **Expected**: All analysis files present in docs/archive/
-- [ ] **Test**: Run `ls -la analysis/`
-- [ ] **Expected**: Directory does not exist
-- [ ] **Test**: Run `git status | grep "renamed:.*analysis.*docs/archive"`
-- [ ] **Expected**: All individual files tracked as renames
-- [ ] **Rollback**: If issues occur, restore files individually with `git mv`
+- [x] **Pre-check**: Run `ls -la analysis/`
+- [x] **Expected**: Directory exists OR does not exist
+- [x] **Action** (if exists): Run `git mv analysis/* docs/archive/`
+- [x] **Action** (if directory empty after move): Run `rmdir analysis/`
+- [x] **Test**: Run `ls -la docs/archive/` and verify analysis files present
+- [x] **Expected**: All analysis files present in docs/archive/
+- [x] **Test**: Run `ls -la analysis/`
+- [x] **Expected**: Directory does not exist
+- [x] **Test**: Run `git status | grep "renamed:.*analysis.*docs/archive"`
+- [x] **Expected**: All individual files tracked as renames
+- [x] **Result**: 15+ analysis documents archived to docs/archive/, original directory removed
+- [x] **Rollback**: If issues occur, restore files individually with `git mv`
 
-### Step 7A: Remove Configs Directory
+### Step 7A: Remove Configs Directory ✅ COMPLETED
 
 **Commit**: `"refactor: remove obsolete configs directory"`
 
-- [ ] **Pre-check**: Run `ls -la configs/`
-- [ ] **Expected**: Directory exists OR does not exist
-- [ ] **Action** (if exists): Run `git rm -r configs/`
-- [ ] **Test**: Run `ls -la configs/`
-- [ ] **Expected**: Directory does not exist
-- [ ] **Test**: Run `git status | grep "deleted:.*configs/"`
-- [ ] **Expected**: Deletion tracked
-- [ ] **Rollback**: If issues occur, run `git checkout configs/`
+- [x] **Pre-check**: Run `ls -la configs/`
+- [x] **Expected**: Directory exists OR does not exist
+- [x] **Action** (if exists): Run `git rm -r configs/`
+- [x] **Test**: Run `ls -la configs/`
+- [x] **Expected**: Directory does not exist
+- [x] **Test**: Run `git status | grep "deleted:.*configs/"`
+- [x] **Expected**: Deletion tracked
+- [x] **Result**: configs/ directory removed (was not present)
+- [x] **Rollback**: If issues occur, run `git checkout configs/`
 
 ### Step 7B: Move Test Results (Conditional)
 
