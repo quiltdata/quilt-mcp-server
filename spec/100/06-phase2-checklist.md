@@ -109,18 +109,19 @@
 - [ ] **Expected**: Git tracks as rename
 - [ ] **Rollback**: If test fails, run `git mv src/main.py app/main.py`
 
-### Step 3C: Move and Rename Bootstrap
+### Step 3C: Move Bootstrap (Conditional)
 
-**Commit**: `"refactor: move bootstrap to src/deploy/ with DXT naming"`
+**Commit**: `"refactor: move bootstrap to src/deploy/ with DXT naming"` (only if exists)
 
 - [ ] **Pre-check**: Run `ls -la app/bootstrap.py`
-- [ ] **Expected**: File exists
-- [ ] **Action**: Run `git mv app/bootstrap.py src/deploy/dxt_bootstrap.py`
-- [ ] **Test**: Run `ls -la src/deploy/dxt_bootstrap.py`
-- [ ] **Expected**: File exists in new location with new name
-- [ ] **Test**: Run `git status | grep "renamed:.*app/bootstrap.py.*src/deploy/dxt_bootstrap.py"`
+- [ ] **Expected**: File exists OR does not exist
+- [ ] **Decision**: If file doesn't exist, skip this step entirely
+- [ ] **Action** (if exists): Run `git mv app/bootstrap.py src/deploy/bootstrap.py`
+- [ ] **Test**: Run `ls -la src/deploy/bootstrap.py` (if file existed)
+- [ ] **Expected**: File exists in new location
+- [ ] **Test**: Run `git status | grep "renamed:.*app/bootstrap.py.*src/deploy/bootstrap.py"`
 - [ ] **Expected**: Git tracks as rename
-- [ ] **Rollback**: If test fails, run `git mv src/deploy/dxt_bootstrap.py app/bootstrap.py`
+- [ ] **Rollback**: If test fails, run `git mv src/deploy/bootstrap.py app/bootstrap.py`
 
 ### Step 3D: Validate Python Module Relationships
 
@@ -162,10 +163,10 @@
 - [ ] **Expected**: Files exist OR some don't exist (handle gracefully)
 - [ ] **Action** (if exists): Run `git mv shared/version.sh tools/version.sh`
 - [ ] **Test**: Run `ls -la tools/version.sh` (if file existed)
-- [ ] **Action** (if exists): Run `git mv shared/test-endpoint.sh tools/validate-endpoint.sh`
-- [ ] **Test**: Run `ls -la tools/validate-endpoint.sh` (if file existed)
-- [ ] **Action** (if exists): Run `git mv shared/check-env.sh tools/check-prereqs.sh`
-- [ ] **Test**: Run `ls -la tools/check-prereqs.sh` (if file existed)
+- [ ] **Action** (if exists): Run `git mv shared/test-endpoint.sh tools/test-endpoint.sh`
+- [ ] **Test**: Run `ls -la tools/test-endpoint.sh` (if file existed)
+- [ ] **Action** (if exists): Run `git mv shared/check-env.sh tools/check-env.sh`
+- [ ] **Test**: Run `ls -la tools/check-env.sh` (if file existed)
 - [ ] **Rollback**: Reverse successful moves if any step fails
 
 ### Step 5B: Remove Scripts Directory
@@ -195,18 +196,19 @@
 
 ### Step 6: Archive Analysis Documents
 
-**Commit**: `"docs: archive historical analysis documents"`
+**Commit**: `"refactor: archive analysis documents to docs/archive/"`
 
 - [ ] **Pre-check**: Run `ls -la analysis/`
 - [ ] **Expected**: Directory exists OR does not exist
-- [ ] **Action** (if exists): Run `git mv analysis/ docs/archive/analysis/`
-- [ ] **Test**: Run `ls -la docs/archive/analysis/`
-- [ ] **Expected**: All analysis files present in new location
+- [ ] **Action** (if exists): Run `git mv analysis/* docs/archive/`
+- [ ] **Action** (if directory empty after move): Run `rmdir analysis/`
+- [ ] **Test**: Run `ls -la docs/archive/` and verify analysis files present
+- [ ] **Expected**: All analysis files present in docs/archive/
 - [ ] **Test**: Run `ls -la analysis/`
 - [ ] **Expected**: Directory does not exist
-- [ ] **Test**: Run `git status | grep "renamed:.*analysis.*docs/archive/analysis"`
-- [ ] **Expected**: Move tracked as rename
-- [ ] **Rollback**: If issues occur, run `git mv docs/archive/analysis/ analysis/`
+- [ ] **Test**: Run `git status | grep "renamed:.*analysis.*docs/archive"`
+- [ ] **Expected**: All individual files tracked as renames
+- [ ] **Rollback**: If issues occur, restore files individually with `git mv`
 
 ### Step 7A: Remove Configs Directory
 
@@ -339,18 +341,18 @@
 # Source Code
 app/quilt_mcp/                     → src/quilt_mcp/
 app/main.py                        → src/main.py
-app/bootstrap.py                   → src/deploy/dxt_bootstrap.py
+app/bootstrap.py (if exists)       → src/deploy/bootstrap.py
 
 # DXT Assets
 tools/dxt/assets/                  → src/deploy/
 
 # Essential Scripts
 shared/version.sh                  → tools/version.sh
-shared/test-endpoint.sh            → tools/validate-endpoint.sh
-shared/check-env.sh                → tools/check-prereqs.sh
+shared/test-endpoint.sh            → tools/test-endpoint.sh
+shared/check-env.sh                → tools/check-env.sh
 
 # Documentation Archive
-analysis/                          → docs/archive/analysis/
+analysis/*                         → docs/archive/
 
 # Build Artifacts
 app/test-results/                  → build/test-results/
