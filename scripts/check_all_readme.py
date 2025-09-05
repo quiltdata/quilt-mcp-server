@@ -54,7 +54,7 @@ packages = [
     "jump-consortium/sample-UL001659-v2",
     "jump-consortium/sample-UL001659",
     "jump-consortium/sample-UL001661-v2",
-    "jump-consortium/sample-UL001661"
+    "jump-consortium/sample-UL001661",
 ]
 
 print(f"Checking {len(packages)} jump-consortium packages for README content in metadata...")
@@ -68,24 +68,21 @@ for i, package_name in enumerate(packages, 1):
     try:
         print(f"[{i:2d}/{len(packages)}] Checking {package_name}...", end=" ")
         pkg = quilt3.Package.browse(package_name, registry='s3://quilt-sandbox-bucket')
-        
+
         has_readme_content = 'readme_content' in pkg.meta
         has_readme_file = 'README.md' in pkg.keys()
-        
+
         if has_readme_content:
             readme_length = len(pkg.meta.get('readme_content', ''))
             packages_with_readme.append((package_name, readme_length))
             print(f"❌ HAS README IN METADATA ({readme_length} chars)")
         elif has_readme_file:
-            print(f"✅ HAS README.md FILE")
+            print("✅ HAS README.md FILE")
         else:
-            print(f"ℹ️  NO README")
-            
-        results[package_name] = {
-            'has_readme_content': has_readme_content,
-            'has_readme_file': has_readme_file
-        }
-        
+            print("ℹ️  NO README")
+
+        results[package_name] = {'has_readme_content': has_readme_content, 'has_readme_file': has_readme_file}
+
     except Exception as e:
         print(f"❌ ERROR: {str(e)[:50]}...")
         results[package_name] = {'error': str(e)}
@@ -101,7 +98,7 @@ if packages_with_readme:
 else:
     print("\n✅ All packages are clean - no README content in metadata!")
 
-print(f"\n📊 Breakdown:")
+print("\n📊 Breakdown:")
 readme_in_metadata = sum(1 for r in results.values() if isinstance(r, dict) and r.get('has_readme_content'))
 readme_files = sum(1 for r in results.values() if isinstance(r, dict) and r.get('has_readme_file'))
 errors = sum(1 for r in results.values() if isinstance(r, dict) and 'error' in r)

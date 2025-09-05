@@ -36,9 +36,7 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
 
     try:
         client = boto3.client("s3")
-        url = client.generate_presigned_url(
-            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration
-        )
+        url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
         return str(url) if url else None
     except Exception:
         return None
@@ -51,15 +49,47 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import auth, buckets, package_ops, packages, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, search, athena_glue, tabulator, workflow_orchestration, governance
+    from quilt_mcp.tools import (
+        auth,
+        buckets,
+        package_ops,
+        packages,
+        s3_package,
+        permissions,
+        unified_package,
+        metadata_templates,
+        package_management,
+        metadata_examples,
+        quilt_summary,
+        search,
+        athena_glue,
+        tabulator,
+        workflow_orchestration,
+        governance,
+    )
     # error_recovery temporarily disabled due to Callable parameter issues
 
-    return [auth, buckets, packages, package_ops, s3_package, permissions, unified_package, metadata_templates, package_management, metadata_examples, quilt_summary, search, athena_glue, tabulator, workflow_orchestration, governance]
+    return [
+        auth,
+        buckets,
+        packages,
+        package_ops,
+        s3_package,
+        permissions,
+        unified_package,
+        metadata_templates,
+        package_management,
+        metadata_examples,
+        quilt_summary,
+        search,
+        athena_glue,
+        tabulator,
+        workflow_orchestration,
+        governance,
+    ]
 
 
-def register_tools(
-    mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True
-) -> int:
+def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:
     """Register all public functions from tool modules as MCP tools.
 
     Args:
@@ -106,13 +136,13 @@ def validate_package_name(package_name: str) -> bool:
     """Validate package name format (namespace/name)."""
     if not package_name or "/" not in package_name:
         return False
-    
+
     parts = package_name.split("/")
     if len(parts) != 2:
         return False
-    
+
     namespace, name = parts
-    
+
     # Check for valid characters and format
     pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-_]*[a-zA-Z0-9])?$"
     return bool(re.match(pattern, namespace) and re.match(pattern, name))
@@ -130,7 +160,7 @@ def format_error_response(message: str) -> Dict[str, Any]:
 @contextlib.contextmanager
 def suppress_stdout():
     """Context manager to suppress stdout output to prevent JSON-RPC interference.
-    
+
     This is critical for MCP servers using stdio transport, as any stdout output
     that isn't valid JSON-RPC will break the communication protocol.
     """
