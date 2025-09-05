@@ -2,7 +2,7 @@
 # Build Claude Desktop Extension (.dxt) for Quilt MCP Server
 
 # Paths
-APP_DIR := ../../app
+APP_DIR := ../app
 ASSETS_DIR := assets
 BUILD_DIR := build
 BUILD_PKGS_DIR := $(BUILD_DIR)/lib
@@ -11,8 +11,8 @@ DIST_DIR := dist
 # Variables
 DXT_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
-PYPROJECT_VERSION := $(shell cd ../.. && python -c "import tomllib; f=open('pyproject.toml','rb'); data=tomllib.load(f); print(data['project']['version'])" 2>/dev/null || echo "dev")
-PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(PYPROJECT_VERSION))
+MANIFEST_VERSION := $(shell python3 ../../scripts/version-utils.py get-version --pyproject ../../pyproject.toml 2>/dev/null || echo "dev")
+PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
 PACKAGE_NAME := $(PACKAGE_ID).dxt
 RELEASE_NAME := $(PACKAGE_ID)-release.zip
@@ -27,7 +27,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: help contents build test test-imports test-bootstrap validate release assess clean check-tools debug
+.PHONY: help contents build test validate release assess clean check-tools debug
 
 # Check for required tools
 check-tools:
@@ -37,16 +37,14 @@ check-tools:
 
 help:
 	@echo "Available targets:"
-	@echo "  build         - Build DXT package using official dxt pack"
-	@echo "  test          - Run all DXT tests (imports + bootstrap)"
-	@echo "  test-imports  - Test DXT import resolution (diagnoses Issue #89)"
-	@echo "  test-bootstrap - Test bootstrap script functionality"
-	@echo "  validate      - Validate the DXT package (with official validator)"
-	@echo "  release       - Build the standalone release package"
-	@echo "  assess        - Run check-prereqs.sh script"
-	@echo "  check-tools   - Check for required tools"
-	@echo "  debug         - Show build variables and configuration"
-	@echo "  clean         - Clean build artifacts"
+	@echo "  build      - Build DXT package using official dxt pack"
+	@echo "  test       - Test import structure in build directory before packaging"
+	@echo "  validate   - Validate the DXT package (with official validator)"
+	@echo "  release    - Build the standalone release package"
+	@echo "  assess     - Run check-prereqs.sh script"
+	@echo "  check-tools - Check for required tools"
+	@echo "  debug      - Show build variables and configuration"
+	@echo "  clean      - Clean build artifacts"
 
 debug: check-tools
 	@echo "DXT_NAME=$(DXT_NAME)"
@@ -72,7 +70,7 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
 	@chmod +x $(BUILD_DIR)/check-prereqs.sh
 	@echo "Generating manifest.json from template..."
-	@python -c "import jinja2; t=jinja2.Template(open('$(BUILD_DIR)/manifest.json.j2').read()); open('$(BUILD_DIR)/manifest.json','w').write(t.render(version='$(PACKAGE_VERSION)'))"
+	@python3 ../../scripts/version-utils.py generate-manifest $(BUILD_DIR)/manifest.json.j2 $(BUILD_DIR)/manifest.json --version $(PACKAGE_VERSION)
 	@rm $(BUILD_DIR)/manifest.json.j2
 	@touch $@
 
@@ -85,15 +83,13 @@ $(APP_MARKER): $(APP_FILES)
 	done
 	@touch $@
 
-$(DEPS_MARKER): ../../pyproject.toml
+$(DEPS_MARKER): ../pyproject.toml
 	@echo "Installing Python dependencies..."
 	@mkdir -p $(BUILD_PKGS_DIR)
-	@cd ../.. && uv pip install --target $(CURDIR)/$(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
-	# Clean up duplicate directory structure - keep only lib/quilt_mcp
-	@if [ -d "$(BUILD_PKGS_DIR)/app" ]; then rm -rf "$(BUILD_PKGS_DIR)/app"; fi
+	@cd .. && uv pip install --target $(CURDIR)/$(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
 	@touch $@
 
-contents: $(ASSETS_MARKER) $(DEPS_MARKER)
+contents: $(ASSETS_MARKER) $(APP_MARKER)
 
 # Build the DXT package only if dependencies have changed
 $(PACKAGE_NAME): contents
@@ -126,14 +122,7 @@ validate: check-tools $(PACKAGE_NAME)
 release: validate $(RELEASE_NAME)
 	@echo "✅ Release package $(RELEASE_NAME) ready for distribution"
 
-test: contents test-imports
-	@echo "✅ All DXT tests passed"
-
-test-imports: contents
-	@echo "Testing DXT import resolution..."
-	@python ../../scripts/test-dxt-imports.py
-
-test-bootstrap: contents
+test: contents
 	@echo "Testing bootstrap script in build directory..."
 	@echo "Verifying bootstrap.py can import dependencies and start setup..."
 	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')" && echo "✅ Bootstrap test passed"

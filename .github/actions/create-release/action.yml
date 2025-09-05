@@ -25,7 +25,7 @@ runs:
       id: manifest
       shell: bash
       run: |
-        MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('tools/dxt/dist/manifest.json'))['version'])")
+        MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('tools/dxt/build/manifest.json'))['version'])")
         echo "manifest_version=$MANIFEST_VERSION" >> $GITHUB_OUTPUT
         echo "Manifest Version: $MANIFEST_VERSION"
 
