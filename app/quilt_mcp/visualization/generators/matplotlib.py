@@ -9,11 +9,7 @@ from typing import Dict, List, Any, Optional
 
 class MatplotlibGenerator:
     """Generates static charts using Matplotlib."""
-    
+
     def __init__(self):
         """Initialize the Matplotlib generator."""
         pass
-
-
-
-

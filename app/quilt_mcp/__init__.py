@@ -24,7 +24,6 @@ from .tools.auth import (
     configure_catalog,
     filesystem_status,
     switch_catalog,
-
 )
 from .tools.buckets import (
     bucket_object_fetch,
@@ -102,7 +101,6 @@ __all__ = [
     "configure_catalog",
     "filesystem_status",
     "switch_catalog",
-
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",
@@ -127,7 +125,7 @@ __all__ = [
     "bucket_recommendations_get",
     # Unified tools
     "create_package",
-    "list_available_resources", 
+    "list_available_resources",
     "quick_start",
     # Enhanced package management
     "create_package_enhanced",
@@ -139,7 +137,7 @@ __all__ = [
     "validate_metadata_structure",
     # Metadata examples and guidance
     "show_metadata_examples",
-    "create_metadata_from_template", 
+    "create_metadata_from_template",
     "fix_metadata_validation_issues",
     # Quilt summary and visualization tools
     "create_quilt_summary_files",
