@@ -6,6 +6,7 @@ and automatically generates appropriate visualizations.
 """
 
 import os
+import sys
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional

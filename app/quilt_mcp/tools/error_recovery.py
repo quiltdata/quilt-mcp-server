@@ -211,7 +211,7 @@ def batch_operation_with_recovery(
         # Execute with fallback if provided
         if fallback_func:
 
-            @with_fallback(operation_func, fallback_func)
+            @_with_fallback_internal(operation_func, fallback_func)
             def safe_func():
                 return operation_func()
 

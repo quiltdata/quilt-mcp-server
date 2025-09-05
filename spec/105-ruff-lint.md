@@ -9,6 +9,7 @@ This specification outlines the complete migration to ruff as the sole linting a
 ## Current State
 
 ### Completed ✅
+
 - Configured external `ruff.toml` with comprehensive rule set (119-character line length)
 - Updated `pyproject.toml` to use only ruff with external configuration
 - Applied automatic fixes reducing errors from 4400 to 20
@@ -20,6 +21,7 @@ This specification outlines the complete migration to ruff as the sole linting a
 The following code quality issues require manual fixes:
 
 #### 1. Security Warnings (6 errors)
+
 - **S112**: `try-except-continue` without logging exceptions
   - `app/quilt_mcp/aws/athena_service.py:153`
 - **S307**: Use of `eval()` function (security risk)
@@ -28,7 +30,9 @@ The following code quality issues require manual fixes:
   - `tests/test_readme.py:125`
 
 #### 2. Error Handling (10 errors)
+
 **E722**: Bare `except` clauses should specify exception types
+
 - `app/quilt_mcp/search/backends/graphql.py:270`
 - `app/quilt_mcp/search/tools/search_suggest.py:151`
 - `app/quilt_mcp/telemetry/collector.py:200`
@@ -41,16 +45,20 @@ The following code quality issues require manual fixes:
 - `tests/fixtures/llm_mcp_test.py:209`
 
 #### 3. Missing Imports (4 errors)
+
 **F821**: Undefined names
+
 - `sys` not imported in `app/quilt_mcp/visualization/engine.py` (multiple locations)
 - `with_fallback` undefined in `app/quilt_mcp/tools/error_recovery.py:214`
 
 ## Implementation Plan
 
 ### Phase 1: Security and Import Fixes
+
 **Priority: High** - These affect code reliability and security
 
 1. **Add missing imports**
+
    ```python
    # Add to visualization/engine.py
    import sys
@@ -59,12 +67,14 @@ The following code quality issues require manual fixes:
    ```
 
 2. **Replace eval() usage**
+
    ```python
    # Replace in optimization/autonomous.py:227
    # Use ast.literal_eval or safer evaluation method
    ```
 
 3. **Add exception logging**
+
    ```python
    # Replace in athena_service.py:153
    except Exception as e:
@@ -73,9 +83,11 @@ The following code quality issues require manual fixes:
    ```
 
 ### Phase 2: Error Handling Improvements
+
 **Priority: Medium** - Improve debugging and error diagnosis
 
 1. **Replace bare except clauses**
+
    ```python
    # Example transformation
    try:
@@ -96,6 +108,7 @@ The following code quality issues require manual fixes:
    - File operations → `IOError`, `OSError`
 
 ### Phase 3: Test-Specific Fixes
+
 **Priority: Low** - Test infrastructure improvements
 
 1. **Subprocess security** (`tests/test_readme.py:125`)
@@ -105,6 +118,7 @@ The following code quality issues require manual fixes:
 ## Acceptance Criteria
 
 ### Must Have ✅
+
 - [x] Ruff configuration replaces all previous lint tools
 - [x] All automatic formatting applied (4032+ fixes)
 - [x] All tests continue to pass (415 tests)
@@ -113,17 +127,20 @@ The following code quality issues require manual fixes:
 - [ ] S112 exception logging added where appropriate
 
 ### Should Have 📋
+
 - [ ] All E722 bare except clauses specify exception types
 - [ ] Security warnings reviewed and addressed or suppressed with justification
 - [ ] Code quality score improved from current 53% coverage baseline
 
 ### Could Have 💡
+
 - [ ] Type annotations modernized (UP007: Union → | syntax)
 - [ ] Additional security improvements beyond minimum requirements
 
 ## Technical Notes
 
 ### Ruff Configuration
+
 ```toml
 # ruff.toml (external config)
 line-length = 119
@@ -136,6 +153,7 @@ ignore = [
 ```
 
 ### Testing Strategy
+
 - Run `uv run ruff check .` after each fix to verify progress
 - Ensure `make coverage` continues to pass all 415 tests
 - Monitor that fixes don't introduce new issues
@@ -143,6 +161,7 @@ ignore = [
 ## Risk Assessment
 
 **Low Risk** - Changes are primarily code quality improvements:
+
 - Formatting changes are automated and reversible
 - Manual fixes are isolated and well-defined
 - All tests pass, indicating no functional regressions
@@ -151,6 +170,7 @@ ignore = [
 ## Timeline
 
 **Estimated effort**: 2-4 hours for complete implementation
+
 - Phase 1 (Security/Imports): 1 hour
 - Phase 2 (Error Handling): 2-3 hours  
 - Phase 3 (Test Fixes): 30 minutes
