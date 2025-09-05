@@ -41,7 +41,7 @@ help:
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
 	@echo "🏷️  Release Management:"
-	@echo "  make tag         - Create tag using version from manifest.json"
+	@echo "  make tag         - Create tag using version from pyproject.toml"
 	@echo "  make tag-dev     - Create dev tag with auto-version (base-dev-timestamp)"
 	@echo ""
 	@echo "📖 Phase Documentation:"
@@ -151,14 +151,18 @@ tag-dev: check-clean-repo
 	echo "📦 Release will be available at: https://github.com/$(REPO_URL)/releases/tag/v$$DEV_VERSION"
 
 tag: check-clean-repo
-	@echo "🔍 Reading version from tools/dxt/assets/manifest.json..."
-	@if [ ! -f "tools/dxt/assets/manifest.json" ]; then \
-		echo "❌ manifest.json not found at tools/dxt/assets/manifest.json"; \
+	@echo "🔍 Reading version from pyproject.toml..."
+	@if [ ! -f "pyproject.toml" ]; then \
+		echo "❌ pyproject.toml not found"; \
 		exit 1; \
 	fi
-	@MANIFEST_VERSION=$$(python3 -c "import json; print(json.load(open('tools/dxt/assets/manifest.json'))['version'])"); \
+	@if [ ! -f "tools/dxt/assets/manifest.json.j2" ]; then \
+		echo "❌ manifest.json.j2 template not found at tools/dxt/assets/manifest.json.j2"; \
+		exit 1; \
+	fi
+	@MANIFEST_VERSION=$$(python3 scripts/version-utils.py get-version); \
 	if [ -z "$$MANIFEST_VERSION" ]; then \
-		echo "❌ Could not read version from manifest.json"; \
+		echo "❌ Could not read version from pyproject.toml"; \
 		exit 1; \
 	fi; \
 	echo "📋 Found version: $$MANIFEST_VERSION"; \
