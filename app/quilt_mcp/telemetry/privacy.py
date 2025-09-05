@@ -84,7 +84,7 @@ class DataAnonymizer:
         try:
             json_str = json.dumps(value, sort_keys=True, default=str)
             return self._hash_string(json_str)
-        except:
+        except (TypeError, ValueError):
             return self._hash_string(str(value))
 
     def _anonymize_s3_uri(self, uri: str) -> str:
@@ -163,7 +163,7 @@ class PrivacyManager:
         try:
             args_str = json.dumps(sanitized_args, sort_keys=True, default=str)
             return hashlib.sha256(args_str.encode()).hexdigest()[:16]
-        except:
+        except (TypeError, ValueError):
             return hashlib.sha256(str(sanitized_args).encode()).hexdigest()[:16]
 
     def filter_context(self, context: Dict[str, Any]) -> Optional[Dict[str, Any]]:

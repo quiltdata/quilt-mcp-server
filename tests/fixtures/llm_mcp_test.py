@@ -206,7 +206,7 @@ class LLMMCPTester:
                                 print(f"      Tool success: {parsed['success']}")
                             if "results" in parsed:
                                 print(f"      Results count: {len(parsed['results'])}")
-                        except:
+                        except (json.JSONDecodeError, TypeError, KeyError):
                             print(f"      Content length: {len(str(first_content))}")
         else:
             error_msg = response.get("error", {})

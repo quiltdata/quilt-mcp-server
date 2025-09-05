@@ -267,7 +267,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 bucketconfigs_query = "query { bucketConfigs { name } }"
                 fallback_result = await self._execute_graphql_query(bucketconfigs_query, {})
                 return self._convert_bucketconfigs_to_packages(fallback_result, query, limit)
-            except:
+            except Exception:
                 return []
 
     async def _search_objects_global(

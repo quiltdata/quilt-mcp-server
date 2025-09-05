@@ -197,7 +197,7 @@ class TelemetryCollector:
         if success and result is not None:
             try:
                 result_size = len(str(result))
-            except:
+            except Exception:
                 pass
 
         # Filter context based on privacy level

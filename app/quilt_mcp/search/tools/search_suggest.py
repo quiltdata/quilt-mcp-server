@@ -148,7 +148,7 @@ class SearchSuggestionEngine:
         try:
             analysis = self.parser.parse(partial)
             query_type = analysis.query_type
-        except:
+        except Exception:
             query_type = QueryType.FILE_SEARCH
 
         # Get suggestions for the detected query type

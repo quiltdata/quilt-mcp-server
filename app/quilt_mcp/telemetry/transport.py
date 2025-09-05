@@ -105,7 +105,7 @@ class LocalFileTransport(TelemetryTransport):
             test_file.write_text("test")
             test_file.unlink()
             return True
-        except:
+        except (OSError, IOError):
             return False
 
     def read_sessions(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -228,7 +228,7 @@ class HTTPTransport(TelemetryTransport):
             # Test connectivity with a simple ping
             response = self.session.get(f"{self.endpoint}/health", timeout=5)
             return response.status_code == 200
-        except:
+        except Exception:
             return False
 
 
@@ -331,7 +331,7 @@ class CloudWatchTransport(TelemetryTransport):
             # Test by describing the log group
             self.client.describe_log_groups(logGroupNamePrefix=self.log_group)
             return True
-        except:
+        except Exception:
             return False
 
 

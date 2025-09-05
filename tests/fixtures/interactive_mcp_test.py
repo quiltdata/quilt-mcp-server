@@ -147,7 +147,7 @@ class MCPServerTester:
                             parsed = json.loads(content)
                             if "results" in parsed:
                                 print(f"      Found {len(parsed['results'])} results")
-                        except:
+                        except (json.JSONDecodeError, TypeError, KeyError):
                             pass
             else:
                 print(f"   ❌ {tool_name}: {result['error']}")
