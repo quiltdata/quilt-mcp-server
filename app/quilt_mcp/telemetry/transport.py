@@ -105,7 +105,7 @@ class LocalFileTransport(TelemetryTransport):
             test_file.write_text("test")
             test_file.unlink()
             return True
-        except (OSError, IOError):
+        except OSError:
             return False
 
     def read_sessions(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
