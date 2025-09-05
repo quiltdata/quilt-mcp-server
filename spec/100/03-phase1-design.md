@@ -49,8 +49,9 @@
 ### `make.dev` Targets (~40 lines)
 
 **Development workflow targets** (migrate from app/Makefile):
+
 - `test` ← `app/Makefile:test`
-- `test-unit` ← `app/Makefile:test-unit` 
+- `test-unit` ← `app/Makefile:test-unit`
 - `test-integration` ← `app/Makefile:test` (full AWS tests)
 - `test-ci` ← `app/Makefile:test-ci`
 - `lint` ← `app/Makefile:lint`
@@ -60,6 +61,7 @@
 - `dev-clean` ← `app/Makefile:clean`
 
 **Remove as redundant**:
+
 - `app/Makefile:coverage-unit` (covered by `coverage`)
 - `app/Makefile:verify` (covered by `test-endpoint`)
 - `app/Makefile:zero` (process management, not build system responsibility)
@@ -69,6 +71,7 @@
 ### `make.deploy` Targets (~40 lines)
 
 **Production/packaging targets** (migrate from tools/dxt/Makefile + root):
+
 - `build` ← `tools/dxt/Makefile:build` (preparation)
 - `package` ← `tools/dxt/Makefile:release` (Python package)
 - `dxt-package` ← `tools/dxt/Makefile:build` + `tools/dxt/Makefile:validate` (DXT creation)
@@ -76,10 +79,12 @@
 - `deploy-clean` ← `tools/dxt/Makefile:clean`
 
 **Merge complex workflows**:
+
 - `tag-release` ← `Makefile:tag` + `Makefile:tag-dev` (into `tools/release.sh`)
 - `check-clean-repo` ← `Makefile:check-clean-repo` (into `tools/release.sh`)
 
 **Remove as developer utilities**:
+
 - `tools/dxt/Makefile:debug` (development debugging, not build workflow)
 - `tools/dxt/Makefile:contents` (internal step, not user target)
 - `tools/dxt/Makefile:assess` (covered by `check-prereqs.sh`)
@@ -90,6 +95,7 @@
 ### Targets Removed (Redundant/Internal)
 
 **From Root Makefile**:
+
 - `app`, `dxt` → Use `run`, `package` instead
 - `test-app`, `test-dxt` → Use `test`, `test-integration`
 - `validate-app`, `validate-dxt` → Use `validate-package`
@@ -98,14 +104,16 @@
 - `update-cursor-rules` → Development utility, not build system
 
 **From app/Makefile**:
+
 - `coverage-unit` → Covered by `coverage`
-- `verify` → Covered by `test-endpoint` 
+- `verify` → Covered by `test-endpoint`
 - `zero` → Process management, not build
 - `config` → Should be automatic
 - `init` → Dependency management, not build
 - `update-cursor-rules` → Duplicate of root target
 
 **From tools/dxt/Makefile**:
+
 - `debug` → Development utility
 - `contents` → Internal build step
 - `assess` → Replaced by `tools/check-prereqs.sh`
@@ -115,52 +123,64 @@
 ### Targets Merged
 
 **Release workflows**:
+
 - `Makefile:tag` + `Makefile:tag-dev` + `Makefile:check-clean-repo` → `tools/release.sh`
 
 **DXT workflows**:
+
 - `tools/dxt/Makefile:build` + `tools/dxt/Makefile:validate` → `dxt-package`
 
 **Test workflows**:
+
 - `app/Makefile:test` (with AWS) → `test-integration`
 - `app/Makefile:test` (without AWS) → `test`
 
 ### Targets Moved
 
 **Root → make.dev**:
+
 - `coverage` → Moved to development workflows
 
 **app/Makefile → make.dev**:
+
 - `run`, `test*`, `lint`, `coverage` → Core development targets
 - `run-inspector` → Development utility
 
 **app/Makefile → make.deploy**:
+
 - None (app focuses on development)
 
 **tools/dxt/Makefile → make.deploy**:
+
 - `build` → `build` (preparation)
 - `release` → `package` (Python packaging)
 - `validate` → `validate-package`
 - `clean` → `deploy-clean`
 
 **Root → tools/release.sh**:
+
 - `tag`, `tag-dev`, `check-clean-repo` → Complex release orchestration
 
 ## File Changes
 
 ### Files Removed
+
 - `app/Makefile` (137 lines) → Logic moved to `make.dev`
 - `tools/dxt/Makefile` (148 lines) → Logic moved to `make.deploy`
 
 ### Files Modified
+
 - `Makefile` (199 lines) → ~30 lines (coordination only)
 
 ### Files Created
+
 - `make.dev` (~40 lines) → Development workflow targets
 - `make.deploy` (~40 lines) → Production/packaging targets
 
 ## Success Metrics
 
 **Quantitative changes**:
+
 - **Total lines**: 484 → ~110 (-77%)
 - **Total files**: 3 → 3 (same count, different organization)
 - **Total targets**: ~58 → ~15 (-74%)
