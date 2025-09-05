@@ -69,11 +69,14 @@ run-inspector:
 	@uv sync
 	@echo "Starting MCP Inspector with server at $(DEV_ENDPOINT)"
 	@echo "Inspector UI will be available at http://127.0.0.1:6274"
-	@export PYTHONPATH="src" && cd app && npx @modelcontextprotocol/inspector uv run python main.py
+	@export PYTHONPATH="src" && npx @modelcontextprotocol/inspector uv run python src/main.py
 
 # Cleanup Targets
 dev-clean:
 	@echo "Cleaning Python cache..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "Cleaning test artifacts..."
+	@rm -rf build/test-results/ .coverage .coverage.* htmlcov/ .pytest_cache/ 2>/dev/null || true
+	@find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 	@echo "✅ Development cleanup completed"
