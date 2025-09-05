@@ -11,7 +11,7 @@ DIST_DIR := dist
 # Variables
 DXT_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
-MANIFEST_VERSION := $(shell python3 -c "import tomllib; print(tomllib.load(open('../../pyproject.toml', 'rb'))['project']['version'])" 2>/dev/null || echo "dev")
+MANIFEST_VERSION := $(shell python3 ../../scripts/version-utils.py get-version --pyproject ../../pyproject.toml 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
 PACKAGE_NAME := $(PACKAGE_ID).dxt
@@ -70,7 +70,7 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
 	@chmod +x $(BUILD_DIR)/check-prereqs.sh
 	@echo "Generating manifest.json from template..."
-	@python3 -c "import jinja2; t=jinja2.Template(open('$(BUILD_DIR)/manifest.json.j2').read()); open('$(BUILD_DIR)/manifest.json','w').write(t.render(version='$(PACKAGE_VERSION)'))"
+	@python3 ../../scripts/version-utils.py generate-manifest $(BUILD_DIR)/manifest.json.j2 $(BUILD_DIR)/manifest.json --version $(PACKAGE_VERSION)
 	@rm $(BUILD_DIR)/manifest.json.j2
 	@touch $@
 

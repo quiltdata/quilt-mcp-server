@@ -160,7 +160,7 @@ tag: check-clean-repo
 		echo "❌ manifest.json.j2 template not found at tools/dxt/assets/manifest.json.j2"; \
 		exit 1; \
 	fi
-	@MANIFEST_VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
+	@MANIFEST_VERSION=$$(python3 scripts/version-utils.py get-version); \
 	if [ -z "$$MANIFEST_VERSION" ]; then \
 		echo "❌ Could not read version from pyproject.toml"; \
 		exit 1; \
