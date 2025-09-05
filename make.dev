@@ -1,0 +1,79 @@
+# Development workflow targets
+# Migrated from app/Makefile for Phase 1 consolidation
+
+# Load environment variables from .env if it exists
+sinclude .env
+export
+
+# Development endpoint configuration
+DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
+
+.PHONY: test test-unit test-integration test-ci lint coverage run run-inspector dev-clean
+
+# Test Targets
+test:
+	@echo "Running local tests..."
+	@uv sync --group test
+	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="app" && uv run python -m pytest tests/ -v; \
+	else \
+		echo "No tests found, running import test..."; \
+		export PYTHONPATH="app" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
+	fi
+
+test-unit:
+	@echo "Running unit tests only (no AWS/integration tests)..."
+	@uv sync --group test
+	@export PYTHONPATH="app" && uv run python -m pytest tests/ -v -m "not aws and not search"
+
+test-integration:
+	@echo "Running integration tests (with AWS)..."
+	@uv sync --group test
+	@export PYTHONPATH="app" && uv run python -m pytest tests/ -v
+
+test-ci:
+	@echo "Running CI tests (skipping search/slow tests)..."
+	@uv sync --group test
+	@mkdir -p app/test-results
+	@export PYTHONPATH="app" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings \
+		--junitxml=app/test-results/results.xml --cov=quilt_mcp --cov-report=xml:app/coverage.xml
+
+# Code Quality Targets
+lint:
+	@echo "Running code linting and auto-fixing..."
+	@uv sync --group lint
+	@echo "Running black (formatter) - auto-fixing..."
+	@uv run black app/quilt_mcp/ tests/
+	@echo "Running ruff (linter) - auto-fixing..."
+	@uv run ruff check --fix app/quilt_mcp/ tests/
+	@echo "Running mypy (type checker)..."
+	@uv run mypy app/quilt_mcp/
+	@echo "✅ All linting completed"
+
+coverage:
+	@echo "Running tests with coverage (≥85% required)..."
+	@uv sync --group test
+	@export PYTHONPATH="app" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+
+# Development Server Targets
+run:
+	@echo "Starting local MCP server..."
+	@uv sync
+	@cd app && ./app.sh config  # Generate .config before starting
+	@echo "Server starting on $(DEV_ENDPOINT)"
+	@export PYTHONPATH="app" && cd app && uv run python main.py
+
+run-inspector:
+	@echo "Launching MCP Inspector for visual testing..."
+	@command -v npx >/dev/null || (echo "Error: npx not found. Please install Node.js first." && exit 1)
+	@uv sync
+	@echo "Starting MCP Inspector with server at $(DEV_ENDPOINT)"
+	@echo "Inspector UI will be available at http://127.0.0.1:6274"
+	@export PYTHONPATH="app" && cd app && npx @modelcontextprotocol/inspector uv run python main.py
+
+# Cleanup Targets
+dev-clean:
+	@echo "Cleaning Python cache..."
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "✅ Development cleanup completed"

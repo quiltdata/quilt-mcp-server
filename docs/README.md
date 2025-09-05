@@ -1,16 +1,19 @@
 # 📚 Documentation Index
 
-Welcome to the Quilt MCP Server documentation! This directory is organized by audience and purpose to help you find what you need quickly.
+Welcome to the Quilt MCP Server documentation! This directory is organized by audience and purpose to help you
+find what you need quickly.
 
 ## 👥 **For Users**
 
-**Getting Started & Usage**
+### Getting Started & Usage
+
 - [`user/INSTALLATION.md`](user/INSTALLATION.md) - Complete installation guide for all environments
 - [`user/SEARCH_TROUBLESHOOTING.md`](user/SEARCH_TROUBLESHOOTING.md) - Search functionality troubleshooting
 
 ## 👨‍💻 **For Developers**
 
-**Contributing & Development**
+### Contributing & Development
+
 - [`developer/CONTRIBUTING.md`](developer/CONTRIBUTING.md) - Comprehensive contribution guidelines
 - [`developer/REPOSITORY.md`](developer/REPOSITORY.md) - Repository structure and organization
 - [`developer/TESTING.md`](developer/TESTING.md) - Testing philosophy and practices
@@ -20,20 +23,23 @@ Welcome to the Quilt MCP Server documentation! This directory is organized by au
 
 ## 🏗️ **Architecture & Design**
 
-**System Architecture**
+### System Architecture
+
 - [`architecture/FEATURE_S3_TO_PACKAGE.md`](architecture/FEATURE_S3_TO_PACKAGE.md) - S3 to Package creation feature
 - [`architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md`](architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md) - GraphQL performance analysis
 - [`architecture/MCP_OPTIMIZATION.md`](architecture/MCP_OPTIMIZATION.md) - MCP optimization strategies
 
 ## 📖 **API Reference**
 
-**Tool Documentation**
+### Tool Documentation
+
 - [`api/TOOLS.md`](api/TOOLS.md) - Complete reference for all 84+ MCP tools
 - [`api/QUILT_SUMMARY_FORMAT.md`](api/QUILT_SUMMARY_FORMAT.md) - Quilt summary file format specification
 
 ## 📁 **Archive**
 
-**Historical Documentation**
+### Historical Documentation
+
 - [`archive/`](archive/) - Archived documentation from previous versions
 
 ---
@@ -54,6 +60,7 @@ Welcome to the Quilt MCP Server documentation! This directory is organized by au
 ## 📝 **Documentation Standards**
 
 All documentation follows these principles:
+
 - **Audience-focused**: Organized by who needs the information
 - **Action-oriented**: Focuses on what users want to accomplish
 - **Example-rich**: Includes practical, copy-pastable examples
