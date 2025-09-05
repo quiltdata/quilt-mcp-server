@@ -59,9 +59,8 @@ coverage:
 run:
 	@echo "Starting local MCP server..."
 	@uv sync
-	@cd app && ./app.sh config  # Generate .config before starting
 	@echo "Server starting on $(DEV_ENDPOINT)"
-	@export PYTHONPATH="src" && cd app && uv run python main.py
+	@export PYTHONPATH="src" && uv run python src/main.py
 
 run-inspector:
 	@echo "Launching MCP Inspector for visual testing..."
