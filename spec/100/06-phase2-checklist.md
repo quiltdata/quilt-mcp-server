@@ -14,122 +14,322 @@
 
 **If any expected files/directories are missing, STOP and ask user for clarification.**
 
-## Commit Steps (Execute in Order)
+## Atomic Commit Steps (Execute in Order)
 
-### Step 1: Pre-Move Configuration Updates
+### Step 1A: Update pyproject.toml
 
-**Commit**: `"refactor: update build system for src/ structure"`
+**Commit**: `"refactor: update pyproject.toml for src/ structure"`
 
-- [ ] Update `pyproject.toml`: Change `where = ["app"]` to `where = ["src"]`
-- [ ] Update all Makefile PYTHONPATH references: `app` → `src`
-- [ ] Update GitHub Actions workflows: PYTHONPATH environment variables
-- [ ] Update `.claude/agents/` configurations: hardcoded `app/quilt_mcp` paths
-- [ ] Run `make test-unit` to verify configuration changes don't break current structure
-- [ ] Run `make lint` to ensure no syntax errors introduced
+- [ ] **Action**: Update `pyproject.toml`: Change `where = ["app"]` to `where = ["src"]`
+- [ ] **Test**: Run `python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['tool']['setuptools']['packages']['find']['where'])"`
+- [ ] **Expected**: Output shows `['src']`
+- [ ] **Rollback**: If test fails, revert `pyproject.toml` change
 
-### Step 2: Directory Structure Creation
+### Step 1B: Update Makefile PYTHONPATH
+
+**Commit**: `"refactor: update Makefile PYTHONPATH for src/ structure"`
+
+- [ ] **Action**: Update all Makefile PYTHONPATH references: `app` → `src`
+- [ ] **Test**: Run `grep -n "PYTHONPATH.*=" Makefile`
+- [ ] **Expected**: All PYTHONPATH entries show `src`, none show `app`
+- [ ] **Test**: Run `make test-unit` (should work with current `app/` structure)
+- [ ] **Expected**: Tests pass (configuration prepared but structure unchanged)
+- [ ] **Rollback**: If test fails, revert Makefile PYTHONPATH changes
+
+### Step 1C: Update GitHub Actions
+
+**Commit**: `"refactor: update GitHub Actions PYTHONPATH for src/ structure"`
+
+- [ ] **Action**: Update GitHub Actions workflows: PYTHONPATH environment variables `app` → `src`
+- [ ] **Test**: Run `grep -r "PYTHONPATH.*app" .github/`
+- [ ] **Expected**: No matches found (all changed to `src`)
+- [ ] **Test**: Run `grep -r "PYTHONPATH.*src" .github/`
+- [ ] **Expected**: All PYTHONPATH entries show `src`
+- [ ] **Rollback**: If validation fails, revert workflow changes
+
+### Step 1D: Update Claude Agents Configuration
+
+**Commit**: `"refactor: update Claude agents for src/ structure"`
+
+- [ ] **Action**: Update `.claude/agents/` configurations: hardcoded `app/quilt_mcp` paths → `src/quilt_mcp`
+- [ ] **Test**: Run `grep -r "app/quilt_mcp" .claude/`
+- [ ] **Expected**: No matches found
+- [ ] **Test**: Run `grep -r "src/quilt_mcp" .claude/`
+- [ ] **Expected**: All references updated to `src/quilt_mcp`
+- [ ] **Rollback**: If validation fails, revert agent configuration changes
+
+### Step 1E: Validate Configuration Changes
+
+**Commit**: `"test: verify configuration changes with current structure"`
+
+- [ ] **Test**: Run `make test-unit`
+- [ ] **Expected**: All tests pass (configurations updated but files still in `app/`)
+- [ ] **Test**: Run `make lint`
+- [ ] **Expected**: No syntax errors, all checks pass
+- [ ] **Rollback**: If any test fails, revert all Step 1 configuration changes
+
+### Step 2: Create Directory Structure
 
 **Commit**: `"feat: create consolidated directory structure"`
 
-- [ ] Run `mkdir -p src/deploy` to create src and deploy directories
-- [ ] Run `mkdir -p build` to create build directory
-- [ ] Run `mkdir -p docs/archive` to create archive directory
-- [ ] Run `mkdir -p tests/docs` to create tests/docs if needed
-- [ ] Verify with `ls -la src/ build/ docs/archive/ tests/docs/`
+- [ ] **Action**: Run `mkdir -p src/deploy`
+- [ ] **Test**: Run `ls -ld src/deploy`
+- [ ] **Expected**: Directory exists with proper permissions
+- [ ] **Action**: Run `mkdir -p build`
+- [ ] **Test**: Run `ls -ld build`
+- [ ] **Expected**: Directory exists with proper permissions
+- [ ] **Action**: Run `mkdir -p docs/archive`
+- [ ] **Test**: Run `ls -ld docs/archive`
+- [ ] **Expected**: Directory exists with proper permissions
+- [ ] **Rollback**: If any directory creation fails, remove created directories
 
-### Step 3: Source Code Moves
+### Step 3A: Move Core Application Files
 
-**Commit**: `"refactor: move application source to src/"`
+**Commit**: `"refactor: move core application files to src/"`
 
-- [ ] Use `git mv` to move `app/quilt_mcp/` → `src/quilt_mcp/` (preserves git history)
-- [ ] Use `git mv` to move `app/main.py` → `src/main.py`
-- [ ] Use `git mv` to move `app/bootstrap.py` → `src/deploy/dxt_bootstrap.py`
-- [ ] Verify all Python module relationships preserved
+- [ ] **Pre-check**: Run `ls -la app/quilt_mcp/`
+- [ ] **Expected**: Directory exists and contains files
+- [ ] **Action**: Run `git mv app/quilt_mcp/ src/quilt_mcp/`
+- [ ] **Test**: Run `ls -la src/quilt_mcp/`
+- [ ] **Expected**: All files present in new location
+- [ ] **Test**: Run `git status | grep "renamed:.*app/quilt_mcp.*src/quilt_mcp"`
+- [ ] **Expected**: Git tracks as rename (preserves history)
+- [ ] **Rollback**: If test fails, run `git mv src/quilt_mcp/ app/quilt_mcp/`
 
-**Note**: Use git mv commands to preserve file history during moves
+### Step 3B: Move Main Entry Point
 
-### Step 4: DXT Assets Consolidation
+**Commit**: `"refactor: move main.py to src/"`
 
-**Commit**: `"refactor: consolidate DXT assets to src/deploy/"`
+- [ ] **Pre-check**: Run `ls -la app/main.py`
+- [ ] **Expected**: File exists
+- [ ] **Action**: Run `git mv app/main.py src/main.py`
+- [ ] **Test**: Run `ls -la src/main.py`
+- [ ] **Expected**: File exists in new location
+- [ ] **Test**: Run `git status | grep "renamed:.*app/main.py.*src/main.py"`
+- [ ] **Expected**: Git tracks as rename
+- [ ] **Rollback**: If test fails, run `git mv src/main.py app/main.py`
 
-- [ ] Use `git mv` for each file in `tools/dxt/assets/` → `src/deploy/`
-- [ ] Update DXT build references to new location
-- [ ] Update any hardcoded paths in DXT configuration
+### Step 3C: Move and Rename Bootstrap
 
-**Warning**: Handle potential conflicts if `src/deploy/` already contains moved bootstrap.py
+**Commit**: `"refactor: move bootstrap to src/deploy/ with DXT naming"`
 
-### Step 5: Script Consolidation
+- [ ] **Pre-check**: Run `ls -la app/bootstrap.py`
+- [ ] **Expected**: File exists
+- [ ] **Action**: Run `git mv app/bootstrap.py src/deploy/dxt_bootstrap.py`
+- [ ] **Test**: Run `ls -la src/deploy/dxt_bootstrap.py`
+- [ ] **Expected**: File exists in new location with new name
+- [ ] **Test**: Run `git status | grep "renamed:.*app/bootstrap.py.*src/deploy/dxt_bootstrap.py"`
+- [ ] **Expected**: Git tracks as rename
+- [ ] **Rollback**: If test fails, run `git mv src/deploy/dxt_bootstrap.py app/bootstrap.py`
 
-**Commit**: `"refactor: consolidate essential scripts in tools/"`
+### Step 3D: Validate Python Module Relationships
 
-**Move essential scripts**:
+**Commit**: `"test: validate Python imports work with new structure"`
 
-- [ ] Use `git mv shared/version.sh tools/version.sh`
-- [ ] Use `git mv shared/test-endpoint.sh tools/validate-endpoint.sh`  
-- [ ] Use `git mv shared/check-env.sh tools/check-prereqs.sh`
+- [ ] **Test**: Run `PYTHONPATH=src python -c "import quilt_mcp; print('Import successful')"`
+- [ ] **Expected**: Import successful message
+- [ ] **Test**: Run `PYTHONPATH=src python -c "import sys; sys.path.insert(0, 'src'); exec(open('src/main.py').read())"`
+- [ ] **Expected**: No import errors (may fail on functionality, but imports should work)
+- [ ] **Rollback**: If imports fail, investigate and fix import issues before proceeding
 
-**Remove obsolete scripts**:
+### Step 4A: Check DXT Assets Exist
 
-- [ ] Use `git rm -r scripts/` to remove directory and track deletion
-- [ ] Use `git rm` for remaining `shared/` files individually
-- [ ] Remove `shared/` directory (should be empty after git rm)
+**Pre-flight check**: `"verify: check DXT assets before move"`
 
-### Step 6: Documentation Reorganization
+- [ ] **Pre-check**: Run `ls -la tools/dxt/assets/`
+- [ ] **Expected**: Directory exists with files, OR does not exist
+- [ ] **Decision**: If directory doesn't exist, skip Step 4 entirely
+- [ ] **Action**: If exists, proceed to Step 4B
+
+### Step 4B: Move DXT Assets (Conditional)
+
+**Commit**: `"refactor: consolidate DXT assets to src/deploy/"` (only if assets exist)
+
+- [ ] **Action**: For each file in `tools/dxt/assets/`, run `git mv tools/dxt/assets/[file] src/deploy/[file]`
+- [ ] **Test**: Run `ls -la src/deploy/`
+- [ ] **Expected**: All DXT asset files present
+- [ ] **Test**: Run `ls -la tools/dxt/assets/`
+- [ ] **Expected**: Directory empty or does not exist
+- [ ] **Test**: Run `git status | grep "renamed:.*tools/dxt/assets"`
+- [ ] **Expected**: All moves tracked as renames
+- [ ] **Rollback**: If conflicts occur, restore each file individually with `git mv`
+
+### Step 5A: Move Essential Scripts
+
+**Commit**: `"refactor: move essential scripts to tools/"`
+
+- [ ] **Pre-check**: Run `ls -la shared/version.sh shared/test-endpoint.sh shared/check-env.sh`
+- [ ] **Expected**: Files exist OR some don't exist (handle gracefully)
+- [ ] **Action** (if exists): Run `git mv shared/version.sh tools/version.sh`
+- [ ] **Test**: Run `ls -la tools/version.sh` (if file existed)
+- [ ] **Action** (if exists): Run `git mv shared/test-endpoint.sh tools/validate-endpoint.sh`
+- [ ] **Test**: Run `ls -la tools/validate-endpoint.sh` (if file existed)
+- [ ] **Action** (if exists): Run `git mv shared/check-env.sh tools/check-prereqs.sh`
+- [ ] **Test**: Run `ls -la tools/check-prereqs.sh` (if file existed)
+- [ ] **Rollback**: Reverse successful moves if any step fails
+
+### Step 5B: Remove Scripts Directory
+
+**Commit**: `"refactor: remove obsolete scripts directory"`
+
+- [ ] **Pre-check**: Run `ls -la scripts/`
+- [ ] **Expected**: Directory exists OR does not exist
+- [ ] **Action** (if exists): Run `git rm -r scripts/`
+- [ ] **Test**: Run `ls -la scripts/`
+- [ ] **Expected**: Directory does not exist
+- [ ] **Test**: Run `git status | grep "deleted:.*scripts/"`
+- [ ] **Expected**: All script deletions tracked
+- [ ] **Rollback**: If issues occur, run `git checkout scripts/`
+
+### Step 5C: Remove Remaining Shared Files
+
+**Commit**: `"refactor: remove remaining shared directory files"`
+
+- [ ] **Pre-check**: Run `ls -la shared/`
+- [ ] **Expected**: Directory exists with remaining files OR is empty/missing
+- [ ] **Action** (if files exist): For each remaining file, run `git rm shared/[file]`
+- [ ] **Action** (if directory empty): Run `rmdir shared/`
+- [ ] **Test**: Run `ls -la shared/`
+- [ ] **Expected**: Directory does not exist
+- [ ] **Rollback**: If issues occur, restore deleted files with `git checkout`
+
+### Step 6: Archive Analysis Documents
 
 **Commit**: `"docs: archive historical analysis documents"`
 
-- [ ] Create `docs/archive/` directory if not exists
-- [ ] Use `git mv analysis/ docs/archive/analysis/`
-- [ ] Update documentation index references
+- [ ] **Pre-check**: Run `ls -la analysis/`
+- [ ] **Expected**: Directory exists OR does not exist
+- [ ] **Action** (if exists): Run `git mv analysis/ docs/archive/analysis/`
+- [ ] **Test**: Run `ls -la docs/archive/analysis/`
+- [ ] **Expected**: All analysis files present in new location
+- [ ] **Test**: Run `ls -la analysis/`
+- [ ] **Expected**: Directory does not exist
+- [ ] **Test**: Run `git status | grep "renamed:.*analysis.*docs/archive/analysis"`
+- [ ] **Expected**: Move tracked as rename
+- [ ] **Rollback**: If issues occur, run `git mv docs/archive/analysis/ analysis/`
 
-**Note**: git mv handles directory moves atomically
+### Step 7A: Remove Configs Directory
 
-### Step 7: Configuration Cleanup
+**Commit**: `"refactor: remove obsolete configs directory"`
 
-**Commit**: `"refactor: remove obsolete configuration directories"`
+- [ ] **Pre-check**: Run `ls -la configs/`
+- [ ] **Expected**: Directory exists OR does not exist
+- [ ] **Action** (if exists): Run `git rm -r configs/`
+- [ ] **Test**: Run `ls -la configs/`
+- [ ] **Expected**: Directory does not exist
+- [ ] **Test**: Run `git status | grep "deleted:.*configs/"`
+- [ ] **Expected**: Deletion tracked
+- [ ] **Rollback**: If issues occur, run `git checkout configs/`
 
-- [ ] Use `git rm -r configs/` to remove directory
-- [ ] Create `build/` directory if not exists
-- [ ] Use `git mv app/test-results/ build/test-results/` (if exists)
-- [ ] Remove `app/` directory (should be empty after moves)
+### Step 7B: Move Test Results (Conditional)
 
-**Warning**: Check if `app/test-results/` exists before attempting move
+**Commit**: `"refactor: move test results to build/"` (only if exists)
 
-### Step 8: Build Artifact Management
+- [ ] **Pre-check**: Run `ls -la app/test-results/`
+- [ ] **Expected**: Directory exists OR does not exist
+- [ ] **Action** (if exists): Run `git mv app/test-results/ build/test-results/`
+- [ ] **Test**: Run `ls -la build/test-results/` (if directory existed)
+- [ ] **Expected**: All test result files present
+- [ ] **Test**: Run `git status | grep "renamed:.*app/test-results.*build/test-results"`
+- [ ] **Expected**: Move tracked as rename
+- [ ] **Rollback**: If issues occur, run `git mv build/test-results/ app/test-results/`
 
-**Commit**: `"build: update gitignore and clean targets"`
+### Step 7C: Remove Empty App Directory
 
-- [ ] Read current `.gitignore` with `Read` tool
-- [ ] Edit `.gitignore` with `Edit` tool:
-  - Remove obsolete entries: `app/test-results/`, references to `scripts/`, `shared/`, `analysis/`, `configs/`
-  - Add `build/` (comprehensive coverage)
-  - Update `app/test-results/` → `build/test-results/`
-  - Prune duplicate patterns
-- [ ] Read current `Makefile` with `Read` tool
-- [ ] Edit `make clean` target with `Edit` tool:
-  - Add `build/` removal
-  - Add `build/test-results/` removal
-  - Ensure comprehensive temporary file cleanup
+**Commit**: `"cleanup: remove empty app directory"`
 
-### Step 9: Import Path Updates
+- [ ] **Pre-check**: Run `ls -la app/`
+- [ ] **Expected**: Directory is empty OR does not exist
+- [ ] **Action** (if empty): Run `rmdir app/`
+- [ ] **Test**: Run `ls -la app/`
+- [ ] **Expected**: Directory does not exist
+- [ ] **Rollback**: If directory not empty, investigate remaining files
+
+### Step 8A: Update .gitignore
+
+**Commit**: `"build: update .gitignore for new structure"`
+
+- [ ] **Action**: Read current `.gitignore` with `Read` tool
+- [ ] **Action**: Edit `.gitignore` with `Edit` tool:
+  - Remove: `app/test-results/`, `scripts/`, `shared/`, `analysis/`, `configs/`
+  - Add: `build/`
+  - Update: `app/test-results/` → `build/test-results/`
+- [ ] **Test**: Run `grep -E "(app/test-results|scripts|shared|analysis|configs)" .gitignore`
+- [ ] **Expected**: No matches (obsolete entries removed)
+- [ ] **Test**: Run `grep "build/" .gitignore`
+- [ ] **Expected**: Entry found
+- [ ] **Rollback**: If validation fails, restore original `.gitignore`
+
+### Step 8B: Update Makefile Clean Target
+
+**Commit**: `"build: update Makefile clean target for new structure"`
+
+- [ ] **Action**: Read current `Makefile` with `Read` tool
+- [ ] **Action**: Edit `make clean` target with `Edit` tool:
+  - Add: `rm -rf build/`
+  - Add: `rm -rf build/test-results/`
+  - Ensure comprehensive cleanup
+- [ ] **Test**: Run `make clean`
+- [ ] **Expected**: Command executes without errors
+- [ ] **Test**: Run `ls -la build/` (if build/ existed)
+- [ ] **Expected**: Directory cleaned or removed
+- [ ] **Rollback**: If make clean fails, restore original Makefile
+
+### Step 9: Update Import Paths
 
 **Commit**: `"fix: update import paths for new structure"`
 
-- [ ] Update test files: Verify imports work with new PYTHONPATH
-- [ ] Update documentation code examples
-- [ ] Update any hardcoded import paths in scripts
+- [ ] **Test**: Run `PYTHONPATH=src make test-unit`
+- [ ] **Expected**: Tests run with new PYTHONPATH (may have failures, but should attempt to run)
+- [ ] **Action**: Fix any import path issues discovered in tests
+- [ ] **Test**: Run `PYTHONPATH=src python -c "import src.quilt_mcp; print('Imports working')"`
+- [ ] **Expected**: Successful import
+- [ ] **Rollback**: If critical import issues found, address before proceeding
 
-### Step 10: Validation and Testing
+### Step 10A: Test Build System
 
-**Commit**: `"test: verify restructured codebase functionality"`
+**Commit**: `"test: validate build system with new structure"`
 
-- [ ] Run full test suite: `make test` (expect some failures initially)
-- [ ] Test build process: `make build`
-- [ ] Test DXT packaging: `make dxt-package`
-- [ ] Test clean process: `make clean`
-- [ ] Start MCP server briefly: `make run` (then stop with Ctrl+C)
+- [ ] **Test**: Run `make test`
+- [ ] **Expected**: Tests execute (record results, some failures acceptable)
+- [ ] **Test**: Run `make build`
+- [ ] **Expected**: Build process completes successfully
+- [ ] **Action**: Fix any critical build failures discovered
+- [ ] **Rollback**: If build system completely broken, address issues
 
-**Note**: Some tests may fail until all import paths are fully updated
+### Step 10B: Test DXT Packaging
+
+**Commit**: `"test: validate DXT packaging with new structure"`
+
+- [ ] **Test**: Run `make dxt-package`
+- [ ] **Expected**: DXT package creation succeeds
+- [ ] **Test**: Verify DXT package contains expected files from `src/deploy/`
+- [ ] **Expected**: Package includes DXT assets and bootstrap
+- [ ] **Action**: Fix any DXT packaging issues
+- [ ] **Rollback**: If DXT packaging broken, investigate and fix
+
+### Step 10C: Test Clean Process
+
+**Commit**: `"test: validate clean process removes all artifacts"`
+
+- [ ] **Test**: Run `make clean`
+- [ ] **Expected**: Command completes successfully
+- [ ] **Test**: Run `ls -la build/` (should not exist)
+- [ ] **Expected**: Directory not found or empty
+- [ ] **Test**: Verify no temporary artifacts remain
+- [ ] **Expected**: Clean repository state
+- [ ] **Action**: Fix clean target if issues found
+
+### Step 10D: Test MCP Server Start
+
+**Commit**: `"test: validate MCP server starts with new structure"`
+
+- [ ] **Test**: Run `timeout 10s make run` (auto-stop after 10 seconds)
+- [ ] **Expected**: Server starts without import errors (timeout is expected)
+- [ ] **Alternative**: Run `make run` manually, then stop with Ctrl+C
+- [ ] **Expected**: Server initializes successfully before manual stop
+- [ ] **Action**: Fix any server startup issues
+- [ ] **Rollback**: If server won't start, investigate critical issues
 
 ## Detailed Implementation Tasks
 
