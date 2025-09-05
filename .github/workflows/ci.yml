@@ -46,8 +46,8 @@ jobs:
       with:
         name: test-results-py${{ matrix.python-version }}
         path: |
-          app/test-results/
-          app/coverage.xml
+          build/test-results/
+          src/coverage.xml
         retention-days: 7
 
   build-and-release:
