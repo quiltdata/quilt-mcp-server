@@ -18,7 +18,14 @@ class SailUserStoriesTest:
         self.results = []
         self.start_time = time.time()
 
-    def log_result(self, test_id: str, test_name: str, success: bool, details: Dict[str, Any], execution_time: float):
+    def log_result(
+        self,
+        test_id: str,
+        test_name: str,
+        success: bool,
+        details: Dict[str, Any],
+        execution_time: float,
+    ):
         """Log test result"""
         result = {
             "test_id": test_id,
@@ -57,12 +64,14 @@ class SailUserStoriesTest:
             print("   Step 3: Testing Athena connectivity...")
             athena_result = await self.call_athena_databases()
 
-            success = benchling_search_result.get('success', False) and quilt_search_result.get('success', False)
+            success = benchling_search_result.get(
+                "success", False
+            ) and quilt_search_result.get("success", False)
 
             details = {
-                "benchling_results": benchling_search_result.get('count', 0),
-                "quilt_results": len(quilt_search_result.get('results', [])),
-                "athena_databases": athena_result.get('count', 0),
+                "benchling_results": benchling_search_result.get("count", 0),
+                "quilt_results": len(quilt_search_result.get("results", [])),
+                "athena_databases": athena_result.get("count", 0),
                 "summary": f"Found {benchling_search_result.get('count', 0)} Benchling entities, {len(quilt_search_result.get('results', []))} Quilt objects",
             }
 
@@ -73,7 +82,9 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB001", "Federated Discovery", success, details, time.time() - test_start)
+        self.log_result(
+            "SB001", "Federated Discovery", success, details, time.time() - test_start
+        )
         return success
 
     async def test_sb002_summarization(self):
@@ -84,18 +95,20 @@ class SailUserStoriesTest:
             print("\n📝 Testing SB002: Notebook Summarization")
 
             # Get a specific notebook entry
-            entry_result = await self.call_benchling_get_entry("etr_BETndOZF")  # Demo Entry
+            entry_result = await self.call_benchling_get_entry(
+                "etr_BETndOZF"
+            )  # Demo Entry
 
-            if entry_result.get('success'):
-                entry_data = entry_result.get('data', {})
+            if entry_result.get("success"):
+                entry_data = entry_result.get("data", {})
 
                 # Test summarization capabilities
                 summary_details = {
-                    "entry_name": entry_data.get('name'),
-                    "entry_id": entry_data.get('id'),
-                    "created_at": entry_data.get('created_at'),
-                    "creator": entry_data.get('creator', {}).get('name'),
-                    "template_id": entry_data.get('entry_template_id'),
+                    "entry_name": entry_data.get("name"),
+                    "entry_id": entry_data.get("id"),
+                    "created_at": entry_data.get("created_at"),
+                    "creator": entry_data.get("creator", {}).get("name"),
+                    "template_id": entry_data.get("entry_template_id"),
                     "summary": f"Notebook '{entry_data.get('name')}' created by {entry_data.get('creator', {}).get('name')}",
                 }
 
@@ -109,7 +122,13 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB002", "Notebook Summarization", success, details, time.time() - test_start)
+        self.log_result(
+            "SB002",
+            "Notebook Summarization",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     async def test_sb004_ngs_lifecycle(self):
@@ -128,11 +147,13 @@ class SailUserStoriesTest:
             # Step 3: Test metadata creation
             metadata_test = await self.test_metadata_creation()
 
-            success = projects_result.get('success', False) and packages_result.get('success', False)
+            success = projects_result.get("success", False) and packages_result.get(
+                "success", False
+            )
 
             details = {
-                "benchling_projects": projects_result.get('count', 0),
-                "quilt_packages": len(packages_result.get('packages', [])),
+                "benchling_projects": projects_result.get("count", 0),
+                "quilt_packages": len(packages_result.get("packages", [])),
                 "metadata_test": metadata_test,
                 "summary": f"Found {projects_result.get('count', 0)} Benchling projects, {len(packages_result.get('packages', []))} Quilt packages",
             }
@@ -141,7 +162,13 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB004", "NGS Lifecycle Management", success, details, time.time() - test_start)
+        self.log_result(
+            "SB004",
+            "NGS Lifecycle Management",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     async def test_sb016_unified_search(self):
@@ -164,17 +191,17 @@ class SailUserStoriesTest:
             quilt_objects = await self.call_quilt_objects_search(search_term)
 
             total_results = (
-                benchling_results.get('count', 0)
-                + len(quilt_packages.get('results', []))
-                + len(quilt_objects.get('results', []))
+                benchling_results.get("count", 0)
+                + len(quilt_packages.get("results", []))
+                + len(quilt_objects.get("results", []))
             )
 
             success = total_results > 0
 
             details = {
-                "benchling_results": benchling_results.get('count', 0),
-                "quilt_package_results": len(quilt_packages.get('results', [])),
-                "quilt_object_results": len(quilt_objects.get('results', [])),
+                "benchling_results": benchling_results.get("count", 0),
+                "quilt_package_results": len(quilt_packages.get("results", [])),
+                "quilt_object_results": len(quilt_objects.get("results", [])),
                 "total_results": total_results,
                 "summary": f"Unified search for '{search_term}' found {total_results} total results across systems",
             }
@@ -183,7 +210,9 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB016", "Unified Search", success, details, time.time() - test_start)
+        self.log_result(
+            "SB016", "Unified Search", success, details, time.time() - test_start
+        )
         return success
 
     async def test_connectivity_validation(self):
@@ -199,13 +228,15 @@ class SailUserStoriesTest:
             # Test Quilt connectivity
             quilt_test = await self.call_quilt_auth_status()
 
-            success = benchling_test.get('success', False) and quilt_test.get('success', False)
+            success = benchling_test.get("success", False) and quilt_test.get(
+                "success", False
+            )
 
             details = {
-                "benchling_connected": benchling_test.get('success', False),
-                "quilt_connected": quilt_test.get('success', False),
-                "benchling_projects": benchling_test.get('count', 0),
-                "quilt_status": quilt_test.get('status', 'unknown'),
+                "benchling_connected": benchling_test.get("success", False),
+                "quilt_connected": quilt_test.get("success", False),
+                "benchling_projects": benchling_test.get("count", 0),
+                "quilt_status": quilt_test.get("status", "unknown"),
                 "summary": f"Benchling: {'✅' if benchling_test.get('success') else '❌'}, Quilt: {'✅' if quilt_test.get('success') else '❌'}",
             }
 
@@ -213,7 +244,13 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("CONN", "MCP Server Connectivity", success, details, time.time() - test_start)
+        self.log_result(
+            "CONN",
+            "MCP Server Connectivity",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     # Helper methods for MCP calls (these would be replaced with actual MCP tool calls)
@@ -281,7 +318,9 @@ class SailUserStoriesTest:
 
         # Generate summary
         total_tests = len(test_results) + 1  # +1 for connectivity test
-        passed_tests = sum(1 for result in test_results if result) + (1 if self.results[0]['success'] else 0)
+        passed_tests = sum(1 for result in test_results if result) + (
+            1 if self.results[0]["success"] else 0
+        )
 
         print("\n" + "=" * 60)
         print("📊 TEST SUMMARY")
@@ -294,7 +333,7 @@ class SailUserStoriesTest:
 
         # Save detailed results
         results_file = f"sail_user_stories_test_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(
                 {
                     "summary": {

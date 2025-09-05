@@ -8,10 +8,10 @@ import sys
 import logging
 
 # Add app to Python path
-sys.path.insert(0, 'app')
+sys.path.insert(0, "app")
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -35,7 +35,7 @@ def test_quilt3_session():
         print(f"✅ Credentials obtained: {type(credentials)}")
 
         # Get region
-        region = botocore_session.get_config_variable('region')
+        region = botocore_session.get_config_variable("region")
         print(f"✅ Region: {region}")
 
         # Test credential attributes
@@ -148,7 +148,7 @@ def check_glue_client(service):
 
         # Try listing databases
         response = glue_client.get_databases()
-        databases = response.get('DatabaseList', [])
+        databases = response.get("DatabaseList", [])
         print(f"✅ Listed {len(databases)} databases")
 
         for db in databases[:3]:  # Show first 3 databases
@@ -171,7 +171,10 @@ def test_mcp_tools():
     print("=" * 60)
 
     try:
-        from quilt_mcp.tools.athena_glue import athena_databases_list, athena_query_validate
+        from quilt_mcp.tools.athena_glue import (
+            athena_databases_list,
+            athena_query_validate,
+        )
 
         print("✅ Athena tools imported successfully")
 
@@ -181,7 +184,7 @@ def test_mcp_tools():
 
         # Test database listing
         result = athena_databases_list()
-        if result.get('success'):
+        if result.get("success"):
             print(f"✅ Database listing successful: {result.get('count', 0)} databases")
         else:
             print(f"❌ Database listing failed: {result.get('error', 'Unknown error')}")
@@ -190,19 +193,21 @@ def test_mcp_tools():
         from quilt_mcp.tools.athena_glue import athena_workgroups_list
 
         workgroups_result = athena_workgroups_list()
-        if workgroups_result.get('success'):
-            accessible = workgroups_result.get('accessible_count', 0)
-            total = workgroups_result.get('count', 0)
+        if workgroups_result.get("success"):
+            accessible = workgroups_result.get("accessible_count", 0)
+            total = workgroups_result.get("count", 0)
             print(f"✅ Workgroups listing successful: {accessible}/{total} accessible")
 
             # Show the top few workgroups
-            for wg in workgroups_result.get('workgroups', [])[:3]:
-                status = "✅" if wg.get('accessible') else "❌"
+            for wg in workgroups_result.get("workgroups", [])[:3]:
+                status = "✅" if wg.get("accessible") else "❌"
                 print(f"   {status} {wg.get('name')} ({wg.get('state')})")
         else:
-            print(f"❌ Workgroups listing failed: {workgroups_result.get('error', 'Unknown error')}")
+            print(
+                f"❌ Workgroups listing failed: {workgroups_result.get('error', 'Unknown error')}"
+            )
 
-        return result.get('success', False) and workgroups_result.get('success', False)
+        return result.get("success", False) and workgroups_result.get("success", False)
 
     except Exception as e:
         print(f"❌ Error with MCP tools: {e}")
@@ -246,7 +251,9 @@ def main():
     print(f"Glue client:        {'✅' if glue_success else '❌'}")
     print(f"MCP tools:          {'✅' if mcp_success else '❌'}")
 
-    if all([credentials, service, engine, connection_success, glue_success, mcp_success]):
+    if all(
+        [credentials, service, engine, connection_success, glue_success, mcp_success]
+    ):
         print("\n🎉 All tests passed! Athena integration is working correctly.")
         return 0
     else:

@@ -39,7 +39,7 @@ class TestUtils(unittest.TestCase):
         try:
             import boto3
 
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available")
@@ -66,7 +66,9 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(result, "https://signed.url")
         mock_boto_client.assert_called_once_with("s3")
         mock_client.generate_presigned_url.assert_called_once_with(
-            "get_object", Params={"Bucket": "my-bucket", "Key": "my-key.txt"}, ExpiresIn=1800
+            "get_object",
+            Params={"Bucket": "my-bucket", "Key": "my-key.txt"},
+            ExpiresIn=1800,
         )
 
     @pytest.mark.aws
@@ -79,7 +81,11 @@ class TestUtils(unittest.TestCase):
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET
-        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        bucket_name = (
+            DEFAULT_BUCKET.replace("s3://", "")
+            if DEFAULT_BUCKET.startswith("s3://")
+            else DEFAULT_BUCKET
+        )
         test_s3_uri = f"s3://{bucket_name}/test-key.txt"
 
         # Test minimum expiration (0 should become 1)
@@ -124,7 +130,9 @@ class TestUtils(unittest.TestCase):
         # AWS will generate a presigned URL even for non-existent buckets
         # The URL generation doesn't validate bucket existence
         # So we expect either a valid URL or None (depending on credentials/permissions)
-        assert result is None or (isinstance(result, str) and result.startswith("https://"))
+        assert result is None or (
+            isinstance(result, str) and result.startswith("https://")
+        )
 
     @patch("quilt_mcp.utils.boto3.client")
     def test_generate_signed_url_exception_mocked(self, mock_boto_client):
@@ -231,10 +239,14 @@ class TestMCPServerConfiguration(unittest.TestCase):
                 ("public_func", public_func),
                 ("_private_func", _private_func),
             ]
-            filtered_functions = [(name, func) for name, func in all_functions if mock_predicate(func)]
+            filtered_functions = [
+                (name, func) for name, func in all_functions if mock_predicate(func)
+            ]
             mock_getmembers.return_value = filtered_functions
 
-            tools_count = register_tools(mock_server, tool_modules=[mock_module], verbose=False)
+            tools_count = register_tools(
+                mock_server, tool_modules=[mock_module], verbose=False
+            )
 
             # Only public function should be registered
             self.assertEqual(tools_count, 1)
@@ -369,5 +381,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
             self.assertIn(module.__name__, expected_modules)
 
             # Module should have at least one function
-            functions = [obj for name, obj in inspect.getmembers(module, inspect.isfunction)]
+            functions = [
+                obj for name, obj in inspect.getmembers(module, inspect.isfunction)
+            ]
             self.assertGreater(len(functions), 0)

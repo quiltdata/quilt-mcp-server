@@ -10,4 +10,10 @@ from .igv import IGVGenerator
 from .matplotlib import MatplotlibGenerator
 from .perspective import PerspectiveGenerator
 
-__all__ = ["EChartsGenerator", "VegaLiteGenerator", "IGVGenerator", "MatplotlibGenerator", "PerspectiveGenerator"]
+__all__ = [
+    "EChartsGenerator",
+    "VegaLiteGenerator",
+    "IGVGenerator",
+    "MatplotlibGenerator",
+    "PerspectiveGenerator",
+]

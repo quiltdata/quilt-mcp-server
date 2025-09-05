@@ -16,49 +16,59 @@ class FileAnalyzer:
 
     # Data file extensions
     DATA_EXTENSIONS = {
-        'csv',
-        'tsv',
-        'xlsx',
-        'xls',
-        'json',
-        'parquet',
-        'h5',
-        'hdf5',
-        'feather',
-        'arrow',
-        'pickle',
-        'pkl',
-        'npy',
-        'npz',
+        "csv",
+        "tsv",
+        "xlsx",
+        "xls",
+        "json",
+        "parquet",
+        "h5",
+        "hdf5",
+        "feather",
+        "arrow",
+        "pickle",
+        "pkl",
+        "npy",
+        "npz",
     }
 
     # Genomic file extensions
     GENOMIC_EXTENSIONS = {
-        'bam',
-        'sam',
-        'vcf',
-        'bed',
-        'gtf',
-        'gff',
-        'gff3',
-        'fasta',
-        'fa',
-        'fastq',
-        'fq',
-        'bw',
-        'bigwig',
-        'bb',
-        'bigbed',
-        'maf',
-        'ped',
-        'map',
+        "bam",
+        "sam",
+        "vcf",
+        "bed",
+        "gtf",
+        "gff",
+        "gff3",
+        "fasta",
+        "fa",
+        "fastq",
+        "fq",
+        "bw",
+        "bigwig",
+        "bb",
+        "bigbed",
+        "maf",
+        "ped",
+        "map",
     }
 
     # Image file extensions
-    IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'tif', 'svg', 'webp'}
+    IMAGE_EXTENSIONS = {
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "bmp",
+        "tiff",
+        "tif",
+        "svg",
+        "webp",
+    }
 
     # Text file extensions
-    TEXT_EXTENSIONS = {'txt', 'md', 'rst', 'log', 'out', 'err', 'sh', 'py', 'r', 'sql'}
+    TEXT_EXTENSIONS = {"txt", "md", "rst", "log", "out", "err", "sh", "py", "r", "sql"}
 
     def __init__(self):
         """Initialize the file analyzer."""
@@ -75,15 +85,15 @@ class FileAnalyzer:
         Returns:
             Dictionary mapping file types to lists of file paths
         """
-        file_types = {'data': [], 'genomic': [], 'image': [], 'text': [], 'other': []}
+        file_types = {"data": [], "genomic": [], "image": [], "text": [], "other": []}
 
-        for file_path in package_path.rglob('*'):
+        for file_path in package_path.rglob("*"):
             if file_path.is_file():
                 file_type = self._categorize_file(file_path)
                 if file_type in file_types:
                     file_types[file_type].append(str(file_path))
                 else:
-                    file_types['other'].append(str(file_path))
+                    file_types["other"].append(str(file_path))
 
         return file_types
 
@@ -113,16 +123,16 @@ class FileAnalyzer:
         Returns:
             Category string: 'data', 'genomic', 'image', 'text', or 'other'
         """
-        extension = file_path.suffix.lower().lstrip('.')
+        extension = file_path.suffix.lower().lstrip(".")
 
         if extension in self.DATA_EXTENSIONS:
-            return 'data'
+            return "data"
         elif extension in self.GENOMIC_EXTENSIONS:
-            return 'genomic'
+            return "genomic"
         elif extension in self.IMAGE_EXTENSIONS:
-            return 'image'
+            return "image"
         elif extension in self.TEXT_EXTENSIONS:
-            return 'text'
+            return "text"
         else:
             # Try to determine type from content
             return self._detect_file_type_by_content(file_path)
@@ -139,36 +149,38 @@ class FileAnalyzer:
         """
         try:
             # Check if it's a text file by trying to read as text
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 first_line = f.readline().strip()
 
                 # Check for common file signatures
-                if first_line.startswith('@'):
-                    return 'genomic'  # FASTQ or similar
-                elif first_line.startswith('>'):
-                    return 'genomic'  # FASTA
-                elif first_line.startswith('##'):
-                    return 'genomic'  # VCF header
-                elif first_line.startswith('track'):
-                    return 'genomic'  # BED track
-                elif first_line.startswith('{') or first_line.startswith('['):
-                    return 'data'  # JSON
-                elif ',' in first_line or '\t' in first_line:
-                    return 'data'  # CSV/TSV
+                if first_line.startswith("@"):
+                    return "genomic"  # FASTQ or similar
+                elif first_line.startswith(">"):
+                    return "genomic"  # FASTA
+                elif first_line.startswith("##"):
+                    return "genomic"  # VCF header
+                elif first_line.startswith("track"):
+                    return "genomic"  # BED track
+                elif first_line.startswith("{") or first_line.startswith("["):
+                    return "data"  # JSON
+                elif "," in first_line or "\t" in first_line:
+                    return "data"  # CSV/TSV
                 else:
-                    return 'text'
+                    return "text"
 
         except (UnicodeDecodeError, PermissionError, OSError):
             # Binary file, check extension
-            extension = file_path.suffix.lower().lstrip('.')
-            if extension in ['bam', 'sam', 'bw', 'bb']:
-                return 'genomic'
-            elif extension in ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff']:
-                return 'image'
+            extension = file_path.suffix.lower().lstrip(".")
+            if extension in ["bam", "sam", "bw", "bb"]:
+                return "genomic"
+            elif extension in ["png", "jpg", "jpeg", "gif", "bmp", "tiff"]:
+                return "image"
             else:
-                return 'other'
+                return "other"
 
-    def _find_files_by_extensions(self, package_path: Path, extensions: Set[str]) -> List[str]:
+    def _find_files_by_extensions(
+        self, package_path: Path, extensions: Set[str]
+    ) -> List[str]:
         """
         Find files with specific extensions in the package.
 
@@ -180,9 +192,9 @@ class FileAnalyzer:
             List of file paths matching the extensions
         """
         files = []
-        for file_path in package_path.rglob('*'):
+        for file_path in package_path.rglob("*"):
             if file_path.is_file():
-                extension = file_path.suffix.lower().lstrip('.')
+                extension = file_path.suffix.lower().lstrip(".")
                 if extension in extensions:
                     files.append(str(file_path))
         return files
@@ -204,12 +216,12 @@ class FileAnalyzer:
         try:
             stat = path.stat()
             return {
-                'name': path.name,
-                'size': stat.st_size,
-                'modified': stat.st_mtime,
-                'extension': path.suffix.lower().lstrip('.'),
-                'category': self._categorize_file(path),
-                'mime_type': mimetypes.guess_type(str(path))[0] or 'unknown',
+                "name": path.name,
+                "size": stat.st_size,
+                "modified": stat.st_mtime,
+                "extension": path.suffix.lower().lstrip("."),
+                "category": self._categorize_file(path),
+                "mime_type": mimetypes.guess_type(str(path))[0] or "unknown",
             }
         except (OSError, PermissionError):
             return {}
@@ -231,7 +243,7 @@ class FileAnalyzer:
 
         # Find largest files
         largest_files = []
-        for file_path in package_path.rglob('*'):
+        for file_path in package_path.rglob("*"):
             if file_path.is_file():
                 try:
                     size = file_path.stat().st_size
@@ -242,15 +254,15 @@ class FileAnalyzer:
         largest_files.sort(key=lambda x: x[1], reverse=True)
 
         # Analyze directory structure
-        directories = [str(p) for p in package_path.rglob('*') if p.is_dir()]
+        directories = [str(p) for p in package_path.rglob("*") if p.is_dir()]
 
         return {
-            'file_counts': counts,
-            'total_files': sum(counts.values()),
-            'directories': directories,
-            'largest_files': largest_files[:10],  # Top 10 largest files
-            'has_data': counts.get('data', 0) > 0,
-            'has_genomic': counts.get('genomic', 0) > 0,
-            'has_images': counts.get('image', 0) > 0,
-            'has_text': counts.get('text', 0) > 0,
+            "file_counts": counts,
+            "total_files": sum(counts.values()),
+            "directories": directories,
+            "largest_files": largest_files[:10],  # Top 10 largest files
+            "has_data": counts.get("data", 0) > 0,
+            "has_genomic": counts.get("genomic", 0) > 0,
+            "has_images": counts.get("image", 0) > 0,
+            "has_text": counts.get("text", 0) > 0,
         }

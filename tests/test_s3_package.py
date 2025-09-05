@@ -45,14 +45,20 @@ class TestPackageCreateFromS3:
         assert result["success"] is False
         assert "source_bucket is required" in result["error"]
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_package_from_objects")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_no_objects_found(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test handling when no objects are found in source bucket."""
         # Setup mocks
@@ -60,9 +66,15 @@ class TestPackageCreateFromS3:
         mock_validate.return_value = None
         mock_discover.return_value = []  # No objects found
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
         # Mock bucket access check to return success for target registry
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         result = package_create_from_s3(
             source_bucket="test-bucket",
@@ -75,14 +87,20 @@ class TestPackageCreateFromS3:
         # Check for the actual error message about no objects found
         assert "No objects found matching the specified criteria" in result["error"]
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_package_from_objects')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_package_from_objects")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_successful_package_creation(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test successful package creation."""
         # Setup mocks
@@ -93,9 +111,15 @@ class TestPackageCreateFromS3:
             {"Key": "file2.txt", "Size": 200},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
         # Mock bucket access check to return success for target registry
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         result = package_create_from_s3(
             source_bucket="test-bucket",
@@ -134,7 +158,9 @@ class TestUtilityFunctions:
     def test_should_include_object_both_patterns(self):
         """Test object inclusion with both include and exclude patterns."""
         # Should exclude even if it matches include pattern
-        assert _should_include_object("test.tmp", ["*.txt", "*.tmp"], ["*.tmp"]) is False
+        assert (
+            _should_include_object("test.tmp", ["*.txt", "*.tmp"], ["*.tmp"]) is False
+        )
         # Should include if matches include and doesn't match exclude
         assert _should_include_object("test.txt", ["*.txt"], ["*.tmp"]) is True
 
@@ -167,12 +193,16 @@ class TestValidation:
     def test_dry_run_preview(self):
         """Test dry run functionality returns preview without creating package."""
         with (
-            patch('quilt_mcp.tools.s3_package.get_s3_client'),
-            patch('quilt_mcp.tools.s3_package._validate_bucket_access'),
-            patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover,
-            patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create,
-            patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations,
-            patch('quilt_mcp.tools.s3_package.bucket_access_check') as mock_access_check,
+            patch("quilt_mcp.tools.s3_package.get_s3_client"),
+            patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
+            patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
+            patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
+            patch(
+                "quilt_mcp.tools.s3_package.bucket_recommendations_get"
+            ) as mock_recommendations,
+            patch(
+                "quilt_mcp.tools.s3_package.bucket_access_check"
+            ) as mock_access_check,
         ):
             mock_discover.return_value = [
                 {"Key": "data.csv", "Size": 1000},
@@ -183,11 +213,17 @@ class TestValidation:
 
             mock_recommendations.return_value = {
                 "success": True,
-                "recommendations": {"package_creation": ["test-bucket"], "temporary_storage": ["temp-bucket"]},
+                "recommendations": {
+                    "package_creation": ["test-bucket"],
+                    "temporary_storage": ["temp-bucket"],
+                },
             }
 
             # Mock bucket access check to return success for target registry
-            mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+            mock_access_check.return_value = {
+                "success": True,
+                "access_summary": {"can_write": True},
+            }
 
             result = package_create_from_s3(
                 source_bucket="test-bucket",
@@ -205,25 +241,35 @@ class TestValidation:
     def test_auto_registry_suggestion(self):
         """Test automatic registry suggestion based on source patterns."""
         with (
-            patch('quilt_mcp.tools.s3_package.boto3.client') as mock_boto3,
-            patch('quilt_mcp.tools.s3_package._validate_bucket_access'),
-            patch('quilt_mcp.tools.s3_package._discover_s3_objects') as mock_discover,
-            patch('quilt_mcp.tools.s3_package._create_enhanced_package') as mock_create,
-            patch('quilt_mcp.tools.s3_package.bucket_recommendations_get') as mock_recommendations,
-            patch('quilt_mcp.tools.s3_package.bucket_access_check') as mock_access_check,
+            patch("quilt_mcp.tools.s3_package.boto3.client") as mock_boto3,
+            patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
+            patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
+            patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
+            patch(
+                "quilt_mcp.tools.s3_package.bucket_recommendations_get"
+            ) as mock_recommendations,
+            patch(
+                "quilt_mcp.tools.s3_package.bucket_access_check"
+            ) as mock_access_check,
         ):
             # Mock the boto3 client
             mock_s3_client = Mock()
             mock_boto3.return_value = mock_s3_client
 
             # Mock bucket access check to return success
-            mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+            mock_access_check.return_value = {
+                "success": True,
+                "access_summary": {"can_write": True},
+            }
 
             mock_discover.return_value = [{"Key": "model.pkl", "Size": 1000}]
             mock_create.return_value = {"top_hash": "test_hash"}
             mock_recommendations.return_value = {
                 "success": True,
-                "recommendations": {"package_creation": ["ml-training-data"], "temporary_storage": ["temp-bucket"]},
+                "recommendations": {
+                    "package_creation": ["ml-training-data"],
+                    "temporary_storage": ["temp-bucket"],
+                },
             }
 
             result = package_create_from_s3(
@@ -249,8 +295,13 @@ class TestEnhancedFunctionality:
         assert _suggest_target_registry("training-data", "") == "s3://ml-packages"
 
         # Analytics patterns
-        assert _suggest_target_registry("analytics-reports", "") == "s3://analytics-packages"
-        assert _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
+        assert (
+            _suggest_target_registry("analytics-reports", "")
+            == "s3://analytics-packages"
+        )
+        assert (
+            _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
+        )
 
         # Default fallback
         assert _suggest_target_registry("random-bucket", "") == "s3://data-packages"
@@ -370,14 +421,20 @@ class TestValidationUtilities:
 class TestREADMEContentExtraction:
     """Test cases for README content extraction from metadata."""
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_enhanced_package')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_readme_content_extraction_from_metadata(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test that README content is automatically extracted from metadata and used as package file."""
         # Setup mocks
@@ -388,8 +445,14 @@ class TestREADMEContentExtraction:
             {"Key": "file2.txt", "Size": 200},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         # Test metadata with README content
         test_metadata = {
@@ -414,19 +477,28 @@ class TestREADMEContentExtraction:
         passed_readme_content = call_args[1]["readme_content"]
 
         # Verify README content was extracted and passed through
-        assert passed_readme_content == "# Test Dataset\n\nThis is a test dataset with README content."
+        assert (
+            passed_readme_content
+            == "# Test Dataset\n\nThis is a test dataset with README content."
+        )
 
         # Verify that the metadata passed to enhanced package creation doesn't contain README fields
         # (This would be tested in the actual enhanced package creation function)
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_enhanced_package')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_both_readme_fields_extraction(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
         # Setup mocks
@@ -436,8 +508,14 @@ class TestREADMEContentExtraction:
             {"Key": "file1.txt", "Size": 100},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         # Test metadata with both README fields
         test_metadata = {
@@ -465,14 +543,20 @@ class TestREADMEContentExtraction:
         # Verify priority README content was used
         assert passed_readme_content == "# Priority README"
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_enhanced_package')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_no_readme_content_in_metadata(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test that packages without README content in metadata work normally."""
         # Setup mocks
@@ -482,11 +566,21 @@ class TestREADMEContentExtraction:
             {"Key": "file1.txt", "Size": 100},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         # Test metadata without README content
-        test_metadata = {"description": "Test dataset", "tags": ["test", "example"], "version": "1.0.0"}
+        test_metadata = {
+            "description": "Test dataset",
+            "tags": ["test", "example"],
+            "version": "1.0.0",
+        }
 
         result = package_create_from_s3(
             source_bucket="test-bucket",
@@ -507,14 +601,20 @@ class TestREADMEContentExtraction:
         # Verify no README content was passed
         assert passed_readme_content is None
 
-    @patch('quilt_mcp.tools.s3_package.get_s3_client')
-    @patch('quilt_mcp.tools.s3_package._validate_bucket_access')
-    @patch('quilt_mcp.tools.s3_package._discover_s3_objects')
-    @patch('quilt_mcp.tools.s3_package._create_enhanced_package')
-    @patch('quilt_mcp.tools.s3_package.bucket_recommendations_get')
-    @patch('quilt_mcp.tools.s3_package.bucket_access_check')
+    @patch("quilt_mcp.tools.s3_package.get_s3_client")
+    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
+    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
+    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
+    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
     def test_readme_content_vs_generated_content_priority(
-        self, mock_access_check, mock_recommendations, mock_create, mock_discover, mock_validate, mock_s3_client
+        self,
+        mock_access_check,
+        mock_recommendations,
+        mock_create,
+        mock_discover,
+        mock_validate,
+        mock_s3_client,
     ):
         """Test that extracted README content takes priority over generated content."""
         # Setup mocks
@@ -524,8 +624,14 @@ class TestREADMEContentExtraction:
             {"Key": "file1.txt", "Size": 100},
         ]
         mock_create.return_value = {"top_hash": "test_hash_123"}
-        mock_recommendations.return_value = {"success": True, "recommendations": {"package_creation": ["test-bucket"]}}
-        mock_access_check.return_value = {"success": True, "access_summary": {"can_write": True}}
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"package_creation": ["test-bucket"]},
+        }
+        mock_access_check.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True},
+        }
 
         # Test metadata with README content and generate_readme=True
         test_metadata = {

@@ -36,7 +36,10 @@ def format_as_table(
             df = pd.DataFrame(data)
         elif isinstance(data, dict):
             # Handle single record or nested structure
-            if all(isinstance(v, (str, int, float, bool, type(None))) for v in data.values()):
+            if all(
+                isinstance(v, (str, int, float, bool, type(None)))
+                for v in data.values()
+            ):
                 # Single record
                 df = pd.DataFrame([data])
             else:
@@ -61,10 +64,14 @@ def format_as_table(
             # Create a copy of the dataframe and sanitize string values
             df_safe = df_display.copy()
             for col in df_safe.columns:
-                if df_safe[col].dtype == 'object':  # String columns
-                    df_safe[col] = df_safe[col].astype(str).str.replace('%', '%%', regex=False)
+                if df_safe[col].dtype == "object":  # String columns
+                    df_safe[col] = (
+                        df_safe[col].astype(str).str.replace("%", "%%", regex=False)
+                    )
 
-            table_str = df_safe.to_string(index=False, max_cols=None, max_colwidth=30, justify='left')
+            table_str = df_safe.to_string(
+                index=False, max_cols=None, max_colwidth=30, justify="left"
+            )
         except (ValueError, TypeError) as e:
             # Handle formatting issues with special characters
             logger.warning(f"Table formatting failed, using simple representation: {e}")
@@ -85,7 +92,9 @@ def format_as_table(
         return f"Error formatting table: {str(e)}"
 
 
-def should_use_table_format(data: Any, output_format: str = "auto", min_rows: int = 2, max_cols: int = 20) -> bool:
+def should_use_table_format(
+    data: Any, output_format: str = "auto", min_rows: int = 2, max_cols: int = 20
+) -> bool:
     """Determine if data should be formatted as a table.
 
     Args:
@@ -111,10 +120,9 @@ def should_use_table_format(data: Any, output_format: str = "auto", min_rows: in
                 # Check if all dicts have similar structure
                 if len(data) > 0:
                     first_keys = set(data[0].keys())
-                    return (
-                        len(first_keys) <= max_cols
-                        and all(set(item.keys()) == first_keys for item in data[:5])  # Check first 5
-                    )
+                    return len(first_keys) <= max_cols and all(
+                        set(item.keys()) == first_keys for item in data[:5]
+                    )  # Check first 5
 
         return False
 
@@ -131,27 +139,34 @@ def enhance_result_with_table_format(result: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enhanced result with table formatting if applicable
     """
-    if not result.get('success', False):
+    if not result.get("success", False):
         return result
 
     # Look for tabular data in common fields
-    tabular_fields = ['formatted_data', 'data', 'results', 'tables', 'workgroups', 'databases']
+    tabular_fields = [
+        "formatted_data",
+        "data",
+        "results",
+        "tables",
+        "workgroups",
+        "databases",
+    ]
 
     for field in tabular_fields:
         if field in result:
             data = result[field]
 
             # Skip if already formatted as CSV (which is table-like)
-            if isinstance(data, str) and '\n' in data and ',' in data:
+            if isinstance(data, str) and "\n" in data and "," in data:
                 continue
 
             if should_use_table_format(data):
                 table_str = format_as_table(data)
-                result[f'{field}_table'] = table_str
+                result[f"{field}_table"] = table_str
 
                 # For formatted_data, also set a display preference
-                if field == 'formatted_data':
-                    result['display_format'] = 'table'
+                if field == "formatted_data":
+                    result["display_format"] = "table"
 
     return result
 
@@ -165,31 +180,31 @@ def format_athena_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enhanced result with table formatting
     """
-    if not result.get('success', False):
+    if not result.get("success", False):
         return result
 
     # Check if we have formatted_data that should be displayed as a table
-    if 'formatted_data' in result:
-        data = result['formatted_data']
+    if "formatted_data" in result:
+        data = result["formatted_data"]
 
         # If it's CSV format, convert to table
-        if isinstance(data, str) and result.get('format') == 'csv':
+        if isinstance(data, str) and result.get("format") == "csv":
             try:
                 # Parse CSV string back to DataFrame for table formatting
                 import io
 
                 df = pd.read_csv(io.StringIO(data))
                 table_str = format_as_table(df)
-                result['formatted_data_table'] = table_str
-                result['display_format'] = 'table'
+                result["formatted_data_table"] = table_str
+                result["display_format"] = "table"
             except Exception as e:
                 logger.error(f"Failed to convert CSV to table: {e}")
 
         # If it's JSON format with tabular data, add table version
         elif isinstance(data, list) and should_use_table_format(data):
             table_str = format_as_table(data)
-            result['formatted_data_table'] = table_str
-            result['display_format'] = 'table'
+            result["formatted_data_table"] = table_str
+            result["display_format"] = "table"
 
     return result
 
@@ -203,26 +218,34 @@ def format_users_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enhanced result with formatted table
     """
-    if not result.get('success') or not result.get('users'):
+    if not result.get("success") or not result.get("users"):
         return result
 
     try:
-        users = result['users']
+        users = result["users"]
 
         # Create a simplified view for table display
         table_data = []
         for user in users:
             table_data.append(
                 {
-                    'Name': user.get('name', ''),
-                    'Email': user.get('email', ''),
-                    'Active': '✓' if user.get('is_active') else '✗',
-                    'Admin': '✓' if user.get('is_admin') else '✗',
-                    'SSO Only': '✓' if user.get('is_sso_only') else '✗',
-                    'Service': '✓' if user.get('is_service') else '✗',
-                    'Role': user.get('role', ''),
-                    'Extra Roles': ', '.join(user.get('extra_roles', [])) if user.get('extra_roles') else '',
-                    'Last Login': user.get('last_login', '').split('T')[0] if user.get('last_login') else 'Never',
+                    "Name": user.get("name", ""),
+                    "Email": user.get("email", ""),
+                    "Active": "✓" if user.get("is_active") else "✗",
+                    "Admin": "✓" if user.get("is_admin") else "✗",
+                    "SSO Only": "✓" if user.get("is_sso_only") else "✗",
+                    "Service": "✓" if user.get("is_service") else "✗",
+                    "Role": user.get("role", ""),
+                    "Extra Roles": (
+                        ", ".join(user.get("extra_roles", []))
+                        if user.get("extra_roles")
+                        else ""
+                    ),
+                    "Last Login": (
+                        user.get("last_login", "").split("T")[0]
+                        if user.get("last_login")
+                        else "Never"
+                    ),
                 }
             )
 
@@ -230,8 +253,8 @@ def format_users_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
         table_str = format_as_table(table_data, max_width=150)
 
         # Add table to result
-        result['formatted_table'] = table_str
-        result['display_hint'] = 'Use formatted_table for better readability'
+        result["formatted_table"] = table_str
+        result["display_hint"] = "Use formatted_table for better readability"
 
         return result
 
@@ -249,21 +272,25 @@ def format_roles_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enhanced result with formatted table
     """
-    if not result.get('success') or not result.get('roles'):
+    if not result.get("success") or not result.get("roles"):
         return result
 
     try:
-        roles = result['roles']
+        roles = result["roles"]
 
         # Create a simplified view for table display
         table_data = []
         for role in roles:
             table_data.append(
                 {
-                    'ID': role.get('id', ''),
-                    'Name': role.get('name', ''),
-                    'Type': role.get('type', ''),
-                    'ARN': role.get('arn', '')[:60] + '...' if len(role.get('arn', '')) > 60 else role.get('arn', ''),
+                    "ID": role.get("id", ""),
+                    "Name": role.get("name", ""),
+                    "Type": role.get("type", ""),
+                    "ARN": (
+                        role.get("arn", "")[:60] + "..."
+                        if len(role.get("arn", "")) > 60
+                        else role.get("arn", "")
+                    ),
                 }
             )
 
@@ -271,8 +298,8 @@ def format_roles_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
         table_str = format_as_table(table_data, max_width=150)
 
         # Add table to result
-        result['formatted_table'] = table_str
-        result['display_hint'] = 'Use formatted_table for better readability'
+        result["formatted_table"] = table_str
+        result["display_hint"] = "Use formatted_table for better readability"
 
         return result
 
@@ -290,14 +317,14 @@ def format_tabulator_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Enhanced result with table formatting
     """
-    if not result.get('success', False):
+    if not result.get("success", False):
         return result
 
     # Format tables list
-    if 'tables' in result and isinstance(result['tables'], list):
-        if should_use_table_format(result['tables']):
-            table_str = format_as_table(result['tables'])
-            result['tables_table'] = table_str
-            result['display_format'] = 'table'
+    if "tables" in result and isinstance(result["tables"], list):
+        if should_use_table_format(result["tables"]):
+            table_str = format_as_table(result["tables"])
+            result["tables_table"] = table_str
+            result["display_format"] = "table"
 
     return result

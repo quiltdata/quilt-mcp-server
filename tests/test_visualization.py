@@ -35,17 +35,22 @@ D,175,2023-01-04
 E,225,2023-01-05"""
 
     csv_file = package_path / "sample_data.csv"
-    with open(csv_file, 'w') as f:
+    with open(csv_file, "w") as f:
         f.write(csv_content)
 
     # Create sample JSON data
     json_content = {
-        "metrics": {"accuracy": 0.95, "precision": 0.92, "recall": 0.88, "f1_score": 0.90},
+        "metrics": {
+            "accuracy": 0.95,
+            "precision": 0.92,
+            "recall": 0.88,
+            "f1_score": 0.90,
+        },
         "parameters": {"learning_rate": 0.001, "batch_size": 32, "epochs": 100},
     }
 
     json_file = package_path / "config.json"
-    with open(json_file, 'w') as f:
+    with open(json_file, "w") as f:
         json.dump(json_content, f, indent=2)
 
     # Create sample genomic data (FASTA format)
@@ -55,7 +60,7 @@ ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG
 GCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTA"""
 
     fasta_file = package_path / "genomic_data.fasta"
-    with open(fasta_file, 'w') as f:
+    with open(fasta_file, "w") as f:
         f.write(fasta_content)
 
     # Create README
@@ -73,7 +78,7 @@ This package demonstrates various data types that can be automatically visualize
 """
 
     readme_file = package_path / "README.md"
-    with open(readme_file, 'w') as f:
+    with open(readme_file, "w") as f:
         f.write(readme_content)
 
     print("Sample package created with:")
@@ -123,7 +128,7 @@ def test_visualization_engine():
 
         # Save quilt_summarize.json
         summary_file = package_path / "quilt_summarize.json"
-        with open(summary_file, 'w') as f:
+        with open(summary_file, "w") as f:
             f.write(quilt_summary)
 
         print(f"quilt_summarize.json created: {summary_file}")
@@ -136,7 +141,7 @@ def test_visualization_engine():
         print("\nTesting complete workflow...")
         result = engine.generate_package_visualizations(str(package_path))
 
-        if result['success']:
+        if result["success"]:
             print("✅ Visualization generation successful!")
             print(f"  - Package: {result['package_path']}")
             print(f"  - Visualizations: {result['visualization_count']}")
@@ -152,7 +157,7 @@ def test_visualization_engine():
         shutil.rmtree(package_path)
         print("Cleanup complete.")
 
-        return result['success']
+        return result["success"]
 
     except Exception as e:
         print(f"❌ Test failed with error: {e}")

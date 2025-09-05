@@ -22,7 +22,11 @@ try:
     import quilt3.admin.roles as admin_roles
     import quilt3.admin.sso_config as admin_sso_config
     import quilt3.admin.tabulator as admin_tabulator
-    from quilt3.admin.exceptions import Quilt3AdminError, UserNotFoundError, BucketNotFoundError
+    from quilt3.admin.exceptions import (
+        Quilt3AdminError,
+        UserNotFoundError,
+        BucketNotFoundError,
+    )
 
     ADMIN_AVAILABLE = True
 except ImportError:
@@ -55,14 +59,20 @@ class GovernanceService:
             elif isinstance(e, Quilt3AdminError):
                 return format_error_response(f"Admin operation failed: {str(e)}")
             else:
-                operation_str = str(operation) if operation is not None else "perform admin operation"
+                operation_str = (
+                    str(operation)
+                    if operation is not None
+                    else "perform admin operation"
+                )
                 error_str = str(e) if e is not None else "Unknown error"
                 logger.error(f"Failed to {operation_str}: {error_str}")
                 return format_error_response(f"Failed to {operation_str}: {error_str}")
         except Exception as format_error:
             # Fallback if even error formatting fails
             logger.error(f"Error handling failed: {format_error}")
-            return format_error_response("Admin operation failed due to an error in error handling")
+            return format_error_response(
+                "Admin operation failed due to an error in error handling"
+            )
 
 
 # User Management Functions
@@ -91,24 +101,28 @@ async def admin_users_list() -> Dict[str, Any]:
         users_data = []
         for user in users:
             user_dict = {
-                'name': user.name,
-                'email': user.email,
-                'is_active': user.is_active,
-                'is_admin': user.is_admin,
-                'is_sso_only': user.is_sso_only,
-                'is_service': user.is_service,
-                'date_joined': user.date_joined.isoformat() if user.date_joined else None,
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-                'role': user.role.name if user.role else None,
-                'extra_roles': [role.name for role in user.extra_roles] if user.extra_roles else [],
+                "name": user.name,
+                "email": user.email,
+                "is_active": user.is_active,
+                "is_admin": user.is_admin,
+                "is_sso_only": user.is_sso_only,
+                "is_service": user.is_service,
+                "date_joined": (
+                    user.date_joined.isoformat() if user.date_joined else None
+                ),
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "role": user.role.name if user.role else None,
+                "extra_roles": (
+                    [role.name for role in user.extra_roles] if user.extra_roles else []
+                ),
             }
             users_data.append(user_dict)
 
         result = {
-            'success': True,
-            'users': users_data,
-            'count': len(users_data),
-            'message': f"Found {len(users_data)} users",
+            "success": True,
+            "users": users_data,
+            "count": len(users_data),
+            "message": f"Found {len(users_data)} users",
         }
 
         # Add table formatting for better readability
@@ -146,26 +160,44 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
             return format_error_response(f"User '{name}' not found")
 
         user_data = {
-            'name': user.name,
-            'email': user.email,
-            'is_active': user.is_active,
-            'is_admin': user.is_admin,
-            'is_sso_only': user.is_sso_only,
-            'is_service': user.is_service,
-            'date_joined': user.date_joined.isoformat() if user.date_joined else None,
-            'last_login': user.last_login.isoformat() if user.last_login else None,
-            'role': {'name': user.role.name, 'id': user.role.id, 'arn': user.role.arn, 'type': user.role.typename__}
-            if user.role
-            else None,
-            'extra_roles': [
-                {'name': role.name, 'id': role.id, 'arn': role.arn, 'type': role.typename__}
-                for role in user.extra_roles
-            ]
-            if user.extra_roles
-            else [],
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "is_sso_only": user.is_sso_only,
+            "is_service": user.is_service,
+            "date_joined": user.date_joined.isoformat() if user.date_joined else None,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "role": (
+                {
+                    "name": user.role.name,
+                    "id": user.role.id,
+                    "arn": user.role.arn,
+                    "type": user.role.typename__,
+                }
+                if user.role
+                else None
+            ),
+            "extra_roles": (
+                [
+                    {
+                        "name": role.name,
+                        "id": role.id,
+                        "arn": role.arn,
+                        "type": role.typename__,
+                    }
+                    for role in user.extra_roles
+                ]
+                if user.extra_roles
+                else []
+            ),
         }
 
-        return {'success': True, 'user': user_data, 'message': f"Retrieved user information for '{name}'"}
+        return {
+            "success": True,
+            "user": user_data,
+            "message": f"Retrieved user information for '{name}'",
+        }
 
     except Exception as e:
         service = GovernanceService()
@@ -202,24 +234,28 @@ async def admin_user_create(
             return format_error_response("Role cannot be empty")
 
         # Basic email validation
-        if '@' not in email or '.' not in email:
+        if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
+        user = admin_users.create(
+            name=name, email=email, role=role, extra_roles=extra_roles or []
+        )
 
         user_data = {
-            'name': user.name,
-            'email': user.email,
-            'is_active': user.is_active,
-            'is_admin': user.is_admin,
-            'role': user.role.name if user.role else None,
-            'extra_roles': [role.name for role in user.extra_roles] if user.extra_roles else [],
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "role": user.role.name if user.role else None,
+            "extra_roles": (
+                [role.name for role in user.extra_roles] if user.extra_roles else []
+            ),
         }
 
         return {
-            'success': True,
-            'user': user_data,
-            'message': f"Successfully created user '{name}' with role '{role}'",
+            "success": True,
+            "user": user_data,
+            "message": f"Successfully created user '{name}' with role '{role}'",
         }
 
     except Exception as e:
@@ -248,7 +284,7 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
 
         admin_users.delete(name)
 
-        return {'success': True, 'message': f"Successfully deleted user '{name}'"}
+        return {"success": True, "message": f"Successfully deleted user '{name}'"}
 
     except Exception as e:
         service = GovernanceService()
@@ -278,15 +314,15 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
             return format_error_response("Email cannot be empty")
 
         # Basic email validation
-        if '@' not in email or '.' not in email:
+        if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
         user = admin_users.set_email(name, email)
 
         return {
-            'success': True,
-            'user': {'name': user.name, 'email': user.email},
-            'message': f"Successfully updated email for user '{name}' to '{email}'",
+            "success": True,
+            "user": {"name": user.name, "email": user.email},
+            "message": f"Successfully updated email for user '{name}' to '{email}'",
         }
 
     except Exception as e:
@@ -317,9 +353,9 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
         user = admin_users.set_admin(name, admin)
 
         return {
-            'success': True,
-            'user': {'name': user.name, 'is_admin': user.is_admin},
-            'message': f"Successfully {'granted' if admin else 'revoked'} admin privileges for user '{name}'",
+            "success": True,
+            "user": {"name": user.name, "is_admin": user.is_admin},
+            "message": f"Successfully {'granted' if admin else 'revoked'} admin privileges for user '{name}'",
         }
 
     except Exception as e:
@@ -350,9 +386,9 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
         user = admin_users.set_active(name, active)
 
         return {
-            'success': True,
-            'user': {'name': user.name, 'is_active': user.is_active},
-            'message': f"Successfully {'activated' if active else 'deactivated'} user '{name}'",
+            "success": True,
+            "user": {"name": user.name, "is_active": user.is_active},
+            "message": f"Successfully {'activated' if active else 'deactivated'} user '{name}'",
         }
 
     except Exception as e:
@@ -382,8 +418,8 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
         admin_users.reset_password(name)
 
         return {
-            'success': True,
-            'message': f"Successfully reset password for user '{name}'. User will need to set a new password on next login.",
+            "success": True,
+            "message": f"Successfully reset password for user '{name}'. User will need to set a new password on next login.",
         }
 
     except Exception as e:
@@ -417,16 +453,20 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
-        user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
+        user = admin_users.set_role(
+            name=name, role=role, extra_roles=extra_roles or [], append=append
+        )
 
         return {
-            'success': True,
-            'user': {
-                'name': user.name,
-                'role': user.role.name if user.role else None,
-                'extra_roles': [r.name for r in user.extra_roles] if user.extra_roles else [],
+            "success": True,
+            "user": {
+                "name": user.name,
+                "role": user.role.name if user.role else None,
+                "extra_roles": (
+                    [r.name for r in user.extra_roles] if user.extra_roles else []
+                ),
             },
-            'message': f"Successfully updated roles for user '{name}'",
+            "message": f"Successfully updated roles for user '{name}'",
         }
 
     except Exception as e:
@@ -459,13 +499,15 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         user = admin_users.add_roles(name, roles)
 
         return {
-            'success': True,
-            'user': {
-                'name': user.name,
-                'role': user.role.name if user.role else None,
-                'extra_roles': [r.name for r in user.extra_roles] if user.extra_roles else [],
+            "success": True,
+            "user": {
+                "name": user.name,
+                "role": user.role.name if user.role else None,
+                "extra_roles": (
+                    [r.name for r in user.extra_roles] if user.extra_roles else []
+                ),
             },
-            'message': f"Successfully added roles {roles} to user '{name}'",
+            "message": f"Successfully added roles {roles} to user '{name}'",
         }
 
     except Exception as e:
@@ -473,7 +515,9 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"add roles to user '{name}'")
 
 
-async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optional[str] = None) -> Dict[str, Any]:
+async def admin_user_remove_roles(
+    name: str, roles: List[str], fallback: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Remove roles from a user.
 
@@ -499,13 +543,15 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
         user = admin_users.remove_roles(name, roles, fallback)
 
         return {
-            'success': True,
-            'user': {
-                'name': user.name,
-                'role': user.role.name if user.role else None,
-                'extra_roles': [r.name for r in user.extra_roles] if user.extra_roles else [],
+            "success": True,
+            "user": {
+                "name": user.name,
+                "role": user.role.name if user.role else None,
+                "extra_roles": (
+                    [r.name for r in user.extra_roles] if user.extra_roles else []
+                ),
             },
-            'message': f"Successfully removed roles {roles} from user '{name}'",
+            "message": f"Successfully removed roles {roles} from user '{name}'",
         }
 
     except Exception as e:
@@ -539,18 +585,18 @@ async def admin_roles_list() -> Dict[str, Any]:
         roles_data = []
         for role in roles:
             role_dict = {
-                'id': getattr(role, 'id', None),
-                'name': getattr(role, 'name', None),
-                'arn': getattr(role, 'arn', None),
-                'type': getattr(role, 'typename', getattr(role, 'type', 'unknown')),
+                "id": getattr(role, "id", None),
+                "name": getattr(role, "name", None),
+                "arn": getattr(role, "arn", None),
+                "type": getattr(role, "typename", getattr(role, "type", "unknown")),
             }
             roles_data.append(role_dict)
 
         result = {
-            'success': True,
-            'roles': roles_data,
-            'count': len(roles_data),
-            'message': f"Found {len(roles_data)} roles",
+            "success": True,
+            "roles": roles_data,
+            "count": len(roles_data),
+            "message": f"Found {len(roles_data)} roles",
         }
 
         # Add table formatting for better readability
@@ -582,17 +628,29 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         sso_config = admin_sso_config.get()
 
         if sso_config is None:
-            return {'success': True, 'sso_config': None, 'message': 'No SSO configuration found'}
+            return {
+                "success": True,
+                "sso_config": None,
+                "message": "No SSO configuration found",
+            }
 
         config_data = {
-            'text': sso_config.text,
-            'timestamp': sso_config.timestamp.isoformat() if sso_config.timestamp else None,
-            'uploader': {'name': sso_config.uploader.name, 'email': sso_config.uploader.email}
-            if sso_config.uploader
-            else None,
+            "text": sso_config.text,
+            "timestamp": (
+                sso_config.timestamp.isoformat() if sso_config.timestamp else None
+            ),
+            "uploader": (
+                {"name": sso_config.uploader.name, "email": sso_config.uploader.email}
+                if sso_config.uploader
+                else None
+            ),
         }
 
-        return {'success': True, 'sso_config': config_data, 'message': 'Retrieved SSO configuration'}
+        return {
+            "success": True,
+            "sso_config": config_data,
+            "message": "Retrieved SSO configuration",
+        }
 
     except Exception as e:
         service = GovernanceService()
@@ -624,14 +682,22 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
             return format_error_response("Failed to set SSO configuration")
 
         config_data = {
-            'text': sso_config.text,
-            'timestamp': sso_config.timestamp.isoformat() if sso_config.timestamp else None,
-            'uploader': {'name': sso_config.uploader.name, 'email': sso_config.uploader.email}
-            if sso_config.uploader
-            else None,
+            "text": sso_config.text,
+            "timestamp": (
+                sso_config.timestamp.isoformat() if sso_config.timestamp else None
+            ),
+            "uploader": (
+                {"name": sso_config.uploader.name, "email": sso_config.uploader.email}
+                if sso_config.uploader
+                else None
+            ),
         }
 
-        return {'success': True, 'sso_config': config_data, 'message': 'Successfully updated SSO configuration'}
+        return {
+            "success": True,
+            "sso_config": config_data,
+            "message": "Successfully updated SSO configuration",
+        }
 
     except Exception as e:
         service = GovernanceService()
@@ -653,7 +719,7 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
 
         admin_sso_config.set(None)
 
-        return {'success': True, 'message': 'Successfully removed SSO configuration'}
+        return {"success": True, "message": "Successfully removed SSO configuration"}
 
     except Exception as e:
         service = GovernanceService()
@@ -679,9 +745,9 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         open_query_enabled = admin_tabulator.get_open_query()
 
         return {
-            'success': True,
-            'open_query_enabled': open_query_enabled,
-            'message': f"Open query is {'enabled' if open_query_enabled else 'disabled'}",
+            "success": True,
+            "open_query_enabled": open_query_enabled,
+            "message": f"Open query is {'enabled' if open_query_enabled else 'disabled'}",
         }
 
     except Exception as e:
@@ -708,9 +774,9 @@ async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
         admin_tabulator.set_open_query(enabled)
 
         return {
-            'success': True,
-            'open_query_enabled': enabled,
-            'message': f"Successfully {'enabled' if enabled else 'disabled'} tabulator open query",
+            "success": True,
+            "open_query_enabled": enabled,
+            "message": f"Successfully {'enabled' if enabled else 'disabled'} tabulator open query",
         }
 
     except Exception as e:

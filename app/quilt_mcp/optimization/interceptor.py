@@ -66,10 +66,10 @@ class ToolCallInterceptor:
 
             # Prepare call data
             call_data = {
-                'tool_name': tool_name,
-                'args': kwargs,
-                'start_time': start_time,
-                'context': self.current_context,
+                "tool_name": tool_name,
+                "args": kwargs,
+                "start_time": start_time,
+                "context": self.current_context,
             }
 
             # Add to call stack
@@ -79,7 +79,9 @@ class ToolCallInterceptor:
                 # Check for optimization opportunities before execution
                 optimization = self._check_pre_execution_optimization(tool_name, kwargs)
                 if optimization:
-                    logger.info(f"Applying pre-execution optimization for {tool_name}: {optimization}")
+                    logger.info(
+                        f"Applying pre-execution optimization for {tool_name}: {optimization}"
+                    )
 
                 # Execute the function
                 result = func(*args, **kwargs)
@@ -100,9 +102,9 @@ class ToolCallInterceptor:
                 # Update call data
                 call_data.update(
                     {
-                        'success': True,
-                        'execution_time': execution_time,
-                        'result_size': len(str(result)) if result else 0,
+                        "success": True,
+                        "execution_time": execution_time,
+                        "result_size": len(str(result)) if result else 0,
                     }
                 )
 
@@ -125,7 +127,13 @@ class ToolCallInterceptor:
                 )
 
                 # Update call data
-                call_data.update({'success': False, 'execution_time': execution_time, 'error': str(e)})
+                call_data.update(
+                    {
+                        "success": False,
+                        "execution_time": execution_time,
+                        "error": str(e),
+                    }
+                )
 
                 # Analyze failure for optimization opportunities
                 self._analyze_failure(call_data, e)
@@ -145,23 +153,27 @@ class ToolCallInterceptor:
         if self.current_context:
             context.update(
                 {
-                    'user_intent': self.current_context.user_intent,
-                    'task_type': self.current_context.task_type,
-                    'expected_outcome': self.current_context.expected_outcome,
-                    'performance_target': self.current_context.performance_target,
-                    'sequence_position': len(self.call_stack),
-                    'parallel_execution': self.current_context.parallel_execution,
+                    "user_intent": self.current_context.user_intent,
+                    "task_type": self.current_context.task_type,
+                    "expected_outcome": self.current_context.expected_outcome,
+                    "performance_target": self.current_context.performance_target,
+                    "sequence_position": len(self.call_stack),
+                    "parallel_execution": self.current_context.parallel_execution,
                 }
             )
 
         # Add call stack information
         if self.call_stack:
-            context['call_stack_depth'] = len(self.call_stack)
-            context['previous_tools'] = [call['tool_name'] for call in self.call_stack[-3:]]
+            context["call_stack_depth"] = len(self.call_stack)
+            context["previous_tools"] = [
+                call["tool_name"] for call in self.call_stack[-3:]
+            ]
 
         return context
 
-    def _check_pre_execution_optimization(self, tool_name: str, kwargs: Dict[str, Any]) -> Optional[str]:
+    def _check_pre_execution_optimization(
+        self, tool_name: str, kwargs: Dict[str, Any]
+    ) -> Optional[str]:
         """Check for optimization opportunities before tool execution."""
         optimizations = []
 
@@ -181,23 +193,31 @@ class ToolCallInterceptor:
 
         return "; ".join(optimizations) if optimizations else None
 
-    def _check_post_execution_optimization(self, call_data: Dict[str, Any], result: Any) -> None:
+    def _check_post_execution_optimization(
+        self, call_data: Dict[str, Any], result: Any
+    ) -> None:
         """Check for optimization opportunities after tool execution."""
-        tool_name = call_data['tool_name']
-        execution_time = call_data['execution_time']
+        tool_name = call_data["tool_name"]
+        execution_time = call_data["execution_time"]
 
         # Cache successful results for potential reuse
-        if call_data['success'] and self.current_context and self.current_context.cache_enabled:
-            cache_key = self._generate_cache_key(tool_name, call_data['args'])
+        if (
+            call_data["success"]
+            and self.current_context
+            and self.current_context.cache_enabled
+        ):
+            cache_key = self._generate_cache_key(tool_name, call_data["args"])
             self.performance_cache[cache_key] = {
-                'result': result,
-                'execution_time': execution_time,
-                'timestamp': time.time(),
+                "result": result,
+                "execution_time": execution_time,
+                "timestamp": time.time(),
             }
 
         # Analyze performance
         if execution_time > 5.0:  # Slow execution threshold
-            logger.warning(f"Slow tool execution detected: {tool_name} took {execution_time:.2f}s")
+            logger.warning(
+                f"Slow tool execution detected: {tool_name} took {execution_time:.2f}s"
+            )
             self._suggest_performance_improvements(call_data)
 
         # Check for sequence optimization opportunities
@@ -205,18 +225,18 @@ class ToolCallInterceptor:
 
     def _analyze_failure(self, call_data: Dict[str, Any], error: Exception) -> None:
         """Analyze failed calls for optimization opportunities."""
-        tool_name = call_data['tool_name']
+        tool_name = call_data["tool_name"]
         error_type = type(error).__name__
 
         logger.debug(f"Analyzing failure: {tool_name} failed with {error_type}")
 
         # Common failure patterns and suggestions
         failure_patterns = {
-            'PermissionError': 'check_permissions_first',
-            'FileNotFoundError': 'verify_resource_exists',
-            'ConnectionError': 'check_network_connectivity',
-            'TimeoutError': 'increase_timeout_or_retry',
-            'ValidationError': 'validate_parameters_first',
+            "PermissionError": "check_permissions_first",
+            "FileNotFoundError": "verify_resource_exists",
+            "ConnectionError": "check_network_connectivity",
+            "TimeoutError": "increase_timeout_or_retry",
+            "ValidationError": "validate_parameters_first",
         }
 
         if error_type in failure_patterns:
@@ -232,75 +252,82 @@ class ToolCallInterceptor:
         recent_calls = self.call_stack[-3:]
         for call in recent_calls:
             if (
-                call['tool_name'] == tool_name
-                and call.get('success', False)
-                and self._args_similar(call['args'], kwargs)
+                call["tool_name"] == tool_name
+                and call.get("success", False)
+                and self._args_similar(call["args"], kwargs)
             ):
                 return True
 
         return False
 
-    def _suggest_tool_alternative(self, tool_name: str, kwargs: Dict[str, Any]) -> Optional[str]:
+    def _suggest_tool_alternative(
+        self, tool_name: str, kwargs: Dict[str, Any]
+    ) -> Optional[str]:
         """Suggest alternative tools that might be more efficient."""
 
         # Tool alternatives mapping
         alternatives = {
-            'package_create': {
-                'condition': lambda args: len(args.get('s3_uris', [])) > 10,
-                'alternative': 'package_create_from_s3',
+            "package_create": {
+                "condition": lambda args: len(args.get("s3_uris", [])) > 10,
+                "alternative": "package_create_from_s3",
             },
-            'bucket_objects_list': {
-                'condition': lambda args: args.get('max_keys', 100) < 10,
-                'alternative': 'bucket_object_info',
+            "bucket_objects_list": {
+                "condition": lambda args: args.get("max_keys", 100) < 10,
+                "alternative": "bucket_object_info",
             },
-            'packages_list': {'condition': lambda args: args.get('prefix', ''), 'alternative': 'packages_search'},
+            "packages_list": {
+                "condition": lambda args: args.get("prefix", ""),
+                "alternative": "packages_search",
+            },
         }
 
         if tool_name in alternatives:
             alt_config = alternatives[tool_name]
-            if alt_config['condition'](kwargs):
-                return alt_config['alternative']
+            if alt_config["condition"](kwargs):
+                return alt_config["alternative"]
 
         return None
 
-    def _suggest_parameter_optimizations(self, tool_name: str, kwargs: Dict[str, Any]) -> List[str]:
+    def _suggest_parameter_optimizations(
+        self, tool_name: str, kwargs: Dict[str, Any]
+    ) -> List[str]:
         """Suggest parameter optimizations for better performance."""
         suggestions = []
 
         # Common parameter optimizations
-        if tool_name == 'bucket_objects_list':
-            if kwargs.get('max_keys', 100) > 1000:
+        if tool_name == "bucket_objects_list":
+            if kwargs.get("max_keys", 100) > 1000:
                 suggestions.append("consider_reducing_max_keys")
-            if not kwargs.get('prefix'):
+            if not kwargs.get("prefix"):
                 suggestions.append("consider_adding_prefix_filter")
 
-        elif tool_name == 'package_browse':
-            if kwargs.get('recursive', True) and kwargs.get('max_depth', 0) == 0:
+        elif tool_name == "package_browse":
+            if kwargs.get("recursive", True) and kwargs.get("max_depth", 0) == 0:
                 suggestions.append("consider_limiting_max_depth")
 
-        elif tool_name == 'athena_query_execute':
-            if 'LIMIT' not in kwargs.get('query', '').upper():
+        elif tool_name == "athena_query_execute":
+            if "LIMIT" not in kwargs.get("query", "").upper():
                 suggestions.append("consider_adding_limit_clause")
 
         return suggestions
 
     def _suggest_performance_improvements(self, call_data: Dict[str, Any]) -> None:
         """Suggest performance improvements for slow calls."""
-        tool_name = call_data['tool_name']
-        execution_time = call_data['execution_time']
+        tool_name = call_data["tool_name"]
+        execution_time = call_data["execution_time"]
 
         improvements = {
-            'package_browse': [
+            "package_browse": [
                 "Use recursive=False for faster top-level browsing",
                 "Set max_depth to limit recursion",
                 "Use include_file_info=False if metadata not needed",
             ],
-            'bucket_objects_list': [
+            "bucket_objects_list": [
                 "Reduce max_keys parameter",
                 "Use more specific prefix filtering",
                 "Consider pagination for large results",
             ],
-            'athena_query_execute': [
+            "athena_query_execute": [
                 "Add LIMIT clause to queries",
                 "Use column selection instead of SELECT *",
                 "Consider query optimization",
@@ -317,21 +344,26 @@ class ToolCallInterceptor:
             return
 
         # Look for common inefficient patterns
-        recent_tools = [call['tool_name'] for call in self.call_stack[-5:]]
+        recent_tools = [call["tool_name"] for call in self.call_stack[-5:]]
 
         # Pattern: auth_status followed by every operation
-        if recent_tools.count('auth_status') > 1:
+        if recent_tools.count("auth_status") > 1:
             logger.info("Optimization: Consider caching auth_status results")
 
         # Pattern: Multiple list operations that could be combined
-        list_tools = ['packages_list', 'bucket_objects_list', 'tables_list']
+        list_tools = ["packages_list", "bucket_objects_list", "tables_list"]
         list_count = sum(1 for tool in recent_tools if tool in list_tools)
         if list_count > 2:
             logger.info("Optimization: Consider combining list operations")
 
         # Pattern: Browse followed by search (could be optimized)
-        if len(recent_tools) >= 2 and recent_tools[-2:] == ['package_browse', 'package_contents_search']:
-            logger.info("Optimization: Consider using search with filters instead of browse+search")
+        if len(recent_tools) >= 2 and recent_tools[-2:] == [
+            "package_browse",
+            "package_contents_search",
+        ]:
+            logger.info(
+                "Optimization: Consider using search with filters instead of browse+search"
+            )
 
     def _args_similar(self, args1: Dict[str, Any], args2: Dict[str, Any]) -> bool:
         """Check if two argument sets are similar enough to be considered redundant."""
@@ -343,7 +375,7 @@ class ToolCallInterceptor:
         import hashlib
         import json
 
-        cache_data = {'tool': tool_name, 'args': args}
+        cache_data = {"tool": tool_name, "args": args}
 
         cache_str = json.dumps(cache_data, sort_keys=True, default=str)
         return hashlib.md5(cache_str.encode()).hexdigest()
@@ -351,11 +383,13 @@ class ToolCallInterceptor:
     def get_optimization_report(self) -> Dict[str, Any]:
         """Generate an optimization report based on collected data."""
         return {
-            'total_calls': len(self.call_stack),
-            'current_context': self.current_context.__dict__ if self.current_context else None,
-            'cache_size': len(self.performance_cache),
-            'recent_tools': [call['tool_name'] for call in self.call_stack[-10:]],
-            'performance_summary': self.telemetry.get_performance_metrics(),
+            "total_calls": len(self.call_stack),
+            "current_context": (
+                self.current_context.__dict__ if self.current_context else None
+            ),
+            "cache_size": len(self.performance_cache),
+            "recent_tools": [call["tool_name"] for call in self.call_stack[-10:]],
+            "performance_summary": self.telemetry.get_performance_metrics(),
         }
 
 

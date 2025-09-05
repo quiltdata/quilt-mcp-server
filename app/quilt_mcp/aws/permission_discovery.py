@@ -68,55 +68,61 @@ class AWSPermissionDiscovery:
         self.cache_ttl = cache_ttl
         self.permission_cache = TTLCache(maxsize=1000, ttl=cache_ttl)
         self.identity_cache = TTLCache(maxsize=10, ttl=cache_ttl)
-        self.bucket_list_cache = TTLCache(maxsize=10, ttl=cache_ttl // 2)  # Shorter TTL for bucket lists
+        self.bucket_list_cache = TTLCache(
+            maxsize=10, ttl=cache_ttl // 2
+        )  # Shorter TTL for bucket lists
 
         # Initialize AWS clients
         try:
             # Prefer Quilt3-provided STS-backed session, if logged in
             session = None
             try:
-                disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+                disable_quilt3_session = (
+                    os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
+                )
                 # If quilt3 is mocked in tests, always allow using it regardless of env flag
                 try:
-                    is_quilt3_mock = 'unittest.mock' in type(quilt3).__module__
+                    is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
                 except Exception:
                     is_quilt3_mock = False
                 if (
                     (not disable_quilt3_session or is_quilt3_mock)
-                    and hasattr(quilt3, 'logged_in')
+                    and hasattr(quilt3, "logged_in")
                     and quilt3.logged_in()
                 ):
-                    if hasattr(quilt3, 'get_boto3_session'):
+                    if hasattr(quilt3, "get_boto3_session"):
                         session = quilt3.get_boto3_session()
             except Exception:
                 session = None
 
             if session is not None:
-                logger.info("Using Quilt3-backed boto3 session for permission discovery")
-                self.sts_client = session.client('sts')
-                self.iam_client = session.client('iam')
-                self.s3_client = session.client('s3')
+                logger.info(
+                    "Using Quilt3-backed boto3 session for permission discovery"
+                )
+                self.sts_client = session.client("sts")
+                self.iam_client = session.client("iam")
+                self.s3_client = session.client("s3")
                 # Optional clients used for fallback discovery paths
                 try:
-                    self.glue_client = session.client('glue')
+                    self.glue_client = session.client("glue")
                 except Exception:
                     self.glue_client = None
                 try:
-                    self.athena_client = session.client('athena')
+                    self.athena_client = session.client("athena")
                 except Exception:
                     self.athena_client = None
             else:
                 logger.info("Using default boto3 clients for permission discovery")
-                self.sts_client = boto3.client('sts')
-                self.iam_client = boto3.client('iam')
-                self.s3_client = boto3.client('s3')
+                self.sts_client = boto3.client("sts")
+                self.iam_client = boto3.client("iam")
+                self.s3_client = boto3.client("s3")
                 # Optional clients used for fallback discovery paths
                 try:
-                    self.glue_client = boto3.client('glue')
+                    self.glue_client = boto3.client("glue")
                 except Exception:
                     self.glue_client = None
                 try:
-                    self.athena_client = boto3.client('athena')
+                    self.athena_client = boto3.client("athena")
                 except Exception:
                     self.athena_client = None
         except NoCredentialsError:
@@ -133,30 +139,36 @@ class AWSPermissionDiscovery:
         try:
             response = self.sts_client.get_caller_identity()
 
-            user_id = response['UserId']
-            arn = response['Arn']
-            account_id = response['Account']
+            user_id = response["UserId"]
+            arn = response["Arn"]
+            account_id = response["Account"]
 
             # Determine user type and name from ARN
-            if ':user/' in arn:
+            if ":user/" in arn:
                 user_type = "user"
-                user_name = arn.split(':user/')[-1]
-            elif ':role/' in arn:
+                user_name = arn.split(":user/")[-1]
+            elif ":role/" in arn:
                 user_type = "role"
-                user_name = arn.split(':role/')[-1].split('/')[0]
-            elif ':federated-user/' in arn:
+                user_name = arn.split(":role/")[-1].split("/")[0]
+            elif ":federated-user/" in arn:
                 user_type = "federated"
-                user_name = arn.split(':federated-user/')[-1]
+                user_name = arn.split(":federated-user/")[-1]
             else:
                 user_type = "unknown"
                 user_name = None
 
             identity = UserIdentity(
-                user_id=user_id, arn=arn, account_id=account_id, user_type=user_type, user_name=user_name
+                user_id=user_id,
+                arn=arn,
+                account_id=account_id,
+                user_type=user_type,
+                user_name=user_name,
             )
 
             self.identity_cache[cache_key] = identity
-            logger.info(f"Discovered user identity: {user_type} {user_name} in account {account_id}")
+            logger.info(
+                f"Discovered user identity: {user_type} {user_name} in account {account_id}"
+            )
 
             return identity
 
@@ -164,7 +176,9 @@ class AWSPermissionDiscovery:
             logger.error(f"Failed to discover user identity: {e}")
             raise
 
-    def discover_accessible_buckets(self, include_cross_account: bool = False) -> List[BucketInfo]:
+    def discover_accessible_buckets(
+        self, include_cross_account: bool = False
+    ) -> List[BucketInfo]:
         """Discover all buckets user has any level of access to."""
         cache_key = f"accessible_buckets_{include_cross_account}"
 
@@ -178,19 +192,21 @@ class AWSPermissionDiscovery:
         try:
             # First, try to list buckets the user owns
             response = self.s3_client.list_buckets()
-            owned_buckets = response.get('Buckets', [])
+            owned_buckets = response.get("Buckets", [])
 
             logger.info(f"Found {len(owned_buckets)} owned buckets")
 
             # Check permissions for owned buckets
             for bucket_info in owned_buckets:
-                bucket_name = bucket_info['Name']
+                bucket_name = bucket_info["Name"]
                 discovered_bucket_names.add(bucket_name)
                 try:
                     bucket_detail = self.discover_bucket_permissions(bucket_name)
                     buckets.append(bucket_detail)
                 except Exception as e:
-                    logger.warning(f"Failed to check permissions for owned bucket {bucket_name}: {e}")
+                    logger.warning(
+                        f"Failed to check permissions for owned bucket {bucket_name}: {e}"
+                    )
                     # Add with unknown permissions
                     buckets.append(
                         BucketInfo(
@@ -209,8 +225,10 @@ class AWSPermissionDiscovery:
             # This would require additional logic to infer bucket names from policies
 
         except ClientError as e:
-            if e.response['Error']['Code'] == 'AccessDenied':
-                logger.warning("No permission to list buckets, will work with explicitly provided bucket names")
+            if e.response["Error"]["Code"] == "AccessDenied":
+                logger.warning(
+                    "No permission to list buckets, will work with explicitly provided bucket names"
+                )
                 list_buckets_denied = True
             else:
                 logger.error(f"Error listing buckets: {e}")
@@ -298,7 +316,11 @@ class AWSPermissionDiscovery:
             except Exception:
                 DEFAULT_BUCKET = None  # type: ignore
             candidates: List[str] = []
-            if DEFAULT_BUCKET and isinstance(DEFAULT_BUCKET, str) and DEFAULT_BUCKET.startswith("s3://"):
+            if (
+                DEFAULT_BUCKET
+                and isinstance(DEFAULT_BUCKET, str)
+                and DEFAULT_BUCKET.startswith("s3://")
+            ):
                 candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET))
             known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
             if known_env:
@@ -351,12 +373,16 @@ class AWSPermissionDiscovery:
         try:
             # Test 1: Try to get bucket location (safe, read-only operation)
             try:
-                location_response = self.s3_client.get_bucket_location(Bucket=bucket_name)
-                region = location_response.get('LocationConstraint') or 'us-east-1'
+                location_response = self.s3_client.get_bucket_location(
+                    Bucket=bucket_name
+                )
+                region = location_response.get("LocationConstraint") or "us-east-1"
                 can_list = True  # If we can get location, we have some access
             except ClientError as e:
-                if e.response['Error']['Code'] in ['AccessDenied', 'NoSuchBucket']:
-                    error_message = f"Cannot access bucket: {e.response['Error']['Code']}"
+                if e.response["Error"]["Code"] in ["AccessDenied", "NoSuchBucket"]:
+                    error_message = (
+                        f"Cannot access bucket: {e.response['Error']['Code']}"
+                    )
                     return BucketInfo(
                         name=bucket_name,
                         region=region,
@@ -376,7 +402,7 @@ class AWSPermissionDiscovery:
                     self.s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
                     can_list = True
                 except ClientError as e:
-                    if e.response['Error']['Code'] == 'AccessDenied':
+                    if e.response["Error"]["Code"] == "AccessDenied":
                         can_list = False
                     else:
                         raise
@@ -389,9 +415,9 @@ class AWSPermissionDiscovery:
                     test_key = f"__permission_test_{datetime.now(timezone.utc).timestamp()}.tmp"
                     self.s3_client.head_object(Bucket=bucket_name, Key=test_key)
                 except ClientError as e:
-                    if e.response['Error']['Code'] == 'NotFound':
+                    if e.response["Error"]["Code"] == "NotFound":
                         can_read = True  # 404 means we have read permission
-                    elif e.response['Error']['Code'] == 'AccessDenied':
+                    elif e.response["Error"]["Code"] == "AccessDenied":
                         can_read = False  # 403 means no read permission
                     else:
                         # Other errors might still indicate read permission
@@ -405,7 +431,7 @@ class AWSPermissionDiscovery:
                     self.s3_client.get_bucket_acl(Bucket=bucket_name)
                     can_write = True  # If we can read ACL, we likely have write access
                 except ClientError as e:
-                    if e.response['Error']['Code'] == 'AccessDenied':
+                    if e.response["Error"]["Code"] == "AccessDenied":
                         can_write = False
                     else:
                         # For other errors, try alternative methods
@@ -414,7 +440,9 @@ class AWSPermissionDiscovery:
                     can_write = self._determine_write_access_fallback(bucket_name)
 
         except Exception as e:
-            logger.error(f"Unexpected error checking permissions for {bucket_name}: {e}")
+            logger.error(
+                f"Unexpected error checking permissions for {bucket_name}: {e}"
+            )
             error_message = str(e)
 
         # Determine permission level
@@ -447,7 +475,9 @@ class AWSPermissionDiscovery:
 
         return bucket_info
 
-    def test_bucket_operations(self, bucket_name: str, operations: List[str]) -> Dict[str, bool]:
+    def test_bucket_operations(
+        self, bucket_name: str, operations: List[str]
+    ) -> Dict[str, bool]:
         """Safely test specific operations on bucket."""
         results = {}
 
@@ -463,7 +493,7 @@ class AWSPermissionDiscovery:
                     try:
                         self.s3_client.head_object(Bucket=bucket_name, Key=test_key)
                     except ClientError as e:
-                        if e.response['Error']['Code'] == 'NotFound':
+                        if e.response["Error"]["Code"] == "NotFound":
                             results[operation] = True
                         else:
                             results[operation] = False
@@ -472,14 +502,20 @@ class AWSPermissionDiscovery:
                     # Use policy analysis instead of actual write testing
                     # This is much safer and doesn't risk creating unwanted objects
                     try:
-                        bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
-                        results[operation] = self._analyze_bucket_policy_for_write_access(
-                            bucket_policy.get('Policy', '{}'), bucket_name
+                        bucket_policy = self.s3_client.get_bucket_policy(
+                            Bucket=bucket_name
+                        )
+                        results[operation] = (
+                            self._analyze_bucket_policy_for_write_access(
+                                bucket_policy.get("Policy", "{}"), bucket_name
+                            )
                         )
                     except ClientError as e:
-                        if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                        if e.response["Error"]["Code"] == "NoSuchBucketPolicy":
                             # No bucket policy - check IAM permissions
-                            results[operation] = self._check_iam_write_permissions(bucket_name)
+                            results[operation] = self._check_iam_write_permissions(
+                                bucket_name
+                            )
                         else:
                             results[operation] = False
                     except Exception:
@@ -489,7 +525,7 @@ class AWSPermissionDiscovery:
                     results[operation] = False
 
             except ClientError as e:
-                if e.response['Error']['Code'] == 'AccessDenied':
+                if e.response["Error"]["Code"] == "AccessDenied":
                     results[operation] = False
                 else:
                     results[operation] = False
@@ -521,22 +557,22 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names referenced by Glue table storage locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, 'glue_client', None):
+        if not getattr(self, "glue_client", None):
             return []
         try:
-            paginator = self.glue_client.get_paginator('get_databases')
+            paginator = self.glue_client.get_paginator("get_databases")
             for page in paginator.paginate():
-                for db in page.get('DatabaseList', []) or []:
-                    db_name = db.get('Name')
+                for db in page.get("DatabaseList", []) or []:
+                    db_name = db.get("Name")
                     if not db_name:
                         continue
                     try:
-                        tp = self.glue_client.get_paginator('get_tables')
+                        tp = self.glue_client.get_paginator("get_tables")
                         for tpage in tp.paginate(DatabaseName=db_name):
-                            for tbl in tpage.get('TableList', []) or []:
-                                sd = (tbl or {}).get('StorageDescriptor', {}) or {}
-                                loc = sd.get('Location')
-                                if isinstance(loc, str) and loc.startswith('s3://'):
+                            for tbl in tpage.get("TableList", []) or []:
+                                sd = (tbl or {}).get("StorageDescriptor", {}) or {}
+                                loc = sd.get("Location")
+                                if isinstance(loc, str) and loc.startswith("s3://"):
                                     buckets.add(self._extract_bucket_from_s3_uri(loc))
                     except Exception as e:
                         logger.debug(f"Glue get_tables failed for db {db_name}: {e}")
@@ -551,20 +587,24 @@ class AWSPermissionDiscovery:
         Returns a list of bucket names used by Athena workgroup output locations.
         """
         buckets: Set[str] = set()
-        if not getattr(self, 'athena_client', None):
+        if not getattr(self, "athena_client", None):
             return []
         try:
-            wg_p = self.athena_client.get_paginator('list_work_groups')
+            wg_p = self.athena_client.get_paginator("list_work_groups")
             for page in wg_p.paginate():
-                for summary in page.get('WorkGroups', []) or []:
-                    name = (summary or {}).get('Name')
+                for summary in page.get("WorkGroups", []) or []:
+                    name = (summary or {}).get("Name")
                     if not name:
                         continue
                     try:
                         desc = self.athena_client.get_work_group(WorkGroup=name)
-                        cfg = ((desc or {}).get('WorkGroup', {}) or {}).get('Configuration', {}) or {}
-                        out = (cfg.get('ResultConfiguration', {}) or {}).get('OutputLocation')
-                        if isinstance(out, str) and out.startswith('s3://'):
+                        cfg = ((desc or {}).get("WorkGroup", {}) or {}).get(
+                            "Configuration", {}
+                        ) or {}
+                        out = (cfg.get("ResultConfiguration", {}) or {}).get(
+                            "OutputLocation"
+                        )
+                        if isinstance(out, str) and out.startswith("s3://"):
                             buckets.add(self._extract_bucket_from_s3_uri(out))
                     except Exception as e:
                         logger.debug(f"Athena get_work_group failed for {name}: {e}")
@@ -577,7 +617,7 @@ class AWSPermissionDiscovery:
         """Discover buckets by querying the Quilt catalog's GraphQL endpoint."""
         try:
             # Get the authenticated session from quilt3
-            if hasattr(quilt3, 'session') and hasattr(quilt3.session, 'get_session'):
+            if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
                 session = quilt3.session.get_session()
                 registry_url = quilt3.session.get_registry_url()
 
@@ -586,7 +626,7 @@ class AWSPermissionDiscovery:
                     return set()
 
                 # Construct GraphQL endpoint URL
-                graphql_url = urljoin(registry_url.rstrip('/') + '/', 'graphql')
+                graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
                 logger.info(f"Querying GraphQL endpoint: {graphql_url}")
 
                 # Query for bucket configurations
@@ -596,15 +636,23 @@ class AWSPermissionDiscovery:
 
                 if response.status_code == 200:
                     data = response.json()
-                    if 'data' in data and 'bucketConfigs' in data['data']:
-                        bucket_names = {bucket['name'] for bucket in data['data']['bucketConfigs']}
-                        logger.info(f"GraphQL discovered {len(bucket_names)} buckets: {list(bucket_names)[:5]}...")
+                    if "data" in data and "bucketConfigs" in data["data"]:
+                        bucket_names = {
+                            bucket["name"] for bucket in data["data"]["bucketConfigs"]
+                        }
+                        logger.info(
+                            f"GraphQL discovered {len(bucket_names)} buckets: {list(bucket_names)[:5]}..."
+                        )
                         return bucket_names
                     else:
-                        logger.warning(f"GraphQL response missing expected data structure: {data}")
+                        logger.warning(
+                            f"GraphQL response missing expected data structure: {data}"
+                        )
                         return set()
                 else:
-                    logger.warning(f"GraphQL query failed with status {response.status_code}: {response.text}")
+                    logger.warning(
+                        f"GraphQL query failed with status {response.status_code}: {response.text}"
+                    )
                     return set()
 
         except Exception as e:
@@ -613,7 +661,9 @@ class AWSPermissionDiscovery:
 
         return set()
 
-    def _analyze_bucket_policy_for_write_access(self, policy_json: str, bucket_name: str) -> bool:
+    def _analyze_bucket_policy_for_write_access(
+        self, policy_json: str, bucket_name: str
+    ) -> bool:
         """Analyze bucket policy to determine if current user has write access."""
         try:
             import json
@@ -624,18 +674,18 @@ class AWSPermissionDiscovery:
             identity = self.discover_user_identity()
 
             # Simple policy analysis - look for statements that grant write permissions
-            statements = policy.get('Statement', [])
+            statements = policy.get("Statement", [])
             for statement in statements:
-                if statement.get('Effect') == 'Allow':
+                if statement.get("Effect") == "Allow":
                     # Check if this statement applies to our user
-                    principals = statement.get('Principal', {})
+                    principals = statement.get("Principal", {})
                     if self._statement_applies_to_user(principals, identity):
                         # Check if statement grants write permissions
-                        actions = statement.get('Action', [])
+                        actions = statement.get("Action", [])
                         if isinstance(actions, str):
                             actions = [actions]
 
-                        write_actions = ['s3:PutObject', 's3:PutObjectAcl', 's3:*']
+                        write_actions = ["s3:PutObject", "s3:PutObjectAcl", "s3:*"]
                         if any(action in write_actions for action in actions):
                             return True
 
@@ -658,14 +708,14 @@ class AWSPermissionDiscovery:
 
                 response = self.sts_client.simulate_principal_policy(
                     PolicySourceArn=identity.arn,
-                    ActionNames=['s3:PutObject'],
-                    ResourceArns=[f'arn:aws:s3:::{bucket_name}/*'],
+                    ActionNames=["s3:PutObject"],
+                    ResourceArns=[f"arn:aws:s3:::{bucket_name}/*"],
                 )
 
                 # Check if the action is allowed
-                evaluation_results = response.get('EvaluationResults', [])
+                evaluation_results = response.get("EvaluationResults", [])
                 for result in evaluation_results:
-                    if result.get('EvalDecision') == 'allowed':
+                    if result.get("EvalDecision") == "allowed":
                         return True
 
                 return False
@@ -685,7 +735,9 @@ class AWSPermissionDiscovery:
             # Method 1: Check if we own the bucket
             try:
                 owned_buckets_response = self.s3_client.list_buckets()
-                owned_bucket_names = [b['Name'] for b in owned_buckets_response.get('Buckets', [])]
+                owned_bucket_names = [
+                    b["Name"] for b in owned_buckets_response.get("Buckets", [])
+                ]
 
                 if bucket_name in owned_bucket_names:
                     return True  # We own it, we can write to it
@@ -695,9 +747,11 @@ class AWSPermissionDiscovery:
             # Method 2: Try to analyze bucket policy
             try:
                 bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
-                return self._analyze_bucket_policy_for_write_access(bucket_policy.get('Policy', '{}'), bucket_name)
+                return self._analyze_bucket_policy_for_write_access(
+                    bucket_policy.get("Policy", "{}"), bucket_name
+                )
             except ClientError as e:
-                if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                if e.response["Error"]["Code"] == "NoSuchBucketPolicy":
                     # No bucket policy - check if we can perform other write-related operations
                     return self._test_write_indicators(bucket_name)
             except Exception:
@@ -718,7 +772,7 @@ class AWSPermissionDiscovery:
                 self.s3_client.get_bucket_versioning(Bucket=bucket_name)
                 return True
             except ClientError as e:
-                if e.response['Error']['Code'] != 'AccessDenied':
+                if e.response["Error"]["Code"] != "AccessDenied":
                     return True  # Other errors suggest we have some access
             except Exception:
                 pass
@@ -728,7 +782,7 @@ class AWSPermissionDiscovery:
                 self.s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
                 return True
             except ClientError as e:
-                if e.response['Error']['Code'] != 'AccessDenied':
+                if e.response["Error"]["Code"] != "AccessDenied":
                     return True
             except Exception:
                 pass
@@ -748,19 +802,21 @@ class AWSPermissionDiscovery:
         except Exception:
             return False
 
-    def _statement_applies_to_user(self, principals: Dict[str, Any], identity: UserIdentity) -> bool:
+    def _statement_applies_to_user(
+        self, principals: Dict[str, Any], identity: UserIdentity
+    ) -> bool:
         """Check if a policy statement applies to the current user."""
         try:
             # Handle different principal formats
             if isinstance(principals, dict):
                 # Check AWS principals
-                aws_principals = principals.get('AWS', [])
+                aws_principals = principals.get("AWS", [])
                 if isinstance(aws_principals, str):
                     aws_principals = [aws_principals]
 
                 # Check if our ARN or account is in the principals
                 for principal in aws_principals:
-                    if principal == '*':
+                    if principal == "*":
                         return True
                     if identity.arn in principal:
                         return True

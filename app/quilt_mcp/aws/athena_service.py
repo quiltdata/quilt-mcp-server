@@ -72,7 +72,7 @@ class AthenaQueryService:
 
                 # Force region to us-east-1 for Quilt Athena workgroup
                 # The QuiltUserAthena workgroup and permissions are configured in us-east-1
-                region = 'us-east-1'
+                region = "us-east-1"
 
                 # Discover available workgroups dynamically
                 workgroup = self._discover_workgroup(credentials, region)
@@ -92,17 +92,21 @@ class AthenaQueryService:
 
                 # Add session token if available
                 if credentials.token:
-                    connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
+                    connection_string += (
+                        f"&aws_session_token={quote_plus(credentials.token)}"
+                    )
 
                 logger.info(f"Creating Athena engine with workgroup: {workgroup}")
                 return create_engine(connection_string, echo=False)
 
             else:
                 # Use default AWS credentials
-                region = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
                 # Discover available workgroups dynamically or fall back to environment
-                workgroup = self._discover_workgroup(None, region) or os.environ.get('ATHENA_WORKGROUP', 'primary')
+                workgroup = self._discover_workgroup(None, region) or os.environ.get(
+                    "ATHENA_WORKGROUP", "primary"
+                )
 
                 connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
 
@@ -121,34 +125,36 @@ class AthenaQueryService:
             # Create Athena client with provided credentials or default
             if credentials:
                 athena_client = boto3.client(
-                    'athena',
+                    "athena",
                     region_name=region,
                     aws_access_key_id=credentials.access_key,
                     aws_secret_access_key=credentials.secret_key,
                     aws_session_token=credentials.token,
                 )
             else:
-                athena_client = boto3.client('athena', region_name=region)
+                athena_client = boto3.client("athena", region_name=region)
 
             # List all available workgroups
             response = athena_client.list_work_groups()
             workgroups = []
 
             # Test access to each workgroup and filter valid ones
-            for wg in response.get('WorkGroups', []):
-                name = wg.get('Name')
+            for wg in response.get("WorkGroups", []):
+                name = wg.get("Name")
                 if not name:
                     continue
 
                 try:
                     # Validate workgroup is accessible and properly configured
                     wg_details = athena_client.get_work_group(WorkGroup=name)
-                    config = wg_details.get('WorkGroup', {}).get('Configuration', {})
+                    config = wg_details.get("WorkGroup", {}).get("Configuration", {})
 
                     # Check if workgroup is enabled and has output location
-                    if wg_details.get('WorkGroup', {}).get('State') == 'ENABLED' and config.get(
-                        'ResultConfiguration', {}
-                    ).get('OutputLocation'):
+                    if wg_details.get("WorkGroup", {}).get(
+                        "State"
+                    ) == "ENABLED" and config.get("ResultConfiguration", {}).get(
+                        "OutputLocation"
+                    ):
                         workgroups.append(name)
                 except Exception as e:
                     # Skip workgroups we can't access
@@ -156,19 +162,19 @@ class AthenaQueryService:
                     continue
 
             # Prioritize workgroups (Quilt workgroups first, then others)
-            quilt_workgroups = [wg for wg in workgroups if 'quilt' in wg.lower()]
+            quilt_workgroups = [wg for wg in workgroups if "quilt" in wg.lower()]
             if quilt_workgroups:
                 return quilt_workgroups[0]
             elif workgroups:
                 return workgroups[0]
             else:
                 # Fallback to primary if no workgroups discovered
-                return 'primary'
+                return "primary"
 
         except Exception as e:
             logger.warning(f"Failed to discover workgroups: {e}")
             # Fallback to environment variable or primary
-            return os.environ.get('ATHENA_WORKGROUP', 'primary')
+            return os.environ.get("ATHENA_WORKGROUP", "primary")
 
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""
@@ -178,11 +184,11 @@ class AthenaQueryService:
 
                 botocore_session = quilt3.session.create_botocore_session()
                 # Use us-east-1 region for Quilt Athena workgroup resources
-                return botocore_session.create_client('glue', region_name='us-east-1')
+                return botocore_session.create_client("glue", region_name="us-east-1")
             except Exception:
                 # Fallback to default credentials
                 pass
-        return boto3.client('glue', region_name='us-east-1')
+        return boto3.client("glue", region_name="us-east-1")
 
     def _create_s3_client(self):
         """Create S3 client for result management."""
@@ -191,17 +197,21 @@ class AthenaQueryService:
                 import quilt3
 
                 botocore_session = quilt3.session.create_botocore_session()
-                return botocore_session.create_client('s3')
+                return botocore_session.create_client("s3")
             except Exception:
                 # Fallback to default credentials
                 pass
-        return boto3.client('s3')
+        return boto3.client("s3")
 
     def _get_s3_staging_dir(self) -> str:
         """Get S3 staging directory for query results."""
-        return os.environ.get('ATHENA_QUERY_RESULT_LOCATION', 's3://aws-athena-query-results/')
+        return os.environ.get(
+            "ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/"
+        )
 
-    def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
+    def discover_databases(
+        self, catalog_name: str = "AwsDataCatalog"
+    ) -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
         try:
             # Use Athena SQL to list schemas (databases) with explicit catalog name
@@ -214,27 +224,37 @@ class AthenaQueryService:
                 db_name = row.iloc[0]  # First column should be database name
                 databases.append(
                     {
-                        'name': db_name,
-                        'description': '',  # Not available through SHOW DATABASES
-                        'location_uri': '',  # Not available through SHOW DATABASES
-                        'create_time': None,  # Not available through SHOW DATABASES
-                        'parameters': {},
+                        "name": db_name,
+                        "description": "",  # Not available through SHOW DATABASES
+                        "location_uri": "",  # Not available through SHOW DATABASES
+                        "create_time": None,  # Not available through SHOW DATABASES
+                        "parameters": {},
                     }
                 )
 
-            return {'success': True, 'databases': databases, 'catalog_name': catalog_name, 'count': len(databases)}
+            return {
+                "success": True,
+                "databases": databases,
+                "catalog_name": catalog_name,
+                "count": len(databases),
+            }
 
         except Exception as e:
             logger.error(f"Failed to discover databases: {e}")
             return format_error_response(f"Failed to discover databases: {str(e)}")
 
     def discover_tables(
-        self, database_name: str, catalog_name: str = "AwsDataCatalog", table_pattern: str = None
+        self,
+        database_name: str,
+        catalog_name: str = "AwsDataCatalog",
+        table_pattern: str = None,
     ) -> Dict[str, Any]:
         """Discover tables using Athena SQL queries."""
         try:
             # Properly escape database names with special characters
-            if '-' in database_name or any(c in database_name for c in [' ', '.', '@', '/']):
+            if "-" in database_name or any(
+                c in database_name for c in [" ", ".", "@", "/"]
+            ):
                 escaped_db = f'"{database_name}"'
             else:
                 escaped_db = database_name
@@ -252,30 +272,30 @@ class AthenaQueryService:
                 table_name = row.iloc[0]  # First column should be table name
                 tables.append(
                     {
-                        'name': table_name,
-                        'database_name': database_name,
-                        'description': '',  # Not available through SHOW TABLES
-                        'owner': '',
-                        'create_time': None,
-                        'update_time': None,
-                        'table_type': '',
-                        'storage_descriptor': {
-                            'location': '',
-                            'input_format': '',
-                            'output_format': '',
-                            'serde_info': {},
+                        "name": table_name,
+                        "database_name": database_name,
+                        "description": "",  # Not available through SHOW TABLES
+                        "owner": "",
+                        "create_time": None,
+                        "update_time": None,
+                        "table_type": "",
+                        "storage_descriptor": {
+                            "location": "",
+                            "input_format": "",
+                            "output_format": "",
+                            "serde_info": {},
                         },
-                        'partition_keys': [],
-                        'parameters': {},
+                        "partition_keys": [],
+                        "parameters": {},
                     }
                 )
 
             return {
-                'success': True,
-                'tables': tables,
-                'database_name': database_name,
-                'catalog_name': catalog_name,
-                'count': len(tables),
+                "success": True,
+                "tables": tables,
+                "database_name": database_name,
+                "catalog_name": catalog_name,
+                "count": len(tables),
             }
 
         except Exception as e:
@@ -298,53 +318,69 @@ class AthenaQueryService:
 
             for _, row in df.iterrows():
                 col_name = row.iloc[0]
-                col_type = row.iloc[1] if len(row) > 1 else 'string'
-                col_comment = row.iloc[2] if len(row) > 2 else ''
+                col_type = row.iloc[1] if len(row) > 1 else "string"
+                col_comment = row.iloc[2] if len(row) > 2 else ""
 
                 # Check if this is a partition column
                 # Partition columns often appear after a separator or with special formatting
-                if col_name.startswith('#') or 'partition' in str(col_comment).lower():
+                if col_name.startswith("#") or "partition" in str(col_comment).lower():
                     continue  # Skip header/separator rows
-                elif any(keyword in str(col_name).lower() for keyword in ['partition', 'date', 'year', 'month']):
+                elif any(
+                    keyword in str(col_name).lower()
+                    for keyword in ["partition", "date", "year", "month"]
+                ):
                     # This is likely a partition column
-                    partitions.append({'name': col_name, 'type': col_type, 'comment': col_comment})
+                    partitions.append(
+                        {"name": col_name, "type": col_type, "comment": col_comment}
+                    )
                 else:
                     # Regular column
-                    columns.append({'name': col_name, 'type': col_type, 'comment': col_comment, 'parameters': {}})
+                    columns.append(
+                        {
+                            "name": col_name,
+                            "type": col_type,
+                            "comment": col_comment,
+                            "parameters": {},
+                        }
+                    )
 
             return {
-                'success': True,
-                'table_name': table_name,
-                'database_name': database_name,
-                'catalog_name': catalog_name,
-                'columns': columns,
-                'partitions': partitions,
-                'table_type': '',  # Not available through DESCRIBE
-                'description': '',  # Not available through DESCRIBE
-                'owner': '',  # Not available through DESCRIBE
-                'create_time': None,  # Not available through DESCRIBE
-                'update_time': None,  # Not available through DESCRIBE
-                'storage_descriptor': {
-                    'location': '',  # Not available through DESCRIBE
-                    'input_format': '',  # Not available through DESCRIBE
-                    'output_format': '',  # Not available through DESCRIBE
-                    'compressed': False,  # Not available through DESCRIBE
-                    'serde_info': {},  # Not available through DESCRIBE
+                "success": True,
+                "table_name": table_name,
+                "database_name": database_name,
+                "catalog_name": catalog_name,
+                "columns": columns,
+                "partitions": partitions,
+                "table_type": "",  # Not available through DESCRIBE
+                "description": "",  # Not available through DESCRIBE
+                "owner": "",  # Not available through DESCRIBE
+                "create_time": None,  # Not available through DESCRIBE
+                "update_time": None,  # Not available through DESCRIBE
+                "storage_descriptor": {
+                    "location": "",  # Not available through DESCRIBE
+                    "input_format": "",  # Not available through DESCRIBE
+                    "output_format": "",  # Not available through DESCRIBE
+                    "compressed": False,  # Not available through DESCRIBE
+                    "serde_info": {},  # Not available through DESCRIBE
                 },
-                'parameters': {},  # Not available through DESCRIBE
+                "parameters": {},  # Not available through DESCRIBE
             }
 
         except Exception as e:
             logger.error(f"Failed to get table metadata: {e}")
             return format_error_response(f"Failed to get table metadata: {str(e)}")
 
-    def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
+    def execute_query(
+        self, query: str, database_name: str = None, max_results: int = 1000
+    ) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
             # Set database context if provided
             if database_name:
                 # Properly escape database name for USE statement
-                if '-' in database_name or any(c in database_name for c in [' ', '.', '@', '/']):
+                if "-" in database_name or any(
+                    c in database_name for c in [" ", ".", "@", "/"]
+                ):
                     escaped_db = f'"{database_name}"'
                 else:
                     escaped_db = database_name
@@ -365,14 +401,14 @@ class AthenaQueryService:
                 truncated = True
 
             return {
-                'success': True,
-                'data': df,
-                'row_count': len(df),
-                'total_rows': len(df) if not truncated else f"{max_results}+",
-                'truncated': truncated,
-                'columns': list(df.columns),
-                'dtypes': {col: str(dtype) for col, dtype in df.dtypes.items()},
-                'query': query,
+                "success": True,
+                "data": df,
+                "row_count": len(df),
+                "total_rows": len(df) if not truncated else f"{max_results}+",
+                "truncated": truncated,
+                "columns": list(df.columns),
+                "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+                "query": query,
             }
 
         except SQLAlchemyError as e:
@@ -395,50 +431,52 @@ class AthenaQueryService:
         except Exception:
             return query
 
-    def format_results(self, result_data: Dict[str, Any], output_format: str = 'json') -> Dict[str, Any]:
+    def format_results(
+        self, result_data: Dict[str, Any], output_format: str = "json"
+    ) -> Dict[str, Any]:
         """Format query results in requested format."""
-        if not result_data.get('success') or result_data.get('data') is None:
+        if not result_data.get("success") or result_data.get("data") is None:
             return result_data
 
-        df = result_data['data']
+        df = result_data["data"]
 
         try:
-            if output_format.lower() == 'json':
-                formatted_data = df.to_dict(orient='records')
-            elif output_format.lower() == 'csv':
+            if output_format.lower() == "json":
+                formatted_data = df.to_dict(orient="records")
+            elif output_format.lower() == "csv":
                 formatted_data = df.to_csv(index=False)
-            elif output_format.lower() == 'table':
+            elif output_format.lower() == "table":
                 # Format as readable ASCII table
                 from ..formatting import format_as_table
 
                 formatted_data = format_as_table(df)
-            elif output_format.lower() == 'parquet':
+            elif output_format.lower() == "parquet":
                 # For parquet, return base64 encoded bytes
                 import io
                 import base64
 
                 buffer = io.BytesIO()
                 df.to_parquet(buffer, index=False)
-                formatted_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                formatted_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
             else:
                 # Default to JSON
-                formatted_data = df.to_dict(orient='records')
+                formatted_data = df.to_dict(orient="records")
 
             # Update result with formatted data
             result_copy = result_data.copy()
-            result_copy['formatted_data'] = formatted_data
-            result_copy['format'] = output_format.lower()
+            result_copy["formatted_data"] = formatted_data
+            result_copy["format"] = output_format.lower()
 
             # For auto-detection, add table format when appropriate
-            if output_format.lower() in ['json', 'csv']:
+            if output_format.lower() in ["json", "csv"]:
                 from ..formatting import should_use_table_format, format_as_table
 
                 if should_use_table_format(df):
-                    result_copy['formatted_data_table'] = format_as_table(df)
-                    result_copy['display_format'] = 'table'
+                    result_copy["formatted_data_table"] = format_as_table(df)
+                    result_copy["display_format"] = "table"
 
             # Remove the DataFrame to make it JSON serializable
-            result_copy.pop('data', None)
+            result_copy.pop("data", None)
 
             return result_copy
 

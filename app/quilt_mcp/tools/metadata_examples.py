@@ -112,7 +112,10 @@ def show_metadata_examples() -> Dict[str, Any]:
                     "error": "AccessDenied when calling PutObject",
                     "cause": "Insufficient S3 write permissions",
                     "fix": "Check bucket permissions and try alternative bucket",
-                    "tools_to_try": ["test_permissions()", "bucket_recommendations_get()"],
+                    "tools_to_try": [
+                        "test_permissions()",
+                        "bucket_recommendations_get()",
+                    ],
                 }
             },
         },
@@ -126,16 +129,30 @@ def show_metadata_examples() -> Dict[str, Any]:
             "Document data sources and processing steps in metadata",
         ],
         "quick_reference": {
-            "available_templates": ["standard", "genomics", "ml", "research", "analytics"],
+            "available_templates": [
+                "standard",
+                "genomics",
+                "ml",
+                "research",
+                "analytics",
+            ],
             "required_fields": ["description"],
             "recommended_fields": ["version", "created_by", "tags"],
-            "common_custom_fields": ["source", "quality", "contact", "project", "department"],
+            "common_custom_fields": [
+                "source",
+                "quality",
+                "contact",
+                "project",
+                "department",
+            ],
         },
     }
 
 
 def create_metadata_from_template(
-    template_name: str = "standard", description: str = "", custom_fields: Dict[str, Any] = None
+    template_name: str = "standard",
+    description: str = "",
+    custom_fields: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
     Create metadata using a template with custom fields - simplified interface.
@@ -231,7 +248,7 @@ def fix_metadata_validation_issues() -> Dict[str, Any]:
                 ],
                 "avoid": [
                     'description="value"  # Individual parameters not supported',
-                    'None  # Use {} for empty metadata instead',
+                    "None  # Use {} for empty metadata instead",
                 ],
             },
         },

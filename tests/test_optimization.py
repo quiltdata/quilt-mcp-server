@@ -12,10 +12,19 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, AsyncMock
 
-from quilt_mcp.telemetry.collector import TelemetryCollector, TelemetryConfig, TelemetryLevel
+from quilt_mcp.telemetry.collector import (
+    TelemetryCollector,
+    TelemetryConfig,
+    TelemetryLevel,
+)
 from quilt_mcp.telemetry.privacy import PrivacyManager, DataAnonymizer
 from quilt_mcp.optimization.interceptor import ToolCallInterceptor, OptimizationContext
-from quilt_mcp.optimization.testing import TestScenario, TestStep, ScenarioRunner, TestScenarioType
+from quilt_mcp.optimization.testing import (
+    TestScenario,
+    TestStep,
+    ScenarioRunner,
+    TestScenarioType,
+)
 from quilt_mcp.optimization.autonomous import AutonomousOptimizer, OptimizationRule
 from quilt_mcp.optimization.scenarios import create_all_test_scenarios
 
@@ -26,8 +35,12 @@ class TestTelemetryCollector:
     def test_telemetry_config_from_env(self):
         """Test telemetry configuration from environment variables."""
         with patch.dict(
-            'os.environ',
-            {'MCP_TELEMETRY_ENABLED': 'true', 'MCP_TELEMETRY_LEVEL': 'detailed', 'MCP_TELEMETRY_LOCAL_ONLY': 'false'},
+            "os.environ",
+            {
+                "MCP_TELEMETRY_ENABLED": "true",
+                "MCP_TELEMETRY_LEVEL": "detailed",
+                "MCP_TELEMETRY_LOCAL_ONLY": "false",
+            },
         ):
             config = TelemetryConfig.from_env()
             assert config.enabled is True
@@ -46,7 +59,11 @@ class TestTelemetryCollector:
 
         # Record tool call
         collector.record_tool_call(
-            tool_name="test_tool", args={"param": "value"}, execution_time=1.5, success=True, result={"data": "test"}
+            tool_name="test_tool",
+            args={"param": "value"},
+            execution_time=1.5,
+            success=True,
+            result={"data": "test"},
         )
 
         # Check session data
@@ -69,7 +86,9 @@ class TestTelemetryCollector:
         assert session_id == "disabled"
 
         # Recording should be no-op
-        collector.record_tool_call(tool_name="test_tool", args={}, execution_time=1.0, success=True)
+        collector.record_tool_call(
+            tool_name="test_tool", args={}, execution_time=1.0, success=True
+        )
 
         assert len(collector.sessions) == 0
 
@@ -90,9 +109,9 @@ class TestTelemetryCollector:
             collector.end_session(session_id, completed=i < 2)
 
         metrics = collector.get_performance_metrics()
-        assert metrics['total_sessions'] == 3
-        assert metrics['completed_sessions'] == 2
-        assert metrics['completion_rate'] == 2 / 3
+        assert metrics["total_sessions"] == 3
+        assert metrics["completed_sessions"] == 2
+        assert metrics["completion_rate"] == 2 / 3
 
 
 class TestPrivacyManager:
@@ -134,7 +153,11 @@ class TestPrivacyManager:
         """Test argument hashing with privacy."""
         manager = PrivacyManager("standard")
 
-        args = {"bucket": "my-bucket", "email": "user@example.com", "normal_param": "value"}
+        args = {
+            "bucket": "my-bucket",
+            "email": "user@example.com",
+            "normal_param": "value",
+        }
 
         hash1 = manager.hash_args(args)
         hash2 = manager.hash_args(args)
@@ -158,7 +181,9 @@ class TestToolCallInterceptor:
         interceptor = ToolCallInterceptor()
 
         context = OptimizationContext(
-            user_intent="create_package", task_type="package_creation", performance_target="speed"
+            user_intent="create_package",
+            task_type="package_creation",
+            performance_target="speed",
         )
 
         with interceptor.optimization_context(context):
@@ -196,8 +221,14 @@ class TestOptimizationTesting:
     def test_test_scenario_creation(self):
         """Test test scenario creation."""
         steps = [
-            TestStep(tool_name="auth_status", args={}, description="Check authentication"),
-            TestStep(tool_name="packages_list", args={"limit": 10}, description="List packages"),
+            TestStep(
+                tool_name="auth_status", args={}, description="Check authentication"
+            ),
+            TestStep(
+                tool_name="packages_list",
+                args={"limit": 10},
+                description="List packages",
+            ),
         ]
 
         scenario = TestScenario(
@@ -233,7 +264,10 @@ class TestOptimizationTesting:
             name="mock_scenario",
             description="Mock scenario for testing",
             scenario_type=TestScenarioType.PACKAGE_CREATION,
-            steps=[TestStep("auth_status", {}), TestStep("packages_list", {"limit": 5})],
+            steps=[
+                TestStep("auth_status", {}),
+                TestStep("packages_list", {"limit": 5}),
+            ],
             expected_total_time=5.0,
             expected_call_count=2,
         )
@@ -299,13 +333,13 @@ class TestAutonomousOptimizer:
 
         # Mock telemetry data
         telemetry_data = {
-            'tool_usage': {
-                'auth_status': 5,  # High usage should trigger optimization
-                'packages_list': 2,
+            "tool_usage": {
+                "auth_status": 5,  # High usage should trigger optimization
+                "packages_list": 2,
             },
-            'avg_calls_per_session': 7,
-            'completion_rate': 0.8,
-            'total_sessions': 10,
+            "avg_calls_per_session": 7,
+            "completion_rate": 0.8,
+            "total_sessions": 10,
         }
 
         opportunities = optimizer._analyze_optimization_opportunities(telemetry_data)
@@ -314,7 +348,7 @@ class TestAutonomousOptimizer:
         assert len(opportunities) > 0
 
         # Check that opportunities are sorted by priority
-        priorities = [opp['priority'] for opp in opportunities]
+        priorities = [opp["priority"] for opp in opportunities]
         assert priorities == sorted(priorities, reverse=True)
 
 
@@ -353,26 +387,26 @@ class TestIntegration:
 
         # Mock some baseline metrics
         optimizer.baseline_metrics = {
-            'success_rate': 0.8,
-            'avg_execution_time': 5.0,
-            'avg_call_count': 4.0,
-            'avg_efficiency_score': 0.7,
+            "success_rate": 0.8,
+            "avg_execution_time": 5.0,
+            "avg_call_count": 4.0,
+            "avg_efficiency_score": 0.7,
         }
 
         # Mock current metrics (showing improvement)
         optimizer.current_metrics = {
-            'success_rate': 0.9,
-            'avg_execution_time': 4.0,
-            'avg_call_count': 3.5,
-            'avg_efficiency_score': 0.8,
+            "success_rate": 0.9,
+            "avg_execution_time": 4.0,
+            "avg_call_count": 3.5,
+            "avg_efficiency_score": 0.8,
         }
 
         # Calculate improvements
         improvements = optimizer._calculate_overall_improvement()
 
-        assert improvements['success_rate'] > 0  # Improvement
-        assert improvements['avg_execution_time'] > 0  # Improvement (lower is better)
-        assert improvements['avg_call_count'] > 0  # Improvement (lower is better)
+        assert improvements["success_rate"] > 0  # Improvement
+        assert improvements["avg_execution_time"] > 0  # Improvement (lower is better)
+        assert improvements["avg_call_count"] > 0  # Improvement (lower is better)
 
 
 # Fixtures for testing
@@ -380,7 +414,11 @@ class TestIntegration:
 def telemetry_config():
     """Provide test telemetry configuration."""
     return TelemetryConfig(
-        enabled=True, level=TelemetryLevel.STANDARD, local_only=True, batch_size=10, flush_interval=60
+        enabled=True,
+        level=TelemetryLevel.STANDARD,
+        local_only=True,
+        batch_size=10,
+        flush_interval=60,
     )
 
 

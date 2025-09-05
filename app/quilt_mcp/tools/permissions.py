@@ -26,7 +26,9 @@ def _get_permission_discovery() -> AWSPermissionDiscovery:
 
 
 def aws_permissions_discover(
-    check_buckets: Optional[List[str]] = None, include_cross_account: bool = False, force_refresh: bool = False
+    check_buckets: Optional[List[str]] = None,
+    include_cross_account: bool = False,
+    force_refresh: bool = False,
 ) -> Dict[str, Any]:
     """
     Discover AWS permissions for current user/role.
@@ -67,11 +69,19 @@ def aws_permissions_discover(
                     )
         else:
             # Discover all accessible buckets
-            accessible_buckets = discovery.discover_accessible_buckets(include_cross_account)
+            accessible_buckets = discovery.discover_accessible_buckets(
+                include_cross_account
+            )
             bucket_permissions = [bucket._asdict() for bucket in accessible_buckets]
 
         # Categorize buckets by permission level
-        categorized_buckets = {"full_access": [], "read_write": [], "read_only": [], "list_only": [], "no_access": []}
+        categorized_buckets = {
+            "full_access": [],
+            "read_write": [],
+            "read_only": [],
+            "list_only": [],
+            "no_access": [],
+        }
 
         for bucket in bucket_permissions:
             permission_level = bucket.get("permission_level")
@@ -104,7 +114,9 @@ def aws_permissions_discover(
         return format_error_response(f"Failed to discover AWS permissions: {str(e)}")
 
 
-def bucket_access_check(bucket_name: str, operations: List[str] = None) -> Dict[str, Any]:
+def bucket_access_check(
+    bucket_name: str, operations: List[str] = None
+) -> Dict[str, Any]:
     """
     Check specific access permissions for a bucket.
 
@@ -138,13 +150,17 @@ def bucket_access_check(bucket_name: str, operations: List[str] = None) -> Dict[
                 "Limited access detected. You can see bucket contents but may not be able to read or write files."
             )
         elif bucket_info.permission_level == PermissionLevel.NO_ACCESS:
-            guidance.append("No access detected. Check your AWS permissions or verify the bucket name.")
+            guidance.append(
+                "No access detected. Check your AWS permissions or verify the bucket name."
+            )
 
         # Add quilt-specific guidance
         if bucket_info.can_write:
             guidance.append("✅ This bucket can be used for Quilt package creation.")
         else:
-            guidance.append("❌ This bucket cannot be used for Quilt package creation (no write access).")
+            guidance.append(
+                "❌ This bucket cannot be used for Quilt package creation (no write access)."
+            )
 
         return {
             "success": True,
@@ -197,7 +213,8 @@ def bucket_recommendations_get(
             bucket
             for bucket in accessible_buckets
             if bucket.can_write
-            and bucket.permission_level in [PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE]
+            and bucket.permission_level
+            in [PermissionLevel.FULL_ACCESS, PermissionLevel.READ_WRITE]
         ]
 
         # Generate recommendations
@@ -220,9 +237,15 @@ def bucket_recommendations_get(
         return format_error_response(f"Failed to generate recommendations: {str(e)}")
 
 
-def _generate_bucket_recommendations(bucket_permissions: List[Dict[str, Any]], identity) -> Dict[str, List[str]]:
+def _generate_bucket_recommendations(
+    bucket_permissions: List[Dict[str, Any]], identity
+) -> Dict[str, List[str]]:
     """Generate general bucket recommendations based on permissions."""
-    recommendations = {"package_creation": [], "data_storage": [], "temporary_storage": []}
+    recommendations = {
+        "package_creation": [],
+        "data_storage": [],
+        "temporary_storage": [],
+    }
 
     for bucket in bucket_permissions:
         bucket_name = bucket["name"]
@@ -232,11 +255,18 @@ def _generate_bucket_recommendations(bucket_permissions: List[Dict[str, Any]], i
             # Categorize based on naming patterns
             bucket_lower = bucket_name.lower()
 
-            if any(pattern in bucket_lower for pattern in ["package", "registry", "quilt"]):
+            if any(
+                pattern in bucket_lower for pattern in ["package", "registry", "quilt"]
+            ):
                 recommendations["package_creation"].append(bucket_name)
-            elif any(pattern in bucket_lower for pattern in ["data", "storage", "warehouse"]):
+            elif any(
+                pattern in bucket_lower for pattern in ["data", "storage", "warehouse"]
+            ):
                 recommendations["data_storage"].append(bucket_name)
-            elif any(pattern in bucket_lower for pattern in ["temp", "tmp", "scratch", "work"]):
+            elif any(
+                pattern in bucket_lower
+                for pattern in ["temp", "tmp", "scratch", "work"]
+            ):
                 recommendations["temporary_storage"].append(bucket_name)
             else:
                 recommendations["data_storage"].append(bucket_name)
@@ -245,7 +275,10 @@ def _generate_bucket_recommendations(bucket_permissions: List[Dict[str, Any]], i
 
 
 def _generate_smart_recommendations(
-    writable_buckets: List, source_bucket: Optional[str], operation_type: str, user_context: Optional[Dict[str, Any]]
+    writable_buckets: List,
+    source_bucket: Optional[str],
+    operation_type: str,
+    user_context: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Generate smart, context-aware bucket recommendations."""
     primary_recommendations = []
@@ -262,7 +295,9 @@ def _generate_smart_recommendations(
 
         # Scoring based on naming patterns
         if operation_type == "package_creation":
-            if any(pattern in bucket_name for pattern in ["package", "registry", "quilt"]):
+            if any(
+                pattern in bucket_name for pattern in ["package", "registry", "quilt"]
+            ):
                 score += 50
                 rationale.append("Naming pattern suggests package storage")
 
@@ -289,7 +324,9 @@ def _generate_smart_recommendations(
                     score += 25
                     rationale.append(f"Matches {user_context['department']} department")
 
-        scored_buckets.append({"bucket": bucket, "score": score, "rationale": rationale})
+        scored_buckets.append(
+            {"bucket": bucket, "score": score, "rationale": rationale}
+        )
 
     # Sort by score and categorize
     scored_buckets.sort(key=lambda x: x["score"], reverse=True)

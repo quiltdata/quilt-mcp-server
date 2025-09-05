@@ -19,29 +19,29 @@ class DataAnonymizer:
 
     # Patterns for sensitive data detection
     SENSITIVE_PATTERNS = {
-        'email': re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),
-        'ip_address': re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'),
-        'aws_key': re.compile(r'AKIA[0-9A-Z]{16}'),
-        'aws_secret': re.compile(r'[A-Za-z0-9/+=]{40}'),
-        'url_with_auth': re.compile(r'https?://[^:]+:[^@]+@'),
-        'phone': re.compile(r'\b\d{3}-\d{3}-\d{4}\b|\b\(\d{3}\)\s*\d{3}-\d{4}\b'),
-        'ssn': re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),
-        'credit_card': re.compile(r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'),
+        "email": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
+        "ip_address": re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b"),
+        "aws_key": re.compile(r"AKIA[0-9A-Z]{16}"),
+        "aws_secret": re.compile(r"[A-Za-z0-9/+=]{40}"),
+        "url_with_auth": re.compile(r"https?://[^:]+:[^@]+@"),
+        "phone": re.compile(r"\b\d{3}-\d{3}-\d{4}\b|\b\(\d{3}\)\s*\d{3}-\d{4}\b"),
+        "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+        "credit_card": re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"),
     }
 
     # Fields that should always be anonymized
     SENSITIVE_FIELDS = {
-        'password',
-        'secret',
-        'token',
-        'key',
-        'credential',
-        'auth',
-        'email',
-        'phone',
-        'ssn',
-        'credit_card',
-        'personal_info',
+        "password",
+        "secret",
+        "token",
+        "key",
+        "credential",
+        "auth",
+        "email",
+        "phone",
+        "ssn",
+        "credit_card",
+        "personal_info",
     }
 
     def __init__(self, salt: Optional[str] = None):
@@ -65,11 +65,11 @@ class DataAnonymizer:
                 return self._hash_string(value_str)
 
         # For S3 URIs, keep structure but hash sensitive parts
-        if value_str.startswith('s3://'):
+        if value_str.startswith("s3://"):
             return self._anonymize_s3_uri(value_str)
 
         # For package names, keep format but hash if it looks like personal info
-        if '/' in value_str and len(value_str.split('/')) == 2:
+        if "/" in value_str and len(value_str.split("/")) == 2:
             return self._anonymize_package_name(value_str)
 
         return value
@@ -90,7 +90,7 @@ class DataAnonymizer:
     def _anonymize_s3_uri(self, uri: str) -> str:
         """Anonymize S3 URI while preserving structure."""
         # s3://bucket-name/path/to/file -> s3://bucket-hash/path-hash
-        parts = uri.split('/', 3)
+        parts = uri.split("/", 3)
         if len(parts) >= 3:
             bucket = parts[2]
             path = parts[3] if len(parts) > 3 else ""
@@ -98,14 +98,18 @@ class DataAnonymizer:
             bucket_hash = self._hash_string(bucket)[:8]
             path_hash = self._hash_string(path)[:8] if path else ""
 
-            return f"s3://{bucket_hash}/{path_hash}" if path_hash else f"s3://{bucket_hash}/"
+            return (
+                f"s3://{bucket_hash}/{path_hash}"
+                if path_hash
+                else f"s3://{bucket_hash}/"
+            )
 
         return self._hash_string(uri)
 
     def _anonymize_package_name(self, package_name: str) -> str:
         """Anonymize package name while preserving format."""
         # namespace/package -> namespace-hash/package-hash
-        parts = package_name.split('/')
+        parts = package_name.split("/")
         if len(parts) == 2:
             namespace_hash = self._hash_string(parts[0])[:8]
             package_hash = self._hash_string(parts[1])[:8]
@@ -143,7 +147,9 @@ class PrivacyManager:
             },
         }
 
-        self.config = self.privacy_configs.get(privacy_level, self.privacy_configs["standard"])
+        self.config = self.privacy_configs.get(
+            privacy_level, self.privacy_configs["standard"]
+        )
 
     def hash_args(self, args: Dict[str, Any]) -> str:
         """Create a privacy-preserving hash of function arguments."""
@@ -154,7 +160,9 @@ class PrivacyManager:
         sanitized_args = {}
 
         for key, value in args.items():
-            if self.config.get("anonymize_all", False) or self.config.get("anonymize_sensitive", False):
+            if self.config.get("anonymize_all", False) or self.config.get(
+                "anonymize_sensitive", False
+            ):
                 sanitized_args[key] = self.anonymizer.anonymize_value(value, key)
             else:
                 sanitized_args[key] = value
@@ -175,13 +183,13 @@ class PrivacyManager:
 
         # Allow list of safe context fields
         safe_fields = {
-            'task_type',
-            'user_intent',
-            'task_complexity',
-            'session_type',
-            'tool_sequence',
-            'performance_hint',
-            'optimization_target',
+            "task_type",
+            "user_intent",
+            "task_complexity",
+            "session_type",
+            "tool_sequence",
+            "performance_hint",
+            "optimization_target",
         }
 
         for key, value in context.items():
@@ -192,7 +200,9 @@ class PrivacyManager:
                     filtered_context[key] = value
             elif self.config.get("anonymize_sensitive", True):
                 # Include but anonymize other fields
-                filtered_context[f"anon_{key}"] = self.anonymizer.anonymize_value(value, key)
+                filtered_context[f"anon_{key}"] = self.anonymizer.anonymize_value(
+                    value, key
+                )
 
         return filtered_context if filtered_context else None
 

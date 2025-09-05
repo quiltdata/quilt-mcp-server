@@ -60,49 +60,61 @@ class TestQuiltAPI:
             result = packages_list(registry=TEST_REGISTRY)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+                pytest.skip(
+                    f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}"
+                )
             raise
 
         assert isinstance(result, dict), "Result should be a dict"
         assert "packages" in result, "Result should have 'packages' key"
         # FAIL if no packages - this indicates a real problem
-        assert len(result["packages"]) > 0, (
-            f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
-        )
+        assert (
+            len(result["packages"]) > 0
+        ), f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
 
         # Check that we get string package names
         for pkg in result["packages"]:
-            assert isinstance(pkg, str), f"Package name should be string, got {type(pkg)}: {pkg}"
-            assert "/" in pkg, f"Package names should contain namespace/name format, got: {pkg}"
+            assert isinstance(
+                pkg, str
+            ), f"Package name should be string, got {type(pkg)}: {pkg}"
+            assert (
+                "/" in pkg
+            ), f"Package names should contain namespace/name format, got: {pkg}"
 
     def test_packages_list_prefix(self):
         """Test that prefix filtering works and finds the configured test package."""
         # Extract prefix from known test package
-        test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
+        test_prefix = (
+            KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
+        )
         try:
             result = packages_list(registry=TEST_REGISTRY, prefix=test_prefix)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+                pytest.skip(
+                    f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}"
+                )
             raise
 
         assert isinstance(result, dict)
         assert "packages" in result
 
         # FAIL if no packages with this prefix - this means the test environment is misconfigured
-        assert len(result["packages"]) > 0, (
-            f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
-        )
+        assert (
+            len(result["packages"]) > 0
+        ), f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
         # Verify all results match prefix
         for pkg in result["packages"]:
-            assert pkg.startswith(test_prefix), f"Package {pkg} doesn't start with '{test_prefix}'"
+            assert pkg.startswith(
+                test_prefix
+            ), f"Package {pkg} doesn't start with '{test_prefix}'"
 
         # FAIL if known package not found - this means the test environment is misconfigured
         package_names = result["packages"]
-        assert KNOWN_PACKAGE in package_names, (
-            f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
-        )
+        assert (
+            KNOWN_PACKAGE in package_names
+        ), f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
 
     @pytest.mark.search
     @pytest.mark.skipif(
@@ -125,7 +137,9 @@ class TestQuiltAPI:
             if len(result["results"]) > 0:
                 for item in result["results"]:
                     if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                        assert (
+                            len(item["_source"]) > 0
+                        ), "Search result should have at least one key in _source"
             else:
                 # No results is fine - the search functionality is working
                 import warnings
@@ -139,7 +153,9 @@ class TestQuiltAPI:
             # If search fails completely, that's also acceptable in CI
             import warnings
 
-            warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
+            warnings.warn(
+                f"Search failed: {e}. This may be expected in CI environments."
+            )
 
     def test_package_browse_known_package(self):
         """Test browsing the known test package."""
@@ -148,28 +164,36 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
 
         # Check if we got an access denied error and skip if so
-        if result.get("success") is False and "AccessDenied" in str(result.get("cause", "")):
-            pytest.skip(f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}")
+        if result.get("success") is False and "AccessDenied" in str(
+            result.get("cause", "")
+        ):
+            pytest.skip(
+                f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}"
+            )
 
         assert "entries" in result
         assert "package_name" in result
         assert "total_entries" in result
 
         # FAIL if no entries found - this means the test package is misconfigured
-        assert len(result["entries"]) > 0, (
-            f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
-        )
+        assert (
+            len(result["entries"]) > 0
+        ), f"Package {KNOWN_PACKAGE} appears empty - check QUILT_TEST_PACKAGE configuration"
 
         # Check we get actual entry structures
         for entry in result["entries"]:
-            assert isinstance(entry, dict), f"Entry should be dict, got {type(entry)}: {entry}"
+            assert isinstance(
+                entry, dict
+            ), f"Entry should be dict, got {type(entry)}: {entry}"
             assert "logical_key" in entry, f"Entry missing logical_key: {entry}"
 
     def test_package_contents_search_in_known_package(self):
         """Test searching within a known package for files."""
         # Try searching for the known test entry first
         known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README.md"
-        result = package_contents_search(KNOWN_PACKAGE, known_entry, registry=TEST_REGISTRY)
+        result = package_contents_search(
+            KNOWN_PACKAGE, known_entry, registry=TEST_REGISTRY
+        )
 
         assert isinstance(result, dict)
         assert "matches" in result
@@ -178,7 +202,9 @@ class TestQuiltAPI:
         # If the known entry isn't found, try common extensions
         if result["count"] == 0:
             for ext in [".md", ".txt", ".csv", ".json", ".parquet"]:
-                result = package_contents_search(KNOWN_PACKAGE, ext, registry=TEST_REGISTRY)
+                result = package_contents_search(
+                    KNOWN_PACKAGE, ext, registry=TEST_REGISTRY
+                )
                 if result["count"] > 0:
                     break
 
@@ -186,7 +212,9 @@ class TestQuiltAPI:
         # (Some packages might not have common file types)
         if result["count"] > 0:
             for match in result["matches"]:
-                assert isinstance(match, dict), f"Match should be dict, got {type(match)}: {match}"
+                assert isinstance(
+                    match, dict
+                ), f"Match should be dict, got {type(match)}: {match}"
                 assert "logical_key" in match, f"Match missing logical_key: {match}"
 
     def test_bucket_objects_list_returns_data(self):
@@ -196,7 +224,9 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
         assert "objects" in result
         assert "bucket" in result
-        assert len(result["objects"]) > 0, f"Expected objects in {KNOWN_BUCKET}, got empty list"
+        assert (
+            len(result["objects"]) > 0
+        ), f"Expected objects in {KNOWN_BUCKET}, got empty list"
 
         # Check object structure
         for obj in result["objects"]:
@@ -247,10 +277,14 @@ class TestQuiltAPI:
 
         # Test specific status behaviors
         if result["status"] == "authenticated":
-            assert "catalog_url" in result, "Authenticated status should include catalog_url"
+            assert (
+                "catalog_url" in result
+            ), "Authenticated status should include catalog_url"
             assert result["search_available"] is True
         elif result["status"] == "not_authenticated":
-            assert "setup_instructions" in result, "Not authenticated should include setup instructions"
+            assert (
+                "setup_instructions" in result
+            ), "Not authenticated should include setup instructions"
             assert result["search_available"] is False
         else:  # error status
             assert "error" in result, "Error status should include error message"
@@ -265,15 +299,15 @@ class TestQuiltAPI:
         assert "current_directory" in result
 
         # Verify we get actual paths
-        assert result["home_directory"].startswith("/"), (
-            f"Home directory should be absolute path: {result['home_directory']}"
-        )
-        assert result["temp_directory"].startswith("/"), (
-            f"Temp directory should be absolute path: {result['temp_directory']}"
-        )
-        assert result["current_directory"].startswith("/"), (
-            f"Current directory should be absolute path: {result['current_directory']}"
-        )
+        assert result["home_directory"].startswith(
+            "/"
+        ), f"Home directory should be absolute path: {result['home_directory']}"
+        assert result["temp_directory"].startswith(
+            "/"
+        ), f"Temp directory should be absolute path: {result['temp_directory']}"
+        assert result["current_directory"].startswith(
+            "/"
+        ), f"Current directory should be absolute path: {result['current_directory']}"
 
     def test_catalog_info_returns_data(self):
         """Test catalog_info returns current catalog information."""
@@ -313,7 +347,9 @@ class TestQuiltAPI:
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
-        result = catalog_url(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
+        result = catalog_url(
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
+        )
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -348,7 +384,9 @@ class TestQuiltAPI:
 
     def test_catalog_uri_package_reference(self):
         """Test catalog_uri generates valid Quilt+ URIs."""
-        result = catalog_uri(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
+        result = catalog_uri(
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
+        )
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -386,7 +424,9 @@ class TestQuiltAPI:
 
         assert isinstance(result, dict)
         assert "results" in result
-        assert len(result["results"]) == 0, "Non-existent search should return empty results"
+        assert (
+            len(result["results"]) == 0
+        ), "Non-existent search should return empty results"
 
     def test_packages_list_invalid_registry_fails(self):
         """Test that invalid registry fails gracefully with proper error."""
@@ -395,9 +435,10 @@ class TestQuiltAPI:
 
         # Should get a meaningful error about the bucket
         error_msg = str(exc_info.value).lower()
-        assert any(term in error_msg for term in ["nosuchbucket", "no such bucket", "bucket", "not found"]), (
-            f"Expected meaningful bucket error, got: {exc_info.value}"
-        )
+        assert any(
+            term in error_msg
+            for term in ["nosuchbucket", "no such bucket", "bucket", "not found"]
+        ), f"Expected meaningful bucket error, got: {exc_info.value}"
 
     def test_package_browse_nonexistent_fails(self):
         """Test that browsing non-existent package returns error response."""
@@ -410,9 +451,14 @@ class TestQuiltAPI:
         assert "cause" in result
 
         error_msg = str(result.get("error", "")).lower()
-        assert any(term in error_msg for term in ["failed to browse", "package", "definitely/nonexistent/package"]), (
-            f"Expected meaningful error message, got: {result}"
-        )
+        assert any(
+            term in error_msg
+            for term in [
+                "failed to browse",
+                "package",
+                "definitely/nonexistent/package",
+            ]
+        ), f"Expected meaningful error message, got: {result}"
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
@@ -489,7 +535,9 @@ class TestQuiltAPI:
                 if "error" in item_result:
                     error_msg = item_result["error"].lower()
                     if "accessdenied" in error_msg or "not authorized" in error_msg:
-                        pytest.fail(f"Permission error - user needs s3:PutObject permissions: {item_result['error']}")
+                        pytest.fail(
+                            f"Permission error - user needs s3:PutObject permissions: {item_result['error']}"
+                        )
 
         assert result["uploaded"] > 0, "Should have successfully uploaded some files"
 
@@ -497,7 +545,10 @@ class TestQuiltAPI:
         for item_result in result["results"]:
             assert "key" in item_result
             # Should have successful uploads (etag) for test environment
-            if "error" in item_result and "accessdenied" not in item_result["error"].lower():
+            if (
+                "error" in item_result
+                and "accessdenied" not in item_result["error"].lower()
+            ):
                 pytest.fail(f"Unexpected upload error: {item_result['error']}")
 
         # Clean up uploaded test files
@@ -526,8 +577,13 @@ class TestQuiltAPI:
 
             if "error" in result:
                 # Search might not be configured - skip test
-                if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                    pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+                if (
+                    "search endpoint" in result["error"].lower()
+                    or "not configured" in result["error"].lower()
+                ):
+                    pytest.skip(
+                        f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}"
+                    )
                 continue
 
             if len(result["results"]) > 0:
@@ -535,7 +591,9 @@ class TestQuiltAPI:
                 # Verify the response structure is correct
                 for item in result["results"]:
                     if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
+                        assert (
+                            len(item["_source"]) > 0
+                        ), "Search result should have at least one key in _source"
                 break
 
         # If search is configured but no results found, that's okay for some buckets
@@ -551,10 +609,15 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
         if "error" not in result:
             assert "results" in result
-            assert len(result["results"]) == 0, "Non-existent search should return empty results"
+            assert (
+                len(result["results"]) == 0
+            ), "Non-existent search should return empty results"
         else:
             # Search might not be configured - that's okay
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
+            if (
+                "search endpoint" in result["error"].lower()
+                or "not configured" in result["error"].lower()
+            ):
                 pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}")
 
     def test_bucket_objects_search_dsl_query(self):
@@ -570,8 +633,13 @@ class TestQuiltAPI:
 
         if "error" in result:
             # Search might not be configured - skip test
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
+            if (
+                "search endpoint" in result["error"].lower()
+                or "not configured" in result["error"].lower()
+            ):
+                pytest.skip(
+                    f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}"
+                )
         else:
             assert "results" in result
             # Results might be empty if no CSV files exist, which is okay
@@ -604,7 +672,9 @@ class TestQuiltAPI:
             packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+                pytest.skip(
+                    f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}"
+                )
             raise
 
         if len(packages_result.get("packages", [])) < 2:
@@ -618,7 +688,10 @@ class TestQuiltAPI:
         assert isinstance(result, dict)
         if "error" in result:
             # Some packages might not support diff operations or might not exist
-            if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
+            if (
+                "not found" in result["error"].lower()
+                or "does not exist" in result["error"].lower()
+            ):
                 pytest.skip(f"Packages not accessible for diff: {result['error']}")
             else:
                 pytest.skip(f"Package diff not supported: {result['error']}")
@@ -631,14 +704,22 @@ class TestQuiltAPI:
 
     def test_package_diff_nonexistent_packages(self):
         """Test package_diff with non-existent packages."""
-        result = package_diff("definitely/nonexistent1", "definitely/nonexistent2", registry=TEST_REGISTRY)
+        result = package_diff(
+            "definitely/nonexistent1", "definitely/nonexistent2", registry=TEST_REGISTRY
+        )
 
         assert isinstance(result, dict)
         assert "error" in result
         # Should get a meaningful error about packages not being found
         error_msg = result["error"].lower()
         assert any(
-            term in error_msg for term in ["failed to browse", "not found", "does not exist", "no such file"]
+            term in error_msg
+            for term in [
+                "failed to browse",
+                "not found",
+                "does not exist",
+                "no such file",
+            ]
         ), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 

@@ -52,17 +52,21 @@ class LocalFileTransport(TelemetryTransport):
         """Write session data to local file."""
         try:
             # Convert session data to dict if needed
-            if hasattr(session_data, '__dict__'):
+            if hasattr(session_data, "__dict__"):
                 data = session_data.__dict__
             else:
                 data = session_data
 
             # Add timestamp
-            record = {"timestamp": datetime.now(timezone.utc).isoformat(), "type": "session", "data": data}
+            record = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "type": "session",
+                "data": data,
+            }
 
             # Append to file (JSONL format)
-            with open(self.file_path, 'a') as f:
-                f.write(json.dumps(record, default=str) + '\n')
+            with open(self.file_path, "a") as f:
+                f.write(json.dumps(record, default=str) + "\n")
 
             logger.debug(f"Wrote telemetry session to {self.file_path}")
             return True
@@ -76,18 +80,22 @@ class LocalFileTransport(TelemetryTransport):
         try:
             records = []
             for session_data in batch_data:
-                if hasattr(session_data, '__dict__'):
+                if hasattr(session_data, "__dict__"):
                     data = session_data.__dict__
                 else:
                     data = session_data
 
-                record = {"timestamp": datetime.now(timezone.utc).isoformat(), "type": "session", "data": data}
+                record = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "type": "session",
+                    "data": data,
+                }
                 records.append(record)
 
             # Write all records
-            with open(self.file_path, 'a') as f:
+            with open(self.file_path, "a") as f:
                 for record in records:
-                    f.write(json.dumps(record, default=str) + '\n')
+                    f.write(json.dumps(record, default=str) + "\n")
 
             logger.debug(f"Wrote {len(records)} telemetry records to {self.file_path}")
             return True
@@ -116,7 +124,7 @@ class LocalFileTransport(TelemetryTransport):
             return sessions
 
         try:
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, "r") as f:
                 for line_num, line in enumerate(f):
                     if limit and len(sessions) >= limit:
                         break
@@ -140,7 +148,7 @@ class HTTPTransport(TelemetryTransport):
     """HTTP-based telemetry transport."""
 
     def __init__(self, endpoint: str, api_key: Optional[str] = None, timeout: int = 30):
-        self.endpoint = endpoint.rstrip('/')
+        self.endpoint = endpoint.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.session = None
@@ -152,10 +160,13 @@ class HTTPTransport(TelemetryTransport):
             self.session = requests.Session()
 
             # Set headers
-            headers = {'Content-Type': 'application/json', 'User-Agent': 'QuiltMCP-Telemetry/1.0'}
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "QuiltMCP-Telemetry/1.0",
+            }
 
             if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+                headers["Authorization"] = f"Bearer {self.api_key}"
 
             self.session.headers.update(headers)
 
@@ -170,20 +181,28 @@ class HTTPTransport(TelemetryTransport):
 
         try:
             # Convert session data to dict if needed
-            if hasattr(session_data, '__dict__'):
+            if hasattr(session_data, "__dict__"):
                 data = session_data.__dict__
             else:
                 data = session_data
 
-            payload = {"timestamp": datetime.now(timezone.utc).isoformat(), "type": "session", "data": data}
+            payload = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "type": "session",
+                "data": data,
+            }
 
-            response = self.session.post(f"{self.endpoint}/telemetry/session", json=payload, timeout=self.timeout)
+            response = self.session.post(
+                f"{self.endpoint}/telemetry/session", json=payload, timeout=self.timeout
+            )
 
             if response.status_code == 200:
                 logger.debug(f"Successfully sent telemetry session to {self.endpoint}")
                 return True
             else:
-                logger.warning(f"HTTP telemetry failed: {response.status_code} {response.text}")
+                logger.warning(
+                    f"HTTP telemetry failed: {response.status_code} {response.text}"
+                )
                 return False
 
         except Exception as e:
@@ -198,21 +217,29 @@ class HTTPTransport(TelemetryTransport):
         try:
             sessions = []
             for session_data in batch_data:
-                if hasattr(session_data, '__dict__'):
+                if hasattr(session_data, "__dict__"):
                     data = session_data.__dict__
                 else:
                     data = session_data
                 sessions.append(data)
 
-            payload = {"timestamp": datetime.now(timezone.utc).isoformat(), "type": "batch", "sessions": sessions}
+            payload = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "type": "batch",
+                "sessions": sessions,
+            }
 
-            response = self.session.post(f"{self.endpoint}/telemetry/batch", json=payload, timeout=self.timeout)
+            response = self.session.post(
+                f"{self.endpoint}/telemetry/batch", json=payload, timeout=self.timeout
+            )
 
             if response.status_code == 200:
                 logger.debug(f"Successfully sent telemetry batch to {self.endpoint}")
                 return True
             else:
-                logger.warning(f"HTTP telemetry batch failed: {response.status_code} {response.text}")
+                logger.warning(
+                    f"HTTP telemetry batch failed: {response.status_code} {response.text}"
+                )
                 return False
 
         except Exception as e:
@@ -235,7 +262,9 @@ class HTTPTransport(TelemetryTransport):
 class CloudWatchTransport(TelemetryTransport):
     """AWS CloudWatch-based telemetry transport."""
 
-    def __init__(self, log_group: str = "mcp-telemetry", log_stream: Optional[str] = None):
+    def __init__(
+        self, log_group: str = "mcp-telemetry", log_stream: Optional[str] = None
+    ):
         self.log_group = log_group
         self.log_stream = log_stream or f"mcp-{int(time.time())}"
         self.client = None
@@ -243,7 +272,7 @@ class CloudWatchTransport(TelemetryTransport):
         try:
             import boto3
 
-            self.client = boto3.client('logs')
+            self.client = boto3.client("logs")
 
             # Ensure log group exists
             try:
@@ -253,7 +282,9 @@ class CloudWatchTransport(TelemetryTransport):
 
             # Create log stream
             try:
-                self.client.create_log_stream(logGroupName=self.log_group, logStreamName=self.log_stream)
+                self.client.create_log_stream(
+                    logGroupName=self.log_group, logStreamName=self.log_stream
+                )
             except self.client.exceptions.ResourceAlreadyExistsException:
                 pass
 
@@ -269,21 +300,25 @@ class CloudWatchTransport(TelemetryTransport):
 
         try:
             # Convert session data to dict if needed
-            if hasattr(session_data, '__dict__'):
+            if hasattr(session_data, "__dict__"):
                 data = session_data.__dict__
             else:
                 data = session_data
 
             log_event = {
-                'timestamp': int(time.time() * 1000),  # CloudWatch expects milliseconds
-                'message': json.dumps({"type": "session", "data": data}, default=str),
+                "timestamp": int(time.time() * 1000),  # CloudWatch expects milliseconds
+                "message": json.dumps({"type": "session", "data": data}, default=str),
             }
 
             self.client.put_log_events(
-                logGroupName=self.log_group, logStreamName=self.log_stream, logEvents=[log_event]
+                logGroupName=self.log_group,
+                logStreamName=self.log_stream,
+                logEvents=[log_event],
             )
 
-            logger.debug(f"Sent telemetry session to CloudWatch: {self.log_group}/{self.log_stream}")
+            logger.debug(
+                f"Sent telemetry session to CloudWatch: {self.log_group}/{self.log_stream}"
+            )
             return True
 
         except Exception as e:
@@ -298,14 +333,16 @@ class CloudWatchTransport(TelemetryTransport):
         try:
             log_events = []
             for session_data in batch_data:
-                if hasattr(session_data, '__dict__'):
+                if hasattr(session_data, "__dict__"):
                     data = session_data.__dict__
                 else:
                     data = session_data
 
                 log_event = {
-                    'timestamp': int(time.time() * 1000),
-                    'message': json.dumps({"type": "session", "data": data}, default=str),
+                    "timestamp": int(time.time() * 1000),
+                    "message": json.dumps(
+                        {"type": "session", "data": data}, default=str
+                    ),
                 }
                 log_events.append(log_event)
 
@@ -313,7 +350,11 @@ class CloudWatchTransport(TelemetryTransport):
             batch_size = 1000
             for i in range(0, len(log_events), batch_size):
                 batch = log_events[i : i + batch_size]
-                self.client.put_log_events(logGroupName=self.log_group, logStreamName=self.log_stream, logEvents=batch)
+                self.client.put_log_events(
+                    logGroupName=self.log_group,
+                    logStreamName=self.log_stream,
+                    logEvents=batch,
+                )
 
             logger.debug(f"Sent {len(log_events)} telemetry events to CloudWatch")
             return True
@@ -341,11 +382,11 @@ def create_transport(config) -> TelemetryTransport:
         return LocalFileTransport()
 
     if config.endpoint:
-        if config.endpoint.startswith('http'):
-            api_key = os.getenv('MCP_TELEMETRY_API_KEY')
+        if config.endpoint.startswith("http"):
+            api_key = os.getenv("MCP_TELEMETRY_API_KEY")
             return HTTPTransport(config.endpoint, api_key)
-        elif config.endpoint.startswith('cloudwatch:'):
-            log_group = config.endpoint.replace('cloudwatch:', '')
+        elif config.endpoint.startswith("cloudwatch:"):
+            log_group = config.endpoint.replace("cloudwatch:", "")
             return CloudWatchTransport(log_group)
 
     # Default to local file transport

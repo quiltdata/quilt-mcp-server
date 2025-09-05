@@ -27,7 +27,7 @@ class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
     @pytest.mark.aws
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""
         # Setup mocks
@@ -74,13 +74,15 @@ class TestAWSPermissionsDiscover:
         assert len(result["categorized_buckets"]["read_only"]) == 1
         assert "recommendations" in result
 
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_discover_specific_buckets(self, mock_get_discovery):
         """Test permission discovery for specific buckets."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
 
-        mock_identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
+        mock_identity = UserIdentity(
+            user_id="test", arn="test", account_id="123", user_type="user"
+        )
         mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
 
         mock_bucket = BucketInfo(
@@ -101,7 +103,7 @@ class TestAWSPermissionsDiscover:
         assert len(result["bucket_permissions"]) == 1
         assert result["bucket_permissions"][0]["name"] == "test-bucket"
 
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_discover_permissions_error(self, mock_get_discovery):
         """Test error handling in permission discovery."""
         mock_discovery = Mock()
@@ -118,7 +120,7 @@ class TestAWSPermissionsDiscover:
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_bucket_access_check_success(self, mock_get_discovery):
         """Test successful bucket access check."""
         mock_discovery = Mock()
@@ -134,7 +136,9 @@ class TestBucketAccessCheck:
             last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": True, "list": True})
+        mock_discovery.test_bucket_operations = Mock(
+            return_value={"read": True, "write": True, "list": True}
+        )
 
         result = bucket_access_check("test-bucket")
 
@@ -143,7 +147,7 @@ class TestBucketAccessCheck:
         assert result["permission_level"] == "full_access"
         assert result["access_summary"]["can_write"] is True
 
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_bucket_access_check_limited(self, mock_get_discovery):
         """Test bucket access check with limited permissions."""
         mock_discovery = Mock()
@@ -159,7 +163,9 @@ class TestBucketAccessCheck:
             last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": False, "list": True})
+        mock_discovery.test_bucket_operations = Mock(
+            return_value={"read": True, "write": False, "list": True}
+        )
 
         result = bucket_access_check("readonly-bucket", ["read", "write", "list"])
 
@@ -173,7 +179,7 @@ class TestBucketAccessCheck:
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
-    @patch('quilt_mcp.tools.permissions._get_permission_discovery')
+    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_bucket_recommendations_package_creation(self, mock_get_discovery):
         """Test bucket recommendations for package creation."""
         mock_discovery = Mock()
@@ -201,7 +207,9 @@ class TestBucketRecommendations:
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
 
-        result = bucket_recommendations_get(source_bucket="ml-training-data", operation_type="package_creation")
+        result = bucket_recommendations_get(
+            source_bucket="ml-training-data", operation_type="package_creation"
+        )
 
         assert result["success"] is True
         assert result["operation_type"] == "package_creation"
@@ -217,7 +225,9 @@ class TestBucketRecommendations:
             {"name": "readonly-data", "permission_level": "read_only"},
         ]
 
-        identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
+        identity = UserIdentity(
+            user_id="test", arn="test", account_id="123", user_type="user"
+        )
 
         recommendations = _generate_bucket_recommendations(bucket_permissions, identity)
 
@@ -235,8 +245,8 @@ class TestBucketRecommendations:
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
-    @patch('quilt_mcp.aws.permission_discovery.quilt3')
-    @patch('quilt_mcp.aws.permission_discovery.boto3.client')
+    @patch("quilt_mcp.aws.permission_discovery.quilt3")
+    @patch("quilt_mcp.aws.permission_discovery.boto3.client")
     def test_uses_quilt3_session_when_logged_in(self, mock_boto_client, mock_quilt3):
         """When quilt3 is logged in, discovery should use quilt3.get_boto3_session()."""
         # If default boto3.client is called, fail the test
@@ -250,21 +260,21 @@ class TestPermissionDiscoveryEngine:
         # Build a fake boto3 session with specific clients
         mock_sts = Mock()
         mock_sts.get_caller_identity.return_value = {
-            'UserId': 'AIDACKCEVSQ6C2EXAMPLE',
-            'Account': '123456789012',
-            'Arn': 'arn:aws:iam::123456789012:user/test-user',
+            "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+            "Account": "123456789012",
+            "Arn": "arn:aws:iam::123456789012:user/test-user",
         }
         mock_iam = Mock()
         mock_s3 = Mock()
-        mock_s3.list_buckets.return_value = {'Buckets': []}
+        mock_s3.list_buckets.return_value = {"Buckets": []}
 
         class _FakeSession:
             def client(self, service_name: str):
-                if service_name == 'sts':
+                if service_name == "sts":
                     return mock_sts
-                if service_name == 'iam':
+                if service_name == "iam":
                     return mock_iam
-                if service_name == 's3':
+                if service_name == "s3":
                     return mock_s3
                 raise AssertionError(f"Unexpected client for service: {service_name}")
 
@@ -274,7 +284,9 @@ class TestPermissionDiscoveryEngine:
         mock_session = Mock()
         mock_http_session = Mock()
         mock_http_session.post.return_value.status_code = 200
-        mock_http_session.post.return_value.json.return_value = {'data': {'bucketConfigs': []}}
+        mock_http_session.post.return_value.json.return_value = {
+            "data": {"bucketConfigs": []}
+        }
         mock_session.get_session.return_value = mock_http_session
         mock_session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session = mock_session
@@ -300,7 +312,7 @@ class TestPermissionDiscoveryEngine:
         try:
             import boto3
 
-            sts = boto3.client('sts')
+            sts = boto3.client("sts")
             sts.get_caller_identity()
         except Exception:
             pytest.skip("AWS credentials not available")
@@ -320,7 +332,7 @@ class TestPermissionDiscoveryEngine:
         try:
             import boto3
 
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available")
@@ -353,7 +365,11 @@ class TestPermissionDiscoveryEngine:
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
-        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        bucket_name = (
+            DEFAULT_BUCKET.replace("s3://", "")
+            if DEFAULT_BUCKET.startswith("s3://")
+            else DEFAULT_BUCKET
+        )
 
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions(bucket_name)

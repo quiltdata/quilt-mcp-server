@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 def _with_fallback_internal(
-    primary_func: Callable, fallback_func: Callable, fallback_condition: Optional[Callable[[Exception], bool]] = None
+    primary_func: Callable,
+    fallback_func: Callable,
+    fallback_condition: Optional[Callable[[Exception], bool]] = None,
 ) -> Callable:
     """
     Decorator to provide fallback functionality when primary function fails.
@@ -52,7 +54,9 @@ def _with_fallback_internal(
                     fallback_result["_primary_error"] = str(e)
                 return fallback_result
             except Exception as fallback_error:
-                logger.error(f"Both primary and fallback functions failed: {e}, {fallback_error}")
+                logger.error(
+                    f"Both primary and fallback functions failed: {e}, {fallback_error}"
+                )
                 return format_error_response(
                     f"Primary function failed: {str(e)}. Fallback also failed: {str(fallback_error)}"
                 )
@@ -98,7 +102,9 @@ def with_retry(
                                 return result
 
                         if attempt < max_attempts - 1:
-                            logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s: {error_msg}")
+                            logger.warning(
+                                f"Attempt {attempt + 1} failed, retrying in {current_delay}s: {error_msg}"
+                            )
                             time.sleep(current_delay)
                             current_delay *= backoff_factor
                             continue
@@ -115,7 +121,9 @@ def with_retry(
                         raise
 
                     if attempt < max_attempts - 1:
-                        logger.warning(f"Attempt {attempt + 1} failed, retrying in {current_delay}s: {e}")
+                        logger.warning(
+                            f"Attempt {attempt + 1} failed, retrying in {current_delay}s: {e}"
+                        )
                         time.sleep(current_delay)
                         current_delay *= backoff_factor
                     else:
@@ -132,7 +140,10 @@ def with_retry(
 
 
 def safe_operation(
-    operation_name: str, operation_func: Callable, fallback_value: Any = None, log_errors: bool = True
+    operation_name: str,
+    operation_func: Callable,
+    fallback_value: Any = None,
+    log_errors: bool = True,
 ) -> Dict[str, Any]:
     """
     Execute an operation safely with comprehensive error handling.
@@ -203,7 +214,12 @@ def batch_operation_with_recovery(
 
         if not operation_func:
             results.append(
-                {"success": False, "operation": operation_name, "error": "No operation function provided", "index": i}
+                {
+                    "success": False,
+                    "operation": operation_name,
+                    "error": "No operation function provided",
+                    "index": i,
+                }
             )
             failed_operations += 1
             continue
@@ -227,7 +243,9 @@ def batch_operation_with_recovery(
         else:
             failed_operations += 1
             if fail_fast:
-                logger.warning(f"Batch operation stopped early due to failure in '{operation_name}'")
+                logger.warning(
+                    f"Batch operation stopped early due to failure in '{operation_name}'"
+                )
                 break
 
     return {
@@ -237,8 +255,14 @@ def batch_operation_with_recovery(
         "failed_operations": failed_operations,
         "results": results,
         "summary": {
-            "success_rate": round((successful_operations / len(operations)) * 100, 1) if operations else 0,
-            "fail_fast_triggered": fail_fast and failed_operations > 0 and len(results) < len(operations),
+            "success_rate": (
+                round((successful_operations / len(operations)) * 100, 1)
+                if operations
+                else 0
+            ),
+            "fail_fast_triggered": fail_fast
+            and failed_operations > 0
+            and len(results) < len(operations),
         },
     }
 
@@ -290,7 +314,9 @@ def health_check_with_recovery() -> Dict[str, Any]:
         "success": True,
         "overall_health": overall_health,
         "health_results": health_results,
-        "recovery_recommendations": list(set(recovery_recommendations)),  # Remove duplicates
+        "recovery_recommendations": list(
+            set(recovery_recommendations)
+        ),  # Remove duplicates
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "next_steps": _get_health_next_steps(overall_health, recovery_recommendations),
     }
@@ -327,7 +353,10 @@ def _check_athena_connectivity() -> Dict[str, Any]:
         result = athena_workgroups_list()
         if not result.get("success"):
             raise Exception(result.get("error", "Athena connectivity failed"))
-        return {"athena_available": True, "workgroups": len(result.get("workgroups", []))}
+        return {
+            "athena_available": True,
+            "workgroups": len(result.get("workgroups", [])),
+        }
     except Exception as e:
         raise Exception(f"Athena connectivity failed: {e}")
 
@@ -390,18 +419,26 @@ def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str
 
     # Error-specific suggestions
     if "access denied" in error_str or "403" in error_str:
-        suggestions.append("This appears to be a permissions issue - check IAM policies")
+        suggestions.append(
+            "This appears to be a permissions issue - check IAM policies"
+        )
     elif "not found" in error_str or "404" in error_str:
         suggestions.append("Resource not found - verify names and availability")
     elif "timeout" in error_str or "connection" in error_str:
-        suggestions.append("Network connectivity issue - check internet connection and firewall")
+        suggestions.append(
+            "Network connectivity issue - check internet connection and firewall"
+        )
     elif "credential" in error_str:
-        suggestions.append("AWS credentials issue - run 'aws configure' or check environment variables")
+        suggestions.append(
+            "AWS credentials issue - run 'aws configure' or check environment variables"
+        )
 
     return list(set(suggestions))  # Remove duplicates
 
 
-def _get_health_next_steps(overall_health: str, recovery_recommendations: List[str]) -> List[str]:
+def _get_health_next_steps(
+    overall_health: str, recovery_recommendations: List[str]
+) -> List[str]:
     """Generate next steps based on health status."""
     if overall_health == "healthy":
         return [
@@ -425,7 +462,9 @@ def _get_health_next_steps(overall_health: str, recovery_recommendations: List[s
 
 
 # Convenience functions for common error recovery patterns
-def _safe_package_operation_internal(operation_func: Callable, package_name: str) -> Dict[str, Any]:
+def _safe_package_operation_internal(
+    operation_func: Callable, package_name: str
+) -> Dict[str, Any]:
     """Safely execute a package operation with common fallbacks."""
 
     def fallback():
@@ -440,10 +479,14 @@ def _safe_package_operation_internal(operation_func: Callable, package_name: str
             ],
         }
 
-    return safe_operation(f"package_operation_{package_name}", operation_func, fallback_value=fallback())
+    return safe_operation(
+        f"package_operation_{package_name}", operation_func, fallback_value=fallback()
+    )
 
 
-def _safe_bucket_operation_internal(operation_func: Callable, bucket_name: str) -> Dict[str, Any]:
+def _safe_bucket_operation_internal(
+    operation_func: Callable, bucket_name: str
+) -> Dict[str, Any]:
     """Safely execute a bucket operation with common fallbacks."""
 
     def fallback():
@@ -458,10 +501,14 @@ def _safe_bucket_operation_internal(operation_func: Callable, bucket_name: str) 
             ],
         }
 
-    return safe_operation(f"bucket_operation_{bucket_name}", operation_func, fallback_value=fallback())
+    return safe_operation(
+        f"bucket_operation_{bucket_name}", operation_func, fallback_value=fallback()
+    )
 
 
-def _safe_athena_operation_internal(operation_func: Callable, query: str = None) -> Dict[str, Any]:
+def _safe_athena_operation_internal(
+    operation_func: Callable, query: str = None
+) -> Dict[str, Any]:
     """Safely execute an Athena operation with common fallbacks."""
 
     def fallback():

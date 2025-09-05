@@ -44,7 +44,9 @@ class MetricsCalculator:
             return {"mean": 0.0, "median": 0.0, "p95": 0.0, "p99": 0.0}
 
         response_times = [
-            point.get("response_time_ms", 0.0) for point in self.data_points if "response_time_ms" in point
+            point.get("response_time_ms", 0.0)
+            for point in self.data_points
+            if "response_time_ms" in point
         ]
 
         if not response_times:
@@ -75,7 +77,9 @@ class MetricsCalculator:
         """Get comprehensive performance metrics."""
         stats = self.calculate_response_time_stats()
         success_rate = self.calculate_success_rate()
-        error_count = sum(1 for point in self.data_points if not point.get("success", True))
+        error_count = sum(
+            1 for point in self.data_points if not point.get("success", True)
+        )
 
         return PerformanceMetrics(
             response_time_ms=stats["mean"],
@@ -84,9 +88,15 @@ class MetricsCalculator:
             total_calls=len(self.data_points),
         )
 
-    def identify_slow_operations(self, threshold_ms: float = 1000.0) -> List[Dict[str, Any]]:
+    def identify_slow_operations(
+        self, threshold_ms: float = 1000.0
+    ) -> List[Dict[str, Any]]:
         """Identify operations that exceed the response time threshold."""
-        return [point for point in self.data_points if point.get("response_time_ms", 0.0) > threshold_ms]
+        return [
+            point
+            for point in self.data_points
+            if point.get("response_time_ms", 0.0) > threshold_ms
+        ]
 
     def get_tool_usage_stats(self) -> Dict[str, Dict[str, Any]]:
         """Get usage statistics by tool name."""
@@ -95,7 +105,12 @@ class MetricsCalculator:
         for point in self.data_points:
             tool_name = point.get("tool_name", "unknown")
             if tool_name not in tool_stats:
-                tool_stats[tool_name] = {"count": 0, "total_time": 0.0, "errors": 0, "successes": 0}
+                tool_stats[tool_name] = {
+                    "count": 0,
+                    "total_time": 0.0,
+                    "errors": 0,
+                    "successes": 0,
+                }
 
             stats = tool_stats[tool_name]
             stats["count"] += 1

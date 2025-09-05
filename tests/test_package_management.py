@@ -88,8 +88,14 @@ class TestCreatePackageEnhanced:
     def test_readme_content_extraction_from_metadata(self):
         """Test that README content is automatically extracted from metadata."""
         # Mock the base package creation function
-        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
-            mock_base_create.return_value = {"status": "success", "entries_added": 1, "package_name": "team/dataset"}
+        with patch(
+            "quilt_mcp.tools.package_management._base_package_create"
+        ) as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset",
+            }
 
             # Test metadata with README content
             test_metadata = {
@@ -99,7 +105,10 @@ class TestCreatePackageEnhanced:
             }
 
             result = create_package_enhanced(
-                name="team/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata, dry_run=True
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True,
             )
 
             # Verify success
@@ -129,8 +138,14 @@ class TestCreatePackageEnhanced:
     def test_both_readme_fields_extraction(self):
         """Test that both 'readme_content' and 'readme' fields are extracted."""
         # Mock the base package creation function
-        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
-            mock_base_create.return_value = {"status": "success", "entries_added": 1, "package_name": "team/dataset"}
+        with patch(
+            "quilt_mcp.tools.package_management._base_package_create"
+        ) as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset",
+            }
 
             # Test metadata with both README fields
             test_metadata = {
@@ -141,7 +156,10 @@ class TestCreatePackageEnhanced:
             }
 
             result = create_package_enhanced(
-                name="team/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata, dry_run=True
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True,
             )
 
             # Verify success
@@ -155,7 +173,9 @@ class TestCreatePackageEnhanced:
             # Verify that README content was extracted and stored (priority to readme_content)
             processed_metadata = result["metadata_preview"]
             assert "readme_content" not in processed_metadata  # This should be removed
-            assert "readme" in processed_metadata  # This remains since we only extract one field
+            assert (
+                "readme" in processed_metadata
+            )  # This remains since we only extract one field
             assert "_extracted_readme" in processed_metadata
 
             # Verify that readme_content took priority
@@ -168,14 +188,27 @@ class TestCreatePackageEnhanced:
     def test_no_readme_content_in_metadata(self):
         """Test that packages without README content work normally."""
         # Mock the base package creation function
-        with patch('quilt_mcp.tools.package_management._base_package_create') as mock_base_create:
-            mock_base_create.return_value = {"status": "success", "entries_added": 1, "package_name": "team/dataset"}
+        with patch(
+            "quilt_mcp.tools.package_management._base_package_create"
+        ) as mock_base_create:
+            mock_base_create.return_value = {
+                "status": "success",
+                "entries_added": 1,
+                "package_name": "team/dataset",
+            }
 
             # Test metadata without README content
-            test_metadata = {"description": "Test dataset", "tags": ["test", "example"], "version": "1.0.0"}
+            test_metadata = {
+                "description": "Test dataset",
+                "tags": ["test", "example"],
+                "version": "1.0.0",
+            }
 
             result = create_package_enhanced(
-                name="team/dataset", files=["s3://bucket/file.csv"], metadata=test_metadata, dry_run=True
+                name="team/dataset",
+                files=["s3://bucket/file.csv"],
+                metadata=test_metadata,
+                dry_run=True,
             )
 
             # Verify success
@@ -243,12 +276,16 @@ class TestMetadataTemplates:
 class TestEnhancedPackageBrowsing:
     """Test cases for enhanced package browsing."""
 
-    @patch('quilt3.Package.browse')
+    @patch("quilt3.Package.browse")
     def test_package_browse_enhanced(self, mock_browse):
         """Test enhanced package browsing with file tree."""
         # Mock package with nested structure
         mock_pkg = Mock()
-        mock_pkg.keys.return_value = ["data/file1.csv", "docs/readme.md", "analysis/script.py"]
+        mock_pkg.keys.return_value = [
+            "data/file1.csv",
+            "docs/readme.md",
+            "analysis/script.py",
+        ]
 
         # Mock individual entries
         mock_entry1 = Mock()
@@ -280,7 +317,7 @@ class TestEnhancedPackageBrowsing:
         assert "summary" in result
         assert result["summary"]["total_files"] > 0
 
-    @patch('quilt3.Package.browse')
+    @patch("quilt3.Package.browse")
     def test_package_browse_error_handling(self, mock_browse):
         """Test package browsing error handling."""
         mock_browse.side_effect = Exception("Package not found")
@@ -296,7 +333,7 @@ class TestEnhancedPackageBrowsing:
 class TestPackageValidation:
     """Test cases for package validation."""
 
-    @patch('quilt_mcp.tools.package_management.package_browse')
+    @patch("quilt_mcp.tools.package_management.package_browse")
     def test_package_validate_success(self, mock_browse):
         """Test successful package validation."""
         mock_browse.return_value = {
@@ -314,7 +351,7 @@ class TestPackageValidation:
         assert "validation" in result
         assert result["validation"]["accessible_files"] == 2
 
-    @patch('quilt_mcp.tools.package_management.package_browse')
+    @patch("quilt_mcp.tools.package_management.package_browse")
     def test_package_validate_browse_failure(self, mock_browse):
         """Test package validation when browsing fails."""
         mock_browse.return_value = {"success": False, "error": "Package not found"}

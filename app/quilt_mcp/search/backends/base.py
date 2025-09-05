@@ -156,7 +156,11 @@ class BackendRegistry:
 
     def get_available_backends(self) -> List[SearchBackend]:
         """Get all available backends."""
-        return [backend for backend in self._backends.values() if backend.status == BackendStatus.AVAILABLE]
+        return [
+            backend
+            for backend in self._backends.values()
+            if backend.status == BackendStatus.AVAILABLE
+        ]
 
     def get_backend_by_name(self, name: str) -> Optional[SearchBackend]:
         """Get a backend by string name."""

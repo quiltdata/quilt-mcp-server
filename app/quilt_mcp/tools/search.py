@@ -119,7 +119,10 @@ def unified_search(
 
 
 def search_suggest(
-    partial_query: str, context: str = "", suggestion_types: Optional[List[str]] = None, limit: int = 10
+    partial_query: str,
+    context: str = "",
+    suggestion_types: Optional[List[str]] = None,
+    limit: int = 10,
 ) -> Dict[str, Any]:
     """
     Get intelligent search suggestions based on partial queries and context.
@@ -138,13 +141,22 @@ def search_suggest(
             suggestion_types = ["auto"]
 
         return _search_suggest(
-            partial_query=partial_query, context=context, suggestion_types=suggestion_types, limit=limit
+            partial_query=partial_query,
+            context=context,
+            suggestion_types=suggestion_types,
+            limit=limit,
         )
     except (RuntimeError, ValueError) as e:
-        return {"success": False, "error": f"Search suggestions failed: {e}", "partial_query": partial_query}
+        return {
+            "success": False,
+            "error": f"Search suggestions failed: {e}",
+            "partial_query": partial_query,
+        }
 
 
-def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
+def search_explain(
+    query: str, scope: str = "global", target: str = ""
+) -> Dict[str, Any]:
     """
     Explain how a search query would be processed and executed.
 
@@ -159,4 +171,8 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
     try:
         return _search_explain(query=query)
     except (RuntimeError, ValueError) as e:
-        return {"success": False, "error": f"Search explanation failed: {e}", "query": query}
+        return {
+            "success": False,
+            "error": f"Search explanation failed: {e}",
+            "query": query,
+        }

@@ -80,7 +80,10 @@ def test_bucket_objects_put_success():
         bucket=DEFAULT_BUCKET,
         items=[
             {"key": f"test-{timestamp}-a.txt", "text": "hello world"},
-            {"key": f"test-{timestamp}-b.bin", "data": "aGVsbG8="},  # base64 for "hello"
+            {
+                "key": f"test-{timestamp}-b.bin",
+                "data": "aGVsbG8=",
+            },  # base64 for "hello"
         ],
     )
 

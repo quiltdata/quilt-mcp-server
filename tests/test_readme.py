@@ -18,18 +18,18 @@ from pathlib import Path
 def extract_bash_blocks(markdown_text):
     """Extract bash code blocks from markdown text."""
     blocks = []
-    lines = markdown_text.split('\n')
+    lines = markdown_text.split("\n")
 
     in_bash_block = False
     current_block = []
 
     for line in lines:
-        if line.strip() == '```bash':
+        if line.strip() == "```bash":
             in_bash_block = True
             current_block = []
-        elif line.strip() == '```' and in_bash_block:
+        elif line.strip() == "```" and in_bash_block:
             if current_block:
-                blocks.append('\n'.join(current_block))
+                blocks.append("\n".join(current_block))
             in_bash_block = False
         elif in_bash_block:
             current_block.append(line)
@@ -83,13 +83,17 @@ def test_readme_bash_syntax():
 
     for i, bash_code in enumerate(bash_blocks, 1):
         # Test bash syntax using 'bash -n' (parse without execute)
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False) as f:
             f.write(bash_code)
             script_path = f.name
 
         try:
-            result = subprocess.run(['bash', '-n', script_path], capture_output=True, text=True)
-            assert result.returncode == 0, f"Bash syntax error in block {i}: {result.stderr}"
+            result = subprocess.run(
+                ["bash", "-n", script_path], capture_output=True, text=True
+            )
+            assert (
+                result.returncode == 0
+            ), f"Bash syntax error in block {i}: {result.stderr}"
         finally:
             os.unlink(script_path)
 
@@ -123,7 +127,9 @@ def test_readme_commands_work():
 
         for cmd in test_commands:
             # Security: shell=True is safe here as commands are static and trusted test commands
-            result = subprocess.run(cmd, shell=True, cwd=temp_dir, capture_output=True, text=True)  # noqa: S602
+            result = subprocess.run(
+                cmd, shell=True, cwd=temp_dir, capture_output=True, text=True
+            )  # noqa: S602
             # Commands should not fail catastrophically
             assert result.returncode in [0, 1], f"Command failed unexpectedly: {cmd}"
 

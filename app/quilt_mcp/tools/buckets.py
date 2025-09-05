@@ -108,7 +108,9 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     }
 
 
-def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> dict[str, Any]:
+def bucket_object_text(
+    s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8"
+) -> dict[str, Any]:
     """Read text content from an S3 object.
 
     Args:
@@ -207,10 +209,17 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
         except Exception as e:
             results.append({"key": key, "error": str(e)})
     successes = sum(1 for r in results if "etag" in r)
-    return {"bucket": bkt, "requested": len(items), "uploaded": successes, "results": results}
+    return {
+        "bucket": bkt,
+        "requested": len(items),
+        "uploaded": successes,
+        "results": results,
+    }
 
 
-def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> dict[str, Any]:
+def bucket_object_fetch(
+    s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True
+) -> dict[str, Any]:
     """Fetch binary or text data from an S3 object.
 
     Args:
@@ -297,13 +306,26 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     expiration = max(1, min(expiration, 604800))
     client = boto3.client("s3")
     try:
-        url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
-        return {"bucket": bucket, "key": key, "presigned_url": url, "expires_in": expiration}
+        url = client.generate_presigned_url(
+            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration
+        )
+        return {
+            "bucket": bucket,
+            "key": key,
+            "presigned_url": url,
+            "expires_in": expiration,
+        }
     except Exception as e:
-        return {"error": f"Failed to generate presigned URL: {e}", "bucket": bucket, "key": key}
+        return {
+            "error": f"Failed to generate presigned URL: {e}",
+            "bucket": bucket,
+            "key": key,
+        }
 
 
-def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
+def bucket_objects_search(
+    bucket: str, query: str | dict, limit: int = 10
+) -> dict[str, Any]:
     """Search objects in a Quilt bucket using Elasticsearch query syntax.
 
     Args:

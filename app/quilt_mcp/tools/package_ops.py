@@ -183,24 +183,31 @@ def package_create(
     pkg = quilt3.Package()
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added:
-        return {"error": "No valid S3 objects were added to the package", "warnings": warnings}
+        return {
+            "error": "No valid S3 objects were added to the package",
+            "warnings": warnings,
+        }
     # Process metadata to ensure README content is handled correctly
     processed_metadata = metadata.copy() if metadata else {}
 
     # Extract README content from metadata and add as package file
     # readme_content takes priority if both fields exist
     readme_content = None
-    if 'readme_content' in processed_metadata:
-        readme_content = processed_metadata.pop('readme_content')
-        warnings.append("README content moved from metadata to package file (README.md)")
+    if "readme_content" in processed_metadata:
+        readme_content = processed_metadata.pop("readme_content")
+        warnings.append(
+            "README content moved from metadata to package file (README.md)"
+        )
 
-    elif 'readme' in processed_metadata:
-        readme_content = processed_metadata.pop('readme')
-        warnings.append("README content moved from metadata to package file (README.md)")
+    elif "readme" in processed_metadata:
+        readme_content = processed_metadata.pop("readme")
+        warnings.append(
+            "README content moved from metadata to package file (README.md)"
+        )
 
     # Remove any remaining README fields to avoid duplication
-    if 'readme' in processed_metadata:
-        processed_metadata.pop('readme')
+    if "readme" in processed_metadata:
+        processed_metadata.pop("readme")
         warnings.append("Removed duplicate 'readme' field from metadata")
 
     # Add README.md file if we extracted content
@@ -323,7 +330,9 @@ def package_update(
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+            existing_pkg = quilt3.Package.browse(
+                package_name, registry=normalized_registry
+            )
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",
@@ -382,7 +391,9 @@ def package_update(
     return result
 
 
-def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
+def package_delete(
+    package_name: str, registry: str = DEFAULT_REGISTRY
+) -> dict[str, Any]:
     """Delete a Quilt package from the registry.
 
     Args:

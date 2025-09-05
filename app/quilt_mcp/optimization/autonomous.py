@@ -15,7 +15,10 @@ import logging
 from datetime import datetime, timezone
 
 from .testing import OptimizationTester, TestResult
-from .scenarios import create_all_test_scenarios, create_optimization_challenge_scenarios
+from .scenarios import (
+    create_all_test_scenarios,
+    create_optimization_challenge_scenarios,
+)
 from ..telemetry.collector import get_telemetry_collector
 
 logger = logging.getLogger(__name__)
@@ -110,9 +113,9 @@ class AutonomousOptimizer:
         # Try to load from config file
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, "r") as f:
                     config_data = json.load(f)
-                    rules_data = config_data.get('optimization_rules', [])
+                    rules_data = config_data.get("optimization_rules", [])
 
                 loaded_rules = []
                 for rule_data in rules_data:
@@ -129,12 +132,12 @@ class AutonomousOptimizer:
         """Save optimization rules to configuration file."""
         try:
             config_data = {
-                'optimization_rules': [asdict(rule) for rule in self.rules],
-                'last_updated': datetime.now(timezone.utc).isoformat(),
+                "optimization_rules": [asdict(rule) for rule in self.rules],
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             }
 
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.config_path, 'w') as f:
+            with open(self.config_path, "w") as f:
                 json.dump(config_data, f, indent=2)
 
         except Exception as e:
@@ -155,7 +158,9 @@ class AutonomousOptimizer:
         # Calculate baseline metrics
         self.baseline_metrics = self._calculate_performance_metrics(baseline_results)
 
-        logger.info(f"Baseline assessment complete: {len(baseline_results)} scenarios tested")
+        logger.info(
+            f"Baseline assessment complete: {len(baseline_results)} scenarios tested"
+        )
         return self.baseline_metrics
 
     async def run_optimization_cycle(self) -> Dict[str, Any]:
@@ -184,30 +189,37 @@ class AutonomousOptimizer:
 
             # Rollback if performance degraded
             for optimization in applied_optimizations:
-                if improvements.get(optimization.rule_name, 0) < self.rollback_threshold:
+                if (
+                    improvements.get(optimization.rule_name, 0)
+                    < self.rollback_threshold
+                ):
                     await self._rollback_optimization(optimization)
 
         # Update current metrics
         self.current_metrics = self._calculate_current_metrics()
 
         cycle_result = {
-            'optimizations_applied': len(applied_optimizations),
-            'improvements': improvements if applied_optimizations else {},
-            'current_metrics': self.current_metrics,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            "optimizations_applied": len(applied_optimizations),
+            "improvements": improvements if applied_optimizations else {},
+            "current_metrics": self.current_metrics,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        logger.info(f"Optimization cycle complete: {len(applied_optimizations)} optimizations applied")
+        logger.info(
+            f"Optimization cycle complete: {len(applied_optimizations)} optimizations applied"
+        )
         return cycle_result
 
-    def _analyze_optimization_opportunities(self, telemetry_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _analyze_optimization_opportunities(
+        self, telemetry_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
         """Analyze telemetry data for optimization opportunities."""
         opportunities = []
 
         # Extract relevant metrics
-        tool_usage = telemetry_data.get('tool_usage', {})
-        avg_calls_per_session = telemetry_data.get('avg_calls_per_session', 0)
-        completion_rate = telemetry_data.get('completion_rate', 1.0)
+        tool_usage = telemetry_data.get("tool_usage", {})
+        avg_calls_per_session = telemetry_data.get("avg_calls_per_session", 0)
+        completion_rate = telemetry_data.get("completion_rate", 1.0)
 
         # Evaluate each optimization rule
         for rule in self.rules:
@@ -217,30 +229,34 @@ class AutonomousOptimizer:
             try:
                 # Create evaluation context
                 context = {
-                    'tool_counts': tool_usage,
-                    'avg_calls_per_session': avg_calls_per_session,
-                    'completion_rate': completion_rate,
-                    'total_sessions': telemetry_data.get('total_sessions', 0),
+                    "tool_counts": tool_usage,
+                    "avg_calls_per_session": avg_calls_per_session,
+                    "completion_rate": completion_rate,
+                    "total_sessions": telemetry_data.get("total_sessions", 0),
                 }
 
                 # Evaluate rule condition
-                # Security: eval() is safe here as it's sandboxed with no builtins and only evaluates 
+                # Security: eval() is safe here as it's sandboxed with no builtins and only evaluates
                 # trusted internal optimization rules, not user input
                 if eval(rule.condition, {"__builtins__": {}}, context):  # noqa: S307
-                    opportunities.append({'rule': rule, 'context': context, 'priority': rule.priority})
+                    opportunities.append(
+                        {"rule": rule, "context": context, "priority": rule.priority}
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to evaluate rule {rule.name}: {e}")
 
         # Sort by priority
-        opportunities.sort(key=lambda x: x['priority'], reverse=True)
+        opportunities.sort(key=lambda x: x["priority"], reverse=True)
 
         return opportunities
 
-    async def _apply_optimization(self, opportunity: Dict[str, Any]) -> Optional[OptimizationResult]:
+    async def _apply_optimization(
+        self, opportunity: Dict[str, Any]
+    ) -> Optional[OptimizationResult]:
         """Apply a specific optimization."""
-        rule = opportunity['rule']
-        context = opportunity['context']
+        rule = opportunity["rule"]
+        context = opportunity["context"]
 
         logger.info(f"Applying optimization: {rule.name}")
 
@@ -254,7 +270,7 @@ class AutonomousOptimizer:
                     rule_name=rule.name,
                     applied=True,
                     improvement=0.0,  # Will be calculated later
-                    details={'action': rule.action, 'context': context},
+                    details={"action": rule.action, "context": context},
                     timestamp=datetime.now(timezone.utc),
                 )
                 self.optimization_history.append(result)
@@ -268,7 +284,9 @@ class AutonomousOptimizer:
 
         return None
 
-    async def _execute_optimization_action(self, action: str, context: Dict[str, Any]) -> bool:
+    async def _execute_optimization_action(
+        self, action: str, context: Dict[str, Any]
+    ) -> bool:
         """Execute a specific optimization action."""
 
         if action == "cache_auth_status":
@@ -326,7 +344,9 @@ class AutonomousOptimizer:
         # Implementation would go here
         return True
 
-    def _calculate_performance_metrics(self, test_results: Dict[str, TestResult]) -> Dict[str, Any]:
+    def _calculate_performance_metrics(
+        self, test_results: Dict[str, TestResult]
+    ) -> Dict[str, Any]:
         """Calculate performance metrics from test results."""
         if not test_results:
             return {}
@@ -334,14 +354,17 @@ class AutonomousOptimizer:
         successful_results = [r for r in test_results.values() if r.success]
 
         if not successful_results:
-            return {'success_rate': 0.0}
+            return {"success_rate": 0.0}
 
         return {
-            'success_rate': len(successful_results) / len(test_results),
-            'avg_execution_time': sum(r.total_time for r in successful_results) / len(successful_results),
-            'avg_call_count': sum(r.total_calls for r in successful_results) / len(successful_results),
-            'avg_efficiency_score': sum(r.efficiency_score for r in successful_results) / len(successful_results),
-            'total_scenarios': len(test_results),
+            "success_rate": len(successful_results) / len(test_results),
+            "avg_execution_time": sum(r.total_time for r in successful_results)
+            / len(successful_results),
+            "avg_call_count": sum(r.total_calls for r in successful_results)
+            / len(successful_results),
+            "avg_efficiency_score": sum(r.efficiency_score for r in successful_results)
+            / len(successful_results),
+            "total_scenarios": len(test_results),
         }
 
     def _calculate_current_metrics(self) -> Dict[str, Any]:
@@ -352,9 +375,9 @@ class AutonomousOptimizer:
         """Evaluate improvements from optimization tests."""
         improvements = {}
 
-        if 'improvements' in test_results:
-            for scenario_name, improvement_data in test_results['improvements'].items():
-                improvement = improvement_data.get('improvement', 0.0)
+        if "improvements" in test_results:
+            for scenario_name, improvement_data in test_results["improvements"].items():
+                improvement = improvement_data.get("improvement", 0.0)
                 improvements[scenario_name] = improvement
 
         return improvements
@@ -377,7 +400,7 @@ class AutonomousOptimizer:
             rule_name=f"rollback_{optimization.rule_name}",
             applied=True,
             improvement=0.0,
-            details={'rollback_reason': 'performance_degradation'},
+            details={"rollback_reason": "performance_degradation"},
             timestamp=datetime.now(timezone.utc),
         )
         self.optimization_history.append(rollback_result)
@@ -408,12 +431,12 @@ class AutonomousOptimizer:
     def get_optimization_report(self) -> Dict[str, Any]:
         """Generate comprehensive optimization report."""
         return {
-            'baseline_metrics': self.baseline_metrics,
-            'current_metrics': self.current_metrics,
-            'optimization_rules': [asdict(rule) for rule in self.rules],
-            'optimization_history': [asdict(opt) for opt in self.optimization_history],
-            'performance_improvement': self._calculate_overall_improvement(),
-            'recommendations': self._generate_recommendations(),
+            "baseline_metrics": self.baseline_metrics,
+            "current_metrics": self.current_metrics,
+            "optimization_rules": [asdict(rule) for rule in self.rules],
+            "optimization_history": [asdict(opt) for opt in self.optimization_history],
+            "performance_improvement": self._calculate_overall_improvement(),
+            "recommendations": self._generate_recommendations(),
         }
 
     def _calculate_overall_improvement(self) -> Dict[str, float]:
@@ -423,12 +446,17 @@ class AutonomousOptimizer:
 
         improvements = {}
 
-        for metric in ['avg_execution_time', 'avg_call_count', 'success_rate', 'avg_efficiency_score']:
+        for metric in [
+            "avg_execution_time",
+            "avg_call_count",
+            "success_rate",
+            "avg_efficiency_score",
+        ]:
             baseline_value = self.baseline_metrics.get(metric, 0)
             current_value = self.current_metrics.get(metric, 0)
 
             if baseline_value > 0:
-                if metric in ['avg_execution_time', 'avg_call_count']:
+                if metric in ["avg_execution_time", "avg_call_count"]:
                     # Lower is better
                     improvement = (baseline_value - current_value) / baseline_value
                 else:
@@ -449,7 +477,9 @@ class AutonomousOptimizer:
             if total_attempts > 0:
                 success_rate = rule.success_count / total_attempts
                 if success_rate < 0.5:
-                    recommendations.append(f"Review rule '{rule.name}' - low success rate ({success_rate:.1%})")
+                    recommendations.append(
+                        f"Review rule '{rule.name}' - low success rate ({success_rate:.1%})"
+                    )
 
         # Analyze performance trends
         overall_improvement = self._calculate_overall_improvement()
@@ -482,17 +512,19 @@ class CursorAutonomousRunner:
 
         # Step 4: Save results
         results_file = Path("optimization_results.json")
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
         session_result = {
-            'baseline_metrics': baseline_metrics,
-            'optimization_results': optimization_results,
-            'report_file': str(results_file),
-            'summary': {
-                'optimizations_applied': optimization_results.get('optimizations_applied', 0),
-                'performance_improvement': report.get('performance_improvement', {}),
-                'recommendations': report.get('recommendations', []),
+            "baseline_metrics": baseline_metrics,
+            "optimization_results": optimization_results,
+            "report_file": str(results_file),
+            "summary": {
+                "optimizations_applied": optimization_results.get(
+                    "optimizations_applied", 0
+                ),
+                "performance_improvement": report.get("performance_improvement", {}),
+                "recommendations": report.get("recommendations", []),
             },
         }
 
@@ -575,4 +607,9 @@ if __name__ == "__main__":
 
 
 # Export main classes
-__all__ = ["AutonomousOptimizer", "CursorAutonomousRunner", "OptimizationRule", "OptimizationResult"]
+__all__ = [
+    "AutonomousOptimizer",
+    "CursorAutonomousRunner",
+    "OptimizationRule",
+    "OptimizationResult",
+]

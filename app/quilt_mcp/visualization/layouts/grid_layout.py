@@ -14,6 +14,8 @@ class GridLayout:
         """Initialize the grid layout manager."""
         pass
 
-    def optimize_layout(self, visualizations: List[Any], config: Dict[str, Any]) -> Dict[str, Any]:
+    def optimize_layout(
+        self, visualizations: List[Any], config: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Optimize the layout of visualizations."""
         return {"layout": "grid", "visualizations": len(visualizations)}

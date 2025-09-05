@@ -41,7 +41,10 @@ _workflows: Dict[str, Dict[str, Any]] = {}
 
 
 def workflow_create(
-    workflow_id: str, name: str, description: str = "", metadata: Optional[Dict[str, Any]] = None
+    workflow_id: str,
+    name: str,
+    description: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Create a new workflow for tracking multi-step operations.
@@ -132,7 +135,9 @@ def workflow_add_step(
         if dependencies:
             invalid_deps = set(dependencies) - existing_steps
             if invalid_deps:
-                return format_error_response(f"Invalid dependencies: {list(invalid_deps)}")
+                return format_error_response(
+                    f"Invalid dependencies: {list(invalid_deps)}"
+                )
 
         step = {
             "id": step_id,
@@ -157,7 +162,10 @@ def workflow_add_step(
             "workflow_id": workflow_id,
             "step_id": step_id,
             "step": step,
-            "workflow_summary": {"total_steps": workflow["total_steps"], "status": workflow["status"]},
+            "workflow_summary": {
+                "total_steps": workflow["total_steps"],
+                "status": workflow["status"],
+            },
             "message": f"Step '{step_id}' added to workflow '{workflow_id}'",
         }
 
@@ -218,22 +226,36 @@ def workflow_update_step(
         now = datetime.now(timezone.utc).isoformat()
         if new_status == StepStatus.IN_PROGRESS and not step["started_at"]:
             step["started_at"] = now
-        elif new_status in [StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED]:
+        elif new_status in [
+            StepStatus.COMPLETED,
+            StepStatus.FAILED,
+            StepStatus.SKIPPED,
+        ]:
             step["completed_at"] = now
 
         # Update workflow counters
-        workflow["completed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value)
-        workflow["failed_steps"] = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.FAILED.value)
+        workflow["completed_steps"] = sum(
+            1 for s in workflow["steps"] if s["status"] == StepStatus.COMPLETED.value
+        )
+        workflow["failed_steps"] = sum(
+            1 for s in workflow["steps"] if s["status"] == StepStatus.FAILED.value
+        )
         workflow["updated_at"] = now
 
         # Update workflow status if needed
-        if workflow["status"] == WorkflowStatus.CREATED.value and new_status == StepStatus.IN_PROGRESS:
+        if (
+            workflow["status"] == WorkflowStatus.CREATED.value
+            and new_status == StepStatus.IN_PROGRESS
+        ):
             workflow["status"] = WorkflowStatus.IN_PROGRESS.value
             workflow["started_at"] = now
         elif workflow["completed_steps"] == workflow["total_steps"]:
             workflow["status"] = WorkflowStatus.COMPLETED.value
             workflow["completed_at"] = now
-        elif workflow["failed_steps"] > 0 and workflow["status"] != WorkflowStatus.FAILED.value:
+        elif (
+            workflow["failed_steps"] > 0
+            and workflow["status"] != WorkflowStatus.FAILED.value
+        ):
             workflow["status"] = WorkflowStatus.FAILED.value
 
         # Add to execution log
@@ -256,7 +278,9 @@ def workflow_update_step(
                 "completed_steps": workflow["completed_steps"],
                 "total_steps": workflow["total_steps"],
                 "failed_steps": workflow["failed_steps"],
-                "percentage": round((workflow["completed_steps"] / workflow["total_steps"]) * 100, 1),
+                "percentage": round(
+                    (workflow["completed_steps"] / workflow["total_steps"]) * 100, 1
+                ),
             },
         }
 
@@ -285,8 +309,12 @@ def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
         total_steps = workflow["total_steps"]
         completed_steps = workflow["completed_steps"]
         failed_steps = workflow["failed_steps"]
-        in_progress_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.IN_PROGRESS.value)
-        pending_steps = sum(1 for s in workflow["steps"] if s["status"] == StepStatus.PENDING.value)
+        in_progress_steps = sum(
+            1 for s in workflow["steps"] if s["status"] == StepStatus.IN_PROGRESS.value
+        )
+        pending_steps = sum(
+            1 for s in workflow["steps"] if s["status"] == StepStatus.PENDING.value
+        )
 
         # Get next available steps (dependencies satisfied)
         next_steps = []
@@ -295,7 +323,11 @@ def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
                 # Check if all dependencies are completed
                 deps_completed = (
                     all(
-                        any(s["id"] == dep_id and s["status"] == StepStatus.COMPLETED.value for s in workflow["steps"])
+                        any(
+                            s["id"] == dep_id
+                            and s["status"] == StepStatus.COMPLETED.value
+                            for s in workflow["steps"]
+                        )
                         for dep_id in step["dependencies"]
                     )
                     if step["dependencies"]
@@ -314,7 +346,11 @@ def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
                 "failed_steps": failed_steps,
                 "in_progress_steps": in_progress_steps,
                 "pending_steps": pending_steps,
-                "percentage": round((completed_steps / total_steps) * 100, 1) if total_steps > 0 else 0,
+                "percentage": (
+                    round((completed_steps / total_steps) * 100, 1)
+                    if total_steps > 0
+                    else 0
+                ),
             },
             "next_available_steps": next_steps,
             "can_proceed": len(next_steps) > 0 and failed_steps == 0,
@@ -345,9 +381,15 @@ def workflow_list_all() -> Dict[str, Any]:
                 "progress": {
                     "completed_steps": workflow["completed_steps"],
                     "total_steps": workflow["total_steps"],
-                    "percentage": round((workflow["completed_steps"] / workflow["total_steps"]) * 100, 1)
-                    if workflow["total_steps"] > 0
-                    else 0,
+                    "percentage": (
+                        round(
+                            (workflow["completed_steps"] / workflow["total_steps"])
+                            * 100,
+                            1,
+                        )
+                        if workflow["total_steps"] > 0
+                        else 0
+                    ),
                 },
                 "created_at": workflow["created_at"],
                 "updated_at": workflow["updated_at"],
@@ -361,8 +403,14 @@ def workflow_list_all() -> Dict[str, Any]:
             "success": True,
             "workflows": workflows_summary,
             "total_workflows": len(workflows_summary),
-            "active_workflows": sum(1 for w in workflows_summary if w["status"] in ["created", "in_progress"]),
-            "completed_workflows": sum(1 for w in workflows_summary if w["status"] == "completed"),
+            "active_workflows": sum(
+                1
+                for w in workflows_summary
+                if w["status"] in ["created", "in_progress"]
+            ),
+            "completed_workflows": sum(
+                1 for w in workflows_summary if w["status"] == "completed"
+            ),
         }
 
     except Exception as e:
@@ -370,7 +418,9 @@ def workflow_list_all() -> Dict[str, Any]:
         return format_error_response(f"Failed to list workflows: {str(e)}")
 
 
-def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
+def workflow_template_apply(
+    template_name: str, workflow_id: str, params: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Apply a pre-defined workflow template.
 
@@ -393,7 +443,9 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
         ]
 
         if template_name not in available_templates:
-            return format_error_response(f"Unknown template '{template_name}'. Available: {available_templates}")
+            return format_error_response(
+                f"Unknown template '{template_name}'. Available: {available_templates}"
+            )
 
         # Create workflow from template using string-based dispatch
         if template_name == "cross-package-aggregation":
@@ -405,7 +457,9 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
         elif template_name == "data-validation":
             workflow_config = _create_validation_template(params)
         else:
-            return format_error_response(f"Template implementation not found: {template_name}")
+            return format_error_response(
+                f"Template implementation not found: {template_name}"
+            )
 
         # Create the workflow
         create_result = workflow_create(
@@ -454,7 +508,9 @@ def _get_workflow_recommendations(workflow: Dict[str, Any]) -> List[str]:
     recommendations = []
 
     if workflow["status"] == WorkflowStatus.CREATED.value:
-        recommendations.append("Start the workflow by updating the first step to 'in_progress'")
+        recommendations.append(
+            "Start the workflow by updating the first step to 'in_progress'"
+        )
     elif workflow["status"] == WorkflowStatus.IN_PROGRESS.value:
         if workflow["failed_steps"] > 0:
             recommendations.append("Address failed steps before proceeding")
@@ -463,7 +519,9 @@ def _get_workflow_recommendations(workflow: Dict[str, Any]) -> List[str]:
     elif workflow["status"] == WorkflowStatus.COMPLETED.value:
         recommendations.append("Workflow completed successfully - review results")
     elif workflow["status"] == WorkflowStatus.FAILED.value:
-        recommendations.append("Review failed steps and consider restarting or fixing issues")
+        recommendations.append(
+            "Review failed steps and consider restarting or fixing issues"
+        )
 
     return recommendations
 

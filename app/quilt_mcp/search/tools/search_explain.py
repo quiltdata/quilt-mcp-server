@@ -16,21 +16,45 @@ class SearchExplainer:
     def __init__(self):
         self.backend_characteristics = {
             BackendType.ELASTICSEARCH: {
-                "strengths": ["Fast full-text search", "Complex query DSL", "Relevance scoring"],
+                "strengths": [
+                    "Fast full-text search",
+                    "Complex query DSL",
+                    "Relevance scoring",
+                ],
                 "weaknesses": ["Requires indexing", "May not have all data"],
-                "best_for": ["File content search", "Package discovery", "Text matching"],
+                "best_for": [
+                    "File content search",
+                    "Package discovery",
+                    "Text matching",
+                ],
                 "typical_speed": "< 200ms",
             },
             BackendType.GRAPHQL: {
-                "strengths": ["Rich metadata", "Relationship queries", "Structured results"],
+                "strengths": [
+                    "Rich metadata",
+                    "Relationship queries",
+                    "Structured results",
+                ],
                 "weaknesses": ["Slower than ES", "Limited text search"],
-                "best_for": ["Package relationships", "Metadata queries", "Complex filters"],
+                "best_for": [
+                    "Package relationships",
+                    "Metadata queries",
+                    "Complex filters",
+                ],
                 "typical_speed": "< 1s",
             },
             BackendType.S3: {
-                "strengths": ["Always available", "No indexing required", "Direct S3 access"],
+                "strengths": [
+                    "Always available",
+                    "No indexing required",
+                    "Direct S3 access",
+                ],
                 "weaknesses": ["Slow for large buckets", "Limited query capabilities"],
-                "best_for": ["Fallback searches", "Simple prefix matching", "Basic enumeration"],
+                "best_for": [
+                    "Fallback searches",
+                    "Simple prefix matching",
+                    "Basic enumeration",
+                ],
                 "typical_speed": "< 5s",
             },
         }
@@ -59,7 +83,11 @@ class SearchExplainer:
         }
 
     def explain(
-        self, query: str, show_backends: bool = True, show_performance: bool = True, show_alternatives: bool = False
+        self,
+        query: str,
+        show_backends: bool = True,
+        show_performance: bool = True,
+        show_alternatives: bool = False,
     ) -> Dict[str, Any]:
         """Explain how a search query would be executed.
 
@@ -97,7 +125,9 @@ class SearchExplainer:
             explanation["alternative_queries"] = self._suggest_alternatives(analysis)
 
         # Add optimization suggestions
-        explanation["optimization_suggestions"] = self.optimization_suggestions.get(analysis.query_type, [])
+        explanation["optimization_suggestions"] = self.optimization_suggestions.get(
+            analysis.query_type, []
+        )
 
         return explanation
 
@@ -119,7 +149,9 @@ class SearchExplainer:
                 characteristics = self.backend_characteristics[backend_type]
 
                 explanation["selection_reasoning"][backend_name] = {
-                    "why_selected": self._get_selection_reason(analysis.query_type, backend_type),
+                    "why_selected": self._get_selection_reason(
+                        analysis.query_type, backend_type
+                    ),
                     "strengths": characteristics["strengths"],
                     "best_for": characteristics["best_for"],
                     "expected_speed": characteristics["typical_speed"],
@@ -173,13 +205,19 @@ class SearchExplainer:
 
         # Add scalability notes
         if len(analysis.keywords) > 5:
-            performance["scalability_notes"].append("Many keywords may slow down text search")
+            performance["scalability_notes"].append(
+                "Many keywords may slow down text search"
+            )
 
         if analysis.filters:
-            performance["scalability_notes"].append("Filters will improve performance by reducing result set")
+            performance["scalability_notes"].append(
+                "Filters will improve performance by reducing result set"
+            )
 
         if analysis.scope == SearchScope.GLOBAL:
-            performance["scalability_notes"].append("Global scope may be slower than targeted searches")
+            performance["scalability_notes"].append(
+                "Global scope may be slower than targeted searches"
+            )
 
         return performance
 
@@ -244,24 +282,60 @@ class SearchExplainer:
 
     def _get_base_time_estimate(self, backend_type: BackendType) -> int:
         """Get base time estimate in milliseconds for backend."""
-        estimates = {BackendType.ELASTICSEARCH: 100, BackendType.GRAPHQL: 500, BackendType.S3: 2000}
+        estimates = {
+            BackendType.ELASTICSEARCH: 100,
+            BackendType.GRAPHQL: 500,
+            BackendType.S3: 2000,
+        }
         return estimates.get(backend_type, 1000)
 
-    def _get_selection_reason(self, query_type: QueryType, backend_type: BackendType) -> str:
+    def _get_selection_reason(
+        self, query_type: QueryType, backend_type: BackendType
+    ) -> str:
         """Get reason why backend was selected for query type."""
         reasons = {
-            (QueryType.FILE_SEARCH, BackendType.ELASTICSEARCH): "Fast text search optimal for file discovery",
-            (QueryType.FILE_SEARCH, BackendType.GRAPHQL): "Provides rich file metadata and package context",
-            (QueryType.FILE_SEARCH, BackendType.S3): "Reliable fallback when search indices unavailable",
-            (QueryType.PACKAGE_DISCOVERY, BackendType.GRAPHQL): "Excellent for package metadata and relationships",
-            (QueryType.PACKAGE_DISCOVERY, BackendType.ELASTICSEARCH): "Good for package content search",
-            (QueryType.PACKAGE_DISCOVERY, BackendType.S3): "Basic package enumeration fallback",
-            (QueryType.ANALYTICAL_SEARCH, BackendType.ELASTICSEARCH): "Supports complex aggregations and analytics",
-            (QueryType.ANALYTICAL_SEARCH, BackendType.GRAPHQL): "Good for metadata-based analytics",
-            (QueryType.ANALYTICAL_SEARCH, BackendType.S3): "Limited analytics via client-side processing",
+            (
+                QueryType.FILE_SEARCH,
+                BackendType.ELASTICSEARCH,
+            ): "Fast text search optimal for file discovery",
+            (
+                QueryType.FILE_SEARCH,
+                BackendType.GRAPHQL,
+            ): "Provides rich file metadata and package context",
+            (
+                QueryType.FILE_SEARCH,
+                BackendType.S3,
+            ): "Reliable fallback when search indices unavailable",
+            (
+                QueryType.PACKAGE_DISCOVERY,
+                BackendType.GRAPHQL,
+            ): "Excellent for package metadata and relationships",
+            (
+                QueryType.PACKAGE_DISCOVERY,
+                BackendType.ELASTICSEARCH,
+            ): "Good for package content search",
+            (
+                QueryType.PACKAGE_DISCOVERY,
+                BackendType.S3,
+            ): "Basic package enumeration fallback",
+            (
+                QueryType.ANALYTICAL_SEARCH,
+                BackendType.ELASTICSEARCH,
+            ): "Supports complex aggregations and analytics",
+            (
+                QueryType.ANALYTICAL_SEARCH,
+                BackendType.GRAPHQL,
+            ): "Good for metadata-based analytics",
+            (
+                QueryType.ANALYTICAL_SEARCH,
+                BackendType.S3,
+            ): "Limited analytics via client-side processing",
         }
 
-        return reasons.get((query_type, backend_type), "Selected as part of comprehensive search strategy")
+        return reasons.get(
+            (query_type, backend_type),
+            "Selected as part of comprehensive search strategy",
+        )
 
     def _build_fallback_chain(self, query_type: QueryType) -> List[str]:
         """Build fallback chain for query type."""
@@ -289,7 +363,10 @@ def get_explainer() -> SearchExplainer:
 
 
 def search_explain(
-    query: str, show_backends: bool = True, show_performance: bool = True, show_alternatives: bool = False
+    query: str,
+    show_backends: bool = True,
+    show_performance: bool = True,
+    show_alternatives: bool = False,
 ) -> Dict[str, Any]:
     """
     Explain how a search query would be executed and optimized.
@@ -309,6 +386,12 @@ def search_explain(
     """
     try:
         explainer = get_explainer()
-        return explainer.explain(query, show_backends, show_performance, show_alternatives)
+        return explainer.explain(
+            query, show_backends, show_performance, show_alternatives
+        )
     except Exception as e:
-        return {"success": False, "error": f"Query explanation failed: {e}", "query": query}
+        return {
+            "success": False,
+            "error": f"Query explanation failed: {e}",
+            "query": query,
+        }

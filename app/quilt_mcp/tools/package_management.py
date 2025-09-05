@@ -16,7 +16,11 @@ from pathlib import Path
 
 from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
-from .metadata_templates import get_metadata_template, validate_metadata_structure, list_metadata_templates
+from .metadata_templates import (
+    get_metadata_template,
+    validate_metadata_structure,
+    list_metadata_templates,
+)
 from .package_ops import package_create as _base_package_create
 from .packages import package_browse
 
@@ -79,7 +83,11 @@ def create_package_enhanced(
                 "error": "Invalid package name format",
                 "provided": name,
                 "expected": "namespace/packagename format",
-                "examples": ["my-team/dataset", "genomics/study1", "analytics/q1-report"],
+                "examples": [
+                    "my-team/dataset",
+                    "genomics/study1",
+                    "analytics/q1-report",
+                ],
                 "tip": "Use lowercase letters, numbers, hyphens, and underscores only",
             }
 
@@ -109,7 +117,10 @@ def create_package_enhanced(
                 "error": "Invalid S3 URIs detected",
                 "invalid_uris": invalid_uris,
                 "expected": "S3 URIs in format s3://bucket/path/file.ext",
-                "examples": ["s3://my-bucket/data/file.csv", "s3://analytics/reports/q1.json"],
+                "examples": [
+                    "s3://my-bucket/data/file.csv",
+                    "s3://analytics/reports/q1.json",
+                ],
                 "tip": "Each URI must start with s3:// and include both bucket and object key",
             }
 
@@ -145,10 +156,10 @@ def create_package_enhanced(
                 # Extract README content from user metadata before merging
                 # readme_content takes priority if both fields exist
                 readme_content = None
-                if 'readme_content' in metadata:
-                    readme_content = metadata.pop('readme_content')
-                elif 'readme' in metadata:
-                    readme_content = metadata.pop('readme')
+                if "readme_content" in metadata:
+                    readme_content = metadata.pop("readme_content")
+                elif "readme" in metadata:
+                    readme_content = metadata.pop("readme")
 
                 # Merge the cleaned metadata
                 template_metadata.update(metadata)
@@ -158,7 +169,9 @@ def create_package_enhanced(
                     template_metadata["_extracted_readme"] = readme_content
 
             # Validate final metadata
-            validation_result = validate_metadata_structure(template_metadata, metadata_template)
+            validation_result = validate_metadata_structure(
+                template_metadata, metadata_template
+            )
             if not validation_result["valid"]:
                 return {
                     "success": False,
@@ -203,8 +216,12 @@ def create_package_enhanced(
                 "metadata_preview": template_metadata,
                 "validation": validation_result,
                 "summary_files_preview": {
-                    "quilt_summarize.json": summary_preview.get("summary_package", {}).get("quilt_summarize.json", {}),
-                    "visualizations": summary_preview.get("summary_package", {}).get("visualizations", {}),
+                    "quilt_summarize.json": summary_preview.get(
+                        "summary_package", {}
+                    ).get("quilt_summarize.json", {}),
+                    "visualizations": summary_preview.get("summary_package", {}).get(
+                        "visualizations", {}
+                    ),
                     "files_generated": summary_preview.get("files_generated", {}),
                 },
                 "next_steps": [
@@ -220,11 +237,15 @@ def create_package_enhanced(
             from .permissions import bucket_recommendations_get
 
             try:
-                recommendations = bucket_recommendations_get(operation_type="package_creation")
-                if recommendations.get("success") and recommendations.get("recommendations", {}).get(
-                    "primary_recommendations"
-                ):
-                    top_rec = recommendations["recommendations"]["primary_recommendations"][0]
+                recommendations = bucket_recommendations_get(
+                    operation_type="package_creation"
+                )
+                if recommendations.get("success") and recommendations.get(
+                    "recommendations", {}
+                ).get("primary_recommendations"):
+                    top_rec = recommendations["recommendations"][
+                        "primary_recommendations"
+                    ][0]
                     registry = f"s3://{top_rec['bucket_name']}"
                     logger.info(f"Auto-selected registry: {registry}")
                 else:
@@ -239,9 +260,11 @@ def create_package_enhanced(
                 s3_uris=files,
                 registry=registry,
                 metadata=template_metadata,
-                message=f"Created via enhanced package creation: {description}"
-                if description
-                else "Created via enhanced package creation",
+                message=(
+                    f"Created via enhanced package creation: {description}"
+                    if description
+                    else "Created via enhanced package creation"
+                ),
                 copy_mode=copy_mode,
             )
 
@@ -283,7 +306,10 @@ def create_package_enhanced(
                                 "Try: test_permissions() to diagnose specific issues",
                                 "Try: aws_permissions_discover() to see all your bucket access",
                             ],
-                            "debug_info": {"aws_error": error_msg, "operation": "package_creation"},
+                            "debug_info": {
+                                "aws_error": error_msg,
+                                "operation": "package_creation",
+                            },
                         }
                     )
 
@@ -306,7 +332,10 @@ def create_package_enhanced(
                     "Try with dry_run=True to validate inputs first",
                     "Try: bucket_recommendations_get() for alternative registries",
                 ],
-                "debug_info": {"error_type": type(e).__name__, "operation": "package_creation"},
+                "debug_info": {
+                    "error_type": type(e).__name__,
+                    "operation": "package_creation",
+                },
             }
 
     except Exception as e:
@@ -315,7 +344,10 @@ def create_package_enhanced(
 
 
 def package_update_metadata(
-    package_name: str, metadata: Any, registry: str = None, merge_with_existing: bool = True
+    package_name: str,
+    metadata: Any,
+    registry: str = None,
+    merge_with_existing: bool = True,
 ) -> Dict[str, Any]:
     """
     Update or replace metadata for an existing package.
@@ -352,7 +384,11 @@ def package_update_metadata(
         # Validate metadata structure
         validation_result = validate_metadata_structure(metadata)
         if not validation_result["valid"]:
-            return {"success": False, "error": "Metadata validation failed", "validation_result": validation_result}
+            return {
+                "success": False,
+                "error": "Metadata validation failed",
+                "validation_result": validation_result,
+            }
 
         # Implementation: Update package metadata
         try:
@@ -373,7 +409,7 @@ def package_update_metadata(
             # Get current metadata
             current_metadata = {}
             try:
-                current_metadata = dict(pkg.meta) if hasattr(pkg, 'meta') else {}
+                current_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else {}
             except Exception:
                 current_metadata = {}
 
@@ -394,7 +430,9 @@ def package_update_metadata(
             from ..utils import suppress_stdout
 
             with suppress_stdout():
-                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
+                top_hash = pkg.push(
+                    package_name, registry=registry, message=commit_message, force=True
+                )
 
             return {
                 "success": True,
@@ -429,14 +467,19 @@ def package_update_metadata(
                     "Try: test_permissions() to check bucket access",
                     "Try: validate_metadata_structure() to check metadata format",
                 ],
-                "debug_info": {"error_type": type(e).__name__, "operation": "metadata_update"},
+                "debug_info": {
+                    "error_type": type(e).__name__,
+                    "operation": "metadata_update",
+                },
             }
 
     except Exception as e:
         return format_error_response(f"Metadata update failed: {str(e)}")
 
 
-def _validate_package_alternative(package_name: str, registry: str, browse_error: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_package_alternative(
+    package_name: str, registry: str, browse_error: Dict[str, Any]
+) -> Dict[str, Any]:
     """Alternative validation approach when package browsing fails."""
     try:
         # Try to check if package exists using search
@@ -456,8 +499,12 @@ def _validate_package_alternative(package_name: str, registry: str, browse_error
                     "total_files": "unknown",
                     "accessible_files": "unknown",
                     "inaccessible_files": "unknown",
-                    "errors": [f"Package browsing failed: {browse_error.get('error', 'Unknown error')}"],
-                    "warnings": ["Could not validate individual files due to browsing failure"],
+                    "errors": [
+                        f"Package browsing failed: {browse_error.get('error', 'Unknown error')}"
+                    ],
+                    "warnings": [
+                        "Could not validate individual files due to browsing failure"
+                    ],
                 },
                 "summary": {
                     "package_exists": True,
@@ -478,7 +525,9 @@ def _validate_package_alternative(package_name: str, registry: str, browse_error
                 "error": "Cannot validate package - browsing failed",
                 "browse_error": browse_error.get("error"),
                 "search_attempted": True,
-                "search_result": search_result.get("error", "Package not found in search"),
+                "search_result": search_result.get(
+                    "error", "Package not found in search"
+                ),
                 "suggested_fixes": [
                     "Verify the package name is correct",
                     "Check if you have access to the registry",
@@ -500,7 +549,10 @@ def _validate_package_alternative(package_name: str, registry: str, browse_error
 
 
 def package_validate(
-    package_name: str, registry: str = None, check_integrity: bool = True, check_accessibility: bool = True
+    package_name: str,
+    registry: str = None,
+    check_integrity: bool = True,
+    check_accessibility: bool = True,
 ) -> Dict[str, Any]:
     """
     Validate package integrity and accessibility.
@@ -525,7 +577,9 @@ def package_validate(
 
         if not browse_result.get("success"):
             # Try alternative validation approach if browsing fails
-            return _validate_package_alternative(package_name, target_registry, browse_result)
+            return _validate_package_alternative(
+                package_name, target_registry, browse_result
+            )
 
         entries = browse_result.get("entries", [])
         validation_results = {
@@ -545,7 +599,9 @@ def package_validate(
                 else:
                     validation_results["inaccessible_files"] += 1
                     if entry.get("error"):
-                        validation_results["errors"].append(f"File {entry['logical_key']}: {entry['error']}")
+                        validation_results["errors"].append(
+                            f"File {entry['logical_key']}: {entry['error']}"
+                        )
 
         # Generate validation summary
         if validation_results["inaccessible_files"] > 0:
@@ -560,9 +616,11 @@ def package_validate(
             "validation": validation_results,
             "summary": browse_result.get("summary", {}),
             "recommendations": [
-                "Package appears healthy"
-                if validation_results["inaccessible_files"] == 0
-                else "Some files have access issues - check permissions",
+                (
+                    "Package appears healthy"
+                    if validation_results["inaccessible_files"] == 0
+                    else "Some files have access issues - check permissions"
+                ),
                 f"Browse full contents with: package_browse('{package_name}')",
                 f"Search within package: package_contents_search('{package_name}', 'term')",
             ],
@@ -619,8 +677,14 @@ def list_package_tools() -> Dict[str, Any]:
                 "description": "Show available metadata templates",
                 "example": "list_metadata_templates()",
             },
-            "packages_list": {"description": "List packages in registry", "example": 'packages_list(prefix="team/")'},
-            "packages_search": {"description": "Search packages by content", "example": 'packages_search("genomics")'},
+            "packages_list": {
+                "description": "List packages in registry",
+                "example": 'packages_list(prefix="team/")',
+            },
+            "packages_search": {
+                "description": "Search packages by content",
+                "example": 'packages_search("genomics")',
+            },
         },
         "workflow_guide": {
             "new_package": [

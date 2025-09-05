@@ -54,7 +54,13 @@ class SearchSuggestionEngine:
 
         # Domain-specific suggestions
         self.domain_suggestions = {
-            "genomics": ["BAM files", "VCF files", "FASTQ files", "GFF files", "RNA-seq data"],
+            "genomics": [
+                "BAM files",
+                "VCF files",
+                "FASTQ files",
+                "GFF files",
+                "RNA-seq data",
+            ],
             "ml": ["model files", "training data", "test datasets", "feature files"],
             "analytics": ["dashboard data", "reports", "metrics", "KPI data"],
             "imaging": ["TIFF files", "microscopy data", "image analysis results"],
@@ -71,7 +77,11 @@ class SearchSuggestionEngine:
         }
 
     def suggest(
-        self, partial_query: str, context: str = "", suggestion_types: List[str] = None, limit: int = 10
+        self,
+        partial_query: str,
+        context: str = "",
+        suggestion_types: List[str] = None,
+        limit: int = 10,
     ) -> Dict[str, Any]:
         """Generate search suggestions for partial query.
 
@@ -97,23 +107,33 @@ class SearchSuggestionEngine:
 
         # Generate query completions
         if "auto" in suggestion_types or "queries" in suggestion_types:
-            suggestions["query_completions"] = self._generate_query_completions(partial_lower, limit)
+            suggestions["query_completions"] = self._generate_query_completions(
+                partial_lower, limit
+            )
 
         # Generate related queries based on detected intent
         if "auto" in suggestion_types or "related" in suggestion_types:
-            suggestions["related_queries"] = self._generate_related_queries(partial_lower, limit)
+            suggestions["related_queries"] = self._generate_related_queries(
+                partial_lower, limit
+            )
 
         # Generate domain-specific suggestions
         if "auto" in suggestion_types or "domain" in suggestion_types:
-            suggestions["domain_suggestions"] = self._generate_domain_suggestions(partial_lower, limit)
+            suggestions["domain_suggestions"] = self._generate_domain_suggestions(
+                partial_lower, limit
+            )
 
         # Generate file type suggestions
         if "auto" in suggestion_types or "files" in suggestion_types:
-            suggestions["file_type_suggestions"] = self._generate_file_type_suggestions(partial_lower, limit)
+            suggestions["file_type_suggestions"] = self._generate_file_type_suggestions(
+                partial_lower, limit
+            )
 
         # Generate context-aware suggestions
         if context and ("auto" in suggestion_types or "context" in suggestion_types):
-            suggestions["context_suggestions"] = self._generate_context_suggestions(partial_lower, context, limit)
+            suggestions["context_suggestions"] = self._generate_context_suggestions(
+                partial_lower, context, limit
+            )
 
         return {
             "partial_query": partial_query,
@@ -122,7 +142,9 @@ class SearchSuggestionEngine:
             "total_suggestions": sum(len(s) for s in suggestions.values()),
         }
 
-    def _generate_query_completions(self, partial: str, limit: int) -> List[Dict[str, Any]]:
+    def _generate_query_completions(
+        self, partial: str, limit: int
+    ) -> List[Dict[str, Any]]:
         """Generate direct query completions."""
         completions = []
 
@@ -134,7 +156,9 @@ class SearchSuggestionEngine:
                         {
                             "completion": pattern,
                             "category": category,
-                            "confidence": self._calculate_completion_confidence(partial, pattern),
+                            "confidence": self._calculate_completion_confidence(
+                                partial, pattern
+                            ),
                         }
                     )
 
@@ -142,7 +166,9 @@ class SearchSuggestionEngine:
         completions.sort(key=lambda x: x["confidence"], reverse=True)
         return completions[:limit]
 
-    def _generate_related_queries(self, partial: str, limit: int) -> List[Dict[str, Any]]:
+    def _generate_related_queries(
+        self, partial: str, limit: int
+    ) -> List[Dict[str, Any]]:
         """Generate related query suggestions."""
         # Analyze partial query to understand intent
         try:
@@ -152,7 +178,9 @@ class SearchSuggestionEngine:
             query_type = QueryType.FILE_SEARCH
 
         # Get suggestions for the detected query type
-        related_patterns = self.query_patterns.get(query_type.value.replace('_search', ''), [])
+        related_patterns = self.query_patterns.get(
+            query_type.value.replace("_search", ""), []
+        )
 
         related = []
         for pattern in related_patterns[:limit]:
@@ -167,18 +195,26 @@ class SearchSuggestionEngine:
 
         return related
 
-    def _generate_domain_suggestions(self, partial: str, limit: int) -> List[Dict[str, Any]]:
+    def _generate_domain_suggestions(
+        self, partial: str, limit: int
+    ) -> List[Dict[str, Any]]:
         """Generate domain-specific suggestions."""
         suggestions = []
 
         for domain, domain_queries in self.domain_suggestions.items():
-            if domain in partial or any(keyword in partial for keyword in domain_queries):
-                for suggestion in domain_queries[: limit // len(self.domain_suggestions)]:
+            if domain in partial or any(
+                keyword in partial for keyword in domain_queries
+            ):
+                for suggestion in domain_queries[
+                    : limit // len(self.domain_suggestions)
+                ]:
                     suggestions.append(
                         {
                             "suggestion": suggestion,
                             "domain": domain,
-                            "relevance": self._calculate_domain_relevance(partial, suggestion, domain),
+                            "relevance": self._calculate_domain_relevance(
+                                partial, suggestion, domain
+                            ),
                         }
                     )
 
@@ -186,44 +222,76 @@ class SearchSuggestionEngine:
         suggestions.sort(key=lambda x: x["relevance"], reverse=True)
         return suggestions[:limit]
 
-    def _generate_file_type_suggestions(self, partial: str, limit: int) -> List[Dict[str, Any]]:
+    def _generate_file_type_suggestions(
+        self, partial: str, limit: int
+    ) -> List[Dict[str, Any]]:
         """Generate file type-specific suggestions."""
         suggestions = []
 
         # Look for file extensions in the partial query
-        file_ext_matches = re.findall(r'\b([a-z]{2,5})\b', partial)
+        file_ext_matches = re.findall(r"\b([a-z]{2,5})\b", partial)
 
         for ext in file_ext_matches:
             if ext in self.file_type_suggestions:
                 for suggestion in self.file_type_suggestions[ext]:
-                    suggestions.append({"suggestion": suggestion, "file_type": ext, "relevance": 0.8})
+                    suggestions.append(
+                        {"suggestion": suggestion, "file_type": ext, "relevance": 0.8}
+                    )
 
         # Also suggest based on partial matches
         for file_type, type_suggestions in self.file_type_suggestions.items():
             if file_type in partial:
                 for suggestion in type_suggestions:
                     if suggestion not in [s["suggestion"] for s in suggestions]:
-                        suggestions.append({"suggestion": suggestion, "file_type": file_type, "relevance": 0.6})
+                        suggestions.append(
+                            {
+                                "suggestion": suggestion,
+                                "file_type": file_type,
+                                "relevance": 0.6,
+                            }
+                        )
 
         return suggestions[:limit]
 
-    def _generate_context_suggestions(self, partial: str, context: str, limit: int) -> List[Dict[str, Any]]:
+    def _generate_context_suggestions(
+        self, partial: str, context: str, limit: int
+    ) -> List[Dict[str, Any]]:
         """Generate context-aware suggestions."""
         suggestions = []
 
         if "/" in context:  # Package context
             suggestions.extend(
                 [
-                    {"suggestion": f"files in {context}", "context_type": "package", "relevance": 0.9},
-                    {"suggestion": f"README files in {context}", "context_type": "package", "relevance": 0.8},
-                    {"suggestion": f"data files in {context}", "context_type": "package", "relevance": 0.7},
+                    {
+                        "suggestion": f"files in {context}",
+                        "context_type": "package",
+                        "relevance": 0.9,
+                    },
+                    {
+                        "suggestion": f"README files in {context}",
+                        "context_type": "package",
+                        "relevance": 0.8,
+                    },
+                    {
+                        "suggestion": f"data files in {context}",
+                        "context_type": "package",
+                        "relevance": 0.7,
+                    },
                 ]
             )
         else:  # Bucket context
             suggestions.extend(
                 [
-                    {"suggestion": f"files in bucket {context}", "context_type": "bucket", "relevance": 0.9},
-                    {"suggestion": f"packages in {context}", "context_type": "bucket", "relevance": 0.8},
+                    {
+                        "suggestion": f"files in bucket {context}",
+                        "context_type": "bucket",
+                        "relevance": 0.9,
+                    },
+                    {
+                        "suggestion": f"packages in {context}",
+                        "context_type": "bucket",
+                        "relevance": 0.8,
+                    },
                 ]
             )
 
@@ -244,7 +312,9 @@ class SearchSuggestionEngine:
         overlap = len(words_partial.intersection(words_pattern))
         return min(overlap / len(words_partial), 1.0)
 
-    def _calculate_domain_relevance(self, partial: str, suggestion: str, domain: str) -> float:
+    def _calculate_domain_relevance(
+        self, partial: str, suggestion: str, domain: str
+    ) -> float:
         """Calculate relevance score for domain suggestions."""
         base_score = 0.5
 
@@ -276,7 +346,10 @@ def get_suggestion_engine() -> SearchSuggestionEngine:
 
 
 def search_suggest(
-    partial_query: str, context: str = "", suggestion_types: List[str] = None, limit: int = 10
+    partial_query: str,
+    context: str = "",
+    suggestion_types: List[str] = None,
+    limit: int = 10,
 ) -> Dict[str, Any]:
     """
     Provide intelligent search suggestions and query completion.

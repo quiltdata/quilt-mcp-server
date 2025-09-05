@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 
 class LLMMCPTester:
@@ -42,7 +42,9 @@ class LLMMCPTester:
         }
 
         # Create temporary config file
-        config_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        )
         json.dump(config, config_file, indent=2)
         config_file.close()
 
@@ -70,7 +72,9 @@ class LLMMCPTester:
                 print("✅ MCP server started successfully")
                 return True
             else:
-                print(f"❌ MCP server failed to start (exit code: {self.mcp_server_process.returncode})")
+                print(
+                    f"❌ MCP server failed to start (exit code: {self.mcp_server_process.returncode})"
+                )
                 return False
 
         except Exception as e:
@@ -123,7 +127,9 @@ class LLMMCPTester:
         success = "result" in response and not response.get("error")
 
         if success:
-            print(f"   ✅ Handshake successful: {round((end_time - start_time) * 1000, 2)}ms")
+            print(
+                f"   ✅ Handshake successful: {round((end_time - start_time) * 1000, 2)}ms"
+            )
             capabilities = response.get("result", {}).get("capabilities", {})
             print(f"   ✅ Server capabilities: {list(capabilities.keys())}")
         else:
@@ -141,7 +147,12 @@ class LLMMCPTester:
 
         start_time = time.time()
 
-        list_tools_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+        list_tools_request = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {},
+        }
 
         response = await self.send_mcp_request(list_tools_request)
         end_time = time.time()
@@ -150,7 +161,9 @@ class LLMMCPTester:
 
         if success:
             tools = response["result"]["tools"]
-            print(f"   ✅ Found {len(tools)} tools: {round((end_time - start_time) * 1000, 2)}ms")
+            print(
+                f"   ✅ Found {len(tools)} tools: {round((end_time - start_time) * 1000, 2)}ms"
+            )
 
             # Show sample tools
             sample_tools = [tool["name"] for tool in tools[:5]]
@@ -158,21 +171,31 @@ class LLMMCPTester:
 
             # Check for key tools
             tool_names = [tool["name"] for tool in tools]
-            key_tools = ["mcp_quilt_auth_status", "mcp_quilt_packages_search", "unified_search"]
+            key_tools = [
+                "mcp_quilt_auth_status",
+                "mcp_quilt_packages_search",
+                "unified_search",
+            ]
             found_key_tools = [tool for tool in key_tools if tool in tool_names]
             print(f"   ✅ Key tools found: {found_key_tools}")
 
         else:
-            print(f"   ❌ Tool listing failed: {response.get('error', 'Unknown error')}")
+            print(
+                f"   ❌ Tool listing failed: {response.get('error', 'Unknown error')}"
+            )
 
         return {
             "success": success,
             "response": response,
             "execution_time_ms": round((end_time - start_time) * 1000, 2),
-            "tools_count": len(response.get("result", {}).get("tools", [])) if success else 0,
+            "tools_count": (
+                len(response.get("result", {}).get("tools", [])) if success else 0
+            ),
         }
 
-    async def test_tool_call(self, tool_name: str, arguments: Dict[str, Any], request_id: int = 3) -> Dict[str, Any]:
+    async def test_tool_call(
+        self, tool_name: str, arguments: Dict[str, Any], request_id: int = 3
+    ) -> Dict[str, Any]:
         """Test calling a specific tool"""
         print(f"   Testing {tool_name}...")
 
@@ -199,7 +222,7 @@ class LLMMCPTester:
                 content = result["content"]
                 if isinstance(content, list) and len(content) > 0:
                     first_content = content[0]
-                    if hasattr(first_content, 'text'):
+                    if hasattr(first_content, "text"):
                         try:
                             parsed = json.loads(first_content.text)
                             if "success" in parsed:
@@ -250,13 +273,24 @@ class LLMMCPTester:
         # Test search functions
         search_tests = [
             ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
-            ("mcp_quilt_bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}),
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+            ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
 
         # Test unified search if available
         search_tests.append(
-            ("unified_search", {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True})
+            (
+                "unified_search",
+                {
+                    "query": "CSV files",
+                    "scope": "catalog",
+                    "limit": 3,
+                    "explain_query": True,
+                },
+            )
         )
 
         request_id = 20
@@ -275,9 +309,15 @@ class LLMMCPTester:
 
         # Test error cases
         error_tests = [
-            ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid parameters
+            (
+                "mcp_quilt_packages_search",
+                {"query": "", "limit": -1},
+            ),  # Invalid parameters
             ("nonexistent_tool", {"any": "args"}),  # Nonexistent tool
-            ("mcp_quilt_bucket_objects_search", {"bucket": "invalid-bucket"}),  # Invalid bucket
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "invalid-bucket"},
+            ),  # Invalid bucket
         ]
 
         request_id = 30
@@ -311,7 +351,9 @@ class LLMMCPTester:
         start_time = time.time()
 
         for i in range(5):
-            task = self.test_tool_call(test_tool, {**test_args, "call_id": str(i)}, 40 + i)
+            task = self.test_tool_call(
+                test_tool, {**test_args, "call_id": str(i)}, 40 + i
+            )
             concurrent_tasks.append(task)
 
         results = await asyncio.gather(*concurrent_tasks)
@@ -355,7 +397,10 @@ class LLMMCPTester:
             return {"error": "Failed to start MCP server"}
 
         try:
-            test_results = {"timestamp": time.time(), "test_type": "LLM-MCP Integration"}
+            test_results = {
+                "timestamp": time.time(),
+                "test_type": "LLM-MCP Integration",
+            }
 
             # Run protocol tests
             test_results["handshake"] = await self.test_mcp_handshake()
@@ -363,7 +408,9 @@ class LLMMCPTester:
 
             # Run functionality tests
             test_results["basic_functionality"] = await self.test_basic_functionality()
-            test_results["search_functionality"] = await self.test_search_functionality()
+            test_results["search_functionality"] = (
+                await self.test_search_functionality()
+            )
             test_results["error_handling"] = await self.test_error_handling()
             test_results["performance"] = await self.test_performance()
 
@@ -428,13 +475,17 @@ async def main():
 
         # Overall assessment
         protocol_ok = handshake_success and tools_count > 0
-        functionality_ok = (successful_basic + successful_search) >= (total_basic + total_search) * 0.7
+        functionality_ok = (successful_basic + successful_search) >= (
+            total_basic + total_search
+        ) * 0.7
         performance_ok = successful_perf >= 4 and avg_time < 1000
 
         total_categories = 3
         passed_categories = sum([protocol_ok, functionality_ok, performance_ok])
 
-        print(f"\n🎯 Overall Assessment: {passed_categories}/{total_categories} categories passed")
+        print(
+            f"\n🎯 Overall Assessment: {passed_categories}/{total_categories} categories passed"
+        )
 
         if passed_categories == total_categories:
             print("✅ EXCELLENT - MCP server integration is working perfectly!")

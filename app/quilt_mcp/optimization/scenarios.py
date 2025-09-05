@@ -22,7 +22,11 @@ def create_package_creation_scenarios() -> List[TestScenario]:
         expected_total_time=15.0,
         expected_call_count=4,
         steps=[
-            TestStep(tool_name="auth_status", args={}, description="Check authentication status"),
+            TestStep(
+                tool_name="auth_status",
+                args={},
+                description="Check authentication status",
+            ),
             TestStep(
                 tool_name="bucket_objects_list",
                 args={"bucket": "s3://quilt-sandbox-bucket", "max_keys": 10},
@@ -56,10 +60,18 @@ def create_package_creation_scenarios() -> List[TestScenario]:
         expected_total_time=30.0,
         expected_call_count=5,
         steps=[
-            TestStep(tool_name="auth_status", args={}, description="Check authentication status"),
+            TestStep(
+                tool_name="auth_status",
+                args={},
+                description="Check authentication status",
+            ),
             TestStep(
                 tool_name="bucket_objects_list",
-                args={"bucket": "s3://quilt-sandbox-bucket", "prefix": "data/", "max_keys": 100},
+                args={
+                    "bucket": "s3://quilt-sandbox-bucket",
+                    "prefix": "data/",
+                    "max_keys": 100,
+                },
                 description="List files in data directory",
             ),
             TestStep(
@@ -104,7 +116,11 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
         expected_total_time=10.0,
         expected_call_count=4,
         steps=[
-            TestStep(tool_name="packages_list", args={"limit": 20}, description="List available packages"),
+            TestStep(
+                tool_name="packages_list",
+                args={"limit": 20},
+                description="List available packages",
+            ),
             TestStep(
                 tool_name="packages_search",
                 args={"query": "dataset", "limit": 10},
@@ -171,8 +187,16 @@ def create_athena_querying_scenarios() -> List[TestScenario]:
         expected_total_time=20.0,
         expected_call_count=5,
         steps=[
-            TestStep(tool_name="athena_workgroups_list", args={}, description="List available workgroups"),
-            TestStep(tool_name="athena_databases_list", args={}, description="List available databases"),
+            TestStep(
+                tool_name="athena_workgroups_list",
+                args={},
+                description="List available workgroups",
+            ),
+            TestStep(
+                tool_name="athena_databases_list",
+                args={},
+                description="List available databases",
+            ),
             TestStep(
                 tool_name="athena_tables_list",
                 args={"database_name": "default"},
@@ -185,7 +209,10 @@ def create_athena_querying_scenarios() -> List[TestScenario]:
             ),
             TestStep(
                 tool_name="athena_query_execute",
-                args={"query": "SELECT * FROM default.sample_table LIMIT 10", "max_results": 10},
+                args={
+                    "query": "SELECT * FROM default.sample_table LIMIT 10",
+                    "max_results": 10,
+                },
                 description="Execute sample query",
             ),
         ],
@@ -215,7 +242,11 @@ def create_permission_discovery_scenarios() -> List[TestScenario]:
                 args={"include_cross_account": False},
                 description="Discover AWS permissions",
             ),
-            TestStep(tool_name="list_available_resources", args={}, description="List available resources"),
+            TestStep(
+                tool_name="list_available_resources",
+                args={},
+                description="List available resources",
+            ),
             TestStep(
                 tool_name="bucket_access_check",
                 args={"bucket_name": "quilt-sandbox-bucket"},
@@ -227,7 +258,11 @@ def create_permission_discovery_scenarios() -> List[TestScenario]:
                 description="Get bucket recommendations",
             ),
         ],
-        success_criteria=["permissions_discovered", "access_verified", "recommendations_provided"],
+        success_criteria=[
+            "permissions_discovered",
+            "access_verified",
+            "recommendations_provided",
+        ],
         tags=["permissions", "security", "access_control"],
     )
     scenarios.append(permission_scenario)
@@ -248,7 +283,11 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
         expected_total_time=12.0,
         expected_call_count=5,
         steps=[
-            TestStep(tool_name="list_metadata_templates", args={}, description="List available metadata templates"),
+            TestStep(
+                tool_name="list_metadata_templates",
+                args={},
+                description="List available metadata templates",
+            ),
             TestStep(
                 tool_name="get_metadata_template",
                 args={"template_name": "genomics"},
@@ -275,7 +314,11 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
                 },
                 description="Validate metadata structure",
             ),
-            TestStep(tool_name="show_metadata_examples", args={}, description="Show metadata usage examples"),
+            TestStep(
+                tool_name="show_metadata_examples",
+                args={},
+                description="Show metadata usage examples",
+            ),
         ],
         success_criteria=["templates_listed", "metadata_created", "validation_passed"],
         tags=["metadata", "templates", "validation"],
@@ -298,12 +341,26 @@ def create_governance_admin_scenarios() -> List[TestScenario]:
         expected_total_time=18.0,
         expected_call_count=4,
         steps=[
-            TestStep(tool_name="governance_users_list", args={"limit": 20}, description="List catalog users"),
-            TestStep(tool_name="governance_roles_list", args={}, description="List available roles"),
             TestStep(
-                tool_name="governance_user_info", args={"username": "test-user"}, description="Get user information"
+                tool_name="governance_users_list",
+                args={"limit": 20},
+                description="List catalog users",
             ),
-            TestStep(tool_name="governance_sso_config_get", args={}, description="Get SSO configuration"),
+            TestStep(
+                tool_name="governance_roles_list",
+                args={},
+                description="List available roles",
+            ),
+            TestStep(
+                tool_name="governance_user_info",
+                args={"username": "test-user"},
+                description="Get user information",
+            ),
+            TestStep(
+                tool_name="governance_sso_config_get",
+                args={},
+                description="Get SSO configuration",
+            ),
         ],
         success_criteria=["users_listed", "roles_retrieved", "config_accessed"],
         tags=["governance", "admin", "user_management"],
@@ -342,8 +399,16 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
         expected_total_time=45.0,  # Should be optimizable to ~20s
         expected_call_count=10,  # Should be optimizable to ~6 calls
         steps=[
-            TestStep(tool_name="auth_status", args={}, description="Check auth (redundant call 1)"),
-            TestStep(tool_name="auth_status", args={}, description="Check auth again (redundant call 2)"),
+            TestStep(
+                tool_name="auth_status",
+                args={},
+                description="Check auth (redundant call 1)",
+            ),
+            TestStep(
+                tool_name="auth_status",
+                args={},
+                description="Check auth again (redundant call 2)",
+            ),
             TestStep(
                 tool_name="packages_list",
                 args={"limit": 1000},  # Inefficient: too many results
@@ -351,22 +416,34 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
             ),
             TestStep(
                 tool_name="bucket_objects_list",
-                args={"bucket": "s3://quilt-sandbox-bucket", "max_keys": 1000},  # Inefficient
+                args={
+                    "bucket": "s3://quilt-sandbox-bucket",
+                    "max_keys": 1000,
+                },  # Inefficient
                 description="List all objects (inefficient)",
             ),
             TestStep(
                 tool_name="bucket_objects_list",
-                args={"bucket": "s3://quilt-sandbox-bucket", "prefix": "data/"},  # Better approach
+                args={
+                    "bucket": "s3://quilt-sandbox-bucket",
+                    "prefix": "data/",
+                },  # Better approach
                 description="List objects with prefix (better)",
             ),
             TestStep(
                 tool_name="package_browse",
-                args={"package_name": "examples/wellcome-data", "recursive": True},  # Slow
+                args={
+                    "package_name": "examples/wellcome-data",
+                    "recursive": True,
+                },  # Slow
                 description="Full recursive browse (slow)",
             ),
             TestStep(
                 tool_name="package_browse",
-                args={"package_name": "examples/wellcome-data", "recursive": False},  # Faster
+                args={
+                    "package_name": "examples/wellcome-data",
+                    "recursive": False,
+                },  # Faster
                 description="Top-level browse (faster)",
             ),
             TestStep(
@@ -383,7 +460,11 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 args={"package_name": "test/optimized-package"},
                 description="Validate package",
             ),
-            TestStep(tool_name="auth_status", args={}, description="Check auth again (redundant call 3)"),
+            TestStep(
+                tool_name="auth_status",
+                args={},
+                description="Check auth again (redundant call 3)",
+            ),
         ],
         success_criteria=["package_created", "optimization_opportunities_identified"],
         tags=["optimization", "challenge", "inefficient", "redundant"],
@@ -405,7 +486,11 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
             ),
             TestStep(
                 tool_name="package_browse",
-                args={"package_name": "genomics/example", "recursive": True, "max_depth": 0},
+                args={
+                    "package_name": "genomics/example",
+                    "recursive": True,
+                    "max_depth": 0,
+                },
                 description="Deep browse (could be optimized with max_depth)",
             ),
             TestStep(
@@ -418,7 +503,11 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 args={"bucket": "s3://quilt-sandbox-bucket", "query": "genomics"},
                 description="Search bucket for genomics files",
             ),
-            TestStep(tool_name="athena_databases_list", args={}, description="List Athena databases"),
+            TestStep(
+                tool_name="athena_databases_list",
+                args={},
+                description="List Athena databases",
+            ),
             TestStep(
                 tool_name="athena_tables_list",
                 args={"database_name": "genomics_db"},

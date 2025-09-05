@@ -90,7 +90,7 @@ class ScenarioRunner:
         import inspect
 
         for name, func in inspect.getmembers(module, inspect.isfunction):
-            if not name.startswith('_'):
+            if not name.startswith("_"):
                 self.tool_registry[name] = func
 
     async def run_scenario(self, scenario: TestScenario) -> TestResult:
@@ -124,7 +124,8 @@ class ScenarioRunner:
 
                     # Execute with timeout
                     step_result = await asyncio.wait_for(
-                        asyncio.create_task(self._execute_tool(tool_func, step.args)), timeout=step.timeout
+                        asyncio.create_task(self._execute_tool(tool_func, step.args)),
+                        timeout=step.timeout,
                     )
 
                     # Validate result if validation function provided
@@ -146,12 +147,12 @@ class ScenarioRunner:
 
                 step_results.append(
                     {
-                        'step_index': i,
-                        'tool_name': step.tool_name,
-                        'success': step_success,
-                        'execution_time': step_time,
-                        'error': step_error,
-                        'description': step.description,
+                        "step_index": i,
+                        "tool_name": step.tool_name,
+                        "success": step_success,
+                        "execution_time": step_time,
+                        "error": step_error,
+                        "description": step.description,
                     }
                 )
 
@@ -174,7 +175,9 @@ class ScenarioRunner:
         total_time = time.time() - start_time
 
         # Calculate efficiency score
-        efficiency_score = self._calculate_efficiency_score(scenario, total_time, total_calls, success)
+        efficiency_score = self._calculate_efficiency_score(
+            scenario, total_time, total_calls, success
+        )
 
         # Generate optimization suggestions
         optimization_suggestions = self._generate_optimization_suggestions(
@@ -235,13 +238,19 @@ class ScenarioRunner:
         return min(1.0, score)
 
     def _generate_optimization_suggestions(
-        self, scenario: TestScenario, step_results: List[Dict[str, Any]], total_time: float, total_calls: int
+        self,
+        scenario: TestScenario,
+        step_results: List[Dict[str, Any]],
+        total_time: float,
+        total_calls: int,
     ) -> List[str]:
         """Generate optimization suggestions based on test results."""
         suggestions = []
 
         # Analyze execution times
-        execution_times = [step['execution_time'] for step in step_results if step['success']]
+        execution_times = [
+            step["execution_time"] for step in step_results if step["success"]
+        ]
         if execution_times:
             avg_time = statistics.mean(execution_times)
             if avg_time > 5.0:
@@ -251,13 +260,13 @@ class ScenarioRunner:
             if len(execution_times) > 2:
                 median_time = statistics.median(execution_times)
                 for step in step_results:
-                    if step['execution_time'] > median_time * 2:
+                    if step["execution_time"] > median_time * 2:
                         suggestions.append(f"Optimize slow step: {step['tool_name']}")
 
         # Analyze call patterns
         tool_counts = {}
         for step in step_results:
-            tool_name = step['tool_name']
+            tool_name = step["tool_name"]
             tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
 
         # Check for redundant calls
@@ -266,11 +275,21 @@ class ScenarioRunner:
                 suggestions.append(f"Reduce redundant calls to {tool_name}")
 
         # Check against expected metrics
-        if scenario.expected_call_count > 0 and total_calls > scenario.expected_call_count:
-            suggestions.append(f"Reduce total calls from {total_calls} to {scenario.expected_call_count}")
+        if (
+            scenario.expected_call_count > 0
+            and total_calls > scenario.expected_call_count
+        ):
+            suggestions.append(
+                f"Reduce total calls from {total_calls} to {scenario.expected_call_count}"
+            )
 
-        if scenario.expected_total_time > 0 and total_time > scenario.expected_total_time:
-            suggestions.append(f"Improve performance from {total_time:.1f}s to {scenario.expected_total_time:.1f}s")
+        if (
+            scenario.expected_total_time > 0
+            and total_time > scenario.expected_total_time
+        ):
+            suggestions.append(
+                f"Improve performance from {total_time:.1f}s to {scenario.expected_total_time:.1f}s"
+            )
 
         return suggestions
 
@@ -282,19 +301,25 @@ class ScenarioRunner:
         successful_results = [r for r in self.results_history if r.success]
 
         return {
-            'total_scenarios': len(self.results_history),
-            'successful_scenarios': len(successful_results),
-            'success_rate': len(successful_results) / len(self.results_history),
-            'avg_efficiency_score': statistics.mean([r.efficiency_score for r in successful_results])
-            if successful_results
-            else 0,
-            'avg_execution_time': statistics.mean([r.total_time for r in successful_results])
-            if successful_results
-            else 0,
-            'avg_call_count': statistics.mean([r.total_calls for r in successful_results])
-            if successful_results
-            else 0,
-            'common_suggestions': self._get_common_suggestions(),
+            "total_scenarios": len(self.results_history),
+            "successful_scenarios": len(successful_results),
+            "success_rate": len(successful_results) / len(self.results_history),
+            "avg_efficiency_score": (
+                statistics.mean([r.efficiency_score for r in successful_results])
+                if successful_results
+                else 0
+            ),
+            "avg_execution_time": (
+                statistics.mean([r.total_time for r in successful_results])
+                if successful_results
+                else 0
+            ),
+            "avg_call_count": (
+                statistics.mean([r.total_calls for r in successful_results])
+                if successful_results
+                else 0
+            ),
+            "common_suggestions": self._get_common_suggestions(),
         }
 
     def _get_common_suggestions(self) -> List[str]:
@@ -309,7 +334,9 @@ class ScenarioRunner:
             suggestion_counts[suggestion] = suggestion_counts.get(suggestion, 0) + 1
 
         # Return top suggestions
-        sorted_suggestions = sorted(suggestion_counts.items(), key=lambda x: x[1], reverse=True)
+        sorted_suggestions = sorted(
+            suggestion_counts.items(), key=lambda x: x[1], reverse=True
+        )
         return [suggestion for suggestion, count in sorted_suggestions[:5]]
 
 
@@ -327,7 +354,7 @@ class OptimizationTester:
 
     def load_scenarios_from_file(self, file_path: Union[str, Path]) -> None:
         """Load test scenarios from a JSON file."""
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             scenarios_data = json.load(f)
 
         for scenario_data in scenarios_data:
@@ -337,25 +364,27 @@ class OptimizationTester:
     def _create_scenario_from_dict(self, data: Dict[str, Any]) -> TestScenario:
         """Create a TestScenario from dictionary data."""
         steps = []
-        for step_data in data.get('steps', []):
+        for step_data in data.get("steps", []):
             step = TestStep(
-                tool_name=step_data['tool_name'],
-                args=step_data.get('args', {}),
-                expected_success=step_data.get('expected_success', True),
-                timeout=step_data.get('timeout', 30.0),
-                description=step_data.get('description', ''),
+                tool_name=step_data["tool_name"],
+                args=step_data.get("args", {}),
+                expected_success=step_data.get("expected_success", True),
+                timeout=step_data.get("timeout", 30.0),
+                description=step_data.get("description", ""),
             )
             steps.append(step)
 
         return TestScenario(
-            name=data['name'],
-            description=data.get('description', ''),
-            scenario_type=TestScenarioType(data.get('scenario_type', 'package_creation')),
+            name=data["name"],
+            description=data.get("description", ""),
+            scenario_type=TestScenarioType(
+                data.get("scenario_type", "package_creation")
+            ),
             steps=steps,
-            expected_total_time=data.get('expected_total_time', 60.0),
-            expected_call_count=data.get('expected_call_count', len(steps)),
-            success_criteria=data.get('success_criteria', []),
-            tags=data.get('tags', []),
+            expected_total_time=data.get("expected_total_time", 60.0),
+            expected_call_count=data.get("expected_call_count", len(steps)),
+            success_criteria=data.get("success_criteria", []),
+            tags=data.get("tags", []),
         )
 
     async def run_baseline_tests(self) -> Dict[str, TestResult]:
@@ -388,53 +417,63 @@ class OptimizationTester:
                 improvements[scenario.name] = improvement
 
         return {
-            'current_results': current_results,
-            'improvements': improvements,
-            'summary': self.scenario_runner.get_performance_summary(),
+            "current_results": current_results,
+            "improvements": improvements,
+            "summary": self.scenario_runner.get_performance_summary(),
         }
 
-    def _calculate_improvement(self, baseline: TestResult, current: TestResult) -> Dict[str, Any]:
+    def _calculate_improvement(
+        self, baseline: TestResult, current: TestResult
+    ) -> Dict[str, Any]:
         """Calculate improvement metrics between baseline and current results."""
         if not baseline.success or not current.success:
-            return {'improvement': 0.0, 'details': 'One or both tests failed'}
+            return {"improvement": 0.0, "details": "One or both tests failed"}
 
-        time_improvement = (baseline.total_time - current.total_time) / baseline.total_time
-        call_improvement = (baseline.total_calls - current.total_calls) / baseline.total_calls
+        time_improvement = (
+            baseline.total_time - current.total_time
+        ) / baseline.total_time
+        call_improvement = (
+            baseline.total_calls - current.total_calls
+        ) / baseline.total_calls
         efficiency_improvement = current.efficiency_score - baseline.efficiency_score
 
-        overall_improvement = time_improvement * 0.4 + call_improvement * 0.3 + efficiency_improvement * 0.3
+        overall_improvement = (
+            time_improvement * 0.4
+            + call_improvement * 0.3
+            + efficiency_improvement * 0.3
+        )
 
         return {
-            'improvement': overall_improvement,
-            'time_improvement': time_improvement,
-            'call_improvement': call_improvement,
-            'efficiency_improvement': efficiency_improvement,
-            'details': {
-                'baseline_time': baseline.total_time,
-                'current_time': current.total_time,
-                'baseline_calls': baseline.total_calls,
-                'current_calls': current.total_calls,
-                'baseline_efficiency': baseline.efficiency_score,
-                'current_efficiency': current.efficiency_score,
+            "improvement": overall_improvement,
+            "time_improvement": time_improvement,
+            "call_improvement": call_improvement,
+            "efficiency_improvement": efficiency_improvement,
+            "details": {
+                "baseline_time": baseline.total_time,
+                "current_time": current.total_time,
+                "baseline_calls": baseline.total_calls,
+                "current_calls": current.total_calls,
+                "baseline_efficiency": baseline.efficiency_score,
+                "current_efficiency": current.efficiency_score,
             },
         }
 
     def generate_test_report(self) -> Dict[str, Any]:
         """Generate comprehensive test report."""
         return {
-            'total_scenarios': len(self.scenarios),
-            'baseline_results': {
+            "total_scenarios": len(self.scenarios),
+            "baseline_results": {
                 name: {
-                    'success': result.success,
-                    'total_time': result.total_time,
-                    'total_calls': result.total_calls,
-                    'efficiency_score': result.efficiency_score,
+                    "success": result.success,
+                    "total_time": result.total_time,
+                    "total_calls": result.total_calls,
+                    "efficiency_score": result.efficiency_score,
                 }
                 for name, result in self.baseline_results.items()
             },
-            'performance_summary': self.scenario_runner.get_performance_summary(),
-            'scenario_types': list(set(s.scenario_type.value for s in self.scenarios)),
-            'recommendations': self._generate_recommendations(),
+            "performance_summary": self.scenario_runner.get_performance_summary(),
+            "scenario_types": list(set(s.scenario_type.value for s in self.scenarios)),
+            "recommendations": self._generate_recommendations(),
         }
 
     def _generate_recommendations(self) -> List[str]:
@@ -444,14 +483,16 @@ class OptimizationTester:
         # Analyze common patterns across scenarios
         performance_summary = self.scenario_runner.get_performance_summary()
 
-        if performance_summary.get('success_rate', 0) < 0.9:
+        if performance_summary.get("success_rate", 0) < 0.9:
             recommendations.append("Improve tool reliability - success rate below 90%")
 
-        if performance_summary.get('avg_efficiency_score', 0) < 0.7:
-            recommendations.append("Focus on efficiency improvements - average score below 70%")
+        if performance_summary.get("avg_efficiency_score", 0) < 0.7:
+            recommendations.append(
+                "Focus on efficiency improvements - average score below 70%"
+            )
 
         # Add common suggestions
-        common_suggestions = performance_summary.get('common_suggestions', [])
+        common_suggestions = performance_summary.get("common_suggestions", [])
         recommendations.extend(common_suggestions[:3])  # Top 3 suggestions
 
         return recommendations

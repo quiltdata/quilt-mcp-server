@@ -12,7 +12,11 @@ import logging
 
 from ..utils import create_configured_server
 from .interceptor import get_tool_interceptor, optimization_context, OptimizationContext
-from ..telemetry.collector import get_telemetry_collector, TelemetryConfig, configure_telemetry
+from ..telemetry.collector import (
+    get_telemetry_collector,
+    TelemetryConfig,
+    configure_telemetry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +27,9 @@ class OptimizedMCPServer:
     def __init__(self, enable_optimization: bool = None):
         # Determine if optimization should be enabled
         if enable_optimization is None:
-            enable_optimization = os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
+            enable_optimization = (
+                os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
+            )
 
         self.optimization_enabled = enable_optimization
 
@@ -41,7 +47,9 @@ class OptimizedMCPServer:
 
         # Get optimization components
         self.interceptor = get_tool_interceptor() if self.optimization_enabled else None
-        self.telemetry = get_telemetry_collector() if self.optimization_enabled else None
+        self.telemetry = (
+            get_telemetry_collector() if self.optimization_enabled else None
+        )
 
         # Apply optimization wrappers if enabled
         if self.optimization_enabled:
@@ -53,7 +61,7 @@ class OptimizedMCPServer:
             return
 
         # Get all registered tools from the MCP server
-        tools = getattr(self.mcp_server, '_tools', {})
+        tools = getattr(self.mcp_server, "_tools", {})
 
         for tool_name, tool_func in tools.items():
             # Wrap each tool with the interceptor
@@ -76,7 +84,10 @@ class OptimizedMCPServer:
             return nullcontext()
 
         context = OptimizationContext(
-            user_intent=user_intent, task_type=task_type, performance_target=performance_target, cache_enabled=True
+            user_intent=user_intent,
+            task_type=task_type,
+            performance_target=performance_target,
+            cache_enabled=True,
         )
 
         return optimization_context(context)
@@ -112,7 +123,9 @@ def create_optimized_server(enable_optimization: bool = None) -> OptimizedMCPSer
 
 
 def optimization_tool(
-    user_intent: Optional[str] = None, task_type: Optional[str] = None, performance_target: str = "efficiency"
+    user_intent: Optional[str] = None,
+    task_type: Optional[str] = None,
+    performance_target: str = "efficiency",
 ):
     """Decorator to add optimization context to individual tool functions."""
 
@@ -120,14 +133,18 @@ def optimization_tool(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Check if optimization is enabled
-            optimization_enabled = os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
+            optimization_enabled = (
+                os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
+            )
 
             if not optimization_enabled:
                 return func(*args, **kwargs)
 
             # Create optimization context
             context = OptimizationContext(
-                user_intent=user_intent, task_type=task_type, performance_target=performance_target
+                user_intent=user_intent,
+                task_type=task_type,
+                performance_target=performance_target,
             )
 
             # Run with optimization context

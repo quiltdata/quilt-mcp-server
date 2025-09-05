@@ -34,9 +34,9 @@ class TestAthenaDatabasesList:
         result = athena_databases_list()
 
         assert isinstance(result, dict)
-        assert 'success' in result
-        assert 'databases' in result
-        assert isinstance(result['databases'], list)
+        assert "success" in result
+        assert "databases" in result
+        assert isinstance(result["databases"], list)
         # Should have at least the default database
 
 
@@ -51,20 +51,22 @@ class TestAthenaTablesList:
         skip_if_no_aws_credentials()
 
         # Use test database from environment, fallback to default if not set
-        test_database = os.getenv('QUILT_TEST_DATABASE', 'default')
+        test_database = os.getenv("QUILT_TEST_DATABASE", "default")
         result = athena_tables_list(test_database)
 
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
 
-        if result['success']:
-            assert 'tables' in result
-            assert isinstance(result['tables'], list)
+        if result["success"]:
+            assert "tables" in result
+            assert isinstance(result["tables"], list)
             # Tables list can be empty, that's ok
         else:
             # If the database is not accessible or has naming issues, that's ok for testing
-            assert 'error' in result
-            print(f"Database {test_database} not accessible (expected for some environments): {result['error']}")
+            assert "error" in result
+            print(
+                f"Database {test_database} not accessible (expected for some environments): {result['error']}"
+            )
 
 
 class TestAthenaTableSchema:
@@ -78,13 +80,13 @@ class TestAthenaTableSchema:
         skip_if_no_aws_credentials()
 
         # Use test database from environment, fallback to default if not set
-        test_database = os.getenv('QUILT_TEST_DATABASE', 'default')
+        test_database = os.getenv("QUILT_TEST_DATABASE", "default")
         # Try to get schema for a table that might exist
         # This will likely fail gracefully if no tables exist
-        result = athena_table_schema(test_database, 'nonexistent_table')
+        result = athena_table_schema(test_database, "nonexistent_table")
 
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
         # If success is False, that's expected for nonexistent table
 
 
@@ -103,29 +105,29 @@ class TestAthenaQueryExecute:
         result = athena_query_execute(query)
 
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
         # Query might fail if Athena isn't properly configured, that's ok
 
     def test_query_execute_empty_query(self):
         """Test query execution with empty query."""
         result = athena_query_execute("")
 
-        assert result['success'] is False
-        assert 'empty' in result['error'].lower()
+        assert result["success"] is False
+        assert "empty" in result["error"].lower()
 
     def test_query_execute_invalid_max_results(self):
         """Test query execution with invalid max_results."""
         result = athena_query_execute("SELECT * FROM table", max_results=0)
 
-        assert result['success'] is False
-        assert 'max_results must be between' in result['error']
+        assert result["success"] is False
+        assert "max_results must be between" in result["error"]
 
     def test_query_execute_invalid_format(self):
         """Test query execution with invalid output format."""
         result = athena_query_execute("SELECT * FROM table", output_format="xml")
 
-        assert result['success'] is False
-        assert 'output_format must be one of' in result['error']
+        assert result["success"] is False
+        assert "output_format must be one of" in result["error"]
 
     @pytest.mark.aws
     def test_query_execute_with_builtin_credentials(self):
@@ -141,32 +143,32 @@ class TestAthenaQueryExecute:
         result = athena_query_execute(
             query=query,
             max_results=5,
-            output_format='json',
+            output_format="json",
             use_quilt_auth=False,  # This is the key - use AWS credentials, not quilt3
         )
 
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
 
-        if result['success']:
+        if result["success"]:
             # Verify the query executed successfully with built-in credentials
-            assert 'formatted_data' in result
-            assert 'format' in result
-            assert result['format'] == 'json'
-            assert len(result['formatted_data']) == 1
-            assert result['formatted_data'][0]['test_column'] == 1
-            assert result['formatted_data'][0]['auth_type'] == 'builtin_creds'
+            assert "formatted_data" in result
+            assert "format" in result
+            assert result["format"] == "json"
+            assert len(result["formatted_data"]) == 1
+            assert result["formatted_data"][0]["test_column"] == 1
+            assert result["formatted_data"][0]["auth_type"] == "builtin_creds"
             # Verify other expected fields in successful response
-            assert 'row_count' in result
-            assert 'columns' in result
-            assert result['row_count'] == 1
-            assert 'test_column' in result['columns']
-            assert 'auth_type' in result['columns']
+            assert "row_count" in result
+            assert "columns" in result
+            assert result["row_count"] == 1
+            assert "test_column" in result["columns"]
+            assert "auth_type" in result["columns"]
         else:
             # Query might fail due to Athena configuration, but should fail gracefully
-            assert 'error' in result
+            assert "error" in result
             # The error should not be related to authentication if we have valid AWS creds
-            assert isinstance(result['error'], str)
+            assert isinstance(result["error"], str)
 
 
 class TestAthenaQueryHistory:
@@ -179,7 +181,7 @@ class TestAthenaQueryHistory:
         try:
             import boto3
 
-            athena = boto3.client('athena')
+            athena = boto3.client("athena")
             athena.list_work_groups()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
@@ -188,23 +190,23 @@ class TestAthenaQueryHistory:
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
 
-        if result['success']:
-            assert 'query_history' in result
-            assert isinstance(result['query_history'], list)
-            assert 'count' in result
+        if result["success"]:
+            assert "query_history" in result
+            assert isinstance(result["query_history"], list)
+            assert "count" in result
             # Each query should have required fields
-            for query in result['query_history']:
-                assert 'query_execution_id' in query
-                assert 'status' in query
+            for query in result["query_history"]:
+                assert "query_execution_id" in query
+                assert "status" in query
         else:
             # Should have error message if failed
-            assert 'error' in result
-            assert isinstance(result['error'], str)
+            assert "error" in result
+            assert isinstance(result["error"], str)
 
-    @patch('boto3.client')
-    @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
+    @patch("boto3.client")
+    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
     def test_query_history_mocked(self, mock_service_class, mock_boto3_client):
         """Test successful query history retrieval with mocks (unit test)."""
         mock_service = Mock()
@@ -214,37 +216,42 @@ class TestAthenaQueryHistory:
         mock_boto3_client.return_value = mock_athena_client
 
         # Mock list_query_executions response
-        mock_athena_client.list_query_executions.return_value = {'QueryExecutionIds': ['query-1', 'query-2']}
+        mock_athena_client.list_query_executions.return_value = {
+            "QueryExecutionIds": ["query-1", "query-2"]
+        }
 
         # Mock batch_get_query_execution response
         mock_execution_time = datetime.now(timezone.utc)
         mock_athena_client.batch_get_query_execution.return_value = {
-            'QueryExecutions': [
+            "QueryExecutions": [
                 {
-                    'QueryExecutionId': 'query-1',
-                    'Query': 'SELECT * FROM table1',
-                    'Status': {
-                        'State': 'SUCCEEDED',
-                        'SubmissionDateTime': mock_execution_time,
-                        'CompletionDateTime': mock_execution_time,
+                    "QueryExecutionId": "query-1",
+                    "Query": "SELECT * FROM table1",
+                    "Status": {
+                        "State": "SUCCEEDED",
+                        "SubmissionDateTime": mock_execution_time,
+                        "CompletionDateTime": mock_execution_time,
                     },
-                    'Statistics': {'TotalExecutionTimeInMillis': 2300, 'DataScannedInBytes': 1024000},
-                    'ResultConfiguration': {'OutputLocation': 's3://results/query-1'},
-                    'WorkGroup': 'primary',
-                    'QueryExecutionContext': {'Database': 'analytics_db'},
+                    "Statistics": {
+                        "TotalExecutionTimeInMillis": 2300,
+                        "DataScannedInBytes": 1024000,
+                    },
+                    "ResultConfiguration": {"OutputLocation": "s3://results/query-1"},
+                    "WorkGroup": "primary",
+                    "QueryExecutionContext": {"Database": "analytics_db"},
                 }
             ]
         }
 
         result = athena_query_history()
 
-        assert result['success'] is True
-        assert len(result['query_history']) == 1
-        assert result['query_history'][0]['query_execution_id'] == 'query-1'
-        assert result['query_history'][0]['status'] == 'SUCCEEDED'
+        assert result["success"] is True
+        assert len(result["query_history"]) == 1
+        assert result["query_history"][0]["query_execution_id"] == "query-1"
+        assert result["query_history"][0]["status"] == "SUCCEEDED"
 
-    @patch('boto3.client')
-    @patch('quilt_mcp.tools.athena_glue.AthenaQueryService')
+    @patch("boto3.client")
+    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
     def test_query_history_no_executions(self, mock_service_class, mock_boto3_client):
         """Test query history with no executions."""
         mock_service = Mock()
@@ -252,13 +259,15 @@ class TestAthenaQueryHistory:
 
         mock_athena_client = Mock()
         mock_boto3_client.return_value = mock_athena_client
-        mock_athena_client.list_query_executions.return_value = {'QueryExecutionIds': []}
+        mock_athena_client.list_query_executions.return_value = {
+            "QueryExecutionIds": []
+        }
 
         result = athena_query_history()
 
-        assert result['success'] is True
-        assert len(result['query_history']) == 0
-        assert result['count'] == 0
+        assert result["success"] is True
+        assert len(result["query_history"]) == 0
+        assert result["count"] == 0
 
 
 class TestAthenaWorkgroupsList:
@@ -271,7 +280,7 @@ class TestAthenaWorkgroupsList:
         try:
             import boto3
 
-            athena = boto3.client('athena')
+            athena = boto3.client("athena")
             athena.list_work_groups()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
@@ -280,22 +289,22 @@ class TestAthenaWorkgroupsList:
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
 
-        if result['success']:
-            assert 'workgroups' in result
-            assert isinstance(result['workgroups'], list)
-            assert 'count' in result
+        if result["success"]:
+            assert "workgroups" in result
+            assert isinstance(result["workgroups"], list)
+            assert "count" in result
             # Each workgroup should have required fields
-            for wg in result['workgroups']:
-                assert 'name' in wg
-                assert 'accessible' in wg
+            for wg in result["workgroups"]:
+                assert "name" in wg
+                assert "accessible" in wg
         else:
             # Should have error message if failed
-            assert 'error' in result
-            assert isinstance(result['error'], str)
+            assert "error" in result
+            assert isinstance(result["error"], str)
 
-    @patch('boto3.client')
+    @patch("boto3.client")
     def test_list_workgroups_mocked(self, mock_boto3_client):
         """Test successful workgroups listing with mocks (unit test)."""
         mock_athena_client = Mock()
@@ -303,23 +312,28 @@ class TestAthenaWorkgroupsList:
 
         mock_time = datetime.now(timezone.utc)
         mock_athena_client.list_work_groups.return_value = {
-            'WorkGroups': [
-                {'Name': 'primary', 'Description': 'Primary workgroup', 'State': 'ENABLED', 'CreationTime': mock_time},
+            "WorkGroups": [
                 {
-                    'Name': 'analytics',
-                    'Description': 'Analytics workgroup',
-                    'State': 'ENABLED',
-                    'CreationTime': mock_time,
+                    "Name": "primary",
+                    "Description": "Primary workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "analytics",
+                    "Description": "Analytics workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
                 },
             ]
         }
 
         result = athena_workgroups_list()
 
-        assert result['success'] is True
-        assert len(result['workgroups']) == 2
-        assert result['workgroups'][0]['name'] == 'analytics'  # Sorted alphabetically
-        assert result['workgroups'][1]['name'] == 'primary'
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+        assert result["workgroups"][0]["name"] == "analytics"  # Sorted alphabetically
+        assert result["workgroups"][1]["name"] == "primary"
 
 
 class TestAthenaQueryValidate:
@@ -329,73 +343,75 @@ class TestAthenaQueryValidate:
         """Test validation of empty query."""
         result = athena_query_validate("")
 
-        assert result['success'] is False
-        assert 'empty' in result['error'].lower()
+        assert result["success"] is False
+        assert "empty" in result["error"].lower()
 
     def test_validate_valid_select_query(self):
         """Test validation of valid SELECT query."""
         query = "SELECT event_type, COUNT(*) FROM customer_events WHERE date >= '2024-01-01' GROUP BY event_type"
         result = athena_query_validate(query)
 
-        assert result['success'] is True
-        assert result['valid'] is True
-        assert result['query_type'] == 'SELECT'
+        assert result["success"] is True
+        assert result["valid"] is True
+        assert result["query_type"] == "SELECT"
 
     def test_validate_dangerous_query(self):
         """Test validation of dangerous query."""
         query = "DROP TABLE customer_events"
         result = athena_query_validate(query)
 
-        assert result['success'] is False
-        assert result['valid'] is False
-        assert 'dangerous' in result['error'].lower()
+        assert result["success"] is False
+        assert result["valid"] is False
+        assert "dangerous" in result["error"].lower()
 
     def test_validate_select_without_from(self):
         """Test validation of SELECT without FROM."""
         query = "SELECT 1, 2, 3"
         result = athena_query_validate(query)
 
-        assert result['success'] is False
-        assert result['valid'] is False
-        assert 'FROM clause' in result['error']
+        assert result["success"] is False
+        assert result["valid"] is False
+        assert "FROM clause" in result["error"]
 
     def test_validate_mismatched_parentheses(self):
         """Test validation of query with mismatched parentheses."""
         query = "SELECT COUNT((event_type) FROM customer_events"
         result = athena_query_validate(query)
 
-        assert result['success'] is False
-        assert result['valid'] is False
-        assert 'parentheses' in result['error'].lower()
+        assert result["success"] is False
+        assert result["valid"] is False
+        assert "parentheses" in result["error"].lower()
 
     def test_validate_show_query(self):
         """Test validation of SHOW query."""
         query = "SHOW TABLES"
         result = athena_query_validate(query)
 
-        assert result['success'] is True
-        assert result['valid'] is True
-        assert result['query_type'] == 'SHOW'
+        assert result["success"] is True
+        assert result["valid"] is True
+        assert result["query_type"] == "SHOW"
 
     def test_validate_describe_query(self):
         """Test validation of DESCRIBE query."""
         query = "DESCRIBE analytics_db.customer_events"
         result = athena_query_validate(query)
 
-        assert result['success'] is True
-        assert result['valid'] is True
-        assert result['query_type'] == 'DESCRIBE'
+        assert result["success"] is True
+        assert result["valid"] is True
+        assert result["query_type"] == "DESCRIBE"
 
     def test_validate_backticks_query(self):
         """Test validation of query with backticks (MySQL-style) instead of double quotes."""
-        query = "SELECT `column_name`, `another_column` FROM `table_name` WHERE `id` = 1"
+        query = (
+            "SELECT `column_name`, `another_column` FROM `table_name` WHERE `id` = 1"
+        )
         result = athena_query_validate(query)
 
-        assert result['success'] is False
-        assert result['valid'] is False
-        assert 'backtick' in result['error'].lower()
-        assert 'suggestions' in result
-        assert len(result['suggestions']) > 0
+        assert result["success"] is False
+        assert result["valid"] is False
+        assert "backtick" in result["error"].lower()
+        assert "suggestions" in result
+        assert len(result["suggestions"]) > 0
 
 
 class TestAthenaQueryService:
@@ -408,7 +424,7 @@ class TestAthenaQueryService:
         try:
             import boto3
 
-            athena = boto3.client('athena')
+            athena = boto3.client("athena")
             athena.list_work_groups()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
@@ -427,7 +443,7 @@ class TestAthenaQueryService:
         try:
             import boto3
 
-            athena = boto3.client('athena')
+            athena = boto3.client("athena")
             athena.list_work_groups()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
@@ -437,18 +453,18 @@ class TestAthenaQueryService:
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
-        assert 'success' in result
+        assert "success" in result
 
-        if result['success']:
-            assert 'databases' in result
-            assert isinstance(result['databases'], list)
+        if result["success"]:
+            assert "databases" in result
+            assert isinstance(result["databases"], list)
         else:
             # Should have error message if failed
-            assert 'error' in result
-            assert isinstance(result['error'], str)
+            assert "error" in result
+            assert isinstance(result["error"], str)
 
-    @patch('quilt_mcp.aws.athena_service.create_engine')
-    @patch('quilt_mcp.aws.athena_service.boto3')
+    @patch("quilt_mcp.aws.athena_service.create_engine")
+    @patch("quilt_mcp.aws.athena_service.boto3")
     def test_service_initialization_mocked(self, mock_boto3, mock_create_engine):
         """Test service initialization with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
@@ -456,23 +472,25 @@ class TestAthenaQueryService:
         assert service.use_quilt_auth is False
         assert service.query_cache.maxsize == 100
 
-    @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
-    @patch('quilt_mcp.aws.athena_service.create_engine')
-    @patch('quilt_mcp.aws.athena_service.boto3')
-    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
+    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.aws.athena_service.create_engine")
+    @patch("quilt_mcp.aws.athena_service.boto3")
+    def test_discover_databases_mocked(
+        self, mock_boto3, mock_create_engine, mock_read_sql
+    ):
         """Test database discovery with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Mock pandas DataFrame result from SQL query
-        mock_df = pd.DataFrame({'database_name': ['analytics_db', 'test_db']})
+        mock_df = pd.DataFrame({"database_name": ["analytics_db", "test_db"]})
         mock_read_sql.return_value = mock_df
 
         result = service.discover_databases()
 
-        assert result['success'] is True
-        assert len(result['databases']) == 2
-        assert result['databases'][0]['name'] == 'analytics_db'
-        assert result['databases'][1]['name'] == 'test_db'
+        assert result["success"] is True
+        assert len(result["databases"]) == 2
+        assert result["databases"][0]["name"] == "analytics_db"
+        assert result["databases"][1]["name"] == "test_db"
         mock_read_sql.assert_called_once()
 
     @pytest.mark.aws
@@ -488,30 +506,34 @@ class TestAthenaQueryService:
             # Use a simple query that should work on any Athena setup
             result = service.execute_query("SELECT 1 as test_column")
 
-            assert result['success'] is True
-            assert result['row_count'] >= 1
-            assert 'test_column' in result['columns']
+            assert result["success"] is True
+            assert result["row_count"] >= 1
+            assert "test_column" in result["columns"]
 
         except Exception as e:
             pytest.skip(f"Athena service not available: {e}")
 
-    @patch('quilt_mcp.aws.athena_service.pd.read_sql_query')
-    @patch('quilt_mcp.aws.athena_service.create_engine')
-    @patch('quilt_mcp.aws.athena_service.boto3')
+    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.aws.athena_service.create_engine")
+    @patch("quilt_mcp.aws.athena_service.boto3")
     def test_execute_query_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
         """Test query execution with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Mock pandas DataFrame result
-        mock_df = pd.DataFrame({'event_type': ['page_view', 'purchase'], 'count': [125432, 23891]})
+        mock_df = pd.DataFrame(
+            {"event_type": ["page_view", "purchase"], "count": [125432, 23891]}
+        )
         mock_read_sql.return_value = mock_df
 
-        result = service.execute_query("SELECT event_type, COUNT(*) FROM events GROUP BY event_type")
+        result = service.execute_query(
+            "SELECT event_type, COUNT(*) FROM events GROUP BY event_type"
+        )
 
-        assert result['success'] is True
-        assert result['row_count'] == 2
-        assert result['columns'] == ['event_type', 'count']
-        assert result['truncated'] is False
+        assert result["success"] is True
+        assert result["row_count"] == 2
+        assert result["columns"] == ["event_type", "count"]
+        assert result["truncated"] is False
 
     @pytest.mark.aws
     def test_format_results_json(self):
@@ -523,21 +545,21 @@ class TestAthenaQueryService:
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Create test data
-        df = pd.DataFrame({'test_column': ['value1', 'value2'], 'count': [1, 2]})
+        df = pd.DataFrame({"test_column": ["value1", "value2"], "count": [1, 2]})
 
         # Create a result dict like what execute_query would return
         result_data = {
-            'success': True,
-            'row_count': len(df),
-            'columns': df.columns.tolist(),
-            'data': df,  # Pass DataFrame directly, not as dict
-            'truncated': False,
+            "success": True,
+            "row_count": len(df),
+            "columns": df.columns.tolist(),
+            "data": df,  # Pass DataFrame directly, not as dict
+            "truncated": False,
         }
-        result = service.format_results(result_data, 'json')
+        result = service.format_results(result_data, "json")
 
-        assert result['success'] is True
-        assert result['format'] == 'json'
-        assert 'formatted_data' in result
+        assert result["success"] is True
+        assert result["format"] == "json"
+        assert "formatted_data" in result
 
     @pytest.mark.aws
     def test_format_results_csv(self):
@@ -549,22 +571,24 @@ class TestAthenaQueryService:
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Create test data
-        df = pd.DataFrame({'event_type': ['page_view', 'purchase'], 'count': [125432, 23891]})
+        df = pd.DataFrame(
+            {"event_type": ["page_view", "purchase"], "count": [125432, 23891]}
+        )
 
         # Create a result dict like what execute_query would return
         result_data = {
-            'success': True,
-            'row_count': len(df),
-            'columns': df.columns.tolist(),
-            'data': df,  # Pass DataFrame directly, not as dict
-            'truncated': False,
+            "success": True,
+            "row_count": len(df),
+            "columns": df.columns.tolist(),
+            "data": df,  # Pass DataFrame directly, not as dict
+            "truncated": False,
         }
-        result = service.format_results(result_data, 'csv')
+        result = service.format_results(result_data, "csv")
 
-        assert result['success'] is True
-        assert result['format'] == 'csv'
-        assert 'formatted_data' in result
-        assert 'event_type,count' in result['formatted_data']
+        assert result["success"] is True
+        assert result["format"] == "csv"
+        assert "formatted_data" in result
+        assert "event_type,count" in result["formatted_data"]
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
     """Get stack buckets using GraphQL bucketConfigs query."""
     try:
         # Get the authenticated session from quilt3
-        if hasattr(quilt3, 'session') and hasattr(quilt3.session, 'get_session'):
+        if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
             session = quilt3.session.get_session()
             registry_url = quilt3.session.get_registry_url()
 
@@ -63,7 +63,7 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
                 return set()
 
             # Construct GraphQL endpoint URL
-            graphql_url = urljoin(registry_url.rstrip('/') + '/', 'graphql')
+            graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
             logger.debug(f"Querying GraphQL endpoint: {graphql_url}")
 
             # Query for bucket configurations (this gets all buckets in the stack)
@@ -73,15 +73,21 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
 
             if response.status_code == 200:
                 data = response.json()
-                if 'data' in data and 'bucketConfigs' in data['data']:
-                    bucket_names = {bucket['name'] for bucket in data['data']['bucketConfigs']}
+                if "data" in data and "bucketConfigs" in data["data"]:
+                    bucket_names = {
+                        bucket["name"] for bucket in data["data"]["bucketConfigs"]
+                    }
                     logger.debug(f"GraphQL discovered buckets: {list(bucket_names)}")
                     return bucket_names
                 else:
-                    logger.debug(f"GraphQL response missing expected data structure: {data}")
+                    logger.debug(
+                        f"GraphQL response missing expected data structure: {data}"
+                    )
                     return set()
             else:
-                logger.debug(f"GraphQL query failed with status {response.status_code}: {response.text}")
+                logger.debug(
+                    f"GraphQL query failed with status {response.status_code}: {response.text}"
+                )
                 return set()
 
     except Exception as e:
@@ -100,7 +106,11 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
         accessible_buckets = discovery.discover_accessible_buckets()
 
         # Return buckets that user has at least read access to
-        bucket_names = {bucket.name for bucket in accessible_buckets if bucket.can_read or bucket.can_list}
+        bucket_names = {
+            bucket.name
+            for bucket in accessible_buckets
+            if bucket.can_read or bucket.can_list
+        }
 
         logger.debug(f"Permission discovery found buckets: {list(bucket_names)}")
         return bucket_names

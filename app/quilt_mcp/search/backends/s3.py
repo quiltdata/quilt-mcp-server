@@ -11,7 +11,13 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
 
-from .base import SearchBackend, BackendType, BackendStatus, SearchResult, BackendResponse
+from .base import (
+    SearchBackend,
+    BackendType,
+    BackendStatus,
+    SearchResult,
+    BackendResponse,
+)
 
 
 class S3FallbackBackend(SearchBackend):
@@ -25,9 +31,9 @@ class S3FallbackBackend(SearchBackend):
     def _check_s3_access(self):
         """Check if S3 access is available."""
         try:
-            self._s3_client = boto3.client('s3')
+            self._s3_client = boto3.client("s3")
             # Test with a simple STS call to verify credentials
-            sts_client = boto3.client('sts')
+            sts_client = boto3.client("sts")
             sts_client.get_caller_identity()
             self._update_status(BackendStatus.AVAILABLE)
         except Exception as e:
@@ -37,10 +43,10 @@ class S3FallbackBackend(SearchBackend):
         """Check if S3 backend is healthy."""
         try:
             if not self._s3_client:
-                self._s3_client = boto3.client('s3')
+                self._s3_client = boto3.client("s3")
 
             # Simple health check with STS
-            sts_client = boto3.client('sts')
+            sts_client = boto3.client("sts")
             sts_client.get_caller_identity()
 
             self._update_status(BackendStatus.AVAILABLE)
@@ -62,7 +68,10 @@ class S3FallbackBackend(SearchBackend):
 
         if self.status != BackendStatus.AVAILABLE:
             return BackendResponse(
-                backend_type=self.backend_type, status=self.status, results=[], error_message=self.last_error
+                backend_type=self.backend_type,
+                status=self.status,
+                results=[],
+                error_message=self.last_error,
             )
 
         try:
@@ -71,7 +80,9 @@ class S3FallbackBackend(SearchBackend):
             elif scope in ["global", "catalog"]:
                 # For global/catalog scope, try to search the default bucket
                 default_bucket = "s3://quilt-example"
-                results = await self._search_bucket(query, default_bucket, filters, limit)
+                results = await self._search_bucket(
+                    query, default_bucket, filters, limit
+                )
             else:
                 results = []
 
@@ -101,11 +112,13 @@ class S3FallbackBackend(SearchBackend):
     ) -> List[SearchResult]:
         """Search within a specific bucket using list operations."""
         # Normalize bucket name
-        bucket_name = bucket.replace('s3://', '').split('/')[0]
+        bucket_name = bucket.replace("s3://", "").split("/")[0]
 
         # Extract prefix from query if it looks like a path
         prefix = ""
-        if '/' in query and not any(op in query.lower() for op in ['find', 'search', 'get']):
+        if "/" in query and not any(
+            op in query.lower() for op in ["find", "search", "get"]
+        ):
             prefix = query
             query_terms = []
         else:
@@ -114,14 +127,17 @@ class S3FallbackBackend(SearchBackend):
             query_lower = query.lower()
 
             # Handle file extension patterns
-            if any(pattern in query_lower for pattern in ['*.', 'csv', 'json', 'parquet', 'txt']):
+            if any(
+                pattern in query_lower
+                for pattern in ["*.", "csv", "json", "parquet", "txt"]
+            ):
                 # Extract file extensions from query
                 import re
 
                 ext_patterns = [
-                    r'\*\.([a-z]{2,5})',  # *.csv
-                    r'\.([a-z]{2,5})\s+(?:files?|data)',  # .csv files
-                    r'\b([a-z]{2,5})\s+(?:files?|data)',  # csv files
+                    r"\*\.([a-z]{2,5})",  # *.csv
+                    r"\.([a-z]{2,5})\s+(?:files?|data)",  # .csv files
+                    r"\b([a-z]{2,5})\s+(?:files?|data)",  # csv files
                 ]
                 for pattern in ext_patterns:
                     matches = re.findall(pattern, query_lower)
@@ -130,35 +146,46 @@ class S3FallbackBackend(SearchBackend):
                         query_terms.extend(matches)
                         if filters is None:
                             filters = {}
-                        if 'file_extensions' not in filters:
-                            filters['file_extensions'] = matches
+                        if "file_extensions" not in filters:
+                            filters["file_extensions"] = matches
                         else:
-                            filters['file_extensions'].extend(matches)
+                            filters["file_extensions"].extend(matches)
 
             # Add other meaningful terms
             words = query_lower.split()
             for word in words:
-                if word not in ['find', 'search', 'get', 'files', 'file', 'data', 'show', 'list']:
+                if word not in [
+                    "find",
+                    "search",
+                    "get",
+                    "files",
+                    "file",
+                    "data",
+                    "show",
+                    "list",
+                ]:
                     query_terms.append(word)
 
         try:
             # List objects with prefix
-            paginator = self._s3_client.get_paginator('list_objects_v2')
+            paginator = self._s3_client.get_paginator("list_objects_v2")
             page_iterator = paginator.paginate(
                 Bucket=bucket_name,
                 Prefix=prefix,
-                PaginationConfig={'MaxItems': limit * 2},  # Get more to allow filtering
+                PaginationConfig={"MaxItems": limit * 2},  # Get more to allow filtering
             )
 
             results = []
             for page in page_iterator:
-                contents = page.get('Contents', [])
+                contents = page.get("Contents", [])
 
                 for obj in contents:
-                    key = obj['Key']
+                    key = obj["Key"]
 
                     # Apply query term filtering
-                    if query_terms and not any(term in key.lower() for term in query_terms):
+                    if query_terms and not any(
+                        term in key.lower() for term in query_terms
+                    ):
                         continue
 
                     # Apply filters
@@ -168,17 +195,21 @@ class S3FallbackBackend(SearchBackend):
                     # Create result
                     result = SearchResult(
                         id=f"s3://{bucket_name}/{key}",
-                        type='file',
+                        type="file",
                         title=Path(key).name,
                         description=f"S3 object in {bucket_name}",
                         s3_uri=f"s3://{bucket_name}/{key}",
                         logical_key=key,
-                        size=obj.get('Size', 0),
-                        last_modified=obj.get('LastModified').isoformat() if obj.get('LastModified') else None,
+                        size=obj.get("Size", 0),
+                        last_modified=(
+                            obj.get("LastModified").isoformat()
+                            if obj.get("LastModified")
+                            else None
+                        ),
                         metadata={
-                            'bucket': bucket_name,
-                            'storage_class': obj.get('StorageClass', 'STANDARD'),
-                            'etag': obj.get('ETag', ''),
+                            "bucket": bucket_name,
+                            "storage_class": obj.get("StorageClass", "STANDARD"),
+                            "etag": obj.get("ETag", ""),
                         },
                         score=self._calculate_relevance_score(key, query_terms),
                         backend="s3",
@@ -198,38 +229,40 @@ class S3FallbackBackend(SearchBackend):
             return results[:limit]
 
         except ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchBucket':
+            error_code = e.response["Error"]["Code"]
+            if error_code == "NoSuchBucket":
                 raise Exception(f"Bucket {bucket_name} does not exist")
-            elif error_code == 'AccessDenied':
+            elif error_code == "AccessDenied":
                 raise Exception(f"Access denied to bucket {bucket_name}")
             else:
                 raise Exception(f"S3 error: {e}")
 
-    def _matches_filters(self, obj: Dict[str, Any], filters: Optional[Dict[str, Any]]) -> bool:
+    def _matches_filters(
+        self, obj: Dict[str, Any], filters: Optional[Dict[str, Any]]
+    ) -> bool:
         """Check if S3 object matches the specified filters."""
         if not filters:
             return True
 
-        key = obj['Key']
+        key = obj["Key"]
 
         # File extension filter - improved logic
-        if filters.get('file_extensions'):
-            file_ext = Path(key).suffix.lower().lstrip('.')
+        if filters.get("file_extensions"):
+            file_ext = Path(key).suffix.lower().lstrip(".")
             # Also check if any extension matches
-            extensions = filters['file_extensions']
-            if not any(ext.lower().lstrip('.') == file_ext for ext in extensions):
+            extensions = filters["file_extensions"]
+            if not any(ext.lower().lstrip(".") == file_ext for ext in extensions):
                 return False
 
         # Size filters
-        obj_size = obj.get('Size', 0)
-        if filters.get('size_min') and obj_size < filters['size_min']:
+        obj_size = obj.get("Size", 0)
+        if filters.get("size_min") and obj_size < filters["size_min"]:
             return False
-        if filters.get('size_max') and obj_size > filters['size_max']:
+        if filters.get("size_max") and obj_size > filters["size_max"]:
             return False
 
         # Date filters (simplified - would need proper date parsing)
-        if filters.get('created_after') or filters.get('created_before'):
+        if filters.get("created_after") or filters.get("created_before"):
             # For S3 fallback, we'll skip complex date filtering
             # This would be better handled by Elasticsearch
             pass

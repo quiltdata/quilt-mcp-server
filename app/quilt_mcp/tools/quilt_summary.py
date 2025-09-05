@@ -19,7 +19,7 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 # Configure matplotlib for non-interactive backend
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 # Color schemes for visualizations
 COLOR_SCHEMES = {
@@ -59,7 +59,10 @@ def generate_quilt_summarize_json(
     try:
         # Calculate comprehensive statistics
         total_files = sum(len(files) for files in organized_structure.values())
-        total_size = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values())
+        total_size = sum(
+            sum(obj.get("Size", 0) for obj in files)
+            for files in organized_structure.values()
+        )
 
         # Extract file types and sizes
         file_types = defaultdict(int)
@@ -85,10 +88,18 @@ def generate_quilt_summarize_json(
         summary = {
             "package_info": {
                 "name": package_name,
-                "namespace": package_name.split("/")[0] if "/" in package_name else "unknown",
-                "package_name": package_name.split("/")[-1] if "/" in package_name else package_name,
-                "version": package_metadata.get("quilt", {}).get("package_version", "1.0.0"),
-                "created_by": package_metadata.get("quilt", {}).get("created_by", "quilt-mcp-server"),
+                "namespace": (
+                    package_name.split("/")[0] if "/" in package_name else "unknown"
+                ),
+                "package_name": (
+                    package_name.split("/")[-1] if "/" in package_name else package_name
+                ),
+                "version": package_metadata.get("quilt", {}).get(
+                    "package_version", "1.0.0"
+                ),
+                "created_by": package_metadata.get("quilt", {}).get(
+                    "created_by", "quilt-mcp-server"
+                ),
                 "creation_date": package_metadata.get("quilt", {}).get(
                     "creation_date", datetime.now(timezone.utc).isoformat()
                 ),
@@ -114,16 +125,20 @@ def generate_quilt_summarize_json(
             },
             "structure": {
                 "folders": folder_stats,
-                "organization_type": "smart_hierarchy"
-                if any(folder for folder in organized_structure.keys())
-                else "flat",
+                "organization_type": (
+                    "smart_hierarchy"
+                    if any(folder for folder in organized_structure.keys())
+                    else "flat"
+                ),
                 "auto_organized": True,
             },
             "source": {
                 "type": source_info.get("type", "s3_bucket"),
                 "bucket": source_info.get("bucket", "unknown"),
                 "prefix": source_info.get("prefix", ""),
-                "source_description": source_info.get("source_description", "Data sourced from S3 bucket"),
+                "source_description": source_info.get(
+                    "source_description", "Data sourced from S3 bucket"
+                ),
             },
             "documentation": {
                 "readme_generated": bool(readme_content),
@@ -192,13 +207,21 @@ def generate_package_visualizations(
             sizes = [count for _, count in sorted_types]
 
             wedges, texts, autotexts = ax.pie(
-                sizes, labels=labels, autopct='%1.1f%%', colors=colors[: len(sizes)], startangle=90
+                sizes,
+                labels=labels,
+                autopct="%1.1f%%",
+                colors=colors[: len(sizes)],
+                startangle=90,
             )
-            ax.set_title(f"File Type Distribution - {package_name}", fontsize=16, fontweight='bold')
+            ax.set_title(
+                f"File Type Distribution - {package_name}",
+                fontsize=16,
+                fontweight="bold",
+            )
 
             # Save to base64 string
             img_buffer = io.BytesIO()
-            plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+            plt.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
             img_buffer.seek(0)
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
             plt.close()
@@ -210,7 +233,9 @@ def generate_package_visualizations(
                 "data": {
                     "labels": [ext for ext, _ in sorted_types],
                     "values": sizes,
-                    "percentages": [round(count / sum(sizes) * 100, 1) for count in sizes],
+                    "percentages": [
+                        round(count / sum(sizes) * 100, 1) for count in sizes
+                    ],
                 },
                 "image_base64": img_base64,
                 "mime_type": "image/png",
@@ -229,20 +254,32 @@ def generate_package_visualizations(
 
             bars = ax.barh(y_pos, file_counts, color=colors[: len(folders)])
             ax.set_yticks(y_pos)
-            ax.set_yticklabels([f"{folder}/" if folder else "root/" for folder in folders])
-            ax.set_xlabel('Number of Files')
-            ax.set_title(f"File Distribution by Folder - {package_name}", fontsize=16, fontweight='bold')
+            ax.set_yticklabels(
+                [f"{folder}/" if folder else "root/" for folder in folders]
+            )
+            ax.set_xlabel("Number of Files")
+            ax.set_title(
+                f"File Distribution by Folder - {package_name}",
+                fontsize=16,
+                fontweight="bold",
+            )
 
             # Add value labels on bars
             for i, bar in enumerate(bars):
                 width = bar.get_width()
-                ax.text(width + 0.1, bar.get_y() + bar.get_height() / 2, str(int(width)), ha='left', va='center')
+                ax.text(
+                    width + 0.1,
+                    bar.get_y() + bar.get_height() / 2,
+                    str(int(width)),
+                    ha="left",
+                    va="center",
+                )
 
             plt.tight_layout()
 
             # Save to base64 string
             img_buffer = io.BytesIO()
-            plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+            plt.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
             img_buffer.seek(0)
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
             plt.close()
@@ -252,7 +289,9 @@ def generate_package_visualizations(
                 "title": "File Distribution by Folder",
                 "description": "Number of files in each organized folder",
                 "data": {
-                    "folders": [f"{folder}/" if folder else "root/" for folder in folders],
+                    "folders": [
+                        f"{folder}/" if folder else "root/" for folder in folders
+                    ],
                     "file_counts": file_counts,
                 },
                 "image_base64": img_base64,
@@ -279,22 +318,36 @@ def generate_package_visualizations(
                 alpha=0.7,
                 color=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"])[0],
             )
-            ax.set_xlabel('File Size (MB)')
-            ax.set_ylabel('Number of Files')
-            ax.set_title(f'File Size Distribution - {package_name}', fontsize=16, fontweight='bold')
+            ax.set_xlabel("File Size (MB)")
+            ax.set_ylabel("Number of Files")
+            ax.set_title(
+                f"File Size Distribution - {package_name}",
+                fontsize=16,
+                fontweight="bold",
+            )
 
             # Add statistics
             mean_size = np.mean(sizes_mb)
             median_size = np.median(sizes_mb)
-            ax.axvline(mean_size, color='red', linestyle='--', label=f'Mean: {mean_size:.1f} MB')
-            ax.axvline(median_size, color='orange', linestyle='--', label=f'Median: {median_size:.1f} MB')
+            ax.axvline(
+                mean_size,
+                color="red",
+                linestyle="--",
+                label=f"Mean: {mean_size:.1f} MB",
+            )
+            ax.axvline(
+                median_size,
+                color="orange",
+                linestyle="--",
+                label=f"Median: {median_size:.1f} MB",
+            )
             ax.legend()
 
             plt.tight_layout()
 
             # Save to base64 string
             img_buffer = io.BytesIO()
-            plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+            plt.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
             img_buffer.seek(0)
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
             plt.close()
@@ -320,18 +373,26 @@ def generate_package_visualizations(
         if visualizations:
             # Create a summary visualization combining key metrics
             fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-            fig.suptitle(f'Package Overview Dashboard - {package_name}', fontsize=20, fontweight='bold')
+            fig.suptitle(
+                f"Package Overview Dashboard - {package_name}",
+                fontsize=20,
+                fontweight="bold",
+            )
 
             # Top left: File count by folder
             if "folder_structure" in visualizations:
                 folders = visualizations["folder_structure"]["data"]["folders"]
                 counts = visualizations["folder_structure"]["data"]["file_counts"]
                 ax1.bar(
-                    range(len(folders)), counts, color=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"])
+                    range(len(folders)),
+                    counts,
+                    color=COLOR_SCHEMES.get(
+                        metadata_template, COLOR_SCHEMES["default"]
+                    ),
                 )
                 ax1.set_title("Files per Folder")
                 ax1.set_xticks(range(len(folders)))
-                ax1.set_xticklabels([f.split('/')[0] for f in folders], rotation=45)
+                ax1.set_xticklabels([f.split("/")[0] for f in folders], rotation=45)
                 ax1.set_ylabel("File Count")
 
             # Top right: File type distribution
@@ -341,8 +402,10 @@ def generate_package_visualizations(
                 ax2.pie(
                     values,
                     labels=labels,
-                    autopct='%1.1f%%',
-                    colors=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
+                    autopct="%1.1f%%",
+                    colors=COLOR_SCHEMES.get(
+                        metadata_template, COLOR_SCHEMES["default"]
+                    ),
                 )
                 ax2.set_title("File Types")
 
@@ -353,18 +416,21 @@ def generate_package_visualizations(
                     sizes,
                     bins=min(15, len(sizes) // 3),
                     alpha=0.7,
-                    color=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"])[0],
+                    color=COLOR_SCHEMES.get(
+                        metadata_template, COLOR_SCHEMES["default"]
+                    )[0],
                 )
                 ax3.set_title("File Sizes")
                 ax3.set_xlabel("Size (MB)")
                 ax3.set_ylabel("Count")
 
             # Bottom right: Summary statistics
-            ax4.axis('off')
+            ax4.axis("off")
             total_files = sum(len(files) for files in organized_structure.values())
-            total_size_mb = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values()) / (
-                1024 * 1024
-            )
+            total_size_mb = sum(
+                sum(obj.get("Size", 0) for obj in files)
+                for files in organized_structure.values()
+            ) / (1024 * 1024)
 
             summary_text = f"""
 Package Summary
@@ -383,15 +449,15 @@ Template: {metadata_template}
                 summary_text,
                 transform=ax4.transAxes,
                 fontsize=12,
-                verticalalignment='center',
-                fontfamily='monospace',
+                verticalalignment="center",
+                fontfamily="monospace",
             )
 
             plt.tight_layout()
 
             # Save dashboard to base64 string
             img_buffer = io.BytesIO()
-            plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+            plt.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
             img_buffer.seek(0)
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
             plt.close()
@@ -418,7 +484,9 @@ Template: {metadata_template}
             "metadata": {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "template_used": metadata_template,
-                "color_scheme": COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
+                "color_scheme": COLOR_SCHEMES.get(
+                    metadata_template, COLOR_SCHEMES["default"]
+                ),
             },
         }
 
@@ -496,7 +564,11 @@ def create_quilt_summary_files(
                 "generator": "quilt-mcp-server",
                 "version": "1.0.0",
                 "template_used": metadata_template,
-                "files_generated": ["quilt_summarize.json", "README.md", "visualizations"],
+                "files_generated": [
+                    "quilt_summarize.json",
+                    "README.md",
+                    "visualizations",
+                ],
             },
         }
 

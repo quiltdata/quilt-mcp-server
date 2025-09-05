@@ -22,7 +22,10 @@ class SailRealDataTest:
         self.benchling_data = {
             "rna_entry": "etr_FFW6vEAy",  # "RNA-Seq Analysis: TestRNA Sequence & Quilt Package Integration"
             "test_sequence": "seq_xy1L3OoCJa",  # "TestRNA" DNA sequence
-            "projects": ["src_1L4hWLPg", "src_9uVlVvGx"],  # Public-Demo, quilt-integration
+            "projects": [
+                "src_1L4hWLPg",
+                "src_9uVlVvGx",
+            ],  # Public-Demo, quilt-integration
         }
 
         self.quilt_data = {
@@ -37,7 +40,14 @@ class SailRealDataTest:
             "search_terms": ["RNA", "TestRNA", "benchling"],
         }
 
-    def log_result(self, test_id: str, test_name: str, success: bool, details: Dict[str, Any], execution_time: float):
+    def log_result(
+        self,
+        test_id: str,
+        test_name: str,
+        success: bool,
+        details: Dict[str, Any],
+        execution_time: float,
+    ):
         """Log test result with real data context"""
         result = {
             "test_id": test_id,
@@ -46,7 +56,10 @@ class SailRealDataTest:
             "execution_time_ms": round(execution_time * 1000, 2),
             "timestamp": datetime.now().isoformat(),
             "details": details,
-            "data_sources": {"benchling": "quilt-dtt.benchling.com", "quilt": "s3://quilt-sandbox-bucket"},
+            "data_sources": {
+                "benchling": "quilt-dtt.benchling.com",
+                "quilt": "s3://quilt-sandbox-bucket",
+            },
         }
         self.results.append(result)
 
@@ -71,7 +84,9 @@ class SailRealDataTest:
 
             # Step 2: Get the TestRNA sequence
             print("   Step 2: Retrieving TestRNA sequence from Benchling...")
-            benchling_sequence = self.get_benchling_sequence(self.benchling_data["test_sequence"])
+            benchling_sequence = self.get_benchling_sequence(
+                self.benchling_data["test_sequence"]
+            )
 
             # Step 3: Search for related RNA data in Quilt
             print("   Step 3: Searching for RNA-related data in Quilt...")
@@ -82,38 +97,52 @@ class SailRealDataTest:
             quilt_testrna_results = self.search_quilt_data("TestRNA")
 
             # Analyze federated results
-            benchling_success = benchling_entry.get('success', False) and benchling_sequence.get('success', False)
-            quilt_success = quilt_rna_results.get('total_results', 0) > 0
+            benchling_success = benchling_entry.get(
+                "success", False
+            ) and benchling_sequence.get("success", False)
+            quilt_success = quilt_rna_results.get("total_results", 0) > 0
 
             success = benchling_success and quilt_success
 
             details = {
                 "benchling_entry": {
-                    "name": benchling_entry.get('data', {}).get('name', 'N/A'),
-                    "id": benchling_entry.get('data', {}).get('id', 'N/A'),
-                    "creator": benchling_entry.get('data', {}).get('creator', {}).get('name', 'N/A'),
+                    "name": benchling_entry.get("data", {}).get("name", "N/A"),
+                    "id": benchling_entry.get("data", {}).get("id", "N/A"),
+                    "creator": benchling_entry.get("data", {})
+                    .get("creator", {})
+                    .get("name", "N/A"),
                 },
                 "benchling_sequence": {
-                    "name": benchling_sequence.get('data', {}).get('name', 'N/A'),
-                    "length": benchling_sequence.get('data', {}).get('length', 0),
-                    "bases": benchling_sequence.get('data', {}).get('bases', '')[:50] + "..."
-                    if benchling_sequence.get('data', {}).get('bases', '')
-                    else 'N/A',
+                    "name": benchling_sequence.get("data", {}).get("name", "N/A"),
+                    "length": benchling_sequence.get("data", {}).get("length", 0),
+                    "bases": (
+                        benchling_sequence.get("data", {}).get("bases", "")[:50] + "..."
+                        if benchling_sequence.get("data", {}).get("bases", "")
+                        else "N/A"
+                    ),
                 },
-                "quilt_rna_results": quilt_rna_results.get('total_results', 0),
-                "quilt_testrna_results": quilt_testrna_results.get('total_results', 0),
+                "quilt_rna_results": quilt_rna_results.get("total_results", 0),
+                "quilt_testrna_results": quilt_testrna_results.get("total_results", 0),
                 "federated_correlation": "Found matching TestRNA data in both systems",
                 "summary": f"Successfully correlated RNA-seq entry '{benchling_entry.get('data', {}).get('name', 'N/A')}' with {quilt_rna_results.get('total_results', 0)} Quilt RNA datasets",
             }
 
             if not success:
-                details["error"] = f"Benchling: {benchling_success}, Quilt: {quilt_success}"
+                details["error"] = (
+                    f"Benchling: {benchling_success}, Quilt: {quilt_success}"
+                )
 
         except Exception as e:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB001-REAL", "Real Federated Discovery", success, details, time.time() - test_start)
+        self.log_result(
+            "SB001-REAL",
+            "Real Federated Discovery",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     def test_sb002_real_summarization(self):
@@ -127,23 +156,29 @@ class SailRealDataTest:
             # Get the real RNA-seq entry
             entry_result = self.get_benchling_entry(self.benchling_data["rna_entry"])
 
-            if entry_result.get('success'):
-                entry_data = entry_result.get('data', {})
+            if entry_result.get("success"):
+                entry_data = entry_result.get("data", {})
 
                 # Extract real metadata and create summary
                 summary_details = {
-                    "entry_name": entry_data.get('name'),
-                    "entry_id": entry_data.get('id'),
-                    "display_id": entry_data.get('display_id'),
-                    "created_at": entry_data.get('created_at'),
-                    "modified_at": entry_data.get('modified_at'),
-                    "creator": entry_data.get('creator', {}).get('name'),
-                    "template_id": entry_data.get('entry_template_id'),
-                    "web_url": entry_data.get('web_url'),
-                    "analysis_type": "RNA-Seq Analysis" if "RNA-Seq" in entry_data.get('name', '') else "Unknown",
-                    "integration_focus": "Quilt Package Integration"
-                    if "Quilt" in entry_data.get('name', '')
-                    else "Standard",
+                    "entry_name": entry_data.get("name"),
+                    "entry_id": entry_data.get("id"),
+                    "display_id": entry_data.get("display_id"),
+                    "created_at": entry_data.get("created_at"),
+                    "modified_at": entry_data.get("modified_at"),
+                    "creator": entry_data.get("creator", {}).get("name"),
+                    "template_id": entry_data.get("entry_template_id"),
+                    "web_url": entry_data.get("web_url"),
+                    "analysis_type": (
+                        "RNA-Seq Analysis"
+                        if "RNA-Seq" in entry_data.get("name", "")
+                        else "Unknown"
+                    ),
+                    "integration_focus": (
+                        "Quilt Package Integration"
+                        if "Quilt" in entry_data.get("name", "")
+                        else "Standard"
+                    ),
                     "summary": f"RNA-Seq analysis notebook '{entry_data.get('name')}' created by {entry_data.get('creator', {}).get('name')} on {entry_data.get('created_at', '')[:10]}, focusing on TestRNA sequence and Quilt package integration",
                 }
 
@@ -157,7 +192,13 @@ class SailRealDataTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB002-REAL", "Real Notebook Summarization", success, details, time.time() - test_start)
+        self.log_result(
+            "SB002-REAL",
+            "Real Notebook Summarization",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     def test_sb004_real_ngs_lifecycle(self):
@@ -172,30 +213,32 @@ class SailRealDataTest:
             projects_result = self.get_benchling_projects()
 
             # Step 2: Get real RNA sequence for linking
-            sequence_result = self.get_benchling_sequence(self.benchling_data["test_sequence"])
+            sequence_result = self.get_benchling_sequence(
+                self.benchling_data["test_sequence"]
+            )
 
             # Step 3: Search for actual RNA-related packages in Quilt
             packages_result = self.search_quilt_packages("benchling")
 
             # Step 4: Simulate metadata linking
             metadata_linking = self.simulate_metadata_linking(
-                sequence_result.get('data', {}), projects_result.get('data', [])
+                sequence_result.get("data", {}), projects_result.get("data", [])
             )
 
             success = (
-                projects_result.get('success', False)
-                and sequence_result.get('success', False)
-                and packages_result.get('total_results', 0) > 0
+                projects_result.get("success", False)
+                and sequence_result.get("success", False)
+                and packages_result.get("total_results", 0) > 0
             )
 
             details = {
-                "benchling_projects": projects_result.get('count', 0),
+                "benchling_projects": projects_result.get("count", 0),
                 "rna_sequence": {
-                    "name": sequence_result.get('data', {}).get('name', 'N/A'),
-                    "id": sequence_result.get('data', {}).get('id', 'N/A'),
-                    "length": sequence_result.get('data', {}).get('length', 0),
+                    "name": sequence_result.get("data", {}).get("name", "N/A"),
+                    "id": sequence_result.get("data", {}).get("id", "N/A"),
+                    "length": sequence_result.get("data", {}).get("length", 0),
                 },
-                "quilt_packages": packages_result.get('total_results', 0),
+                "quilt_packages": packages_result.get("total_results", 0),
                 "metadata_linking": metadata_linking,
                 "integration_points": [
                     f"Benchling sequence {sequence_result.get('data', {}).get('id', 'N/A')} → Quilt package metadata",
@@ -209,7 +252,13 @@ class SailRealDataTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB004-REAL", "Real NGS Lifecycle Management", success, details, time.time() - test_start)
+        self.log_result(
+            "SB004-REAL",
+            "Real NGS Lifecycle Management",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     def test_sb016_real_unified_search(self):
@@ -218,7 +267,9 @@ class SailRealDataTest:
 
         try:
             print("\n🔍 Testing SB016: Real Unified Search")
-            print("   Searching for actual RNA-seq and TestRNA data across both systems...")
+            print(
+                "   Searching for actual RNA-seq and TestRNA data across both systems..."
+            )
 
             # Search both systems for real terms
             search_results = {}
@@ -234,8 +285,8 @@ class SailRealDataTest:
 
                 search_results[term] = {
                     "benchling": benchling_results,
-                    "quilt": quilt_results.get('total_results', 0),
-                    "total": benchling_results + quilt_results.get('total_results', 0),
+                    "quilt": quilt_results.get("total_results", 0),
+                    "total": benchling_results + quilt_results.get("total_results", 0),
                 }
 
             total_results = sum(result["total"] for result in search_results.values())
@@ -256,7 +307,13 @@ class SailRealDataTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result("SB016-REAL", "Real Unified Search", success, details, time.time() - test_start)
+        self.log_result(
+            "SB016-REAL",
+            "Real Unified Search",
+            success,
+            details,
+            time.time() - test_start,
+        )
         return success
 
     # Helper methods for real MCP calls
@@ -334,16 +391,18 @@ class SailRealDataTest:
     def simulate_metadata_linking(self, sequence_data: Dict, projects_data: List):
         """Simulate metadata linking between systems"""
         return {
-            "sequence_id": sequence_data.get('id', 'N/A'),
-            "linked_project": projects_data[1].get('id', 'N/A')
-            if len(projects_data) > 1
-            else 'N/A',  # quilt-integration project
+            "sequence_id": sequence_data.get("id", "N/A"),
+            "linked_project": (
+                projects_data[1].get("id", "N/A") if len(projects_data) > 1 else "N/A"
+            ),  # quilt-integration project
             "metadata_fields": {
-                "benchling_sequence_id": sequence_data.get('id'),
-                "benchling_project_id": projects_data[1].get('id') if len(projects_data) > 1 else None,
-                "sequence_name": sequence_data.get('name'),
-                "sequence_length": sequence_data.get('length'),
-                "created_by": sequence_data.get('creator', {}).get('name'),
+                "benchling_sequence_id": sequence_data.get("id"),
+                "benchling_project_id": (
+                    projects_data[1].get("id") if len(projects_data) > 1 else None
+                ),
+                "sequence_name": sequence_data.get("name"),
+                "sequence_length": sequence_data.get("length"),
+                "created_by": sequence_data.get("creator", {}).get("name"),
             },
             "success": True,
         }
@@ -387,7 +446,7 @@ class SailRealDataTest:
 
         # Save detailed results
         results_file = f"sail_real_data_test_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(results_file, 'w') as f:
+        with open(results_file, "w") as f:
             json.dump(
                 {
                     "summary": {

@@ -47,7 +47,9 @@ class TestSearchSuggestions:
         """Test context-aware suggestions for package scope."""
         engine = SearchSuggestionEngine()
 
-        result = engine.suggest("files", context="user/dataset", suggestion_types=["context"], limit=5)
+        result = engine.suggest(
+            "files", context="user/dataset", suggestion_types=["context"], limit=5
+        )
 
         context_suggestions = result["suggestions"]["context_suggestions"]
         assert len(context_suggestions) > 0
@@ -57,7 +59,9 @@ class TestSearchSuggestions:
         """Test context-aware suggestions for bucket scope."""
         engine = SearchSuggestionEngine()
 
-        result = engine.suggest("data", context="my-bucket", suggestion_types=["context"], limit=5)
+        result = engine.suggest(
+            "data", context="my-bucket", suggestion_types=["context"], limit=5
+        )
 
         context_suggestions = result["suggestions"]["context_suggestions"]
         assert len(context_suggestions) > 0
@@ -118,12 +122,14 @@ class TestSearchExplanations:
 class TestGraphQLBackend:
     """Test cases for Enterprise GraphQL backend."""
 
-    @patch('quilt_mcp.search.backends.graphql.quilt3')
+    @patch("quilt_mcp.search.backends.graphql.quilt3")
     def test_graphql_initialization(self, mock_quilt3):
         """Test GraphQL backend initialization."""
         mock_session = Mock()
         mock_session.post.return_value.status_code = 200
-        mock_session.post.return_value.json.return_value = {"data": {"__schema": {"queryType": {"name": "Query"}}}}
+        mock_session.post.return_value.json.return_value = {
+            "data": {"__schema": {"queryType": {"name": "Query"}}}
+        }
 
         mock_quilt3.session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session.get_session.return_value = mock_session
@@ -131,18 +137,20 @@ class TestGraphQLBackend:
         backend = EnterpriseGraphQLBackend()
         assert backend.status == BackendStatus.AVAILABLE
 
-    @patch('quilt_mcp.search.backends.graphql.quilt3')
+    @patch("quilt_mcp.search.backends.graphql.quilt3")
     def test_graphql_unavailable(self, mock_quilt3):
         """Test GraphQL backend when service is unavailable."""
         mock_quilt3.session.get_registry_url.return_value = None
         mock_quilt3.session.get_session.return_value = None
 
         # Mock the GraphQL endpoint function to return None
-        with patch('quilt_mcp.tools.graphql._get_graphql_endpoint', return_value=(None, None)):
+        with patch(
+            "quilt_mcp.tools.graphql._get_graphql_endpoint", return_value=(None, None)
+        ):
             backend = EnterpriseGraphQLBackend()
             assert backend.status == BackendStatus.UNAVAILABLE
 
-    @patch('quilt_mcp.search.backends.graphql.quilt3')
+    @patch("quilt_mcp.search.backends.graphql.quilt3")
     @pytest.mark.asyncio
     async def test_graphql_health_check(self, mock_quilt3):
         """Test GraphQL backend health checking."""
@@ -178,9 +186,12 @@ class TestIntegratedPhase2:
         assert "backend_selection" in result
         assert "performance_estimate" in result
         # "large files" gets detected as file_search, which is correct
-        assert result["query_analysis"]["detected_type"] in ["file_search", "analytical_search"]
+        assert result["query_analysis"]["detected_type"] in [
+            "file_search",
+            "analytical_search",
+        ]
 
-    @patch('quilt_mcp.search.tools.unified_search.get_search_engine')
+    @patch("quilt_mcp.search.tools.unified_search.get_search_engine")
     def test_enhanced_backend_registry(self, mock_get_engine):
         """Test that the enhanced search engine includes all backends."""
         from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine

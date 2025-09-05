@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 import traceback
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 from quilt_mcp.utils import create_mcp_server, register_tools
 
@@ -44,7 +44,9 @@ class DirectMCPTester:
             print(f"❌ Server setup failed: {e}")
             raise
 
-    async def call_tool_direct(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool_direct(
+        self, tool_name: str, arguments: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Call a tool directly and measure performance"""
         start_time = time.time()
         try:
@@ -91,7 +93,11 @@ class DirectMCPTester:
                 params = list(sig.parameters.keys())
 
                 tools_info.append(
-                    {"name": tool_name, "parameters": params, "is_async": asyncio.iscoroutinefunction(tool_func)}
+                    {
+                        "name": tool_name,
+                        "parameters": params,
+                        "is_async": asyncio.iscoroutinefunction(tool_func),
+                    }
                 )
             except Exception as e:
                 tools_info.append({"name": tool_name, "error": str(e)})
@@ -140,14 +146,25 @@ class DirectMCPTester:
         # Test different search functions
         search_tests = [
             ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
-            ("mcp_quilt_bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}),
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+            ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
 
         # Add unified search if available
         if "unified_search" in self.tools:
             search_tests.append(
-                ("unified_search", {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True})
+                (
+                    "unified_search",
+                    {
+                        "query": "CSV files",
+                        "scope": "catalog",
+                        "limit": 3,
+                        "explain_query": True,
+                    },
+                )
             )
 
         for tool_name, args in search_tests:
@@ -182,7 +199,10 @@ class DirectMCPTester:
         # Test with invalid inputs
         error_tests = [
             ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid limit
-            ("mcp_quilt_bucket_objects_search", {"bucket": "invalid-bucket", "query": "test"}),  # Invalid bucket
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "invalid-bucket", "query": "test"},
+            ),  # Invalid bucket
             ("mcp_quilt_auth_status", {}),  # Missing required parameter
         ]
 
@@ -193,13 +213,21 @@ class DirectMCPTester:
                 results["error_tests"].append(result)
 
                 if not result["success"]:
-                    print(f"   ✅ Error handled correctly: {result['execution_time_ms']}ms ({result['error_type']})")
+                    print(
+                        f"   ✅ Error handled correctly: {result['execution_time_ms']}ms ({result['error_type']})"
+                    )
                 else:
                     # Check if the result indicates an error
-                    if isinstance(result["result"], dict) and not result["result"].get("success"):
-                        print(f"   ✅ Error handled in result: {result['execution_time_ms']}ms")
+                    if isinstance(result["result"], dict) and not result["result"].get(
+                        "success"
+                    ):
+                        print(
+                            f"   ✅ Error handled in result: {result['execution_time_ms']}ms"
+                        )
                     else:
-                        print(f"   ⚠️  Expected error but got success: {result['execution_time_ms']}ms")
+                        print(
+                            f"   ⚠️  Expected error but got success: {result['execution_time_ms']}ms"
+                        )
             else:
                 print(f"   ⚠️  {tool_name}: Tool not found for error test")
 
@@ -254,13 +282,25 @@ class DirectMCPTester:
         # Test unified search if available
         if "unified_search" in self.tools:
             unified_tests = [
-                {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True},
+                {
+                    "query": "CSV files",
+                    "scope": "catalog",
+                    "limit": 3,
+                    "explain_query": True,
+                },
                 {"query": "genomics data", "scope": "global", "limit": 2},
-                {"query": "test", "scope": "bucket", "target": "s3://quilt-sandbox-bucket", "limit": 1},
+                {
+                    "query": "test",
+                    "scope": "bucket",
+                    "target": "s3://quilt-sandbox-bucket",
+                    "limit": 1,
+                },
             ]
 
             for test_args in unified_tests:
-                print(f"   Testing unified search: {test_args['query']} ({test_args['scope']})...")
+                print(
+                    f"   Testing unified search: {test_args['query']} ({test_args['scope']})..."
+                )
                 result = await self.call_tool_direct("unified_search", test_args)
                 results["unified_search_tests"].append(result)
 
@@ -281,7 +321,9 @@ class DirectMCPTester:
                     print(f"   ❌ Unified search failed: {result['error']}")
         else:
             print("   ⚠️  Unified search not available")
-            results["unified_search_tests"].append({"success": False, "error": "unified_search tool not found"})
+            results["unified_search_tests"].append(
+                {"success": False, "error": "unified_search tool not found"}
+            )
 
         return results
 
@@ -303,7 +345,9 @@ class DirectMCPTester:
         test_results["search_functionality"] = await self.test_search_functionality()
         test_results["error_handling"] = await self.test_error_handling()
         test_results["performance"] = await self.test_performance()
-        test_results["unified_search_architecture"] = await self.test_unified_search_architecture()
+        test_results["unified_search_architecture"] = (
+            await self.test_unified_search_architecture()
+        )
 
         return test_results
 
@@ -336,23 +380,31 @@ async def main():
         successful_search = sum(1 for test in search["search_tests"] if test["success"])
         total_search = len(search["search_tests"])
 
-        print(f"🔍 Search Functionality: {successful_search}/{total_search} tests passed")
+        print(
+            f"🔍 Search Functionality: {successful_search}/{total_search} tests passed"
+        )
 
         # Error handling summary
         error = results["error_handling"]
         handled_errors = sum(
             1
             for test in error["error_tests"]
-            if not test["success"] or (isinstance(test.get("result"), dict) and not test["result"].get("success"))
+            if not test["success"]
+            or (
+                isinstance(test.get("result"), dict)
+                and not test["result"].get("success")
+            )
         )
         total_errors = len(error["error_tests"])
 
-        print(f"⚠️  Error Handling: {handled_errors}/{total_errors} errors properly handled")
+        print(
+            f"⚠️  Error Handling: {handled_errors}/{total_errors} errors properly handled"
+        )
 
         # Performance summary
         perf = results["performance"].get("concurrent_test", {})
         if "error" not in perf:
-            successful_perf = perf.get('successful_calls', 0)
+            successful_perf = perf.get("successful_calls", 0)
             print(f"⚡ Performance: {successful_perf}/5 concurrent calls successful")
             print(f"   Average response time: {perf.get('average_time_ms', 0)}ms")
         else:
@@ -360,7 +412,9 @@ async def main():
 
         # Unified search summary
         unified = results["unified_search_architecture"]
-        successful_unified = sum(1 for test in unified["unified_search_tests"] if test["success"])
+        successful_unified = sum(
+            1 for test in unified["unified_search_tests"] if test["success"]
+        )
         total_unified = len(unified["unified_search_tests"])
 
         print(f"🏗️  Unified Search: {successful_unified}/{total_unified} tests passed")
@@ -375,12 +429,14 @@ async def main():
             passed_categories += 1
         if handled_errors >= total_errors * 0.8:
             passed_categories += 1
-        if "error" not in perf and perf.get('successful_calls', 0) >= 4:
+        if "error" not in perf and perf.get("successful_calls", 0) >= 4:
             passed_categories += 1
         if successful_unified >= max(1, total_unified * 0.8):
             passed_categories += 1
 
-        print(f"\n🎯 Overall: {passed_categories}/{total_categories} test categories passed")
+        print(
+            f"\n🎯 Overall: {passed_categories}/{total_categories} test categories passed"
+        )
 
         if passed_categories == total_categories:
             print("✅ ALL TESTS PASSED - MCP server is working correctly!")
@@ -392,7 +448,7 @@ async def main():
 
         # Performance assessment
         if "error" not in perf:
-            avg_time = perf.get('average_time_ms', 0)
+            avg_time = perf.get("average_time_ms", 0)
             if avg_time < 100:
                 print("🚀 EXCELLENT PERFORMANCE - Average response time < 100ms")
             elif avg_time < 500:
