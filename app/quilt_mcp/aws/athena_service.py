@@ -150,8 +150,9 @@ class AthenaQueryService:
                         'ResultConfiguration', {}
                     ).get('OutputLocation'):
                         workgroups.append(name)
-                except Exception:
+                except Exception as e:
                     # Skip workgroups we can't access
+                    logger.debug(f"Cannot access workgroup {name}: {e}")
                     continue
 
             # Prioritize workgroups (Quilt workgroups first, then others)

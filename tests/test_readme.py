@@ -122,7 +122,8 @@ def test_readme_commands_work():
         ]
 
         for cmd in test_commands:
-            result = subprocess.run(cmd, shell=True, cwd=temp_dir, capture_output=True, text=True)
+            # Security: shell=True is safe here as commands are static and trusted test commands
+            result = subprocess.run(cmd, shell=True, cwd=temp_dir, capture_output=True, text=True)  # noqa: S602
             # Commands should not fail catastrophically
             assert result.returncode in [0, 1], f"Command failed unexpectedly: {cmd}"
 
