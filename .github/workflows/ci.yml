@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: ['**']  # Run CI on PRs to any branch (for stacked PR workflows)
   workflow_dispatch:
 
 jobs:
