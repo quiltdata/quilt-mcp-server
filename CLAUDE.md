@@ -282,12 +282,39 @@ The key is to write clean, testable, functional code that evolves through small,
 
 For this repository's specific commands and permissions, see this CLAUDE.md file which contains:
 
-- Pre-approved Makefile targets (use those to run tests when possible)
-- Phase-specific commands (app, build, catalog, deploy)
+- Pre-approved Makefile targets (consolidated build system)
+- Development workflow commands (make.dev)
+- Production workflow commands (make.deploy)
 - Testing and validation procedures
 - AWS operations and deployment commands
 - Docker operations
 - Environment setup and dependencies
+
+### Pre-approved Makefile Targets
+
+**Development Workflow (make.dev):**
+- `make run` - Start local MCP server
+- `make test` - Run all tests
+- `make test-unit` - Run unit tests only (fast)
+- `make test-integration` - Run integration tests (with AWS)
+- `make test-ci` - Run CI-optimized tests
+- `make lint` - Code formatting and type checking
+- `make coverage` - Run tests with coverage report
+- `make run-inspector` - Launch MCP Inspector for testing
+
+**Production Workflow (make.deploy):**
+- `make build` - Prepare production build environment
+- `make package` - Create Python package
+- `make dxt-package` - Create DXT package
+- `make validate-package` - Validate DXT package
+- `make release-package` - Create release bundle with documentation
+
+**Coordination & Utilities:**
+- `make help` - Show all available targets organized by category
+- `make clean` - Clean all artifacts (dev + deploy)
+- `make release` - Full release workflow (test → build → package)
+- `make test-readme` - Test README installation commands
+- `make update-cursor-rules` - Update Cursor IDE rules from CLAUDE.md
 
 ## Important Instruction Reminders
 
@@ -318,6 +345,7 @@ The following permissions are granted for this repository:
 
 - Always use `uv sync --group test` to install test dependencies before running tests
 - Use `make coverage` for full test runs, but beware matplotlib import conflicts can occur in mixed environments
+- Use `make test-unit` for fast unit tests only (excludes AWS/integration tests)
 - For isolated module testing, use `PYTHONPATH=app uv run pytest tests/test_<module>.py -v`
 
 **BDD Test Patterns:**

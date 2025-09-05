@@ -101,7 +101,7 @@ class TestPackageBrowse:
 
 ```bash
 # Run integration tests
-make test-app
+make test
 
 # Run specific integration test
 pytest tests/test_integration.py::TestUnifiedSearch -v
@@ -341,7 +341,7 @@ jobs:
       run: make coverage
     
     - name: Run integration tests  
-      run: make test-app
+      run: make test
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
@@ -353,7 +353,7 @@ jobs:
 
 ```bash
 # Quick test suite (unit tests only)
-make test-app
+make test
 
 # Full test suite with coverage
 make coverage

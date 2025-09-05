@@ -19,7 +19,7 @@ cp env.example .env
 uv sync --group test
 
 # Validate setup
-make validate-app
+make test
 make coverage
 ```
 
@@ -47,7 +47,7 @@ git checkout -b feature/your-feature-name
 
 # 3. Run tests
 make coverage                    # Unit tests (must maintain 85%+ coverage)
-make validate-app               # Integration validation
+make test               # Integration validation
 python test_cases/sail_user_stories_real_test.py  # Real-world tests
 
 # 4. Commit with descriptive message
@@ -99,7 +99,7 @@ QUILT_DEFAULT_BUCKET=s3://my-bucket
 ```
 
 ## Steps to Reproduce
-1. Start the MCP server with `make app`
+1. Start the MCP server with `make run`
 2. Call tool `package_browse` with parameters: {...}
 3. Observe error in response
 
@@ -313,7 +313,7 @@ We welcome improvements to:
 make coverage
 
 # Integration tests (required for new tools)
-make test-app
+make test
 
 # Real-world scenarios (recommended for significant features)
 python test_cases/sail_user_stories_real_test.py
@@ -421,7 +421,7 @@ Brief description of changes
 
 ## Testing
 - [ ] Unit tests pass (make coverage)
-- [ ] Integration tests pass (make test-app)
+- [ ] Integration tests pass (make test)
 - [ ] Real-world tests pass (if applicable)
 - [ ] Manual testing completed
 
