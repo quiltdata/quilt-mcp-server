@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def format_as_table(
-    data: Union[pd.DataFrame, List[Dict[str, Any]], Dict[str, Any]],
+    data: pd.DataFrame | List[Dict[str, Any]] | Dict[str, Any],
     max_width: int = 120,
     max_rows: Optional[int] = None,
 ) -> str:

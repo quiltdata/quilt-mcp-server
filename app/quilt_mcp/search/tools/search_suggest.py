@@ -71,7 +71,7 @@ class SearchSuggestionEngine:
         }
 
     def suggest(
-        self, partial_query: str, context: str = "", suggestion_types: List[str] = ["auto"], limit: int = 10
+        self, partial_query: str, context: str = "", suggestion_types: List[str] = None, limit: int = 10
     ) -> Dict[str, Any]:
         """Generate search suggestions for partial query.
 
@@ -84,6 +84,8 @@ class SearchSuggestionEngine:
         Returns:
             Dictionary with categorized suggestions
         """
+        if suggestion_types is None:
+            suggestion_types = ["auto"]
         partial_lower = partial_query.lower().strip()
         suggestions = {
             "query_completions": [],
@@ -274,7 +276,7 @@ def get_suggestion_engine() -> SearchSuggestionEngine:
 
 
 def search_suggest(
-    partial_query: str, context: str = "", suggestion_types: List[str] = ["auto"], limit: int = 10
+    partial_query: str, context: str = "", suggestion_types: List[str] = None, limit: int = 10
 ) -> Dict[str, Any]:
     """
     Provide intelligent search suggestions and query completion.
@@ -292,6 +294,8 @@ def search_suggest(
         search_suggest("CSV fil")  # → "CSV files", "CSV files in packages", etc.
         search_suggest("genomics", context="user/dataset")
     """
+    if suggestion_types is None:
+        suggestion_types = ["auto"]
     try:
         engine = get_suggestion_engine()
         return engine.suggest(partial_query, context, suggestion_types, limit)

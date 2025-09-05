@@ -368,12 +368,12 @@ def generate_package_visualizations(
 
             summary_text = f"""
 Package Summary
-            
+
 Total Files: {total_files}
 Total Size: {total_size_mb:.1f} MB
 Folders: {len(organized_structure)}
 File Types: {len(file_types)}
-            
+
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 Template: {metadata_template}
             """

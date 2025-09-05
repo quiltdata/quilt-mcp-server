@@ -196,7 +196,7 @@ class DirectMCPTester:
                     print(f"   ✅ Error handled correctly: {result['execution_time_ms']}ms ({result['error_type']})")
                 else:
                     # Check if the result indicates an error
-                    if isinstance(result["result"], dict) and result["result"].get("success") == False:
+                    if isinstance(result["result"], dict) and not result["result"].get("success"):
                         print(f"   ✅ Error handled in result: {result['execution_time_ms']}ms")
                     else:
                         print(f"   ⚠️  Expected error but got success: {result['execution_time_ms']}ms")
@@ -343,7 +343,7 @@ async def main():
         handled_errors = sum(
             1
             for test in error["error_tests"]
-            if not test["success"] or (isinstance(test.get("result"), dict) and test["result"].get("success") == False)
+            if not test["success"] or (isinstance(test.get("result"), dict) and not test["result"].get("success"))
         )
         total_errors = len(error["error_tests"])
 

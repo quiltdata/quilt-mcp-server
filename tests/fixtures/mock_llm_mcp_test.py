@@ -244,7 +244,7 @@ class MockLLMMCPTester:
 
             if not result.success:
                 print(f"   ✅ Error handled: {result.execution_time_ms}ms")
-            elif result.success and isinstance(result.content, dict) and result.content.get("success") == False:
+            elif result.success and isinstance(result.content, dict) and not result.content.get("success"):
                 print(f"   ✅ Error in result: {result.execution_time_ms}ms")
             else:
                 print(f"   ⚠️  Unexpected success: {result.execution_time_ms}ms")
@@ -394,7 +394,7 @@ async def main():
             or (
                 test["result"].success
                 and isinstance(test["result"].content, dict)
-                and test["result"].content.get("success") == False
+                and not test["result"].content.get("success")
             )
         )
 

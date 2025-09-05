@@ -531,34 +531,34 @@ logging.basicConfig(
 async def main():
     """Main optimization function."""
     runner = CursorAutonomousRunner()
-    
+
     try:
         results = await runner.run_optimization_session()
-        
+
         print("\\n" + "="*50)
         print("MCP OPTIMIZATION RESULTS")
         print("="*50)
-        
+
         summary = results['summary']
         print(f"Optimizations Applied: {summary['optimizations_applied']}")
-        
+
         improvements = summary.get('performance_improvement', {})
         if improvements:
             print("\\nPerformance Improvements:")
             for metric, improvement in improvements.items():
                 print(f"  {metric}: {improvement:+.1%}")
-        
+
         recommendations = summary.get('recommendations', [])
         if recommendations:
             print("\\nRecommendations:")
             for i, rec in enumerate(recommendations, 1):
                 print(f"  {i}. {rec}")
-        
+
         print(f"\\nDetailed report saved to: {results['report_file']}")
         print("="*50)
-        
+
         return 0
-        
+
     except Exception as e:
         print(f"Optimization failed: {e}")
         logging.error(f"Optimization failed: {e}")
