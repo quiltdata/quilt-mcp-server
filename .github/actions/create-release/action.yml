@@ -15,11 +15,11 @@ runs:
   steps:
     - name: Build DXT package
       shell: bash  
-      run: make dxt
+      run: make dxt-package
       
     - name: Validate DXT package
       shell: bash
-      run: make validate-dxt
+      run: make validate-package
 
     - name: Extract manifest version
       id: manifest
