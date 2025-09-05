@@ -27,7 +27,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: build package dxt-package validate-package deploy-clean check-tools
+.PHONY: build package dxt-package validate-package deploy-clean check-tools tag tag-dev
 
 # Check for required tools
 check-tools:
@@ -112,6 +112,15 @@ $(RELEASE_NAME): validate-package $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-pr
 
 release-package: $(RELEASE_NAME)
 	@echo "✅ Release package $(RELEASE_NAME) ready for distribution"
+
+# Release Tagging Targets
+tag:
+	@echo "Creating release tag..."
+	@./tools/release.sh release
+
+tag-dev:
+	@echo "Creating development tag..."
+	@./tools/release.sh dev
 
 # Cleanup Targets
 deploy-clean:

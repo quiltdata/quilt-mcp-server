@@ -32,6 +32,8 @@ help:
 	@echo "  make dxt-package      - Create DXT package"
 	@echo "  make validate-package - Validate DXT package"
 	@echo "  make release-package  - Create release bundle with documentation"
+	@echo "  make tag              - Create release tag (from pyproject.toml version)"
+	@echo "  make tag-dev          - Create development tag with timestamp"
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
