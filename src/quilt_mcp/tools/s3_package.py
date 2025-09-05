@@ -81,9 +81,7 @@ def _suggest_target_registry(source_bucket: str, source_prefix: str) -> str:
     return "s3://data-packages"
 
 
-def _organize_file_structure(
-    objects: List[Dict[str, Any]], auto_organize: bool
-) -> Dict[str, List[Dict[str, Any]]]:
+def _organize_file_structure(objects: List[Dict[str, Any]], auto_organize: bool) -> Dict[str, List[Dict[str, Any]]]:
     """Organize files into logical folder structure."""
     if not auto_organize:
         return {"": objects}  # No organization, flat structure
@@ -151,15 +149,11 @@ This package is organized into the following structure:
         if folder:
             readme_content += f"### `{folder}/` ({len(files)} files)\n"
             if folder == "data/processed":
-                readme_content += (
-                    "Cleaned and processed data files ready for analysis.\n\n"
-                )
+                readme_content += "Cleaned and processed data files ready for analysis.\n\n"
             elif folder == "data/raw":
                 readme_content += "Original source data in raw format.\n\n"
             elif folder == "docs":
-                readme_content += (
-                    "Documentation, schemas, and supplementary materials.\n\n"
-                )
+                readme_content += "Documentation, schemas, and supplementary materials.\n\n"
             elif folder == "metadata":
                 readme_content += "Configuration files and package metadata.\n\n"
             else:
@@ -180,9 +174,7 @@ This package is organized into the following structure:
                 if ext:
                     folder_types.add(ext)
             types_str = ", ".join(sorted(folder_types))
-            readme_content += (
-                f"| `{folder or 'root'}/` | {len(files)} | {types_str} |\n"
-            )
+            readme_content += f"| `{folder or 'root'}/` | {len(files)} | {types_str} |\n"
 
     # Add usage section
     readme_content += f"""
@@ -272,10 +264,7 @@ def _generate_package_metadata(
     README content should only be added as files to the package, not as metadata.
     """
     total_objects = sum(len(files) for files in organized_structure.values())
-    total_size = sum(
-        sum(obj.get("Size", 0) for obj in files)
-        for files in organized_structure.values()
-    )
+    total_size = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values())
 
     # Extract file types
     file_types = set()
@@ -302,9 +291,7 @@ def _generate_package_metadata(
                 "structure_type": "logical_hierarchy",
                 "auto_organized": True,
                 "folder_mapping": {
-                    folder: f"Contains {len(files)} files"
-                    for folder, files in organized_structure.items()
-                    if files
+                    folder: f"Contains {len(files)} files" for folder, files in organized_structure.items() if files
                 },
             },
             "data_profile": {
@@ -377,9 +364,7 @@ def package_create_from_s3(
     try:
         # Validate inputs
         if not validate_package_name(package_name):
-            return format_error_response(
-                "Invalid package name format. Use 'namespace/name'"
-            )
+            return format_error_response("Invalid package name format. Use 'namespace/name'")
 
         if not source_bucket:
             return format_error_response("source_bucket is required")
@@ -448,28 +433,20 @@ def package_create_from_s3(
                     source_bucket=source_bucket, operation_type="package_creation"
                 )
 
-                if recommendations.get("success") and recommendations.get(
-                    "recommendations", {}
-                ).get("primary_recommendations"):
+                if recommendations.get("success") and recommendations.get("recommendations", {}).get(
+                    "primary_recommendations"
+                ):
                     # Use the top recommendation
-                    top_rec = recommendations["recommendations"][
-                        "primary_recommendations"
-                    ][0]
+                    top_rec = recommendations["recommendations"]["primary_recommendations"][0]
                     target_registry = f"s3://{top_rec['bucket_name']}"
-                    logger.info(
-                        f"Using permission-based recommendation: {target_registry}"
-                    )
+                    logger.info(f"Using permission-based recommendation: {target_registry}")
                 else:
                     # Fallback to pattern-based suggestion
-                    target_registry = _suggest_target_registry(
-                        source_bucket, source_prefix
-                    )
+                    target_registry = _suggest_target_registry(source_bucket, source_prefix)
                     logger.info(f"Using pattern-based suggestion: {target_registry}")
 
             except Exception as e:
-                logger.warning(
-                    f"Permission-based recommendation failed, using pattern-based: {e}"
-                )
+                logger.warning(f"Permission-based recommendation failed, using pattern-based: {e}")
                 target_registry = _suggest_target_registry(source_bucket, source_prefix)
                 logger.info(f"Fallback suggestion: {target_registry}")
 
@@ -477,9 +454,7 @@ def package_create_from_s3(
         target_bucket_name = target_registry.replace("s3://", "")
         try:
             access_check = bucket_access_check(target_bucket_name)
-            if not access_check.get("success") or not access_check.get(
-                "access_summary", {}
-            ).get("can_write"):
+            if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return {
                     "success": False,
                     "error": "Cannot create package in target registry",
@@ -534,20 +509,14 @@ def package_create_from_s3(
                     },
                 }
             else:
-                return format_error_response(
-                    f"Cannot access source bucket {source_bucket}: {str(e)}"
-                )
+                return format_error_response(f"Cannot access source bucket {source_bucket}: {str(e)}")
 
         # Discover source objects
         logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
-        objects = _discover_s3_objects(
-            s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns
-        )
+        objects = _discover_s3_objects(s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns)
 
         if not objects:
-            return format_error_response(
-                "No objects found matching the specified criteria"
-            )
+            return format_error_response("No objects found matching the specified criteria")
 
         # Organize file structure
         organized_structure = _organize_file_structure(objects, auto_organize)
@@ -558,9 +527,7 @@ def package_create_from_s3(
             "bucket": source_bucket,
             "prefix": source_prefix,
             "source_description": (
-                f"s3://{source_bucket}/{source_prefix}"
-                if source_prefix
-                else f"s3://{source_bucket}"
+                f"s3://{source_bucket}/{source_prefix}" if source_prefix else f"s3://{source_bucket}"
             ),
         }
 
@@ -631,17 +598,11 @@ def package_create_from_s3(
                 "package_name": package_name,
                 "registry": target_registry,
                 "structure_preview": confirmation_info,
-                "readme_preview": (
-                    final_readme_content[:500] + "..." if final_readme_content else None
-                ),
+                "readme_preview": (final_readme_content[:500] + "..." if final_readme_content else None),
                 "metadata_preview": enhanced_metadata,
                 "summary_files_preview": {
-                    "quilt_summarize.json": summary_files.get(
-                        "summary_package", {}
-                    ).get("quilt_summarize.json", {}),
-                    "visualizations": summary_files.get("summary_package", {}).get(
-                        "visualizations", {}
-                    ),
+                    "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
+                    "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),
                     "files_generated": summary_files.get("files_generated", {}),
                 },
                 "message": "Preview generated. Set dry_run=False to create the package.",
@@ -682,35 +643,23 @@ def package_create_from_s3(
             "metadata": {
                 "package_size_mb": round(total_size / (1024 * 1024), 2),
                 "file_types": list(
-                    set(
-                        Path(obj["Key"]).suffix.lower().lstrip(".")
-                        for obj in objects
-                        if Path(obj["Key"]).suffix
-                    )
+                    set(Path(obj["Key"]).suffix.lower().lstrip(".") for obj in objects if Path(obj["Key"]).suffix)
                 ),
-                "organization_applied": (
-                    "logical_hierarchy" if auto_organize else "flat"
-                ),
+                "organization_applied": ("logical_hierarchy" if auto_organize else "flat"),
             },
             "confirmation": confirmation_info,
             "package_hash": package_result.get("top_hash"),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "summary_files": {
-                "quilt_summarize.json": summary_files.get("summary_package", {}).get(
-                    "quilt_summarize.json", {}
-                ),
-                "visualizations": summary_files.get("summary_package", {}).get(
-                    "visualizations", {}
-                ),
+                "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
+                "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),
                 "files_generated": summary_files.get("files_generated", {}),
                 "visualization_count": summary_files.get("visualization_count", 0),
             },
         }
 
     except NoCredentialsError:
-        return format_error_response(
-            "AWS credentials not found. Please configure AWS authentication."
-        )
+        return format_error_response("AWS credentials not found. Please configure AWS authentication.")
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         return format_error_response(f"AWS error ({error_code}): {str(e)}")
@@ -726,9 +675,7 @@ def _validate_bucket_access(s3_client, bucket_name: str) -> None:
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code")
         if error_code == "404":
-            raise ValueError(
-                f"Bucket {bucket_name} does not exist or you don't have access"
-            )
+            raise ValueError(f"Bucket {bucket_name} does not exist or you don't have access")
         elif error_code == "403":
             raise ValueError(f"Access denied to bucket {bucket_name}")
         else:
@@ -752,9 +699,7 @@ def _discover_s3_objects(
         for page in pages:
             if "Contents" in page:
                 for obj in page["Contents"]:
-                    if _should_include_object(
-                        obj["Key"], include_patterns, exclude_patterns
-                    ):
+                    if _should_include_object(obj["Key"], include_patterns, exclude_patterns):
                         objects.append(obj)
     except ClientError as e:
         logger.error(f"Error listing objects in bucket {bucket}: {str(e)}")
@@ -839,17 +784,12 @@ def _create_enhanced_package(
             if "quilt_summarize.json" in summary_package:
                 import json
 
-                quilt_summary_json = json.dumps(
-                    summary_package["quilt_summarize.json"], indent=2
-                )
+                quilt_summary_json = json.dumps(summary_package["quilt_summarize.json"], indent=2)
                 pkg.set("quilt_summarize.json", io.StringIO(quilt_summary_json))
                 logger.info("Added quilt_summarize.json to package")
 
             # Add visualizations if they exist
-            if (
-                "visualizations" in summary_package
-                and summary_package["visualizations"]
-            ):
+            if "visualizations" in summary_package and summary_package["visualizations"]:
                 # Create a visualizations directory and add visualization files
                 for viz_name, viz_data in summary_package["visualizations"].items():
                     if viz_data.get("image_base64"):
@@ -857,9 +797,7 @@ def _create_enhanced_package(
 
                         # Decode base64 image and add as file
                         image_data = base64.b64decode(viz_data["image_base64"])
-                        pkg.set(
-                            f"visualizations/{viz_name}.png", io.BytesIO(image_data)
-                        )
+                        pkg.set(f"visualizations/{viz_name}.png", io.BytesIO(image_data))
                         logger.info(f"Added visualization {viz_name}.png to package")
 
         # Set comprehensive metadata
@@ -938,9 +876,7 @@ async def _create_package_from_objects(
     metadata: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Create the Quilt package from S3 objects (legacy function)."""
-    logger.warning(
-        "Using legacy package creation function. Consider using enhanced version."
-    )
+    logger.warning("Using legacy package creation function. Consider using enhanced version.")
 
     # Convert to new format for compatibility
     if preserve_structure:

@@ -143,13 +143,9 @@ class MockLLMClient:
 
         if "search" in query_lower or "find" in query_lower:
             if "csv" in query_lower:
-                tool_calls.append(
-                    MockToolCall("packages_search", {"query": "csv", "limit": 5})
-                )
+                tool_calls.append(MockToolCall("packages_search", {"query": "csv", "limit": 5}))
             elif "data" in query_lower:
-                tool_calls.append(
-                    MockToolCall("packages_search", {"query": "data", "limit": 3})
-                )
+                tool_calls.append(MockToolCall("packages_search", {"query": "data", "limit": 3}))
 
             # Try unified search if available
             if "unified_search" in self.tools:
@@ -272,11 +268,7 @@ class MockLLMMCPTester:
 
             if not result.success:
                 print(f"   ✅ Error handled: {result.execution_time_ms}ms")
-            elif (
-                result.success
-                and isinstance(result.content, dict)
-                and not result.content.get("success")
-            ):
+            elif result.success and isinstance(result.content, dict) and not result.content.get("success"):
                 print(f"   ✅ Error in result: {result.execution_time_ms}ms")
             else:
                 print(f"   ⚠️  Unexpected success: {result.execution_time_ms}ms")
@@ -299,10 +291,7 @@ class MockLLMMCPTester:
         print("   Simulating 5 concurrent LLM conversations...")
         start_time = time.time()
 
-        tasks = [
-            self.llm_client.simulate_llm_conversation(query)
-            for query in concurrent_queries
-        ]
+        tasks = [self.llm_client.simulate_llm_conversation(query) for query in concurrent_queries]
 
         results = await asyncio.gather(*tasks)
         end_time = time.time()
@@ -311,9 +300,7 @@ class MockLLMMCPTester:
 
         # Analyze results
         total_tool_calls = sum(r["total_tools_called"] for r in results)
-        successful_conversations = sum(
-            1 for r in results if any(tc["result"].success for tc in r["tool_calls"])
-        )
+        successful_conversations = sum(1 for r in results if any(tc["result"].success for tc in r["tool_calls"]))
 
         # Calculate average tool response time
         all_tool_times = []
@@ -321,13 +308,9 @@ class MockLLMMCPTester:
             for tool_call in conversation["tool_calls"]:
                 all_tool_times.append(tool_call["result"].execution_time_ms)
 
-        avg_tool_time = (
-            round(sum(all_tool_times) / len(all_tool_times), 2) if all_tool_times else 0
-        )
+        avg_tool_time = round(sum(all_tool_times) / len(all_tool_times), 2) if all_tool_times else 0
 
-        print(
-            f"   ✅ Concurrent test: {successful_conversations}/5 conversations successful"
-        )
+        print(f"   ✅ Concurrent test: {successful_conversations}/5 conversations successful")
         print(f"   ✅ Total time: {total_time}ms, Total tool calls: {total_tool_calls}")
         print(f"   ✅ Average tool response time: {avg_tool_time}ms")
 
@@ -380,18 +363,14 @@ class MockLLMMCPTester:
         test_results = {
             "timestamp": time.time(),
             "test_type": "Mock LLM-MCP Integration",
-            "llm_client_info": {
-                "tools_available": len(self.llm_client.get_available_tools())
-            },
+            "llm_client_info": {"tools_available": len(self.llm_client.get_available_tools())},
         }
 
         # Run all test suites
         test_results["tool_availability"] = await self.test_tool_availability()
         test_results["basic_functionality"] = await self.test_basic_functionality()
         test_results["search_functionality"] = await self.test_search_functionality()
-        test_results["unified_search_architecture"] = (
-            await self.test_unified_search_architecture()
-        )
+        test_results["unified_search_architecture"] = await self.test_unified_search_architecture()
         test_results["error_handling"] = await self.test_error_handling()
         test_results["performance"] = await self.test_performance()
 
@@ -423,36 +402,18 @@ async def main():
 
         # Functionality tests summary
         basic = results["basic_functionality"]["basic_tests"]
-        successful_basic = sum(
-            1
-            for test in basic
-            if any(tc["result"].success for tc in test["tool_calls"])
-        )
+        successful_basic = sum(1 for test in basic if any(tc["result"].success for tc in test["tool_calls"]))
 
         search = results["search_functionality"]["search_tests"]
-        successful_search = sum(
-            1
-            for test in search
-            if any(tc["result"].success for tc in test["tool_calls"])
-        )
+        successful_search = sum(1 for test in search if any(tc["result"].success for tc in test["tool_calls"]))
 
         unified = results["unified_search_architecture"]["unified_search_tests"]
-        successful_unified = sum(
-            1
-            for test in unified
-            if any(tc["result"].success for tc in test["tool_calls"])
-        )
+        successful_unified = sum(1 for test in unified if any(tc["result"].success for tc in test["tool_calls"]))
 
         print("\n🤖 LLM Routing Tests:")
-        print(
-            f"   Basic functionality: {successful_basic}/{len(basic)} conversations successful"
-        )
-        print(
-            f"   Search functionality: {successful_search}/{len(search)} conversations successful"
-        )
-        print(
-            f"   Unified search: {successful_unified}/{len(unified)} conversations successful"
-        )
+        print(f"   Basic functionality: {successful_basic}/{len(basic)} conversations successful")
+        print(f"   Search functionality: {successful_search}/{len(search)} conversations successful")
+        print(f"   Unified search: {successful_unified}/{len(unified)} conversations successful")
 
         # Error handling summary
         error_tests = results["error_handling"]["error_tests"]
@@ -467,33 +428,22 @@ async def main():
             )
         )
 
-        print(
-            f"   Error handling: {handled_errors}/{len(error_tests)} errors properly handled"
-        )
+        print(f"   Error handling: {handled_errors}/{len(error_tests)} errors properly handled")
 
         # Performance summary
         perf = results["performance"]["concurrent_test"]
         print("\n⚡ Performance Results:")
-        print(
-            f"   Concurrent conversations: {perf['successful_conversations']}/5 successful"
-        )
+        print(f"   Concurrent conversations: {perf['successful_conversations']}/5 successful")
         print(f"   Total tool calls: {perf['total_tool_calls']}")
         print(f"   Average tool response: {perf['average_tool_time_ms']}ms")
 
         # Overall assessment
         tool_availability_ok = len(tools["key_tools_found"]) >= 4
-        functionality_ok = (
-            successful_basic + successful_search + successful_unified
-        ) >= 6
+        functionality_ok = (successful_basic + successful_search + successful_unified) >= 6
         error_handling_ok = handled_errors >= len(error_tests) * 0.8
-        performance_ok = (
-            perf["successful_conversations"] >= 4
-            and perf["average_tool_time_ms"] < 1000
-        )
+        performance_ok = perf["successful_conversations"] >= 4 and perf["average_tool_time_ms"] < 1000
 
-        categories_passed = sum(
-            [tool_availability_ok, functionality_ok, error_handling_ok, performance_ok]
-        )
+        categories_passed = sum([tool_availability_ok, functionality_ok, error_handling_ok, performance_ok])
 
         print(f"\n🎯 Overall Assessment: {categories_passed}/4 categories passed")
 

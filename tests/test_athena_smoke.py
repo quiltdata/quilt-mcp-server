@@ -110,9 +110,7 @@ def test_mcp_tool_registration():
     import inspect
 
     functions = [
-        name
-        for name, obj in inspect.getmembers(athena_module, inspect.isfunction)
-        if not name.startswith("_")
+        name for name, obj in inspect.getmembers(athena_module, inspect.isfunction) if not name.startswith("_")
     ]
 
     expected_functions = [
@@ -126,9 +124,7 @@ def test_mcp_tool_registration():
     ]
 
     for func_name in expected_functions:
-        assert (
-            func_name in functions
-        ), f"Function {func_name} not found in athena_glue module"
+        assert func_name in functions, f"Function {func_name} not found in athena_glue module"
 
 
 if __name__ == "__main__":

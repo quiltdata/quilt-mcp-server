@@ -65,9 +65,7 @@ METADATA_TEMPLATES = {
 }
 
 
-def get_metadata_template(
-    template_name: str, custom_fields: Dict[str, Any] = None
-) -> Dict[str, Any]:
+def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Get a metadata template with optional custom fields.
 
@@ -123,9 +121,7 @@ def list_metadata_templates() -> Dict[str, Any]:
     }
 
 
-def validate_metadata_structure(
-    metadata: Dict[str, Any], template_name: str = None
-) -> Dict[str, Any]:
+def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
     """
     Validate metadata structure and provide suggestions.
 
@@ -150,14 +146,10 @@ def validate_metadata_structure(
 
     # Check for recommended fields
     recommended_fields = ["description", "created_by", "version"]
-    missing_recommended = [
-        field for field in recommended_fields if field not in metadata
-    ]
+    missing_recommended = [field for field in recommended_fields if field not in metadata]
 
     if missing_recommended:
-        suggestions.extend(
-            [f"Consider adding '{field}' field" for field in missing_recommended]
-        )
+        suggestions.extend([f"Consider adding '{field}' field" for field in missing_recommended])
 
     # Check for common issues
     if "description" in metadata and len(metadata["description"]) < 10:
@@ -171,11 +163,7 @@ def validate_metadata_structure(
 
         missing_template_fields = template_fields - provided_fields
         if missing_template_fields:
-            suggestions.extend(
-                [
-                    f"Template '{template_name}' suggests adding: {', '.join(missing_template_fields)}"
-                ]
-            )
+            suggestions.extend([f"Template '{template_name}' suggests adding: {', '.join(missing_template_fields)}"])
 
     return {
         "valid": True,

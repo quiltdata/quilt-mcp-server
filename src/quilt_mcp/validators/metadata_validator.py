@@ -21,9 +21,7 @@ RECOMMENDED_FIELDS = [
 ]
 
 
-def validate_metadata_compliance(
-    metadata: Dict[str, Any]
-) -> Tuple[bool, List[str], List[str]]:
+def validate_metadata_compliance(metadata: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
     """
     Validate metadata against Quilt compliance standards.
 
@@ -67,9 +65,7 @@ def validate_metadata_compliance(
 
     # Check for empty or invalid values
     total_files = _get_nested_value(metadata, "quilt.data_profile.total_files")
-    if total_files is not None and (
-        not isinstance(total_files, int) or total_files <= 0
-    ):
+    if total_files is not None and (not isinstance(total_files, int) or total_files <= 0):
         errors.append("total_files must be a positive integer")
         is_compliant = False
 
@@ -152,18 +148,14 @@ def validate_user_metadata(metadata: Dict[str, Any]) -> Tuple[bool, List[str]]:
     is_valid = True
 
     if not metadata:
-        recommendations.append(
-            "Consider adding user metadata with description and tags"
-        )
+        recommendations.append("Consider adding user metadata with description and tags")
         return is_valid, recommendations
 
     # Check for description
     if "description" not in metadata:
         recommendations.append("Consider adding a description field")
     elif len(metadata["description"]) < 10:
-        recommendations.append(
-            "Description is very short - consider adding more detail"
-        )
+        recommendations.append("Description is very short - consider adding more detail")
 
     # Check for tags
     if "tags" not in metadata:
@@ -217,16 +209,11 @@ def enhance_metadata_quality(metadata: Dict[str, Any]) -> Dict[str, Any]:
         enhanced["quilt"]["package_version"] = "1.0.0"
 
     # Normalize file types
-    if (
-        "data_profile" in enhanced["quilt"]
-        and "file_types" in enhanced["quilt"]["data_profile"]
-    ):
+    if "data_profile" in enhanced["quilt"] and "file_types" in enhanced["quilt"]["data_profile"]:
         file_types = enhanced["quilt"]["data_profile"]["file_types"]
         if isinstance(file_types, list):
             # Remove duplicates and sort
-            enhanced["quilt"]["data_profile"]["file_types"] = sorted(
-                list(set(file_types))
-            )
+            enhanced["quilt"]["data_profile"]["file_types"] = sorted(list(set(file_types)))
 
     return enhanced
 
@@ -285,9 +272,7 @@ def suggest_metadata_improvements(metadata: Dict[str, Any]) -> List[str]:
     suggestions.extend(user_recommendations)
 
     # Check for searchability
-    if not any(
-        field in metadata for field in ["user_metadata.tags", "user_metadata.keywords"]
-    ):
+    if not any(field in metadata for field in ["user_metadata.tags", "user_metadata.keywords"]):
         suggestions.append("Add tags or keywords to improve package discoverability")
 
     return suggestions

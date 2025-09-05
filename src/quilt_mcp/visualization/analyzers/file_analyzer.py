@@ -178,9 +178,7 @@ class FileAnalyzer:
             else:
                 return "other"
 
-    def _find_files_by_extensions(
-        self, package_path: Path, extensions: Set[str]
-    ) -> List[str]:
+    def _find_files_by_extensions(self, package_path: Path, extensions: Set[str]) -> List[str]:
         """
         Find files with specific extensions in the package.
 

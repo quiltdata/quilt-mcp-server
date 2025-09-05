@@ -125,9 +125,7 @@ class SearchExplainer:
             explanation["alternative_queries"] = self._suggest_alternatives(analysis)
 
         # Add optimization suggestions
-        explanation["optimization_suggestions"] = self.optimization_suggestions.get(
-            analysis.query_type, []
-        )
+        explanation["optimization_suggestions"] = self.optimization_suggestions.get(analysis.query_type, [])
 
         return explanation
 
@@ -149,9 +147,7 @@ class SearchExplainer:
                 characteristics = self.backend_characteristics[backend_type]
 
                 explanation["selection_reasoning"][backend_name] = {
-                    "why_selected": self._get_selection_reason(
-                        analysis.query_type, backend_type
-                    ),
+                    "why_selected": self._get_selection_reason(analysis.query_type, backend_type),
                     "strengths": characteristics["strengths"],
                     "best_for": characteristics["best_for"],
                     "expected_speed": characteristics["typical_speed"],
@@ -205,19 +201,13 @@ class SearchExplainer:
 
         # Add scalability notes
         if len(analysis.keywords) > 5:
-            performance["scalability_notes"].append(
-                "Many keywords may slow down text search"
-            )
+            performance["scalability_notes"].append("Many keywords may slow down text search")
 
         if analysis.filters:
-            performance["scalability_notes"].append(
-                "Filters will improve performance by reducing result set"
-            )
+            performance["scalability_notes"].append("Filters will improve performance by reducing result set")
 
         if analysis.scope == SearchScope.GLOBAL:
-            performance["scalability_notes"].append(
-                "Global scope may be slower than targeted searches"
-            )
+            performance["scalability_notes"].append("Global scope may be slower than targeted searches")
 
         return performance
 
@@ -289,9 +279,7 @@ class SearchExplainer:
         }
         return estimates.get(backend_type, 1000)
 
-    def _get_selection_reason(
-        self, query_type: QueryType, backend_type: BackendType
-    ) -> str:
+    def _get_selection_reason(self, query_type: QueryType, backend_type: BackendType) -> str:
         """Get reason why backend was selected for query type."""
         reasons = {
             (
@@ -386,9 +374,7 @@ def search_explain(
     """
     try:
         explainer = get_explainer()
-        return explainer.explain(
-            query, show_backends, show_performance, show_alternatives
-        )
+        return explainer.explain(query, show_backends, show_performance, show_alternatives)
     except Exception as e:
         return {
             "success": False,

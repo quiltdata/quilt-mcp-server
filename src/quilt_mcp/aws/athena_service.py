@@ -92,9 +92,7 @@ class AthenaQueryService:
 
                 # Add session token if available
                 if credentials.token:
-                    connection_string += (
-                        f"&aws_session_token={quote_plus(credentials.token)}"
-                    )
+                    connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
 
                 logger.info(f"Creating Athena engine with workgroup: {workgroup}")
                 return create_engine(connection_string, echo=False)
@@ -104,9 +102,7 @@ class AthenaQueryService:
                 region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
                 # Discover available workgroups dynamically or fall back to environment
-                workgroup = self._discover_workgroup(None, region) or os.environ.get(
-                    "ATHENA_WORKGROUP", "primary"
-                )
+                workgroup = self._discover_workgroup(None, region) or os.environ.get("ATHENA_WORKGROUP", "primary")
 
                 connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
 
@@ -150,11 +146,9 @@ class AthenaQueryService:
                     config = wg_details.get("WorkGroup", {}).get("Configuration", {})
 
                     # Check if workgroup is enabled and has output location
-                    if wg_details.get("WorkGroup", {}).get(
-                        "State"
-                    ) == "ENABLED" and config.get("ResultConfiguration", {}).get(
-                        "OutputLocation"
-                    ):
+                    if wg_details.get("WorkGroup", {}).get("State") == "ENABLED" and config.get(
+                        "ResultConfiguration", {}
+                    ).get("OutputLocation"):
                         workgroups.append(name)
                 except Exception as e:
                     # Skip workgroups we can't access
@@ -205,13 +199,9 @@ class AthenaQueryService:
 
     def _get_s3_staging_dir(self) -> str:
         """Get S3 staging directory for query results."""
-        return os.environ.get(
-            "ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/"
-        )
+        return os.environ.get("ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/")
 
-    def discover_databases(
-        self, catalog_name: str = "AwsDataCatalog"
-    ) -> Dict[str, Any]:
+    def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
         try:
             # Use Athena SQL to list schemas (databases) with explicit catalog name
@@ -252,9 +242,7 @@ class AthenaQueryService:
         """Discover tables using Athena SQL queries."""
         try:
             # Properly escape database names with special characters
-            if "-" in database_name or any(
-                c in database_name for c in [" ", ".", "@", "/"]
-            ):
+            if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
                 escaped_db = f'"{database_name}"'
             else:
                 escaped_db = database_name
@@ -325,14 +313,9 @@ class AthenaQueryService:
                 # Partition columns often appear after a separator or with special formatting
                 if col_name.startswith("#") or "partition" in str(col_comment).lower():
                     continue  # Skip header/separator rows
-                elif any(
-                    keyword in str(col_name).lower()
-                    for keyword in ["partition", "date", "year", "month"]
-                ):
+                elif any(keyword in str(col_name).lower() for keyword in ["partition", "date", "year", "month"]):
                     # This is likely a partition column
-                    partitions.append(
-                        {"name": col_name, "type": col_type, "comment": col_comment}
-                    )
+                    partitions.append({"name": col_name, "type": col_type, "comment": col_comment})
                 else:
                     # Regular column
                     columns.append(
@@ -370,17 +353,13 @@ class AthenaQueryService:
             logger.error(f"Failed to get table metadata: {e}")
             return format_error_response(f"Failed to get table metadata: {str(e)}")
 
-    def execute_query(
-        self, query: str, database_name: str = None, max_results: int = 1000
-    ) -> Dict[str, Any]:
+    def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
             # Set database context if provided
             if database_name:
                 # Properly escape database name for USE statement
-                if "-" in database_name or any(
-                    c in database_name for c in [" ", ".", "@", "/"]
-                ):
+                if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
                     escaped_db = f'"{database_name}"'
                 else:
                     escaped_db = database_name
@@ -431,9 +410,7 @@ class AthenaQueryService:
         except Exception:
             return query
 
-    def format_results(
-        self, result_data: Dict[str, Any], output_format: str = "json"
-    ) -> Dict[str, Any]:
+    def format_results(self, result_data: Dict[str, Any], output_format: str = "json") -> Dict[str, Any]:
         """Format query results in requested format."""
         if not result_data.get("success") or result_data.get("data") is None:
             return result_data

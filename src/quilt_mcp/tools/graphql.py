@@ -52,9 +52,7 @@ def catalog_graphql_query(query: str, variables: dict | None = None) -> dict[str
         }
 
     try:
-        resp = session.post(
-            graphql_url, json={"query": query, "variables": variables or {}}
-        )
+        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
         if resp.status_code != 200:
             return {
                 "success": False,

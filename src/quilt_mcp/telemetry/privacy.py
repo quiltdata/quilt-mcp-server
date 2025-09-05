@@ -98,11 +98,7 @@ class DataAnonymizer:
             bucket_hash = self._hash_string(bucket)[:8]
             path_hash = self._hash_string(path)[:8] if path else ""
 
-            return (
-                f"s3://{bucket_hash}/{path_hash}"
-                if path_hash
-                else f"s3://{bucket_hash}/"
-            )
+            return f"s3://{bucket_hash}/{path_hash}" if path_hash else f"s3://{bucket_hash}/"
 
         return self._hash_string(uri)
 
@@ -147,9 +143,7 @@ class PrivacyManager:
             },
         }
 
-        self.config = self.privacy_configs.get(
-            privacy_level, self.privacy_configs["standard"]
-        )
+        self.config = self.privacy_configs.get(privacy_level, self.privacy_configs["standard"])
 
     def hash_args(self, args: Dict[str, Any]) -> str:
         """Create a privacy-preserving hash of function arguments."""
@@ -160,9 +154,7 @@ class PrivacyManager:
         sanitized_args = {}
 
         for key, value in args.items():
-            if self.config.get("anonymize_all", False) or self.config.get(
-                "anonymize_sensitive", False
-            ):
+            if self.config.get("anonymize_all", False) or self.config.get("anonymize_sensitive", False):
                 sanitized_args[key] = self.anonymizer.anonymize_value(value, key)
             else:
                 sanitized_args[key] = value
@@ -200,9 +192,7 @@ class PrivacyManager:
                     filtered_context[key] = value
             elif self.config.get("anonymize_sensitive", True):
                 # Include but anonymize other fields
-                filtered_context[f"anon_{key}"] = self.anonymizer.anonymize_value(
-                    value, key
-                )
+                filtered_context[f"anon_{key}"] = self.anonymizer.anonymize_value(value, key)
 
         return filtered_context if filtered_context else None
 

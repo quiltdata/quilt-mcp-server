@@ -136,9 +136,7 @@ class TestElasticsearchBackend:
         mock_quilt3.session.get_registry_url.return_value = "https://example.com"
 
         backend = Quilt3ElasticsearchBackend()
-        response = await backend.search(
-            "CSV files", scope="bucket", target="test-bucket"
-        )
+        response = await backend.search("CSV files", scope="bucket", target="test-bucket")
 
         assert response.status == BackendStatus.AVAILABLE
         assert len(response.results) == 1
@@ -177,9 +175,7 @@ class TestS3FallbackBackend:
                     {
                         "Key": "data/test.csv",
                         "Size": 1000,
-                        "LastModified": Mock(
-                            isoformat=Mock(return_value="2024-01-01T00:00:00Z")
-                        ),
+                        "LastModified": Mock(isoformat=Mock(return_value="2024-01-01T00:00:00Z")),
                         "StorageClass": "STANDARD",
                     }
                 ]
@@ -251,9 +247,7 @@ class TestUnifiedSearchTool:
         """Test the main unified_search function."""
         # Mock the search engine
         mock_engine = Mock()
-        mock_engine.search = AsyncMock(
-            return_value={"success": True, "results": [], "query": "test query"}
-        )
+        mock_engine.search = AsyncMock(return_value={"success": True, "results": [], "query": "test query"})
         mock_get_engine.return_value = mock_engine
 
         result = await unified_search("test query")

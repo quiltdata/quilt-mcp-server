@@ -158,9 +158,7 @@ class AutonomousOptimizer:
         # Calculate baseline metrics
         self.baseline_metrics = self._calculate_performance_metrics(baseline_results)
 
-        logger.info(
-            f"Baseline assessment complete: {len(baseline_results)} scenarios tested"
-        )
+        logger.info(f"Baseline assessment complete: {len(baseline_results)} scenarios tested")
         return self.baseline_metrics
 
     async def run_optimization_cycle(self) -> Dict[str, Any]:
@@ -189,10 +187,7 @@ class AutonomousOptimizer:
 
             # Rollback if performance degraded
             for optimization in applied_optimizations:
-                if (
-                    improvements.get(optimization.rule_name, 0)
-                    < self.rollback_threshold
-                ):
+                if improvements.get(optimization.rule_name, 0) < self.rollback_threshold:
                     await self._rollback_optimization(optimization)
 
         # Update current metrics
@@ -205,14 +200,10 @@ class AutonomousOptimizer:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        logger.info(
-            f"Optimization cycle complete: {len(applied_optimizations)} optimizations applied"
-        )
+        logger.info(f"Optimization cycle complete: {len(applied_optimizations)} optimizations applied")
         return cycle_result
 
-    def _analyze_optimization_opportunities(
-        self, telemetry_data: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _analyze_optimization_opportunities(self, telemetry_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Analyze telemetry data for optimization opportunities."""
         opportunities = []
 
@@ -239,9 +230,7 @@ class AutonomousOptimizer:
                 # Security: eval() is safe here as it's sandboxed with no builtins and only evaluates
                 # trusted internal optimization rules, not user input
                 if eval(rule.condition, {"__builtins__": {}}, context):  # noqa: S307
-                    opportunities.append(
-                        {"rule": rule, "context": context, "priority": rule.priority}
-                    )
+                    opportunities.append({"rule": rule, "context": context, "priority": rule.priority})
 
             except Exception as e:
                 logger.warning(f"Failed to evaluate rule {rule.name}: {e}")
@@ -251,9 +240,7 @@ class AutonomousOptimizer:
 
         return opportunities
 
-    async def _apply_optimization(
-        self, opportunity: Dict[str, Any]
-    ) -> Optional[OptimizationResult]:
+    async def _apply_optimization(self, opportunity: Dict[str, Any]) -> Optional[OptimizationResult]:
         """Apply a specific optimization."""
         rule = opportunity["rule"]
         context = opportunity["context"]
@@ -284,9 +271,7 @@ class AutonomousOptimizer:
 
         return None
 
-    async def _execute_optimization_action(
-        self, action: str, context: Dict[str, Any]
-    ) -> bool:
+    async def _execute_optimization_action(self, action: str, context: Dict[str, Any]) -> bool:
         """Execute a specific optimization action."""
 
         if action == "cache_auth_status":
@@ -344,9 +329,7 @@ class AutonomousOptimizer:
         # Implementation would go here
         return True
 
-    def _calculate_performance_metrics(
-        self, test_results: Dict[str, TestResult]
-    ) -> Dict[str, Any]:
+    def _calculate_performance_metrics(self, test_results: Dict[str, TestResult]) -> Dict[str, Any]:
         """Calculate performance metrics from test results."""
         if not test_results:
             return {}
@@ -358,12 +341,9 @@ class AutonomousOptimizer:
 
         return {
             "success_rate": len(successful_results) / len(test_results),
-            "avg_execution_time": sum(r.total_time for r in successful_results)
-            / len(successful_results),
-            "avg_call_count": sum(r.total_calls for r in successful_results)
-            / len(successful_results),
-            "avg_efficiency_score": sum(r.efficiency_score for r in successful_results)
-            / len(successful_results),
+            "avg_execution_time": sum(r.total_time for r in successful_results) / len(successful_results),
+            "avg_call_count": sum(r.total_calls for r in successful_results) / len(successful_results),
+            "avg_efficiency_score": sum(r.efficiency_score for r in successful_results) / len(successful_results),
             "total_scenarios": len(test_results),
         }
 
@@ -477,9 +457,7 @@ class AutonomousOptimizer:
             if total_attempts > 0:
                 success_rate = rule.success_count / total_attempts
                 if success_rate < 0.5:
-                    recommendations.append(
-                        f"Review rule '{rule.name}' - low success rate ({success_rate:.1%})"
-                    )
+                    recommendations.append(f"Review rule '{rule.name}' - low success rate ({success_rate:.1%})")
 
         # Analyze performance trends
         overall_improvement = self._calculate_overall_improvement()
@@ -520,9 +498,7 @@ class CursorAutonomousRunner:
             "optimization_results": optimization_results,
             "report_file": str(results_file),
             "summary": {
-                "optimizations_applied": optimization_results.get(
-                    "optimizations_applied", 0
-                ),
+                "optimizations_applied": optimization_results.get("optimizations_applied", 0),
                 "performance_improvement": report.get("performance_improvement", {}),
                 "recommendations": report.get("recommendations", []),
             },

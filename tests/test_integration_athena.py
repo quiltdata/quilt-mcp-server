@@ -182,10 +182,7 @@ class TestQuiltAuthIntegration:
                 # This is expected if quilt3 auth isn't properly configured
                 # The error should be related to credentials or quilt configuration
                 error_msg = str(engine_error).lower()
-                assert any(
-                    keyword in error_msg
-                    for keyword in ["credential", "quilt", "auth", "access"]
-                )
+                assert any(keyword in error_msg for keyword in ["credential", "quilt", "auth", "access"])
 
         except Exception as e:
             # Expected if quilt3 isn't properly configured or AWS credentials are invalid
@@ -311,16 +308,12 @@ class TestAthenaPerformance:
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_large_result_set_handling(
-        self, mock_boto3, mock_create_engine, mock_read_sql
-    ):
+    def test_large_result_set_handling(self, mock_boto3, mock_create_engine, mock_read_sql):
         """Test handling of large result sets."""
         import pandas as pd
 
         # Create large mock DataFrame (10,000 rows)
-        large_df = pd.DataFrame(
-            {"id": range(10000), "value": [f"value_{i}" for i in range(10000)]}
-        )
+        large_df = pd.DataFrame({"id": range(10000), "value": [f"value_{i}" for i in range(10000)]})
         mock_read_sql.return_value = large_df
 
         service = AthenaQueryService(use_quilt_auth=False)
@@ -362,10 +355,7 @@ class TestAthenaErrorHandling:
             assert "error" in result
             # The error message should indicate some kind of access or connection issue
             error_msg = result["error"].lower()
-            assert any(
-                keyword in error_msg
-                for keyword in ["access", "denied", "not found", "error", "invalid"]
-            )
+            assert any(keyword in error_msg for keyword in ["access", "denied", "not found", "error", "invalid"])
 
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
@@ -404,9 +394,7 @@ class TestAthenaErrorHandling:
         assert "error" in result
         # The error message should indicate a syntax or query error
         error_msg = result["error"].lower()
-        assert any(
-            keyword in error_msg for keyword in ["syntax", "error", "invalid", "failed"]
-        )
+        assert any(keyword in error_msg for keyword in ["syntax", "error", "invalid", "failed"])
 
     def test_invalid_query_parameters(self):
         """Test handling of invalid query parameters."""

@@ -329,9 +329,7 @@ def list_available_resources() -> Dict[str, Any]:
         readable_buckets = []
 
         # Full access and read-write buckets are writable
-        for bucket_info in categorized.get("full_access", []) + categorized.get(
-            "read_write", []
-        ):
+        for bucket_info in categorized.get("full_access", []) + categorized.get("read_write", []):
             writable_buckets.append(
                 {
                     "name": bucket_info["name"],
@@ -421,9 +419,7 @@ def _analyze_file_sources(files: List[str]) -> Dict[str, Any]:
             # S3 URI
             if "/" not in file_path[5:] or file_path.endswith("/"):
                 errors.append(f"Invalid S3 URI: {file_path}")
-                error_fixes.append(
-                    "S3 URI must include object key: s3://bucket/path/file.ext"
-                )
+                error_fixes.append("S3 URI must include object key: s3://bucket/path/file.ext")
             else:
                 s3_files.append(file_path)
         else:
@@ -584,9 +580,7 @@ def _find_common_prefix(keys: List[str]) -> str:
     return common
 
 
-def _generate_success_guidance(
-    result: Dict[str, Any], creation_method: str
-) -> List[str]:
+def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> List[str]:
     """Generate helpful guidance after successful package creation."""
     guidance = []
 

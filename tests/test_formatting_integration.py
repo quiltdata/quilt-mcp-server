@@ -53,9 +53,7 @@ class TestAthenaTableFormatIntegration:
         mock_service.format_results.side_effect = mock_format_results
 
         # Test with table format
-        result = athena_query_execute(
-            query="SELECT * FROM test_table", output_format="table", max_results=10
-        )
+        result = athena_query_execute(query="SELECT * FROM test_table", output_format="table", max_results=10)
 
         assert result["success"] is True
         assert result["format"] == "table"
@@ -93,9 +91,7 @@ class TestAthenaTableFormatIntegration:
                 "format": "json",
             }
             # Simulate auto table detection
-            result["formatted_data_table"] = (
-                "database_name  table_count\ndb1  15\ndb2  8"
-            )
+            result["formatted_data_table"] = "database_name  table_count\ndb1  15\ndb2  8"
             result["display_format"] = "table"
             return result
 
@@ -134,11 +130,7 @@ class TestAthenaTableFormatIntegration:
                             "Name": "QuiltUserAthena-test",
                             "State": "ENABLED",
                             "Description": "Test workgroup",
-                            "Configuration": {
-                                "ResultConfiguration": {
-                                    "OutputLocation": "s3://test-bucket/results/"
-                                }
-                            },
+                            "Configuration": {"ResultConfiguration": {"OutputLocation": "s3://test-bucket/results/"}},
                         }
                     }
                 elif WorkGroup == "primary":
@@ -265,9 +257,7 @@ class TestTableFormatErrorHandling:
             mock_boto3_client.return_value = mock_client
 
             # Mock successful API calls
-            mock_client.list_work_groups.return_value = {
-                "WorkGroups": [{"Name": "test-workgroup"}]
-            }
+            mock_client.list_work_groups.return_value = {"WorkGroups": [{"Name": "test-workgroup"}]}
             mock_client.get_work_group.return_value = {
                 "WorkGroup": {
                     "Name": "test-workgroup",
@@ -277,9 +267,7 @@ class TestTableFormatErrorHandling:
             }
 
             # Mock table formatting to fail
-            with patch(
-                "quilt_mcp.formatting.enhance_result_with_table_format"
-            ) as mock_enhance:
+            with patch("quilt_mcp.formatting.enhance_result_with_table_format") as mock_enhance:
                 mock_enhance.side_effect = Exception("Table formatting error")
 
                 result = athena_workgroups_list()
@@ -297,9 +285,7 @@ class TestTableFormatPerformance:
         from quilt_mcp.formatting import format_as_table, should_use_table_format
 
         # Create a large dataset
-        large_data = [
-            {"id": i, "name": f"item_{i}", "value": i * 10} for i in range(1000)
-        ]
+        large_data = [{"id": i, "name": f"item_{i}", "value": i * 10} for i in range(1000)]
 
         # Should still detect as table format
         assert should_use_table_format(large_data) is True

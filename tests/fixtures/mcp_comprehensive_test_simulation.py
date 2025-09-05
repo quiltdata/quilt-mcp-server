@@ -103,9 +103,7 @@ class MCPTestSimulator:
             print(f"\n🧪 Testing {test_id}: {utterance[:60]}...")
 
             # Check if required tools are available
-            missing_tools = [
-                tool for tool in mcp_tools if tool not in self.available_tools
-            ]
+            missing_tools = [tool for tool in mcp_tools if tool not in self.available_tools]
             if missing_tools:
                 return TestResult(
                     test_id=test_id,
@@ -115,9 +113,7 @@ class MCPTestSimulator:
                     execution_time_ms=round((time.time() - start_time) * 1000, 2),
                     tools_used=[],
                     error_message=f"Missing required tools: {missing_tools}",
-                    recommendations=[
-                        f"Implement missing MCP tool: {tool}" for tool in missing_tools
-                    ],
+                    recommendations=[f"Implement missing MCP tool: {tool}" for tool in missing_tools],
                 )
 
             # Simulate the test execution based on intent tags
@@ -155,31 +151,21 @@ class MCPTestSimulator:
         if "search" in intent_tags:
             return self._simulate_search_test(test_id, persona, utterance, mcp_tools)
         elif "package_creation" in intent_tags or "package_update" in intent_tags:
-            return self._simulate_package_operation_test(
-                test_id, persona, utterance, mcp_tools
-            )
+            return self._simulate_package_operation_test(test_id, persona, utterance, mcp_tools)
         elif "validation" in intent_tags or "metadata" in intent_tags:
-            return self._simulate_validation_test(
-                test_id, persona, utterance, mcp_tools
-            )
+            return self._simulate_validation_test(test_id, persona, utterance, mcp_tools)
         elif "permissions" in intent_tags or "aws_integration" in intent_tags:
-            return self._simulate_permissions_test(
-                test_id, persona, utterance, mcp_tools
-            )
+            return self._simulate_permissions_test(test_id, persona, utterance, mcp_tools)
         elif "tabulator" in intent_tags or "athena" in intent_tags:
             return self._simulate_sql_test(test_id, persona, utterance, mcp_tools)
         elif "error_handling" in intent_tags or "negative" in intent_tags:
             return self._simulate_error_test(test_id, persona, utterance, mcp_tools)
         elif "performance" in intent_tags:
-            return self._simulate_performance_test(
-                test_id, persona, utterance, mcp_tools
-            )
+            return self._simulate_performance_test(test_id, persona, utterance, mcp_tools)
         else:
             return self._simulate_general_test(test_id, persona, utterance, mcp_tools)
 
-    def _simulate_search_test(
-        self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
-    ) -> TestResult:
+    def _simulate_search_test(self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]) -> TestResult:
         """Simulate search-related tests"""
         if "mcp_quilt_packages_search" in mcp_tools:
             # Simulate successful package search
@@ -221,10 +207,7 @@ class MCPTestSimulator:
 
         if available_creation or available_update:
             # Simulate potential issues with package operations
-            if (
-                "s3" in utterance.lower()
-                and "mcp_quilt_package_create_from_s3" not in mcp_tools
-            ):
+            if "s3" in utterance.lower() and "mcp_quilt_package_create_from_s3" not in mcp_tools:
                 return TestResult(
                     test_id=test_id,
                     persona=persona,
@@ -233,9 +216,7 @@ class MCPTestSimulator:
                     execution_time_ms=0,
                     tools_used=[],
                     error_message="S3-specific package creation requested but tool not available",
-                    recommendations=[
-                        "Ensure S3 package creation tools are properly exposed"
-                    ],
+                    recommendations=["Ensure S3 package creation tools are properly exposed"],
                 )
 
             return TestResult(
@@ -257,9 +238,7 @@ class MCPTestSimulator:
                 execution_time_ms=0,
                 tools_used=[],
                 error_message="No package creation/update tools available",
-                recommendations=[
-                    "Ensure package management tools are properly registered"
-                ],
+                recommendations=["Ensure package management tools are properly registered"],
             )
 
     def _simulate_validation_test(
@@ -317,9 +296,7 @@ class MCPTestSimulator:
                 tools_used=available_perm,
                 response_summary="Permissions analyzed successfully",
                 recommendations=(
-                    ["Consider caching permission results for better performance"]
-                    if simulated_time > 2000
-                    else []
+                    ["Consider caching permission results for better performance"] if simulated_time > 2000 else []
                 ),
             )
         else:
@@ -334,9 +311,7 @@ class MCPTestSimulator:
                 recommendations=["Add AWS permission discovery capabilities"],
             )
 
-    def _simulate_sql_test(
-        self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
-    ) -> TestResult:
+    def _simulate_sql_test(self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]) -> TestResult:
         """Simulate SQL/Tabulator tests"""
         sql_tools = [
             "mcp_quilt_athena_query_execute",
@@ -386,9 +361,7 @@ class MCPTestSimulator:
                 recommendations=["Add SQL querying capabilities"],
             )
 
-    def _simulate_error_test(
-        self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
-    ) -> TestResult:
+    def _simulate_error_test(self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]) -> TestResult:
         """Simulate error handling tests"""
         # These tests are designed to fail - check if they fail gracefully
         return TestResult(
@@ -419,9 +392,7 @@ class MCPTestSimulator:
             recommendations=["Monitor performance in production environment"],
         )
 
-    def _simulate_general_test(
-        self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]
-    ) -> TestResult:
+    def _simulate_general_test(self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]) -> TestResult:
         """Simulate general tests"""
         if mcp_tools:
             return TestResult(
@@ -487,11 +458,7 @@ class MCPTestSimulator:
 
         # Calculate statistics
         total_time = (suite.end_time - suite.start_time).total_seconds()
-        avg_time = (
-            sum(r.execution_time_ms for r in suite.results) / len(suite.results)
-            if suite.results
-            else 0
-        )
+        avg_time = sum(r.execution_time_ms for r in suite.results) / len(suite.results) if suite.results else 0
 
         # Categorize errors and recommendations
         errors_by_type = {}
@@ -518,9 +485,7 @@ class MCPTestSimulator:
         for rec in all_recommendations:
             rec_counts[rec] = rec_counts.get(rec, 0) + 1
 
-        top_recommendations = sorted(
-            rec_counts.items(), key=lambda x: x[1], reverse=True
-        )[:10]
+        top_recommendations = sorted(rec_counts.items(), key=lambda x: x[1], reverse=True)[:10]
 
         return {
             "summary": {
@@ -529,11 +494,7 @@ class MCPTestSimulator:
                 "failed": suite.failed,
                 "skipped": suite.skipped,
                 "errors": suite.errors,
-                "success_rate": (
-                    round((suite.passed / suite.total_tests) * 100, 1)
-                    if suite.total_tests > 0
-                    else 0
-                ),
+                "success_rate": (round((suite.passed / suite.total_tests) * 100, 1) if suite.total_tests > 0 else 0),
                 "total_time_seconds": round(total_time, 2),
                 "average_test_time_ms": round(avg_time, 2),
             },

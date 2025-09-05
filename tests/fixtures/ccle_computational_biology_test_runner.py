@@ -57,15 +57,11 @@ class CCLEComputationalBiologyTester:
         self.start_time = time.time()
 
         # Load test cases
-        test_cases_file = (
-            Path(__file__).parent / "ccle_computational_biology_test_cases.json"
-        )
+        test_cases_file = Path(__file__).parent / "ccle_computational_biology_test_cases.json"
         with open(test_cases_file, "r") as f:
             test_data = json.load(f)
 
-        print(
-            f"\n🧬 Running {len(test_data['test_cases'])} CCLE Computational Biology Test Cases"
-        )
+        print(f"\n🧬 Running {len(test_data['test_cases'])} CCLE Computational Biology Test Cases")
         print("=" * 80)
 
         for test_case in test_data["test_cases"]:
@@ -125,21 +121,15 @@ class CCLEComputationalBiologyTester:
             logger.error(f"Test {test_id} failed with exception: {e}")
 
         result["execution_time_ms"] = round((time.time() - start_time) * 1000, 2)
-        result["success"] = (
-            len(result["errors"]) == 0 and len(result["steps_failed"]) == 0
-        )
+        result["success"] = len(result["errors"]) == 0 and len(result["steps_failed"]) == 0
 
         return result
 
-    async def test_molecular_target_discovery(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_molecular_target_discovery(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB001: Molecular target discovery workflow."""
         # Step 1: Check Tabulator availability
         try:
-            tabulator_result = await self.call_tool(
-                "tabulator_tables_list", {"bucket_name": "quilt-sandbox-bucket"}
-            )
+            tabulator_result = await self.call_tool("tabulator_tables_list", {"bucket_name": "quilt-sandbox-bucket"})
             if tabulator_result.get("success"):
                 result["steps_completed"].append("tabulator_connectivity")
                 result["tools_used"].append("tabulator_tables_list")
@@ -152,17 +142,12 @@ class CCLEComputationalBiologyTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = await self.call_tool(
-                "packages_search", {"query": "CCLE expression RNA-seq", "limit": 5}
-            )
+            search_result = await self.call_tool("packages_search", {"query": "CCLE expression RNA-seq", "limit": 5})
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
                 result["tools_used"].append("packages_search")
                 result["data_accessed"].extend(
-                    [
-                        r.get("_source", {}).get("key", "unknown")
-                        for r in search_result["results"][:3]
-                    ]
+                    [r.get("_source", {}).get("key", "unknown") for r in search_result["results"][:3]]
                 )
             else:
                 result["steps_failed"].append("ccle_data_discovery")
@@ -185,26 +170,18 @@ class CCLEComputationalBiologyTester:
             LIMIT 10
             """
 
-            athena_result = await self.call_tool(
-                "athena_query_execute", {"query": query, "max_results": 10}
-            )
+            athena_result = await self.call_tool("athena_query_execute", {"query": query, "max_results": 10})
 
             if athena_result.get("success"):
                 result["steps_completed"].append("erbb2_expression_query")
                 result["tools_used"].append("athena_query_execute")
-                result["recommendations"].append(
-                    "Successfully executed ERBB2 expression ranking query"
-                )
+                result["recommendations"].append("Successfully executed ERBB2 expression ranking query")
             else:
                 result["steps_failed"].append("erbb2_expression_query")
                 error_msg = athena_result.get("error", "Unknown Athena error")
                 if "table" in error_msg.lower() or "database" in error_msg.lower():
-                    result["errors"].append(
-                        "CCLE expression table not available in current environment"
-                    )
-                    result["recommendations"].append(
-                        "Set up CCLE Tabulator tables for expression data queries"
-                    )
+                    result["errors"].append("CCLE expression table not available in current environment")
+                    result["recommendations"].append("Set up CCLE Tabulator tables for expression data queries")
                 else:
                     result["errors"].append(f"Athena query failed: {error_msg}")
         except Exception as e:
@@ -225,9 +202,7 @@ class CCLEComputationalBiologyTester:
             if workflow_result.get("success"):
                 result["steps_completed"].append("workflow_orchestration")
                 result["tools_used"].append("workflow_create")
-                result["recommendations"].append(
-                    "Workflow orchestration available for complex CCLE analyses"
-                )
+                result["recommendations"].append("Workflow orchestration available for complex CCLE analyses")
             else:
                 result["steps_failed"].append("workflow_orchestration")
                 result["errors"].append("Workflow orchestration not available")
@@ -235,24 +210,17 @@ class CCLEComputationalBiologyTester:
             result["steps_failed"].append("workflow_orchestration")
             result["errors"].append(f"Workflow creation failed: {str(e)}")
 
-    async def test_tool_benchmarking(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_tool_benchmarking(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB002: Tool benchmarking workflow."""
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = await self.call_tool(
-                "packages_search", {"query": "CCLE FASTQ RNA-seq raw", "limit": 3}
-            )
+            fastq_search = await self.call_tool("packages_search", {"query": "CCLE FASTQ RNA-seq raw", "limit": 3})
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
                 result["tools_used"].append("packages_search")
                 result["data_accessed"].extend(
-                    [
-                        r.get("_source", {}).get("key", "unknown")
-                        for r in fastq_search["results"]
-                    ]
+                    [r.get("_source", {}).get("key", "unknown") for r in fastq_search["results"]]
                 )
             else:
                 result["steps_failed"].append("fastq_discovery")
@@ -277,9 +245,7 @@ class CCLEComputationalBiologyTester:
                 if package_browse.get("success"):
                     result["steps_completed"].append("package_structure_analysis")
                     result["tools_used"].extend(["packages_list", "package_browse"])
-                    result["recommendations"].append(
-                        "Package browsing available for FASTQ file discovery"
-                    )
+                    result["recommendations"].append("Package browsing available for FASTQ file discovery")
                 else:
                     result["steps_failed"].append("package_structure_analysis")
                     result["errors"].append("Package browsing failed")
@@ -304,9 +270,7 @@ class CCLEComputationalBiologyTester:
             if url_result.get("success"):
                 result["steps_completed"].append("presigned_url_generation")
                 result["tools_used"].append("bucket_object_link")
-                result["recommendations"].append(
-                    "Presigned URLs available for FASTQ file access"
-                )
+                result["recommendations"].append("Presigned URLs available for FASTQ file access")
             else:
                 result["steps_failed"].append("presigned_url_generation")
                 result["errors"].append("Presigned URL generation failed")
@@ -328,9 +292,7 @@ class CCLEComputationalBiologyTester:
             if salmon_search.get("success"):
                 result["steps_completed"].append("salmon_results_discovery")
                 result["tools_used"].append("bucket_objects_search")
-                result["recommendations"].append(
-                    "Salmon quantification results discoverable for benchmarking"
-                )
+                result["recommendations"].append("Salmon quantification results discoverable for benchmarking")
             else:
                 result["steps_failed"].append("salmon_results_discovery")
                 result["errors"].append("Salmon results not found")
@@ -338,15 +300,11 @@ class CCLEComputationalBiologyTester:
             result["steps_failed"].append("salmon_results_discovery")
             result["errors"].append(f"Salmon search failed: {str(e)}")
 
-    async def test_visual_data_exploration(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_visual_data_exploration(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB003: Visual data exploration workflow."""
         # Step 1: Search for BAM files
         try:
-            bam_search = await self.call_tool(
-                "packages_search", {"query": "CCLE BAM alignment RNA-seq", "limit": 3}
-            )
+            bam_search = await self.call_tool("packages_search", {"query": "CCLE BAM alignment RNA-seq", "limit": 3})
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
@@ -371,9 +329,7 @@ class CCLEComputationalBiologyTester:
             if catalog_url.get("success"):
                 result["steps_completed"].append("igv_integration")
                 result["tools_used"].append("catalog_url")
-                result["recommendations"].append(
-                    "Catalog URLs available for IGV browser integration"
-                )
+                result["recommendations"].append("Catalog URLs available for IGV browser integration")
             else:
                 result["steps_failed"].append("igv_integration")
                 result["errors"].append("Catalog URL generation failed")
@@ -398,18 +354,14 @@ class CCLEComputationalBiologyTester:
             result["steps_failed"].append("bam_file_access")
             result["errors"].append(f"BAM access test failed: {str(e)}")
 
-    async def test_cross_package_analysis(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_cross_package_analysis(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB004: Cross-package analysis workflow."""
         # Step 1: Search for multiple CCLE data types
         data_types = ["expression", "mutation", "drug-response"]
 
         for data_type in data_types:
             try:
-                search_result = await self.call_tool(
-                    "packages_search", {"query": f"CCLE {data_type}", "limit": 2}
-                )
+                search_result = await self.call_tool("packages_search", {"query": f"CCLE {data_type}", "limit": 2})
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")
@@ -452,9 +404,7 @@ class CCLEComputationalBiologyTester:
             result["steps_failed"].append("multiomics_workflow")
             result["errors"].append(f"Workflow template failed: {str(e)}")
 
-    async def test_longitudinal_analysis(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_longitudinal_analysis(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB005: Longitudinal analysis workflow."""
         # Step 1: Test Athena connectivity for temporal queries
         try:
@@ -485,33 +435,25 @@ class CCLEComputationalBiologyTester:
             LIMIT 20
             """
 
-            query_result = await self.call_tool(
-                "athena_query_execute", {"query": temporal_query, "max_results": 20}
-            )
+            query_result = await self.call_tool("athena_query_execute", {"query": temporal_query, "max_results": 20})
 
             if query_result.get("success"):
                 result["steps_completed"].append("temporal_analysis")
                 result["tools_used"].append("athena_query_execute")
-                result["recommendations"].append(
-                    "Temporal analysis queries supported for batch effect detection"
-                )
+                result["recommendations"].append("Temporal analysis queries supported for batch effect detection")
             else:
                 result["steps_failed"].append("temporal_analysis")
                 error_msg = query_result.get("error", "Unknown error")
                 if "table" in error_msg.lower():
                     result["errors"].append("CCLE QC metrics table not available")
-                    result["recommendations"].append(
-                        "Set up CCLE QC metrics table for longitudinal analysis"
-                    )
+                    result["recommendations"].append("Set up CCLE QC metrics table for longitudinal analysis")
                 else:
                     result["errors"].append(f"Temporal query failed: {error_msg}")
         except Exception as e:
             result["steps_failed"].append("temporal_analysis")
             result["errors"].append(f"Temporal analysis failed: {str(e)}")
 
-    async def test_collaborative_research(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    async def test_collaborative_research(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB006: Collaborative research workflow."""
         # Step 1: Test package creation for sharing
         try:
@@ -529,9 +471,7 @@ class CCLEComputationalBiologyTester:
             if package_create.get("success"):
                 result["steps_completed"].append("collaborative_package_creation")
                 result["tools_used"].append("create_package_enhanced")
-                result["recommendations"].append(
-                    "Package creation available for data sharing"
-                )
+                result["recommendations"].append("Package creation available for data sharing")
             else:
                 result["steps_failed"].append("collaborative_package_creation")
                 result["errors"].append("Package creation for sharing failed")
@@ -546,16 +486,12 @@ class CCLEComputationalBiologyTester:
 
             if packages_result.get("success") and packages_result.get("packages"):
                 first_package = packages_result["packages"][0]["name"]
-                validation_result = await self.call_tool(
-                    "package_validate", {"package_name": first_package}
-                )
+                validation_result = await self.call_tool("package_validate", {"package_name": first_package})
 
                 if validation_result.get("success"):
                     result["steps_completed"].append("package_validation")
                     result["tools_used"].append("package_validate")
-                    result["recommendations"].append(
-                        "Package validation available for data integrity checks"
-                    )
+                    result["recommendations"].append("Package validation available for data integrity checks")
                 else:
                     result["steps_failed"].append("package_validation")
                     result["errors"].append("Package validation failed")
@@ -579,9 +515,7 @@ class CCLEComputationalBiologyTester:
             if catalog_url.get("success"):
                 result["steps_completed"].append("shareable_url_generation")
                 result["tools_used"].append("catalog_url")
-                result["recommendations"].append(
-                    "Shareable catalog URLs available for collaborator access"
-                )
+                result["recommendations"].append("Shareable catalog URLs available for collaborator access")
             else:
                 result["steps_failed"].append("shareable_url_generation")
                 result["errors"].append("Shareable URL generation failed")
@@ -589,9 +523,7 @@ class CCLEComputationalBiologyTester:
             result["steps_failed"].append("shareable_url_generation")
             result["errors"].append(f"URL generation failed: {str(e)}")
 
-    async def call_tool(
-        self, tool_name: str, arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call an MCP tool safely."""
         try:
             if tool_name not in self.tools:
@@ -611,11 +543,7 @@ class CCLEComputationalBiologyTester:
                     "error": f"Tool '{tool_name}' is not callable",
                 }
 
-            return (
-                result
-                if isinstance(result, dict)
-                else {"success": True, "result": result}
-            )
+            return result if isinstance(result, dict) else {"success": True, "result": result}
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -662,11 +590,7 @@ class CCLEComputationalBiologyTester:
                 "total_tests": total_tests,
                 "passed_tests": passed_tests,
                 "failed_tests": failed_tests,
-                "success_rate": (
-                    round((passed_tests / total_tests) * 100, 1)
-                    if total_tests > 0
-                    else 0
-                ),
+                "success_rate": (round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0),
             },
             "results_by_category": results_by_category,
             "tools_coverage": {
@@ -709,8 +633,7 @@ class CCLEComputationalBiologyTester:
             error_counts[key] = error_counts.get(key, 0) + 1
 
         return [
-            {"error_type": k, "count": v}
-            for k, v in sorted(error_counts.items(), key=lambda x: x[1], reverse=True)
+            {"error_type": k, "count": v} for k, v in sorted(error_counts.items(), key=lambda x: x[1], reverse=True)
         ]
 
     def _assess_computational_biology_readiness(self) -> Dict[str, Any]:
@@ -727,21 +650,13 @@ class CCLEComputationalBiologyTester:
         for result in self.test_results:
             if "discovery" in result["steps_completed"]:
                 capabilities["genomics_data_access"] = True
-            if "query" in result["steps_completed"] or "athena" in str(
-                result["tools_used"]
-            ):
+            if "query" in result["steps_completed"] or "athena" in str(result["tools_used"]):
                 capabilities["sql_analytics"] = True
             if "workflow" in result["steps_completed"]:
                 capabilities["workflow_orchestration"] = True
-            if (
-                "sharing" in result["steps_completed"]
-                or "url" in result["steps_completed"]
-            ):
+            if "sharing" in result["steps_completed"] or "url" in result["steps_completed"]:
                 capabilities["data_sharing"] = True
-            if (
-                "igv" in result["steps_completed"]
-                or "catalog_url" in result["tools_used"]
-            ):
+            if "igv" in result["steps_completed"] or "catalog_url" in result["tools_used"]:
                 capabilities["visualization_support"] = True
 
         readiness_score = sum(capabilities.values()) / len(capabilities) * 100
@@ -755,7 +670,9 @@ class CCLEComputationalBiologyTester:
                 else (
                     "Mostly Ready"
                     if readiness_score >= 60
-                    else "Needs Development" if readiness_score >= 40 else "Not Ready"
+                    else "Needs Development"
+                    if readiness_score >= 40
+                    else "Not Ready"
                 )
             ),
         }
@@ -770,22 +687,16 @@ class CCLEComputationalBiologyTester:
             failed_steps.extend(result["steps_failed"])
 
         if any("tabulator" in step for step in failed_steps):
-            next_steps.append(
-                "Set up CCLE Tabulator tables for expression and metadata queries"
-            )
+            next_steps.append("Set up CCLE Tabulator tables for expression and metadata queries")
 
         if any("athena" in step for step in failed_steps):
-            next_steps.append(
-                "Configure Athena workgroups and Glue Data Catalog for CCLE data"
-            )
+            next_steps.append("Configure Athena workgroups and Glue Data Catalog for CCLE data")
 
         if any("discovery" in step for step in failed_steps):
             next_steps.append("Populate test environment with CCLE sample packages")
 
         if any("permission" in str(result).lower() for result in self.test_results):
-            next_steps.append(
-                "Review and fix AWS permissions for comprehensive data access"
-            )
+            next_steps.append("Review and fix AWS permissions for comprehensive data access")
 
         # Add general recommendations
         next_steps.extend(
@@ -834,15 +745,11 @@ async def main():
     # Print category breakdown
     print("\n📋 Results by Category:")
     for category, results in report["results_by_category"].items():
-        print(
-            f"   {category}: {results['passed']}/{results['passed'] + results['failed']} passed"
-        )
+        print(f"   {category}: {results['passed']}/{results['passed'] + results['failed']} passed")
 
     # Print readiness assessment
     assessment = report["computational_biology_assessment"]
-    print(
-        f"\n🧬 Computational Biology Readiness: {assessment['readiness_level']} ({assessment['readiness_score']}%)"
-    )
+    print(f"\n🧬 Computational Biology Readiness: {assessment['readiness_level']} ({assessment['readiness_score']}%)")
 
     # Print top recommendations
     if report["recommendations"]["unique_recommendations"]:

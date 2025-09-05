@@ -34,9 +34,7 @@ def validate_package_structure(
     is_valid = True
 
     # Check for empty structure
-    if not organized_structure or all(
-        not files for files in organized_structure.values()
-    ):
+    if not organized_structure or all(not files for files in organized_structure.values()):
         warnings.append("Package structure is empty")
         is_valid = False
         return is_valid, warnings, recommendations
@@ -49,13 +47,9 @@ def validate_package_structure(
             recommendations.extend(folder_recs)
 
     # Check for recommended structure
-    has_data_folder = any(
-        folder.startswith("data/") for folder in organized_structure.keys()
-    )
+    has_data_folder = any(folder.startswith("data/") for folder in organized_structure.keys())
     if not has_data_folder:
-        recommendations.append(
-            "Consider organizing data files into 'data/' subfolder structure"
-        )
+        recommendations.append("Consider organizing data files into 'data/' subfolder structure")
 
     has_docs = any(folder.startswith("docs") for folder in organized_structure.keys())
     if not has_docs and len(organized_structure) > 1:
@@ -70,9 +64,7 @@ def validate_package_structure(
                 break
 
     if not readme_found:
-        recommendations.append(
-            "Consider adding a README.md file for package documentation"
-        )
+        recommendations.append("Consider adding a README.md file for package documentation")
 
     # Check file distribution
     total_files = sum(len(files) for files in organized_structure.values())
@@ -103,16 +95,12 @@ def validate_folder_structure(folder_path: str) -> Tuple[List[str], List[str]]:
     folder_lower = folder_path.lower()
     for pattern in DISCOURAGED_PATTERNS:
         if pattern in folder_lower:
-            warnings.append(
-                f"Folder '{folder_path}' contains discouraged pattern '{pattern}'"
-            )
+            warnings.append(f"Folder '{folder_path}' contains discouraged pattern '{pattern}'")
 
     # Check folder depth
     parts = folder_path.split("/")
     if len(parts) > 4:
-        warnings.append(
-            f"Folder '{folder_path}' has deep nesting ({len(parts)} levels) - consider flattening"
-        )
+        warnings.append(f"Folder '{folder_path}' has deep nesting ({len(parts)} levels) - consider flattening")
 
     # Check for special characters
     if re.search(r"[^a-zA-Z0-9/_-]", folder_path):
@@ -125,17 +113,13 @@ def validate_folder_structure(folder_path: str) -> Tuple[List[str], List[str]]:
         # Find closest recommended folder
         for recommended in RECOMMENDED_FOLDERS:
             if any(part in folder_lower for part in recommended.split("/")):
-                recommendations.append(
-                    f"Consider using recommended folder '{recommended}' instead of '{folder_path}'"
-                )
+                recommendations.append(f"Consider using recommended folder '{recommended}' instead of '{folder_path}'")
                 break
 
     return warnings, recommendations
 
 
-def suggest_folder_organization(
-    file_objects: List[Dict[str, Any]]
-) -> Dict[str, List[str]]:
+def suggest_folder_organization(file_objects: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """
     Suggest optimal folder organization for a list of files.
 
@@ -171,9 +155,7 @@ def suggest_folder_organization(
             suggested_folder = "docs/schemas"
 
         # Configuration
-        elif (
-            file_ext in ["yml", "yaml", "toml", "ini", "conf"] or "config" in file_name
-        ):
+        elif file_ext in ["yml", "yaml", "toml", "ini", "conf"] or "config" in file_name:
             suggested_folder = "metadata"
 
         if suggested_folder not in suggestions:
@@ -200,9 +182,7 @@ def validate_file_naming(file_path: str) -> Tuple[bool, List[str]]:
 
     # Check for spaces in filename
     if " " in file_name:
-        warnings.append(
-            f"File '{file_name}' contains spaces - consider using underscores or hyphens"
-        )
+        warnings.append(f"File '{file_name}' contains spaces - consider using underscores or hyphens")
         is_valid = False
 
     # Check for special characters
@@ -212,14 +192,10 @@ def validate_file_naming(file_path: str) -> Tuple[bool, List[str]]:
 
     # Check for very long names
     if len(file_name) > 100:
-        warnings.append(
-            f"File '{file_name}' has very long name ({len(file_name)} chars)"
-        )
+        warnings.append(f"File '{file_name}' has very long name ({len(file_name)} chars)")
 
     # Check for common anti-patterns
     if file_name.startswith("."):
-        warnings.append(
-            f"Hidden file '{file_name}' - consider if this should be included in package"
-        )
+        warnings.append(f"Hidden file '{file_name}' - consider if this should be included in package")
 
     return is_valid, warnings

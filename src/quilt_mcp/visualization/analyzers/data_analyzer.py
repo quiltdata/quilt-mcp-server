@@ -64,9 +64,7 @@ class DataAnalyzer:
                         metadata["has_metadata"] = True
 
             # Analyze data files
-            data_files = list(package_path.rglob("*.csv")) + list(
-                package_path.rglob("*.tsv")
-            )
+            data_files = list(package_path.rglob("*.csv")) + list(package_path.rglob("*.tsv"))
             metadata["data_count"] = len(data_files)
 
             # Analyze genomic files
@@ -80,11 +78,7 @@ class DataAnalyzer:
                 ".fasta",
                 ".fastq",
             }
-            genomic_files = [
-                f
-                for f in package_path.rglob("*")
-                if f.suffix.lower() in genomic_extensions
-            ]
+            genomic_files = [f for f in package_path.rglob("*") if f.suffix.lower() in genomic_extensions]
             metadata["genomic_count"] = len(genomic_files)
 
             # Analyze image files
@@ -97,20 +91,12 @@ class DataAnalyzer:
                 ".tiff",
                 ".svg",
             }
-            image_files = [
-                f
-                for f in package_path.rglob("*")
-                if f.suffix.lower() in image_extensions
-            ]
+            image_files = [f for f in package_path.rglob("*") if f.suffix.lower() in image_extensions]
             metadata["image_count"] = len(image_files)
 
             # Analyze text files
             text_extensions = {".txt", ".md", ".rst", ".log", ".py", ".r", ".sql"}
-            text_files = [
-                f
-                for f in package_path.rglob("*")
-                if f.suffix.lower() in text_extensions
-            ]
+            text_files = [f for f in package_path.rglob("*") if f.suffix.lower() in text_extensions]
             metadata["text_count"] = len(text_files)
 
         except Exception as e:
@@ -158,9 +144,7 @@ class DataAnalyzer:
                 unique_count = df[col].nunique()
                 analysis["unique_counts"][col] = unique_count
 
-                if (
-                    unique_count <= 50
-                ):  # Reasonable number for categorical visualization
+                if unique_count <= 50:  # Reasonable number for categorical visualization
                     analysis["has_categorical"] = True
                     analysis["categorical_cols"].append(col)
                 else:
@@ -292,9 +276,7 @@ class DataAnalyzer:
             return False
 
         # Check if values are numeric
-        numeric_count = sum(
-            1 for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)
-        )
+        numeric_count = sum(1 for v in values if isinstance(v, (int, float)) and not isinstance(v, bool))
         return numeric_count >= len(values) * 0.5  # At least 50% numeric
 
     def _is_chartable_list(self, data: List[Any]) -> bool:
@@ -311,9 +293,7 @@ class DataAnalyzer:
                 for item in data[:100]:  # Check first 100 items
                     if isinstance(item, dict):
                         for key, value in item.items():
-                            if isinstance(value, (int, float)) and not isinstance(
-                                value, bool
-                            ):
+                            if isinstance(value, (int, float)) and not isinstance(value, bool):
                                 numeric_keys.add(key)
 
                 return len(numeric_keys) >= 2

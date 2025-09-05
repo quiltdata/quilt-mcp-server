@@ -27,9 +27,7 @@ class OptimizedMCPServer:
     def __init__(self, enable_optimization: bool = None):
         # Determine if optimization should be enabled
         if enable_optimization is None:
-            enable_optimization = (
-                os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
-            )
+            enable_optimization = os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
 
         self.optimization_enabled = enable_optimization
 
@@ -47,9 +45,7 @@ class OptimizedMCPServer:
 
         # Get optimization components
         self.interceptor = get_tool_interceptor() if self.optimization_enabled else None
-        self.telemetry = (
-            get_telemetry_collector() if self.optimization_enabled else None
-        )
+        self.telemetry = get_telemetry_collector() if self.optimization_enabled else None
 
         # Apply optimization wrappers if enabled
         if self.optimization_enabled:
@@ -133,9 +129,7 @@ def optimization_tool(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Check if optimization is enabled
-            optimization_enabled = (
-                os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
-            )
+            optimization_enabled = os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
 
             if not optimization_enabled:
                 return func(*args, **kwargs)

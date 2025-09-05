@@ -39,9 +39,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             session, graphql_url = _get_graphql_endpoint()
 
             if not session or not graphql_url:
-                self._update_status(
-                    BackendStatus.UNAVAILABLE, "GraphQL endpoint or session unavailable"
-                )
+                self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint or session unavailable")
                 return
 
             self._session = session
@@ -63,14 +61,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         "GraphQL endpoint not available (likely not Enterprise catalog)",
                     )
                 else:
-                    self._update_status(
-                        BackendStatus.ERROR, f"GraphQL test failed: {error_msg}"
-                    )
+                    self._update_status(BackendStatus.ERROR, f"GraphQL test failed: {error_msg}")
 
         except Exception as e:
-            self._update_status(
-                BackendStatus.ERROR, f"GraphQL access check failed: {e}"
-            )
+            self._update_status(BackendStatus.ERROR, f"GraphQL access check failed: {e}")
 
     async def health_check(self) -> bool:
         """Check if GraphQL backend is healthy."""
@@ -80,9 +74,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 self._session = quilt3.session.get_session()
 
             if not self._registry_url or not self._session:
-                self._update_status(
-                    BackendStatus.UNAVAILABLE, "No GraphQL endpoint available"
-                )
+                self._update_status(BackendStatus.UNAVAILABLE, "No GraphQL endpoint available")
                 return False
 
             # Test with the working bucketConfigs query
@@ -96,9 +88,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 return True
             else:
                 error_msg = result.get("error", "Unknown GraphQL error")
-                self._update_status(
-                    BackendStatus.ERROR, f"GraphQL health check failed: {error_msg}"
-                )
+                self._update_status(BackendStatus.ERROR, f"GraphQL health check failed: {error_msg}")
                 return False
 
         except Exception as e:
@@ -126,21 +116,13 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         try:
             if scope == "bucket" and target:
-                results = await self._search_bucket_objects(
-                    query, target, filters, limit
-                )
+                results = await self._search_bucket_objects(query, target, filters, limit)
             elif scope == "package" and target:
-                results = await self._search_package_contents(
-                    query, target, filters, limit
-                )
+                results = await self._search_package_contents(query, target, filters, limit)
             else:
                 # Global/catalog search - search both objects and packages
-                object_results = await self._search_objects_global(
-                    query, filters, limit // 2
-                )
-                package_results = await self._search_packages_global(
-                    query, filters, limit // 2
-                )
+                object_results = await self._search_objects_global(query, filters, limit // 2)
+                package_results = await self._search_packages_global(query, filters, limit // 2)
                 results = object_results + package_results
 
             query_time = (time.time() - start_time) * 1000
@@ -297,12 +279,8 @@ class EnterpriseGraphQLBackend(SearchBackend):
             # Fallback: try simple bucketConfigs if searchPackages fails
             try:
                 bucketconfigs_query = "query { bucketConfigs { name } }"
-                fallback_result = await self._execute_graphql_query(
-                    bucketconfigs_query, {}
-                )
-                return self._convert_bucketconfigs_to_packages(
-                    fallback_result, query, limit
-                )
+                fallback_result = await self._execute_graphql_query(bucketconfigs_query, {})
+                return self._convert_bucketconfigs_to_packages(fallback_result, query, limit)
             except Exception:
                 return []
 
@@ -385,9 +363,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         # For now, return empty results as this is complex to implement without full schema
         return []
 
-    def _build_graphql_filter(
-        self, query: str, filters: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _build_graphql_filter(self, query: str, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Build GraphQL filter object from query and filters."""
         graphql_filter = {}
 
@@ -415,9 +391,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return graphql_filter
 
-    async def _execute_graphql_query(
-        self, query: str, variables: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a GraphQL query using the proven catalog_graphql_query approach."""
         # Use the existing working GraphQL infrastructure (synchronous)
         from ...tools.graphql import catalog_graphql_query
@@ -439,21 +413,15 @@ class EnterpriseGraphQLBackend(SearchBackend):
                     error_location = error.get("locations", [{}])[0]
                     location_str = f"line {error_location.get('line', '?')}, col {error_location.get('column', '?')}"
 
-                    error_details.append(
-                        f"GraphQL Error: {error_msg} (path: {error_path}, location: {location_str})"
-                    )
+                    error_details.append(f"GraphQL Error: {error_msg} (path: {error_path}, location: {location_str})")
 
-            detailed_error = (
-                "; ".join(error_details) if error_details else "Unknown GraphQL error"
-            )
+            detailed_error = "; ".join(error_details) if error_details else "Unknown GraphQL error"
             raise Exception(f"GraphQL query failed: {detailed_error}")
 
         # Return in the expected format for our async interface
         return {"data": result.get("data"), "errors": result.get("errors")}
 
-    def _convert_bucket_objects_results(
-        self, graphql_result: Dict[str, Any], bucket: str
-    ) -> List[SearchResult]:
+    def _convert_bucket_objects_results(self, graphql_result: Dict[str, Any], bucket: str) -> List[SearchResult]:
         """Convert GraphQL bucket objects results to standard format."""
         results = []
 
@@ -475,18 +443,13 @@ class EnterpriseGraphQLBackend(SearchBackend):
             result = SearchResult(
                 id=f"graphql-object-{node.get('key', '')}",
                 type="file",
-                title=(
-                    node.get("key", "").split("/")[-1] if node.get("key") else "Unknown"
-                ),
-                description=f"Object in {bucket}"
-                + (f" (package: {package_name})" if package_name else ""),
+                title=(node.get("key", "").split("/")[-1] if node.get("key") else "Unknown"),
+                description=f"Object in {bucket}" + (f" (package: {package_name})" if package_name else ""),
                 s3_uri=f"s3://{bucket.replace('s3://', '')}/{node.get('key', '')}",
                 package_name=package_name,
                 logical_key=node.get("key"),
                 size=node.get("size"),
-                last_modified=node.get(
-                    "updated"
-                ),  # GraphQL uses 'updated' not 'lastModified'
+                last_modified=node.get("updated"),  # GraphQL uses 'updated' not 'lastModified'
                 metadata={
                     "bucket": bucket,
                     "content_type": node.get("contentType"),
@@ -501,9 +464,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return results
 
-    def _convert_packages_results(
-        self, graphql_result: Dict[str, Any]
-    ) -> List[SearchResult]:
+    def _convert_packages_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert GraphQL packages results to standard format."""
         results = []
 
@@ -535,9 +496,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return results
 
-    def _convert_objects_results(
-        self, graphql_result: Dict[str, Any]
-    ) -> List[SearchResult]:
+    def _convert_objects_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert GraphQL objects results to standard format."""
         results = []
 
@@ -551,9 +510,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             result = SearchResult(
                 id=f"graphql-object-{node.get('key', '')}",
                 type="file",
-                title=(
-                    node.get("key", "").split("/")[-1] if node.get("key") else "Unknown"
-                ),
+                title=(node.get("key", "").split("/")[-1] if node.get("key") else "Unknown"),
                 description=f"Object in {node.get('bucket', 'unknown bucket')}",
                 s3_uri=f"s3://{node.get('bucket', '')}/{node.get('key', '')}",
                 package_name=node.get("packageName"),
@@ -610,9 +567,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return results
 
-    def _build_packages_filter(
-        self, filters: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _build_packages_filter(self, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Build PackagesSearchFilter from parsed filters."""
         if not filters:
             return {}
@@ -639,9 +594,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return packages_filter
 
-    def _build_user_meta_filters(
-        self, filters: Optional[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _build_user_meta_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Build user metadata filters for package search."""
         if not filters:
             return []
@@ -659,9 +612,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return user_meta_filters
 
-    def _convert_packages_search_results(
-        self, graphql_result: Dict[str, Any]
-    ) -> List[SearchResult]:
+    def _convert_packages_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert searchPackages GraphQL results to standard format."""
         results = []
 
@@ -680,9 +631,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                     id=hit.get("id", ""),
                     type="package",
                     title=hit.get("name", ""),
-                    description=hit.get(
-                        "comment", f"Package: {hit.get('name', 'Unknown')}"
-                    ),
+                    description=hit.get("comment", f"Package: {hit.get('name', 'Unknown')}"),
                     package_name=hit.get("name"),
                     size=hit.get("size"),
                     last_modified=hit.get("modified"),
@@ -703,9 +652,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return results
 
-    def _convert_objects_search_results(
-        self, graphql_result: Dict[str, Any], query: str
-    ) -> List[SearchResult]:
+    def _convert_objects_search_results(self, graphql_result: Dict[str, Any], query: str) -> List[SearchResult]:
         """Convert searchObjects GraphQL results to standard format."""
         results = []
 
@@ -731,9 +678,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             # Add file extension breakdown
             if ext_stats.get("buckets"):
                 ext_breakdown = ext_stats["buckets"][:3]  # Top 3 extensions
-                ext_summary = ", ".join(
-                    [f"{ext['key']}: {ext['docCount']}" for ext in ext_breakdown]
-                )
+                ext_summary = ", ".join([f"{ext['key']}: {ext['docCount']}" for ext in ext_breakdown])
                 description_parts.append(f"Top types: {ext_summary}")
 
             result = SearchResult(

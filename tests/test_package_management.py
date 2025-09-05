@@ -88,9 +88,7 @@ class TestCreatePackageEnhanced:
     def test_readme_content_extraction_from_metadata(self):
         """Test that README content is automatically extracted from metadata."""
         # Mock the base package creation function
-        with patch(
-            "quilt_mcp.tools.package_management._base_package_create"
-        ) as mock_base_create:
+        with patch("quilt_mcp.tools.package_management._base_package_create") as mock_base_create:
             mock_base_create.return_value = {
                 "status": "success",
                 "entries_added": 1,
@@ -138,9 +136,7 @@ class TestCreatePackageEnhanced:
     def test_both_readme_fields_extraction(self):
         """Test that both 'readme_content' and 'readme' fields are extracted."""
         # Mock the base package creation function
-        with patch(
-            "quilt_mcp.tools.package_management._base_package_create"
-        ) as mock_base_create:
+        with patch("quilt_mcp.tools.package_management._base_package_create") as mock_base_create:
             mock_base_create.return_value = {
                 "status": "success",
                 "entries_added": 1,
@@ -173,9 +169,7 @@ class TestCreatePackageEnhanced:
             # Verify that README content was extracted and stored (priority to readme_content)
             processed_metadata = result["metadata_preview"]
             assert "readme_content" not in processed_metadata  # This should be removed
-            assert (
-                "readme" in processed_metadata
-            )  # This remains since we only extract one field
+            assert "readme" in processed_metadata  # This remains since we only extract one field
             assert "_extracted_readme" in processed_metadata
 
             # Verify that readme_content took priority
@@ -188,9 +182,7 @@ class TestCreatePackageEnhanced:
     def test_no_readme_content_in_metadata(self):
         """Test that packages without README content work normally."""
         # Mock the base package creation function
-        with patch(
-            "quilt_mcp.tools.package_management._base_package_create"
-        ) as mock_base_create:
+        with patch("quilt_mcp.tools.package_management._base_package_create") as mock_base_create:
             mock_base_create.return_value = {
                 "status": "success",
                 "entries_added": 1,

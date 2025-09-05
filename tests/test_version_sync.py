@@ -56,9 +56,7 @@ description = "Test project"
 name = "test-project"
 version = "{version}"
 """
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".toml", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
                 try:
                     f.write(pyproject_content)
                     f.flush()
@@ -124,16 +122,12 @@ class TestTemplateProcessing:
   }
 }
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".j2", delete=False
-        ) as template_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".j2", delete=False) as template_file:
             try:
                 template_file.write(template_content)
                 template_file.flush()
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as output_file:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as output_file:
                     try:
                         generate_manifest_from_template(
                             template_path=Path(template_file.name),
@@ -186,16 +180,12 @@ class TestTemplateProcessing:
   }
 }
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".j2", delete=False
-        ) as template_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".j2", delete=False) as template_file:
             try:
                 template_file.write(template_content)
                 template_file.flush()
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as output_file:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as output_file:
                     try:
                         generate_manifest_from_template(
                             template_path=Path(template_file.name),
@@ -210,14 +200,8 @@ class TestTemplateProcessing:
                         assert manifest["version"] == "2.0.0"
 
                         # Check all other fields preserved
-                        assert (
-                            manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"]
-                            == "1"
-                        )
-                        assert (
-                            manifest["user_config"]["catalog_domain"]["required"]
-                            is True
-                        )
+                        assert manifest["server"]["mcp_config"]["env"]["PYTHONNOUSERSITE"] == "1"
+                        assert manifest["user_config"]["catalog_domain"]["required"] is True
                         assert len(manifest["server"]["mcp_config"]["args"]) == 1
                     finally:
                         Path(output_file.name).unlink(missing_ok=True)
@@ -226,9 +210,7 @@ class TestTemplateProcessing:
 
     def test_raises_error_for_missing_template(self):
         """Should raise FileNotFoundError for non-existent template."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as output_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as output_file:
             try:
                 with pytest.raises(FileNotFoundError):
                     generate_manifest_from_template(
@@ -248,16 +230,12 @@ class TestTemplateProcessing:
   "invalid": json content here
 }
 """
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".j2", delete=False
-        ) as template_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".j2", delete=False) as template_file:
             try:
                 template_file.write(invalid_template)
                 template_file.flush()
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as output_file:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as output_file:
                     try:
                         with pytest.raises(json.JSONDecodeError):
                             generate_manifest_from_template(
@@ -287,16 +265,12 @@ version = "1.2.3"
             "description": "Test extension",
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".toml", delete=False
-        ) as pyproject_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as manifest_file:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as manifest_file:
                     try:
                         json.dump(manifest_content, manifest_file)
                         manifest_file.flush()
@@ -325,16 +299,12 @@ version = "1.2.3"
             "description": "Test extension",
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".toml", delete=False
-        ) as pyproject_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".json", delete=False
-                ) as manifest_file:
+                with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as manifest_file:
                     try:
                         json.dump(manifest_content, manifest_file)
                         manifest_file.flush()
@@ -358,9 +328,7 @@ name = "test-project"
 version = "1.2.3"
 """
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".toml", delete=False
-        ) as pyproject_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as pyproject_file:
             try:
                 pyproject_file.write(pyproject_content)
                 pyproject_file.flush()

@@ -80,9 +80,7 @@ class S3FallbackBackend(SearchBackend):
             elif scope in ["global", "catalog"]:
                 # For global/catalog scope, try to search the default bucket
                 default_bucket = "s3://quilt-example"
-                results = await self._search_bucket(
-                    query, default_bucket, filters, limit
-                )
+                results = await self._search_bucket(query, default_bucket, filters, limit)
             else:
                 results = []
 
@@ -116,9 +114,7 @@ class S3FallbackBackend(SearchBackend):
 
         # Extract prefix from query if it looks like a path
         prefix = ""
-        if "/" in query and not any(
-            op in query.lower() for op in ["find", "search", "get"]
-        ):
+        if "/" in query and not any(op in query.lower() for op in ["find", "search", "get"]):
             prefix = query
             query_terms = []
         else:
@@ -127,10 +123,7 @@ class S3FallbackBackend(SearchBackend):
             query_lower = query.lower()
 
             # Handle file extension patterns
-            if any(
-                pattern in query_lower
-                for pattern in ["*.", "csv", "json", "parquet", "txt"]
-            ):
+            if any(pattern in query_lower for pattern in ["*.", "csv", "json", "parquet", "txt"]):
                 # Extract file extensions from query
                 import re
 
@@ -183,9 +176,7 @@ class S3FallbackBackend(SearchBackend):
                     key = obj["Key"]
 
                     # Apply query term filtering
-                    if query_terms and not any(
-                        term in key.lower() for term in query_terms
-                    ):
+                    if query_terms and not any(term in key.lower() for term in query_terms):
                         continue
 
                     # Apply filters
@@ -201,11 +192,7 @@ class S3FallbackBackend(SearchBackend):
                         s3_uri=f"s3://{bucket_name}/{key}",
                         logical_key=key,
                         size=obj.get("Size", 0),
-                        last_modified=(
-                            obj.get("LastModified").isoformat()
-                            if obj.get("LastModified")
-                            else None
-                        ),
+                        last_modified=(obj.get("LastModified").isoformat() if obj.get("LastModified") else None),
                         metadata={
                             "bucket": bucket_name,
                             "storage_class": obj.get("StorageClass", "STANDARD"),
@@ -237,9 +224,7 @@ class S3FallbackBackend(SearchBackend):
             else:
                 raise Exception(f"S3 error: {e}")
 
-    def _matches_filters(
-        self, obj: Dict[str, Any], filters: Optional[Dict[str, Any]]
-    ) -> bool:
+    def _matches_filters(self, obj: Dict[str, Any], filters: Optional[Dict[str, Any]]) -> bool:
         """Check if S3 object matches the specified filters."""
         if not filters:
             return True

@@ -188,9 +188,7 @@ class TestTabulatorService:
         logical_key_pattern = "data/*.csv$"
         parser_config = {"format": "csv", "delimiter": ",", "header": True}
 
-        config_yaml = service._build_tabulator_config(
-            schema, package_pattern, logical_key_pattern, parser_config
-        )
+        config_yaml = service._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)
 
         # Basic checks that YAML is generated
         assert "schema:" in config_yaml
@@ -435,9 +433,7 @@ class TestTabulatorTableRename:
         assert result["success"] is True
         assert result["old_table_name"] == "old_table"
         assert result["new_table_name"] == "new_table"
-        mock_service.rename_table.assert_called_once_with(
-            "test-bucket", "old_table", "new_table"
-        )
+        mock_service.rename_table.assert_called_once_with("test-bucket", "old_table", "new_table")
 
     @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
     @pytest.mark.asyncio
@@ -500,9 +496,7 @@ class TestTabulatorOpenQuery:
         """Test open query status error handling."""
         mock_service = Mock()
         mock_get_service.return_value = mock_service
-        mock_service.get_open_query_status.side_effect = Exception(
-            "Status check failed"
-        )
+        mock_service.get_open_query_status.side_effect = Exception("Status check failed")
 
         result = await tabulator_open_query_status()
 

@@ -154,9 +154,7 @@ def search_suggest(
         }
 
 
-def search_explain(
-    query: str, scope: str = "global", target: str = ""
-) -> Dict[str, Any]:
+def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
     """
     Explain how a search query would be processed and executed.
 

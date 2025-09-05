@@ -40,15 +40,11 @@ class CCLEDirectTester:
         self.start_time = time.time()
 
         # Load test cases
-        test_cases_file = (
-            Path(__file__).parent / "ccle_computational_biology_test_cases.json"
-        )
+        test_cases_file = Path(__file__).parent / "ccle_computational_biology_test_cases.json"
         with open(test_cases_file, "r") as f:
             test_data = json.load(f)
 
-        print(
-            f"\n🧬 Running {len(test_data['test_cases'])} CCLE Computational Biology Test Cases"
-        )
+        print(f"\n🧬 Running {len(test_data['test_cases'])} CCLE Computational Biology Test Cases")
         print("=" * 80)
 
         for test_case in test_data["test_cases"]:
@@ -108,23 +104,17 @@ class CCLEDirectTester:
             print(f"   ❌ Test {test_id} failed with exception: {e}")
 
         result["execution_time_ms"] = round((time.time() - start_time) * 1000, 2)
-        result["success"] = (
-            len(result["errors"]) == 0 and len(result["steps_failed"]) == 0
-        )
+        result["success"] = len(result["errors"]) == 0 and len(result["steps_failed"]) == 0
 
         return result
 
-    def test_molecular_target_discovery(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    def test_molecular_target_discovery(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB001: Molecular target discovery workflow."""
         print("   🧪 Testing molecular target discovery workflow...")
 
         # Step 1: Check Tabulator availability
         try:
-            tabulator_result = tabulator.tabulator_tables_list(
-                bucket_name="quilt-sandbox-bucket"
-            )
+            tabulator_result = tabulator.tabulator_tables_list(bucket_name="quilt-sandbox-bucket")
             if tabulator_result.get("success"):
                 result["steps_completed"].append("tabulator_connectivity")
                 result["tools_used"].append("tabulator_tables_list")
@@ -140,21 +130,14 @@ class CCLEDirectTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = packages.packages_search(
-                query="CCLE expression RNA-seq", limit=5
-            )
+            search_result = packages.packages_search(query="CCLE expression RNA-seq", limit=5)
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
                 result["tools_used"].append("packages_search")
                 result["data_accessed"].extend(
-                    [
-                        r.get("_source", {}).get("key", "unknown")
-                        for r in search_result["results"][:3]
-                    ]
+                    [r.get("_source", {}).get("key", "unknown") for r in search_result["results"][:3]]
                 )
-                print(
-                    f"      ✅ Found {len(search_result['results'])} CCLE expression packages"
-                )
+                print(f"      ✅ Found {len(search_result['results'])} CCLE expression packages")
             else:
                 result["steps_failed"].append("ccle_data_discovery")
                 result["errors"].append("No CCLE expression data found")
@@ -178,30 +161,20 @@ class CCLEDirectTester:
             LIMIT 10
             """
 
-            athena_result = athena_glue.athena_query_execute(
-                query=query, max_results=10
-            )
+            athena_result = athena_glue.athena_query_execute(query=query, max_results=10)
 
             if athena_result.get("success"):
                 result["steps_completed"].append("erbb2_expression_query")
                 result["tools_used"].append("athena_query_execute")
-                result["recommendations"].append(
-                    "Successfully executed ERBB2 expression ranking query"
-                )
+                result["recommendations"].append("Successfully executed ERBB2 expression ranking query")
                 print("      ✅ ERBB2 expression query executed successfully")
             else:
                 result["steps_failed"].append("erbb2_expression_query")
                 error_msg = athena_result.get("error", "Unknown Athena error")
                 if "table" in error_msg.lower() or "database" in error_msg.lower():
-                    result["errors"].append(
-                        "CCLE expression table not available in current environment"
-                    )
-                    result["recommendations"].append(
-                        "Set up CCLE Tabulator tables for expression data queries"
-                    )
-                    print(
-                        "      ⚠️  CCLE expression table not available (expected in test environment)"
-                    )
+                    result["errors"].append("CCLE expression table not available in current environment")
+                    result["recommendations"].append("Set up CCLE Tabulator tables for expression data queries")
+                    print("      ⚠️  CCLE expression table not available (expected in test environment)")
                 else:
                     result["errors"].append(f"Athena query failed: {error_msg}")
                     print(f"      ❌ Athena query failed: {error_msg}")
@@ -221,9 +194,7 @@ class CCLEDirectTester:
             if workflow_result.get("success"):
                 result["steps_completed"].append("workflow_orchestration")
                 result["tools_used"].append("workflow_create")
-                result["recommendations"].append(
-                    "Workflow orchestration available for complex CCLE analyses"
-                )
+                result["recommendations"].append("Workflow orchestration available for complex CCLE analyses")
                 print("      ✅ Workflow orchestration capability confirmed")
             else:
                 result["steps_failed"].append("workflow_orchestration")
@@ -240,22 +211,15 @@ class CCLEDirectTester:
 
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = packages.packages_search(
-                query="CCLE FASTQ RNA-seq raw", limit=3
-            )
+            fastq_search = packages.packages_search(query="CCLE FASTQ RNA-seq raw", limit=3)
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
                 result["tools_used"].append("packages_search")
                 result["data_accessed"].extend(
-                    [
-                        r.get("_source", {}).get("key", "unknown")
-                        for r in fastq_search["results"]
-                    ]
+                    [r.get("_source", {}).get("key", "unknown") for r in fastq_search["results"]]
                 )
-                print(
-                    f"      ✅ Found {len(fastq_search['results'])} CCLE FASTQ packages"
-                )
+                print(f"      ✅ Found {len(fastq_search['results'])} CCLE FASTQ packages")
             else:
                 result["steps_failed"].append("fastq_discovery")
                 result["errors"].append("No CCLE FASTQ packages found")
@@ -273,16 +237,12 @@ class CCLEDirectTester:
             if browse_result.get("success") and browse_result.get("packages"):
                 # Try to browse the first package
                 first_package = browse_result["packages"][0]["name"]
-                package_browse = packages.package_browse(
-                    package_name=first_package, recursive=False
-                )
+                package_browse = packages.package_browse(package_name=first_package, recursive=False)
 
                 if package_browse.get("success"):
                     result["steps_completed"].append("package_structure_analysis")
                     result["tools_used"].extend(["packages_list", "package_browse"])
-                    result["recommendations"].append(
-                        "Package browsing available for FASTQ file discovery"
-                    )
+                    result["recommendations"].append("Package browsing available for FASTQ file discovery")
                     print("      ✅ Package structure analysis successful")
                 else:
                     result["steps_failed"].append("package_structure_analysis")
@@ -307,9 +267,7 @@ class CCLEDirectTester:
             if url_result.get("success"):
                 result["steps_completed"].append("presigned_url_generation")
                 result["tools_used"].append("bucket_object_link")
-                result["recommendations"].append(
-                    "Presigned URLs available for FASTQ file access"
-                )
+                result["recommendations"].append("Presigned URLs available for FASTQ file access")
                 print("      ✅ Presigned URL generation successful")
             else:
                 result["steps_failed"].append("presigned_url_generation")
@@ -329,9 +287,7 @@ class CCLEDirectTester:
             if salmon_search.get("success"):
                 result["steps_completed"].append("salmon_results_discovery")
                 result["tools_used"].append("bucket_objects_search")
-                result["recommendations"].append(
-                    "Salmon quantification results discoverable for benchmarking"
-                )
+                result["recommendations"].append("Salmon quantification results discoverable for benchmarking")
                 print("      ✅ Salmon results discovery successful")
             else:
                 result["steps_failed"].append("salmon_results_discovery")
@@ -342,17 +298,13 @@ class CCLEDirectTester:
             result["errors"].append(f"Salmon search failed: {str(e)}")
             print(f"      ❌ Salmon search failed: {e}")
 
-    def test_visual_data_exploration(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    def test_visual_data_exploration(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB003: Visual data exploration workflow."""
         print("   👁️  Testing visual data exploration workflow...")
 
         # Step 1: Search for BAM files
         try:
-            bam_search = packages.packages_search(
-                query="CCLE BAM alignment RNA-seq", limit=3
-            )
+            bam_search = packages.packages_search(query="CCLE BAM alignment RNA-seq", limit=3)
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
@@ -379,9 +331,7 @@ class CCLEDirectTester:
             if catalog_url_result.get("success"):
                 result["steps_completed"].append("igv_integration")
                 result["tools_used"].append("catalog_url")
-                result["recommendations"].append(
-                    "Catalog URLs available for IGV browser integration"
-                )
+                result["recommendations"].append("Catalog URLs available for IGV browser integration")
                 print("      ✅ IGV integration capability confirmed")
             else:
                 result["steps_failed"].append("igv_integration")
@@ -394,9 +344,7 @@ class CCLEDirectTester:
 
         # Step 3: Test BAM file access
         try:
-            bam_access = buckets.bucket_object_info(
-                s3_uri="s3://quilt-sandbox-bucket/ccle/sample.bam"
-            )
+            bam_access = buckets.bucket_object_info(s3_uri="s3://quilt-sandbox-bucket/ccle/sample.bam")
 
             if bam_access.get("success"):
                 result["steps_completed"].append("bam_file_access")
@@ -411,9 +359,7 @@ class CCLEDirectTester:
             result["errors"].append(f"BAM access test failed: {str(e)}")
             print(f"      ❌ BAM access test failed: {e}")
 
-    def test_cross_package_analysis(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    def test_cross_package_analysis(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB004: Cross-package analysis workflow."""
         print("   🔗 Testing cross-package analysis workflow...")
 
@@ -422,9 +368,7 @@ class CCLEDirectTester:
 
         for data_type in data_types:
             try:
-                search_result = packages.packages_search(
-                    query=f"CCLE {data_type}", limit=2
-                )
+                search_result = packages.packages_search(query=f"CCLE {data_type}", limit=2)
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")
@@ -470,9 +414,7 @@ class CCLEDirectTester:
             result["errors"].append(f"Workflow template failed: {str(e)}")
             print(f"      ❌ Workflow template failed: {e}")
 
-    def test_longitudinal_analysis(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    def test_longitudinal_analysis(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB005: Longitudinal analysis workflow."""
         print("   📈 Testing longitudinal analysis workflow...")
 
@@ -483,9 +425,7 @@ class CCLEDirectTester:
             if workgroups.get("success") and workgroups.get("workgroups"):
                 result["steps_completed"].append("athena_connectivity")
                 result["tools_used"].append("athena_workgroups_list")
-                print(
-                    f"      ✅ Athena connectivity confirmed ({len(workgroups['workgroups'])} workgroups)"
-                )
+                print(f"      ✅ Athena connectivity confirmed ({len(workgroups['workgroups'])} workgroups)")
             else:
                 result["steps_failed"].append("athena_connectivity")
                 result["errors"].append("Athena workgroups not accessible")
@@ -510,28 +450,20 @@ class CCLEDirectTester:
             LIMIT 20
             """
 
-            query_result = athena_glue.athena_query_execute(
-                query=temporal_query, max_results=20
-            )
+            query_result = athena_glue.athena_query_execute(query=temporal_query, max_results=20)
 
             if query_result.get("success"):
                 result["steps_completed"].append("temporal_analysis")
                 result["tools_used"].append("athena_query_execute")
-                result["recommendations"].append(
-                    "Temporal analysis queries supported for batch effect detection"
-                )
+                result["recommendations"].append("Temporal analysis queries supported for batch effect detection")
                 print("      ✅ Temporal analysis query successful")
             else:
                 result["steps_failed"].append("temporal_analysis")
                 error_msg = query_result.get("error", "Unknown error")
                 if "table" in error_msg.lower():
                     result["errors"].append("CCLE QC metrics table not available")
-                    result["recommendations"].append(
-                        "Set up CCLE QC metrics table for longitudinal analysis"
-                    )
-                    print(
-                        "      ⚠️  CCLE QC metrics table not available (expected in test environment)"
-                    )
+                    result["recommendations"].append("Set up CCLE QC metrics table for longitudinal analysis")
+                    print("      ⚠️  CCLE QC metrics table not available (expected in test environment)")
                 else:
                     result["errors"].append(f"Temporal query failed: {error_msg}")
                     print(f"      ❌ Temporal query failed: {error_msg}")
@@ -540,9 +472,7 @@ class CCLEDirectTester:
             result["errors"].append(f"Temporal analysis failed: {str(e)}")
             print(f"      ❌ Temporal analysis failed: {e}")
 
-    def test_collaborative_research(
-        self, test_case: Dict[str, Any], result: Dict[str, Any]
-    ):
+    def test_collaborative_research(self, test_case: Dict[str, Any], result: Dict[str, Any]):
         """Test CB006: Collaborative research workflow."""
         print("   🤝 Testing collaborative research workflow...")
 
@@ -559,9 +489,7 @@ class CCLEDirectTester:
             if package_create.get("success"):
                 result["steps_completed"].append("collaborative_package_creation")
                 result["tools_used"].append("create_package_enhanced")
-                result["recommendations"].append(
-                    "Package creation available for data sharing"
-                )
+                result["recommendations"].append("Package creation available for data sharing")
                 print("      ✅ Collaborative package creation successful")
             else:
                 result["steps_failed"].append("collaborative_package_creation")
@@ -579,16 +507,12 @@ class CCLEDirectTester:
 
             if packages_result.get("success") and packages_result.get("packages"):
                 first_package = packages_result["packages"][0]["name"]
-                validation_result = package_management.package_validate(
-                    package_name=first_package
-                )
+                validation_result = package_management.package_validate(package_name=first_package)
 
                 if validation_result.get("success"):
                     result["steps_completed"].append("package_validation")
                     result["tools_used"].append("package_validate")
-                    result["recommendations"].append(
-                        "Package validation available for data integrity checks"
-                    )
+                    result["recommendations"].append("Package validation available for data integrity checks")
                     print("      ✅ Package validation successful")
                 else:
                     result["steps_failed"].append("package_validation")
@@ -615,9 +539,7 @@ class CCLEDirectTester:
             if catalog_url_result.get("success"):
                 result["steps_completed"].append("shareable_url_generation")
                 result["tools_used"].append("catalog_url")
-                result["recommendations"].append(
-                    "Shareable catalog URLs available for collaborator access"
-                )
+                result["recommendations"].append("Shareable catalog URLs available for collaborator access")
                 print("      ✅ Shareable URL generation successful")
             else:
                 result["steps_failed"].append("shareable_url_generation")
@@ -673,11 +595,7 @@ class CCLEDirectTester:
                 "total_tests": total_tests,
                 "passed_tests": passed_tests,
                 "failed_tests": failed_tests,
-                "success_rate": (
-                    round((passed_tests / total_tests) * 100, 1)
-                    if total_tests > 0
-                    else 0
-                ),
+                "success_rate": (round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0),
             },
             "results_by_category": results_by_category,
             "tools_coverage": {
@@ -713,20 +631,13 @@ class CCLEDirectTester:
         for result in self.test_results:
             if any("discovery" in step for step in result["steps_completed"]):
                 capabilities["genomics_data_access"] = True
-            if any(
-                "query" in step or "athena" in step
-                for step in result["steps_completed"]
-            ):
+            if any("query" in step or "athena" in step for step in result["steps_completed"]):
                 capabilities["sql_analytics"] = True
             if any("workflow" in step for step in result["steps_completed"]):
                 capabilities["workflow_orchestration"] = True
-            if any(
-                "sharing" in step or "url" in step for step in result["steps_completed"]
-            ):
+            if any("sharing" in step or "url" in step for step in result["steps_completed"]):
                 capabilities["data_sharing"] = True
-            if any(
-                "igv" in step for step in result["steps_completed"]
-            ) or "catalog_url" in str(result["tools_used"]):
+            if any("igv" in step for step in result["steps_completed"]) or "catalog_url" in str(result["tools_used"]):
                 capabilities["visualization_support"] = True
 
         readiness_score = sum(capabilities.values()) / len(capabilities) * 100
@@ -740,7 +651,9 @@ class CCLEDirectTester:
                 else (
                     "Mostly Ready"
                     if readiness_score >= 60
-                    else "Needs Development" if readiness_score >= 40 else "Not Ready"
+                    else "Needs Development"
+                    if readiness_score >= 40
+                    else "Not Ready"
                 )
             ),
         }
@@ -764,8 +677,7 @@ class CCLEDirectTester:
             error_counts[key] = error_counts.get(key, 0) + 1
 
         return [
-            {"error_type": k, "count": v}
-            for k, v in sorted(error_counts.items(), key=lambda x: x[1], reverse=True)
+            {"error_type": k, "count": v} for k, v in sorted(error_counts.items(), key=lambda x: x[1], reverse=True)
         ]
 
     def _generate_next_steps(self) -> List[str]:
@@ -778,14 +690,10 @@ class CCLEDirectTester:
             failed_steps.extend(result["steps_failed"])
 
         if any("tabulator" in step for step in failed_steps):
-            next_steps.append(
-                "Set up CCLE Tabulator tables for expression and metadata queries"
-            )
+            next_steps.append("Set up CCLE Tabulator tables for expression and metadata queries")
 
         if any("athena" in step for step in failed_steps):
-            next_steps.append(
-                "Configure Athena workgroups and Glue Data Catalog for CCLE data"
-            )
+            next_steps.append("Configure Athena workgroups and Glue Data Catalog for CCLE data")
 
         if any("discovery" in step for step in failed_steps):
             next_steps.append("Populate test environment with CCLE sample packages")
@@ -839,9 +747,7 @@ def main():
 
     # Print readiness assessment
     assessment = report["computational_biology_assessment"]
-    print(
-        f"\n🧬 Computational Biology Readiness: {assessment['readiness_level']} ({assessment['readiness_score']}%)"
-    )
+    print(f"\n🧬 Computational Biology Readiness: {assessment['readiness_level']} ({assessment['readiness_score']}%)")
 
     # Print capabilities
     print("\n🎯 Capabilities Assessment:")

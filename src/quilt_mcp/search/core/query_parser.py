@@ -129,36 +129,18 @@ class QueryParser:
     def __init__(self):
         """Initialize the query parser."""
         self.compiled_patterns = {
-            QueryType.FILE_SEARCH: [
-                re.compile(p, re.IGNORECASE) for p in self.FILE_PATTERNS
-            ],
-            QueryType.PACKAGE_DISCOVERY: [
-                re.compile(p, re.IGNORECASE) for p in self.PACKAGE_PATTERNS
-            ],
-            QueryType.CONTENT_SEARCH: [
-                re.compile(p, re.IGNORECASE) for p in self.CONTENT_PATTERNS
-            ],
-            QueryType.METADATA_SEARCH: [
-                re.compile(p, re.IGNORECASE) for p in self.METADATA_PATTERNS
-            ],
-            QueryType.ANALYTICAL_SEARCH: [
-                re.compile(p, re.IGNORECASE) for p in self.ANALYTICAL_PATTERNS
-            ],
+            QueryType.FILE_SEARCH: [re.compile(p, re.IGNORECASE) for p in self.FILE_PATTERNS],
+            QueryType.PACKAGE_DISCOVERY: [re.compile(p, re.IGNORECASE) for p in self.PACKAGE_PATTERNS],
+            QueryType.CONTENT_SEARCH: [re.compile(p, re.IGNORECASE) for p in self.CONTENT_PATTERNS],
+            QueryType.METADATA_SEARCH: [re.compile(p, re.IGNORECASE) for p in self.METADATA_PATTERNS],
+            QueryType.ANALYTICAL_SEARCH: [re.compile(p, re.IGNORECASE) for p in self.ANALYTICAL_PATTERNS],
         }
 
-        self.size_patterns = {
-            k: re.compile(v, re.IGNORECASE) for k, v in self.SIZE_PATTERNS.items()
-        }
-        self.date_patterns = {
-            k: re.compile(v, re.IGNORECASE) for k, v in self.DATE_PATTERNS.items()
-        }
-        self.file_ext_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.FILE_EXT_PATTERNS
-        ]
+        self.size_patterns = {k: re.compile(v, re.IGNORECASE) for k, v in self.SIZE_PATTERNS.items()}
+        self.date_patterns = {k: re.compile(v, re.IGNORECASE) for k, v in self.DATE_PATTERNS.items()}
+        self.file_ext_patterns = [re.compile(p, re.IGNORECASE) for p in self.FILE_EXT_PATTERNS]
 
-    def parse(
-        self, query: str, scope: str = "global", target: str = ""
-    ) -> QueryAnalysis:
+    def parse(self, query: str, scope: str = "global", target: str = "") -> QueryAnalysis:
         """Parse a natural language query and extract search intent.
 
         Args:
@@ -175,11 +157,7 @@ class QueryParser:
         query_type = self._classify_query_type(query_lower)
 
         # Parse scope
-        search_scope = (
-            SearchScope(scope)
-            if scope in [s.value for s in SearchScope]
-            else SearchScope.GLOBAL
-        )
+        search_scope = SearchScope(scope) if scope in [s.value for s in SearchScope] else SearchScope.GLOBAL
 
         # Extract filters and parameters
         keywords = self._extract_keywords(query_lower)
@@ -219,17 +197,13 @@ class QueryParser:
         for query_type, patterns in self.compiled_patterns.items():
             score = 0
             for pattern in patterns:
-                if pattern.search(
-                    query
-                ):  # Use search instead of findall for better matching
+                if pattern.search(query):  # Use search instead of findall for better matching
                     score += 1
             type_scores[query_type] = score
 
         # Special case: if "packages" is mentioned prominently, lean toward package discovery
         if "packages" in query.lower() and "package" in query.lower():
-            type_scores[QueryType.PACKAGE_DISCOVERY] = (
-                type_scores.get(QueryType.PACKAGE_DISCOVERY, 0) + 2
-            )
+            type_scores[QueryType.PACKAGE_DISCOVERY] = type_scores.get(QueryType.PACKAGE_DISCOVERY, 0) + 2
 
         # Special case: analytical terms get priority
         analytical_terms = [
@@ -243,9 +217,7 @@ class QueryParser:
             "smaller",
         ]
         if any(term in query.lower() for term in analytical_terms):
-            type_scores[QueryType.ANALYTICAL_SEARCH] = (
-                type_scores.get(QueryType.ANALYTICAL_SEARCH, 0) + 2
-            )
+            type_scores[QueryType.ANALYTICAL_SEARCH] = type_scores.get(QueryType.ANALYTICAL_SEARCH, 0) + 2
 
         # Return the type with highest score, default to FILE_SEARCH
         if not type_scores or max(type_scores.values()) == 0:
@@ -293,9 +265,7 @@ class QueryParser:
         words = re.findall(r"\b\w+\b", query.lower())
 
         # Combine and filter
-        all_terms = hyphenated_terms + [
-            word for word in words if word not in stop_words and len(word) > 2
-        ]
+        all_terms = hyphenated_terms + [word for word in words if word not in stop_words and len(word) > 2]
 
         # Remove duplicates while preserving order
         keywords = []
@@ -316,9 +286,7 @@ class QueryParser:
                 extensions.extend(matches)
 
         # Also look for "CSV and JSON" patterns
-        and_pattern = re.compile(
-            r"\b([a-z]{2,5})\s+and\s+([a-z]{2,5})\s+(?:files?|data)\b", re.IGNORECASE
-        )
+        and_pattern = re.compile(r"\b([a-z]{2,5})\s+and\s+([a-z]{2,5})\s+(?:files?|data)\b", re.IGNORECASE)
         and_matches = and_pattern.findall(query)
 
         for match in and_matches:
@@ -330,8 +298,7 @@ class QueryParser:
             ext_clean = ext.lower().strip()
             if (
                 len(ext_clean) <= 5
-                and ext_clean
-                not in ["data", "files", "file", "with", "extension", "format", "type"]
+                and ext_clean not in ["data", "files", "file", "with", "extension", "format", "type"]
                 and ext_clean not in clean_extensions
             ):
                 clean_extensions.append(ext_clean)
@@ -396,9 +363,7 @@ class QueryParser:
 
         return int(size * multipliers.get(unit, 1))
 
-    def _suggest_backends(
-        self, query_type: QueryType, filters: Dict[str, Any]
-    ) -> List[str]:
+    def _suggest_backends(self, query_type: QueryType, filters: Dict[str, Any]) -> List[str]:
         """Suggest optimal backends based on query type and filters."""
         if query_type == QueryType.FILE_SEARCH:
             return ["elasticsearch", "graphql", "s3"]
@@ -413,9 +378,7 @@ class QueryParser:
         else:
             return ["elasticsearch", "graphql", "s3"]
 
-    def _calculate_confidence(
-        self, query_type: QueryType, keywords: List[str], filters: Dict[str, Any]
-    ) -> float:
+    def _calculate_confidence(self, query_type: QueryType, keywords: List[str], filters: Dict[str, Any]) -> float:
         """Calculate confidence score for the query analysis."""
         base_confidence = 0.5
 

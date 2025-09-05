@@ -42,9 +42,7 @@ class LLMMCPTester:
         }
 
         # Create temporary config file
-        config_file = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        )
+        config_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         json.dump(config, config_file, indent=2)
         config_file.close()
 
@@ -72,9 +70,7 @@ class LLMMCPTester:
                 print("✅ MCP server started successfully")
                 return True
             else:
-                print(
-                    f"❌ MCP server failed to start (exit code: {self.mcp_server_process.returncode})"
-                )
+                print(f"❌ MCP server failed to start (exit code: {self.mcp_server_process.returncode})")
                 return False
 
         except Exception as e:
@@ -127,9 +123,7 @@ class LLMMCPTester:
         success = "result" in response and not response.get("error")
 
         if success:
-            print(
-                f"   ✅ Handshake successful: {round((end_time - start_time) * 1000, 2)}ms"
-            )
+            print(f"   ✅ Handshake successful: {round((end_time - start_time) * 1000, 2)}ms")
             capabilities = response.get("result", {}).get("capabilities", {})
             print(f"   ✅ Server capabilities: {list(capabilities.keys())}")
         else:
@@ -161,9 +155,7 @@ class LLMMCPTester:
 
         if success:
             tools = response["result"]["tools"]
-            print(
-                f"   ✅ Found {len(tools)} tools: {round((end_time - start_time) * 1000, 2)}ms"
-            )
+            print(f"   ✅ Found {len(tools)} tools: {round((end_time - start_time) * 1000, 2)}ms")
 
             # Show sample tools
             sample_tools = [tool["name"] for tool in tools[:5]]
@@ -180,22 +172,16 @@ class LLMMCPTester:
             print(f"   ✅ Key tools found: {found_key_tools}")
 
         else:
-            print(
-                f"   ❌ Tool listing failed: {response.get('error', 'Unknown error')}"
-            )
+            print(f"   ❌ Tool listing failed: {response.get('error', 'Unknown error')}")
 
         return {
             "success": success,
             "response": response,
             "execution_time_ms": round((end_time - start_time) * 1000, 2),
-            "tools_count": (
-                len(response.get("result", {}).get("tools", [])) if success else 0
-            ),
+            "tools_count": (len(response.get("result", {}).get("tools", [])) if success else 0),
         }
 
-    async def test_tool_call(
-        self, tool_name: str, arguments: Dict[str, Any], request_id: int = 3
-    ) -> Dict[str, Any]:
+    async def test_tool_call(self, tool_name: str, arguments: Dict[str, Any], request_id: int = 3) -> Dict[str, Any]:
         """Test calling a specific tool"""
         print(f"   Testing {tool_name}...")
 
@@ -351,9 +337,7 @@ class LLMMCPTester:
         start_time = time.time()
 
         for i in range(5):
-            task = self.test_tool_call(
-                test_tool, {**test_args, "call_id": str(i)}, 40 + i
-            )
+            task = self.test_tool_call(test_tool, {**test_args, "call_id": str(i)}, 40 + i)
             concurrent_tasks.append(task)
 
         results = await asyncio.gather(*concurrent_tasks)
@@ -408,9 +392,7 @@ class LLMMCPTester:
 
             # Run functionality tests
             test_results["basic_functionality"] = await self.test_basic_functionality()
-            test_results["search_functionality"] = (
-                await self.test_search_functionality()
-            )
+            test_results["search_functionality"] = await self.test_search_functionality()
             test_results["error_handling"] = await self.test_error_handling()
             test_results["performance"] = await self.test_performance()
 
@@ -475,17 +457,13 @@ async def main():
 
         # Overall assessment
         protocol_ok = handshake_success and tools_count > 0
-        functionality_ok = (successful_basic + successful_search) >= (
-            total_basic + total_search
-        ) * 0.7
+        functionality_ok = (successful_basic + successful_search) >= (total_basic + total_search) * 0.7
         performance_ok = successful_perf >= 4 and avg_time < 1000
 
         total_categories = 3
         passed_categories = sum([protocol_ok, functionality_ok, performance_ok])
 
-        print(
-            f"\n🎯 Overall Assessment: {passed_categories}/{total_categories} categories passed"
-        )
+        print(f"\n🎯 Overall Assessment: {passed_categories}/{total_categories} categories passed")
 
         if passed_categories == total_categories:
             print("✅ EXCELLENT - MCP server integration is working perfectly!")

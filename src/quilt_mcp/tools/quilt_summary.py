@@ -59,10 +59,7 @@ def generate_quilt_summarize_json(
     try:
         # Calculate comprehensive statistics
         total_files = sum(len(files) for files in organized_structure.values())
-        total_size = sum(
-            sum(obj.get("Size", 0) for obj in files)
-            for files in organized_structure.values()
-        )
+        total_size = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values())
 
         # Extract file types and sizes
         file_types = defaultdict(int)
@@ -88,18 +85,10 @@ def generate_quilt_summarize_json(
         summary = {
             "package_info": {
                 "name": package_name,
-                "namespace": (
-                    package_name.split("/")[0] if "/" in package_name else "unknown"
-                ),
-                "package_name": (
-                    package_name.split("/")[-1] if "/" in package_name else package_name
-                ),
-                "version": package_metadata.get("quilt", {}).get(
-                    "package_version", "1.0.0"
-                ),
-                "created_by": package_metadata.get("quilt", {}).get(
-                    "created_by", "quilt-mcp-server"
-                ),
+                "namespace": (package_name.split("/")[0] if "/" in package_name else "unknown"),
+                "package_name": (package_name.split("/")[-1] if "/" in package_name else package_name),
+                "version": package_metadata.get("quilt", {}).get("package_version", "1.0.0"),
+                "created_by": package_metadata.get("quilt", {}).get("created_by", "quilt-mcp-server"),
                 "creation_date": package_metadata.get("quilt", {}).get(
                     "creation_date", datetime.now(timezone.utc).isoformat()
                 ),
@@ -126,9 +115,7 @@ def generate_quilt_summarize_json(
             "structure": {
                 "folders": folder_stats,
                 "organization_type": (
-                    "smart_hierarchy"
-                    if any(folder for folder in organized_structure.keys())
-                    else "flat"
+                    "smart_hierarchy" if any(folder for folder in organized_structure.keys()) else "flat"
                 ),
                 "auto_organized": True,
             },
@@ -136,9 +123,7 @@ def generate_quilt_summarize_json(
                 "type": source_info.get("type", "s3_bucket"),
                 "bucket": source_info.get("bucket", "unknown"),
                 "prefix": source_info.get("prefix", ""),
-                "source_description": source_info.get(
-                    "source_description", "Data sourced from S3 bucket"
-                ),
+                "source_description": source_info.get("source_description", "Data sourced from S3 bucket"),
             },
             "documentation": {
                 "readme_generated": bool(readme_content),
@@ -233,9 +218,7 @@ def generate_package_visualizations(
                 "data": {
                     "labels": [ext for ext, _ in sorted_types],
                     "values": sizes,
-                    "percentages": [
-                        round(count / sum(sizes) * 100, 1) for count in sizes
-                    ],
+                    "percentages": [round(count / sum(sizes) * 100, 1) for count in sizes],
                 },
                 "image_base64": img_base64,
                 "mime_type": "image/png",
@@ -254,9 +237,7 @@ def generate_package_visualizations(
 
             bars = ax.barh(y_pos, file_counts, color=colors[: len(folders)])
             ax.set_yticks(y_pos)
-            ax.set_yticklabels(
-                [f"{folder}/" if folder else "root/" for folder in folders]
-            )
+            ax.set_yticklabels([f"{folder}/" if folder else "root/" for folder in folders])
             ax.set_xlabel("Number of Files")
             ax.set_title(
                 f"File Distribution by Folder - {package_name}",
@@ -289,9 +270,7 @@ def generate_package_visualizations(
                 "title": "File Distribution by Folder",
                 "description": "Number of files in each organized folder",
                 "data": {
-                    "folders": [
-                        f"{folder}/" if folder else "root/" for folder in folders
-                    ],
+                    "folders": [f"{folder}/" if folder else "root/" for folder in folders],
                     "file_counts": file_counts,
                 },
                 "image_base64": img_base64,
@@ -386,9 +365,7 @@ def generate_package_visualizations(
                 ax1.bar(
                     range(len(folders)),
                     counts,
-                    color=COLOR_SCHEMES.get(
-                        metadata_template, COLOR_SCHEMES["default"]
-                    ),
+                    color=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
                 )
                 ax1.set_title("Files per Folder")
                 ax1.set_xticks(range(len(folders)))
@@ -403,9 +380,7 @@ def generate_package_visualizations(
                     values,
                     labels=labels,
                     autopct="%1.1f%%",
-                    colors=COLOR_SCHEMES.get(
-                        metadata_template, COLOR_SCHEMES["default"]
-                    ),
+                    colors=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
                 )
                 ax2.set_title("File Types")
 
@@ -416,9 +391,7 @@ def generate_package_visualizations(
                     sizes,
                     bins=min(15, len(sizes) // 3),
                     alpha=0.7,
-                    color=COLOR_SCHEMES.get(
-                        metadata_template, COLOR_SCHEMES["default"]
-                    )[0],
+                    color=COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"])[0],
                 )
                 ax3.set_title("File Sizes")
                 ax3.set_xlabel("Size (MB)")
@@ -427,10 +400,9 @@ def generate_package_visualizations(
             # Bottom right: Summary statistics
             ax4.axis("off")
             total_files = sum(len(files) for files in organized_structure.values())
-            total_size_mb = sum(
-                sum(obj.get("Size", 0) for obj in files)
-                for files in organized_structure.values()
-            ) / (1024 * 1024)
+            total_size_mb = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values()) / (
+                1024 * 1024
+            )
 
             summary_text = f"""
 Package Summary
@@ -484,9 +456,7 @@ Template: {metadata_template}
             "metadata": {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "template_used": metadata_template,
-                "color_scheme": COLOR_SCHEMES.get(
-                    metadata_template, COLOR_SCHEMES["default"]
-                ),
+                "color_scheme": COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
             },
         }
 

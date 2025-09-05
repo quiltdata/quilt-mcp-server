@@ -33,9 +33,7 @@ def read_project_version(pyproject_path: Path) -> str:
     return pyproject_data["project"]["version"]
 
 
-def generate_manifest_from_template(
-    template_path: Path, output_path: Path, version: str
-) -> None:
+def generate_manifest_from_template(template_path: Path, output_path: Path, version: str) -> None:
     """
     Generate manifest.json from Jinja2 template with version substitution.
 
@@ -100,9 +98,7 @@ def check_version_sync_required(pyproject_path: Path, manifest_path: Path) -> bo
     return pyproject_version != manifest_version
 
 
-def sync_versions(
-    pyproject_path: Path, template_path: Path, manifest_path: Path
-) -> None:
+def sync_versions(pyproject_path: Path, template_path: Path, manifest_path: Path) -> None:
     """
     Synchronize versions by reading from pyproject.toml and generating manifest.json.
 
@@ -122,6 +118,4 @@ def sync_versions(
     version = read_project_version(pyproject_path)
 
     # Generate manifest from template
-    generate_manifest_from_template(
-        template_path=template_path, output_path=manifest_path, version=version
-    )
+    generate_manifest_from_template(template_path=template_path, output_path=manifest_path, version=version)

@@ -271,22 +271,14 @@ class DataProcessor:
                     "dtypes": data.dtypes.to_dict(),
                     "memory_usage": data.memory_usage(deep=True).sum(),
                     "missing_values": data.isnull().sum().to_dict(),
-                    "numeric_columns": list(
-                        data.select_dtypes(include=["number"]).columns
-                    ),
-                    "categorical_columns": list(
-                        data.select_dtypes(include=["object", "category"]).columns
-                    ),
-                    "datetime_columns": list(
-                        data.select_dtypes(include=["datetime"]).columns
-                    ),
+                    "numeric_columns": list(data.select_dtypes(include=["number"]).columns),
+                    "categorical_columns": list(data.select_dtypes(include=["object", "category"]).columns),
+                    "datetime_columns": list(data.select_dtypes(include=["datetime"]).columns),
                 }
 
                 # Add basic statistics for numeric columns
                 if summary["numeric_columns"]:
-                    summary["numeric_stats"] = (
-                        data[summary["numeric_columns"]].describe().to_dict()
-                    )
+                    summary["numeric_stats"] = data[summary["numeric_columns"]].describe().to_dict()
 
                 return summary
             else:
@@ -333,28 +325,18 @@ class DataProcessor:
 
                 # Check for too many columns
                 if len(data.columns) > 100:
-                    validation["warnings"].append(
-                        "Data has many columns (>100), consider subsetting"
-                    )
+                    validation["warnings"].append("Data has many columns (>100), consider subsetting")
 
                 # Check for too many rows
                 if len(data) > 100000:
-                    validation["warnings"].append(
-                        "Data has many rows (>100,000), consider sampling"
-                    )
-                    validation["suggestions"].append(
-                        "Use sample_data() to reduce data size"
-                    )
+                    validation["warnings"].append("Data has many rows (>100,000), consider sampling")
+                    validation["suggestions"].append("Use sample_data() to reduce data size")
 
                 # Check for missing values
-                missing_pct = data.isnull().sum().sum() / (
-                    len(data) * len(data.columns)
-                )
+                missing_pct = data.isnull().sum().sum() / (len(data) * len(data.columns))
                 if missing_pct > 0.5:
                     validation["warnings"].append("Data has many missing values (>50%)")
-                    validation["suggestions"].append(
-                        "Consider data cleaning or imputation"
-                    )
+                    validation["suggestions"].append("Consider data cleaning or imputation")
 
                 # Check for mixed data types
                 mixed_types = []
@@ -366,23 +348,15 @@ class DataProcessor:
                             mixed_types.append(col)
 
                 if mixed_types:
-                    validation["warnings"].append(
-                        f"Columns with mixed data types: {mixed_types}"
-                    )
-                    validation["suggestions"].append(
-                        "Consider standardizing data types"
-                    )
+                    validation["warnings"].append(f"Columns with mixed data types: {mixed_types}")
+                    validation["suggestions"].append("Consider standardizing data types")
 
             else:
                 validation["warnings"].append("Data is not a pandas DataFrame")
-                validation["suggestions"].append(
-                    "Consider converting to DataFrame for better analysis"
-                )
+                validation["suggestions"].append("Consider converting to DataFrame for better analysis")
 
         except ImportError:
-            validation["warnings"].append(
-                "pandas not available for detailed validation"
-            )
+            validation["warnings"].append("pandas not available for detailed validation")
         except Exception as e:
             validation["errors"].append(f"Validation error: {e}")
 

@@ -81,15 +81,10 @@ class GenomicAnalyzer:
 
                 # Update sample count
                 if "sample_count" in file_analysis:
-                    analysis["sample_count"] = max(
-                        analysis["sample_count"], file_analysis["sample_count"]
-                    )
+                    analysis["sample_count"] = max(analysis["sample_count"], file_analysis["sample_count"])
 
                 # Detect genome assembly
-                if (
-                    not analysis["genome_assembly"]
-                    and "genome_assembly" in file_analysis
-                ):
+                if not analysis["genome_assembly"] and "genome_assembly" in file_analysis:
                     analysis["genome_assembly"] = file_analysis["genome_assembly"]
 
         # Convert set to list for JSON serialization
@@ -234,23 +229,16 @@ class GenomicAnalyzer:
                 analysis["sequence_count"] = len(sequences)
                 analysis["total_length"] = sum(len(seq) for _, seq in sequences)
                 if sequences:
-                    analysis["average_length"] = analysis["total_length"] / len(
-                        sequences
-                    )
+                    analysis["average_length"] = analysis["total_length"] / len(sequences)
 
                 # Calculate GC content
                 if analysis["total_length"] > 0:
-                    total_gc = sum(
-                        seq.count("G") + seq.count("C") for _, seq in sequences
-                    )
+                    total_gc = sum(seq.count("G") + seq.count("C") for _, seq in sequences)
                     analysis["gc_content"] = total_gc / analysis["total_length"]
 
                 # Try to detect genome assembly from headers
                 for header, _ in sequences[:10]:  # Check first 10 sequences
-                    if any(
-                        assembly in header.upper()
-                        for assembly in self.GENOME_ASSEMBLIES.keys()
-                    ):
+                    if any(assembly in header.upper() for assembly in self.GENOME_ASSEMBLIES.keys()):
                         for assembly in self.GENOME_ASSEMBLIES.keys():
                             if assembly.upper() in header.upper():
                                 analysis["genome_assembly"] = assembly
@@ -291,24 +279,18 @@ class GenomicAnalyzer:
                 analysis["sequence_count"] = len(sequences)
                 analysis["total_length"] = sum(len(seq) for seq in sequences)
                 if sequences:
-                    analysis["average_length"] = analysis["total_length"] / len(
-                        sequences
-                    )
+                    analysis["average_length"] = analysis["total_length"] / len(sequences)
 
                 # Analyze quality scores
                 if qualities:
                     all_quals = []
                     for qual in qualities:
-                        all_quals.extend(
-                            [ord(c) - 33 for c in qual]
-                        )  # Convert ASCII to quality scores
+                        all_quals.extend([ord(c) - 33 for c in qual])  # Convert ASCII to quality scores
 
                     if all_quals:
                         analysis["quality_scores"]["min"] = min(all_quals)
                         analysis["quality_scores"]["max"] = max(all_quals)
-                        analysis["quality_scores"]["average"] = sum(all_quals) / len(
-                            all_quals
-                        )
+                        analysis["quality_scores"]["average"] = sum(all_quals) / len(all_quals)
 
         except Exception as e:
             analysis["error"] = str(e)
@@ -341,9 +323,7 @@ class GenomicAnalyzer:
                     elif line.startswith("#CHROM"):
                         # Column header
                         parts = line.split("\t")
-                        analysis["sample_count"] = max(
-                            0, len(parts) - 9
-                        )  # VCF has 9 fixed columns
+                        analysis["sample_count"] = max(0, len(parts) - 9)  # VCF has 9 fixed columns
                     elif not line.startswith("#"):
                         # Variant line
                         parts = line.split("\t")
@@ -403,9 +383,7 @@ class GenomicAnalyzer:
 
                             analysis["chromosomes"].add(chrom)
                             analysis["region_count"] += 1
-                            analysis["regions"].append(
-                                {"chromosome": chrom, "start": start, "end": end}
-                            )
+                            analysis["regions"].append({"chromosome": chrom, "start": start, "end": end})
 
         except Exception as e:
             analysis["error"] = str(e)
@@ -579,25 +557,19 @@ class GenomicAnalyzer:
         recommendations = []
 
         if analysis.get("has_variant_data"):
-            recommendations.append(
-                "Consider creating variant tracks for IGV visualization"
-            )
+            recommendations.append("Consider creating variant tracks for IGV visualization")
 
         if analysis.get("has_coverage_data"):
             recommendations.append("Coverage plots would be useful for this dataset")
 
         if analysis.get("has_annotation_data"):
-            recommendations.append(
-                "Gene annotation tracks will enhance the visualization"
-            )
+            recommendations.append("Gene annotation tracks will enhance the visualization")
 
         if analysis.get("has_sequence_data"):
             recommendations.append("Sequence views can help with quality assessment")
 
         if not analysis.get("genome_assembly"):
-            recommendations.append(
-                "Genome assembly information would improve visualization accuracy"
-            )
+            recommendations.append("Genome assembly information would improve visualization accuracy")
 
         return recommendations
 

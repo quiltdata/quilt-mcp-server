@@ -49,24 +49,17 @@ class MCPServerTester:
             response = await self.server.list_tools(request)
             return {
                 "success": True,
-                "tools": [
-                    {"name": tool.name, "description": tool.description}
-                    for tool in response.tools
-                ],
+                "tools": [{"name": tool.name, "description": tool.description} for tool in response.tools],
                 "count": len(response.tools),
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def call_tool(
-        self, tool_name: str, arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call a specific tool and measure performance"""
         start_time = time.time()
         try:
-            request = CallToolRequest(
-                method="tools/call", params={"name": tool_name, "arguments": arguments}
-            )
+            request = CallToolRequest(method="tools/call", params={"name": tool_name, "arguments": arguments})
             response = await self.server.call_tool(request)
             end_time = time.time()
 
@@ -196,9 +189,7 @@ class MCPServerTester:
             if not result["success"]:
                 print(f"   ✅ Error handled correctly: {result['execution_time_ms']}ms")
             else:
-                print(
-                    f"   ⚠️  Expected error but got success: {result['execution_time_ms']}ms"
-                )
+                print(f"   ⚠️  Expected error but got success: {result['execution_time_ms']}ms")
 
         return results
 
@@ -287,35 +278,24 @@ async def main():
         successful_search = sum(1 for test in search["search_tests"] if test["success"])
         total_search = len(search["search_tests"])
 
-        print(
-            f"🔍 Search Functionality: {successful_search}/{total_search} tests passed"
-        )
+        print(f"🔍 Search Functionality: {successful_search}/{total_search} tests passed")
 
         # Error handling summary
         error = results["error_handling"]
         handled_errors = sum(1 for test in error["error_tests"] if not test["success"])
         total_errors = len(error["error_tests"])
 
-        print(
-            f"⚠️  Error Handling: {handled_errors}/{total_errors} errors properly handled"
-        )
+        print(f"⚠️  Error Handling: {handled_errors}/{total_errors} errors properly handled")
 
         # Performance summary
         perf = results["performance"]["concurrent_test"]
-        print(
-            f"⚡ Performance: {perf['successful_calls']}/5 concurrent calls successful"
-        )
+        print(f"⚡ Performance: {perf['successful_calls']}/5 concurrent calls successful")
         print(f"   Average response time: {perf['average_time_ms']}ms")
 
         # Overall assessment
-        total_tests = (
-            total_basic + total_search + total_errors + 1
-        )  # +1 for performance
+        total_tests = total_basic + total_search + total_errors + 1  # +1 for performance
         passed_tests = (
-            successful_basic
-            + successful_search
-            + handled_errors
-            + (1 if perf["successful_calls"] >= 4 else 0)
+            successful_basic + successful_search + handled_errors + (1 if perf["successful_calls"] >= 4 else 0)
         )
 
         print(f"\n🎯 Overall: {passed_tests}/{total_tests} test categories passed")

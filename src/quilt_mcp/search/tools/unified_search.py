@@ -94,9 +94,7 @@ class UnifiedSearchEngine:
         # Apply post-processing filters only for specific cases
         # Don't apply post-filters if the query already contains ext: syntax
         if "ext:" not in query.lower():
-            unified_results = self._apply_post_filters(
-                unified_results, combined_filters
-            )
+            unified_results = self._apply_post_filters(unified_results, combined_filters)
 
         # Build response
         total_time = (time.time() - start_time) * 1000
@@ -110,9 +108,7 @@ class UnifiedSearchEngine:
             "total_results": len(unified_results),
             "query_time_ms": total_time,
             "backends_used": [
-                resp.backend_type.value
-                for resp in backend_responses
-                if resp.status == BackendStatus.AVAILABLE
+                resp.backend_type.value for resp in backend_responses if resp.status == BackendStatus.AVAILABLE
             ],
             "analysis": (
                 {
@@ -129,9 +125,7 @@ class UnifiedSearchEngine:
 
         # Add query explanation if requested
         if explain_query:
-            response["explanation"] = self._generate_explanation(
-                analysis, backend_responses, selected_backends
-            )
+            response["explanation"] = self._generate_explanation(analysis, backend_responses, selected_backends)
 
         # Add backend status information
         response["backend_status"] = {
@@ -141,9 +135,7 @@ class UnifiedSearchEngine:
                 "result_count": len(resp.results),
                 "error": resp.error_message,
             }
-            for backend_type, resp in zip(
-                [b.backend_type for b in selected_backends], backend_responses
-            )
+            for backend_type, resp in zip([b.backend_type for b in selected_backends], backend_responses)
         }
 
         return response
@@ -216,9 +208,7 @@ class UnifiedSearchEngine:
 
         return backend_responses
 
-    def _aggregate_results(
-        self, backend_responses: List, limit: int
-    ) -> List[Dict[str, Any]]:
+    def _aggregate_results(self, backend_responses: List, limit: int) -> List[Dict[str, Any]]:
         """Aggregate and rank results from multiple backends."""
         all_results = []
 
@@ -249,9 +239,7 @@ class UnifiedSearchEngine:
 
         for result in all_results:
             # Create a unique identifier for deduplication
-            identifier = (
-                result.get("s3_uri") or result.get("logical_key") or result.get("id")
-            )
+            identifier = result.get("s3_uri") or result.get("logical_key") or result.get("id")
 
             if identifier not in seen:
                 seen.add(identifier)
@@ -262,9 +250,7 @@ class UnifiedSearchEngine:
 
         return unique_results[:limit]
 
-    def _apply_post_filters(
-        self, results: List[Dict[str, Any]], filters: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _apply_post_filters(self, results: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Apply additional filtering to results that backends might have missed."""
         if not filters:
             return results
@@ -276,25 +262,13 @@ class UnifiedSearchEngine:
             if filters.get("file_extensions"):
                 logical_key = result.get("logical_key", "")
                 s3_uri = result.get("s3_uri", "")
-                metadata_key = (
-                    result.get("metadata", {}).get("key", "")
-                    if result.get("metadata")
-                    else ""
-                )
+                metadata_key = result.get("metadata", {}).get("key", "") if result.get("metadata") else ""
 
                 # Extract file extension from logical key, S3 URI, or metadata key
-                file_path = (
-                    logical_key
-                    or metadata_key
-                    or (s3_uri.split("/")[-1] if s3_uri else "")
-                )
+                file_path = logical_key or metadata_key or (s3_uri.split("/")[-1] if s3_uri else "")
                 if file_path:
-                    file_ext = (
-                        file_path.split(".")[-1].lower() if "." in file_path else ""
-                    )
-                    target_extensions = [
-                        ext.lower().lstrip(".") for ext in filters["file_extensions"]
-                    ]
+                    file_ext = file_path.split(".")[-1].lower() if "." in file_path else ""
+                    target_extensions = [ext.lower().lstrip(".") for ext in filters["file_extensions"]]
 
                     if file_ext not in target_extensions:
                         continue  # Skip this result
@@ -317,9 +291,7 @@ class UnifiedSearchEngine:
 
         return filtered_results
 
-    def _generate_explanation(
-        self, analysis, backend_responses: List, selected_backends: List
-    ) -> Dict[str, Any]:
+    def _generate_explanation(self, analysis, backend_responses: List, selected_backends: List) -> Dict[str, Any]:
         """Generate explanation of query execution."""
         return {
             "query_analysis": {
@@ -333,20 +305,10 @@ class UnifiedSearchEngine:
                 "reasoning": f"Selected based on query type: {analysis.query_type.value}",
             },
             "execution_summary": {
-                "successful_backends": len(
-                    [
-                        r
-                        for r in backend_responses
-                        if r.status == BackendStatus.AVAILABLE
-                    ]
-                ),
-                "failed_backends": len(
-                    [r for r in backend_responses if r.status == BackendStatus.ERROR]
-                ),
+                "successful_backends": len([r for r in backend_responses if r.status == BackendStatus.AVAILABLE]),
+                "failed_backends": len([r for r in backend_responses if r.status == BackendStatus.ERROR]),
                 "total_raw_results": sum(
-                    len(r.results)
-                    for r in backend_responses
-                    if r.status == BackendStatus.AVAILABLE
+                    len(r.results) for r in backend_responses if r.status == BackendStatus.AVAILABLE
                 ),
             },
         }

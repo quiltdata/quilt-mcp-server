@@ -108,9 +108,7 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     }
 
 
-def bucket_object_text(
-    s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8"
-) -> dict[str, Any]:
+def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> dict[str, Any]:
     """Read text content from an S3 object.
 
     Args:
@@ -217,9 +215,7 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def bucket_object_fetch(
-    s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True
-) -> dict[str, Any]:
+def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> dict[str, Any]:
     """Fetch binary or text data from an S3 object.
 
     Args:
@@ -306,9 +302,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     expiration = max(1, min(expiration, 604800))
     client = boto3.client("s3")
     try:
-        url = client.generate_presigned_url(
-            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration
-        )
+        url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
         return {
             "bucket": bucket,
             "key": key,
@@ -323,9 +317,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         }
 
 
-def bucket_objects_search(
-    bucket: str, query: str | dict, limit: int = 10
-) -> dict[str, Any]:
+def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
     """Search objects in a Quilt bucket using Elasticsearch query syntax.
 
     Args:

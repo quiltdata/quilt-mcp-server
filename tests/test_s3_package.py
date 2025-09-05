@@ -158,9 +158,7 @@ class TestUtilityFunctions:
     def test_should_include_object_both_patterns(self):
         """Test object inclusion with both include and exclude patterns."""
         # Should exclude even if it matches include pattern
-        assert (
-            _should_include_object("test.tmp", ["*.txt", "*.tmp"], ["*.tmp"]) is False
-        )
+        assert _should_include_object("test.tmp", ["*.txt", "*.tmp"], ["*.tmp"]) is False
         # Should include if matches include and doesn't match exclude
         assert _should_include_object("test.txt", ["*.txt"], ["*.tmp"]) is True
 
@@ -197,12 +195,8 @@ class TestValidation:
             patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
             patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
             patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
-            patch(
-                "quilt_mcp.tools.s3_package.bucket_recommendations_get"
-            ) as mock_recommendations,
-            patch(
-                "quilt_mcp.tools.s3_package.bucket_access_check"
-            ) as mock_access_check,
+            patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations,
+            patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check,
         ):
             mock_discover.return_value = [
                 {"Key": "data.csv", "Size": 1000},
@@ -245,12 +239,8 @@ class TestValidation:
             patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
             patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
             patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
-            patch(
-                "quilt_mcp.tools.s3_package.bucket_recommendations_get"
-            ) as mock_recommendations,
-            patch(
-                "quilt_mcp.tools.s3_package.bucket_access_check"
-            ) as mock_access_check,
+            patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations,
+            patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check,
         ):
             # Mock the boto3 client
             mock_s3_client = Mock()
@@ -295,13 +285,8 @@ class TestEnhancedFunctionality:
         assert _suggest_target_registry("training-data", "") == "s3://ml-packages"
 
         # Analytics patterns
-        assert (
-            _suggest_target_registry("analytics-reports", "")
-            == "s3://analytics-packages"
-        )
-        assert (
-            _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
-        )
+        assert _suggest_target_registry("analytics-reports", "") == "s3://analytics-packages"
+        assert _suggest_target_registry("data", "dashboard") == "s3://analytics-packages"
 
         # Default fallback
         assert _suggest_target_registry("random-bucket", "") == "s3://data-packages"
@@ -477,10 +462,7 @@ class TestREADMEContentExtraction:
         passed_readme_content = call_args[1]["readme_content"]
 
         # Verify README content was extracted and passed through
-        assert (
-            passed_readme_content
-            == "# Test Dataset\n\nThis is a test dataset with README content."
-        )
+        assert passed_readme_content == "# Test Dataset\n\nThis is a test dataset with README content."
 
         # Verify that the metadata passed to enhanced package creation doesn't contain README fields
         # (This would be tested in the actual enhanced package creation function)

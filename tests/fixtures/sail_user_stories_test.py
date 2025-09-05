@@ -64,9 +64,7 @@ class SailUserStoriesTest:
             print("   Step 3: Testing Athena connectivity...")
             athena_result = await self.call_athena_databases()
 
-            success = benchling_search_result.get(
-                "success", False
-            ) and quilt_search_result.get("success", False)
+            success = benchling_search_result.get("success", False) and quilt_search_result.get("success", False)
 
             details = {
                 "benchling_results": benchling_search_result.get("count", 0),
@@ -82,9 +80,7 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result(
-            "SB001", "Federated Discovery", success, details, time.time() - test_start
-        )
+        self.log_result("SB001", "Federated Discovery", success, details, time.time() - test_start)
         return success
 
     async def test_sb002_summarization(self):
@@ -95,9 +91,7 @@ class SailUserStoriesTest:
             print("\n📝 Testing SB002: Notebook Summarization")
 
             # Get a specific notebook entry
-            entry_result = await self.call_benchling_get_entry(
-                "etr_BETndOZF"
-            )  # Demo Entry
+            entry_result = await self.call_benchling_get_entry("etr_BETndOZF")  # Demo Entry
 
             if entry_result.get("success"):
                 entry_data = entry_result.get("data", {})
@@ -147,9 +141,7 @@ class SailUserStoriesTest:
             # Step 3: Test metadata creation
             metadata_test = await self.test_metadata_creation()
 
-            success = projects_result.get("success", False) and packages_result.get(
-                "success", False
-            )
+            success = projects_result.get("success", False) and packages_result.get("success", False)
 
             details = {
                 "benchling_projects": projects_result.get("count", 0),
@@ -210,9 +202,7 @@ class SailUserStoriesTest:
             success = False
             details = {"error": str(e)}
 
-        self.log_result(
-            "SB016", "Unified Search", success, details, time.time() - test_start
-        )
+        self.log_result("SB016", "Unified Search", success, details, time.time() - test_start)
         return success
 
     async def test_connectivity_validation(self):
@@ -228,9 +218,7 @@ class SailUserStoriesTest:
             # Test Quilt connectivity
             quilt_test = await self.call_quilt_auth_status()
 
-            success = benchling_test.get("success", False) and quilt_test.get(
-                "success", False
-            )
+            success = benchling_test.get("success", False) and quilt_test.get("success", False)
 
             details = {
                 "benchling_connected": benchling_test.get("success", False),
@@ -318,9 +306,7 @@ class SailUserStoriesTest:
 
         # Generate summary
         total_tests = len(test_results) + 1  # +1 for connectivity test
-        passed_tests = sum(1 for result in test_results if result) + (
-            1 if self.results[0]["success"] else 0
-        )
+        passed_tests = sum(1 for result in test_results if result) + (1 if self.results[0]["success"] else 0)
 
         print("\n" + "=" * 60)
         print("📊 TEST SUMMARY")

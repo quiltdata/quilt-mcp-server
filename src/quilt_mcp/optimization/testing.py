@@ -175,9 +175,7 @@ class ScenarioRunner:
         total_time = time.time() - start_time
 
         # Calculate efficiency score
-        efficiency_score = self._calculate_efficiency_score(
-            scenario, total_time, total_calls, success
-        )
+        efficiency_score = self._calculate_efficiency_score(scenario, total_time, total_calls, success)
 
         # Generate optimization suggestions
         optimization_suggestions = self._generate_optimization_suggestions(
@@ -248,9 +246,7 @@ class ScenarioRunner:
         suggestions = []
 
         # Analyze execution times
-        execution_times = [
-            step["execution_time"] for step in step_results if step["success"]
-        ]
+        execution_times = [step["execution_time"] for step in step_results if step["success"]]
         if execution_times:
             avg_time = statistics.mean(execution_times)
             if avg_time > 5.0:
@@ -275,21 +271,11 @@ class ScenarioRunner:
                 suggestions.append(f"Reduce redundant calls to {tool_name}")
 
         # Check against expected metrics
-        if (
-            scenario.expected_call_count > 0
-            and total_calls > scenario.expected_call_count
-        ):
-            suggestions.append(
-                f"Reduce total calls from {total_calls} to {scenario.expected_call_count}"
-            )
+        if scenario.expected_call_count > 0 and total_calls > scenario.expected_call_count:
+            suggestions.append(f"Reduce total calls from {total_calls} to {scenario.expected_call_count}")
 
-        if (
-            scenario.expected_total_time > 0
-            and total_time > scenario.expected_total_time
-        ):
-            suggestions.append(
-                f"Improve performance from {total_time:.1f}s to {scenario.expected_total_time:.1f}s"
-            )
+        if scenario.expected_total_time > 0 and total_time > scenario.expected_total_time:
+            suggestions.append(f"Improve performance from {total_time:.1f}s to {scenario.expected_total_time:.1f}s")
 
         return suggestions
 
@@ -305,19 +291,13 @@ class ScenarioRunner:
             "successful_scenarios": len(successful_results),
             "success_rate": len(successful_results) / len(self.results_history),
             "avg_efficiency_score": (
-                statistics.mean([r.efficiency_score for r in successful_results])
-                if successful_results
-                else 0
+                statistics.mean([r.efficiency_score for r in successful_results]) if successful_results else 0
             ),
             "avg_execution_time": (
-                statistics.mean([r.total_time for r in successful_results])
-                if successful_results
-                else 0
+                statistics.mean([r.total_time for r in successful_results]) if successful_results else 0
             ),
             "avg_call_count": (
-                statistics.mean([r.total_calls for r in successful_results])
-                if successful_results
-                else 0
+                statistics.mean([r.total_calls for r in successful_results]) if successful_results else 0
             ),
             "common_suggestions": self._get_common_suggestions(),
         }
@@ -334,9 +314,7 @@ class ScenarioRunner:
             suggestion_counts[suggestion] = suggestion_counts.get(suggestion, 0) + 1
 
         # Return top suggestions
-        sorted_suggestions = sorted(
-            suggestion_counts.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_suggestions = sorted(suggestion_counts.items(), key=lambda x: x[1], reverse=True)
         return [suggestion for suggestion, count in sorted_suggestions[:5]]
 
 
@@ -377,9 +355,7 @@ class OptimizationTester:
         return TestScenario(
             name=data["name"],
             description=data.get("description", ""),
-            scenario_type=TestScenarioType(
-                data.get("scenario_type", "package_creation")
-            ),
+            scenario_type=TestScenarioType(data.get("scenario_type", "package_creation")),
             steps=steps,
             expected_total_time=data.get("expected_total_time", 60.0),
             expected_call_count=data.get("expected_call_count", len(steps)),
@@ -422,26 +398,16 @@ class OptimizationTester:
             "summary": self.scenario_runner.get_performance_summary(),
         }
 
-    def _calculate_improvement(
-        self, baseline: TestResult, current: TestResult
-    ) -> Dict[str, Any]:
+    def _calculate_improvement(self, baseline: TestResult, current: TestResult) -> Dict[str, Any]:
         """Calculate improvement metrics between baseline and current results."""
         if not baseline.success or not current.success:
             return {"improvement": 0.0, "details": "One or both tests failed"}
 
-        time_improvement = (
-            baseline.total_time - current.total_time
-        ) / baseline.total_time
-        call_improvement = (
-            baseline.total_calls - current.total_calls
-        ) / baseline.total_calls
+        time_improvement = (baseline.total_time - current.total_time) / baseline.total_time
+        call_improvement = (baseline.total_calls - current.total_calls) / baseline.total_calls
         efficiency_improvement = current.efficiency_score - baseline.efficiency_score
 
-        overall_improvement = (
-            time_improvement * 0.4
-            + call_improvement * 0.3
-            + efficiency_improvement * 0.3
-        )
+        overall_improvement = time_improvement * 0.4 + call_improvement * 0.3 + efficiency_improvement * 0.3
 
         return {
             "improvement": overall_improvement,
@@ -487,9 +453,7 @@ class OptimizationTester:
             recommendations.append("Improve tool reliability - success rate below 90%")
 
         if performance_summary.get("avg_efficiency_score", 0) < 0.7:
-            recommendations.append(
-                "Focus on efficiency improvements - average score below 70%"
-            )
+            recommendations.append("Focus on efficiency improvements - average score below 70%")
 
         # Add common suggestions
         common_suggestions = performance_summary.get("common_suggestions", [])

@@ -64,9 +64,7 @@ class TestAthenaTablesList:
         else:
             # If the database is not accessible or has naming issues, that's ok for testing
             assert "error" in result
-            print(
-                f"Database {test_database} not accessible (expected for some environments): {result['error']}"
-            )
+            print(f"Database {test_database} not accessible (expected for some environments): {result['error']}")
 
 
 class TestAthenaTableSchema:
@@ -216,9 +214,7 @@ class TestAthenaQueryHistory:
         mock_boto3_client.return_value = mock_athena_client
 
         # Mock list_query_executions response
-        mock_athena_client.list_query_executions.return_value = {
-            "QueryExecutionIds": ["query-1", "query-2"]
-        }
+        mock_athena_client.list_query_executions.return_value = {"QueryExecutionIds": ["query-1", "query-2"]}
 
         # Mock batch_get_query_execution response
         mock_execution_time = datetime.now(timezone.utc)
@@ -259,9 +255,7 @@ class TestAthenaQueryHistory:
 
         mock_athena_client = Mock()
         mock_boto3_client.return_value = mock_athena_client
-        mock_athena_client.list_query_executions.return_value = {
-            "QueryExecutionIds": []
-        }
+        mock_athena_client.list_query_executions.return_value = {"QueryExecutionIds": []}
 
         result = athena_query_history()
 
@@ -402,9 +396,7 @@ class TestAthenaQueryValidate:
 
     def test_validate_backticks_query(self):
         """Test validation of query with backticks (MySQL-style) instead of double quotes."""
-        query = (
-            "SELECT `column_name`, `another_column` FROM `table_name` WHERE `id` = 1"
-        )
+        query = "SELECT `column_name`, `another_column` FROM `table_name` WHERE `id` = 1"
         result = athena_query_validate(query)
 
         assert result["success"] is False
@@ -475,9 +467,7 @@ class TestAthenaQueryService:
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_discover_databases_mocked(
-        self, mock_boto3, mock_create_engine, mock_read_sql
-    ):
+    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
         """Test database discovery with mocks (unit test)."""
         service = AthenaQueryService(use_quilt_auth=False)
 
@@ -521,14 +511,10 @@ class TestAthenaQueryService:
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Mock pandas DataFrame result
-        mock_df = pd.DataFrame(
-            {"event_type": ["page_view", "purchase"], "count": [125432, 23891]}
-        )
+        mock_df = pd.DataFrame({"event_type": ["page_view", "purchase"], "count": [125432, 23891]})
         mock_read_sql.return_value = mock_df
 
-        result = service.execute_query(
-            "SELECT event_type, COUNT(*) FROM events GROUP BY event_type"
-        )
+        result = service.execute_query("SELECT event_type, COUNT(*) FROM events GROUP BY event_type")
 
         assert result["success"] is True
         assert result["row_count"] == 2
@@ -571,9 +557,7 @@ class TestAthenaQueryService:
         service = AthenaQueryService(use_quilt_auth=False)
 
         # Create test data
-        df = pd.DataFrame(
-            {"event_type": ["page_view", "purchase"], "count": [125432, 23891]}
-        )
+        df = pd.DataFrame({"event_type": ["page_view", "purchase"], "count": [125432, 23891]})
 
         # Create a result dict like what execute_query would return
         result_data = {

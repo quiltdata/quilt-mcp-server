@@ -83,17 +83,11 @@ def mock_admin_unavailable():
 @pytest.fixture
 def sample_users():
     """Sample users for testing."""
-    admin_role = MockRole(
-        "1", "admin", "arn:aws:iam::123456789012:role/admin", "ManagedRole"
-    )
-    user_role = MockRole(
-        "2", "user", "arn:aws:iam::123456789012:role/user", "ManagedRole"
-    )
+    admin_role = MockRole("1", "admin", "arn:aws:iam::123456789012:role/admin", "ManagedRole")
+    user_role = MockRole("2", "user", "arn:aws:iam::123456789012:role/user", "ManagedRole")
 
     return [
-        MockUser(
-            name="admin_user", email="admin@example.com", is_admin=True, role=admin_role
-        ),
+        MockUser(name="admin_user", email="admin@example.com", is_admin=True, role=admin_role),
         MockUser(
             name="regular_user",
             email="user@example.com",
@@ -115,9 +109,7 @@ def sample_roles():
     return [
         MockRole("1", "admin", "arn:aws:iam::123456789012:role/admin", "ManagedRole"),
         MockRole("2", "user", "arn:aws:iam::123456789012:role/user", "ManagedRole"),
-        MockRole(
-            "3", "readonly", "arn:aws:iam::123456789012:role/readonly", "UnmanagedRole"
-        ),
+        MockRole("3", "readonly", "arn:aws:iam::123456789012:role/readonly", "UnmanagedRole"),
     ]
 
 
@@ -155,12 +147,8 @@ class TestUserManagement:
     @pytest.mark.asyncio
     async def test_admin_users_list_success(self, mock_admin_available, sample_users):
         """Test successful user listing."""
-        with patch(
-            "quilt_mcp.tools.governance.admin_users.list", return_value=sample_users
-        ):
-            with patch(
-                "quilt_mcp.tools.governance.format_users_as_table"
-            ) as mock_format:
+        with patch("quilt_mcp.tools.governance.admin_users.list", return_value=sample_users):
+            with patch("quilt_mcp.tools.governance.format_users_as_table") as mock_format:
                 mock_format.return_value = {
                     "success": True,
                     "users": [
@@ -219,12 +207,8 @@ class TestUserManagement:
     async def test_admin_user_create_success(self, mock_admin_available, sample_users):
         """Test successful user creation."""
         new_user = sample_users[0]
-        with patch(
-            "quilt_mcp.tools.governance.admin_users.create", return_value=new_user
-        ):
-            result = await governance.admin_user_create(
-                name="new_user", email="new@example.com", role="user"
-            )
+        with patch("quilt_mcp.tools.governance.admin_users.create", return_value=new_user):
+            result = await governance.admin_user_create(name="new_user", email="new@example.com", role="user")
 
             assert result["success"] is True
             assert result["user"]["name"] == "admin_user"  # Mock returns sample user
@@ -263,9 +247,7 @@ class TestUserManagement:
             assert "Successfully deleted user" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_email_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_set_email_success(self, mock_admin_available, sample_users):
         """Test successful email update."""
         updated_user = sample_users[0]
         updated_user.email = "updated@example.com"
@@ -274,17 +256,13 @@ class TestUserManagement:
             "quilt_mcp.tools.governance.admin_users.set_email",
             return_value=updated_user,
         ):
-            result = await governance.admin_user_set_email(
-                "test_user", "updated@example.com"
-            )
+            result = await governance.admin_user_set_email("test_user", "updated@example.com")
 
             assert result["success"] is True
             assert result["user"]["email"] == "updated@example.com"
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_admin_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_set_admin_success(self, mock_admin_available, sample_users):
         """Test successful admin status update."""
         updated_user = sample_users[1]
         updated_user.is_admin = True
@@ -300,9 +278,7 @@ class TestUserManagement:
             assert "granted admin privileges" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_active_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_set_active_success(self, mock_admin_available, sample_users):
         """Test successful active status update."""
         updated_user = sample_users[2]
         updated_user.is_active = True
@@ -327,26 +303,18 @@ class TestUserManagement:
             assert "Successfully reset password" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_user_set_role_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_set_role_success(self, mock_admin_available, sample_users):
         """Test successful role assignment."""
         updated_user = sample_users[0]
 
-        with patch(
-            "quilt_mcp.tools.governance.admin_users.set_role", return_value=updated_user
-        ):
-            result = await governance.admin_user_set_role(
-                name="test_user", role="admin", extra_roles=["user"]
-            )
+        with patch("quilt_mcp.tools.governance.admin_users.set_role", return_value=updated_user):
+            result = await governance.admin_user_set_role(name="test_user", role="admin", extra_roles=["user"])
 
             assert result["success"] is True
             assert "Successfully updated roles" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_user_add_roles_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_add_roles_success(self, mock_admin_available, sample_users):
         """Test successful role addition."""
         updated_user = sample_users[0]
 
@@ -360,9 +328,7 @@ class TestUserManagement:
             assert "Successfully added roles" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_user_remove_roles_success(
-        self, mock_admin_available, sample_users
-    ):
+    async def test_admin_user_remove_roles_success(self, mock_admin_available, sample_users):
         """Test successful role removal."""
         updated_user = sample_users[0]
 
@@ -382,12 +348,8 @@ class TestRoleManagement:
     @pytest.mark.asyncio
     async def test_admin_roles_list_success(self, mock_admin_available, sample_roles):
         """Test successful role listing."""
-        with patch(
-            "quilt_mcp.tools.governance.admin_roles.list", return_value=sample_roles
-        ):
-            with patch(
-                "quilt_mcp.tools.governance.format_roles_as_table"
-            ) as mock_format:
+        with patch("quilt_mcp.tools.governance.admin_roles.list", return_value=sample_roles):
+            with patch("quilt_mcp.tools.governance.format_roles_as_table") as mock_format:
                 mock_format.return_value = {
                     "success": True,
                     "roles": [
@@ -423,9 +385,7 @@ class TestSSOConfiguration:
         uploader = MockUser("admin", "admin@example.com")
         sso_config = MockSSOConfig("test config", datetime.now(), uploader)
 
-        with patch(
-            "quilt_mcp.tools.governance.admin_sso_config.get", return_value=sso_config
-        ):
+        with patch("quilt_mcp.tools.governance.admin_sso_config.get", return_value=sso_config):
             result = await governance.admin_sso_config_get()
 
             assert result["success"] is True
@@ -435,9 +395,7 @@ class TestSSOConfiguration:
     @pytest.mark.asyncio
     async def test_admin_sso_config_get_none(self, mock_admin_available):
         """Test SSO config retrieval when none exists."""
-        with patch(
-            "quilt_mcp.tools.governance.admin_sso_config.get", return_value=None
-        ):
+        with patch("quilt_mcp.tools.governance.admin_sso_config.get", return_value=None):
             result = await governance.admin_sso_config_get()
 
             assert result["success"] is True
@@ -450,9 +408,7 @@ class TestSSOConfiguration:
         uploader = MockUser("admin", "admin@example.com")
         sso_config = MockSSOConfig("new config", datetime.now(), uploader)
 
-        with patch(
-            "quilt_mcp.tools.governance.admin_sso_config.set", return_value=sso_config
-        ):
+        with patch("quilt_mcp.tools.governance.admin_sso_config.set", return_value=sso_config):
             result = await governance.admin_sso_config_set("new config")
 
             assert result["success"] is True
@@ -515,9 +471,7 @@ class TestErrorHandling:
         class MockUserNotFoundError(Exception):
             pass
 
-        with patch(
-            "quilt_mcp.tools.governance.UserNotFoundError", MockUserNotFoundError
-        ):
+        with patch("quilt_mcp.tools.governance.UserNotFoundError", MockUserNotFoundError):
             with patch(
                 "quilt_mcp.tools.governance.admin_users.get",
                 side_effect=MockUserNotFoundError("User not found"),

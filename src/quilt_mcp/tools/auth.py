@@ -71,13 +71,9 @@ def _get_catalog_info() -> dict[str, Any]:
 
             # If we don't have a catalog name from authentication, try config
             if not catalog_info["catalog_name"] and navigator_url:
-                catalog_info["catalog_name"] = _extract_catalog_name_from_url(
-                    navigator_url
-                )
+                catalog_info["catalog_name"] = _extract_catalog_name_from_url(navigator_url)
             elif not catalog_info["catalog_name"] and registry_url:
-                catalog_info["catalog_name"] = _extract_catalog_name_from_url(
-                    registry_url
-                )
+                catalog_info["catalog_name"] = _extract_catalog_name_from_url(registry_url)
     except Exception:
         pass
 
@@ -176,9 +172,7 @@ def catalog_url(
             ]
             if path:
                 # URL encode the path components
-                path_parts = [
-                    quote(part, safe="") for part in path.strip("/").split("/") if part
-                ]
+                path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
                 url_parts.extend(path_parts)
             url = "/".join(url_parts)
             view_type = "package"
@@ -187,9 +181,7 @@ def catalog_url(
             url_parts = [catalog_host.rstrip("/"), "b", bucket, "tree"]
             if path:
                 # URL encode the path components
-                path_parts = [
-                    quote(part, safe="") for part in path.strip("/").split("/") if part
-                ]
+                path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
                 url_parts.extend(path_parts)
             url = "/".join(url_parts)
             view_type = "bucket"
@@ -201,11 +193,7 @@ def catalog_url(
             "bucket": bucket,
             "package_name": package_name,
             "path": path,
-            "catalog_host": (
-                catalog_host.replace("https://", "").replace("http://", "")
-                if catalog_host
-                else None
-            ),
+            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
         }
 
     except Exception as e:
@@ -277,11 +265,7 @@ def catalog_uri(
             "path": path,
             "top_hash": top_hash,
             "tag": tag,
-            "catalog_host": (
-                catalog_host.replace("https://", "").replace("http://", "")
-                if catalog_host
-                else None
-            ),
+            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
         }
 
     except Exception as e:
@@ -315,9 +299,7 @@ def catalog_info() -> dict[str, Any]:
         if info["is_authenticated"]:
             result["message"] = f"Connected to catalog: {info['catalog_name']}"
         else:
-            result["message"] = (
-                f"Configured for catalog: {info['catalog_name']} (not authenticated)"
-            )
+            result["message"] = f"Configured for catalog: {info['catalog_name']} (not authenticated)"
 
         return result
 
@@ -380,9 +362,7 @@ def auth_status() -> dict[str, Any]:
             try:
                 config = quilt3.config()
                 if config and config.get("registryUrl"):
-                    registry_bucket = _extract_bucket_from_registry(
-                        config["registryUrl"]
-                    )
+                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
             except Exception:
                 pass
 

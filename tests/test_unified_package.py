@@ -227,9 +227,7 @@ class TestUtilityFunctions:
         }
 
         # Mock the file analysis to return S3 sources
-        with patch(
-            "quilt_mcp.tools.unified_package._analyze_file_sources"
-        ) as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -238,9 +236,7 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch(
-                "quilt_mcp.tools.unified_package._create_package_from_s3_sources"
-            ) as mock_s3_create:
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
                 mock_s3_create.return_value = {
                     "status": "success",
                     "package_name": "test/dataset",
@@ -279,9 +275,7 @@ class TestUtilityFunctions:
         }
 
         # Mock the file analysis to return S3 sources
-        with patch(
-            "quilt_mcp.tools.unified_package._analyze_file_sources"
-        ) as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -290,9 +284,7 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch(
-                "quilt_mcp.tools.unified_package._create_package_from_s3_sources"
-            ) as mock_s3_create:
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
                 mock_s3_create.return_value = {
                     "status": "success",
                     "package_name": "test/dataset",
@@ -330,9 +322,7 @@ class TestUtilityFunctions:
         }
 
         # Mock the file analysis to return S3 sources
-        with patch(
-            "quilt_mcp.tools.unified_package._analyze_file_sources"
-        ) as mock_analyze:
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -341,9 +331,7 @@ class TestUtilityFunctions:
             }
 
             # Mock the S3 package creation
-            with patch(
-                "quilt_mcp.tools.unified_package._create_package_from_s3_sources"
-            ) as mock_s3_create:
+            with patch("quilt_mcp.tools.unified_package._create_package_from_s3_sources") as mock_s3_create:
                 mock_s3_create.return_value = {
                     "status": "success",
                     "package_name": "test/dataset",

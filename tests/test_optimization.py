@@ -86,9 +86,7 @@ class TestTelemetryCollector:
         assert session_id == "disabled"
 
         # Recording should be no-op
-        collector.record_tool_call(
-            tool_name="test_tool", args={}, execution_time=1.0, success=True
-        )
+        collector.record_tool_call(tool_name="test_tool", args={}, execution_time=1.0, success=True)
 
         assert len(collector.sessions) == 0
 
@@ -221,9 +219,7 @@ class TestOptimizationTesting:
     def test_test_scenario_creation(self):
         """Test test scenario creation."""
         steps = [
-            TestStep(
-                tool_name="auth_status", args={}, description="Check authentication"
-            ),
+            TestStep(tool_name="auth_status", args={}, description="Check authentication"),
             TestStep(
                 tool_name="packages_list",
                 args={"limit": 10},

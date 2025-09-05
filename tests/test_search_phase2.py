@@ -47,9 +47,7 @@ class TestSearchSuggestions:
         """Test context-aware suggestions for package scope."""
         engine = SearchSuggestionEngine()
 
-        result = engine.suggest(
-            "files", context="user/dataset", suggestion_types=["context"], limit=5
-        )
+        result = engine.suggest("files", context="user/dataset", suggestion_types=["context"], limit=5)
 
         context_suggestions = result["suggestions"]["context_suggestions"]
         assert len(context_suggestions) > 0
@@ -59,9 +57,7 @@ class TestSearchSuggestions:
         """Test context-aware suggestions for bucket scope."""
         engine = SearchSuggestionEngine()
 
-        result = engine.suggest(
-            "data", context="my-bucket", suggestion_types=["context"], limit=5
-        )
+        result = engine.suggest("data", context="my-bucket", suggestion_types=["context"], limit=5)
 
         context_suggestions = result["suggestions"]["context_suggestions"]
         assert len(context_suggestions) > 0
@@ -127,9 +123,7 @@ class TestGraphQLBackend:
         """Test GraphQL backend initialization."""
         mock_session = Mock()
         mock_session.post.return_value.status_code = 200
-        mock_session.post.return_value.json.return_value = {
-            "data": {"__schema": {"queryType": {"name": "Query"}}}
-        }
+        mock_session.post.return_value.json.return_value = {"data": {"__schema": {"queryType": {"name": "Query"}}}}
 
         mock_quilt3.session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session.get_session.return_value = mock_session
@@ -144,9 +138,7 @@ class TestGraphQLBackend:
         mock_quilt3.session.get_session.return_value = None
 
         # Mock the GraphQL endpoint function to return None
-        with patch(
-            "quilt_mcp.tools.graphql._get_graphql_endpoint", return_value=(None, None)
-        ):
+        with patch("quilt_mcp.tools.graphql._get_graphql_endpoint", return_value=(None, None)):
             backend = EnterpriseGraphQLBackend()
             assert backend.status == BackendStatus.UNAVAILABLE
 

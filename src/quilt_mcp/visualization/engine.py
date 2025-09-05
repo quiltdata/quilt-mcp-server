@@ -142,15 +142,11 @@ class VisualizationEngine:
 
         # Analyze genomic content if present
         if genomic_files:
-            genomic_metadata = self.genomic_analyzer.analyze_genomic_content(
-                genomic_files
-            )
+            genomic_metadata = self.genomic_analyzer.analyze_genomic_content(genomic_files)
             metadata.update(genomic_metadata)
 
         # Suggest visualizations based on content
-        suggested_visualizations = self._suggest_visualizations(
-            file_types, data_files, genomic_files, metadata
-        )
+        suggested_visualizations = self._suggest_visualizations(file_types, data_files, genomic_files, metadata)
 
         return PackageAnalysis(
             package_path=str(package_path),
@@ -176,9 +172,7 @@ class VisualizationEngine:
         # Data file visualizations
         for file_type, files in file_types.items():
             if file_type in ["csv", "tsv", "xlsx", "parquet"] and files:
-                suggestions.extend(
-                    ["bar_chart", "line_chart", "scatter_plot", "heatmap"]
-                )
+                suggestions.extend(["bar_chart", "line_chart", "scatter_plot", "heatmap"])
             elif file_type == "json" and files:
                 suggestions.extend(["line_chart", "scatter_plot", "tree_map"])
 
@@ -228,9 +222,7 @@ class VisualizationEngine:
 
         # Generate genomic visualizations
         if analysis.genomic_files:
-            genomic_viz = self._generate_genomic_visualizations(
-                analysis.genomic_files, viz_dir, analysis.metadata
-            )
+            genomic_viz = self._generate_genomic_visualizations(analysis.genomic_files, viz_dir, analysis.metadata)
             visualizations.extend(genomic_viz)
 
         # Generate summary visualizations
@@ -239,9 +231,7 @@ class VisualizationEngine:
 
         return visualizations
 
-    def _generate_data_visualization(
-        self, data_file: str, viz_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_data_visualization(self, data_file: str, viz_dir: Path) -> Optional[Visualization]:
         """Generate visualization for a single data file."""
         try:
             file_path = Path(data_file)
@@ -257,14 +247,10 @@ class VisualizationEngine:
                 return self._generate_parquet_visualization(data_file, viz_dir)
 
         except Exception as e:
-            print(
-                f"Error generating visualization for {data_file}: {e}", file=sys.stderr
-            )
+            print(f"Error generating visualization for {data_file}: {e}", file=sys.stderr)
             return None
 
-    def _generate_csv_visualization(
-        self, csv_file: str, viz_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_csv_visualization(self, csv_file: str, viz_dir: Path) -> Optional[Visualization]:
         """Generate visualization for CSV file."""
         try:
             # Load and analyze data
@@ -312,23 +298,17 @@ class VisualizationEngine:
             print(f"Error generating CSV visualization: {e}", file=sys.stderr)
             return None
 
-    def _generate_json_visualization(
-        self, json_file: str, viz_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_json_visualization(self, json_file: str, viz_dir: Path) -> Optional[Visualization]:
         """Generate visualization for JSON file."""
         # Placeholder for JSON visualization
         return None
 
-    def _generate_excel_visualization(
-        self, excel_file: str, viz_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_excel_visualization(self, excel_file: str, viz_dir: Path) -> Optional[Visualization]:
         """Generate visualization for Excel file."""
         # Placeholder for Excel visualization
         return None
 
-    def _generate_parquet_visualization(
-        self, parquet_file: str, viz_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_parquet_visualization(self, parquet_file: str, viz_dir: Path) -> Optional[Visualization]:
         """Generate visualization for Parquet file."""
         # Placeholder for Parquet visualization
         return None
@@ -377,28 +357,20 @@ class VisualizationEngine:
 
         return visualizations
 
-    def _generate_genomic_track(
-        self, genomic_file: str, genomics_dir: Path
-    ) -> Optional[Visualization]:
+    def _generate_genomic_track(self, genomic_file: str, genomics_dir: Path) -> Optional[Visualization]:
         """Generate visualization for a single genomic file."""
         try:
             file_path = Path(genomic_file)
             file_type = file_path.suffix.lower().lstrip(".")
 
             if file_type in ["bam", "sam"]:
-                track_config = self.igv_generator.create_coverage_plot(
-                    genomic_file, regions=[]
-                )
+                track_config = self.igv_generator.create_coverage_plot(genomic_file, regions=[])
                 track_type = "coverage_plot"
             elif file_type == "vcf":
-                track_config = self.igv_generator.create_variant_view(
-                    genomic_file, reference=""
-                )
+                track_config = self.igv_generator.create_variant_view(genomic_file, reference="")
                 track_type = "variant_view"
             elif file_type in ["bed", "gtf", "gff"]:
-                track_config = self.igv_generator.create_genome_track(
-                    genomic_file, "annotation", {}
-                )
+                track_config = self.igv_generator.create_genome_track(genomic_file, "annotation", {})
                 track_type = "annotation_track"
             else:
                 return None
@@ -421,9 +393,7 @@ class VisualizationEngine:
             print(f"Error generating genomic track: {e}", file=sys.stderr)
             return None
 
-    def _generate_summary_visualizations(
-        self, analysis: PackageAnalysis, viz_dir: Path
-    ) -> List[Visualization]:
+    def _generate_summary_visualizations(self, analysis: PackageAnalysis, viz_dir: Path) -> List[Visualization]:
         """Generate summary and overview visualizations."""
         visualizations = []
 
@@ -434,9 +404,7 @@ class VisualizationEngine:
                 "counts": [len(files) for files in analysis.file_types.values()],
             }
 
-            overview_config = self.echarts_generator.create_pie_chart(
-                overview_data, "file_types", "counts"
-            )
+            overview_config = self.echarts_generator.create_pie_chart(overview_data, "file_types", "counts")
 
             overview_file = viz_dir / "package_overview.json"
             with open(overview_file, "w") as f:
@@ -480,9 +448,7 @@ class VisualizationEngine:
             summary_config = []
 
             # Add package overview first
-            overview_viz = next(
-                (v for v in visualizations if v.id == "package_overview"), None
-            )
+            overview_viz = next((v for v in visualizations if v.id == "package_overview"), None)
             if overview_viz:
                 summary_config.append(
                     {
@@ -506,11 +472,7 @@ class VisualizationEngine:
                     )
 
             # Add genomic visualizations
-            genomic_viz = [
-                v
-                for v in visualizations
-                if v.type.startswith("genomic") or v.type == "igv_session"
-            ]
+            genomic_viz = [v for v in visualizations if v.type.startswith("genomic") or v.type == "igv_session"]
             if genomic_viz:
                 summary_config.append(
                     {
@@ -522,9 +484,7 @@ class VisualizationEngine:
                 )
 
             # Add image gallery if images exist
-            image_viz = next(
-                (v for v in visualizations if v.type == "image_gallery"), None
-            )
+            image_viz = next((v for v in visualizations if v.type == "image_gallery"), None)
             if image_viz:
                 summary_config.append(
                     {

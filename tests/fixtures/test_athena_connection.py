@@ -203,9 +203,7 @@ def test_mcp_tools():
                 status = "✅" if wg.get("accessible") else "❌"
                 print(f"   {status} {wg.get('name')} ({wg.get('state')})")
         else:
-            print(
-                f"❌ Workgroups listing failed: {workgroups_result.get('error', 'Unknown error')}"
-            )
+            print(f"❌ Workgroups listing failed: {workgroups_result.get('error', 'Unknown error')}")
 
         return result.get("success", False) and workgroups_result.get("success", False)
 
@@ -251,9 +249,7 @@ def main():
     print(f"Glue client:        {'✅' if glue_success else '❌'}")
     print(f"MCP tools:          {'✅' if mcp_success else '❌'}")
 
-    if all(
-        [credentials, service, engine, connection_success, glue_success, mcp_success]
-    ):
+    if all([credentials, service, engine, connection_success, glue_success, mcp_success]):
         print("\n🎉 All tests passed! Athena integration is working correctly.")
         return 0
     else:

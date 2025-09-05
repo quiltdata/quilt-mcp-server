@@ -192,17 +192,13 @@ class HTTPTransport(TelemetryTransport):
                 "data": data,
             }
 
-            response = self.session.post(
-                f"{self.endpoint}/telemetry/session", json=payload, timeout=self.timeout
-            )
+            response = self.session.post(f"{self.endpoint}/telemetry/session", json=payload, timeout=self.timeout)
 
             if response.status_code == 200:
                 logger.debug(f"Successfully sent telemetry session to {self.endpoint}")
                 return True
             else:
-                logger.warning(
-                    f"HTTP telemetry failed: {response.status_code} {response.text}"
-                )
+                logger.warning(f"HTTP telemetry failed: {response.status_code} {response.text}")
                 return False
 
         except Exception as e:
@@ -229,17 +225,13 @@ class HTTPTransport(TelemetryTransport):
                 "sessions": sessions,
             }
 
-            response = self.session.post(
-                f"{self.endpoint}/telemetry/batch", json=payload, timeout=self.timeout
-            )
+            response = self.session.post(f"{self.endpoint}/telemetry/batch", json=payload, timeout=self.timeout)
 
             if response.status_code == 200:
                 logger.debug(f"Successfully sent telemetry batch to {self.endpoint}")
                 return True
             else:
-                logger.warning(
-                    f"HTTP telemetry batch failed: {response.status_code} {response.text}"
-                )
+                logger.warning(f"HTTP telemetry batch failed: {response.status_code} {response.text}")
                 return False
 
         except Exception as e:
@@ -262,9 +254,7 @@ class HTTPTransport(TelemetryTransport):
 class CloudWatchTransport(TelemetryTransport):
     """AWS CloudWatch-based telemetry transport."""
 
-    def __init__(
-        self, log_group: str = "mcp-telemetry", log_stream: Optional[str] = None
-    ):
+    def __init__(self, log_group: str = "mcp-telemetry", log_stream: Optional[str] = None):
         self.log_group = log_group
         self.log_stream = log_stream or f"mcp-{int(time.time())}"
         self.client = None
@@ -282,9 +272,7 @@ class CloudWatchTransport(TelemetryTransport):
 
             # Create log stream
             try:
-                self.client.create_log_stream(
-                    logGroupName=self.log_group, logStreamName=self.log_stream
-                )
+                self.client.create_log_stream(logGroupName=self.log_group, logStreamName=self.log_stream)
             except self.client.exceptions.ResourceAlreadyExistsException:
                 pass
 
@@ -316,9 +304,7 @@ class CloudWatchTransport(TelemetryTransport):
                 logEvents=[log_event],
             )
 
-            logger.debug(
-                f"Sent telemetry session to CloudWatch: {self.log_group}/{self.log_stream}"
-            )
+            logger.debug(f"Sent telemetry session to CloudWatch: {self.log_group}/{self.log_stream}")
             return True
 
         except Exception as e:
@@ -340,9 +326,7 @@ class CloudWatchTransport(TelemetryTransport):
 
                 log_event = {
                     "timestamp": int(time.time() * 1000),
-                    "message": json.dumps(
-                        {"type": "session", "data": data}, default=str
-                    ),
+                    "message": json.dumps({"type": "session", "data": data}, default=str),
                 }
                 log_events.append(log_event)
 

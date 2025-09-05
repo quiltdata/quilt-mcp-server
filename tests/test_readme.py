@@ -88,12 +88,8 @@ def test_readme_bash_syntax():
             script_path = f.name
 
         try:
-            result = subprocess.run(
-                ["bash", "-n", script_path], capture_output=True, text=True
-            )
-            assert (
-                result.returncode == 0
-            ), f"Bash syntax error in block {i}: {result.stderr}"
+            result = subprocess.run(["bash", "-n", script_path], capture_output=True, text=True)
+            assert result.returncode == 0, f"Bash syntax error in block {i}: {result.stderr}"
         finally:
             os.unlink(script_path)
 
@@ -127,9 +123,7 @@ def test_readme_commands_work():
 
         for cmd in test_commands:
             # Security: shell=True is safe here as commands are static and trusted test commands
-            result = subprocess.run(
-                cmd, shell=True, cwd=temp_dir, capture_output=True, text=True
-            )  # noqa: S602
+            result = subprocess.run(cmd, shell=True, cwd=temp_dir, capture_output=True, text=True)  # noqa: S602
             # Commands should not fail catastrophically
             assert result.returncode in [0, 1], f"Command failed unexpectedly: {cmd}"
 

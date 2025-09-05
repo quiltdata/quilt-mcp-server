@@ -59,20 +59,14 @@ class GovernanceService:
             elif isinstance(e, Quilt3AdminError):
                 return format_error_response(f"Admin operation failed: {str(e)}")
             else:
-                operation_str = (
-                    str(operation)
-                    if operation is not None
-                    else "perform admin operation"
-                )
+                operation_str = str(operation) if operation is not None else "perform admin operation"
                 error_str = str(e) if e is not None else "Unknown error"
                 logger.error(f"Failed to {operation_str}: {error_str}")
                 return format_error_response(f"Failed to {operation_str}: {error_str}")
         except Exception as format_error:
             # Fallback if even error formatting fails
             logger.error(f"Error handling failed: {format_error}")
-            return format_error_response(
-                "Admin operation failed due to an error in error handling"
-            )
+            return format_error_response("Admin operation failed due to an error in error handling")
 
 
 # User Management Functions
@@ -107,14 +101,10 @@ async def admin_users_list() -> Dict[str, Any]:
                 "is_admin": user.is_admin,
                 "is_sso_only": user.is_sso_only,
                 "is_service": user.is_service,
-                "date_joined": (
-                    user.date_joined.isoformat() if user.date_joined else None
-                ),
+                "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
                 "last_login": user.last_login.isoformat() if user.last_login else None,
                 "role": user.role.name if user.role else None,
-                "extra_roles": (
-                    [role.name for role in user.extra_roles] if user.extra_roles else []
-                ),
+                "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
             }
             users_data.append(user_dict)
 
@@ -237,9 +227,7 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        user = admin_users.create(
-            name=name, email=email, role=role, extra_roles=extra_roles or []
-        )
+        user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
 
         user_data = {
             "name": user.name,
@@ -247,9 +235,7 @@ async def admin_user_create(
             "is_active": user.is_active,
             "is_admin": user.is_admin,
             "role": user.role.name if user.role else None,
-            "extra_roles": (
-                [role.name for role in user.extra_roles] if user.extra_roles else []
-            ),
+            "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
         }
 
         return {
@@ -453,18 +439,14 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
-        user = admin_users.set_role(
-            name=name, role=role, extra_roles=extra_roles or [], append=append
-        )
+        user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
 
         return {
             "success": True,
             "user": {
                 "name": user.name,
                 "role": user.role.name if user.role else None,
-                "extra_roles": (
-                    [r.name for r in user.extra_roles] if user.extra_roles else []
-                ),
+                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
             },
             "message": f"Successfully updated roles for user '{name}'",
         }
@@ -503,9 +485,7 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
             "user": {
                 "name": user.name,
                 "role": user.role.name if user.role else None,
-                "extra_roles": (
-                    [r.name for r in user.extra_roles] if user.extra_roles else []
-                ),
+                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
             },
             "message": f"Successfully added roles {roles} to user '{name}'",
         }
@@ -515,9 +495,7 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"add roles to user '{name}'")
 
 
-async def admin_user_remove_roles(
-    name: str, roles: List[str], fallback: Optional[str] = None
-) -> Dict[str, Any]:
+async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optional[str] = None) -> Dict[str, Any]:
     """
     Remove roles from a user.
 
@@ -547,9 +525,7 @@ async def admin_user_remove_roles(
             "user": {
                 "name": user.name,
                 "role": user.role.name if user.role else None,
-                "extra_roles": (
-                    [r.name for r in user.extra_roles] if user.extra_roles else []
-                ),
+                "extra_roles": ([r.name for r in user.extra_roles] if user.extra_roles else []),
             },
             "message": f"Successfully removed roles {roles} from user '{name}'",
         }
@@ -636,13 +612,9 @@ async def admin_sso_config_get() -> Dict[str, Any]:
 
         config_data = {
             "text": sso_config.text,
-            "timestamp": (
-                sso_config.timestamp.isoformat() if sso_config.timestamp else None
-            ),
+            "timestamp": (sso_config.timestamp.isoformat() if sso_config.timestamp else None),
             "uploader": (
-                {"name": sso_config.uploader.name, "email": sso_config.uploader.email}
-                if sso_config.uploader
-                else None
+                {"name": sso_config.uploader.name, "email": sso_config.uploader.email} if sso_config.uploader else None
             ),
         }
 
@@ -683,13 +655,9 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
 
         config_data = {
             "text": sso_config.text,
-            "timestamp": (
-                sso_config.timestamp.isoformat() if sso_config.timestamp else None
-            ),
+            "timestamp": (sso_config.timestamp.isoformat() if sso_config.timestamp else None),
             "uploader": (
-                {"name": sso_config.uploader.name, "email": sso_config.uploader.email}
-                if sso_config.uploader
-                else None
+                {"name": sso_config.uploader.name, "email": sso_config.uploader.email} if sso_config.uploader else None
             ),
         }
 

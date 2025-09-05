@@ -24,9 +24,7 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     return f"s3://{bucket_or_uri}"
 
 
-def packages_list(
-    registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = ""
-) -> dict[str, Any]:
+def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
     """List all available Quilt packages in a registry.
 
     Args:
@@ -43,9 +41,7 @@ def packages_list(
     from ..utils import suppress_stdout
 
     with suppress_stdout():
-        pkgs = list(
-            quilt3.list_packages(registry=normalized_registry)
-        )  # Convert generator to list
+        pkgs = list(quilt3.list_packages(registry=normalized_registry))  # Convert generator to list
 
     # Apply prefix filtering if specified
     if prefix:
@@ -58,9 +54,7 @@ def packages_list(
     return {"packages": pkgs}
 
 
-def packages_search(
-    query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0
-) -> dict[str, Any]:
+def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
     """Search for Quilt packages by content and metadata.
 
     Args:
@@ -127,9 +121,7 @@ def packages_search(
                     index_name = f"{bucket_name},{bucket_name}_packages"
 
                 # Use registry-specific index instead of '_all'
-                full_result = search_api(
-                    query=dsl_query, index=index_name, limit=effective_limit
-                )
+                full_result = search_api(query=dsl_query, index=index_name, limit=effective_limit)
 
                 # Return unified search format with bucket context
                 hits = full_result.get("hits", {}).get("hits", [])
@@ -268,14 +260,10 @@ def package_browse(
             # Get file information
             file_size = getattr(entry, "size", None)
             file_hash = str(getattr(entry, "hash", ""))
-            physical_key = (
-                str(entry.physical_key) if hasattr(entry, "physical_key") else None
-            )
+            physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
 
             # Determine file type and properties
-            file_ext = (
-                logical_key.split(".")[-1].lower() if "." in logical_key else "unknown"
-            )
+            file_ext = logical_key.split(".")[-1].lower() if "." in logical_key else "unknown"
             file_types.add(file_ext)
             is_directory = logical_key.endswith("/") or file_size is None
 
@@ -353,12 +341,8 @@ def package_browse(
             "total_size": total_size,
             "total_size_human": _format_file_size(total_size),
             "file_types": sorted(list(file_types)),
-            "total_files": len(
-                [e for e in entries if not e.get("is_directory", False)]
-            ),
-            "total_directories": len(
-                [e for e in entries if e.get("is_directory", False)]
-            ),
+            "total_files": len([e for e in entries if not e.get("is_directory", False)]),
+            "total_directories": len([e for e in entries if e.get("is_directory", False)]),
         },
         "view_type": "recursive" if recursive else "flat",
     }
@@ -458,17 +442,13 @@ def package_contents_search(
             entry = pkg[logical_key]
             match_data = {
                 "logical_key": logical_key,
-                "physical_key": (
-                    str(entry.physical_key) if hasattr(entry, "physical_key") else None
-                ),
+                "physical_key": (str(entry.physical_key) if hasattr(entry, "physical_key") else None),
                 "size": getattr(entry, "size", None),
                 "hash": str(getattr(entry, "hash", "")),
             }
 
             # Add S3 URI and signed URL if this is an S3 object
-            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith(
-                "s3://"
-            ):
+            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith("s3://"):
                 s3_uri = str(entry.physical_key)
                 match_data["s3_uri"] = s3_uri
 
@@ -518,22 +498,14 @@ def package_diff(
 
         with suppress_stdout():
             if package1_hash:
-                pkg1 = quilt3.Package.browse(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
+                pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry, top_hash=package1_hash)
             else:
-                pkg1 = quilt3.Package.browse(
-                    package1_name, registry=normalized_registry
-                )
+                pkg1 = quilt3.Package.browse(package1_name, registry=normalized_registry)
 
             if package2_hash:
-                pkg2 = quilt3.Package.browse(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
+                pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry, top_hash=package2_hash)
             else:
-                pkg2 = quilt3.Package.browse(
-                    package2_name, registry=normalized_registry
-                )
+                pkg2 = quilt3.Package.browse(package2_name, registry=normalized_registry)
 
     except Exception as e:
         return {"error": f"Failed to browse packages: {e}"}

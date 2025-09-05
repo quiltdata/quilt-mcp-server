@@ -47,18 +47,14 @@ def validate_package_naming(package_name: str) -> Tuple[bool, List[str], List[st
     namespace, name = parts
 
     # Validate namespace
-    namespace_valid, namespace_errors, namespace_suggestions = _validate_name_component(
-        namespace, "namespace"
-    )
+    namespace_valid, namespace_errors, namespace_suggestions = _validate_name_component(namespace, "namespace")
     if not namespace_valid:
         is_valid = False
         errors.extend(namespace_errors)
     suggestions.extend(namespace_suggestions)
 
     # Validate package name
-    name_valid, name_errors, name_suggestions = _validate_name_component(
-        name, "package name"
-    )
+    name_valid, name_errors, name_suggestions = _validate_name_component(name, "package name")
     if not name_valid:
         is_valid = False
         errors.extend(name_errors)
@@ -94,14 +90,10 @@ def suggest_package_name(
 
     # Extract potential namespace from bucket/prefix
     if not suggested_namespace:
-        suggested_namespace = _extract_namespace_from_source(
-            source_bucket, source_prefix
-        )
+        suggested_namespace = _extract_namespace_from_source(source_bucket, source_prefix)
 
     # Extract potential package name from source
-    potential_names = _extract_package_names_from_source(
-        source_bucket, source_prefix, description
-    )
+    potential_names = _extract_package_names_from_source(source_bucket, source_prefix, description)
 
     # Generate combinations
     for name in potential_names:
@@ -126,9 +118,7 @@ def suggest_package_name(
     return suggestions[:5]  # Return top 5 suggestions
 
 
-def _validate_name_component(
-    component: str, component_type: str
-) -> Tuple[bool, List[str], List[str]]:
+def _validate_name_component(component: str, component_type: str) -> Tuple[bool, List[str], List[str]]:
     """Validate individual name component (namespace or package name)."""
     errors = []
     suggestions = []
@@ -183,15 +173,11 @@ def _check_naming_practices(namespace: str, name: str) -> List[str]:
 
     # Check for version in name (discouraged)
     if re.search(r"v\d+|version|ver\d+", name.lower()):
-        suggestions.append(
-            "Avoid version numbers in package name - use Quilt's versioning instead"
-        )
+        suggestions.append("Avoid version numbers in package name - use Quilt's versioning instead")
 
     # Check for date in name (sometimes discouraged)
     if re.search(r"\d{4}[-_]\d{2}[-_]\d{2}|\d{8}", name):
-        suggestions.append(
-            "Consider whether date in name is necessary - packages are automatically timestamped"
-        )
+        suggestions.append("Consider whether date in name is necessary - packages are automatically timestamped")
 
     # Suggest namespace improvements
     namespace_suggestions = _suggest_namespace_improvements(namespace)
@@ -208,17 +194,13 @@ def _suggest_namespace_improvements(namespace: str) -> List[str]:
 
     # Check if namespace could be more specific
     if namespace_lower in ["data", "dataset", "package"]:
-        suggestions.append(
-            "Consider using a more specific namespace (e.g., 'analytics', 'ml', 'finance')"
-        )
+        suggestions.append("Consider using a more specific namespace (e.g., 'analytics', 'ml', 'finance')")
 
     # Suggest better namespaces based on content
     for suggested_ns, keywords in NAMESPACE_SUGGESTIONS.items():
         if any(keyword in namespace_lower for keyword in keywords):
             if namespace_lower != suggested_ns:
-                suggestions.append(
-                    f"Consider using '{suggested_ns}' namespace for this type of data"
-                )
+                suggestions.append(f"Consider using '{suggested_ns}' namespace for this type of data")
             break
 
     return suggestions
@@ -247,9 +229,7 @@ def _extract_namespace_from_source(bucket: str, prefix: str) -> str:
     return "data"
 
 
-def _extract_package_names_from_source(
-    bucket: str, prefix: str, description: str
-) -> List[str]:
+def _extract_package_names_from_source(bucket: str, prefix: str, description: str) -> List[str]:
     """Extract potential package names from source information."""
     candidates = []
 
@@ -260,11 +240,7 @@ def _extract_package_names_from_source(
 
     # From prefix
     if prefix:
-        prefix_parts = [
-            part
-            for part in prefix.replace("/", "_").replace("-", "_").split("_")
-            if len(part) > 2
-        ]
+        prefix_parts = [part for part in prefix.replace("/", "_").replace("-", "_").split("_") if len(part) > 2]
         candidates.extend(prefix_parts[-2:])
 
     # From description

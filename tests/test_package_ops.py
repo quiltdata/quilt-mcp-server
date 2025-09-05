@@ -16,18 +16,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_content_extraction_from_metadata(
-        self, mock_package_class, mock_collect, mock_build_selector
-    ):
+    def test_readme_content_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that README content is automatically extracted from metadata and added as package file."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -48,9 +44,7 @@ class TestPackageCreate:
 
         # Verify README.md was added to package
         # Alternative: Check that README.md was called at all
-        readme_calls = [
-            call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"
-        ]
+        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
         assert len(readme_calls) > 0, "README.md was not added to package"
 
         # Verify metadata was set without README content
@@ -65,18 +59,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_field_extraction_from_metadata(
-        self, mock_package_class, mock_collect, mock_build_selector
-    ):
+    def test_readme_field_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that 'readme' field is also extracted from metadata."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -97,9 +87,7 @@ class TestPackageCreate:
 
         # Verify README.md was added to package
         # Alternative: Check that README.md was called at all
-        readme_calls = [
-            call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"
-        ]
+        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
         assert len(readme_calls) > 0, "README.md was not added to package"
 
         # Verify metadata was set without README content
@@ -114,18 +102,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_both_readme_fields_extraction(
-        self, mock_package_class, mock_collect, mock_build_selector
-    ):
+    def test_both_readme_fields_extraction(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -147,9 +131,7 @@ class TestPackageCreate:
 
         # Verify README.md was added with priority content
         # Alternative: Check that README.md was called at all
-        readme_calls = [
-            call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"
-        ]
+        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
         assert len(readme_calls) > 0, "README.md was not added to package"
 
         # Verify metadata was set without either README field
@@ -162,18 +144,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_no_readme_content_in_metadata(
-        self, mock_build_selector, mock_collect, mock_package_class
-    ):
+    def test_no_readme_content_in_metadata(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that packages without README content in metadata work normally."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -189,9 +167,7 @@ class TestPackageCreate:
         )
 
         # Verify no README.md was added
-        readme_calls = [
-            call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"
-        ]
+        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
         assert len(readme_calls) == 0
 
         # Verify metadata was set as-is
@@ -203,18 +179,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_file_creation_failure_handling(
-        self, mock_package_class, mock_collect, mock_build_selector
-    ):
+    def test_readme_file_creation_failure_handling(self, mock_package_class, mock_collect, mock_build_selector):
         """Test that README file creation failures are handled gracefully."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -248,18 +220,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_empty_metadata_handling(
-        self, mock_build_selector, mock_collect, mock_package_class
-    ):
+    def test_empty_metadata_handling(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that empty metadata is handled correctly."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -280,18 +248,14 @@ class TestPackageCreate:
     @patch("quilt_mcp.tools.package_ops.quilt3.Package")
     @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
     @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_metadata_without_readme_fields(
-        self, mock_build_selector, mock_collect, mock_package_class
-    ):
+    def test_metadata_without_readme_fields(self, mock_build_selector, mock_collect, mock_package_class):
         """Test that metadata without README fields is processed normally."""
         # Setup mocks
         mock_pkg = Mock()
         mock_package_class.return_value = mock_pkg
 
         # Mock successful object collection
-        mock_collect.return_value = [
-            {"logical_path": "test.txt", "source": "s3://bucket/test.txt"}
-        ]
+        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
 
         # Mock successful push
         mock_pkg.push.return_value = "test_hash_123"
@@ -316,9 +280,7 @@ class TestPackageCreate:
         mock_pkg.set_meta.assert_called_with(test_metadata)
 
         # Verify no README.md was added
-        readme_calls = [
-            call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"
-        ]
+        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
         assert len(readme_calls) == 0
 
         # Verify success
@@ -341,9 +303,7 @@ class TestCollectObjectsIntoPackage:
         ]
         warnings = []
 
-        result = _collect_objects_into_package(
-            mock_pkg, s3_uris, flatten=True, warnings=warnings
-        )
+        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
 
         # Verify objects were added
         assert len(result) == 3
@@ -366,9 +326,7 @@ class TestCollectObjectsIntoPackage:
         ]
         warnings = []
 
-        result = _collect_objects_into_package(
-            mock_pkg, s3_uris, flatten=True, warnings=warnings
-        )
+        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
 
         # Verify only valid objects were added
         assert len(result) == 1
@@ -378,6 +336,4 @@ class TestCollectObjectsIntoPackage:
         assert len(warnings) == 3
         assert any("Skipping non-S3 URI" in w for w in warnings)
         assert any("Skipping bucket-only URI" in w for w in warnings)
-        assert any(
-            "Skipping URI that appears to be a 'directory'" in w for w in warnings
-        )
+        assert any("Skipping URI that appears to be a 'directory'" in w for w in warnings)

@@ -197,9 +197,7 @@ class TestQuiltTools:
             "quilt_mcp.tools.stack_buckets.build_stack_search_indices",
             return_value="test-bucket",
         ):
-            with patch(
-                "quilt3.search_util.search_api", return_value=mock_search_results
-            ):
+            with patch("quilt3.search_util.search_api", return_value=mock_search_results):
                 result = packages_search("test query", limit=2)
 
                 assert isinstance(result, dict)
@@ -302,10 +300,7 @@ class TestQuiltTools:
             assert isinstance(result, dict)
             assert result["status"] == "success"
             assert result["view_type"] == "bucket"
-            assert (
-                result["catalog_url"]
-                == "https://test.catalog.com/b/test-bucket/tree/data/file.csv"
-            )
+            assert result["catalog_url"] == "https://test.catalog.com/b/test-bucket/tree/data/file.csv"
             assert result["bucket"] == "test-bucket"
 
     def test_catalog_uri_basic(self):
@@ -342,9 +337,7 @@ class TestQuiltTools:
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with version tag."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            result = catalog_uri(
-                registry="s3://test-bucket", package_name="user/package", tag="v1.0"
-            )
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -401,9 +394,7 @@ class TestQuiltTools:
 
     def test_bucket_objects_search_error(self):
         """Test bucket_objects_search with search error."""
-        with patch(
-            "quilt3.Bucket", side_effect=Exception("Search endpoint not configured")
-        ):
+        with patch("quilt3.Bucket", side_effect=Exception("Search endpoint not configured")):
             result = bucket_objects_search("test-bucket", "query")
 
             assert isinstance(result, dict)

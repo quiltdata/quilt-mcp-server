@@ -84,9 +84,7 @@ class SailRealDataTest:
 
             # Step 2: Get the TestRNA sequence
             print("   Step 2: Retrieving TestRNA sequence from Benchling...")
-            benchling_sequence = self.get_benchling_sequence(
-                self.benchling_data["test_sequence"]
-            )
+            benchling_sequence = self.get_benchling_sequence(self.benchling_data["test_sequence"])
 
             # Step 3: Search for related RNA data in Quilt
             print("   Step 3: Searching for RNA-related data in Quilt...")
@@ -97,9 +95,7 @@ class SailRealDataTest:
             quilt_testrna_results = self.search_quilt_data("TestRNA")
 
             # Analyze federated results
-            benchling_success = benchling_entry.get(
-                "success", False
-            ) and benchling_sequence.get("success", False)
+            benchling_success = benchling_entry.get("success", False) and benchling_sequence.get("success", False)
             quilt_success = quilt_rna_results.get("total_results", 0) > 0
 
             success = benchling_success and quilt_success
@@ -108,9 +104,7 @@ class SailRealDataTest:
                 "benchling_entry": {
                     "name": benchling_entry.get("data", {}).get("name", "N/A"),
                     "id": benchling_entry.get("data", {}).get("id", "N/A"),
-                    "creator": benchling_entry.get("data", {})
-                    .get("creator", {})
-                    .get("name", "N/A"),
+                    "creator": benchling_entry.get("data", {}).get("creator", {}).get("name", "N/A"),
                 },
                 "benchling_sequence": {
                     "name": benchling_sequence.get("data", {}).get("name", "N/A"),
@@ -128,9 +122,7 @@ class SailRealDataTest:
             }
 
             if not success:
-                details["error"] = (
-                    f"Benchling: {benchling_success}, Quilt: {quilt_success}"
-                )
+                details["error"] = f"Benchling: {benchling_success}, Quilt: {quilt_success}"
 
         except Exception as e:
             success = False
@@ -169,15 +161,9 @@ class SailRealDataTest:
                     "creator": entry_data.get("creator", {}).get("name"),
                     "template_id": entry_data.get("entry_template_id"),
                     "web_url": entry_data.get("web_url"),
-                    "analysis_type": (
-                        "RNA-Seq Analysis"
-                        if "RNA-Seq" in entry_data.get("name", "")
-                        else "Unknown"
-                    ),
+                    "analysis_type": ("RNA-Seq Analysis" if "RNA-Seq" in entry_data.get("name", "") else "Unknown"),
                     "integration_focus": (
-                        "Quilt Package Integration"
-                        if "Quilt" in entry_data.get("name", "")
-                        else "Standard"
+                        "Quilt Package Integration" if "Quilt" in entry_data.get("name", "") else "Standard"
                     ),
                     "summary": f"RNA-Seq analysis notebook '{entry_data.get('name')}' created by {entry_data.get('creator', {}).get('name')} on {entry_data.get('created_at', '')[:10]}, focusing on TestRNA sequence and Quilt package integration",
                 }
@@ -213,9 +199,7 @@ class SailRealDataTest:
             projects_result = self.get_benchling_projects()
 
             # Step 2: Get real RNA sequence for linking
-            sequence_result = self.get_benchling_sequence(
-                self.benchling_data["test_sequence"]
-            )
+            sequence_result = self.get_benchling_sequence(self.benchling_data["test_sequence"])
 
             # Step 3: Search for actual RNA-related packages in Quilt
             packages_result = self.search_quilt_packages("benchling")
@@ -267,9 +251,7 @@ class SailRealDataTest:
 
         try:
             print("\n🔍 Testing SB016: Real Unified Search")
-            print(
-                "   Searching for actual RNA-seq and TestRNA data across both systems..."
-            )
+            print("   Searching for actual RNA-seq and TestRNA data across both systems...")
 
             # Search both systems for real terms
             search_results = {}
@@ -397,9 +379,7 @@ class SailRealDataTest:
             ),  # quilt-integration project
             "metadata_fields": {
                 "benchling_sequence_id": sequence_data.get("id"),
-                "benchling_project_id": (
-                    projects_data[1].get("id") if len(projects_data) > 1 else None
-                ),
+                "benchling_project_id": (projects_data[1].get("id") if len(projects_data) > 1 else None),
                 "sequence_name": sequence_data.get("name"),
                 "sequence_length": sequence_data.get("length"),
                 "created_by": sequence_data.get("creator", {}).get("name"),

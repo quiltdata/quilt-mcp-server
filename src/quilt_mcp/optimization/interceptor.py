@@ -79,9 +79,7 @@ class ToolCallInterceptor:
                 # Check for optimization opportunities before execution
                 optimization = self._check_pre_execution_optimization(tool_name, kwargs)
                 if optimization:
-                    logger.info(
-                        f"Applying pre-execution optimization for {tool_name}: {optimization}"
-                    )
+                    logger.info(f"Applying pre-execution optimization for {tool_name}: {optimization}")
 
                 # Execute the function
                 result = func(*args, **kwargs)
@@ -165,15 +163,11 @@ class ToolCallInterceptor:
         # Add call stack information
         if self.call_stack:
             context["call_stack_depth"] = len(self.call_stack)
-            context["previous_tools"] = [
-                call["tool_name"] for call in self.call_stack[-3:]
-            ]
+            context["previous_tools"] = [call["tool_name"] for call in self.call_stack[-3:]]
 
         return context
 
-    def _check_pre_execution_optimization(
-        self, tool_name: str, kwargs: Dict[str, Any]
-    ) -> Optional[str]:
+    def _check_pre_execution_optimization(self, tool_name: str, kwargs: Dict[str, Any]) -> Optional[str]:
         """Check for optimization opportunities before tool execution."""
         optimizations = []
 
@@ -193,19 +187,13 @@ class ToolCallInterceptor:
 
         return "; ".join(optimizations) if optimizations else None
 
-    def _check_post_execution_optimization(
-        self, call_data: Dict[str, Any], result: Any
-    ) -> None:
+    def _check_post_execution_optimization(self, call_data: Dict[str, Any], result: Any) -> None:
         """Check for optimization opportunities after tool execution."""
         tool_name = call_data["tool_name"]
         execution_time = call_data["execution_time"]
 
         # Cache successful results for potential reuse
-        if (
-            call_data["success"]
-            and self.current_context
-            and self.current_context.cache_enabled
-        ):
+        if call_data["success"] and self.current_context and self.current_context.cache_enabled:
             cache_key = self._generate_cache_key(tool_name, call_data["args"])
             self.performance_cache[cache_key] = {
                 "result": result,
@@ -215,9 +203,7 @@ class ToolCallInterceptor:
 
         # Analyze performance
         if execution_time > 5.0:  # Slow execution threshold
-            logger.warning(
-                f"Slow tool execution detected: {tool_name} took {execution_time:.2f}s"
-            )
+            logger.warning(f"Slow tool execution detected: {tool_name} took {execution_time:.2f}s")
             self._suggest_performance_improvements(call_data)
 
         # Check for sequence optimization opportunities
@@ -260,9 +246,7 @@ class ToolCallInterceptor:
 
         return False
 
-    def _suggest_tool_alternative(
-        self, tool_name: str, kwargs: Dict[str, Any]
-    ) -> Optional[str]:
+    def _suggest_tool_alternative(self, tool_name: str, kwargs: Dict[str, Any]) -> Optional[str]:
         """Suggest alternative tools that might be more efficient."""
 
         # Tool alternatives mapping
@@ -288,9 +272,7 @@ class ToolCallInterceptor:
 
         return None
 
-    def _suggest_parameter_optimizations(
-        self, tool_name: str, kwargs: Dict[str, Any]
-    ) -> List[str]:
+    def _suggest_parameter_optimizations(self, tool_name: str, kwargs: Dict[str, Any]) -> List[str]:
         """Suggest parameter optimizations for better performance."""
         suggestions = []
 
@@ -361,9 +343,7 @@ class ToolCallInterceptor:
             "package_browse",
             "package_contents_search",
         ]:
-            logger.info(
-                "Optimization: Consider using search with filters instead of browse+search"
-            )
+            logger.info("Optimization: Consider using search with filters instead of browse+search")
 
     def _args_similar(self, args1: Dict[str, Any], args2: Dict[str, Any]) -> bool:
         """Check if two argument sets are similar enough to be considered redundant."""
@@ -384,9 +364,7 @@ class ToolCallInterceptor:
         """Generate an optimization report based on collected data."""
         return {
             "total_calls": len(self.call_stack),
-            "current_context": (
-                self.current_context.__dict__ if self.current_context else None
-            ),
+            "current_context": (self.current_context.__dict__ if self.current_context else None),
             "cache_size": len(self.performance_cache),
             "recent_tools": [call["tool_name"] for call in self.call_stack[-10:]],
             "performance_summary": self.telemetry.get_performance_metrics(),

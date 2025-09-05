@@ -169,9 +169,7 @@ def create_package_enhanced(
                     template_metadata["_extracted_readme"] = readme_content
 
             # Validate final metadata
-            validation_result = validate_metadata_structure(
-                template_metadata, metadata_template
-            )
+            validation_result = validate_metadata_structure(template_metadata, metadata_template)
             if not validation_result["valid"]:
                 return {
                     "success": False,
@@ -216,12 +214,8 @@ def create_package_enhanced(
                 "metadata_preview": template_metadata,
                 "validation": validation_result,
                 "summary_files_preview": {
-                    "quilt_summarize.json": summary_preview.get(
-                        "summary_package", {}
-                    ).get("quilt_summarize.json", {}),
-                    "visualizations": summary_preview.get("summary_package", {}).get(
-                        "visualizations", {}
-                    ),
+                    "quilt_summarize.json": summary_preview.get("summary_package", {}).get("quilt_summarize.json", {}),
+                    "visualizations": summary_preview.get("summary_package", {}).get("visualizations", {}),
                     "files_generated": summary_preview.get("files_generated", {}),
                 },
                 "next_steps": [
@@ -237,15 +231,11 @@ def create_package_enhanced(
             from .permissions import bucket_recommendations_get
 
             try:
-                recommendations = bucket_recommendations_get(
-                    operation_type="package_creation"
-                )
-                if recommendations.get("success") and recommendations.get(
-                    "recommendations", {}
-                ).get("primary_recommendations"):
-                    top_rec = recommendations["recommendations"][
-                        "primary_recommendations"
-                    ][0]
+                recommendations = bucket_recommendations_get(operation_type="package_creation")
+                if recommendations.get("success") and recommendations.get("recommendations", {}).get(
+                    "primary_recommendations"
+                ):
+                    top_rec = recommendations["recommendations"]["primary_recommendations"][0]
                     registry = f"s3://{top_rec['bucket_name']}"
                     logger.info(f"Auto-selected registry: {registry}")
                 else:
@@ -430,9 +420,7 @@ def package_update_metadata(
             from ..utils import suppress_stdout
 
             with suppress_stdout():
-                top_hash = pkg.push(
-                    package_name, registry=registry, message=commit_message, force=True
-                )
+                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
 
             return {
                 "success": True,
@@ -477,9 +465,7 @@ def package_update_metadata(
         return format_error_response(f"Metadata update failed: {str(e)}")
 
 
-def _validate_package_alternative(
-    package_name: str, registry: str, browse_error: Dict[str, Any]
-) -> Dict[str, Any]:
+def _validate_package_alternative(package_name: str, registry: str, browse_error: Dict[str, Any]) -> Dict[str, Any]:
     """Alternative validation approach when package browsing fails."""
     try:
         # Try to check if package exists using search
@@ -499,12 +485,8 @@ def _validate_package_alternative(
                     "total_files": "unknown",
                     "accessible_files": "unknown",
                     "inaccessible_files": "unknown",
-                    "errors": [
-                        f"Package browsing failed: {browse_error.get('error', 'Unknown error')}"
-                    ],
-                    "warnings": [
-                        "Could not validate individual files due to browsing failure"
-                    ],
+                    "errors": [f"Package browsing failed: {browse_error.get('error', 'Unknown error')}"],
+                    "warnings": ["Could not validate individual files due to browsing failure"],
                 },
                 "summary": {
                     "package_exists": True,
@@ -525,9 +507,7 @@ def _validate_package_alternative(
                 "error": "Cannot validate package - browsing failed",
                 "browse_error": browse_error.get("error"),
                 "search_attempted": True,
-                "search_result": search_result.get(
-                    "error", "Package not found in search"
-                ),
+                "search_result": search_result.get("error", "Package not found in search"),
                 "suggested_fixes": [
                     "Verify the package name is correct",
                     "Check if you have access to the registry",
@@ -577,9 +557,7 @@ def package_validate(
 
         if not browse_result.get("success"):
             # Try alternative validation approach if browsing fails
-            return _validate_package_alternative(
-                package_name, target_registry, browse_result
-            )
+            return _validate_package_alternative(package_name, target_registry, browse_result)
 
         entries = browse_result.get("entries", [])
         validation_results = {
@@ -599,9 +577,7 @@ def package_validate(
                 else:
                     validation_results["inaccessible_files"] += 1
                     if entry.get("error"):
-                        validation_results["errors"].append(
-                            f"File {entry['logical_key']}: {entry['error']}"
-                        )
+                        validation_results["errors"].append(f"File {entry['logical_key']}: {entry['error']}")
 
         # Generate validation summary
         if validation_results["inaccessible_files"] > 0:

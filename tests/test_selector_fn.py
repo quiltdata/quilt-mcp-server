@@ -42,9 +42,7 @@ class MockPackage:
                 # In real quilt3, this boolean result is used to determine file inclusion
                 # For our mock, we just verify it's a boolean
                 if not isinstance(should_include, bool):
-                    raise ValueError(
-                        f"selector_fn must return boolean, got {type(should_include)}"
-                    )
+                    raise ValueError(f"selector_fn must return boolean, got {type(should_include)}")
         return "test_top_hash"
 
 

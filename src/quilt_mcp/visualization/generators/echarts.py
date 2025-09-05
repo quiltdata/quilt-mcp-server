@@ -82,11 +82,7 @@ class EChartsGenerator:
                     "name": values,
                     "type": "bar",
                     "data": values_list,
-                    "itemStyle": {
-                        "color": (
-                            color_scheme[0] if color_scheme else self.default_colors[0]
-                        )
-                    },
+                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
                     "barWidth": "60%",
                 }
             ],
@@ -148,11 +144,7 @@ class EChartsGenerator:
                     "name": y_col,
                     "type": "line",
                     "data": y_values,
-                    "itemStyle": {
-                        "color": (
-                            color_scheme[0] if color_scheme else self.default_colors[0]
-                        )
-                    },
+                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
                     "lineStyle": {"width": 2},
                     "symbol": "circle",
                     "symbolSize": 4,
@@ -218,11 +210,7 @@ class EChartsGenerator:
                     "name": f"{y_col} vs {x_col}",
                     "type": "scatter",
                     "data": scatter_data,
-                    "itemStyle": {
-                        "color": (
-                            color_scheme[0] if color_scheme else self.default_colors[0]
-                        )
-                    },
+                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
                     "symbolSize": 6,
                 }
             ],
@@ -262,9 +250,7 @@ class EChartsGenerator:
 
         # Pivot data for heatmap
         try:
-            pivot_data = chart_data.pivot_table(
-                values=value_col, index=y_col, columns=x_col, aggfunc="mean"
-            ).fillna(0)
+            pivot_data = chart_data.pivot_table(values=value_col, index=y_col, columns=x_col, aggfunc="mean").fillna(0)
         except Exception:
             return self._create_empty_chart("Heatmap - Data not suitable for heatmap")
 
@@ -437,9 +423,7 @@ class EChartsGenerator:
                 {
                     "name": "Genomic Data",
                     "type": "heatmap",
-                    "data": [
-                        [i, 0, 50] for i in range(len(regions))
-                    ],  # Placeholder data
+                    "data": [[i, 0, 50] for i in range(len(regions))],  # Placeholder data
                     "label": {"show": False},
                     "emphasis": {
                         "itemStyle": {
@@ -493,14 +477,8 @@ class EChartsGenerator:
                 {
                     "name": sample,
                     "type": "bar",
-                    "data": (
-                        chart_data[sample].tolist()
-                        if sample in chart_data.columns
-                        else []
-                    ),
-                    "itemStyle": {
-                        "color": self.default_colors[i % len(self.default_colors)]
-                    },
+                    "data": (chart_data[sample].tolist() if sample in chart_data.columns else []),
+                    "itemStyle": {"color": self.default_colors[i % len(self.default_colors)]},
                 }
                 for i, sample in enumerate(samples)
                 if sample in gene_data.columns

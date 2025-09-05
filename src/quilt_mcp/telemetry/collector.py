@@ -111,9 +111,7 @@ class TelemetryCollector:
 
         self.privacy_manager = PrivacyManager(self.config.privacy_level)
 
-        logger.info(
-            f"TelemetryCollector initialized: enabled={self.config.enabled}, level={self.config.level.value}"
-        )
+        logger.info(f"TelemetryCollector initialized: enabled={self.config.enabled}, level={self.config.level.value}")
 
     def start_session(self, task_type: Optional[str] = None) -> str:
         """Start a new task session."""
@@ -124,17 +122,13 @@ class TelemetryCollector:
         self.current_session_id = session_id
         self.sequence_counter = 0
 
-        session = TaskSession(
-            session_id=session_id, start_time=time.time(), task_type=task_type
-        )
+        session = TaskSession(session_id=session_id, start_time=time.time(), task_type=task_type)
         self.sessions[session_id] = session
 
         logger.debug(f"Started telemetry session: {session_id}")
         return session_id
 
-    def end_session(
-        self, session_id: Optional[str] = None, completed: bool = True
-    ) -> None:
+    def end_session(self, session_id: Optional[str] = None, completed: bool = True) -> None:
         """End a task session."""
         if not self.config.enabled:
             return
@@ -271,12 +265,8 @@ class TelemetryCollector:
         total_calls = sum(len(s.tool_calls) for s in self.sessions.values())
 
         # Calculate average metrics
-        avg_calls_per_session = (
-            total_calls / total_sessions if total_sessions > 0 else 0
-        )
-        completion_rate = (
-            completed_sessions / total_sessions if total_sessions > 0 else 0
-        )
+        avg_calls_per_session = total_calls / total_sessions if total_sessions > 0 else 0
+        completion_rate = completed_sessions / total_sessions if total_sessions > 0 else 0
 
         # Tool usage statistics
         tool_usage = {}
@@ -301,26 +291,18 @@ class TelemetryCollector:
             return 0.0
 
         # Basic efficiency metrics
-        success_rate = sum(1 for call in session.tool_calls if call.success) / len(
-            session.tool_calls
-        )
+        success_rate = sum(1 for call in session.tool_calls if call.success) / len(session.tool_calls)
 
         # Penalize for too many calls (assuming optimal is around 3-5 calls per task)
         optimal_calls = 4
         call_efficiency = min(1.0, optimal_calls / len(session.tool_calls))
 
         # Reward fast execution
-        avg_execution_time = sum(
-            call.execution_time for call in session.tool_calls
-        ) / len(session.tool_calls)
-        time_efficiency = min(
-            1.0, 2.0 / max(avg_execution_time, 0.1)
-        )  # Assume 2s is optimal
+        avg_execution_time = sum(call.execution_time for call in session.tool_calls) / len(session.tool_calls)
+        time_efficiency = min(1.0, 2.0 / max(avg_execution_time, 0.1))  # Assume 2s is optimal
 
         # Combined score
-        efficiency_score = (
-            (success_rate * 0.5) + (call_efficiency * 0.3) + (time_efficiency * 0.2)
-        )
+        efficiency_score = (success_rate * 0.5) + (call_efficiency * 0.3) + (time_efficiency * 0.2)
         return round(efficiency_score, 3)
 
     def export_data(self, format: str = "json") -> Union[str, Dict[str, Any]]:

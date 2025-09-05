@@ -80,9 +80,7 @@ class TestAWSPermissionsDiscover:
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
 
-        mock_identity = UserIdentity(
-            user_id="test", arn="test", account_id="123", user_type="user"
-        )
+        mock_identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
         mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
 
         mock_bucket = BucketInfo(
@@ -136,9 +134,7 @@ class TestBucketAccessCheck:
             last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(
-            return_value={"read": True, "write": True, "list": True}
-        )
+        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": True, "list": True})
 
         result = bucket_access_check("test-bucket")
 
@@ -163,9 +159,7 @@ class TestBucketAccessCheck:
             last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(
-            return_value={"read": True, "write": False, "list": True}
-        )
+        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": False, "list": True})
 
         result = bucket_access_check("readonly-bucket", ["read", "write", "list"])
 
@@ -207,9 +201,7 @@ class TestBucketRecommendations:
         ]
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
 
-        result = bucket_recommendations_get(
-            source_bucket="ml-training-data", operation_type="package_creation"
-        )
+        result = bucket_recommendations_get(source_bucket="ml-training-data", operation_type="package_creation")
 
         assert result["success"] is True
         assert result["operation_type"] == "package_creation"
@@ -225,9 +217,7 @@ class TestBucketRecommendations:
             {"name": "readonly-data", "permission_level": "read_only"},
         ]
 
-        identity = UserIdentity(
-            user_id="test", arn="test", account_id="123", user_type="user"
-        )
+        identity = UserIdentity(user_id="test", arn="test", account_id="123", user_type="user")
 
         recommendations = _generate_bucket_recommendations(bucket_permissions, identity)
 
@@ -284,9 +274,7 @@ class TestPermissionDiscoveryEngine:
         mock_session = Mock()
         mock_http_session = Mock()
         mock_http_session.post.return_value.status_code = 200
-        mock_http_session.post.return_value.json.return_value = {
-            "data": {"bucketConfigs": []}
-        }
+        mock_http_session.post.return_value.json.return_value = {"data": {"bucketConfigs": []}}
         mock_session.get_session.return_value = mock_http_session
         mock_session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session = mock_session
@@ -365,11 +353,7 @@ class TestPermissionDiscoveryEngine:
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
-        bucket_name = (
-            DEFAULT_BUCKET.replace("s3://", "")
-            if DEFAULT_BUCKET.startswith("s3://")
-            else DEFAULT_BUCKET
-        )
+        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
 
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions(bucket_name)

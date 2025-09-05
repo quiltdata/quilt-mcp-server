@@ -28,9 +28,7 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
     suggestions = []
 
     if "mismatched input" in error_message and "-" in query:
-        suggestions.append(
-            "Try wrapping database/table names with hyphens in double quotes"
-        )
+        suggestions.append("Try wrapping database/table names with hyphens in double quotes")
 
     if "TABLE_NOT_FOUND" in error_message:
         suggestions.append(
@@ -38,9 +36,7 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
         )
 
     if "%" in query and "format string" in error_message:
-        suggestions.append(
-            "Queries with '%' characters may cause formatting issues - try using different patterns"
-        )
+        suggestions.append("Queries with '%' characters may cause formatting issues - try using different patterns")
 
     if suggestions:
         return " Suggestions: " + "; ".join(suggestions)
@@ -89,9 +85,7 @@ def athena_tables_list(
         return format_error_response(f"Failed to list tables: {str(e)}")
 
 
-def athena_table_schema(
-    database_name: str, table_name: str, catalog_name: str = "AwsDataCatalog"
-) -> Dict[str, Any]:
+def athena_table_schema(database_name: str, table_name: str, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
     """
     Get detailed schema information for a specific table.
 
@@ -172,12 +166,8 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                         "state": workgroup_info.get("State"),
                         "description": workgroup_info.get("Description", ""),
                         "creation_time": workgroup_info.get("CreationTime"),
-                        "output_location": config.get("ResultConfiguration", {}).get(
-                            "OutputLocation"
-                        ),
-                        "enforce_workgroup_config": config.get(
-                            "EnforceWorkGroupConfiguration", False
-                        ),
+                        "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
+                        "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
                         "accessible": True,
                     }
                 )
@@ -199,8 +189,7 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
         workgroups.sort(
             key=lambda x: (
                 not x["accessible"],  # Accessible first
-                "quilt"
-                not in x["name"].lower(),  # Quilt workgroups first within accessible
+                "quilt" not in x["name"].lower(),  # Quilt workgroups first within accessible
                 x["name"],  # Alphabetical
             )
         )
@@ -266,10 +255,7 @@ def athena_query_execute(
             )
 
         # Validate database name format if provided
-        if database_name and (
-            "-" in database_name
-            or any(c in database_name for c in [" ", ".", "@", "/"])
-        ):
+        if database_name and ("-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"])):
             # Suggest proper escaping for complex database names
             logger.info(f"Using database with special characters: {database_name}")
 
@@ -279,17 +265,13 @@ def athena_query_execute(
             # For SHOW TABLES queries, suggest using information_schema instead
             if "-" in database_name:
                 suggestion = f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{database_name}'"
-                logger.info(
-                    f"Alternative query for database with hyphens: {suggestion}"
-                )
+                logger.info(f"Alternative query for database with hyphens: {suggestion}")
 
         if max_results < 1 or max_results > 10000:
             return format_error_response("max_results must be between 1 and 10000")
 
         if output_format not in ["json", "csv", "parquet", "table"]:
-            return format_error_response(
-                "output_format must be one of: json, csv, parquet, table"
-            )
+            return format_error_response("output_format must be one of: json, csv, parquet, table")
 
         # Execute query
         service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
@@ -325,11 +307,7 @@ def athena_query_execute(
                 f"Table not found. Use 'SHOW DATABASES' and 'SELECT table_name FROM information_schema.tables' "
                 f"to discover available tables. Original error: {error_str}"
             )
-        elif (
-            "SCHEMA_NOT_FOUND" in error_str
-            or "Schema" in error_str
-            and "does not exist" in error_str
-        ):
+        elif "SCHEMA_NOT_FOUND" in error_str or "Schema" in error_str and "does not exist" in error_str:
             return format_error_response(
                 f"Database/schema not found. Use 'SHOW DATABASES' to see available databases. "
                 f"For databases with hyphens, use double quotes. Original error: {error_str}"
@@ -350,9 +328,7 @@ def athena_query_execute(
         else:
             # Add query-specific suggestions
             suggestions = _suggest_query_fix(query, error_str)
-            return format_error_response(
-                f"Query execution failed: {error_str}{suggestions}"
-            )
+            return format_error_response(f"Query execution failed: {error_str}{suggestions}")
 
 
 def athena_query_history(
@@ -411,9 +387,7 @@ def athena_query_history(
             }
 
         # Get detailed information for each execution
-        batch_response = athena_client.batch_get_query_execution(
-            QueryExecutionIds=execution_ids
-        )
+        batch_response = athena_client.batch_get_query_execution(QueryExecutionIds=execution_ids)
 
         executions = []
         for exec_info in batch_response.get("QueryExecutions", []):
@@ -432,23 +406,15 @@ def athena_query_history(
                 "query_execution_id": exec_info.get("QueryExecutionId"),
                 "query": exec_info.get("Query", ""),
                 "status": status,
-                "submission_time": (
-                    submission_time.isoformat() if submission_time else None
-                ),
+                "submission_time": (submission_time.isoformat() if submission_time else None),
                 "completion_time": (
                     exec_info.get("Status", {}).get("CompletionDateTime").isoformat()
                     if exec_info.get("Status", {}).get("CompletionDateTime")
                     else None
                 ),
-                "execution_time_ms": exec_info.get("Statistics", {}).get(
-                    "TotalExecutionTimeInMillis"
-                ),
-                "data_scanned_bytes": exec_info.get("Statistics", {}).get(
-                    "DataScannedInBytes"
-                ),
-                "result_location": exec_info.get("ResultConfiguration", {}).get(
-                    "OutputLocation"
-                ),
+                "execution_time_ms": exec_info.get("Statistics", {}).get("TotalExecutionTimeInMillis"),
+                "data_scanned_bytes": exec_info.get("Statistics", {}).get("DataScannedInBytes"),
+                "result_location": exec_info.get("ResultConfiguration", {}).get("OutputLocation"),
                 "work_group": exec_info.get("WorkGroup"),
                 "database": exec_info.get("QueryExecutionContext", {}).get("Database"),
                 "error_message": exec_info.get("Status", {}).get("StateChangeReason"),
@@ -550,9 +516,7 @@ def athena_query_validate(query: str) -> Dict[str, Any]:
                 "success": False,
                 "valid": False,
                 "error": "Mismatched parentheses in query",
-                "suggestions": [
-                    "Check that all opening parentheses have matching closing parentheses"
-                ],
+                "suggestions": ["Check that all opening parentheses have matching closing parentheses"],
             }
 
         # Check for basic SELECT structure

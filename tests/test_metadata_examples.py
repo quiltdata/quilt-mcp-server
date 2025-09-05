@@ -23,9 +23,7 @@ def test_show_metadata_examples_structure():
 
     quick = guide["quick_reference"]
     assert "available_templates" in quick
-    assert set(["standard", "genomics", "ml", "research", "analytics"]).issubset(
-        set(quick["available_templates"])
-    )
+    assert set(["standard", "genomics", "ml", "research", "analytics"]).issubset(set(quick["available_templates"]))
 
 
 def test_create_metadata_from_template_success():
@@ -65,7 +63,4 @@ def test_fix_metadata_validation_issues_contents():
     assert "type_validation_error" in issues
 
     assert "step_by_step_fix" in info
-    assert any(
-        "Choose your approach" in step or step.startswith("1.")
-        for step in info["step_by_step_fix"]
-    )
+    assert any("Choose your approach" in step or step.startswith("1.") for step in info["step_by_step_fix"])

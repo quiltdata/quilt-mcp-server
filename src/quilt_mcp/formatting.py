@@ -36,10 +36,7 @@ def format_as_table(
             df = pd.DataFrame(data)
         elif isinstance(data, dict):
             # Handle single record or nested structure
-            if all(
-                isinstance(v, (str, int, float, bool, type(None)))
-                for v in data.values()
-            ):
+            if all(isinstance(v, (str, int, float, bool, type(None))) for v in data.values()):
                 # Single record
                 df = pd.DataFrame([data])
             else:
@@ -65,13 +62,9 @@ def format_as_table(
             df_safe = df_display.copy()
             for col in df_safe.columns:
                 if df_safe[col].dtype == "object":  # String columns
-                    df_safe[col] = (
-                        df_safe[col].astype(str).str.replace("%", "%%", regex=False)
-                    )
+                    df_safe[col] = df_safe[col].astype(str).str.replace("%", "%%", regex=False)
 
-            table_str = df_safe.to_string(
-                index=False, max_cols=None, max_colwidth=30, justify="left"
-            )
+            table_str = df_safe.to_string(index=False, max_cols=None, max_colwidth=30, justify="left")
         except (ValueError, TypeError) as e:
             # Handle formatting issues with special characters
             logger.warning(f"Table formatting failed, using simple representation: {e}")
@@ -92,9 +85,7 @@ def format_as_table(
         return f"Error formatting table: {str(e)}"
 
 
-def should_use_table_format(
-    data: Any, output_format: str = "auto", min_rows: int = 2, max_cols: int = 20
-) -> bool:
+def should_use_table_format(data: Any, output_format: str = "auto", min_rows: int = 2, max_cols: int = 20) -> bool:
     """Determine if data should be formatted as a table.
 
     Args:
@@ -236,16 +227,8 @@ def format_users_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
                     "SSO Only": "✓" if user.get("is_sso_only") else "✗",
                     "Service": "✓" if user.get("is_service") else "✗",
                     "Role": user.get("role", ""),
-                    "Extra Roles": (
-                        ", ".join(user.get("extra_roles", []))
-                        if user.get("extra_roles")
-                        else ""
-                    ),
-                    "Last Login": (
-                        user.get("last_login", "").split("T")[0]
-                        if user.get("last_login")
-                        else "Never"
-                    ),
+                    "Extra Roles": (", ".join(user.get("extra_roles", [])) if user.get("extra_roles") else ""),
+                    "Last Login": (user.get("last_login", "").split("T")[0] if user.get("last_login") else "Never"),
                 }
             )
 
@@ -287,9 +270,7 @@ def format_roles_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
                     "Name": role.get("name", ""),
                     "Type": role.get("type", ""),
                     "ARN": (
-                        role.get("arn", "")[:60] + "..."
-                        if len(role.get("arn", "")) > 60
-                        else role.get("arn", "")
+                        role.get("arn", "")[:60] + "..." if len(role.get("arn", "")) > 60 else role.get("arn", "")
                     ),
                 }
             )

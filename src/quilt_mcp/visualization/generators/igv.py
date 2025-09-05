@@ -38,9 +38,7 @@ class IGVGenerator:
             "methylation": "#8c564b",
         }
 
-    def create_genome_track(
-        self, data_file: str, track_type: str, config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def create_genome_track(self, data_file: str, track_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a genome track configuration.
 
@@ -57,9 +55,7 @@ class IGVGenerator:
             "url": data_file,
             "type": track_type,
             "height": config.get("height", 50),
-            "color": config.get(
-                "color", self.default_track_colors.get(track_type, "#1f77b4")
-            ),
+            "color": config.get("color", self.default_track_colors.get(track_type, "#1f77b4")),
             "visibilityWindow": config.get("visibility_window", -1),
             "autoScale": config.get("auto_scale", True),
             "displayMode": config.get("display_mode", "COLLAPSED"),
@@ -81,9 +77,7 @@ class IGVGenerator:
                     "type": "ANNOTATION",
                     "height": 80,
                     "autoScale": False,
-                    "color": config.get(
-                        "color", self.default_track_colors["annotations"]
-                    ),
+                    "color": config.get("color", self.default_track_colors["annotations"]),
                 }
             )
         elif track_type == "sequence":
@@ -92,17 +86,13 @@ class IGVGenerator:
                     "type": "SEQUENCE",
                     "height": 60,
                     "autoScale": False,
-                    "color": config.get(
-                        "color", self.default_track_colors["sequences"]
-                    ),
+                    "color": config.get("color", self.default_track_colors["sequences"]),
                 }
             )
 
         return track_config
 
-    def create_sequence_view(
-        self, fasta_file: str, annotations: List[str]
-    ) -> Dict[str, Any]:
+    def create_sequence_view(self, fasta_file: str, annotations: List[str]) -> Dict[str, Any]:
         """
         Create a sequence view configuration.
 
@@ -171,9 +161,7 @@ class IGVGenerator:
 
         return config
 
-    def create_expression_profile(
-        self, expression_data: str, gene_annotations: str
-    ) -> Dict[str, Any]:
+    def create_expression_profile(self, expression_data: str, gene_annotations: str) -> Dict[str, Any]:
         """
         Create an expression profile configuration.
 
@@ -235,9 +223,7 @@ class IGVGenerator:
 
         return config
 
-    def create_igv_session(
-        self, tracks: List[Dict[str, Any]], genome: str
-    ) -> Dict[str, Any]:
+    def create_igv_session(self, tracks: List[Dict[str, Any]], genome: str) -> Dict[str, Any]:
         """
         Create a complete IGV session configuration.
 
@@ -284,9 +270,7 @@ class IGVGenerator:
 
         return default_loci.get(genome, "chr1:1-1000000")
 
-    def create_multi_track_view(
-        self, track_files: List[str], track_types: List[str], genome: str
-    ) -> Dict[str, Any]:
+    def create_multi_track_view(self, track_files: List[str], track_types: List[str], genome: str) -> Dict[str, Any]:
         """
         Create a multi-track view configuration.
 
@@ -306,9 +290,7 @@ class IGVGenerator:
                 track_type,
                 {
                     "height": 60,
-                    "color": self.default_track_colors.get(
-                        track_type, self.default_track_colors["coverage"]
-                    ),
+                    "color": self.default_track_colors.get(track_type, self.default_track_colors["coverage"]),
                 },
             )
             tracks.append(track_config)
@@ -351,9 +333,7 @@ class IGVGenerator:
                 track_type,
                 {
                     "height": 80,
-                    "color": self.default_track_colors.get(
-                        track_type, self.default_track_colors["coverage"]
-                    ),
+                    "color": self.default_track_colors.get(track_type, self.default_track_colors["coverage"]),
                 },
             )
             tracks.append(track_config)
@@ -364,9 +344,7 @@ class IGVGenerator:
 
         return session_config
 
-    def optimize_track_layout(
-        self, tracks: List[Dict[str, Any]], max_height: int = 800
-    ) -> List[Dict[str, Any]]:
+    def optimize_track_layout(self, tracks: List[Dict[str, Any]], max_height: int = 800) -> List[Dict[str, Any]]:
         """
         Optimize track layout for better visualization.
 
@@ -392,9 +370,7 @@ class IGVGenerator:
         optimized_tracks = []
         for track in tracks:
             optimized_track = track.copy()
-            optimized_track["height"] = max(
-                30, int(track.get("height", 50) * scale_factor)
-            )
+            optimized_track["height"] = max(30, int(track.get("height", 50) * scale_factor))
             optimized_tracks.append(optimized_track)
 
         return optimized_tracks
@@ -439,9 +415,7 @@ class IGVGenerator:
 
         return summary
 
-    def export_session_file(
-        self, session_config: Dict[str, Any], output_path: str
-    ) -> bool:
+    def export_session_file(self, session_config: Dict[str, Any], output_path: str) -> bool:
         """
         Export IGV session configuration to a file.
 
@@ -484,9 +458,7 @@ class IGVGenerator:
             genome = session_config["genome"]
             if genome not in self.GENOME_ASSEMBLIES:
                 validation["warnings"].append(f"Unknown genome assembly: {genome}")
-                validation["suggestions"].append(
-                    f"Consider using one of: {list(self.GENOME_ASSEMBLIES.keys())}"
-                )
+                validation["suggestions"].append(f"Consider using one of: {list(self.GENOME_ASSEMBLIES.keys())}")
 
         # Validate tracks
         if "tracks" in session_config:

@@ -38,9 +38,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
             else:
-                self._update_status(
-                    BackendStatus.UNAVAILABLE, "No quilt3 session configured"
-                )
+                self._update_status(BackendStatus.UNAVAILABLE, "No quilt3 session configured")
         except Exception as e:
             self._session_available = False
             self._update_status(BackendStatus.ERROR, f"Session check failed: {e}")
@@ -54,9 +52,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 self._update_status(BackendStatus.AVAILABLE)
                 return True
             else:
-                self._update_status(
-                    BackendStatus.UNAVAILABLE, "No registry URL available"
-                )
+                self._update_status(BackendStatus.UNAVAILABLE, "No registry URL available")
                 return False
         except Exception as e:
             self._update_status(BackendStatus.ERROR, f"Health check failed: {e}")
@@ -144,18 +140,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         # For now, return empty results as this is handled by other tools
         return []
 
-    async def _search_global(
-        self, query: str, filters: Optional[Dict[str, Any]], limit: int
-    ) -> List[SearchResult]:
+    async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Global search across all stack buckets using the packages search API."""
         from ...tools.packages import packages_search
         from ...tools.stack_buckets import get_stack_buckets
 
         # Get all buckets in the stack for comprehensive search
         stack_buckets = get_stack_buckets()
-        logger.debug(
-            f"Searching across {len(stack_buckets)} stack buckets: {stack_buckets}"
-        )
+        logger.debug(f"Searching across {len(stack_buckets)} stack buckets: {stack_buckets}")
 
         # Use existing packages_search tool (now updated to search across stack)
         search_result = packages_search(query, limit=limit)
@@ -165,9 +157,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return self._convert_packages_results(search_result.get("results", []))
 
-    def get_total_count(
-        self, query: str, filters: Optional[Dict[str, Any]] = None
-    ) -> int:
+    def get_total_count(self, query: str, filters: Optional[Dict[str, Any]] = None) -> int:
         """Get total count of matching documents using Elasticsearch size=0 query."""
         from ...tools.packages import packages_search
 
@@ -193,19 +183,13 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         except Exception as e:
             raise Exception(f"Failed to get total count: {e}")
 
-    def _build_elasticsearch_query(
-        self, query: str, filters: Optional[Dict[str, Any]]
-    ) -> Union[str, Dict[str, Any]]:
+    def _build_elasticsearch_query(self, query: str, filters: Optional[Dict[str, Any]]) -> Union[str, Dict[str, Any]]:
         """Build Elasticsearch query from natural language and filters."""
         if not filters:
             return query
 
         # Build DSL query with filters
-        dsl_query = {
-            "query": {
-                "bool": {"must": [{"query_string": {"query": query}}], "filter": []}
-            }
-        }
+        dsl_query = {"query": {"bool": {"must": [{"query_string": {"query": query}}], "filter": []}}}
 
         # Add file extension filters using the proper 'ext' field
         if filters.get("file_extensions"):
@@ -216,9 +200,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 ext_terms.append(f".{ext_clean}")
 
             if ext_terms:
-                dsl_query["query"]["bool"]["filter"].append(
-                    {"terms": {"ext": ext_terms}}
-                )
+                dsl_query["query"]["bool"]["filter"].append({"terms": {"ext": ext_terms}})
 
         # Add size filters
         if filters.get("size_min") or filters.get("size_max"):
@@ -240,9 +222,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return dsl_query
 
-    def _convert_bucket_results(
-        self, raw_results: List[Dict[str, Any]], bucket: str
-    ) -> List[SearchResult]:
+    def _convert_bucket_results(self, raw_results: List[Dict[str, Any]], bucket: str) -> List[SearchResult]:
         """Convert quilt3.Bucket.search() results to standard format."""
         results = []
 
@@ -279,9 +259,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return results
 
-    def _convert_packages_results(
-        self, raw_results: List[Dict[str, Any]]
-    ) -> List[SearchResult]:
+    def _convert_packages_results(self, raw_results: List[Dict[str, Any]]) -> List[SearchResult]:
         """Convert packages_search results to standard format."""
         results = []
 

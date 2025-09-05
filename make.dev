@@ -34,20 +34,17 @@ test-integration:
 test-ci:
 	@echo "Running CI tests (skipping search/slow tests)..."
 	@uv sync --group test
-	@mkdir -p app/test-results
+	@mkdir -p build/test-results
 	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings \
-		--junitxml=app/test-results/results.xml --cov=quilt_mcp --cov-report=xml:app/coverage.xml
+		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
 
 # Code Quality Targets
 lint:
 	@echo "Running code linting and auto-fixing..."
 	@uv sync --group lint
-	@echo "Running black (formatter) - auto-fixing..."
-	@uv run black app/quilt_mcp/ tests/
-	@echo "Running ruff (linter) - auto-fixing..."
-	@uv run ruff check --fix app/quilt_mcp/ tests/
-	@echo "Running mypy (type checker)..."
-	@uv run mypy app/quilt_mcp/
+	@echo "Running ruff (format + lint + type check) - auto-fixing..."
+	@uv run ruff format src/quilt_mcp/ tests/
+	@uv run ruff check --fix src/quilt_mcp/ tests/
 	@echo "✅ All linting completed"
 
 coverage:

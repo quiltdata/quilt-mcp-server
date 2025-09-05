@@ -36,9 +36,7 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
 
     try:
         client = boto3.client("s3")
-        url = client.generate_presigned_url(
-            "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration
-        )
+        url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
         return str(url) if url else None
     except Exception:
         return None
@@ -92,9 +90,7 @@ def get_tool_modules() -> list[Any]:
     ]
 
 
-def register_tools(
-    mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True
-) -> int:
+def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:
     """Register all public functions from tool modules as MCP tools.
 
     Args:
@@ -116,8 +112,7 @@ def register_tools(
             return lambda obj: (
                 inspect.isfunction(obj)
                 and not obj.__name__.startswith("_")
-                and obj.__module__
-                == mod.__name__  # Only functions defined in this module
+                and obj.__module__ == mod.__name__  # Only functions defined in this module
             )
 
         functions = inspect.getmembers(module, predicate=make_predicate(module))
@@ -159,9 +154,7 @@ def format_error_response(message: str) -> Dict[str, Any]:
     return {
         "success": False,
         "error": message,
-        "timestamp": __import__("datetime")
-        .datetime.now(__import__("datetime").timezone.utc)
-        .isoformat(),
+        "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
     }
 
 
