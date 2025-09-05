@@ -1,4 +1,4 @@
-import os, subprocess, sys, shutil, json, pathlib, stat
+import os, subprocess, sys, pathlib, stat
 
 HERE = pathlib.Path(__file__).resolve().parent
 VENV = HERE / ".venv"
