@@ -293,6 +293,7 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 ### Pre-approved Makefile Targets
 
 **Development Workflow (make.dev):**
+
 - `make run` - Start local MCP server
 - `make test` - Run all tests
 - `make test-unit` - Run unit tests only (fast)
@@ -303,6 +304,7 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 - `make run-inspector` - Launch MCP Inspector for testing
 
 **Production Workflow (make.deploy):**
+
 - `make build` - Prepare production build environment
 - `make package` - Create Python package
 - `make dxt-package` - Create DXT package
@@ -310,6 +312,7 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 - `make release-package` - Create release bundle with documentation
 
 **Coordination & Utilities:**
+
 - `make help` - Show all available targets organized by category
 - `make clean` - Clean all artifacts (dev + deploy)
 - `make release` - Full release workflow (test → build → package)
