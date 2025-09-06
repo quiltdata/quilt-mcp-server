@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 
 class LLMMCPTester:
@@ -42,7 +42,7 @@ class LLMMCPTester:
         }
 
         # Create temporary config file
-        config_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        config_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         json.dump(config, config_file, indent=2)
         config_file.close()
 
@@ -141,7 +141,12 @@ class LLMMCPTester:
 
         start_time = time.time()
 
-        list_tools_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+        list_tools_request = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {},
+        }
 
         response = await self.send_mcp_request(list_tools_request)
         end_time = time.time()
@@ -158,7 +163,11 @@ class LLMMCPTester:
 
             # Check for key tools
             tool_names = [tool["name"] for tool in tools]
-            key_tools = ["mcp_quilt_auth_status", "mcp_quilt_packages_search", "unified_search"]
+            key_tools = [
+                "mcp_quilt_auth_status",
+                "mcp_quilt_packages_search",
+                "unified_search",
+            ]
             found_key_tools = [tool for tool in key_tools if tool in tool_names]
             print(f"   ✅ Key tools found: {found_key_tools}")
 
@@ -169,7 +178,7 @@ class LLMMCPTester:
             "success": success,
             "response": response,
             "execution_time_ms": round((end_time - start_time) * 1000, 2),
-            "tools_count": len(response.get("result", {}).get("tools", [])) if success else 0,
+            "tools_count": (len(response.get("result", {}).get("tools", [])) if success else 0),
         }
 
     async def test_tool_call(self, tool_name: str, arguments: Dict[str, Any], request_id: int = 3) -> Dict[str, Any]:
@@ -199,7 +208,7 @@ class LLMMCPTester:
                 content = result["content"]
                 if isinstance(content, list) and len(content) > 0:
                     first_content = content[0]
-                    if hasattr(first_content, 'text'):
+                    if hasattr(first_content, "text"):
                         try:
                             parsed = json.loads(first_content.text)
                             if "success" in parsed:
@@ -250,13 +259,24 @@ class LLMMCPTester:
         # Test search functions
         search_tests = [
             ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
-            ("mcp_quilt_bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}),
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+            ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
 
         # Test unified search if available
         search_tests.append(
-            ("unified_search", {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True})
+            (
+                "unified_search",
+                {
+                    "query": "CSV files",
+                    "scope": "catalog",
+                    "limit": 3,
+                    "explain_query": True,
+                },
+            )
         )
 
         request_id = 20
@@ -275,9 +295,15 @@ class LLMMCPTester:
 
         # Test error cases
         error_tests = [
-            ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid parameters
+            (
+                "mcp_quilt_packages_search",
+                {"query": "", "limit": -1},
+            ),  # Invalid parameters
             ("nonexistent_tool", {"any": "args"}),  # Nonexistent tool
-            ("mcp_quilt_bucket_objects_search", {"bucket": "invalid-bucket"}),  # Invalid bucket
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "invalid-bucket"},
+            ),  # Invalid bucket
         ]
 
         request_id = 30
@@ -355,7 +381,10 @@ class LLMMCPTester:
             return {"error": "Failed to start MCP server"}
 
         try:
-            test_results = {"timestamp": time.time(), "test_type": "LLM-MCP Integration"}
+            test_results = {
+                "timestamp": time.time(),
+                "test_type": "LLM-MCP Integration",
+            }
 
             # Run protocol tests
             test_results["handshake"] = await self.test_mcp_handshake()

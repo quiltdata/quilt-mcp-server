@@ -18,7 +18,7 @@ from typing import Dict, Any, List
 import traceback
 
 # Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
 from quilt_mcp.utils import create_mcp_server, register_tools
 from mcp.types import CallToolRequest, ListToolsRequest
@@ -69,7 +69,7 @@ class MCPServerTester:
                 "arguments": arguments,
                 "response": response.content,
                 "execution_time_ms": round((end_time - start_time) * 1000, 2),
-                "is_error": response.isError if hasattr(response, 'isError') else False,
+                "is_error": response.isError if hasattr(response, "isError") else False,
             }
         except Exception as e:
             end_time = time.time()
@@ -115,7 +115,10 @@ class MCPServerTester:
         # Test different search functions
         search_tests = [
             ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
-            ("mcp_quilt_bucket_objects_search", {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3}),
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+            ),
         ]
 
         # Add unified search if available
@@ -124,7 +127,15 @@ class MCPServerTester:
             tool_names = [tool["name"] for tool in tools_response["tools"]]
             if "unified_search" in tool_names:
                 search_tests.append(
-                    ("unified_search", {"query": "CSV files", "scope": "catalog", "limit": 3, "explain_query": True})
+                    (
+                        "unified_search",
+                        {
+                            "query": "CSV files",
+                            "scope": "catalog",
+                            "limit": 3,
+                            "explain_query": True,
+                        },
+                    )
                 )
 
         for tool_name, args in search_tests:
@@ -140,7 +151,7 @@ class MCPServerTester:
                     if isinstance(response_content, list) and len(response_content) > 0:
                         content = (
                             response_content[0].text
-                            if hasattr(response_content[0], 'text')
+                            if hasattr(response_content[0], "text")
                             else str(response_content[0])
                         )
                         try:
@@ -163,7 +174,10 @@ class MCPServerTester:
         # Test with invalid inputs
         error_tests = [
             ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid limit
-            ("mcp_quilt_bucket_objects_search", {"bucket": "invalid-bucket", "query": "test"}),  # Invalid bucket
+            (
+                "mcp_quilt_bucket_objects_search",
+                {"bucket": "invalid-bucket", "query": "test"},
+            ),  # Invalid bucket
             ("nonexistent_tool", {"any": "args"}),  # Nonexistent tool
         ]
 
@@ -281,7 +295,7 @@ async def main():
         # Overall assessment
         total_tests = total_basic + total_search + total_errors + 1  # +1 for performance
         passed_tests = (
-            successful_basic + successful_search + handled_errors + (1 if perf['successful_calls'] >= 4 else 0)
+            successful_basic + successful_search + handled_errors + (1 if perf["successful_calls"] >= 4 else 0)
         )
 
         print(f"\n🎯 Overall: {passed_tests}/{total_tests} test categories passed")
