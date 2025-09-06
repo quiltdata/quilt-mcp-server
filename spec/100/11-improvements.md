@@ -122,7 +122,7 @@ marimo/_static/, __marimo__/         # Marimo-related paths
 
 **Scripts Identified:**
 
-```
+```tree
 bin/common.sh           - Shared utilities
 bin/release.sh          - Release management  
 bin/test-endpoint.sh    - Endpoint testing (22KB - large)
