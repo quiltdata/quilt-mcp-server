@@ -5,7 +5,7 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: ['**']  # Run CI on PRs to any branch (for stacked PR workflows)
   workflow_dispatch:
 
 jobs:
@@ -46,8 +46,8 @@ jobs:
       with:
         name: test-results-py${{ matrix.python-version }}
         path: |
-          app/test-results/
-          app/coverage.xml
+          build/test-results/
+          src/coverage.xml
         retention-days: 7
 
   build-and-release:

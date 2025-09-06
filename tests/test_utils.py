@@ -39,7 +39,7 @@ class TestUtils(unittest.TestCase):
         try:
             import boto3
 
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
             pytest.skip("AWS credentials not available")
@@ -66,7 +66,9 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(result, "https://signed.url")
         mock_boto_client.assert_called_once_with("s3")
         mock_client.generate_presigned_url.assert_called_once_with(
-            "get_object", Params={"Bucket": "my-bucket", "Key": "my-key.txt"}, ExpiresIn=1800
+            "get_object",
+            Params={"Bucket": "my-bucket", "Key": "my-key.txt"},
+            ExpiresIn=1800,
         )
 
     @pytest.mark.aws

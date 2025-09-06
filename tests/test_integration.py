@@ -410,9 +410,14 @@ class TestQuiltAPI:
         assert "cause" in result
 
         error_msg = str(result.get("error", "")).lower()
-        assert any(term in error_msg for term in ["failed to browse", "package", "definitely/nonexistent/package"]), (
-            f"Expected meaningful error message, got: {result}"
-        )
+        assert any(
+            term in error_msg
+            for term in [
+                "failed to browse",
+                "package",
+                "definitely/nonexistent/package",
+            ]
+        ), f"Expected meaningful error message, got: {result}"
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
@@ -638,7 +643,13 @@ class TestQuiltAPI:
         # Should get a meaningful error about packages not being found
         error_msg = result["error"].lower()
         assert any(
-            term in error_msg for term in ["failed to browse", "not found", "does not exist", "no such file"]
+            term in error_msg
+            for term in [
+                "failed to browse",
+                "not found",
+                "does not exist",
+                "no such file",
+            ]
         ), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 

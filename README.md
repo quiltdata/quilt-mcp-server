@@ -40,12 +40,12 @@ cp -i env.example .env
 uv sync
 
 # 3. Run server (in background)
-make app &
+make run &
 SERVER_PID=$!
 
 # 4. Verify that it works
 sleep 8
-shared/test-endpoint.sh http://127.0.0.1:8000/mcp/
+bin/mcp-test.py http://127.0.0.1:8000/mcp/
 kill $SERVER_PID
 ```
 
@@ -116,7 +116,7 @@ kill $SERVER_PID
 
    ```bash
    # Test server
-   make app
+   make run
    curl -X POST http://localhost:8000/mcp \\
         -H \"Content-Type: application/json\" \\
         -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}'
@@ -221,7 +221,7 @@ We maintain **85%+ test coverage** with comprehensive real-world validation:
 make coverage
 
 # Integration tests  
-make test-app
+make test
 
 # Real-world scenarios
 python test_cases/sail_user_stories_real_test.py
@@ -248,7 +248,7 @@ git checkout -b feature/your-feature-name
 
 # 3. Setup development environment
 uv sync --group test
-make validate-app
+make test
 
 # 4. Make changes and test
 make coverage
@@ -288,7 +288,7 @@ graph LR
 2. **Develop and test** your changes:
 
    ```bash
-   make validate-app  # Run all checks
+   make test  # Run all checks
    make coverage      # Ensure test coverage
    ```
 
@@ -408,8 +408,8 @@ results = await mcp_client.call_tool(\"athena_query_execute\", {
 
 ```bash
 # Core operations
-make app                     # Run local server
-make validate-app           # Validate setup
+make run                     # Run local server
+make test           # Validate setup
 make coverage              # Run tests with coverage
 
 # Development tools  
@@ -417,7 +417,7 @@ make run-app-tunnel        # Expose via ngrok
 cd app && make run-inspector # Open tool explorer
 
 # Testing
-make test-app              # Unit tests
+make test              # Unit tests
 python test_cases/sail_user_stories_real_test.py  # Real data tests
 
 # Deployment (optional)
@@ -455,14 +455,14 @@ aws s3 ls s3://your-bucket  # Test S3 permissions
 
 ```bash
 export PYTHONPATH=/path/to/quilt-mcp-server/app
-cd quilt-mcp-server && make app
+cd quilt-mcp-server && make run
 ```
 
 ### Getting Help
 
 - **📖 Documentation**: Check [docs/](docs/) for detailed guides ([Documentation Index](docs/README.md))
 - **🔧 Tool Explorer**: Use `make run-inspector` for interactive testing
-- **✅ Validation**: Run `make validate-app` for comprehensive checks
+- **✅ Validation**: Run `make test` for comprehensive checks
 - **🐛 Issues**: Report bugs via [GitHub Issues](https://github.com/quiltdata/quilt-mcp-server/issues)
 
 ## 📄 License

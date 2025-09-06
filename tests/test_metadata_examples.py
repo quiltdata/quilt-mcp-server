@@ -42,7 +42,10 @@ def test_create_metadata_from_template_success():
 
 
 def test_create_metadata_from_template_failure():
-    with patch("quilt_mcp.tools.metadata_examples.get_metadata_template", side_effect=Exception("boom")):
+    with patch(
+        "quilt_mcp.tools.metadata_examples.get_metadata_template",
+        side_effect=Exception("boom"),
+    ):
         result = create_metadata_from_template("unknown", "desc", {"x": 1})
         assert result["success"] is False
         assert "Failed to create metadata from template" in result["error"]

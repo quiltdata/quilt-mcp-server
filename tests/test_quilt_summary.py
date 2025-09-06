@@ -18,14 +18,25 @@ class TestQuiltSummary:
         """Test basic quilt_summarize.json generation."""
         package_name = "test/package"
         package_metadata = {
-            "quilt": {"created_by": "test-user", "creation_date": "2024-01-01T00:00:00Z", "package_version": "1.0.0"}
+            "quilt": {
+                "created_by": "test-user",
+                "creation_date": "2024-01-01T00:00:00Z",
+                "package_version": "1.0.0",
+            }
         }
         organized_structure = {
-            "data": [{"Key": "data/file1.csv", "Size": 1024}, {"Key": "data/file2.csv", "Size": 2048}],
+            "data": [
+                {"Key": "data/file1.csv", "Size": 1024},
+                {"Key": "data/file2.csv", "Size": 2048},
+            ],
             "docs": [{"Key": "docs/readme.md", "Size": 512}],
         }
         readme_content = "# Test Package\n\nTest content"
-        source_info = {"type": "s3_bucket", "bucket": "test-bucket", "prefix": "test-prefix"}
+        source_info = {
+            "type": "s3_bucket",
+            "bucket": "test-bucket",
+            "prefix": "test-prefix",
+        }
 
         result = generate_quilt_summarize_json(
             package_name=package_name,
@@ -64,13 +75,16 @@ class TestQuiltSummary:
         assert result["package_info"]["namespace"] == "invalid"
         assert result["package_info"]["package_name"] == "package"
 
-    @patch('matplotlib.pyplot.savefig')
-    @patch('matplotlib.pyplot.close')
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.close")
     def test_generate_package_visualizations(self, mock_close, mock_savefig):
         """Test package visualization generation."""
         package_name = "test/package"
         organized_structure = {
-            "data": [{"Key": "data/file1.csv", "Size": 1024}, {"Key": "data/file2.csv", "Size": 2048}],
+            "data": [
+                {"Key": "data/file1.csv", "Size": 1024},
+                {"Key": "data/file2.csv", "Size": 2048},
+            ],
             "docs": [{"Key": "docs/readme.md", "Size": 512}],
         }
         file_types = {"csv": 2, "md": 1}
@@ -92,10 +106,17 @@ class TestQuiltSummary:
         """Test complete quilt summary file creation."""
         package_name = "test/package"
         package_metadata = {
-            "quilt": {"created_by": "test-user", "creation_date": "2024-01-01T00:00:00Z", "package_version": "1.0.0"}
+            "quilt": {
+                "created_by": "test-user",
+                "creation_date": "2024-01-01T00:00:00Z",
+                "package_version": "1.0.0",
+            }
         }
         organized_structure = {
-            "data": [{"Key": "data/file1.csv", "Size": 1024}, {"Key": "data/file2.csv", "Size": 2048}]
+            "data": [
+                {"Key": "data/file1.csv", "Size": 1024},
+                {"Key": "data/file2.csv", "Size": 2048},
+            ]
         }
         readme_content = "# Test Package\n\nTest content"
         source_info = {"type": "s3_bucket", "bucket": "test-bucket"}
