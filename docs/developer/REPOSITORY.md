@@ -1,10 +1,11 @@
 # Repository Structure and Organization
 
-This document provides a comprehensive overview of the Quilt MCP Server repository structure, explaining the purpose and contents of each directory and key file.
+This document provides a comprehensive overview of the Quilt MCP Server repository structure,
+explaining the purpose and contents of each directory and key file.
 
 ## 📁 Repository Overview
 
-```
+```text
 quilt-mcp-server/
 ├── 📁 .claude/                # Claude AI assistant configuration
 ├── 📁 .github/                # GitHub workflows and templates
@@ -35,7 +36,7 @@ quilt-mcp-server/
 
 The core implementation of the MCP server:
 
-```
+```text
 src/
 ├── 📄 main.py                 # MCP server entry point
 ├── 📁 deploy/                 # DXT deployment assets
@@ -68,7 +69,7 @@ src/
 
 Development and testing utilities:
 
-```
+```text
 bin/
 ├── 📄 check-dev.sh           # Development environment validation
 ├── 📄 common.sh              # Common shell functions
@@ -83,7 +84,7 @@ bin/
 
 Comprehensive test coverage with multiple test types:
 
-```
+```text
 tests/
 ├── 📁 configs/               # Test configurations
 │   └── 📄 mcp-test.yaml     # MCP testing configuration
@@ -97,7 +98,7 @@ tests/
 
 ### `docs/` - Documentation Hub
 
-```
+```text
 docs/
 ├── 📁 api/                   # API documentation
 ├── 📁 architecture/          # System architecture docs
@@ -113,7 +114,7 @@ docs/
 
 Design specifications and implementation tracking:
 
-```
+```text
 spec/
 ├── 📁 87/                    # Issue #87 specifications
 ├── 📁 100/                   # Issue #100 cleanup specifications
@@ -131,12 +132,14 @@ spec/
 ### Key Build Targets
 
 **Development:**
+
 - `make run` - Start local MCP server
 - `make test` - Run comprehensive test suite
 - `make lint` - Code formatting and type checking
 - `make clean` - Clean all build artifacts
 
 **Production:**
+
 - `make build` - Prepare production build
 - `make package` - Create DXT package
 - `make release` - Full release workflow
@@ -160,7 +163,7 @@ spec/
 
 ### `.claude/` - Claude Configuration
 
-```
+```text
 .claude/
 ├── 📁 agents/                # Specialized agent configurations
 └── 📄 config.json           # Claude-specific settings
@@ -220,4 +223,5 @@ spec/
 
 ---
 
-This repository follows modern Python development practices with comprehensive tooling for building, testing, and deploying production-ready MCP servers.
+This repository follows modern Python development practices with comprehensive tooling
+for building, testing, and deploying production-ready MCP servers.
