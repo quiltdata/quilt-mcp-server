@@ -14,7 +14,7 @@ This document outlines our comprehensive testing philosophy, practices, and real
 
 ### Testing Pyramid
 
-```
+```text
                     🔺
                    /   \
                   /  E2E \
@@ -51,6 +51,7 @@ open htmlcov/index.html
 ```
 
 **Example Unit Test**:
+
 ```python
 # tests/test_package_operations.py
 
@@ -101,13 +102,14 @@ class TestPackageBrowse:
 
 ```bash
 # Run integration tests
-make test-app
+make test
 
 # Run specific integration test
 pytest tests/test_integration.py::TestUnifiedSearch -v
 ```
 
 **Example Integration Test**:
+
 ```python
 # tests/test_integration.py
 
@@ -151,12 +153,14 @@ python test_cases/sail_user_stories_real_test.py
 ```
 
 **Test Scenarios**:
+
 - **SB001-REAL**: Federated discovery across Benchling and Quilt
 - **SB002-REAL**: Cross-system notebook summarization  
 - **SB003-REAL**: Package creation from Benchling sequences
 - **SB004-REAL**: Multi-system data correlation
 
 **Example Real-World Test**:
+
 ```python
 # test_cases/sail_user_stories_real_test.py
 
@@ -202,6 +206,7 @@ python test_cases/ccle_computational_biology_test_runner.py
 ```
 
 **Test Scenarios**:
+
 - **CB001**: Genomic data package creation
 - **CB002**: Cross-reference with genomic databases
 - **CB003**: Athena SQL queries on genomic data
@@ -220,12 +225,14 @@ python test_cases/mcp_comprehensive_test_simulation.py
 ```
 
 **Performance Metrics**:
+
 - **Response Time**: < 1 second for 90% of operations
 - **Throughput**: Handle 100+ concurrent requests
 - **Memory Usage**: < 512MB under normal load
 - **Error Rate**: < 1% for all operations
 
 **Example Performance Test**:
+
 ```python
 # test_cases/mcp_comprehensive_test_simulation.py
 
@@ -261,6 +268,7 @@ async def test_concurrent_search_performance(self):
 ### Test Configuration
 
 **Pytest Configuration** (`tests/conftest.py`):
+
 ```python
 import pytest
 import asyncio
@@ -295,12 +303,14 @@ def mock_aws_credentials():
 ### Test Data Management
 
 **Test Data Sources**:
+
 - **Real Data**: Actual Benchling and Quilt data (anonymized)
 - **Synthetic Data**: Generated test datasets for edge cases
 - **Mock Data**: Controlled responses for unit tests
 
 **Test Data Organization**:
-```
+
+```text
 test_cases/
 ├── 📄 realistic_quilt_test_cases.json    # Real-world scenarios
 ├── 📄 sail_biomedicines_test_cases.json  # SAIL user stories
@@ -314,6 +324,7 @@ test_cases/
 ### Continuous Integration
 
 **GitHub Actions Workflow** (`.github/workflows/test.yml`):
+
 ```yaml
 name: Tests
 on: [push, pull_request]
@@ -341,7 +352,7 @@ jobs:
       run: make coverage
     
     - name: Run integration tests  
-      run: make test-app
+      run: make test
     
     - name: Upload coverage
       uses: codecov/codecov-action@v3
@@ -353,7 +364,7 @@ jobs:
 
 ```bash
 # Quick test suite (unit tests only)
-make test-app
+make test
 
 # Full test suite with coverage
 make coverage
@@ -377,6 +388,7 @@ pytest tests/ -k \"test_athena\" -v        # Athena/SQL tests
 ### Test Results and Reporting
 
 **Coverage Reports**:
+
 ```bash
 # Generate HTML coverage report
 make coverage
@@ -387,6 +399,7 @@ pytest --cov=app --cov-report=term-missing
 ```
 
 **Real-World Test Results**:
+
 Test results are stored in `test_results/` with detailed JSON reports:
 
 ```json
@@ -417,6 +430,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
 ### Writing Effective Tests
 
 1. **Test Behavior, Not Implementation**:
+
    ```python
    # Good: Test the behavior
    async def test_package_creation_success(self):
@@ -432,6 +446,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 2. **Use Descriptive Test Names**:
+
    ```python
    # Good: Describes what is being tested
    async def test_unified_search_returns_ranked_results_from_multiple_backends(self):
@@ -441,6 +456,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 3. **Test Edge Cases and Error Conditions**:
+
    ```python
    async def test_package_browse_handles_empty_package(self):
    async def test_search_gracefully_handles_backend_timeout(self):
@@ -448,6 +464,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 4. **Use Realistic Test Data**:
+
    ```python
    # Good: Realistic data
    test_package_name = \"genomics/ccle-rnaseq-2024\"
@@ -461,6 +478,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
 ### Test Organization
 
 1. **Group Related Tests**:
+
    ```python
    class TestPackageOperations:
        class TestPackageCreation:
@@ -473,6 +491,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 2. **Use Fixtures for Common Setup**:
+
    ```python
    @pytest.fixture
    async def sample_package():
@@ -484,6 +503,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 3. **Parameterize Tests for Multiple Scenarios**:
+
    ```python
    @pytest.mark.parametrize(\"query,expected_backends\", [
        (\"RNA-seq\", [\"graphql\", \"elasticsearch\"]),
@@ -498,6 +518,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
 ### Mock and Stub Guidelines
 
 1. **Mock External Services**:
+
    ```python
    # Mock AWS services
    @patch('boto3.client')
@@ -508,6 +529,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 2. **Use Real Data When Possible**:
+
    ```python
    # Prefer real data over mocks for integration tests
    async def test_real_quilt_package_browse(self):
@@ -519,6 +541,7 @@ Test results are stored in `test_results/` with detailed JSON reports:
    ```
 
 3. **Mock Consistently**:
+
    ```python
    # Create reusable mock fixtures
    @pytest.fixture
@@ -533,12 +556,14 @@ Test results are stored in `test_results/` with detailed JSON reports:
 ### Performance Benchmarks
 
 **Response Time Targets**:
+
 - **Search Operations**: < 500ms for 90% of requests
 - **Package Operations**: < 1s for 90% of requests  
 - **SQL Queries**: < 2s for 90% of requests
 - **File Operations**: < 100ms for small files (< 1MB)
 
 **Load Testing**:
+
 ```python
 # test_cases/performance_benchmarks.py
 
@@ -595,6 +620,7 @@ async def test_memory_usage_under_load(self):
 ### Common Test Issues
 
 1. **Async Test Problems**:
+
    ```python
    # Ensure proper async test setup
    @pytest.mark.asyncio
@@ -604,6 +630,7 @@ async def test_memory_usage_under_load(self):
    ```
 
 2. **Mock Configuration Issues**:
+
    ```python
    # Ensure mocks are properly configured
    with patch('module.function') as mock_func:
@@ -613,6 +640,7 @@ async def test_memory_usage_under_load(self):
    ```
 
 3. **Environment Variable Issues**:
+
    ```python
    # Use proper environment setup
    @patch.dict(os.environ, {'TEST_VAR': 'test_value'})
@@ -664,4 +692,5 @@ We track these key metrics:
 3. **Quarterly Test Strategy Reviews**: Evaluate testing approach effectiveness
 4. **Real-World Scenario Updates**: Add new scenarios based on user feedback
 
-This comprehensive testing approach ensures the Quilt MCP Server maintains high quality and reliability while supporting real-world bioinformatics workflows.
+This comprehensive testing approach ensures the Quilt MCP Server maintains high quality and reliability while
+supporting real-world bioinformatics workflows.

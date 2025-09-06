@@ -13,24 +13,24 @@ try:
     from dotenv import load_dotenv
 
     # Load from .env file in the project root
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
     if os.path.exists(env_path):
         load_dotenv(env_path)
         print(f"Loaded environment from {env_path}")
 except ImportError:
     # python-dotenv not available, try manual loading
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
     if os.path.exists(env_path):
-        with open(env_path, 'r') as f:
+        with open(env_path, "r") as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
                     os.environ.setdefault(key, value)
         print(f"Manually loaded environment from {env_path}")
 
 # Add the app directory to Python path so quilt_mcp module can be imported
-app_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app')
+app_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "app")
 if app_dir not in sys.path:
     sys.path.insert(0, app_dir)
 

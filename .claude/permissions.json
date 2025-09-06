@@ -4,11 +4,11 @@
     "bash": {
       "allow_all": true,
       "allowed_patterns": [
-        "./scripts/*",
+        "./tools/*",
         "./packager/*",
         "./tests/*",
         "./deploy.sh*",
-        "scripts/*",
+        "tools/*",
         "packager/*", 
         "tests/*",
         "uv *",
