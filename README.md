@@ -45,7 +45,7 @@ SERVER_PID=$!
 
 # 4. Verify that it works
 sleep 8
-shared/test-endpoint.sh http://127.0.0.1:8000/mcp/
+bin/mcp-test.py http://127.0.0.1:8000/mcp/
 kill $SERVER_PID
 ```
 

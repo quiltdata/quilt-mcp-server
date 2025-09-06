@@ -47,7 +47,7 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@echo "Copying DXT assets..."
 	@mkdir -p $(BUILD_DIR)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
-	@chmod +x $(BUILD_DIR)/check-prereqs.sh
+	@chmod +x $(BUILD_DIR)/check-dxt.sh
 	@echo "Generating manifest.json from template..."
 	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
 	@rm $(BUILD_DIR)/manifest.json.j2
@@ -100,12 +100,12 @@ validate-package: check-tools dxt-package
 	@echo "✅ DXT package validation passed"
 
 # Release Package Creation
-$(RELEASE_NAME): validate-package $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-prereqs.sh
+$(RELEASE_NAME): validate-package $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
 	@echo "Creating release package..."
 	@mkdir -p $(DIST_DIR)/release
 	@cp $(PACKAGE_NAME) $(DIST_DIR)/release/
 	@cp $(ASSETS_DIR)/README.md $(DIST_DIR)/release/
-	@cp $(ASSETS_DIR)/check-prereqs.sh $(DIST_DIR)/release/
+	@cp $(ASSETS_DIR)/check-dxt.sh $(DIST_DIR)/release/
 	@cd $(DIST_DIR)/release && zip -r ../$(DXT_NAME)-$(PACKAGE_VERSION)-release.zip .
 	@rm -rf $(DIST_DIR)/release
 	@echo "✅ Built $(RELEASE_NAME)"

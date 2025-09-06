@@ -7,7 +7,7 @@ Access your Quilt data packages directly from Claude Desktop with this Model Con
 Before installing, run the prerequisites check script to verify your system is ready:
 
 ```bash
-./check-prereqs.sh
+./check-dxt.sh
 ```
 
 This script verifies you have:
@@ -18,7 +18,7 @@ This script verifies you have:
 
 ## Installation
 
-1. **Run prerequisites check**: `./check-prereqs.sh`
+1. **Run prerequisites check**: `./check-dxt.sh`
 2. **Double-click** the `quilt-mcp-<version>.dxt` file to install in Claude Desktop
 3. **Enter your catalog domain** when prompted (see Configuration below)
 4. **Restart** Claude Desktop if needed
@@ -60,7 +60,7 @@ Once configured, you can ask Claude to:
 
 If you encounter issues:
 
-1. **Run the prerequisites check**: `./check-prereqs.sh`
+1. **Run the prerequisites check**: `./check-dxt.sh`
 2. **Verify AWS credentials**: Run `aws sts get-caller-identity` to confirm your AWS access
 3. **Check catalog domain**: Ensure your catalog domain is correct (without https://)
 4. **Restart Claude Desktop**: After any configuration changes

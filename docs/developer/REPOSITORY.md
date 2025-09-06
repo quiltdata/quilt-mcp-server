@@ -202,7 +202,7 @@ Common utilities used across the project:
 shared/
 ├── 📄 check-env.sh          # Environment validation
 ├── 📄 common.sh             # Common shell functions
-├── 📄 test-endpoint.sh      # Endpoint testing
+├── 📄 mcp-test.py          # Modern MCP endpoint testing (Python)
 ├── 📄 test-tools.json       # Tool testing configuration
 ├── 📄 tunnel-endpoint.sh    # ngrok tunneling
 └── 📄 version.sh            # Version management

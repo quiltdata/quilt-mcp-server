@@ -368,3 +368,4 @@ The following permissions are granted for this repository:
 - Push changes before creating PRs to ensure remote branch is up-to-date
 - **CRITICAL:** Always create specification document in `./spec/` folder before implementation (we skipped this step in issue #60)
 - **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
+- **NEVER update historical specs** - Spec files in `./spec/` are historical documentation of what was done at the time. Only update current operational files like README.md, Makefiles, and source code when fixing references
