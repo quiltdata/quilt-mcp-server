@@ -75,7 +75,6 @@ bin/
 ├── 📄 common.sh              # Common shell functions
 ├── 📄 mcp-test.py            # Modern MCP endpoint testing (Python)
 ├── 📄 release.sh             # Release management
-├── 📄 test-endpoint.sh       # Legacy endpoint testing (bash)
 ├── 📄 test-prereqs.sh        # Legacy prerequisites check
 └── 📄 version.sh             # Version management utilities
 ```
