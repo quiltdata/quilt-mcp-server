@@ -116,11 +116,11 @@ release-package: $(RELEASE_NAME)
 # Release Tagging Targets
 tag:
 	@echo "Creating release tag..."
-	@./tools/release.sh release
+	@./bin/release.sh release
 
 tag-dev:
 	@echo "Creating development tag..."
-	@./tools/release.sh dev
+	@./bin/release.sh dev
 
 # Cleanup Targets
 deploy-clean:
