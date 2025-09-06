@@ -310,6 +310,8 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 - `make dxt-package` - Create DXT package
 - `make validate-package` - Validate DXT package
 - `make release-package` - Create release bundle with documentation
+- `make tag` - Create release tag (from pyproject.toml version)
+- `make tag-dev` - Create development tag with timestamp
 
 **Coordination & Utilities:**
 
@@ -349,7 +351,7 @@ The following permissions are granted for this repository:
 - Always use `uv sync --group test` to install test dependencies before running tests
 - Use `make coverage` for full test runs, but beware matplotlib import conflicts can occur in mixed environments
 - Use `make test-unit` for fast unit tests only (excludes AWS/integration tests)
-- For isolated module testing, use `PYTHONPATH=app uv run pytest tests/test_<module>.py -v`
+- For isolated module testing, use `PYTHONPATH=src uv run pytest tests/test_<module>.py -v`
 
 **BDD Test Patterns:**
 
