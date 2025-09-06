@@ -10,7 +10,7 @@ include make.deploy
 # Load environment variables from .env if it exists
 sinclude .env
 
-.PHONY: help clean release test-readme update-cursor-rules
+.PHONY: help clean release-local test-readme update-cursor-rules
 
 # Default target - show organized help
 help:
@@ -28,29 +28,39 @@ help:
 	@echo ""
 	@echo "📦 Production Workflow (make.deploy):"
 	@echo "  make build            - Prepare production build environment"
-	@echo "  make package          - Create Python package"
-	@echo "  make dxt-package      - Create DXT package"
-	@echo "  make validate-package - Validate DXT package"
-	@echo "  make release-package  - Create release bundle with documentation"
-	@echo "  make tag              - Create release tag (from pyproject.toml version)"
-	@echo "  make tag-dev          - Create development tag with timestamp"
+	@echo "  make dxt              - Create DXT package"
+	@echo "  make dxt-validate     - Validate DXT package"
+	@echo "  make release-zip      - Create release bundle with documentation"
+	@echo "  make release          - Create and push release tag"
+	@echo "  make release-dev      - Create and push development tag"
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
-	@echo "  make release          - Full release workflow (test → build → package)"
+	@echo "  make release-local    - Full local workflow (test → build → dxt → validate → zip)"
 	@echo "  make test-readme      - Test README installation commands"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
 	@echo "📖 For detailed target information, see:"
 	@echo "  - make.dev: Development workflow targets"
 	@echo "  - make.deploy: Production/packaging targets"
+	@echo ""
+	@echo "🔍 Dry-run mode (add DRY_RUN=1 to see what would happen):"
+	@echo "  DRY_RUN=1 make release     - Show what release tag would be created"
+	@echo "  DRY_RUN=1 make release-dev - Show what dev tag would be created"
 
 # Coordination targets
 clean: dev-clean deploy-clean
 	@echo "✅ All artifacts cleaned"
 
-release: test lint build validate-package release-package
-	@echo "✅ Full release workflow completed"
+release-local: test lint build dxt-validate release-zip
+	@echo "✅ Full local release workflow completed"
+
+# Release targets (delegated to make.deploy but renamed for semantic clarity)
+release:
+	@$(MAKE) -f make.deploy release
+
+release-dev:
+	@$(MAKE) -f make.deploy release-dev
 
 # Utilities
 test-readme:
@@ -68,3 +78,34 @@ update-cursor-rules:
 	else \
 		echo "⚠️  CLAUDE.md not found, skipping cursor rules update"; \
 	fi
+
+# Error messages for removed targets
+package:
+	@echo "❌ Target 'package' has been removed for clarity"
+	@echo "💡 Use 'make dxt' to create DXT packages"
+	@exit 1
+
+dxt-package:
+	@echo "❌ Target 'dxt-package' has been removed (redundant)"
+	@echo "💡 Use 'make dxt' to create DXT packages"
+	@exit 1
+
+validate-package:
+	@echo "❌ Target 'validate-package' has been renamed for clarity"
+	@echo "💡 Use 'make dxt-validate' to validate DXT packages"
+	@exit 1
+
+release-package:
+	@echo "❌ Target 'release-package' has been renamed for clarity"
+	@echo "💡 Use 'make release-zip' to create release bundles"
+	@exit 1
+
+tag:
+	@echo "❌ Target 'tag' has been renamed for clarity"
+	@echo "💡 Use 'make release' to create and push release tags"
+	@exit 1
+
+tag-dev:
+	@echo "❌ Target 'tag-dev' has been renamed for clarity"
+	@echo "💡 Use 'make release-dev' to create and push development tags"
+	@exit 1

@@ -6,6 +6,7 @@ set -e
 
 # Variables
 REPO_URL=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+DRY_RUN=${DRY_RUN:-0}
 
 check_clean_repo() {
     echo "🔍 Checking repository state..."
@@ -19,7 +20,10 @@ check_clean_repo() {
 
 tag_dev() {
     echo "🔍 Creating development tag..."
-    check_clean_repo
+    
+    if [ "$DRY_RUN" != "1" ]; then
+        check_clean_repo
+    fi
     
     echo "🔍 Reading base version from pyproject.toml..."
     BASE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
@@ -37,6 +41,16 @@ tag_dev() {
         exit 1
     fi
     
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "🔍 DRY RUN: Would execute:"
+        echo "  git pull origin $(git rev-parse --abbrev-ref HEAD)"
+        echo "  git tag -a \"v$DEV_VERSION\" -m \"Development build v$DEV_VERSION\""
+        echo "  git push origin \"v$DEV_VERSION\""
+        echo "🚀 Would trigger GitHub Actions to build and publish DXT package as prerelease"
+        echo "📦 Release would be available at: https://github.com/$REPO_URL/releases/tag/v$DEV_VERSION"
+        return
+    fi
+    
     echo "🏷️  Creating development tag v$DEV_VERSION..."
     git pull origin $(git rev-parse --abbrev-ref HEAD)
     git tag -a "v$DEV_VERSION" -m "Development build v$DEV_VERSION"
@@ -48,7 +62,10 @@ tag_dev() {
 
 tag_release() {
     echo "🔍 Creating release tag..."
-    check_clean_repo
+    
+    if [ "$DRY_RUN" != "1" ]; then
+        check_clean_repo
+    fi
     
     echo "🔍 Reading version from pyproject.toml..."
     if [ ! -f "pyproject.toml" ]; then
@@ -83,6 +100,16 @@ tag_release() {
         exit 1
     fi
     
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "🔍 DRY RUN: Would execute:"
+        echo "  git pull origin main"
+        echo "  git tag -a \"v$MANIFEST_VERSION\" -m \"$TAG_TYPE v$MANIFEST_VERSION\""
+        echo "  git push origin \"v$MANIFEST_VERSION\""
+        echo "🚀 Would trigger GitHub Actions to build and publish DXT package"
+        echo "📦 Release would be available at: https://github.com/$REPO_URL/releases/tag/v$MANIFEST_VERSION"
+        return
+    fi
+    
     git pull origin main
     git tag -a "v$MANIFEST_VERSION" -m "$TAG_TYPE v$MANIFEST_VERSION"
     git push origin "v$MANIFEST_VERSION"
@@ -94,17 +121,29 @@ tag_release() {
 # Main script logic
 case "${1:-}" in
     "dev")
+        if [ "${2:-}" = "--dry-run" ]; then
+            DRY_RUN=1
+        fi
         tag_dev
         ;;
     "release")
+        if [ "${2:-}" = "--dry-run" ]; then
+            DRY_RUN=1
+        fi
         tag_release
         ;;
     *)
-        echo "Usage: $0 {dev|release}"
+        echo "Usage: $0 {dev|release} [--dry-run]"
         echo ""
         echo "Commands:"
         echo "  dev     - Create development tag with timestamp"
         echo "  release - Create release tag from pyproject.toml version"
+        echo ""
+        echo "Options:"
+        echo "  --dry-run - Show what would be done without making changes"
+        echo ""
+        echo "Environment Variables:"
+        echo "  DRY_RUN=1 - Enable dry-run mode"
         exit 1
         ;;
 esac

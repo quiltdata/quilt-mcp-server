@@ -295,7 +295,7 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 **Development Workflow (make.dev):**
 
 - `make run` - Start local MCP server
-- `make test` - Run all tests
+- `make test` - Run all tests (includes DXT package validation)
 - `make test-unit` - Run unit tests only (fast)
 - `make test-integration` - Run integration tests (with AWS)
 - `make test-ci` - Run CI-optimized tests
@@ -306,20 +306,24 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 **Production Workflow (make.deploy):**
 
 - `make build` - Prepare production build environment
-- `make package` - Create Python package
-- `make dxt-package` - Create DXT package
-- `make validate-package` - Validate DXT package
-- `make release-package` - Create release bundle with documentation
-- `make tag` - Create release tag (from pyproject.toml version)
-- `make tag-dev` - Create development tag with timestamp
+- `make dxt` - Create DXT package
+- `make dxt-validate` - Validate DXT package
+- `make release-zip` - Create release bundle with documentation
+- `make release` - Create and push release tag
+- `make release-dev` - Create and push development tag
 
 **Coordination & Utilities:**
 
 - `make help` - Show all available targets organized by category
 - `make clean` - Clean all artifacts (dev + deploy)
-- `make release` - Full release workflow (test → build → package)
+- `make release-local` - Full local workflow (test → build → dxt → validate → zip)
 - `make test-readme` - Test README installation commands
 - `make update-cursor-rules` - Update Cursor IDE rules from CLAUDE.md
+
+**Dry-run Mode:**
+
+- `DRY_RUN=1 make release` - Show what release tag would be created
+- `DRY_RUN=1 make release-dev` - Show what dev tag would be created
 
 ## Important Instruction Reminders
 
@@ -369,3 +373,38 @@ The following permissions are granted for this repository:
 - **CRITICAL:** Always create specification document in `./spec/` folder before implementation (we skipped this step in issue #60)
 - **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
 - **NEVER update historical specs** - Spec files in `./spec/` are historical documentation of what was done at the time. Only update current operational files like README.md, Makefiles, and source code when fixing references
+
+**Release System Transformation (Phase 4 Clean Release System):**
+
+The release system has been transformed from confusing legacy targets to semantic, self-documenting targets:
+
+**Legacy Targets (REMOVED):**
+- ❌ `make package` - Was misleading (created DXT not Python package)
+- ❌ `make dxt-package` - Redundant alias
+- ❌ `make validate-package` - Unclear package type
+- ❌ `make release-package` - Confusing (creates zip bundle)
+- ❌ `make tag`, `make tag-dev` - Unclear what they tag
+
+**New Semantic Targets:**
+- ✅ `make dxt` - Creates DXT package (.dxt file)
+- ✅ `make dxt-validate` - Validates DXT package integrity
+- ✅ `make release-zip` - Creates release bundle (.zip with docs)
+- ✅ `make release` - Creates and pushes release tags
+- ✅ `make release-local` - Complete local workflow (no push)
+- ✅ `make release-dev` - Creates and pushes development tags
+
+**File Organization:**
+- `build/` - Build staging (replaces `tools/dxt/build/`)
+- `dist/` - Final packages (replaces `tools/dxt/dist/`)
+- Artifacts now use top-level directories for clarity
+
+**DXT Testing Integration:**
+- `make test` now includes DXT package validation
+- Complete build pipeline tested as part of standard workflow
+- Ensures deliverable packages are always validated
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

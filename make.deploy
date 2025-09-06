@@ -1,22 +1,21 @@
 # Production/packaging targets
-# Migrated from tools/dxt/Makefile for Phase 1 consolidation
+# Updated for Phase 4 clean release system transformation
 
 # Paths
 APP_DIR := src
-DXT_TOOLS_DIR := tools/dxt
 ASSETS_DIR := src/deploy
-BUILD_DIR := $(DXT_TOOLS_DIR)/build
+BUILD_DIR := build
 BUILD_PKGS_DIR := $(BUILD_DIR)/lib
-DIST_DIR := $(DXT_TOOLS_DIR)/dist
+DIST_DIR := dist
 
 # Variables
 DXT_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
-MANIFEST_VERSION := $(shell python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])" 2>/dev/null || echo "dev")
+MANIFEST_VERSION := $(shell python3 scripts/version-utils.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
-PACKAGE_NAME := $(PACKAGE_ID).dxt
-RELEASE_NAME := $(PACKAGE_ID)-release.zip
+DXT_PACKAGE := $(PACKAGE_ID).dxt
+RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 
 # Marker files for incremental builds
 ASSETS_MARKER := $(BUILD_DIR)/.assets-copied
@@ -27,7 +26,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: build package dxt-package validate-package deploy-clean check-tools tag tag-dev
+.PHONY: build dxt dxt-validate release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
@@ -77,50 +76,57 @@ build-test: build-contents
 	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')"
 	@echo "✅ Bootstrap test passed"
 
-# Package Creation
-$(PACKAGE_NAME): build-contents
+# DXT Package Creation
+$(DXT_PACKAGE): build-contents
 	@echo "Packing with official DXT CLI..."
 	@mkdir -p $(DIST_DIR)
-	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(PACKAGE_NAME)
-	@echo "✅ Built $(PACKAGE_NAME)"
+	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(DXT_PACKAGE)
+	@echo "✅ Built $(DXT_PACKAGE)"
 
-package: $(PACKAGE_NAME)
-	@echo "✅ Python package created: $(PACKAGE_NAME)"
+dxt: $(DXT_PACKAGE)
+	@echo "✅ DXT package created: $(DXT_PACKAGE)"
 
-dxt-package: package
-	@echo "✅ DXT package created: $(PACKAGE_NAME)"
-
-# Package Validation
-validate-package: check-tools dxt-package
+# DXT Package Validation
+dxt-validate: check-tools dxt
 	@echo "Validating DXT package..."
 	@echo "Validating with official DXT CLI..."
-	@npx @anthropic-ai/dxt info $(PACKAGE_NAME)
+	@npx @anthropic-ai/dxt info $(DXT_PACKAGE)
 	@echo "Validating generated manifest.json..."
 	@npx @anthropic-ai/dxt validate $(BUILD_DIR)/manifest.json
 	@echo "✅ DXT package validation passed"
 
-# Release Package Creation
-$(RELEASE_NAME): validate-package $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
-	@echo "Creating release package..."
+# Release Bundle Creation
+$(RELEASE_ZIP): dxt-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
+	@echo "Creating release bundle..."
 	@mkdir -p $(DIST_DIR)/release
-	@cp $(PACKAGE_NAME) $(DIST_DIR)/release/
+	@cp $(DXT_PACKAGE) $(DIST_DIR)/release/
 	@cp $(ASSETS_DIR)/README.md $(DIST_DIR)/release/
 	@cp $(ASSETS_DIR)/check-dxt.sh $(DIST_DIR)/release/
 	@cd $(DIST_DIR)/release && zip -r ../$(DXT_NAME)-$(PACKAGE_VERSION)-release.zip .
 	@rm -rf $(DIST_DIR)/release
-	@echo "✅ Built $(RELEASE_NAME)"
+	@echo "✅ Built $(RELEASE_ZIP)"
 
-release-package: $(RELEASE_NAME)
-	@echo "✅ Release package $(RELEASE_NAME) ready for distribution"
+release-zip: $(RELEASE_ZIP)
+	@echo "✅ Release bundle $(RELEASE_ZIP) ready for distribution"
 
-# Release Tagging Targets
-tag:
+# Release Tagging Targets (to be renamed in main Makefile)
+release:
 	@echo "Creating release tag..."
-	@./bin/release.sh release
+	@if [ "${DRY_RUN}" = "1" ]; then \
+		echo "🔍 DRY RUN: Would create release tag"; \
+		./bin/release.sh release --dry-run; \
+	else \
+		./bin/release.sh release; \
+	fi
 
-tag-dev:
+release-dev:
 	@echo "Creating development tag..."
-	@./bin/release.sh dev
+	@if [ "${DRY_RUN}" = "1" ]; then \
+		echo "🔍 DRY RUN: Would create development tag"; \
+		./bin/release.sh dev --dry-run; \
+	else \
+		./bin/release.sh dev; \
+	fi
 
 # Cleanup Targets
 deploy-clean:
