@@ -55,8 +55,8 @@ tag_release() {
         echo "❌ pyproject.toml not found"
         exit 1
     fi
-    if [ ! -f "tools/dxt/assets/manifest.json.j2" ]; then
-        echo "❌ manifest.json.j2 template not found at tools/dxt/assets/manifest.json.j2"
+    if [ ! -f "src/deploy/manifest.json.j2" ]; then
+        echo "❌ manifest.json.j2 template not found at src/deploy/manifest.json.j2"
         exit 1
     fi
     
