@@ -75,4 +75,7 @@ dev-clean:
 	@echo "Cleaning test artifacts..."
 	@rm -rf build/test-results/ .coverage .coverage.* htmlcov/ .pytest_cache/ 2>/dev/null || true
 	@find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
+	@echo "Cleaning build artifacts..."
+	@rm -rf build/ dist/ .ruff_cache/ 2>/dev/null || true
+	@find . -name ".DS_Store" -delete 2>/dev/null || true
 	@echo "✅ Development cleanup completed"

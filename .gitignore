@@ -163,12 +163,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
-
 # Visual Studio Code
 #  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
@@ -189,23 +183,10 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-/quilt/.vscode
-/deploy/cdk.out
 /cdk.out
 .config
 /test-package
-# Old test event files (now use tests/events/ via Makefile)
-deployment/packager/test-event*.json
-/deploy-aws/cdk.out
 .DS_Store
-
-# Exclude external repositories
-enterprise/
-quilt/
 
 # Cursor IDE
 .cursor/
