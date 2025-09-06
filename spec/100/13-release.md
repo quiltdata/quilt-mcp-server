@@ -1,423 +1,199 @@
 <!-- markdownlint-disable MD013 -->
 # Release Process Specification
 
-**Status**: Analysis Complete  
+**Status**: Design Complete  
 **Branch**: 100-feature-cleanup-repomake  
-**Issue**: Phase 4 - Analysis Phase  
+**Issue**: Phase 4 - Clean Release System  
 **Date**: 2025-01-06  
 
 ## Executive Summary
 
-This specification documents the complete release process for the Quilt MCP Server, tracing all makefiles, GitHub Actions, and scripts involved in testing and creating releases. The analysis reveals a well-structured but complex release pipeline with several missing dependencies that prevent successful release creation.
+This specification defines a clean, semantic release process for the Quilt MCP Server. The system uses self-documenting make targets that clearly distinguish between DXT package creation, validation, and GitHub release management.
 
-## Critical Issues Discovered
+## Key Design Decisions
 
-### 1. Missing Release Dependencies
+### 1. Semantic Target Naming
 
-**Problem**: `make tag` fails because required files are missing:
+**Decision**: Use descriptive, unambiguous target names that clearly indicate their function.
 
-- `tools/dxt/assets/manifest.json.j2` (expected by `bin/release.sh:58`)
-- `scripts/version-utils.py` (called by `bin/release.sh:63`)
+**Rationale**: The previous naming was misleading (`make package` created DXT packages, not Python packages). Clear names reduce cognitive overhead and prevent errors.
 
-**Current State**: Manifest template exists at `src/deploy/manifest.json.j2` but release script expects it at `tools/dxt/assets/`
+**Implementation**:
 
-### 2. Path Inconsistencies
+- `make dxt` - Creates DXT package (.dxt file)
+- `make dxt-validate` - Validates DXT package integrity
+- `make release-zip` - Creates release bundle (.zip with docs)
+- `make release` - Creates and pushes release tags
+- `make release-local` - Complete local workflow (no push)
 
-**Problem**: The Makefile system expects assets in `tools/dxt/assets/` but they're actually located in `src/deploy/`
+### 2. No Backward Compatibility
 
-**Makefile Reference**: `make.deploy:7` defines `ASSETS_DIR := src/deploy` but `bin/release.sh:58` hardcodes `tools/dxt/assets/manifest.json.j2`
+**Decision**: Remove all confusing legacy targets without aliases.
 
-## Release Process Architecture
+**Rationale**: Clean break prevents perpetuating confusion. Developers will get clear error messages directing them to correct targets.
 
-### 1. Entry Points
+**Removed Targets**:
 
-#### Local Development Release
+- `package` (misleading - actually creates DXT)
+- `dxt-package` (redundant alias)
+- `validate-package` (unclear what type of package)
+- `release-package` (confusing - creates zip bundle)
+- `tag`, `tag-dev` (unclear what they tag)
 
-```bash
-make tag          # Create release tag from pyproject.toml version
-make tag-dev      # Create development tag with timestamp
-make release      # Full release workflow (test → build → package)
-```
+### 3. Clear Release Workflow
 
-#### Automated GitHub Release
+**Decision**: Distinguish between local preparation and actual release creation.
 
-- **Trigger**: Push tag matching `v*` pattern
-- **Action**: `.github/workflows/ci.yml` → `build-and-release` job
+**Rationale**: Release creation involves pushing tags and triggering GitHub Actions. This should be explicit and separate from local validation steps.
 
-### 2. Makefile Target Flow
+**Workflow**:
 
-#### Development Workflow (`make.dev`)
+1. `make release-local` - Local validation and packaging
+2. `make release` - Push release tag → GitHub Actions → public release
 
-```tree
-make test-ci
-├── uv sync --group test
-├── PYTHONPATH=src uv run pytest tests/ -v --tb=short --color=yes
-└── --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85
-```
+### 4. DXT Testing Integration
 
-#### Production Workflow (`make.deploy`)
+**Decision**: Include DXT package testing in standard test workflow.
 
-```tree
-make release
-├── make test           # Run all tests
-├── make lint           # Code formatting and type checking  
-├── make build          # Prepare production build environment
-│   ├── make check-tools    # Verify npx, uv available
-│   ├── make build-contents # Copy assets, app, install deps
-│   └── make build-test     # Test bootstrap.py import
-├── make validate-package   # Validate DXT package
-└── make release-package    # Create release bundle with docs
-```
+**Rationale**: DXT packages are the primary deliverable. Testing should validate the complete build pipeline, not just source code.
 
-#### Build Process Detail
+## Release System Architecture
 
-```tree
-make build
-├── $(ASSETS_MARKER): Copy src/deploy/* → tools/dxt/build/
-│   ├── chmod +x check-dxt.sh
-│   ├── sed 's/{{ version }}/$(PACKAGE_VERSION)/g' manifest.json.j2 > manifest.json
-│   └── rm manifest.json.j2
-├── $(APP_MARKER): Copy src/quilt_mcp/*.py → tools/dxt/build/
-└── $(DEPS_MARKER): uv pip install --target tools/dxt/build/lib --no-binary=pydantic-core .
-```
-
-#### Package Creation Flow
-
-```tree
-make dxt-package
-├── make build-contents
-├── npx @anthropic-ai/dxt pack tools/dxt/build tools/dxt/dist/quilt-mcp-$(VERSION).dxt
-└── make validate-package
-    ├── npx @anthropic-ai/dxt info $(PACKAGE_NAME)
-    └── npx @anthropic-ai/dxt validate tools/dxt/build/manifest.json
-```
-
-#### Release Bundle Creation
-
-```tree
-make release-package
-├── make validate-package
-├── mkdir -p tools/dxt/dist/release
-├── cp $(PACKAGE_NAME) tools/dxt/dist/release/
-├── cp src/deploy/README.md tools/dxt/dist/release/
-├── cp src/deploy/check-dxt.sh tools/dxt/dist/release/
-├── cd tools/dxt/dist/release && zip -r ../quilt-mcp-$(VERSION)-release.zip .
-└── rm -rf tools/dxt/dist/release
-```
-
-### 3. Release Script Flow (`bin/release.sh`)
-
-#### Release Tag Creation (`bin/release.sh release`)
+### Make Target Structure
 
 ```bash
-# 1. Repository State Validation
-check_clean_repo()
-├── git status --porcelain  # Must be clean
-└── exit 1 if uncommitted changes
+# Development Workflow (make.dev)
+make test            # Run all tests (includes DXT validation)
+make lint            # Code quality checks
 
-# 2. Version Resolution  
-├── Validate pyproject.toml exists
-├── Validate tools/dxt/assets/manifest.json.j2 exists  # ❌ MISSING
-├── python3 scripts/version-utils.py get-version      # ❌ MISSING SCRIPT
-└── Determine tag type (dev/prerelease/release)
+# Production Workflow (make.deploy)  
+make build           # Prepare build environment
+make dxt             # Create DXT package
+make dxt-validate    # Validate DXT package
+make release-zip     # Create release bundle with documentation
+make release-local   # Complete workflow: test → build → dxt → validate → zip
+make release         # Push release tag (triggers GitHub Actions)
+make release-dev     # Push development tag (triggers prerelease)
 
-# 3. Tag Creation
-├── git pull origin main
-├── git tag -a "v$VERSION" -m "$TAG_TYPE v$VERSION"
-├── git push origin "v$VERSION"
-└── Echo GitHub release URL
+# Dry-run mode (use DRY_RUN=1 environment variable)
+DRY_RUN=1 make release     # Show what would happen without pushing
+DRY_RUN=1 make release-dev # Show what would happen without pushing
 ```
 
-#### Development Tag Creation (`bin/release.sh dev`)
+### Version Management
 
-```bash
-# 1. Repository State Validation
-check_clean_repo()
+**Version Source**: `pyproject.toml` project.version field
 
-# 2. Development Version Generation
-├── BASE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-├── TIMESTAMP=$(date +%Y%m%d%H%M%S)
-├── DEV_VERSION="$BASE_VERSION-dev-$TIMESTAMP"
-└── Validate tag doesn't exist
+**Tag Patterns**:
 
-# 3. Tag Creation  
-├── git pull origin $(git rev-parse --abbrev-ref HEAD)
-├── git tag -a "v$DEV_VERSION" -m "Development build v$DEV_VERSION"
-├── git push origin "v$DEV_VERSION"
-└── Echo GitHub prerelease URL
-```
+- `v0.6.0` - Stable release (no hyphens)
+- `v0.6.0-rc1` - Release candidate (prerelease)
+- `v0.6.0-dev-20250106123045` - Development build (prerelease)
 
-### 4. GitHub Actions Workflow
+**Scripts**:
 
-#### CI Pipeline (`.github/workflows/ci.yml`)
+- `scripts/version-utils.py` - Extract version from pyproject.toml
+- `bin/release.sh` - Tag creation and validation logic
 
-```yaml
-# Triggers
-on:
-  push:
-    branches: [main]
-    tags: ['v*']          # Triggers release process
-  pull_request:
-    branches: ['**']
-  workflow_dispatch:
+### GitHub Actions Integration
 
-# Jobs
-jobs:
-  test:                   # Matrix: Python 3.11, 3.12, 3.13
-    ├── Checkout code
-    ├── Setup build environment (.github/actions/setup-build-env)
-    │   ├── Install uv
-    │   ├── uv python install ${{ matrix.python-version }}
-    │   └── Cache dependencies (~/.cache/uv, ~/.npm)
-    ├── make test-ci (with AWS secrets)
-    └── Upload test results
+**Trigger**: Push tags matching `v*` pattern
 
-  build-and-release:      # Only on tag push (v*)
-    needs: test
-    ├── Checkout code  
-    ├── Setup build environment (Python 3.11 + Node.js)
-    │   ├── Install uv
-    │   ├── Setup Node.js 18
-    │   ├── npm install -g @anthropic-ai/dxt
-    │   └── Cache dependencies
-    ├── Extract version from tag
-    └── Create release (.github/actions/create-release)
-        ├── make dxt-package
-        ├── make validate-package
-        ├── make release-package
-        └── softprops/action-gh-release@v2
-            ├── Upload tools/dxt/dist/*-release.zip
-            ├── Set prerelease: ${{ contains(inputs.tag-version, '-') }}
-            └── Generate release notes
-```
+**Workflow**:
 
-#### Build Environment Setup (`.github/actions/setup-build-env`)
+1. Test matrix (Python 3.11, 3.12, 3.13)
+2. Build DXT package (`make dxt`)
+3. Validate package (`make dxt-validate`)
+4. Create release bundle (`make release-zip`)
+5. Create GitHub release with artifacts
 
-```yaml
-# Inputs: python-version, include-nodejs, nodejs-version
-steps:
-  ├── Install uv (astral-sh/setup-uv@v3)
-  ├── uv python install ${{ inputs.python-version }}
-  ├── Setup Node.js (if include-nodejs == 'true')
-  ├── npm install -g @anthropic-ai/dxt (if Node.js enabled)
-  └── Cache dependencies (actions/cache@v4)
-      └── ~/.cache/uv, ~/.npm
-```
+**Artifacts**:
 
-#### Release Creation (`.github/actions/create-release`)
+- `quilt-mcp-{version}.dxt` - DXT package
+- `quilt-mcp-{version}-release.zip` - Release bundle with documentation
 
-```yaml
-# Input: tag-version
-steps:
-  ├── make dxt-package
-  ├── make validate-package  
-  ├── make release-package
-  ├── Create GitHub Release (softprops/action-gh-release@v2)
-  │   ├── name: "Quilt MCP DXT v${{ inputs.tag-version }}"
-  │   ├── files: tools/dxt/dist/*-release.zip
-  │   ├── prerelease: ${{ contains(inputs.tag-version, '-') }}
-  │   └── generate_release_notes: true
-  └── Upload DXT artifacts (90 day retention)
-```
-
-### 5. Supporting Scripts and Assets
-
-#### Version Management
-
-- **`bin/version.sh`**: Git-based version utilities (commit hash, branch)
-- **Missing**: `scripts/version-utils.py` (referenced in `bin/release.sh:63`)
-
-#### DXT Package Assets (`src/deploy/`)
-
-- **`manifest.json.j2`**: DXT package manifest template
-- **`bootstrap.py`**: DXT entry point script
-- **`dxt_main.py`**: Main DXT application
-- **`README.md`**: User documentation
-- **`check-dxt.sh`**: DXT validation script
-- **`requirements.txt`**: Python dependencies
-- **`icon.png`**: Package icon
-- **`LICENSE.txt`**: License file
-
-#### Testing Scripts (`bin/`)
-
-- **`test-endpoint.sh`**: Endpoint testing
-- **`test-prereqs.sh`**: Prerequisites validation
-- **`check-dev.sh`**: Development environment check
-- **`mcp-test.py`**: MCP protocol testing
-
-## Dependencies and Requirements
-
-### System Dependencies
-
-- **Python**: 3.11+ (tested on 3.11, 3.12, 3.13)
-- **Node.js**: 18+ (for DXT CLI)
-- **uv**: Python package manager
-- **git**: Version control operations
-
-### Python Dependencies (from `pyproject.toml`)
-
-```toml
-[dependency-groups]
-test = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-cov>=4.0.0", "pytest-timeout>=2.1.0"]
-deploy = ["aws-cdk-lib>=2.100.0", "constructs>=10.0.0"]  
-lint = ["ruff>=0.1.0"]
-dev = ["pytest-xdist>=3.8.0"]
-```
-
-### External Tools
-
-- **`@anthropic-ai/dxt`**: DXT package creation and validation
-- **AWS CLI**: For cloud deployment (via secrets)
-
-### Environment Variables (CI)
-
-```bash
-# AWS Configuration
-AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
-
-# Quilt Configuration  
-QUILT_DEFAULT_BUCKET, QUILT_CATALOG_URL, QUILT_TEST_PACKAGE, QUILT_TEST_ENTRY
-```
-
-## Version Management Strategy
-
-### Version Sources
-
-1. **`pyproject.toml`** - Primary version source (currently `0.6.0`)
-2. **Git tags** - Release versioning (`v{version}`)
-3. **Timestamp suffixes** - Development builds (`{version}-dev-{timestamp}`)
-
-### Tag Types and Patterns
-
-```bash
-# Release tags
-v0.6.0              # Stable release
-v0.6.0-rc1          # Release candidate (prerelease)
-v0.6.0-beta1        # Beta release (prerelease) 
-
-# Development tags  
-v0.6.0-dev-20250106123045  # Development build (prerelease)
-```
-
-### Release Classification Logic
-
-- **Release**: No hyphens in version (e.g., `0.6.0`)
-- **Prerelease**: Contains hyphens (e.g., `0.6.0-rc1`, `0.6.0-dev-20250106123045`)
-- **Development**: Contains "dev" substring
-
-## File Structure and Paths
-
-### Source Organization
+### File Organization
 
 ```tree
 src/
-├── quilt_mcp/           # Application source code
-└── deploy/              # DXT package assets
-    ├── manifest.json.j2     # DXT manifest template
-    ├── bootstrap.py         # DXT entry point
-    ├── dxt_main.py         # Main application
+├── quilt_mcp/              # Application source
+└── deploy/                 # DXT package assets
+    ├── manifest.json.j2    # Template (version substitution)
+    ├── bootstrap.py        # DXT entry point
     ├── README.md           # User documentation
-    ├── check-dxt.sh        # Validation script
-    ├── requirements.txt    # Dependencies
-    ├── icon.png           # Package icon
-    └── LICENSE.txt        # License
+    └── [other assets]
+
+build/                      # Build staging (generated)
+├── manifest.json           # Generated from template
+├── bootstrap.py            # Copied from src/deploy/
+├── lib/                    # Python dependencies
+└── [other assets]          # Copied from src/deploy/
+
+dist/                       # Final packages (generated)
+├── quilt-mcp-{version}.dxt          # DXT package
+└── quilt-mcp-{version}-release.zip  # Release bundle
+
+scripts/
+└── version-utils.py        # Version extraction utility
+
+bin/
+└── release.sh             # Release management script
 ```
 
-### Build Artifacts
+## Implementation Checklist
 
-```tree
-tools/dxt/
-├── build/               # Build staging area
-│   ├── manifest.json       # Generated from template
-│   ├── bootstrap.py        # Copied from src/deploy/
-│   ├── lib/               # Python dependencies
-│   └── [other assets]     # Copied from src/deploy/
-└── dist/               # Distribution packages
-    ├── quilt-mcp-{version}.dxt          # DXT package
-    └── quilt-mcp-{version}-release.zip  # Release bundle
-```
+### Phase 1: Core Renaming
 
-## Recommended Fixes
+- [ ] **make.deploy**: Update all paths from `tools/dxt/` to top-level `build/` and `dist/`
+- [ ] **make.deploy**: Rename `$(PACKAGE_NAME)` target to `dxt`
+- [ ] **make.deploy**: Rename `validate-package` to `dxt-validate`  
+- [ ] **make.deploy**: Rename `$(RELEASE_NAME)` target to `release-zip`
+- [ ] **make.deploy**: Remove `package` target (dead)
+- [ ] **make.deploy**: Remove `dxt-package` target (redundant alias)
+- [ ] **make.deploy**: Remove `release-package` target (rename to `release-zip`)
+- [ ] **Makefile**: Rename `release` to `release-local`
+- [ ] **Makefile**: Rename `tag` to `release`
+- [ ] **Makefile**: Rename `tag-dev` to `release-dev`
 
-### Immediate Actions Required
+### Phase 2: Update References
 
-1. **Fix Path Inconsistencies**
+- [ ] **GitHub Actions**: Update `.github/actions/create-release/action.yml`
+  - [ ] `make dxt-package` → `make dxt`
+  - [ ] `make validate-package` → `make dxt-validate`
+  - [ ] `make release-package` → `make release-zip`
+  - [ ] Update artifact paths from `tools/dxt/dist/*` to `dist/*`
+- [ ] **Help Text**: Update main Makefile help descriptions
+- [ ] **Documentation**: Update CLAUDE.md with new target names
 
-   ```bash
-   # Option A: Update bin/release.sh to use correct path
-   sed -i 's|tools/dxt/assets/manifest.json.j2|src/deploy/manifest.json.j2|g' bin/release.sh
-   
-   # Option B: Create missing directory structure  
-   mkdir -p tools/dxt/assets
-   cp src/deploy/manifest.json.j2 tools/dxt/assets/
-   ```
+### Phase 3: Enhanced Testing
 
-2. **Create Missing Version Utility**
+- [ ] **DXT Testing**: Add DXT package validation to `make test`
+- [ ] **Bootstrap Test**: Validate DXT bootstrap.py functionality
+- [ ] **Manifest Test**: Validate manifest.json generation
+- [ ] **Dry Run**: Add `DRY_RUN=1` environment variable support to `make release` and `make release-dev`
 
-   ```bash
-   # Create scripts/version-utils.py with get-version command
-   mkdir -p scripts
-   # Implement version extraction from pyproject.toml
-   ```
+### Phase 4: Documentation
 
-3. **Test Release Process**
+- [ ] **CLAUDE.md**: Update with new release commands
+- [ ] **README**: Update installation/development instructions
+- [ ] **Error Messages**: Provide helpful errors for removed targets
 
-   ```bash
-   # Validate all dependencies before release
-   make check-tools
-   make test
-   make build  
-   make validate-package
-   ```
+## Success Criteria
 
-### Process Improvements
+1. **Semantic Clarity**: Target names clearly indicate their function
+2. **No Confusion**: Removed all misleading target names
+3. **Complete Testing**: DXT packages tested as part of standard workflow
+4. **Clean Workflow**: Clear separation between local prep and release creation
+5. **GitHub Integration**: Automated releases triggered by semantic tags
+6. **Documentation**: All references updated to new target names
 
-1. **Add Dependency Validation**
-   - Pre-flight checks for all required files
-   - Validation of external tool availability
-   - AWS credentials validation for CI
+## Risk Mitigation
 
-2. **Enhance Error Handling**
-   - Better error messages for missing dependencies
-   - Rollback capabilities for failed releases
-   - Dry-run mode for testing
+**Risk**: Developers using old target names
+**Mitigation**: Clear error messages with suggested replacements
 
-3. **Documentation Updates**
-   - Update CLAUDE.md with correct release commands
-   - Document all environment variables required
-   - Add troubleshooting guide for common failures
+**Risk**: CI/CD failures during transition
+**Mitigation**: Update GitHub Actions before deploying Makefile changes
 
-## Testing Strategy
-
-### Local Testing Workflow
-
-```bash
-# 1. Clean environment test
-make clean
-make test
-
-# 2. Build validation
-make build
-make validate-package
-
-# 3. Release preparation (without tagging)
-make release-package
-
-# 4. Tag testing (development tag first)
-make tag-dev
-```
-
-### CI/CD Testing
-
-- Matrix testing across Python versions (3.11, 3.12, 3.13)
-- Integration testing with AWS services
-- DXT package validation
-- Release artifact verification
-
-## Conclusion
-
-The release process is well-architected but currently broken due to missing dependencies and path inconsistencies. The system supports both manual local releases and automated GitHub releases with proper artifact management. Once the immediate fixes are applied, the release pipeline should function correctly for both development and production releases.
-
-**Priority**: HIGH - Release functionality is currently non-functional
-**Effort**: LOW - Simple path fixes and missing file creation
-**Risk**: LOW - Changes are isolated to build/release infrastructure
+**Risk**: Incomplete DXT testing
+**Mitigation**: Validate complete build pipeline in test suite
