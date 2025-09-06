@@ -28,7 +28,7 @@
 - [x] **Rename prerequisite scripts for clarity**: Current names are confusing
   - `bin/test-prereqs.sh` → `bin/check-dev.sh` (checks .env, AWS config for development)
   - `src/deploy/check-prereqs.sh` → `src/deploy/check-dxt.sh` (checks Python, Claude Desktop for end users)
-- [ ] **Fix references to prerequisite scripts**
+- [x] **Fix references to renamed scripts**
 
 - [x] **Modernize test-endpoint script**: Convert `bin/test-endpoint.sh` (667 lines, 17 JSON-RPC calls) to Python
   - Replace bash/curl with `requests` library for cleaner HTTP handling
