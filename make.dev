@@ -20,6 +20,8 @@ test:
 		echo "No tests found, running import test..."; \
 		export PYTHONPATH="src" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
 	fi
+	@echo "Running DXT package validation..."
+	@$(MAKE) -f make.deploy dxt-validate
 
 test-unit:
 	@echo "Running unit tests only (no AWS/integration tests)..."

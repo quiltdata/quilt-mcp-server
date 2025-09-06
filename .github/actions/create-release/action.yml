@@ -15,15 +15,15 @@ runs:
   steps:
     - name: Build DXT package
       shell: bash  
-      run: make dxt-package
+      run: make dxt
       
     - name: Validate DXT package
       shell: bash
-      run: make validate-package
+      run: make dxt-validate
 
-    - name: Create release package
+    - name: Create release bundle
       shell: bash
-      run: make release-package
+      run: make release-zip
 
     - name: Create GitHub Release
       id: create-release
@@ -31,7 +31,7 @@ runs:
       with:
         name: "Quilt MCP DXT v${{ inputs.tag-version }}"
         files: |
-          tools/dxt/dist/*-release.zip
+          dist/*-release.zip
         draft: false
         prerelease: ${{ contains(inputs.tag-version, '-') }}
         generate_release_notes: true
@@ -40,5 +40,5 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: dxt-package
-        path: tools/dxt/dist/*.dxt
+        path: dist/*.dxt
         retention-days: 90
