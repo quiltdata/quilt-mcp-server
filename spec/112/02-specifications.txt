@@ -1,0 +1,206 @@
+# Specifications: IRS Data Scraping and Configuration (IRSDSCO)
+
+**Issue**: [#112 - IRS/DSCO](https://github.com/quiltdata/quilt-mcp-server/issues/112)  
+**Based on**: [01-requirements.txt](./01-requirements.txt)
+**Type**: Process Documentation Specification
+**Priority**: Medium
+
+## Process Specification: IRS/DSCO Methodology
+
+### Core Methodology Definition
+
+The IRS/DSCO methodology represents a structured, phase-based approach to complex software development that emphasizes systematic problem breakdown, comprehensive validation, and clear documentation throughout the development lifecycle.
+
+**Acronym Breakdown**:
+1. **I**ssue - Problem identification and tracking
+2. **R**equirements - User expectations and acceptance criteria
+3. **S**pecifications - Engineering goals and constraints  
+4. **/** - Division marker separating analysis from implementation
+5. **D**esign - Phase-specific technical design documents
+6. **S**tage - Implementation staging and execution
+7. **C**checklist - Validation and testing procedures
+8. **O**rchestrator - Process coordination and management
+
+### Document Structure Pattern
+
+Based on analysis of spec/100 reference implementation, the IRS/DSCO methodology follows this document pattern:
+
+#### Analysis Phase (IRS)
+1. **01-requirements.{md|txt}** - Problem statement, user stories, acceptance criteria
+2. **02-specifications.{md|txt}** - Engineering goals, constraints, success metrics (WITHOUT implementation details)
+
+#### Implementation Phase (DSCO)  
+3. **03-phase{N}-design.{md|txt}** - Technical design for specific implementation phase
+4. **04-phase{N}-checklist.{md|txt}** - Validation procedures and implementation tracking
+5. **{N}-phase{N}-progress.{md|txt}** - Progress tracking and status updates (as needed)
+6. **{N}-review.{md|txt}** - Phase completion analysis and lessons learned
+7. **{N}-improvements.{md|txt}** - Identified improvements and future considerations
+8. **{N}-final-checklist.{md|txt}** - Complete validation checklist
+9. **{N}-release.{md|txt}** - Release documentation and deployment record
+
+### File Organization Principles
+
+#### Numbering Convention
+- **Sequential numbering** (01, 02, 03...) for chronological phases
+- **Descriptive names** indicating phase and document type
+- **Consistent extensions** (.md for structured docs, .txt for simple text)
+
+#### Directory Structure
+```
+spec/{issue-number}/
+├── 01-requirements.{md|txt}     # Problem definition and acceptance criteria
+├── 02-specifications.{md|txt}   # Engineering constraints and success metrics
+├── 03-phase1-design.md          # Phase 1 technical design
+├── 04-phase1-checklist.md       # Phase 1 validation and tracking
+├── 05-phase2-design.md          # Phase 2 technical design  
+├── 06-phase2-checklist.md       # Phase 2 validation and tracking
+├── 07-phase3-design.md          # Phase 3 technical design
+├── 08-phase3-checklist.md       # Phase 3 validation and tracking
+├── 09-review.md                 # Implementation review
+├── 10-phase3a-checklist.md      # Additional phase validation (if needed)
+├── 11-improvements.md           # Identified improvements
+├── 12-final-checklist.md        # Complete validation
+└── 13-release.md                # Release documentation
+```
+
+### Phase Workflow Specification
+
+#### Analysis Phase
+- **Issue Identification**: Document problem scope, stakeholders, business impact
+- **Requirements Gathering**: Define user expectations, acceptance criteria, success metrics
+- **Specification Writing**: Engineering constraints, technical goals, validation criteria
+- **Specification Review**: Ensure completeness before implementation begins
+
+#### Implementation Phase  
+- **Design Documentation**: Technical approach, architecture decisions, implementation strategy
+- **Staged Implementation**: Break complex features into manageable phases
+- **Validation Checklists**: Comprehensive testing and quality assurance procedures
+- **Progress Tracking**: Regular status updates and milestone verification
+- **Process Coordination**: Orchestrate workflow stages and manage dependencies
+
+### Document Content Specifications
+
+#### Requirements Document (01)
+**Must Include**:
+- Problem statement with business context
+- User story format: "As a [role], I want [functionality] so that [benefit]"
+- Acceptance criteria (numbered list)
+- Implementation approach (high-level only)
+- Success criteria (measurable outcomes)
+
+#### Specifications Document (02)
+**Must Include**:
+- Current state analysis with quantitative metrics
+- Proposed target state with specific measurable goals
+- Implementation plan broken into phases
+- Success metrics (quantitative and qualitative)
+- Risk assessment and mitigation strategies
+- Dependencies and external requirements
+
+**Must NOT Include**:
+- Actual implementation code
+- Detailed implementation procedures
+- Technology-specific implementation details
+
+#### Design Documents (03, 05, 07...)
+**Must Include**:
+- Phase-specific technical design
+- Architecture decisions and rationale
+- Implementation strategy for that phase
+- Integration points with other phases
+- Technology choices and justification
+
+#### Checklist Documents (04, 06, 08...)
+**Must Include**:
+- Granular implementation tasks with status tracking
+- Validation procedures for each task
+- Testing requirements and success criteria
+- Quality gates and milestone verification
+- Issue tracking and resolution status
+
+### Documentation Standards
+
+#### Writing Guidelines
+- **Clear and actionable language** - avoid ambiguous terms
+- **Numbered lists** for acceptance criteria and success metrics
+- **Consistent formatting** across all documents
+- **Quantitative metrics** where possible (percentages, counts, timelines)
+- **Reference links** between related documents
+
+#### Version Control
+- Documents are **historical records** - do not update after completion
+- Each document represents the state of knowledge at time of creation
+- Create new documents for iterations rather than updating existing ones
+- Use git commits to track document evolution
+
+### Process Coordination
+
+#### Human Developer Usage
+- Follow documents sequentially for systematic approach
+- Use checklists to track progress and ensure completeness
+- Reference specifications to validate implementation decisions
+- Review completed phases to inform future work
+
+#### AI Agent Usage  
+- spec/AGENTS.md should be symbolically linked to CLAUDE.md for accessibility
+- AI agents should reference methodology for structured problem-solving
+- Use TodoWrite tool to track progress through workflow phases
+- Follow same document patterns for consistency
+
+### Integration with Development Workflow
+
+#### Branch Strategy
+- **Specification branches**: `spec/{issue-number}` for analysis phase
+- **Implementation branches**: `impl/{feature-name}` for development phase
+- Merge specification work before beginning implementation
+
+#### Testing Requirements
+- **Behavior-Driven Development (BDD)** testing throughout implementation
+- **Integration tests** for complex multi-phase features  
+- **Test coverage requirements** defined in specifications
+- **Validation procedures** documented in checklists
+
+### Success Criteria for IRS/DSCO Implementation
+
+#### Process Documentation
+- Complete specification of IRS/DSCO methodology
+- Clear phase definitions and document templates
+- Integration with existing development workflow
+- Reference implementation available in spec/100
+
+#### Usability Requirements
+- **Human accessible** - developers can follow methodology independently
+- **AI accessible** - AI agents can reference and apply methodology
+- **Minimal and concise** - easy to scan and understand quickly
+- **Actionable prompts** - clear triggers for each phase
+
+#### Quality Standards
+- **Systematic approach** to complex problem breakdown
+- **Comprehensive validation** at each development stage
+- **Clear documentation** and progress tracking
+- **Template consistency** for future feature development
+
+## Dependencies and Constraints
+
+### External Dependencies
+- GitHub issue tracking for problem identification
+- Git version control for document evolution
+- Existing development tools and workflow integration
+
+### Internal Dependencies  
+- CLAUDE.md symbolic link for AI agent accessibility
+- WORKFLOW.md integration for branch strategy
+- TodoWrite tool usage for progress tracking
+- BDD testing framework for validation
+
+### Process Constraints
+- Documents must be created in sequential order
+- Specifications must be complete before implementation begins
+- Each phase requires validation before proceeding to next phase
+- Historical documents should not be modified after completion
+
+## Notes
+
+This specification defines the **what** and **structure** of the IRS/DSCO methodology without prescribing specific implementation tools or technologies. The methodology is designed to be technology-agnostic while providing sufficient structure for both human developers and AI agents to follow systematically.
+
+Reference implementation available in spec/100 demonstrates practical application of this methodology for repository cleanup and makefile consolidation project.
