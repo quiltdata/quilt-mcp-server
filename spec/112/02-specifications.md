@@ -9,17 +9,19 @@
 
 ### Core Methodology Definition
 
-The IRS/DSCO methodology represents a structured, phase-based approach to complex software development that emphasizes systematic problem breakdown, comprehensive validation, and clear documentation throughout the development lifecycle.
+The IRS/DSCO methodology implements **Accountability-Driven Development (ADD)** principles for AI-assisted software development. It provides "autonomy with accountability" by creating structured phases where AI can contribute effectively while maintaining human oversight and trust.
 
-**Acronym Breakdown**:
-1. **I**ssue - Problem identification and tracking
-2. **R**equirements - User expectations and acceptance criteria
-3. **S**pecifications - Engineering goals and constraints  
-4. **/** - Divide into Phases (separate branches and PRs)
-5. **D**esign - Phase-specific design documents
+**Foundation**: Based on ADD's BPM Trinity (Branch/Phase/Meta-pattern), this methodology addresses the core challenge: "in the age of AI, accountability is the bottleneck."
+
+**Acronym Breakdown** (ADD-aligned):
+1. **I**ssue - Problem identification and tracking (accountability scope)
+2. **R**equirements - User expectations and acceptance criteria (human validation)
+3. **S**pecifications - Engineering goals and constraints (trust boundaries)
+4. **/** - Divide into Phases (separate branches and PRs for binary review)
+5. **D**esign - Phase-specific design documents (technical accountability)
 6. **S**tage - Implementation staging and execution (commit and test each unit)
-7. **C**hecklist - Validation and testing procedures
-8. **O**rchestrator - Process coordination via Orchestration agent
+7. **C**hecklist - Validation and testing procedures (quality gates)
+8. **O**rchestrator - Process coordination via Orchestration agent (AI autonomy with oversight)
 
 ### Document Structure Pattern
 
@@ -144,18 +146,25 @@ spec/{issue-number}/
 - Use TodoWrite tool to track progress through workflow phases
 - Follow same document patterns for consistency
 
-### Integration with Development Workflow
+### Integration with Development Workflow (ADD BPM Trinity)
 
-#### Branch Strategy
+#### Branch Strategy (Accountability Unit)
 - **Specification branches**: `spec/{issue-number}` for analysis phase
-- **Implementation branches**: `impl/{feature-name}` for development phase
-- Merge specification work before beginning implementation
+- **Implementation branches**: `impl/{feature-name}` for development phase  
+- **Binary review process**: Each branch gets clear "yes/no" approval
+- **Smallest unit of accountability**: Each AI-generated work lives in its own branch/PR
 
-#### Testing Requirements
-- **Behavior-Driven Development (BDD)** testing throughout implementation
-- **Integration tests** for complex multi-phase features  
-- **Test coverage requirements** defined in specifications
-- **Validation procedures** documented in checklists
+#### Phase Strategy (Work Cadence)
+1. **Spec Phase**: Intent description and requirements (IRS documents)
+2. **Test Phase**: Executable specifications and BDD tests
+3. **Implementation Phase**: Code writing with staged commits
+4. **Validation Phase**: User acceptance and quality verification
+
+#### Meta-pattern (Prefactoring)
+- **Test → Refactor → Implement** sequence for stable foundations
+- **Prepare ground before feature implementation**
+- **Quality gates** at each phase transition
+- **Comprehensive validation** documented in checklists
 
 ### Success Criteria for IRS/DSCO Implementation
 
@@ -198,6 +207,14 @@ spec/{issue-number}/
 
 ## Notes
 
-This specification defines the **what** and **structure** of the IRS/DSCO methodology without prescribing specific implementation tools or technologies. The methodology is designed to be technology-agnostic while providing sufficient structure for both human developers and AI agents to follow systematically.
+This specification defines the **what** and **structure** of the IRS/DSCO methodology without prescribing specific implementation tools or technologies. The methodology implements Accountability-Driven Development (ADD) principles to address the fundamental challenge: **"in the age of AI, accountability is the bottleneck."**
+
+**Key ADD Principles Implemented**:
+- **Autonomy with Accountability**: AI can contribute within structured phases with human oversight
+- **Binary Review Process**: Clear "yes/no" decisions on AI-generated work
+- **Phase-based Cadence**: Structured workflow that maintains trust and quality
+- **Prefactoring Meta-pattern**: Prepare foundations before implementation
 
 Reference implementation available in spec/100 demonstrates practical application of this methodology for repository cleanup and makefile consolidation project.
+
+**Further Reading**: [Add the Beat: Accountability-Driven Development in an AI World](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/)
