@@ -1,4 +1,4 @@
-# Specifications: IRS Data Scraping and Configuration (IRSDSCO)
+# Specifications: IRS/DSCO Process Documentation
 
 **Issue**: [#112 - IRS/DSCO](https://github.com/quiltdata/quilt-mcp-server/issues/112)  
 **Based on**: [01-requirements.txt](./01-requirements.txt)
@@ -16,9 +16,9 @@ The IRS/DSCO methodology represents a structured, phase-based approach to comple
 2. **R**equirements - User expectations and acceptance criteria
 3. **S**pecifications - Engineering goals and constraints  
 4. **/** - Division marker separating analysis from implementation
-5. **D**esign - Phase-specific technical design documents
+5. **D**esign - Phase-specific design documents
 6. **S**tage - Implementation staging and execution
-7. **C**checklist - Validation and testing procedures
+7. **C**hecklist - Validation and testing procedures
 8. **O**rchestrator - Process coordination and management
 
 ### Document Structure Pattern
