@@ -15,9 +15,9 @@ The IRS/DSCO methodology represents a structured, phase-based approach to comple
 1. **I**ssue - Problem identification and tracking
 2. **R**equirements - User expectations and acceptance criteria
 3. **S**pecifications - Engineering goals and constraints  
-4. **/** - Divide into Phases
+4. **/** - Divide into Phases (separate branches and PRs)
 5. **D**esign - Phase-specific design documents
-6. **S**tage - Implementation staging and execution
+6. **S**tage - Implementation staging and execution (commit and test each unit)
 7. **C**hecklist - Validation and testing procedures
 8. **O**rchestrator - Process coordination via Orchestration agent
 
@@ -30,13 +30,10 @@ Based on analysis of spec/100 reference implementation, the IRS/DSCO methodology
 2. **02-specifications.md** - Engineering goals, constraints, success metrics (WITHOUT implementation details)
 
 #### Implementation Phase (DSCO)  
-3. **03-phase{N}-design.md** - Technical design for specific implementation phase
-4. **04-phase{N}-checklist.md** - Validation procedures and implementation tracking
-5. **{N}-phase{N}-progress.md** - Progress tracking and status updates (as needed)
-6. **{N}-review.md** - Phase completion analysis and lessons learned
-7. **{N}-improvements.md** - Identified improvements and future considerations
-8. **{N}-final-checklist.md** - Complete validation checklist
-9. **{N}-release.md** - Release documentation and deployment record
+3. **{i}-phase{N}-design.md** - Technical design for specific implementation phase
+4. **{i}-phase{N}-checklist.md** - Validation procedures and implementation tracking
+5. **{i}-phase{N}-progress.md** - Progress tracking and status updates (as needed)
+6. **{i}-review.md** - Phase completion analysis and lessons learned
 
 ### File Organization Principles
 
@@ -45,7 +42,7 @@ Based on analysis of spec/100 reference implementation, the IRS/DSCO methodology
 - **Descriptive names** indicating phase and document type
 - **Consistent markdown format** (.md for all documentation)
 
-#### Directory Structure
+#### Directory Structure (example)
 ```
 spec/{issue-number}/
 ├── 01-requirements.md           # Problem definition and acceptance criteria
