@@ -1,7 +1,7 @@
 # Specifications: IRS/DSCO Process Documentation
 
 **Issue**: [#112 - IRS/DSCO](https://github.com/quiltdata/quilt-mcp-server/issues/112)  
-**Based on**: [01-requirements.txt](./01-requirements.txt)
+**Based on**: [01-requirements.md](./01-requirements.md)
 **Type**: Process Documentation Specification
 **Priority**: Medium
 
@@ -15,41 +15,41 @@ The IRS/DSCO methodology represents a structured, phase-based approach to comple
 1. **I**ssue - Problem identification and tracking
 2. **R**equirements - User expectations and acceptance criteria
 3. **S**pecifications - Engineering goals and constraints  
-4. **/** - Division marker separating analysis from implementation
+4. **/** - Divide into Phases
 5. **D**esign - Phase-specific design documents
 6. **S**tage - Implementation staging and execution
 7. **C**hecklist - Validation and testing procedures
-8. **O**rchestrator - Process coordination and management
+8. **O**rchestrator - Process coordination via Orchestration agent
 
 ### Document Structure Pattern
 
 Based on analysis of spec/100 reference implementation, the IRS/DSCO methodology follows this document pattern:
 
 #### Analysis Phase (IRS)
-1. **01-requirements.{md|txt}** - Problem statement, user stories, acceptance criteria
-2. **02-specifications.{md|txt}** - Engineering goals, constraints, success metrics (WITHOUT implementation details)
+1. **01-requirements.md** - Problem statement, user stories, acceptance criteria
+2. **02-specifications.md** - Engineering goals, constraints, success metrics (WITHOUT implementation details)
 
 #### Implementation Phase (DSCO)  
-3. **03-phase{N}-design.{md|txt}** - Technical design for specific implementation phase
-4. **04-phase{N}-checklist.{md|txt}** - Validation procedures and implementation tracking
-5. **{N}-phase{N}-progress.{md|txt}** - Progress tracking and status updates (as needed)
-6. **{N}-review.{md|txt}** - Phase completion analysis and lessons learned
-7. **{N}-improvements.{md|txt}** - Identified improvements and future considerations
-8. **{N}-final-checklist.{md|txt}** - Complete validation checklist
-9. **{N}-release.{md|txt}** - Release documentation and deployment record
+3. **03-phase{N}-design.md** - Technical design for specific implementation phase
+4. **04-phase{N}-checklist.md** - Validation procedures and implementation tracking
+5. **{N}-phase{N}-progress.md** - Progress tracking and status updates (as needed)
+6. **{N}-review.md** - Phase completion analysis and lessons learned
+7. **{N}-improvements.md** - Identified improvements and future considerations
+8. **{N}-final-checklist.md** - Complete validation checklist
+9. **{N}-release.md** - Release documentation and deployment record
 
 ### File Organization Principles
 
 #### Numbering Convention
 - **Sequential numbering** (01, 02, 03...) for chronological phases
 - **Descriptive names** indicating phase and document type
-- **Consistent extensions** (.md for structured docs, .txt for simple text)
+- **Consistent markdown format** (.md for all documentation)
 
 #### Directory Structure
 ```
 spec/{issue-number}/
-├── 01-requirements.{md|txt}     # Problem definition and acceptance criteria
-├── 02-specifications.{md|txt}   # Engineering constraints and success metrics
+├── 01-requirements.md           # Problem definition and acceptance criteria
+├── 02-specifications.md         # Engineering constraints and success metrics
 ├── 03-phase1-design.md          # Phase 1 technical design
 ├── 04-phase1-checklist.md       # Phase 1 validation and tracking
 ├── 05-phase2-design.md          # Phase 2 technical design  
