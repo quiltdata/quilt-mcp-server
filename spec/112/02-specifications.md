@@ -9,9 +9,16 @@
 
 ### Core Methodology Definition
 
-The IRS/DSCO methodology implements **Accountability-Driven Development (ADD)** principles for AI-assisted software development. It provides "autonomy with accountability" by creating structured phases where AI can contribute effectively while maintaining human oversight and trust.
+The IRS/DSCO methodology implements **[Accountability-Driven Development](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) (ADD)** principles for AI-assisted software development. It provides "autonomy with accountability" by creating structured phases where AI can contribute effectively while maintaining human oversight and trust.
 
 **Foundation**: Based on ADD's BPM Trinity (Branch/Phase/Meta-pattern), this methodology addresses the core challenge: "in the age of AI, accountability is the bottleneck."
+
+**Protective Design**: The methodology is specifically designed to streamline human review against potentially deceptive or misguided AI agents through:
+1. **Concrete artifacts** - All work produces tangible, reviewable documents and code
+2. **Atomic change units** - Each commit/PR contains minimal, focused changes
+3. **Separate branches** - Isolated changes prevent unintended modifications to specs/tests
+4. **Immutable specifications** - Historical docs cannot be altered to hide original intent
+5. **Binary review gates** - Clear approval/rejection points for human oversight
 
 **Acronym Breakdown** (ADD-aligned):
 1. **I**ssue - Problem identification and tracking (accountability scope)
@@ -126,11 +133,13 @@ spec/{issue-number}/
 - **Quantitative metrics** where possible (percentages, counts, timelines)
 - **Reference links** between related documents
 
-#### Version Control
-- Documents are **historical records** - do not update after completion
+#### Version Control (Anti-Deception Measures)
+- Documents are **immutable historical records** - cannot be updated after completion
+- **Prevents AI from rewriting history** - original specifications remain unchanged
 - Each document represents the state of knowledge at time of creation
 - Create new documents for iterations rather than updating existing ones
-- Use git commits to track document evolution
+- **Git audit trail** tracks all document evolution and prevents stealth modifications
+- **Separate commit patterns** for specs vs implementation reveal any inappropriate cross-contamination
 
 ### Process Coordination
 
@@ -151,8 +160,10 @@ spec/{issue-number}/
 #### Branch Strategy (Accountability Unit)
 - **Specification branches**: `spec/{issue-number}` for analysis phase
 - **Implementation branches**: `impl/{feature-name}` for development phase  
+- **Isolation principle**: Separate branches prevent AI from modifying specifications during implementation
 - **Binary review process**: Each branch gets clear "yes/no" approval
 - **Smallest unit of accountability**: Each AI-generated work lives in its own branch/PR
+- **Audit trail**: Git history provides complete record of AI contributions and human decisions
 
 #### Phase Strategy (Work Cadence)
 1. **Spec Phase**: Intent description and requirements (IRS documents)
@@ -214,6 +225,7 @@ This specification defines the **what** and **structure** of the IRS/DSCO method
 - **Binary Review Process**: Clear "yes/no" decisions on AI-generated work
 - **Phase-based Cadence**: Structured workflow that maintains trust and quality
 - **Prefactoring Meta-pattern**: Prepare foundations before implementation
+- **Anti-Deception Framework**: Concrete artifacts, atomic changes, branch isolation, and immutable specs protect against misguided AI behavior
 
 Reference implementation available in spec/100 demonstrates practical application of this methodology for repository cleanup and makefile consolidation project.
 
