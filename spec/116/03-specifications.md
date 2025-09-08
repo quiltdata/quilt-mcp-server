@@ -9,7 +9,7 @@
 
 This specification proposes a two-tier architecture that balances user workflow efficiency with technical maintainability:
 
-- **Workflow Tools** (10 tools): Use-case-centric tools that MCP clients call directly to fulfill user requests
+- **Workflow Tools** (14 tools): Use-case-centric tools that MCP clients call directly to fulfill user requests
 - **Utility Layer** (hidden): Atomic operations that workflow tools compose internally
 
 The goal is enabling MCP clients to serve users with minimal orchestration while maintaining clean separation of concerns.

@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Phase 1 implements the "Utility Layer Extraction" as specified in the migration strategy. This phase extracts 42-50 pure utility functions from existing MCP tools to create the composable foundation layer for the two-tier architecture.
+Phase 1 implements the "Utility Layer Extraction" as specified in the migration strategy. This phase extracts pure utility functions from existing MCP tools to create the composable foundation layer for the two-tier architecture.
 
 **Goal**: Transform existing monolithic MCP tools into atomic utility functions with minimal schemas, single responsibility, and high composability to enable Phase 2 workflow tool implementation.
 
@@ -15,7 +15,7 @@ Phase 1 implements the "Utility Layer Extraction" as specified in the migration 
 
 ### Architecture Goals for Phase 1
 
-1. **Utility Function Extraction**: Extract 42-50 atomic utility functions from existing tools
+1. **Utility Function Extraction**: Extract atomic utility functions from existing tools
 2. **Pure Function Design**: Create functions with minimal schemas, single responsibility, no side effects
 3. **Composability**: Design utility functions as building blocks for future workflow tools
 4. **Category Organization**: Group utilities into logical categories (AWS, Package, Object, Data, Content)
@@ -69,7 +69,7 @@ Phase 1 Architecture: Utility Layer Extraction
 
 Based on the migration strategy from specifications, we extract utility functions organized by functional categories:
 
-**AWS Operations** (10-12 functions)
+**AWS Operations**
 ```python
 # From auth.py
 def aws_identity_get() -> Dict[str, str]:
@@ -114,7 +114,7 @@ def glue_table_list(database: str) -> List[Dict[str, Any]]:
     # Returns: [{"name": "table", "columns": [...], "location": "s3://..."}]
 ```
 
-**Package Operations** (10-12 functions)
+**Package Operations**
 ```python
 # From packages.py
 def package_list(registry: str, prefix: str = "") -> List[Dict[str, Any]]:
@@ -143,7 +143,7 @@ def package_metadata_generate(entries: Dict[str, Any]) -> Dict[str, Any]:
     # Returns: {"size_bytes": 123, "entry_count": 45, "file_types": [...]}
 ```
 
-**S3 Object Operations** (8-10 functions)
+**S3 Object Operations**
 ```python
 # From s3_package.py
 def s3_object_get(s3_uri: str, max_bytes: int = 65536) -> Dict[str, Any]:
@@ -177,7 +177,7 @@ def file_organize(files: List[str], rules: Dict[str, str] = None) -> Dict[str, s
     # Returns: {"input/file.csv": "data/file.csv", "doc.md": "docs/doc.md"}
 ```
 
-**Data Processing Operations** (6-8 functions)
+**Data Processing Operations**
 ```python
 # New utility functions for data operations
 def data_load(s3_uri: str, format: str = "auto") -> Dict[str, Any]:
@@ -201,7 +201,7 @@ def data_filter(data: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dic
     # Returns: filtered data array
 ```
 
-**Content Generation Operations** (6-8 functions)
+**Content Generation Operations**
 ```python
 # New utility functions for content generation
 def readme_generate(package_info: Dict[str, Any], entries: Dict[str, Any]) -> str:
@@ -240,7 +240,7 @@ def metadata_generate(entries: Dict[str, Any], user_metadata: Dict[str, Any] = N
     # Returns: {"generated": {...}, "user": {...}, "computed": {...}}
 ```
 
-**Search and Query Operations** (8-10 functions)
+**Search and Query Operations**
 ```python
 # New utility functions for search and query
 def elasticsearch_query(query: Dict[str, Any], index: str) -> Dict[str, Any]:
@@ -436,7 +436,7 @@ from .package_operations import (
 ## Success Metrics
 
 ### Utility Function Quality
-- **Function Count**: 42-50 utility functions extracted from existing tools
+- **Function Count**: Utility functions extracted from existing tools
 - **Pure Function Compliance**: 100% of utilities are pure functions (no side effects)
 - **Single Responsibility**: Each utility has one clear, testable responsibility
 - **Minimal Schemas**: All utilities have simple, consistent input/output schemas
@@ -491,7 +491,7 @@ from .package_operations import (
 
 ## Deliverables
 
-1. **Utility Layer**: Complete `src/quilt_mcp_server/utilities/` module with 42-50 pure utility functions
+1. **Utility Layer**: Complete `src/quilt_mcp_server/utilities/` module with pure utility functions
 2. **Test Suite**: Comprehensive BDD tests achieving 100% coverage for all utilities
 3. **Import System**: Simple direct imports for easy workflow tool integration
 4. **Documentation**: Clear docstrings and type hints for all utility functions

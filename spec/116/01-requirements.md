@@ -22,11 +22,11 @@ The system should prioritize delivering streamlined tools for the **core Quilt u
 ### Core Use Case Focus
 1. **As a data analyst**, I want **catalog access tools** so that **I can authenticate, list available buckets, and discover tables/datasets across Quilt catalogs**
 2. **As a data scientist**, I want **package read/write/delete tools** so that **I can efficiently access and modify Quilt package data and metadata**
-   1. And parallel for objects
-3. **As a researcher**, I want **search tools** so that **I can find packages and objects across multiple Quilt catalogs**
-4. **As a data explorer**, I want **visualization tools** so that **I can create charts and graphs from Quilt package data**
-5. **As a business user**, I want **Athena SQL search tools** so that **I can use familiar SQL syntax to query Quilt data with proper table discovery**
-6. **As a dashboard creator**, I want **tabulator table tools** so that **I can create flexible, interactive data tables**
+3. **As a data scientist**, I want **object read/write/delete tools** so that **I can efficiently access and modify individual Quilt object data and metadata**
+4. **As a researcher**, I want **search tools** so that **I can find packages and objects across multiple Quilt catalogs**
+5. **As a data explorer**, I want **visualization tools** so that **I can create charts and graphs from Quilt package data**
+6. **As a business user**, I want **Athena SQL search tools** so that **I can use familiar SQL syntax to query Quilt data with proper table discovery**
+7. **As a dashboard creator**, I want **tabulator table tools** so that **I can create flexible, interactive data tables**
 
 ### Developer Experience
 8. **As a developer**, I want **atomic, orthogonal tools** so that **each tool has clear input/output schemas and single responsibilities**
@@ -34,7 +34,7 @@ The system should prioritize delivering streamlined tools for the **core Quilt u
 
 ## Acceptance Criteria
 
-1. **Core Use Case Coverage** - All 7 core use cases (catalog access, package read/write, search, visualization, longitudinal querying, Athena SQL, tabulation) have dedicated, atomic tools
+1. **Core Use Case Coverage** - All 7 core use cases (catalog access, package read/write/delete, object read/write/delete, search, visualization, Athena SQL, tabulation) have dedicated, atomic tools
 2. **Minimal Tool Set** - Tools are consolidated to focus on core use cases, with non-essential tools archived or removed
 3. **Atomic Design** - Each tool is atomic based on input/output schema with single, clear responsibility
 4. **Orthogonal Architecture** - Tools are orthogonal (non-overlapping) in functionality and scope
