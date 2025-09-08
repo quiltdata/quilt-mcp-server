@@ -183,7 +183,7 @@ Approve checklist and validation procedures
 
 ##### 🤖 Implementation Prompt (to Agent)
 
-> Implement with BDD following design, using the Implementation Instructions in Step 3c of @spec/WORKFLOW.md and an Orchestrator agent.
+> Use an Orchestrator agent to execute the above checklist, following the Implementation Instructions in Step 3c of @spec/WORKFLOW.md.
 
 ##### 📝 Implementation Instructions (for Agent)
 
