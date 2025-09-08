@@ -18,6 +18,7 @@
 - **Human oversight at transitions** - Strategic control, not micromanagement
 - **Clear responsibility assignment** - Explicit ownership of decisions
 - **Audit trails** - Complete record of all AI contributions and human approvals
+- **Sequential Sessions** - Start a new Claude Code session for each document, to ensure it is only relying on explicit artifacts rather than implicit (possibly erroneous) state.
 
 ### 3. Progressive Refinement
 - **Abstract to concrete progression** - Problem → Requirements → Design → Implementation

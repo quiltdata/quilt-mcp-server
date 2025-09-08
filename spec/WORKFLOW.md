@@ -6,6 +6,8 @@
 
 **Complete Specification**: See [spec/112/02-specifications.md](./112/02-specifications.md) for detailed IRS/DSCO methodology specification.
 
+**Examples**: See `./spec/100/*.md` for real-world examples of each document
+
 ## IRS/DSCO Process Overview
 
 **IRS Phase (Analysis)**:
@@ -34,13 +36,17 @@
 
 ### Step 0: Create GitHub Issue
 
-🤖 **AI Agent**: Create GitHub issue for problem identification
+#### 🤖 Issue Prompt (to Agent)
+
+**AI Agent**: Create GitHub issue for problem identification
 - Document problem scope and business impact
 - Identify stakeholders and affected systems
 - Establish tracking number for IRS/DSCO process
 - Link to any related issues or PRs
 
-👤 **Human Review**: Validate issue scope and priority
+#### 👤 Issue Review (by Human)
+
+**Human Review**: Validate issue scope and priority
 - Confirm problem statement accuracy
 - Approve priority and milestone assignment
 - Authorize IRS/DSCO process initiation
@@ -51,31 +57,42 @@
 
 ### Step 1: Requirements Analysis
 
-🤖 **AI Agent**: Create [01-requirements.md](./100/01-requirements.md) using a Business Analyst or Product Owner agent (ideally with product/market/customer context)
-```
-Using the GitHub issue from Step 0, create requirements document following IRS/DSCO methodology in @spec/WORKFLOW.md:
+#### 🤖 Requirements Prompt (to Agent)
+
+> Create `spec/{issue_number}/01-requirements.md` using a Business Analyst or Product Owner agent, following the Requirements Instructions in Step 1 of @spec/WORKFLOW.md
+
+#### 📝 Requirements Instructions (for Agent)
+
+Using the GitHub issue from Step 0, create requirements document following IRS/DSCO methodology:
 
 - Reference the GitHub issue number and problem statement
 - Expand the issue description into detailed user stories: "As a [role], I want [functionality] so that [benefit]"
 - Convert issue scope into numbered acceptance criteria
 - Build on issue context for high-level implementation approach (no technical details)
 - Define measurable success criteria based on issue impact
-- Identify "Open Questions" for relevant information you cannot inver
+- Identify "Open Questions" for relevant information you cannot infer
 
 Format as markdown with clear sections and numbered lists. Fix IDE Diagnostics.
-```
 
-👤 **Human Review**: Validate problem understanding and acceptance criteria
+#### 👤 Requirements Review (by Human)
+
+Validate problem understanding and acceptance criteria
 - Address Open Questions
 - Verify user stories capture actual needs
 - Confirm acceptance criteria are measurable
-- Approve, edit or request revisions before initaiting next step
+- Approve, edit or request revisions before initiating next step
+
+---
 
 ### Step 2: Engineering Specifications
 
-🤖 **AI Agent**: Create [02-specifications.md](./100/02-specifications.md) using an appropriate architecture or developer agent. 
-```
-Using the requirements document from Step 1, create specifications document following the IRS/DSCO methodology in @spec/WORKFLOW.md:
+#### 🤖 Specification Prompt (to Agent)
+
+> Create `spec/{issue_number}/02-specifications.md` using an appropriate architecture or developer agent, following the Specification Instructions in Step 2 of @spec/WORKFLOW.md
+
+#### 📝 Specification Instructions (for Agent)
+
+Using the requirements document from Step 1, create a specifications document that:
 
 - Reference the acceptance criteria from 01-requirements.md
 - Propose implementation architecture consistent with the current repository
@@ -88,13 +105,14 @@ Using the requirements document from Step 1, create specifications document foll
 
 EXCLUDE: Implementation code, detailed procedures.
 Format as markdown with clear sections and numbered lists.
-```
 
-👤 **Human Review**: Confirm engineering approach and success metrics
+#### 👤 Specification Review (by Human)
+
+Confirm engineering approach and success metrics
 - Validate technical feasibility
 - Approve phase breakdown strategy
 - Confirm success metrics are appropriate
-- Approve, edit or request revisions before initaiting next step
+- Approve, edit or request revisions before initiating next step
 
 ---
 
@@ -104,16 +122,13 @@ For each implementation phase (repeat as needed):
 
 #### Step 3a: Create Design Document
 
-Examples:
+##### 🤖 Design Prompt (to Agent)
 
-- [03-phase1-design.md](./100/03-phase1-design.md)
-- [05-phase2-design.md](./100/05-phase2-design.md)
-- [07-phase3-design.md](./100/07-phase3-design.md)
+> Create `spec/{issue_number}/{n}-phase{k}-design.md` using a developer agent with the relevant skills, following the Design Instructions in Step 3a of @spec/WORKFLOW.md
 
-🤖 **AI Agent**: Create Design Document using a developer agent with the relevant skills
+##### 📝 Design Instructions (for Agent)
 
-```
-Using the specifications document from Step 2, create phase-specific design document following the IRS/DSCO methodology in @spec/WORKFLOW.md:
+Using the specifications document from Step 2, create phase-specific design document following the IRS/DSCO methodology:
 
 - Reference the specific phase from the implementation phases breakdown in 02-specifications.md
 - Design technical architecture to meet the target state goals for this phase
@@ -124,64 +139,99 @@ Using the specifications document from Step 2, create phase-specific design docu
 
 Focus on "what" and "how" for this specific phase, grounded in specifications.
 Format as markdown with clear sections. Fix IDE Diagnostics.
-```
 
-👤 **Human Review**: Approve technical architecture and implementation strategy
+##### 👤 Design Review (by Human)
+
+Approve technical architecture and implementation strategy
 - Validate design decisions
 - Confirm integration approach
 - Approve technology choices
 - Commit design document, then create a NEW child branch and PR for implementation
 
-#### Step 3b: Create Design Document
+#### Step 3b: Create Checklist Document
 
-Examples:
+##### 🤖 Checklist Prompt (to Agent)
 
-- [04-phase1-checklist.md](./100/04-phase1-checklist.md)
-- [06-phase2-checklist.md](./100/06-phase2-checklist.md)
-- [08-phase3-checklist.md](./100/08-phase3-checklist.md)
+> Create:
+> 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
+> 2. a`spec/{issue_number}/{n+1}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 3b of @spec/WORKFLOW.md (then commit + push)
+> 3. a PR for the new branch against the original branch
 
-🤖 **AI Agent**: Create Checklist Document using a developer agent with the relevant skills
+##### 📝 Checklist Instructions (for Agent)
 
-```
-Using the design document from this phase, create validation checklist following the IRS/DSCO methodology in @spec/WORKFLOW.md:
+Using the design document from this phase, create validation checklist following the IRS/DSCO methodology:
 
-- Break down the implementation strategy from the design into granular tasks with [ ] status tracking
+- Break down the implementation strategy into coherent Stages that can be iteratively committed, pushed, and tested
+- Break each stage into granular tasks with [ ] status tracking
 - Create validation procedures that verify each design decision is properly implemented
-- Define testing requirements that validate the architecture and integration points from design
+- Define Behavior-Driven Development (BDD) requirements that validate the architecture and integration points from design
+  - Do NOT write any code in this document
+  - Do concisely itemize critical test cases 
 - Establish quality gates that confirm success metrics from specifications are met
 - Link back to original GitHub issue and reference acceptance criteria from requirements
 
 Use checkbox format for trackable progress.
 Format as markdown with task lists. Fix IDE Diagnostics.
-```
 
-#### Step 3b: Implement with BDD following design
+##### 👤 Checklist Review (by Human)
 
-🤖 **AI Agent**: Implement with BDD following design
-```
+Approve checklist and validation procedures
+- Confirm tasks and validation steps are comprehensive
+- Approve, edit or request revisions before implementation
+
+#### Step 3c: Implement with BDD following design
+
+##### 🤖 Implementation Prompt (to Agent)
+
+> Implement with BDD following design, using the Implementation Instructions in Step 3c of @spec/WORKFLOW.md and an Orchestrator agent.
+
+##### 📝 Implementation Instructions (for Agent)
+
 Using the design document for this phase, implement following BDD:
 
-- Write failing tests for each design component first
+- Use TodoWrite tool for granular progress tracking (unless Agent has another mechanism)
+- Write any scratch documents in the `spec/{issue_number}/` folder
+- Write failing behavior-driven tests for each design component first (using same methodology as existing tests)
+  - Test the expected behavior, NOT the implementation details
+- Commit failing tests before beginning implementation
 - Implement minimum code to pass tests
+  - Clearly annotate if/when/why you had to modify tests after the fact
+- Commit and push to PR, address any issues
 - Refactor while keeping tests green
-- Use TodoWrite tool for granular progress tracking
 - Commit with format: "feat: implement {component} from phase{N} design"
-- Run `make test`, `make lint`, and IDE diagnostics after each change
-```
+- After each major change:
+  - Run `make test`
+  - Run `make lint`
+  - Fix IDE diagnostics
+  - Update Checklist
+  - Commit and push
+  - Fix PR errors, address/reply to PR comments; repeat if necessary
+- When implementation appears done:
+  - Ensure checklist is a) updated, and b) accurate
+  - Check coverage, increase to 85%+
+  - Resolve any outdated PR comments
+  - Update the PR description to facilitate Review
 
-👤 **Human Review**: Code quality, testing, and functionality validation
+##### 👤 Implementation Review (by Human)
+
+Code quality, testing, and functionality validation
+
+- Ensure checklist is completed
 - Review implementation against design
 - Validate test coverage and quality
 - Confirm functionality meets requirements
-- **Use code-reviewer agent** for complex validation
-- **All tests must pass** before approval
-- **100% coverage required** for implementation
-- Approve phase completion
+- Merge PR into feature branch
+
+---
 
 ### Step 4: Final Integration
 
-🤖 **AI Agent**: Process coordination and final integration
-```
+#### 🤖 Integration Prompt (to Agent)
+
+> Process coordination and final integration, following the Integration Instructions in Step 4 of @spec/WORKFLOW.md
+
+#### 📝 Integration Instructions (for Agent)
+
 Using all completed phase checklists from Step 3, coordinate final integration:
 
 - Verify all checkboxes are completed across all phase checklists
@@ -189,9 +239,10 @@ Using all completed phase checklists from Step 3, coordinate final integration:
 - Confirm all success metrics from 02-specifications.md are achieved
 - Test integration points identified in all design documents
 - Prepare release documentation referencing original GitHub issue resolution
-```
 
-👤 **Human Review**: Final approval and release authorization
+#### 👤 Integration Review (by Human)
+
+Final approval and release authorization
 - Complete system validation
 - Approve for production deployment
 - Document lessons learned
