@@ -17,15 +17,15 @@ This checklist implements the IRS/DSCO methodology for Phase 1 of the tools dire
 
 ## Success Criteria Summary
 
-- [ ] **FR-01**: AWS Operations Utilities fully implemented and tested
+- [x] **FR-01**: AWS Operations Utilities fully implemented and tested
 - [ ] **FR-02**: Package Operations Utilities fully implemented and tested
 - [ ] **FR-03**: Object Operations Utilities fully implemented and tested
 - [ ] **FR-04**: Data and Content Operations fully implemented and tested
 - [ ] **FR-05**: Search and Query Utilities fully implemented and tested
-- [ ] **Significant Code Duplication Reduction**: Eliminate redundant implementations across tools
-- [ ] **Comprehensive Test Coverage**: All utility functions covered by BDD tests
-- [ ] **Performance Maintained**: No significant degradation in operations
-- [ ] **Backward Compatibility**: All existing tool functionality preserved
+- [x] **Significant Code Duplication Reduction**: Eliminate redundant implementations across tools (Stage 1)
+- [x] **Comprehensive Test Coverage**: All utility functions covered by BDD tests (Stage 1)
+- [x] **Performance Maintained**: No significant degradation in operations (Stage 1)
+- [x] **Backward Compatibility**: All existing tool functionality preserved (Stage 1)
 
 ---
 
@@ -36,151 +36,151 @@ This checklist implements the IRS/DSCO methodology for Phase 1 of the tools dire
 ### Stage 1.1: Foundation Setup
 
 #### Infrastructure Tasks
-- [ ] Create directory structure `src/quilt/utilities/aws/`
-- [ ] Create `src/quilt/utilities/__init__.py`
-- [ ] Create `src/quilt/utilities/aws/__init__.py`
-- [ ] Setup test directory structure `tests/utilities/aws/`
-- [ ] Configure pytest for new module path
+- [x] Create directory structure `src/quilt_mcp/utilities/aws/`
+- [x] Create `src/quilt_mcp/utilities/__init__.py`
+- [x] Create `src/quilt_mcp/utilities/aws/__init__.py`
+- [x] Setup test directory structure `tests/utilities/aws/`
+- [x] Configure pytest for new module path
 
 #### Documentation Tasks
-- [ ] Document AWS utilities API design
-- [ ] Create code examples for common usage patterns
-- [ ] Document dependency injection patterns
+- [x] Document AWS utilities API design
+- [x] Create code examples for common usage patterns
+- [x] Document dependency injection patterns
 
 ### Stage 1.2: Session Management Utilities
 
 #### Implementation Tasks
-- [ ] Extract session creation logic from `tools/aws/`, `tools/dxt/`, and `aws/permission_discovery.py`
-- [ ] Create `src/quilt/utilities/aws/session.py`
-- [ ] Implement `create_session(prefer_quilt=True, profile_name=None, region=None)` function with dual credential support
-- [ ] Implement credential fallback logic: Quilt3 → AWS native → error with guidance
-- [ ] Implement `get_session_credentials(session)` function
-- [ ] Implement `validate_session(session)` function
-- [ ] Add environment variable support (`QUILT_DISABLE_QUILT3_SESSION`) for credential preference
-- [ ] Handle both `quilt3.get_boto3_session()` and `boto3.Session()` patterns
-- [ ] Add proper error handling and logging with credential-specific guidance
+- [x] Extract session creation logic from `tools/aws/`, `tools/dxt/`, and `aws/permission_discovery.py`
+- [x] Create `src/quilt_mcp/utilities/aws/session.py`
+- [x] Implement `create_session(prefer_quilt=True, profile_name=None, region=None)` function with dual credential support
+- [x] Implement credential fallback logic: Quilt3 → AWS native → error with guidance
+- [x] Implement `get_session_credentials(session)` function
+- [x] Implement `validate_session(session)` function
+- [x] Add environment variable support (`QUILT_DISABLE_QUILT3_SESSION`) for credential preference
+- [x] Handle both `quilt3.get_boto3_session()` and `boto3.Session()` patterns
+- [x] Add proper error handling and logging with credential-specific guidance
 
 #### BDD Test Requirements
-- [ ] **Given** Quilt catalog login active, **When** creating session with prefer_quilt=True, **Then** Quilt3-backed session used
-- [ ] **Given** native AWS credentials configured, **When** creating session with prefer_quilt=False, **Then** standard boto3 session used
-- [ ] **Given** both credential types available, **When** creating session with default settings, **Then** Quilt3 session preferred
-- [ ] **Given** QUILT_DISABLE_QUILT3_SESSION=1 environment variable, **When** creating session, **Then** native AWS credentials used
-- [ ] **Given** AWS profile name provided, **When** creating session, **Then** session uses specified profile (native AWS only)
-- [ ] **Given** invalid Quilt3 credentials, **When** creating session, **Then** fallback to native AWS credentials attempted
-- [ ] **Given** no credentials configured, **When** creating session, **Then** appropriate error with setup guidance for both credential types
-- [ ] **Given** session timeout, **When** validating session, **Then** session refresh is handled appropriately for session type
+- [x] **Given** Quilt catalog login active, **When** creating session with prefer_quilt=True, **Then** Quilt3-backed session used
+- [x] **Given** native AWS credentials configured, **When** creating session with prefer_quilt=False, **Then** standard boto3 session used
+- [x] **Given** both credential types available, **When** creating session with default settings, **Then** Quilt3 session preferred
+- [x] **Given** QUILT_DISABLE_QUILT3_SESSION=1 environment variable, **When** creating session, **Then** native AWS credentials used
+- [x] **Given** AWS profile name provided, **When** creating session, **Then** session uses specified profile (native AWS only)
+- [x] **Given** invalid Quilt3 credentials, **When** creating session, **Then** fallback to native AWS credentials attempted
+- [x] **Given** no credentials configured, **When** creating session, **Then** appropriate error with setup guidance for both credential types
+- [x] **Given** session timeout, **When** validating session, **Then** session refresh is handled appropriately for session type
 
 #### Validation Tasks
-- [ ] Verify session creation works with both Quilt3 and native AWS credentials
-- [ ] Verify credential fallback logic works correctly (Quilt3 → native AWS → error)
-- [ ] Verify error handling provides clear guidance for both credential types
-- [ ] Verify environment variable control (QUILT_DISABLE_QUILT3_SESSION) works
-- [ ] Verify performance matches existing implementations for both session types
-- [ ] Verify memory usage is acceptable for both credential patterns
+- [x] Verify session creation works with both Quilt3 and native AWS credentials
+- [x] Verify credential fallback logic works correctly (Quilt3 → native AWS → error)
+- [x] Verify error handling provides clear guidance for both credential types
+- [x] Verify environment variable control (QUILT_DISABLE_QUILT3_SESSION) works
+- [x] Verify performance matches existing implementations for both session types
+- [x] Verify memory usage is acceptable for both credential patterns
 
 ### Stage 1.3: S3 Operations Utilities
 
 #### Implementation Tasks
-- [ ] Extract S3 operations from `tools/aws/`, `tools/dxt/`, and `tools/package_manifest/`
-- [ ] Create `src/quilt/utilities/aws/s3.py`
-- [ ] Implement `create_client(session, region=None)` function
-- [ ] Implement `list_objects(client, bucket, prefix="", **kwargs)` function
-- [ ] Implement `get_object(client, bucket, key)` function
-- [ ] Implement `put_object(client, bucket, key, data, **kwargs)` function
-- [ ] Implement `delete_object(client, bucket, key)` function
-- [ ] Implement `object_exists(client, bucket, key)` function
-- [ ] Add streaming support for large objects
-- [ ] Add retry logic with exponential backoff
+- [x] Extract S3 operations from `tools/aws/`, `tools/dxt/`, and `tools/package_manifest/`
+- [x] Create `src/quilt_mcp/utilities/aws/s3.py`
+- [x] Implement `create_client(session, region=None)` function
+- [x] Implement `list_objects(client, bucket, prefix="", **kwargs)` function
+- [x] Implement `get_object(client, bucket, key)` function
+- [x] Implement `put_object(client, bucket, key, data, **kwargs)` function
+- [x] Implement `delete_object(client, bucket, key)` function
+- [x] Implement `object_exists(client, bucket, key)` function
+- [x] Add streaming support for large objects
+- [x] Add retry logic with exponential backoff
 
 #### BDD Test Requirements
-- [ ] **Given** valid S3 client, **When** listing objects with prefix, **Then** correct objects returned
-- [ ] **Given** existing S3 object, **When** getting object, **Then** object data retrieved correctly
-- [ ] **Given** object data, **When** putting object, **Then** object stored successfully in S3
-- [ ] **Given** existing S3 object, **When** deleting object, **Then** object removed from S3
-- [ ] **Given** large object (>1GB), **When** streaming object, **Then** memory usage remains constant
-- [ ] **Given** network failure, **When** performing S3 operation, **Then** retry with exponential backoff
+- [x] **Given** valid S3 client, **When** listing objects with prefix, **Then** correct objects returned
+- [x] **Given** existing S3 object, **When** getting object, **Then** object data retrieved correctly
+- [x] **Given** object data, **When** putting object, **Then** object stored successfully in S3
+- [x] **Given** existing S3 object, **When** deleting object, **Then** object removed from S3
+- [x] **Given** large object (>1GB), **When** streaming object, **Then** memory usage remains constant
+- [x] **Given** network failure, **When** performing S3 operation, **Then** retry with exponential backoff
 
 #### Validation Tasks
-- [ ] Verify S3 operations work with real AWS S3 buckets
-- [ ] Verify streaming works with large objects (>1GB)
-- [ ] Verify retry logic handles transient failures
-- [ ] Verify performance matches existing implementations
+- [x] Verify S3 operations work with real AWS S3 buckets
+- [x] Verify streaming works with large objects (>1GB)
+- [x] Verify retry logic handles transient failures
+- [x] Verify performance matches existing implementations
 
 ### Stage 1.4: Registry Operations Utilities
 
 #### Implementation Tasks
-- [ ] Extract registry operations from `tools/dxt/` and existing tools
-- [ ] Create `src/quilt/utilities/aws/registry.py`
-- [ ] Implement `get_registry_url(registry_name)` function
-- [ ] Implement `list_packages(s3_client, registry_url, **kwargs)` function
-- [ ] Implement `get_package_metadata(s3_client, registry_url, package_name)` function
-- [ ] Implement `validate_registry_access(s3_client, registry_url)` function
-- [ ] Add pagination support for large package lists
+- [x] Extract registry operations from `tools/dxt/` and existing tools
+- [x] Create `src/quilt_mcp/utilities/aws/registry.py`
+- [x] Implement `get_registry_url(registry_name)` function
+- [x] Implement `list_packages(s3_client, registry_url, **kwargs)` function
+- [x] Implement `get_package_metadata(s3_client, registry_url, package_name)` function
+- [x] Implement `validate_registry_access(s3_client, registry_url)` function
+- [x] Add pagination support for large package lists
 
 #### BDD Test Requirements
-- [ ] **Given** registry name, **When** getting registry URL, **Then** correct URL returned
-- [ ] **Given** valid registry, **When** listing packages, **Then** package list retrieved
-- [ ] **Given** package name, **When** getting package metadata, **Then** metadata retrieved correctly
-- [ ] **Given** invalid registry, **When** validating access, **Then** appropriate error raised
-- [ ] **Given** large registry, **When** listing packages, **Then** pagination works correctly
+- [x] **Given** registry name, **When** getting registry URL, **Then** correct URL returned
+- [x] **Given** valid registry, **When** listing packages, **Then** package list retrieved
+- [x] **Given** package name, **When** getting package metadata, **Then** metadata retrieved correctly
+- [x] **Given** invalid registry, **When** validating access, **Then** appropriate error raised
+- [x] **Given** large registry, **When** listing packages, **Then** pagination works correctly
 
 #### Validation Tasks
-- [ ] Verify registry operations work with real Quilt registries
-- [ ] Verify pagination handles large package lists
-- [ ] Verify access validation catches permission issues
+- [x] Verify registry operations work with real Quilt registries
+- [x] Verify pagination handles large package lists
+- [x] Verify access validation catches permission issues
 
 ### Stage 1.5: Authentication Utilities
 
 #### Implementation Tasks
-- [ ] Extract authentication logic from existing tools (`auth.py`, `permission_discovery.py`)
-- [ ] Create `src/quilt/utilities/aws/auth.py`
-- [ ] Implement `get_credentials(prefer_quilt=True, profile_name=None)` function with dual credential support
-- [ ] Implement `validate_credentials(credentials, credential_type="auto")` function
-- [ ] Implement `get_caller_identity(session)` function for both session types
-- [ ] Implement `is_quilt_authenticated()` function to check Quilt3 login status
-- [ ] Implement `get_credential_type(session)` function to identify session source
-- [ ] Add credential caching and refresh logic for both credential types
+- [x] Extract authentication logic from existing tools (`auth.py`, `permission_discovery.py`)
+- [x] Create `src/quilt_mcp/utilities/aws/auth.py`
+- [x] Implement `get_credentials(prefer_quilt=True, profile_name=None)` function with dual credential support
+- [x] Implement `validate_credentials(credentials, credential_type="auto")` function
+- [x] Implement `get_caller_identity(session)` function for both session types
+- [x] Implement `is_quilt_authenticated()` function to check Quilt3 login status
+- [x] Implement `get_credential_type(session)` function to identify session source
+- [x] Add credential caching and refresh logic for both credential types
 
 #### BDD Test Requirements
-- [ ] **Given** Quilt catalog login, **When** getting credentials with prefer_quilt=True, **Then** Quilt3 credentials returned
-- [ ] **Given** AWS profile, **When** getting credentials with prefer_quilt=False, **Then** profile credentials returned
-- [ ] **Given** both credential types available, **When** getting credentials with default settings, **Then** Quilt3 credentials preferred
-- [ ] **Given** valid Quilt3 credentials, **When** validating, **Then** validation succeeds with Quilt3 identity
-- [ ] **Given** valid native AWS credentials, **When** validating, **Then** validation succeeds with native AWS identity
-- [ ] **Given** invalid credentials, **When** validating, **Then** validation fails with credential-type-specific error
-- [ ] **Given** expired Quilt3 token, **When** refreshing, **Then** appropriate re-authentication guidance provided
-- [ ] **Given** expired native AWS credentials, **When** refreshing, **Then** new credentials obtained via standard AWS flow
+- [x] **Given** Quilt catalog login, **When** getting credentials with prefer_quilt=True, **Then** Quilt3 credentials returned
+- [x] **Given** AWS profile, **When** getting credentials with prefer_quilt=False, **Then** profile credentials returned
+- [x] **Given** both credential types available, **When** getting credentials with default settings, **Then** Quilt3 credentials preferred
+- [x] **Given** valid Quilt3 credentials, **When** validating, **Then** validation succeeds with Quilt3 identity
+- [x] **Given** valid native AWS credentials, **When** validating, **Then** validation succeeds with native AWS identity
+- [x] **Given** invalid credentials, **When** validating, **Then** validation fails with credential-type-specific error
+- [x] **Given** expired Quilt3 token, **When** refreshing, **Then** appropriate re-authentication guidance provided
+- [x] **Given** expired native AWS credentials, **When** refreshing, **Then** new credentials obtained via standard AWS flow
 
 #### Validation Tasks
-- [ ] Verify authentication works with both Quilt3 and native AWS credential sources
-- [ ] Verify credential type detection accurately identifies session source
-- [ ] Verify credential caching improves performance for both credential types
-- [ ] Verify error messages are clear and actionable for both authentication methods
-- [ ] Verify fallback logic handles mixed authentication scenarios
+- [x] Verify authentication works with both Quilt3 and native AWS credential sources
+- [x] Verify credential type detection accurately identifies session source
+- [x] Verify credential caching improves performance for both credential types
+- [x] Verify error messages are clear and actionable for both authentication methods
+- [x] Verify fallback logic handles mixed authentication scenarios
 
 ### Stage 1 Quality Gates
 
 #### Code Quality
-- [ ] All AWS utility modules have comprehensive test coverage
-- [ ] All functions have comprehensive type annotations
-- [ ] All functions have docstrings with examples
-- [ ] Linting passes without warnings
-- [ ] No circular dependencies between modules
+- [x] All AWS utility modules have comprehensive test coverage
+- [x] All functions have comprehensive type annotations
+- [x] All functions have docstrings with examples
+- [x] Linting passes without warnings
+- [x] No circular dependencies between modules
 
 #### Integration Quality
-- [ ] All utilities integrate with real AWS services
-- [ ] Performance benchmarks established and met
-- [ ] Memory usage profiled and acceptable
-- [ ] Error handling covers all edge cases
+- [x] All utilities integrate with real AWS services
+- [x] Performance benchmarks established and met
+- [x] Memory usage profiled and acceptable
+- [x] Error handling covers all edge cases
 
 #### Architecture Quality
-- [ ] Dependency injection pattern consistently applied
-- [ ] Pure functions clearly separated from impure functions
-- [ ] Single responsibility principle maintained
-- [ ] Clear separation of concerns achieved
-- [ ] Dual credential pattern (Quilt3 + native AWS) properly abstracted across all utilities
-- [ ] Credential fallback logic consistent across all AWS operations
-- [ ] Session management utilities work seamlessly with both credential types
+- [x] Dependency injection pattern consistently applied
+- [x] Pure functions clearly separated from impure functions
+- [x] Single responsibility principle maintained
+- [x] Clear separation of concerns achieved
+- [x] Dual credential pattern (Quilt3 + native AWS) properly abstracted across all utilities
+- [x] Credential fallback logic consistent across all AWS operations
+- [x] Session management utilities work seamlessly with both credential types
 
 ---
 
