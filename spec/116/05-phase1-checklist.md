@@ -50,25 +50,33 @@ This checklist implements the IRS/DSCO methodology for Phase 1 of the tools dire
 ### Stage 1.2: Session Management Utilities
 
 #### Implementation Tasks
-- [ ] Extract session creation logic from `tools/aws/` and `tools/dxt/`
+- [ ] Extract session creation logic from `tools/aws/`, `tools/dxt/`, and `aws/permission_discovery.py`
 - [ ] Create `src/quilt/utilities/aws/session.py`
-- [ ] Implement `create_session(profile_name=None, region=None)` function
+- [ ] Implement `create_session(prefer_quilt=True, profile_name=None, region=None)` function with dual credential support
+- [ ] Implement credential fallback logic: Quilt3 → AWS native → error with guidance
 - [ ] Implement `get_session_credentials(session)` function
 - [ ] Implement `validate_session(session)` function
-- [ ] Add proper error handling and logging
+- [ ] Add environment variable support (`QUILT_DISABLE_QUILT3_SESSION`) for credential preference
+- [ ] Handle both `quilt3.get_boto3_session()` and `boto3.Session()` patterns
+- [ ] Add proper error handling and logging with credential-specific guidance
 
 #### BDD Test Requirements
-- [ ] **Given** AWS credentials are configured, **When** creating a session, **Then** session is valid and authenticated
-- [ ] **Given** AWS profile name provided, **When** creating session, **Then** session uses specified profile
-- [ ] **Given** invalid credentials, **When** creating session, **Then** appropriate exception is raised
-- [ ] **Given** no AWS configuration, **When** creating session, **Then** fallback to default behavior
-- [ ] **Given** session timeout, **When** validating session, **Then** session refresh is handled
+- [ ] **Given** Quilt catalog login active, **When** creating session with prefer_quilt=True, **Then** Quilt3-backed session used
+- [ ] **Given** native AWS credentials configured, **When** creating session with prefer_quilt=False, **Then** standard boto3 session used
+- [ ] **Given** both credential types available, **When** creating session with default settings, **Then** Quilt3 session preferred
+- [ ] **Given** QUILT_DISABLE_QUILT3_SESSION=1 environment variable, **When** creating session, **Then** native AWS credentials used
+- [ ] **Given** AWS profile name provided, **When** creating session, **Then** session uses specified profile (native AWS only)
+- [ ] **Given** invalid Quilt3 credentials, **When** creating session, **Then** fallback to native AWS credentials attempted
+- [ ] **Given** no credentials configured, **When** creating session, **Then** appropriate error with setup guidance for both credential types
+- [ ] **Given** session timeout, **When** validating session, **Then** session refresh is handled appropriately for session type
 
 #### Validation Tasks
-- [ ] Verify session creation works with real AWS credentials
-- [ ] Verify error handling for invalid credentials
-- [ ] Verify performance matches existing implementations
-- [ ] Verify memory usage is acceptable
+- [ ] Verify session creation works with both Quilt3 and native AWS credentials
+- [ ] Verify credential fallback logic works correctly (Quilt3 → native AWS → error)
+- [ ] Verify error handling provides clear guidance for both credential types
+- [ ] Verify environment variable control (QUILT_DISABLE_QUILT3_SESSION) works
+- [ ] Verify performance matches existing implementations for both session types
+- [ ] Verify memory usage is acceptable for both credential patterns
 
 ### Stage 1.3: S3 Operations Utilities
 
@@ -124,23 +132,31 @@ This checklist implements the IRS/DSCO methodology for Phase 1 of the tools dire
 ### Stage 1.5: Authentication Utilities
 
 #### Implementation Tasks
-- [ ] Extract authentication logic from existing tools
+- [ ] Extract authentication logic from existing tools (`auth.py`, `permission_discovery.py`)
 - [ ] Create `src/quilt/utilities/aws/auth.py`
-- [ ] Implement `get_credentials(profile_name=None)` function
-- [ ] Implement `validate_credentials(credentials)` function
-- [ ] Implement `get_caller_identity(session)` function
-- [ ] Add credential caching and refresh logic
+- [ ] Implement `get_credentials(prefer_quilt=True, profile_name=None)` function with dual credential support
+- [ ] Implement `validate_credentials(credentials, credential_type="auto")` function
+- [ ] Implement `get_caller_identity(session)` function for both session types
+- [ ] Implement `is_quilt_authenticated()` function to check Quilt3 login status
+- [ ] Implement `get_credential_type(session)` function to identify session source
+- [ ] Add credential caching and refresh logic for both credential types
 
 #### BDD Test Requirements
-- [ ] **Given** AWS profile, **When** getting credentials, **Then** profile credentials returned
-- [ ] **Given** valid credentials, **When** validating, **Then** validation succeeds
-- [ ] **Given** invalid credentials, **When** validating, **Then** validation fails with clear error
-- [ ] **Given** expired credentials, **When** refreshing, **Then** new credentials obtained
+- [ ] **Given** Quilt catalog login, **When** getting credentials with prefer_quilt=True, **Then** Quilt3 credentials returned
+- [ ] **Given** AWS profile, **When** getting credentials with prefer_quilt=False, **Then** profile credentials returned
+- [ ] **Given** both credential types available, **When** getting credentials with default settings, **Then** Quilt3 credentials preferred
+- [ ] **Given** valid Quilt3 credentials, **When** validating, **Then** validation succeeds with Quilt3 identity
+- [ ] **Given** valid native AWS credentials, **When** validating, **Then** validation succeeds with native AWS identity
+- [ ] **Given** invalid credentials, **When** validating, **Then** validation fails with credential-type-specific error
+- [ ] **Given** expired Quilt3 token, **When** refreshing, **Then** appropriate re-authentication guidance provided
+- [ ] **Given** expired native AWS credentials, **When** refreshing, **Then** new credentials obtained via standard AWS flow
 
 #### Validation Tasks
-- [ ] Verify authentication works with various credential sources
-- [ ] Verify credential caching improves performance
-- [ ] Verify error messages are clear and actionable
+- [ ] Verify authentication works with both Quilt3 and native AWS credential sources
+- [ ] Verify credential type detection accurately identifies session source
+- [ ] Verify credential caching improves performance for both credential types
+- [ ] Verify error messages are clear and actionable for both authentication methods
+- [ ] Verify fallback logic handles mixed authentication scenarios
 
 ### Stage 1 Quality Gates
 
@@ -162,6 +178,9 @@ This checklist implements the IRS/DSCO methodology for Phase 1 of the tools dire
 - [ ] Pure functions clearly separated from impure functions
 - [ ] Single responsibility principle maintained
 - [ ] Clear separation of concerns achieved
+- [ ] Dual credential pattern (Quilt3 + native AWS) properly abstracted across all utilities
+- [ ] Credential fallback logic consistent across all AWS operations
+- [ ] Session management utilities work seamlessly with both credential types
 
 ---
 
