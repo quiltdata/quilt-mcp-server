@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class AuthError(Exception):
     """Custom exception for authentication-related errors."""
+
     pass
 
 
@@ -38,11 +39,7 @@ class AuthError(Exception):
 _credential_cache = TTLCache(maxsize=100, ttl=900)
 
 
-def get_credentials(
-    prefer_quilt: bool = True,
-    profile_name: Optional[str] = None,
-    refresh_cache: bool = False
-) -> Any:
+def get_credentials(prefer_quilt: bool = True, profile_name: Optional[str] = None, refresh_cache: bool = False) -> Any:
     """Get AWS credentials with dual credential support.
 
     Args:
@@ -59,15 +56,15 @@ def get_credentials(
     Examples:
         >>> # Use Quilt3 credentials if available
         >>> creds = get_credentials()
-        
+
         >>> # Force native AWS credentials
         >>> creds = get_credentials(prefer_quilt=False)
-        
+
         >>> # Use specific AWS profile
         >>> creds = get_credentials(profile_name='production')
     """
     cache_key = f"credentials_{prefer_quilt}_{profile_name or 'default'}"
-    
+
     # Return cached credentials if available and not refreshing
     if not refresh_cache and cache_key in _credential_cache:
         return _credential_cache[cache_key]
@@ -95,7 +92,7 @@ def get_credentials(
     else:
         # Check if Quilt3 sessions are disabled
         disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-        
+
         # Try Quilt3 credentials first if preferred and not disabled
         if prefer_quilt and not disable_quilt3_session:
             try:
@@ -107,9 +104,7 @@ def get_credentials(
                     pass
 
                 # Use quilt3 if it's mocked or if it's logged in
-                if (is_quilt3_mock or 
-                    (hasattr(quilt3, "logged_in") and quilt3.logged_in())):
-                    
+                if is_quilt3_mock or (hasattr(quilt3, "logged_in") and quilt3.logged_in()):
                     if hasattr(quilt3, "get_boto3_session"):
                         session = quilt3.get_boto3_session()
                         credentials = session.get_credentials()
@@ -146,18 +141,15 @@ def get_credentials(
 
     # Cache the credentials
     _credential_cache[cache_key] = credentials
-    
+
     # Add metadata to credentials object for type tracking
     if hasattr(credentials, '__dict__'):
         credentials._credential_source = credential_source
-    
+
     return credentials
 
 
-def validate_credentials(
-    credentials: Any,
-    credential_type: str = "auto"
-) -> Dict[str, Any]:
+def validate_credentials(credentials: Any, credential_type: str = "auto") -> Dict[str, Any]:
     """Validate AWS credentials and return detailed status.
 
     Args:
@@ -179,7 +171,7 @@ def validate_credentials(
         "identity": None,
         "error": None,
         "guidance": None,
-        "validated_at": datetime.now(timezone.utc).isoformat()
+        "validated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
@@ -193,34 +185,36 @@ def validate_credentials(
             "aws_access_key_id": credentials.access_key,
             "aws_secret_access_key": credentials.secret_key,
         }
-        
+
         if hasattr(credentials, 'token') and credentials.token:
             session_kwargs["aws_session_token"] = credentials.token
 
         session = boto3.Session(**session_kwargs)
         sts_client = session.client('sts')
-        
+
         # Validate by calling get_caller_identity
         identity_response = sts_client.get_caller_identity()
-        
-        validation_result.update({
-            "valid": True,
-            "identity": {
-                "account": identity_response["Account"],
-                "user_id": identity_response["UserId"],
-                "arn": identity_response["Arn"],
-                "type": _determine_identity_type(identity_response["Arn"])
+
+        validation_result.update(
+            {
+                "valid": True,
+                "identity": {
+                    "account": identity_response["Account"],
+                    "user_id": identity_response["UserId"],
+                    "arn": identity_response["Arn"],
+                    "type": _determine_identity_type(identity_response["Arn"]),
+                },
             }
-        })
-        
+        )
+
         logger.info(f"Credentials validated successfully: {credential_type} - {identity_response['Arn']}")
-        
+
     except ClientError as e:
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
-        
+
         validation_result["error"] = f"{error_code}: {error_message}"
-        
+
         # Provide type-specific guidance
         if error_code in ['InvalidUserID.NotFound', 'SignatureDoesNotMatch']:
             validation_result["guidance"] = _get_invalid_credential_guidance(credential_type)
@@ -228,9 +222,9 @@ def validate_credentials(
             validation_result["guidance"] = _get_expired_credential_guidance(credential_type)
         else:
             validation_result["guidance"] = f"AWS API error: {error_message}"
-            
+
         logger.warning(f"Credential validation failed: {validation_result['error']}")
-        
+
     except Exception as e:
         validation_result["error"] = f"Unexpected validation error: {e}"
         validation_result["guidance"] = "Check your AWS credentials configuration and network connectivity"
@@ -259,13 +253,13 @@ def get_caller_identity(session: boto3.Session) -> Dict[str, Any]:
     try:
         sts_client = session.client('sts')
         response = sts_client.get_caller_identity()
-        
+
         return {
             "account": response["Account"],
             "user_id": response["UserId"],
             "arn": response["Arn"],
             "type": _determine_identity_type(response["Arn"]),
-            "retrieved_at": datetime.now(timezone.utc).isoformat()
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         raise AuthError(f"Failed to get caller identity: {e}") from e
@@ -314,10 +308,10 @@ def get_credential_type(session: boto3.Session) -> str:
                     return "quilt3"
             except Exception:
                 pass
-        
+
         # Default to native AWS if we can't determine it's from Quilt3
         return "native_aws"
-        
+
     except Exception as e:
         logger.debug(f"Error determining credential type: {e}")
         return "unknown"
@@ -342,7 +336,7 @@ def _detect_credential_type(credentials: Any) -> str:
                 return "native_aws"
             elif source == "native_aws":
                 return "native_aws"
-        
+
         # Check if this looks like a temporary credential (has session token)
         if hasattr(credentials, 'token') and credentials.token:
             # Temporary credentials could be either Quilt3 or AWS STS
@@ -353,10 +347,10 @@ def _detect_credential_type(credentials: Any) -> str:
         else:
             # Long-term credentials are typically native AWS
             return "native_aws"
-            
+
     except Exception:
         pass
-    
+
     return "unknown"
 
 
@@ -444,14 +438,14 @@ def _sessions_match(session1: boto3.Session, session2: boto3.Session) -> bool:
     try:
         creds1 = session1.get_credentials()
         creds2 = session2.get_credentials()
-        
+
         if creds1 is None or creds2 is None:
             return False
-            
+
         return (
-            creds1.access_key == creds2.access_key and
-            creds1.secret_key == creds2.secret_key and
-            getattr(creds1, 'token', None) == getattr(creds2, 'token', None)
+            creds1.access_key == creds2.access_key
+            and creds1.secret_key == creds2.secret_key
+            and getattr(creds1, 'token', None) == getattr(creds2, 'token', None)
         )
     except Exception:
         return False

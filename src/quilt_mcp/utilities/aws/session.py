@@ -27,13 +27,12 @@ logger = logging.getLogger(__name__)
 
 class SessionError(Exception):
     """Custom exception for session-related errors."""
+
     pass
 
 
 def create_session(
-    prefer_quilt: bool = True,
-    profile_name: Optional[str] = None,
-    region: Optional[str] = None
+    prefer_quilt: bool = True, profile_name: Optional[str] = None, region: Optional[str] = None
 ) -> boto3.Session:
     """Create an AWS session with dual credential support.
 
@@ -51,10 +50,10 @@ def create_session(
     Examples:
         >>> # Use Quilt3 credentials if available
         >>> session = create_session()
-        
+
         >>> # Force native AWS credentials
         >>> session = create_session(prefer_quilt=False)
-        
+
         >>> # Use specific AWS profile
         >>> session = create_session(profile_name='production')
     """
@@ -74,7 +73,7 @@ def create_session(
 
     # Check if Quilt3 sessions are disabled by environment variable
     disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-    
+
     # Try Quilt3 session first if preferred and not disabled
     if prefer_quilt and not disable_quilt3_session:
         try:
@@ -86,9 +85,7 @@ def create_session(
                 pass
 
             # Allow using quilt3 if it's mocked or if it's logged in
-            if (is_quilt3_mock or 
-                (hasattr(quilt3, "logged_in") and quilt3.logged_in())):
-                
+            if is_quilt3_mock or (hasattr(quilt3, "logged_in") and quilt3.logged_in()):
                 if hasattr(quilt3, "get_boto3_session"):
                     session = quilt3.get_boto3_session()
                     if region:
@@ -98,7 +95,7 @@ def create_session(
                             aws_access_key_id=credentials.access_key,
                             aws_secret_access_key=credentials.secret_key,
                             aws_session_token=credentials.token,
-                            region_name=region
+                            region_name=region,
                         )
                     logger.info("Using Quilt3-backed boto3 session")
                     return session
@@ -122,10 +119,7 @@ def create_session(
             "4. IAM roles: If running on EC2/ECS, ensure the instance has proper IAM role"
         ) from e
     except Exception as e:
-        raise SessionError(
-            f"Failed to create AWS session: {e}. "
-            f"Check your AWS credentials configuration."
-        ) from e
+        raise SessionError(f"Failed to create AWS session: {e}. Check your AWS credentials configuration.") from e
 
 
 def get_session_credentials(session: boto3.Session) -> Any:
@@ -179,10 +173,10 @@ def validate_session(session: boto3.Session) -> bool:
 
 def _validate_session_credentials(session: boto3.Session) -> None:
     """Internal helper to validate session credentials.
-    
+
     Args:
         session: Session to validate
-        
+
     Raises:
         Exception: If credentials are invalid
     """

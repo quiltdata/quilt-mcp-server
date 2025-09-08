@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from .session import (
     create_session,
-    get_session_credentials, 
+    get_session_credentials,
     validate_session,
     SessionError,
 )
@@ -45,13 +45,13 @@ from .auth import (
 __all__ = [
     # Session management
     "create_session",
-    "get_session_credentials", 
+    "get_session_credentials",
     "validate_session",
     "SessionError",
     # S3 operations
     "create_client",
     "list_objects",
-    "get_object", 
+    "get_object",
     "put_object",
     "delete_object",
     "object_exists",

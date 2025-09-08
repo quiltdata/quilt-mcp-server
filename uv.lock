@@ -1900,7 +1900,7 @@ wheels = [
 
 [[package]]
 name = "quilt-mcp-server"
-version = "0.5.9"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },

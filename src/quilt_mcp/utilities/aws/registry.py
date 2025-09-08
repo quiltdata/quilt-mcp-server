@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class RegistryError(Exception):
     """Custom exception for registry-related errors."""
+
     pass
 
 
@@ -46,19 +47,19 @@ def get_registry_url(registry_name: str) -> str:
     Examples:
         >>> get_registry_url("my-registry")
         's3://my-registry'
-        
+
         >>> get_registry_url("s3://my-registry")
         's3://my-registry'
     """
     if not registry_name or not registry_name.strip():
         raise RegistryError("Registry name cannot be empty")
-    
+
     registry_name = registry_name.strip()
-    
+
     # If already an S3 URL, return as-is
     if registry_name.startswith("s3://"):
         return registry_name
-    
+
     # Otherwise, construct S3 URL
     return f"s3://{registry_name}"
 
@@ -69,7 +70,7 @@ def list_packages(
     prefix: str = "",
     max_keys: int = 1000,
     continuation_token: Optional[str] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """List packages in a Quilt registry with pagination support.
 
@@ -95,17 +96,12 @@ def list_packages(
     """
     # Extract bucket name from registry URL
     bucket_name = _extract_bucket_from_registry_url(registry_url)
-    
+
     # Quilt packages are stored under .quilt/packages/
     quilt_prefix = ".quilt/packages/" if not prefix else f"{prefix}/.quilt/packages/"
-    
-    params: Dict[str, Any] = {
-        "Bucket": bucket_name,
-        "Prefix": quilt_prefix,
-        "MaxKeys": max_keys,
-        **kwargs
-    }
-    
+
+    params: Dict[str, Any] = {"Bucket": bucket_name, "Prefix": quilt_prefix, "MaxKeys": max_keys, **kwargs}
+
     if continuation_token:
         params["ContinuationToken"] = continuation_token
 
@@ -126,18 +122,20 @@ def list_packages(
     packages = []
     for item in response.get("Contents", []):
         key = item.get("Key", "")
-        
+
         # Extract package name from key pattern: prefix/.quilt/packages/manifest_hash
         # or just .quilt/packages/manifest_hash for root packages
         if "/.quilt/packages/" in key:
             package_name = key.split("/.quilt/packages/")[0]
             if package_name and package_name not in [pkg['name'] for pkg in packages]:
-                packages.append({
-                    "name": package_name,
-                    "last_modified": item.get("LastModified"),
-                    "size": item.get("Size"),
-                    "registry_url": registry_url,
-                })
+                packages.append(
+                    {
+                        "name": package_name,
+                        "last_modified": item.get("LastModified"),
+                        "size": item.get("Size"),
+                        "registry_url": registry_url,
+                    }
+                )
 
     return {
         "registry_url": registry_url,
@@ -150,12 +148,7 @@ def list_packages(
     }
 
 
-def get_package_metadata(
-    client: Any,
-    registry_url: str,
-    package_name: str,
-    **kwargs: Any
-) -> Dict[str, Any]:
+def get_package_metadata(client: Any, registry_url: str, package_name: str, **kwargs: Any) -> Dict[str, Any]:
     """Get metadata for a specific package in the registry.
 
     Args:
@@ -176,18 +169,18 @@ def get_package_metadata(
     """
     if not package_name or not package_name.strip():
         raise RegistryError("Package name cannot be empty or invalid")
-    
+
     package_name = package_name.strip()
     bucket_name = _extract_bucket_from_registry_url(registry_url)
-    
+
     # Look for package manifest files
     package_prefix = f"{package_name}/.quilt/packages/"
-    
+
     params: Dict[str, Any] = {
         "Bucket": bucket_name,
         "Prefix": package_prefix,
         "MaxKeys": 100,  # Should be enough for package versions
-        **kwargs
+        **kwargs,
     }
 
     try:
@@ -210,19 +203,21 @@ def get_package_metadata(
     # Extract version information from manifest files
     versions = []
     latest_version = None
-    
+
     for item in contents:
         key = item.get("Key", "")
-        
+
         # Extract version hash from key
         if key.startswith(package_prefix):
-            version_hash = key[len(package_prefix):]
+            version_hash = key[len(package_prefix) :]
             if version_hash and version_hash != "latest":
-                versions.append({
-                    "hash": version_hash,
-                    "last_modified": item.get("LastModified"),
-                    "size": item.get("Size"),
-                })
+                versions.append(
+                    {
+                        "hash": version_hash,
+                        "last_modified": item.get("LastModified"),
+                        "size": item.get("Size"),
+                    }
+                )
             elif version_hash == "latest":
                 latest_version = {
                     "last_modified": item.get("LastModified"),
@@ -231,7 +226,7 @@ def get_package_metadata(
 
     # Sort versions by last modified (most recent first)
     versions.sort(key=lambda x: x["last_modified"], reverse=True)
-    
+
     return {
         "package_name": package_name,
         "registry_url": registry_url,
@@ -242,11 +237,7 @@ def get_package_metadata(
     }
 
 
-def validate_registry_access(
-    client: Any,
-    registry_url: str,
-    **kwargs: Any
-) -> Dict[str, Any]:
+def validate_registry_access(client: Any, registry_url: str, **kwargs: Any) -> Dict[str, Any]:
     """Validate access permissions for a registry.
 
     Args:
@@ -266,7 +257,7 @@ def validate_registry_access(
         ...     print("Can create packages in this registry")
     """
     bucket_name = _extract_bucket_from_registry_url(registry_url)
-    
+
     access_info = {
         "registry_url": registry_url,
         "bucket_name": bucket_name,
@@ -343,7 +334,7 @@ def _extract_bucket_from_registry_url(registry_url: str) -> str:
     """
     if not registry_url:
         raise RegistryError("Registry URL cannot be empty")
-    
+
     if registry_url.startswith("s3://"):
         # Parse S3 URL to extract bucket name
         parsed = urlparse(registry_url)

@@ -67,11 +67,11 @@ class TestS3ListObjects:
                     'Size': 1024,
                     'LastModified': '2025-01-08',
                     'ETag': '"abc123"',
-                    'StorageClass': 'STANDARD'
+                    'StorageClass': 'STANDARD',
                 }
             ],
             'IsTruncated': False,
-            'KeyCount': 1
+            'KeyCount': 1,
         }
 
         # When: Listing objects with prefix
@@ -93,24 +93,17 @@ class TestS3ListObjects:
             'Contents': [],
             'IsTruncated': True,
             'NextContinuationToken': 'next-token-123',
-            'KeyCount': 0
+            'KeyCount': 0,
         }
 
         # When: Listing objects with pagination
-        result = list_objects(
-            mock_client, 
-            'test-bucket', 
-            max_keys=50, 
-            continuation_token='prev-token'
-        )
+        result = list_objects(mock_client, 'test-bucket', max_keys=50, continuation_token='prev-token')
 
         # Then: Pagination is handled correctly
         assert result['truncated'] is True
         assert result['next_token'] == 'next-token-123'
         mock_client.list_objects_v2.assert_called_once_with(
-            Bucket='test-bucket',
-            MaxKeys=50,
-            ContinuationToken='prev-token'
+            Bucket='test-bucket', MaxKeys=50, ContinuationToken='prev-token'
         )
 
 
@@ -128,7 +121,7 @@ class TestS3GetObject:
             'ContentLength': 12,
             'ContentType': 'text/plain',
             'ETag': '"abc123"',
-            'LastModified': '2025-01-08'
+            'LastModified': '2025-01-08',
         }
 
         # When: Getting the object
@@ -149,7 +142,7 @@ class TestS3GetObject:
         mock_body.iter_chunks.return_value = [b'chunk1', b'chunk2', b'chunk3']
         mock_client.get_object.return_value = {
             'Body': mock_body,
-            'ContentLength': 1024 * 1024 * 1024 * 2  # 2GB
+            'ContentLength': 1024 * 1024 * 1024 * 2,  # 2GB
         }
 
         # When: Streaming the object (this would be implemented)
@@ -167,10 +160,7 @@ class TestS3PutObject:
         """Given object data, When putting object, Then object stored successfully in S3."""
         # Given: Object data to upload
         mock_client = Mock()
-        mock_client.put_object.return_value = {
-            'ETag': '"def456"',
-            'VersionId': 'version123'
-        }
+        mock_client.put_object.return_value = {'ETag': '"def456"', 'VersionId': 'version123'}
         data = b'test upload content'
 
         # When: Putting the object
@@ -179,11 +169,7 @@ class TestS3PutObject:
         # Then: Object is stored successfully
         assert result['etag'] == '"def456"'
         assert result['success'] is True
-        mock_client.put_object.assert_called_once_with(
-            Bucket='test-bucket',
-            Key='upload-key',
-            Body=data
-        )
+        mock_client.put_object.assert_called_once_with(Bucket='test-bucket', Key='upload-key', Body=data)
 
     def test_given_object_data_and_metadata_when_putting_object_then_metadata_included(self):
         """Given object data and metadata, When putting object, Then metadata included."""
@@ -194,23 +180,12 @@ class TestS3PutObject:
         metadata = {'author': 'test-user', 'version': '1.0'}
 
         # When: Putting object with metadata
-        result = put_object(
-            mock_client, 
-            'test-bucket', 
-            'meta-key', 
-            data,
-            content_type='text/plain',
-            metadata=metadata
-        )
+        result = put_object(mock_client, 'test-bucket', 'meta-key', data, content_type='text/plain', metadata=metadata)
 
         # Then: Object is stored with metadata
         assert result['success'] is True
         mock_client.put_object.assert_called_once_with(
-            Bucket='test-bucket',
-            Key='meta-key',
-            Body=data,
-            ContentType='text/plain',
-            Metadata=metadata
+            Bucket='test-bucket', Key='meta-key', Body=data, ContentType='text/plain', Metadata=metadata
         )
 
 
@@ -221,20 +196,14 @@ class TestS3DeleteObject:
         """Given existing S3 object, When deleting object, Then object removed from S3."""
         # Given: An existing S3 object
         mock_client = Mock()
-        mock_client.delete_object.return_value = {
-            'DeleteMarker': False,
-            'VersionId': 'version123'
-        }
+        mock_client.delete_object.return_value = {'DeleteMarker': False, 'VersionId': 'version123'}
 
         # When: Deleting the object
         result = delete_object(mock_client, 'test-bucket', 'delete-key')
 
         # Then: Object is removed from S3
         assert result['deleted'] is True
-        mock_client.delete_object.assert_called_once_with(
-            Bucket='test-bucket',
-            Key='delete-key'
-        )
+        mock_client.delete_object.assert_called_once_with(Bucket='test-bucket', Key='delete-key')
 
 
 class TestS3ObjectExists:
@@ -244,20 +213,14 @@ class TestS3ObjectExists:
         """Given existing S3 object, When checking existence, Then returns True."""
         # Given: An existing S3 object
         mock_client = Mock()
-        mock_client.head_object.return_value = {
-            'ContentLength': 1024,
-            'ETag': '"abc123"'
-        }
+        mock_client.head_object.return_value = {'ContentLength': 1024, 'ETag': '"abc123"'}
 
         # When: Checking if object exists
         exists = object_exists(mock_client, 'test-bucket', 'existing-key')
 
         # Then: Returns True
         assert exists is True
-        mock_client.head_object.assert_called_once_with(
-            Bucket='test-bucket',
-            Key='existing-key'
-        )
+        mock_client.head_object.assert_called_once_with(Bucket='test-bucket', Key='existing-key')
 
     def test_given_non_existing_s3_object_when_checking_existence_then_returns_false(self):
         """Given non-existing S3 object, When checking existence, Then returns False."""
@@ -270,10 +233,7 @@ class TestS3ObjectExists:
 
         # Then: Returns False
         assert exists is False
-        mock_client.head_object.assert_called_once_with(
-            Bucket='test-bucket',
-            Key='missing-key'
-        )
+        mock_client.head_object.assert_called_once_with(Bucket='test-bucket', Key='missing-key')
 
 
 class TestS3RetryLogic:
@@ -284,10 +244,7 @@ class TestS3RetryLogic:
         # Given: Network failure scenario
         mock_client = Mock()
         # First call fails, second succeeds
-        mock_client.get_object.side_effect = [
-            Exception("Network timeout"),
-            {'Body': Mock(), 'ContentLength': 100}
-        ]
+        mock_client.get_object.side_effect = [Exception("Network timeout"), {'Body': Mock(), 'ContentLength': 100}]
 
         # When: Performing S3 operation with retry logic
         with patch('time.sleep') as mock_sleep:  # Mock sleep to speed up test

@@ -2,7 +2,7 @@
 
 This module provides composable utilities for S3 operations including:
 - Client creation from sessions
-- Object listing with pagination support  
+- Object listing with pagination support
 - Object retrieval with streaming support
 - Object upload with metadata support
 - Object deletion and existence checking
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 class S3Error(Exception):
     """Custom exception for S3-related errors."""
+
     pass
 
 
@@ -60,7 +61,7 @@ def list_objects(
     prefix: str = "",
     max_keys: int = 1000,
     continuation_token: Optional[str] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """List objects in an S3 bucket with optional prefix filtering.
 
@@ -84,12 +85,8 @@ def list_objects(
         >>> for obj in result['objects']:
         ...     print(obj['key'])
     """
-    params: Dict[str, Any] = {
-        "Bucket": bucket,
-        "MaxKeys": max_keys,
-        **kwargs
-    }
-    
+    params: Dict[str, Any] = {"Bucket": bucket, "MaxKeys": max_keys, **kwargs}
+
     if prefix:
         params["Prefix"] = prefix
     if continuation_token:
@@ -102,13 +99,15 @@ def list_objects(
 
     objects = []
     for item in response.get("Contents", []):
-        objects.append({
-            "key": item.get("Key"),
-            "size": item.get("Size"),
-            "last_modified": item.get("LastModified"),
-            "etag": item.get("ETag"),
-            "storage_class": item.get("StorageClass", "STANDARD"),
-        })
+        objects.append(
+            {
+                "key": item.get("Key"),
+                "size": item.get("Size"),
+                "last_modified": item.get("LastModified"),
+                "etag": item.get("ETag"),
+                "storage_class": item.get("StorageClass", "STANDARD"),
+            }
+        )
 
     return {
         "bucket": bucket,
@@ -122,13 +121,8 @@ def list_objects(
 
 
 def get_object(
-    client: Any,
-    bucket: str,
-    key: str,
-    stream: bool = False,
-    max_retries: int = 3,
-    **kwargs: Any
-) -> Union[Dict[str, Any], Iterator[bytes]]:
+    client: Any, bucket: str, key: str, stream: bool = False, max_retries: int = 3, **kwargs: Any
+) -> Dict[str, Any] | Iterator[bytes]:
     """Get an object from S3 with optional streaming support.
 
     Args:
@@ -149,16 +143,12 @@ def get_object(
         >>> # Get small object
         >>> result = get_object(s3_client, 'bucket', 'file.txt')
         >>> content = result['data']
-        
+
         >>> # Stream large object
         >>> for chunk in get_object(s3_client, 'bucket', 'large.dat', stream=True):
         ...     process_chunk(chunk)
     """
-    params = {
-        "Bucket": bucket,
-        "Key": key,
-        **kwargs
-    }
+    params = {"Bucket": bucket, "Key": key, **kwargs}
 
     def _get_with_retry() -> Any:
         """Internal function to get object with retry logic."""
@@ -167,15 +157,17 @@ def get_object(
                 return client.get_object(**params)
             except Exception as e:
                 if attempt == max_retries:
-                    raise S3Error(f"Failed to get object '{key}' from bucket '{bucket}' after {max_retries} retries: {e}") from e
-                
+                    raise S3Error(
+                        f"Failed to get object '{key}' from bucket '{bucket}' after {max_retries} retries: {e}"
+                    ) from e
+
                 # Exponential backoff: 1s, 2s, 4s, 8s...
-                delay = 2 ** attempt
+                delay = 2**attempt
                 logger.debug(f"S3 get_object attempt {attempt + 1} failed, retrying in {delay}s: {e}")
                 time.sleep(delay)
 
     response = _get_with_retry()
-    
+
     if stream:
         # Return streaming iterator for large objects
         def stream_chunks(chunk_size: int = 8192) -> Iterator[bytes]:
@@ -193,7 +185,7 @@ def get_object(
                         yield chunk
             finally:
                 body.close()
-        
+
         return stream_chunks()
     else:
         # Return all data for small objects
@@ -202,7 +194,7 @@ def get_object(
             data = body.read()
         finally:
             body.close()
-        
+
         return {
             "data": data,
             "content_length": response.get("ContentLength"),
@@ -217,10 +209,10 @@ def put_object(
     client: Any,
     bucket: str,
     key: str,
-    data: Union[bytes, str],
+    data: bytes | str,
     content_type: Optional[str] = None,
     metadata: Optional[Dict[str, str]] = None,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Dict[str, Any]:
     """Put an object to S3 with optional metadata.
 
@@ -242,22 +234,17 @@ def put_object(
     Examples:
         >>> result = put_object(s3_client, 'bucket', 'file.txt', b'content')
         >>> print(result['etag'])
-        
+
         >>> # With metadata
         >>> result = put_object(
-        ...     s3_client, 'bucket', 'data.json', 
+        ...     s3_client, 'bucket', 'data.json',
         ...     data=json.dumps(data).encode(),
         ...     content_type='application/json',
         ...     metadata={'version': '1.0'}
         ... )
     """
-    params: Dict[str, Any] = {
-        "Bucket": bucket,
-        "Key": key,
-        "Body": data,
-        **kwargs
-    }
-    
+    params: Dict[str, Any] = {"Bucket": bucket, "Key": key, "Body": data, **kwargs}
+
     if content_type:
         params["ContentType"] = content_type
     if metadata:
@@ -275,12 +262,7 @@ def put_object(
         raise S3Error(f"Failed to put object '{key}' to bucket '{bucket}': {e}") from e
 
 
-def delete_object(
-    client: Any,
-    bucket: str,
-    key: str,
-    **kwargs: Any
-) -> Dict[str, Any]:
+def delete_object(client: Any, bucket: str, key: str, **kwargs: Any) -> Dict[str, Any]:
     """Delete an object from S3.
 
     Args:
@@ -299,11 +281,7 @@ def delete_object(
         >>> result = delete_object(s3_client, 'bucket', 'old-file.txt')
         >>> print(result['deleted'])
     """
-    params = {
-        "Bucket": bucket,
-        "Key": key,
-        **kwargs
-    }
+    params = {"Bucket": bucket, "Key": key, **kwargs}
 
     try:
         response = client.delete_object(**params)
@@ -316,12 +294,7 @@ def delete_object(
         raise S3Error(f"Failed to delete object '{key}' from bucket '{bucket}': {e}") from e
 
 
-def object_exists(
-    client: Any,
-    bucket: str,
-    key: str,
-    **kwargs: Any
-) -> bool:
+def object_exists(client: Any, bucket: str, key: str, **kwargs: Any) -> bool:
     """Check if an object exists in S3.
 
     Args:
@@ -337,11 +310,7 @@ def object_exists(
         >>> if object_exists(s3_client, 'bucket', 'file.txt'):
         ...     print("File exists")
     """
-    params = {
-        "Bucket": bucket,
-        "Key": key,
-        **kwargs
-    }
+    params = {"Bucket": bucket, "Key": key, **kwargs}
 
     try:
         client.head_object(**params)

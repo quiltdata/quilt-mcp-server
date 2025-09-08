@@ -5,7 +5,7 @@ to eliminate code duplication and provide a consistent foundation for operations
 
 The utilities are organized into logical groups:
 - aws: AWS operations including session management, S3, registry, and authentication
-- package: Package operations including manifest handling and validation  
+- package: Package operations including manifest handling and validation
 - object: Object operations including metadata and retrieval
 - data: Data handling and content operations
 - search: Search and query utilities
