@@ -1,0 +1,11 @@
+test: Add BDD tests for session management utilities
+
+- Create comprehensive BDD tests for AWS session management
+- Test dual credential pattern (Quilt3 + native AWS)
+- Test credential fallback logic and environment variable controls
+- Test session validation and credential extraction
+- All tests designed to fail initially (TDD RED phase)
+- Tests cover scenarios defined in Phase 1 checklist
+
+Tests follow Given/When/Then BDD format and test behavior, not implementation.
+Implementation will follow to make tests pass (GREEN phase).

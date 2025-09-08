@@ -1,0 +1,16 @@
+feat: implement S3 operations utilities (green phase)
+
+- Implement create_client() for S3 client creation with session injection
+- Add list_objects() with pagination and prefix filtering support
+- Implement get_object() with streaming support and retry logic
+- Add put_object() with metadata and content type support
+- Implement delete_object() with comprehensive result information
+- Add object_exists() using head_object for existence checking
+- Include exponential backoff retry logic (1s, 2s, 4s, 8s...)
+- Support streaming for large objects using iterators
+- Add comprehensive error handling with S3Error exception
+- Include type annotations, docstrings, and examples throughout
+
+Implementation extracts and refactors patterns from existing buckets.py
+tool while making all BDD tests pass. Features dependency injection
+for testability and consistent error handling patterns.

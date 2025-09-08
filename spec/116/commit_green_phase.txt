@@ -1,0 +1,15 @@
+feat: implement session management utilities (green phase)
+
+- Implement create_session() with dual credential support (Quilt3 + native AWS)
+- Add credential fallback logic: Quilt3 → native AWS → error with guidance
+- Support environment variable control (QUILT_DISABLE_QUILT3_SESSION)
+- Add AWS profile support for native sessions
+- Implement get_session_credentials() for safe credential extraction
+- Implement validate_session() using STS get_caller_identity
+- Add comprehensive error handling with actionable guidance
+- Include type annotations, docstrings, and examples throughout
+- Support region specification and mock detection for testing
+
+Implementation makes all BDD tests pass while following existing patterns
+from permission_discovery.py. Features comprehensive logging and SessionError
+exception for clear error messages.

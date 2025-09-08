@@ -1,0 +1,15 @@
+test: Add BDD tests for S3 operations utilities (RED phase)
+
+- Create comprehensive BDD tests for S3 operations utilities
+- Test client creation from sessions with region support
+- Test object listing with pagination and prefix filtering
+- Test object retrieval including streaming for large objects
+- Test object upload with metadata support
+- Test object deletion and existence checking
+- Test retry logic with exponential backoff
+- All tests designed to fail initially (TDD RED phase)
+- Tests cover scenarios defined in Phase 1 checklist
+
+Tests follow Given/When/Then BDD format and test behavior based on
+existing patterns found in buckets.py tool. Implementation will follow
+to make tests pass (GREEN phase).
