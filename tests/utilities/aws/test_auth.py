@@ -16,11 +16,16 @@ from quilt_mcp.utilities.aws.auth import (
     is_quilt_authenticated,
     get_credential_type,
     AuthError,
+    _credential_cache,
 )
 
 
 class TestCredentialRetrieval:
     """Test credential retrieval with dual credential support."""
+
+    def setup_method(self):
+        """Clear credential cache before each test."""
+        _credential_cache.clear()
 
     def test_given_quilt_catalog_login_when_getting_credentials_with_prefer_quilt_true_then_quilt3_credentials_returned(
         self,
@@ -82,7 +87,7 @@ class TestCredentialRetrieval:
             credentials = get_credentials()
 
             # Then: Quilt3 credentials are preferred
-            assert credentials == mock_quilt_credentials
+            assert credentials is mock_quilt_credentials
             mock_quilt_session.assert_called_once()
             mock_boto3_session.assert_not_called()
 
@@ -90,9 +95,11 @@ class TestCredentialRetrieval:
         """Given no credentials available, When getting credentials, Then AuthError with guidance raised."""
         # Given: No credentials are available
         with (
-            patch('quilt3.logged_in', return_value=None),
-            patch('boto3.Session', side_effect=Exception("No credentials found")),
+            patch('quilt3.logged_in', return_value=False),
+            patch('boto3.Session') as mock_boto3_session,
         ):
+            # Configure boto3.Session to return None credentials
+            mock_boto3_session.return_value.get_credentials.return_value = None
             # When/Then: Getting credentials raises AuthError with guidance
             with pytest.raises(AuthError) as exc_info:
                 get_credentials()

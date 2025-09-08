@@ -249,6 +249,16 @@ class TestRegistryAccess:
         mock_s3_client.put_object.side_effect = ClientError(
             {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}, 'put_object'
         )
+        
+        # Mock get_bucket_acl to also deny access (this is what the function actually checks)
+        mock_s3_client.get_bucket_acl.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}, 'get_bucket_acl'
+        )
+        
+        # Mock the alternative write permission test methods to also fail
+        mock_s3_client.get_bucket_versioning.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}, 'get_bucket_versioning'
+        )
 
         # When: Validating registry access
         result = validate_registry_access(mock_s3_client, registry_url)
