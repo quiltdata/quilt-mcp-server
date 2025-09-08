@@ -152,7 +152,7 @@ Approve technical architecture and implementation strategy
 
 ##### 🤖 Checklist Prompt (to Agent)
 
-> Create:
+> Create, in order to implement the above design:
 > 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
 > 2. a`spec/{issue_number}/{n+1}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 3b of @spec/WORKFLOW.md (then commit + push)
 > 3. a PR for the new branch against the original branch
