@@ -1,27 +1,36 @@
-# AI Agent Guide for IRS/DSCO Methodology
+# IRS/DSCO Methodology Implementation Guide
 
-**Foundation**: Implements [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) principles - "autonomy with accountability" through structured phases and binary review gates.
+**Foundation**: Implements [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) principles through the IRS/DSCO structured development process.
 
-**Complete Methodology**: See [spec/112/02-specifications.md](./112/02-specifications.md) for full IRS/DSCO specification.
+**Universal Patterns**: See [AGENTS.md](./AGENTS.md) for core AI collaboration principles that underlie this methodology.
 
-## Critical Requirements
+**Complete Specification**: See [spec/112/02-specifications.md](./112/02-specifications.md) for detailed IRS/DSCO methodology specification.
 
-- **Each document lives in separate branch/PR** for binary approval
-- **Historical documents are immutable** - no post-completion edits
-- **Use TodoWrite tool** for progress tracking
-- **Follow TDD cycle** for implementation phases
-- **Run `make test` and `make lint`** before phase completion
+## IRS/DSCO Process Overview
 
-## Quick Reference: IRS/DSCO Process
-
+**IRS Phase (Analysis)**:
 1. **I**ssue - Problem identification and GitHub issue tracking
-1. **R**equirements - User stories, acceptance criteria, success metrics
-1. **S**pecifications - Engineering constraints, technical goals (NO implementation details)
-1. **/** - Divide into Phases (separate branches and PRs for binary review)
-1. **D**esign - Phase-specific technical design documents  
-1. **S**tage - Implementation with TDD and staged commits
-1. **C**hecklist - Validation procedures and progress tracking
-1. **O**rchestrator - Process coordination and dependency management
+2. **R**equirements - User stories, acceptance criteria, success metrics  
+3. **S**pecifications - Engineering constraints, technical goals (NO implementation details)
+
+**/** - **Divide into Phases** (separate branches and PRs for binary review)
+
+**DSCO Phase (Implementation)**:
+4. **D**esign - Phase-specific technical design documents
+5. **S**tage - Implementation with TDD and staged commits  
+6. **C**hecklist - Validation procedures and progress tracking
+7. **O**rchestrator - Process coordination and dependency management
+
+## Document Structure Pattern
+
+**Sequential numbering for chronological phases**:
+- `01-requirements.md` - Problem definition and acceptance criteria
+- `02-specifications.md` - Engineering constraints and success metrics
+- `03-phase1-design.md` - Phase 1 technical design
+- `04-phase1-checklist.md` - Phase 1 validation and tracking
+- `05-phase2-design.md` - Phase 2 technical design
+- `06-phase2-checklist.md` - Phase 2 validation and tracking
+- `{N}-review.md` - Implementation review and lessons learned
 
 ## Integrated IRS/DSCO Workflow
 

@@ -1,33 +1,90 @@
-# Agent Guide for Spec-Driven Development
+# Universal AI Collaboration Patterns
 
 **Foundation**: [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) - "autonomy with accountability"
 
-**Full Guide**: See [WORKFLOW.md](./WORKFLOW.md) for complete IRS/DSCO workflow and prompts.
+**Implementation Example**: See [WORKFLOW.md](./WORKFLOW.md) for IRS/DSCO methodology that applies these patterns.
 
-## Critical Requirements
+## Core Principles
+
+### 1. Anti-Deception Framework
+- **Concrete artifacts** - All work produces reviewable documents/code
+- **Atomic changes** - One focused change per branch/PR  
+- **Branch isolation** - Specifications cannot be modified during implementation
+- **Immutable history** - Historical documents preserve original intent
+- **Binary gates** - Clear yes/no approval points (no "maybe" states)
+
+### 2. Accountability Architecture
+- **AI autonomy within phases** - Agents work independently in defined boundaries
+- **Human oversight at transitions** - Strategic control, not micromanagement
+- **Clear responsibility assignment** - Explicit ownership of decisions
+- **Audit trails** - Complete record of all AI contributions and human approvals
+
+### 3. Progressive Refinement
+- **Abstract to concrete progression** - Problem → Requirements → Design → Implementation
+- **Phase completion gates** - Each stage validated before proceeding
+- **No premature implementation** - Technical details only after proper analysis
+- **Systematic knowledge building** - Each phase builds on validated prior work
+
+## Universal Requirements
 
 - **Each document lives in separate branch/PR** for binary approval
 - **Historical documents are immutable** - no post-completion edits
-- **Use TodoWrite tool** for progress tracking
-- **Follow TDD cycle** for implementation phases
-- **Run `make test` and `make lint`** before phase completion
+- **Use TodoWrite tool** for progress tracking and transparency
+- **Reference prior artifacts** - Each AI prompt must build on validated previous work
+- **Quality gates enforced** - All validation must pass before phase completion
 
-## IRS/DSCO Process
+## Specialized Agent Usage
 
-**IRS Phase (Analysis)**:
-1. **I**ssue → GitHub issue (branch: `spec/{issue-number}`)
-2. **R**equirements → [01-requirements.md](./100/01-requirements.md) (user stories, acceptance criteria)
-3. **S**pecifications → [02-specifications.md](./100/02-specifications.md) (engineering goals, NO implementation)
+**When to use specialized agents**:
+- **workflow-orchestrator**: Complex multi-phase implementations, dependency management
+- **research-analyst**: Problem investigation, requirements gathering, technology research
+- **business-analyst**: User story creation, acceptance criteria, business value assessment
+- **code-reviewer**: Implementation validation, architecture review, security assessment
 
-**DSCO Phase (Implementation)**:
-4. **D**esign → [0X-phaseN-design.md](./100/03-phase1-design.md) (branch: `impl/{feature-name}`)
-5. **S**tage → TDD implementation with TodoWrite tracking
-6. **C**hecklist → [0X-phaseN-checklist.md](./100/04-phase1-checklist.md) (validation tasks)
-7. **O**rchestrator → Final integration and release
+**Selection criteria**: Match agent capabilities to phase complexity and domain expertise needs.
 
-## Key Rules
+## Collaboration Rules
 
-- **Each AI prompt MUST reference prior artifacts** (not just dependencies)
-- **Binary human approval required** at each phase gate
-- **Use specialized agents**: workflow-orchestrator (complex phases), code-reviewer (validation)
-- **All quality gates must pass** before phase completion
+### For AI Agents
+- **Work autonomously within assigned phase boundaries**
+- **Always reference and build upon prior validated artifacts**
+- **Expect binary approval gates** - prepare work for clear yes/no decisions
+- **Use TodoWrite for transparency** - human collaborators must see progress
+- **Follow TDD when implementing** - test-first development required
+
+### For Human Collaborators  
+- **Make binary decisions at phase gates** - avoid extended "maybe" states
+- **Focus review on phase transitions** - not every individual code change
+- **Maintain strategic oversight** - guide direction without micromanaging implementation
+- **Enforce quality gates** - all validation must pass before approval
+- **Trust the process structure** - let phases contain AI autonomy appropriately
+
+## Quality Gates
+
+**Universal validation requirements**:
+- All tests pass (automated validation)
+- Code quality standards met (linting, type checking)
+- Documentation complete and accurate
+- Prior phase artifacts properly referenced
+- Success criteria from requirements satisfied
+
+**Human approval checkpoints**:
+- Problem definition approved before solution design
+- Architecture approved before implementation begins  
+- Implementation approved before release/deployment
+- Quality standards consistently enforced
+
+## Success Indicators
+
+**Process health**:
+- Clear binary decisions at all approval gates
+- No unauthorized modifications to historical specifications
+- Complete audit trail of all AI contributions and human decisions
+- Autonomous AI work within phases with minimal human intervention
+- Consistent quality gate enforcement
+
+**Collaboration effectiveness**:
+- Reduced time from problem to solution delivery
+- High-quality deliverables with predictable outcomes
+- Enhanced trust between human and AI collaborators
+- Scalable development process maintaining quality standards
