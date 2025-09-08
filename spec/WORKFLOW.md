@@ -17,7 +17,7 @@
 
 **DSCO Phase (Implementation)**:
 4. **D**esign - Phase-specific technical design documents
-5. **S**tage - Implementation with TDD and staged commits  
+5. **S**tage - Implementation with BDD and staged commits  
 6. **C**hecklist - Validation procedures and progress tracking
 7. **O**rchestrator - Process coordination and dependency management
 
@@ -26,13 +26,11 @@
 **Sequential numbering for chronological phases**:
 - `01-requirements.md` - Problem definition and acceptance criteria
 - `02-specifications.md` - Engineering constraints and success metrics
-- `03-phase1-design.md` - Phase 1 technical design
-- `04-phase1-checklist.md` - Phase 1 validation and tracking
-- `05-phase2-design.md` - Phase 2 technical design
-- `06-phase2-checklist.md` - Phase 2 validation and tracking
-- `{N}-review.md` - Implementation review and lessons learned
+- `{x}-phase{N}-design.md` - Phase N technical design (x = 2N+1)
+- `{x+1}-phase{N}-checklist.md` - Phase 1 validation and tracking
+- `{M}-review.md` - Implementation review and lessons learned
 
-## Integrated IRS/DSCO Workflow
+## Initiate IRS/DSCO Workflow
 
 ### Step 0: Create GitHub Issue
 
@@ -46,48 +44,49 @@
 - Confirm problem statement accuracy
 - Approve priority and milestone assignment
 - Authorize IRS/DSCO process initiation
-- **Branch**: Create `spec/{issue-number}` for IRS phase
+- **Branch**: Use GitHub to create `{issue-number}-short-name` for IRS phase
+- Open in Editor / Agenta (typically VS Code + Claude Code)
 
 ---
 
-## IRS Phase (Analysis)
-
 ### Step 1: Requirements Analysis
 
-🤖 **AI Agent**: Create [01-requirements.md](./100/01-requirements.md)
+🤖 **AI Agent**: Create [01-requirements.md](./100/01-requirements.md) using a Business Analyst or Product Owner agent (ideally with product/market/customer context)
 ```
-Using the GitHub issue from Step 0, create requirements document following IRS/DSCO methodology:
+Using the GitHub issue from Step 0, create requirements document following IRS/DSCO methodology in @spec/WORKFLOW.md:
 
 - Reference the GitHub issue number and problem statement
 - Expand the issue description into detailed user stories: "As a [role], I want [functionality] so that [benefit]"
 - Convert issue scope into numbered acceptance criteria
 - Build on issue context for high-level implementation approach (no technical details)
 - Define measurable success criteria based on issue impact
+- Identify "Open Questions" for relevant information you cannot inver
 
-Format as markdown with clear sections and numbered lists.
+Format as markdown with clear sections and numbered lists. Fix IDE Diagnostics.
 ```
 
 👤 **Human Review**: Validate problem understanding and acceptance criteria
+- Address Open Questions
 - Verify user stories capture actual needs
 - Confirm acceptance criteria are measurable
-- Approve or request revisions
-- **Binary approval required** - clear "yes/no" decision
+- Approve, edit or request revisions before initaiting next step
 
 ### Step 2: Engineering Specifications
 
-🤖 **AI Agent**: Create [02-specifications.md](./100/02-specifications.md)
+🤖 **AI Agent**: Create [02-specifications.md](./100/02-specifications.md) using an appropriate architecture or developer agent. 
 ```
-Using the requirements document from Step 1, create specifications document following IRS/DSCO methodology:
+Using the requirements document from Step 1, create specifications document following the IRS/DSCO methodology in @spec/WORKFLOW.md:
 
 - Reference the acceptance criteria from 01-requirements.md
-- Transform user stories into current state analysis with quantitative metrics
-- Convert acceptance criteria into proposed target state with specific measurable goals
-- Break down the implementation approach from requirements into detailed phases
-- Derive success metrics from the requirements success criteria (quantitative and qualitative)
-- Assess risks based on requirements complexity and constraints
-- Map requirements dependencies to technical dependencies
+- Propose implementation architecture consistent with the current repository
+- Write high-level specs describing the ideal end state (NO Implementation details)
+- Perform gap-analysis against current repository state
+- Identify "pre-factoring" opportunities: make the change easy, then make the easy change
+- Break implementation down into Phases that can be sequentially reviewed and merged
+- Do NOT write the actual implementation or any code samples (at most: signatures)
+- Identify technical (architectural, algorithmic, dependency) uncertainties and risks
 
-EXCLUDE: Implementation code, detailed procedures, technology-specific details.
+EXCLUDE: Implementation code, detailed procedures.
 Format as markdown with clear sections and numbered lists.
 ```
 
@@ -95,20 +94,26 @@ Format as markdown with clear sections and numbered lists.
 - Validate technical feasibility
 - Approve phase breakdown strategy
 - Confirm success metrics are appropriate
-- **Branch**: Create `impl/{feature-name}` for DSCO phase
-- **Binary approval required** - clear "yes/no" decision
+- Approve, edit or request revisions before initaiting next step
 
 ---
-
-## DSCO Phase (Implementation)
 
 ### Step 3: Implementation Phases
 
 For each implementation phase (repeat as needed):
 
-🤖 **AI Agent**: Create Design Document ([03-phase1-design.md](./100/03-phase1-design.md), [05-phase2-design.md](./100/05-phase2-design.md), [07-phase3-design.md](./100/07-phase3-design.md))
+#### Step 3a: Create Design Document
+
+Examples:
+
+- [03-phase1-design.md](./100/03-phase1-design.md)
+- [05-phase2-design.md](./100/05-phase2-design.md)
+- [07-phase3-design.md](./100/07-phase3-design.md)
+
+🤖 **AI Agent**: Create Design Document using a developer agent with the relevant skills
+
 ```
-Using the specifications document from Step 2, create phase-specific design document following IRS/DSCO methodology:
+Using the specifications document from Step 2, create phase-specific design document following the IRS/DSCO methodology in @spec/WORKFLOW.md:
 
 - Reference the specific phase from the implementation phases breakdown in 02-specifications.md
 - Design technical architecture to meet the target state goals for this phase
@@ -118,19 +123,27 @@ Using the specifications document from Step 2, create phase-specific design docu
 - Justify technology choices against the risk assessment and constraints from specifications
 
 Focus on "what" and "how" for this specific phase, grounded in specifications.
-Format as markdown with clear sections.
+Format as markdown with clear sections. Fix IDE Diagnostics.
 ```
 
 👤 **Human Review**: Approve technical architecture and implementation strategy
 - Validate design decisions
 - Confirm integration approach
 - Approve technology choices
-- **Use specialized agents**: workflow-orchestrator for complex phases
-- **Binary approval required** before implementation
+- Commit design document, then create a NEW child branch and PR for implementation
 
-🤖 **AI Agent**: Create Checklist Document ([04-phase1-checklist.md](./100/04-phase1-checklist.md), [06-phase2-checklist.md](./100/06-phase2-checklist.md), [08-phase3-checklist.md](./100/08-phase3-checklist.md))
+#### Step 3b: Create Design Document
+
+Examples:
+
+- [04-phase1-checklist.md](./100/04-phase1-checklist.md)
+- [06-phase2-checklist.md](./100/06-phase2-checklist.md)
+- [08-phase3-checklist.md](./100/08-phase3-checklist.md)
+
+🤖 **AI Agent**: Create Checklist Document using a developer agent with the relevant skills
+
 ```
-Using the design document from this phase, create validation checklist following IRS/DSCO methodology:
+Using the design document from this phase, create validation checklist following the IRS/DSCO methodology in @spec/WORKFLOW.md:
 
 - Break down the implementation strategy from the design into granular tasks with [ ] status tracking
 - Create validation procedures that verify each design decision is properly implemented
@@ -139,12 +152,14 @@ Using the design document from this phase, create validation checklist following
 - Link back to original GitHub issue and reference acceptance criteria from requirements
 
 Use checkbox format for trackable progress.
-Format as markdown with task lists.
+Format as markdown with task lists. Fix IDE Diagnostics.
 ```
 
-🤖 **AI Agent**: Implement with TDD following design
+#### Step 3b: Implement with BDD following design
+
+🤖 **AI Agent**: Implement with BDD following design
 ```
-Using the design document for this phase, implement following TDD:
+Using the design document for this phase, implement following BDD:
 
 - Write failing tests for each design component first
 - Implement minimum code to pass tests
@@ -214,5 +229,5 @@ Using all completed phase checklists from Step 3, coordinate final integration:
 ### Commit Patterns
 
 - **Spec commits**: "docs: add {phase} documentation for issue #{N}"
-- **Implementation commits**: Follow TDD cycle with conventional commits
+- **Implementation commits**: Follow BDD cycle with conventional commits
 - **Review commits**: "review: complete phase {N} validation"
