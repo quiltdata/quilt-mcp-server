@@ -152,7 +152,7 @@ Approve technical architecture and implementation strategy
 
 ##### 🤖 Checklist Prompt (to Agent)
 
-> Create:
+> Create, in order to implement the above design:
 > 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
 > 2. a`spec/{issue_number}/{n+1}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 3b of @spec/WORKFLOW.md (then commit + push)
 > 3. a PR for the new branch against the original branch
@@ -183,7 +183,7 @@ Approve checklist and validation procedures
 
 ##### 🤖 Implementation Prompt (to Agent)
 
-> Implement with BDD following design, using the Implementation Instructions in Step 3c of @spec/WORKFLOW.md and an Orchestrator agent.
+> Use an Orchestrator agent to execute the above checklist, following the Implementation Instructions in Step 3c of @spec/WORKFLOW.md.
 
 ##### 📝 Implementation Instructions (for Agent)
 
