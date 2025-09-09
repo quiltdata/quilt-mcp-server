@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Comprehensive Atomic Tool Analysis and Specification
 
 ## Executive Summary
@@ -32,6 +33,7 @@ After conducting a thorough analysis of all 47 exposed MCP tools across 16 modul
 ### 1. Non-Atomic Operations
 
 **`package_create_from_s3`** - The most egregious violator:
+
 - Source bucket discovery and validation
 - S3 object enumeration and filtering
 - Intelligent file organization
@@ -42,6 +44,7 @@ After conducting a thorough analysis of all 47 exposed MCP tools across 16 modul
 - Result formatting and guidance
 
 **`unified_search`** - Multi-backend orchestration:
+
 - Query parsing and analysis
 - Backend selection logic
 - Elasticsearch query execution
@@ -50,6 +53,7 @@ After conducting a thorough analysis of all 47 exposed MCP tools across 16 modul
 - Result aggregation and ranking
 
 **`bucket_recommendations_get`** - Permission discovery with business logic:
+
 - AWS identity discovery
 - Bucket permission testing
 - Naming pattern analysis
@@ -59,6 +63,7 @@ After conducting a thorough analysis of all 47 exposed MCP tools across 16 modul
 ### 2. Inconsistent Input/Output Schemas
 
 **Metadata Handling Variations:**
+
 ```python
 # Different tools handle metadata differently:
 package_create(metadata: dict)           # Dict only
@@ -72,6 +77,7 @@ package_create_from_s3(metadata: dict|None)  # Optional dict
 ```
 
 **Error Response Inconsistencies:**
+
 ```python
 # Multiple error formats across tools:
 {"error": "message"}                           # Simple string
@@ -82,11 +88,13 @@ format_error_response("message")               # Standardized wrapper
 ### 3. Hidden Side Effects
 
 **README Content Extraction:**
+
 - Multiple tools silently extract `readme_content` from metadata
 - Convert to package files without clear documentation
 - Side effect hidden in business logic
 
 **State Management:**
+
 - Workflow tools maintain global state dictionary
 - Athena tools cache query results
 - Permission discovery caches bucket information
@@ -94,10 +102,12 @@ format_error_response("message")               # Standardized wrapper
 ### 4. Shared Utilities with Business Logic
 
 **`_normalize_registry()`** - Appears in multiple modules:
+
 - Simple string transformation mixed with validation
 - Should be pure utility, but includes business rules
 
 **Template Generation:**
+
 - Complex template system embedded in multiple tools
 - Business logic scattered across template application
 
@@ -600,6 +610,7 @@ Each backend gets its own atomic tools:
 #### 6. AWS Service Integration (15 tools)
 
 ##### Athena Operations (5 tools)
+
 ```json
 {
   "athena_query_execute": {
@@ -663,6 +674,7 @@ Each backend gets its own atomic tools:
 ```
 
 ##### AWS Permissions (5 tools)
+
 ```json
 {
   "aws_caller_identity_get": {
@@ -829,6 +841,7 @@ Each backend gets its own atomic tools:
 ### Phase 1: Core Infrastructure (Weeks 1-2)
 
 1. **Schema System Implementation**
+
    ```python
    # Core schema validation system
    class AtomicTool:
@@ -843,6 +856,7 @@ Each backend gets its own atomic tools:
    ```
 
 2. **Standard Response Format**
+
    ```python
    class StandardResponse:
        def __init__(self, success: bool, data: dict = None, error: str = None):
@@ -858,6 +872,7 @@ Each backend gets its own atomic tools:
    ```
 
 3. **Pure Function Framework**
+
    ```python
    def atomic_tool(input_schema: dict, output_schema: dict):
        def decorator(func):
@@ -929,6 +944,7 @@ Each backend gets its own atomic tools:
 #### High-Level Operations → Atomic Composition
 
 **Before:**
+
 ```python
 result = package_create_from_s3(
     source_bucket="data-bucket",
@@ -939,6 +955,7 @@ result = package_create_from_s3(
 ```
 
 **After:**
+
 ```python
 # 1. List S3 objects
 objects = s3_object_list(bucket="data-bucket")
@@ -1025,16 +1042,19 @@ class QuiltAtomicClient:
 ## Risk Assessment
 
 ### High Risk
+
 - **Client Breaking Changes**: All existing client code must be updated
 - **Learning Curve**: Users must understand atomic composition
 - **Performance Regression**: Complex workflows may be slower initially
 
 ### Medium Risk
+
 - **Tool Discovery**: 89 tools vs 47 - users may be overwhelmed
 - **Error Handling**: More complex error aggregation across atomic operations
 - **Documentation**: Massive documentation update required
 
 ### Low Risk
+
 - **Schema Compliance**: JSON Schema provides strong validation
 - **Testing**: Atomic tools are easier to test comprehensively
 - **Maintenance**: Clear separation of concerns improves maintainability
@@ -1042,21 +1062,25 @@ class QuiltAtomicClient:
 ## Success Metrics
 
 ### Functional Metrics
+
 - **Schema Compliance**: 100% of tools pass JSON Schema validation
 - **Test Coverage**: >95% coverage for all atomic tools
 - **Error Rate**: <1% tool execution failures in production
 
 ### Performance Metrics
+
 - **Simple Operations**: 20-30% performance improvement
 - **Memory Usage**: 30% reduction in peak memory
 - **Cache Hit Rate**: 40% improvement in cache utilization
 
 ### Developer Experience
+
 - **Tool Discovery**: New tool discovery system with examples
 - **Composition Patterns**: Standard patterns for common workflows
 - **Error Messages**: Clear, actionable error messages with suggestions
 
 ### Migration Success
+
 - **Backward Compatibility**: 6-month parallel operation period
 - **Client Migration**: 90% of clients migrate within 6 months
 - **Documentation**: Complete examples for all 89 atomic tools

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Specifications: Use-Case-Centric MCP Tools Architecture
 
 **Issue**: [#116 - Streamline Tools](https://github.com/quiltdata/quilt-mcp-server/issues/116)  
@@ -7,29 +8,34 @@
 
 ## Executive Summary
 
-This specification proposes a two-tier architecture that balances user workflow efficiency with technical maintainability:
+This specification defines a two-tier MCP tools architecture that optimizes for user workflow efficiency while maintaining clean technical architecture:
 
 - **Workflow Tools** (14 tools): Use-case-centric tools that MCP clients call directly to fulfill user requests
 - **Utility Layer** (hidden): Atomic operations that workflow tools compose internally
 
-The goal is enabling MCP clients to serve users with minimal orchestration while maintaining clean separation of concerns.
+This architecture enables MCP clients to fulfill complete user workflows through single tool calls while maintaining clean separation of concerns in the implementation.
 
 ## Architecture Philosophy
 
-### The Problem with Previous Approaches
+### Current State Analysis
 
-1. **Shallow Approach** (7 mega-tools): Tools too high-level, hide complexity, require internal orchestration that breaks atomicity
-2. **Atomic Approach** (89 micro-tools): Tools too granular, require complex MCP client orchestration, poor developer experience
+The existing MCP tools in the Quilt server present architectural challenges:
 
-### Solution: Two-Tier Architecture
+1. **Too High-Level**: Some tools hide complexity internally and require orchestration that breaks atomicity
+2. **Too Granular**: Other tools are too atomic, requiring complex MCP client orchestration and creating poor developer experience
+3. **Inconsistent Abstraction**: Mixed levels of abstraction make it difficult for MCP clients to provide consistent user experiences
+
+### Proposed Solution: Two-Tier Architecture
 
 **Workflow Tools (MCP-Exposed)**:
-- Directly serve the 7 core use cases from requirements
+
+- Directly serve core user workflows and use cases
 - Handle complete user workflows with single tool calls
 - Rich input/output schemas optimized for MCP client consumption
 - Internal composition of utility functions (hidden complexity)
 
 **Utility Layer (Internal)**:
+
 - Atomic operations (S3 access, JSON parsing, URL generation)
 - Pure functions with minimal schemas
 - Composable building blocks for workflow tools
@@ -132,7 +138,13 @@ def catalog_tables() -> CatalogTablesResult:
     }
 ```
 
-**Utility Dependencies**: `aws_identity_get()`, `quilt_config_get()`, `s3_bucket_list()`, `bucket_permissions_test()`, `athena_catalog_get()`, `glue_table_list()`, `package_schema_detect()`
+**Utility Dependencies**:
+
+- `aws_identity_get()` ← Extract from auth.py:348
+- `quilt_config_get()` ← Extract from auth.py:38  
+- `s3_bucket_list()` ← Extract from permission_discovery.py:177
+- `bucket_permissions_test()` ← Extract from permissions.py:28
+- `athena_catalog_get()`, `glue_table_list()` ← **CREATE NEW**
 
 ### 2. Package Operations → `package_create` + `package_get` + `package_delete` + `package_search`
 
@@ -271,7 +283,20 @@ def package_search(
     }
 ```
 
-**Utility Dependencies**: `package_manifest_*()`, `s3_object_*()`, `readme_generate()`, `file_organize()`, `package_dependencies_check()`, `elasticsearch_query()`, `graphql_query()`, `package_list()`
+**Utility Dependencies**:
+
+- `package_list()` ← Rename from packages.py:27
+- `package_manifest_get()` ← Extract from packages.py:177
+- `package_manifest_validate()` ← Adapt from tabulator.py
+- `s3_object_*()` ← Adapt from buckets.py:78,151,19
+- `file_organize()` ← Extract from s3_package.py:84
+- `package_delete()` ← **CREATE NEW**
+
+**Existing Functions** (reuse):
+
+- `readme_generate()` ← s3_package.py:85+
+- `elasticsearch_query()` ← search/backends/elasticsearch.py:61
+- `graphql_query()` ← tools/graphql.py:37
 
 ### 3. Object Operations → `object_create` + `object_get` + `object_delete` + `object_search`
 
@@ -382,7 +407,12 @@ def object_search(
     }
 ```
 
-**Utility Dependencies**: `s3_object_*()`, `package_manifest_*()`, `object_usage_check()`, `package_integrity_check()`, `s3_search()`, `elasticsearch_query()`, `s3_object_list()`
+**Utility Dependencies**:
+
+- `s3_object_get()`, `s3_object_put()`, `s3_object_list()` ← Adapt from buckets.py:78,151,19
+- `s3_object_delete()` ← **CREATE NEW**
+- `package_manifest_*()` ← Extract from existing package operations
+- `object_usage_check()` ← Extract from telemetry/metrics.py + data_analyzer.py
 
 ### 4. Data Operations → `data_visualize` + `data_query` + `data_tabulate`
 
@@ -518,15 +548,28 @@ def data_tabulate(
     }
 ```
 
-**Utility Dependencies**: `package_data_load()`, `chart_generate()`, `data_analyze()`, `image_encode()`, `sql_execute()`, `athena_query()`, `data_filter()`, `export_generate()`, `tabulator_config_generate()`, `table_render()`
+**Utility Dependencies**:
+
+- `package_data_load()` ← Extract from existing data loading patterns
+- `data_analyze()` ← Extract from data_analyzer.py
+- `tabulator_config_generate()`, `table_render()` ← Extract from existing tabulator functionality
+
+**Existing Functions** (reuse):
+
+- `chart_generate()` ← quilt_summary.py:240+
+- `image_encode()` ← quilt_summary.py:264+
+- `sql_execute()` ← athena_glue.py:217
+- `data_filter()` ← unified_search.py:185
+- `export_generate()` ← aws/athena_service.py:403
 
 ## Implementation Architecture
 
-### Workflow Tools (MCP-Exposed Layer)
+### Architecture Overview
 
-**14 Primary Tools**:
+**Workflow Tools (14 Primary Tools)**:
+
 1. `catalog_authenticate` - Connect to Quilt catalogs with login guidance
-2. `catalog_buckets` - List available S3 buckets
+2. `catalog_buckets` - List available S3 buckets  
 3. `catalog_tables` - List available tables/datasets for SQL querying
 4. `package_create` - Create packages from S3/local sources (with auto-organize)
 5. `package_get` - Get package structure and entries
@@ -535,183 +578,83 @@ def data_tabulate(
 8. `object_create` - Create individual S3 objects for packages
 9. `object_get` - Get individual S3 object content
 10. `object_delete` - Delete individual S3 objects (latest version only)
-11. `object_search` - Search objects with fallback to listing
+11. `object_search` - Search objects with fallback to listing  
 12. `data_visualize` - Generate charts from package data
 13. `data_query` - Query data with SQL for analysis and export
 14. `data_tabulate` - Create interactive Tabulator tables
 
-**Tool Design Principles**:
-- **Complete Workflows**: Each tool handles a full user workflow 
-- **Rich Context**: Input/output optimized for MCP client presentation
-- **Intelligent Defaults**: Auto-detect user intent when possible
-- **Multiple Formats**: Support various output formats (JSON, HTML, images)
-- **Error Recovery**: Graceful handling with suggested alternatives
+**Utility Layer File Organization** (prevents circular dependencies):
 
-### Utility Layer (Internal)
+```tree
+├── core_ops.py      # Foundation: AWS, config, S3 objects
+├── package_ops.py   # Package operations (depends on core_ops)
+├── content_ops.py   # Content & data processing (depends on package_ops)
+└── search_ops.py    # Search backends (depends on all others)
+```
 
-**Categories** (~35-45 utility functions):
+**Utility Categories** (~35-45 functions):
+
 - **AWS Operations**: `s3_object_*`, `athena_query`, `sts_identity`
-- **Package Operations**: `package_manifest_*`, `quilt_config_*`, `package_dependencies_check`
+- **Package Operations**: `package_manifest_*`, `quilt_config_*`
 - **Object Operations**: `object_usage_check`, `package_integrity_check`
-- **Data Processing**: `data_load`, `schema_detect`, `stats_calculate`  
+- **Data Processing**: `data_load`, `schema_detect`, `stats_calculate`
 - **Content Generation**: `readme_generate`, `chart_create`, `table_render`
 - **Search Backends**: `elasticsearch_query`, `graphql_execute`
 
-**Utility Characteristics**:
-- Pure functions with minimal schemas
-- Single responsibility (truly atomic)
-- Composable building blocks
-- No direct MCP exposure
-- Extensive test coverage
+## Implementation Strategy
 
-## Migration Strategy
+**Key Insight**: 80% extraction and refactoring, 20% creation of new functionality.
 
-### Phase 1: Utility Layer Extraction (Weeks 1-2)
-```
-Current Tools → Utility Functions
-auth.py → aws_identity_get(), quilt_config_*()
-buckets.py → s3_bucket_*(), bucket_permissions_*()  
-packages.py → package_list(), package_manifest_*()
-s3_package.py → s3_object_*(), file_organize()
-```
+### Implementation Phases
 
-### Phase 2: Workflow Tool Implementation (Weeks 3-5)  
-- Build 14 workflow tools using utility functions
-- Parallel operation with existing tools
-- Comprehensive BDD test coverage
+#### Phase 1: Prefactoring
 
-### Phase 3: MCP Registration Update (Week 6)
+- Audit existing tests around extraction areas
+- Add missing behavioral tests for edge cases
+- Eliminate technical debt in extraction areas
+- Refactor to create reusable components for new utilities
+
+#### Phase 2: Direct Extraction
+
+Extract existing functionality from quilt_mcp/tools:
+
+- auth.py:348 → `aws_identity_get()`
+- auth.py:38 → `quilt_config_get()`
+- permission_discovery.py:177 → `s3_bucket_list()`
+- permissions.py:28 → `bucket_permissions_test()`
+- packages.py:27 → `package_list()` [rename]
+- packages.py:177 → `package_manifest_get()` [extract]
+- buckets.py:78,151,19 → `s3_object_*()` [adapt]
+- s3_package.py:84 → `file_organize()` [extract]
+- telemetry/metrics.py + data_analyzer.py → `object_usage_check()` [extract]
+
+#### Phase 3: Missing Functionality Creation
+
+Create 4 new functions:
+
+- `athena_catalog_get()` - **CREATE NEW**
+- `glue_table_list()` - **CREATE NEW**
+- `s3_object_delete()` - **CREATE NEW**
+- `package_delete()` - **CREATE NEW** (Quilt package deletion)
+
+#### Phase 4: Workflow Tool Implementation
+
+- Build 14 workflow tools using extracted and new utility functions
+- Follow TDD with BDD test coverage
+- Use dependency-layer file organization
+
+#### Phase 5: MCP Registration Update
+
 - Update tool registration to expose workflow tools only
 - Add deprecation warnings to old tools
-- Client migration documentation
+- Provide client migration documentation
 
-### Phase 4: Legacy Tool Archival (Weeks 7-8)
+#### Phase 6: Legacy Tool Archival
+
 - Archive non-core tools with migration guides
-- Performance validation
+- Performance validation and optimization
 - Documentation updates
-
-## Success Metrics
-
-### User Experience
-- **Single Tool Calls**: 90% of user requests served by single workflow tool
-- **Rich Context**: All tools return structured data suitable for MCP presentation
-- **Intelligent Defaults**: 80% of tool calls succeed with minimal parameters
-
-### Technical Quality  
-- **Response Time**: <2 seconds for 95% of workflow tool calls
-- **Error Rates**: <1% tool execution failures
-- **Test Coverage**: 100% BDD coverage for all workflow tools
-
-### Developer Experience
-- **Tool Count**: 18+ tools → 14 workflow tools (22% reduction)
-- **Complexity**: Hidden utility complexity, clean MCP interface  
-- **Maintainability**: Clear separation between user workflows and technical implementation
-
-## Risk Assessment & Mitigation
-
-### High-Impact Risks
-
-1. **Breaking Changes**: All existing MCP clients must update tool calls
-   - **Mitigation**: 6-month parallel operation with deprecation warnings
-   - **Backward Compatibility**: Legacy tool wrappers during transition
-
-2. **Complex Implementation**: Workflow tools require significant new logic  
-   - **Mitigation**: Phased implementation with utility layer first
-   - **Validation**: Comprehensive BDD testing at each phase
-
-3. **Performance Regression**: Workflow tools may be slower than simple operations
-   - **Mitigation**: Performance benchmarks and optimization focus
-   - **Monitoring**: Response time tracking for all tools
-
-### Medium-Impact Risks
-
-1. **User Adoption**: Users may prefer existing granular tools
-   - **Mitigation**: Rich documentation with workflow examples
-   - **Training**: Migration guides showing before/after patterns
-
-2. **MCP Client Compatibility**: Workflow tool schemas may not fit all clients
-   - **Mitigation**: Standard JSON schemas with optional rich content
-   - **Flexibility**: Multiple output formats per tool
-
-## Technical Implementation Notes
-
-### Tool Registration Architecture
-
-```python
-# New registration pattern separates workflow vs utility tools
-class ToolRegistry:
-    def __init__(self):
-        self.workflow_tools = {}  # MCP-exposed
-        self.utility_functions = {}  # Internal only
-    
-    def register_workflow_tool(self, name: str, func: callable, schema: dict):
-        """Register user-facing workflow tools"""
-        self.workflow_tools[name] = ToolWrapper(func, schema)
-    
-    def register_utility(self, name: str, func: callable):
-        """Register internal utility functions"""
-        self.utility_functions[name] = func
-    
-    def get_mcp_tools(self) -> List[str]:
-        """Return only workflow tools for MCP client discovery"""
-        return list(self.workflow_tools.keys())
-```
-
-### Schema Validation Strategy
-
-**Workflow Tool Schemas**: Rich, user-friendly with intelligent defaults
-```json
-{
-  "catalog_explore": {
-    "input": {
-      "registry_url": {"type": "string", "format": "uri", "optional": true},
-      "content_filter": {"type": "string", "enum": ["all", "packages", "recent"], "default": "all"}
-    },
-    "output": {
-      "success": {"type": "boolean"},
-      "content_type": {"type": "string"},
-      "items": {"type": "array"},
-      "rich_metadata": {"type": "object", "optional": true}
-    }
-  }
-}
-```
-
-**Utility Function Schemas**: Minimal, atomic validation
-```json
-{
-  "s3_object_list": {
-    "input": {"bucket": {"type": "string"}, "prefix": {"type": "string"}},
-    "output": {"objects": {"type": "array"}, "truncated": {"type": "boolean"}}
-  }
-}
-```
-
-### Error Handling Pattern
-
-```python
-class WorkflowToolResponse:
-    def __init__(self, success: bool, data: dict = None, 
-                 error: str = None, suggestions: List[str] = None):
-        self.response = {
-            "success": success,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        if data:
-            self.response.update(data)
-        if error:
-            self.response["error"] = error
-            self.response["error_type"] = self._classify_error(error)
-        if suggestions:
-            self.response["suggestions"] = suggestions
-```
 
 ## Conclusion
 
-This use-case-centric architecture balances the competing needs of:
-
-1. **User Workflow Efficiency**: MCP clients can fulfill user requests with single tool calls
-2. **Technical Maintainability**: Clean separation between user-facing workflows and technical utilities  
-3. **Developer Experience**: Clear, discoverable tools without overwhelming complexity
-4. **System Performance**: Optimized workflows while preserving atomic building blocks
-
+This two-tier architecture provides workflow tools that handle complete user workflows through single MCP calls, while maintaining clean technical architecture through internal utility layers.

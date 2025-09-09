@@ -1,4 +1,5 @@
-# Phase 1 Design: Utility Layer Extraction
+<!-- markdownlint-disable MD013 -->
+# Phase 1 Design: Prefactoring and Extraction
 
 **Issue**: [#116 - Streamline Tools](https://github.com/quiltdata/quilt-mcp-server/issues/116)  
 **Type**: Architecture Enhancement  
@@ -7,51 +8,68 @@
 
 ## Executive Summary
 
-Phase 1 implements the "Utility Layer Extraction" as specified in the migration strategy. This phase extracts pure utility functions from existing MCP tools to create the composable foundation layer for the two-tier architecture.
+**CRITICAL LEARNING**: Based on thorough codebase analysis, Phase 1 is **80% extraction, 20% creation**. Most utility functions already exist but are embedded within larger tools/classes.
 
-**Goal**: Transform existing monolithic MCP tools into atomic utility functions with minimal schemas, single responsibility, and high composability to enable Phase 2 workflow tool implementation.
+Phase 1 implements "Prefactoring and Extraction" using dependency-layer file organization to avoid circular dependencies. This phase extracts proven utility functions from existing MCP tools to create the composable foundation for the two-tier architecture.
+
+**Goal**: Transform embedded functionality into atomic utility functions with clean dependency layers, single responsibility, and high composability to enable workflow tool implementation.
 
 ## Design Overview
 
-### Architecture Goals for Phase 1
+### Architecture Reality Check
 
-1. **Utility Function Extraction**: Extract atomic utility functions from existing tools
-2. **Pure Function Design**: Create functions with minimal schemas, single responsibility, no side effects
-3. **Composability**: Design utility functions as building blocks for future workflow tools
-4. **Category Organization**: Group utilities into logical categories (AWS, Package, Object, Data, Content)
-5. **Testing Foundation**: Establish comprehensive BDD test coverage for all utility functions
+**Initial Assumption**: Need to create 20+ utility functions from scratch  
+**Reality Discovered**: Only 2 functions truly missing, 15+ exist but embedded
+
+**Core Learning**:
+
+- `s3_object_delete()` and `package_delete()` - **CREATE NEW** (only truly missing functions)
+- All other utilities - **EXTRACT** from existing proven implementations
 
 ### Technical Architecture
 
-```
-Phase 1 Architecture: Utility Layer Extraction
+```tree
+Phase 1 Architecture: Extraction-Heavy Approach
 
 ┌─────────────────────────────────────────────────────────────┐
-│                    Current MCP Tools                       │
+│                 Existing Codebase Analysis                │
 ├─────────────────────────────────────────────────────────────┤
-│  auth.py         buckets.py      packages.py    s3_package.py│
-│  ├─ Complex      ├─ Mixed        ├─ Monolithic  ├─ Coupled   │
-│  ├─ Side Effects ├─ Dependencies ├─ Multi-Role  ├─ Stateful │
-│  └─ MCP-Coupled  └─ Schema Heavy └─ Hard to Test└─ Complex   │
+│ ✅ FOUND: aws_identity_get() ← auth_status() auth.py:348   │
+│ ✅ FOUND: quilt_config_get() ← _get_catalog_info() auth.py:38│  
+│ ✅ FOUND: s3_bucket_list() ← discover_accessible_buckets() │
+│ ✅ FOUND: package_list() ← packages_list() packages.py:27  │
+│ ✅ FOUND: s3_object_*() ← bucket_object_*() buckets.py     │
+│ ❌ MISSING: s3_object_delete() - No S3 delete anywhere     │
+│ ❌ MISSING: package_delete() - No package deletion exists  │
 └─────────────────────────────────────────────────────────────┘
                                 │
-              EXTRACT UTILITY FUNCTIONS
+             EXTRACT EMBEDDED FUNCTIONALITY
                                 ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   Utility Layer (New)                      │
+│              Dependency-Layer Organization                  │
 ├─────────────────────────────────────────────────────────────┤
-│   AWS Ops        Package Ops    Object Ops      Data Ops    │
-│  ├─aws_identity  ├─package_list ├─s3_object_get ├─data_load │
-│  ├─quilt_config  ├─manifest_get ├─s3_object_put ├─stats_calc│
-│  └─s3_bucket_*   └─dependencies └─object_usage  └─schema_det │
-│                                                             │
-│   Content Generation            Search & Query              │
-│  ├─readme_generate             ├─elasticsearch_query        │
-│  ├─chart_create               ├─graphql_execute            │
-│  └─table_render               └─s3_search                  │
+│ core_ops.py      │ Foundation: AWS, config, S3 objects     │
+│ ├─aws_identity   │ (no dependencies)                       │
+│ ├─quilt_config   │                                        │
+│ └─s3_object_*    │                                        │
+├─────────────────────────────────────────────────────────────┤
+│ package_ops.py   │ Package operations                      │
+│ ├─package_list   │ (depends on core_ops)                  │
+│ ├─manifest_get   │                                        │
+│ └─dependencies   │                                        │
+├─────────────────────────────────────────────────────────────┤
+│ content_ops.py   │ Content & data processing               │
+│ ├─data_load      │ (depends on package_ops)               │
+│ ├─chart_create   │                                        │
+│ └─table_render   │                                        │
+├─────────────────────────────────────────────────────────────┤
+│ search_ops.py    │ Search backends                         │
+│ ├─elasticsearch  │ (depends on all others)                │
+│ ├─graphql_query  │                                        │
+│ └─s3_search      │                                        │
 └─────────────────────────────────────────────────────────────┘
                                 │
-                 FOUNDATION FOR PHASE 2
+                  FOUNDATION FOR WORKFLOW TOOLS
                                 ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Future Workflow Tools (Phase 2)               │
@@ -65,436 +83,435 @@ Phase 1 Architecture: Utility Layer Extraction
 
 ## Component Design
 
-### 1. Utility Function Categories
+### 1. Dependency-Layer File Organization
 
-Based on the migration strategy from specifications, we extract utility functions organized by functional categories:
+**CRITICAL**: Prevents circular dependencies discovered in learnings analysis.
 
-**AWS Operations**
+```tree
+src/quilt_mcp_server/utils/
+├── core_ops.py      # Foundation: AWS, config, S3 objects (no dependencies)
+├── package_ops.py   # Package operations (depends on core_ops)
+├── content_ops.py   # Content & data processing (depends on package_ops)  
+└── search_ops.py    # Search backends (depends on all others)
+```
+
+**Why This Structure Prevents Problems**:
+
+- **Clean Hierarchy**: Each layer only depends on layers below it
+- **No Circular Dependencies**: Clear import direction prevents cycles
+- **Usage-Based Grouping**: Functions grouped by actual interdependencies
+
+### 2. Extraction Mapping
+
+**Functions with Existing Implementations** (Extract/Adapt):
+
+| Utility Function | Source Location (in quilt_mcp/tools) | Action Required |
+|------------------|----------------|-----------------|
+| `aws_identity_get()` | `auth_status()` auth.py:348 | **Extract** identity logic |
+| `quilt_config_get()` | `_get_catalog_info()` auth.py:38 | **Extract** config access |
+| `s3_bucket_list()` | `AWSPermissionDiscovery.discover_accessible_buckets()` permission_discovery.py:177 | **Extract** from class |
+| `bucket_location_get()` | `AWSPermissionDiscovery.discover_bucket_permissions()` permission_discovery.py:521 | **Extract** region logic |
+| `bucket_permissions_test()` | `aws_permissions_discover()` permissions.py:28 | **Extract** single bucket testing |
+| `package_list()` | `packages_list()` packages.py:27 | **Rename** function |
+| `package_manifest_get()` | `package_browse()` packages.py:177 | **Extract** manifest logic |
+| `package_manifest_validate()` | `_validate_schema()` tabulator.py | **Adapt** validation patterns |
+| `s3_object_get/put/list()` | `bucket_object_*()` buckets.py:78,151,19 | **Adapt** for generic S3 operations |
+| `file_organize()` | `_organize_file_structure()` s3_package.py:84 | **Extract** and make public |
+| `object_usage_check()` | `MetricsCalculator` + `DataAnalyzer` telemetry/metrics.py + data_analyzer.py | **Extract** from analytics |
+
+**Functions That DON'T Exist** (Create New):
+
+| Function | Reality | Effort |
+|----------|---------|--------|
+| `s3_object_delete()` | No S3 delete functionality found anywhere | **CREATE** new |
+| `package_delete()` | No package deletion functionality exists | **CREATE** new |
+
+### 3. Core Operations Layer (core_ops.py)
+
+**Foundation layer with no dependencies**:
+
 ```python
-# From auth.py
+# AWS Operations (Extract from auth.py)
 def aws_identity_get() -> Dict[str, str]:
     """Get current AWS identity (account, user, role)"""
-    # Pure function: no side effects, consistent output
+    # EXTRACT FROM: auth_status() at auth.py:348
     # Returns: {"account_id": "123", "user_arn": "...", "assumed_role": "..."}
 
-def quilt_config_get(key: str) -> Optional[str]:
-    """Get Quilt configuration value by key"""
-    # Pure function: reads config, no mutations
-    # Returns: config value or None
+def quilt_config_get(key: str = None) -> Union[str, Dict[str, str]]:
+    """Get Quilt configuration value by key or all config"""
+    # EXTRACT FROM: _get_catalog_info() at auth.py:38
+    # Returns: config value or full config dict
 
 def quilt_config_set(key: str, value: str) -> bool:
     """Set Quilt configuration value"""
-    # Minimal side effect: only config file write
+    # BUILD ON: Existing config patterns in auth.py
     # Returns: success boolean
 
-# From buckets.py  
+# S3 Bucket Operations (Extract from permission_discovery.py)
 def s3_bucket_list(region: Optional[str] = None) -> List[Dict[str, Any]]:
     """List available S3 buckets with metadata"""
-    # Pure AWS API call, no local state
+    # EXTRACT FROM: AWSPermissionDiscovery.discover_accessible_buckets() permission_discovery.py:177
     # Returns: [{"name": "bucket", "region": "us-east-1", "created": "..."}]
 
 def bucket_permissions_test(bucket: str, operations: List[str]) -> Dict[str, bool]:
     """Test specific bucket permissions (read, write, delete)"""
-    # Pure function: test permissions without side effects
+    # EXTRACT FROM: aws_permissions_discover() permissions.py:28
     # Returns: {"read": True, "write": False, "delete": False}
 
 def bucket_location_get(bucket: str) -> str:
     """Get bucket AWS region"""
-    # Pure AWS API call
+    # EXTRACT FROM: AWSPermissionDiscovery.discover_bucket_permissions() permission_discovery.py:521
     # Returns: "us-east-1"
 
-def athena_catalog_get(registry: str) -> Dict[str, Any]:
-    """Get Athena catalog information for registry"""
-    # Pure function: catalog metadata retrieval
-    # Returns: {"database": "quilt_bucket", "tables": [...], "location": "..."}
-
-def glue_table_list(database: str) -> List[Dict[str, Any]]:
-    """List Glue tables in database with schema information"""
-    # Pure function: table metadata listing
-    # Returns: [{"name": "table", "columns": [...], "location": "s3://..."}]
-```
-
-**Package Operations**
-```python
-# From packages.py
-def package_list(registry: str, prefix: str = "") -> List[Dict[str, Any]]:
-    """List packages in registry with basic metadata"""
-    # Pure function: read-only package discovery
-    # Returns: [{"name": "pkg", "hash": "abc", "created": "..."}]
-
-def package_manifest_get(registry: str, package: str, hash: Optional[str] = None) -> Dict[str, Any]:
-    """Get package manifest (entries, metadata)"""
-    # Pure function: manifest retrieval
-    # Returns: {"entries": {...}, "metadata": {...}, "hash": "..."}
-
-def package_manifest_validate(manifest: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """Validate package manifest structure and content"""
-    # Pure function: validation only
-    # Returns: (is_valid, ["error messages"])
-
-def package_dependencies_check(registry: str, package: str) -> List[Dict[str, str]]:
-    """Check if package is referenced by other packages"""
-    # Pure function: dependency analysis
-    # Returns: [{"dependent_package": "pkg", "reference_type": "..."}]
-
-def package_metadata_generate(entries: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate package metadata from entries"""
-    # Pure function: metadata calculation
-    # Returns: {"size_bytes": 123, "entry_count": 45, "file_types": [...]}
-```
-
-**S3 Object Operations**
-```python
-# From s3_package.py
+# S3 Object Operations (Adapt from buckets.py)
 def s3_object_get(s3_uri: str, max_bytes: int = 65536) -> Dict[str, Any]:
     """Get S3 object content and metadata"""
-    # Pure function: object retrieval
+    # ADAPT FROM: bucket_object_info() buckets.py:78
     # Returns: {"content": "...", "size": 123, "etag": "...", "truncated": False}
 
 def s3_object_put(s3_uri: str, content: Union[str, bytes], content_type: str = None) -> Dict[str, str]:
     """Put content to S3 object"""
-    # Minimal side effect: S3 write only
+    # ADAPT FROM: bucket_objects_put() buckets.py:151
     # Returns: {"etag": "...", "version_id": "...", "size_bytes": "123"}
-
-def s3_object_delete(s3_uri: str) -> Dict[str, Any]:
-    """Delete S3 object (latest version)"""
-    # Minimal side effect: S3 delete only
-    # Returns: {"deleted": True, "version_id": "...", "delete_marker": False}
 
 def s3_object_list(bucket: str, prefix: str = "", limit: int = 1000) -> List[Dict[str, Any]]:
     """List S3 objects with metadata"""
-    # Pure function: listing only
+    # ADAPT FROM: bucket_objects_list() buckets.py:19
     # Returns: [{"key": "path", "size": 123, "modified": "...", "etag": "..."}]
 
-def object_usage_check(s3_uri: str) -> List[Dict[str, str]]:
-    """Check which packages reference this S3 object"""
-    # Pure function: usage analysis
-    # Returns: [{"package": "pkg", "logical_key": "path", "registry": "s3://..."}]
+def s3_object_delete(s3_uri: str) -> Dict[str, Any]:
+    """Delete S3 object (latest version)"""
+    # CREATE NEW: No S3 delete functionality found anywhere
+    # Returns: {"deleted": True, "version_id": "...", "delete_marker": False}
 
 def file_organize(files: List[str], rules: Dict[str, str] = None) -> Dict[str, str]:
     """Organize files into logical structure based on patterns"""
-    # Pure function: path mapping
+    # EXTRACT FROM: _organize_file_structure() s3_package.py:84
     # Returns: {"input/file.csv": "data/file.csv", "doc.md": "docs/doc.md"}
 ```
 
-**Data Processing Operations**
+### 4. Package Operations Layer (package_ops.py)
+
+**Depends on core_ops only**:
+
 ```python
-# New utility functions for data operations
+from .core_ops import s3_object_get, s3_object_list
+
+def package_list(registry: str, prefix: str = "") -> List[Dict[str, Any]]:
+    """List packages in registry with basic metadata"""
+    # RENAME FROM: packages_list() packages.py:27
+    # Returns: [{"name": "pkg", "hash": "abc", "created": "..."}]
+
+def package_manifest_get(registry: str, package: str, hash: Optional[str] = None) -> Dict[str, Any]:
+    """Get package manifest (entries, metadata)"""
+    # EXTRACT FROM: package_browse() packages.py:177
+    # Returns: {"entries": {...}, "metadata": {...}, "hash": "..."}
+
+def package_manifest_validate(manifest: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Validate package manifest structure and content"""
+    # ADAPT FROM: _validate_schema() tabulator.py
+    # Returns: (is_valid, ["error messages"])
+
+def package_delete(registry: str, package: str, version: str = "latest") -> Dict[str, Any]:
+    """Delete package version(s) with safety confirmations"""
+    # CREATE NEW: No package deletion functionality exists
+    # Returns: {"deleted_versions": [...], "freed_space_bytes": 1024}
+
+def package_dependencies_check(registry: str, package: str) -> List[Dict[str, str]]:
+    """Check if package is referenced by other packages"""
+    # BUILD ON: Existing package analysis patterns
+    # Returns: [{"dependent_package": "pkg", "reference_type": "..."}]
+
+def package_metadata_generate(entries: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate package metadata from entries"""
+    # BUILD ON: Existing metadata patterns
+    # Returns: {"size_bytes": 123, "entry_count": 45, "file_types": [...]}
+```
+
+### 5. Content Operations Layer (content_ops.py)
+
+**Depends on package_ops**:
+
+```python
+from .package_ops import package_manifest_get
+from .core_ops import s3_object_get
+
 def data_load(s3_uri: str, format: str = "auto") -> Dict[str, Any]:
     """Load data from S3 object for analysis"""
-    # Pure function: data loading
+    # BUILD ON: Existing data loading patterns
     # Returns: {"data": [...], "columns": [...], "rows": 123, "format": "csv"}
+
+def object_usage_check(s3_uri: str) -> List[Dict[str, str]]:
+    """Check which packages reference this S3 object"""
+    # EXTRACT FROM: MetricsCalculator + DataAnalyzer telemetry/metrics.py + data_analyzer.py
+    # Returns: [{"package": "pkg", "logical_key": "path", "registry": "s3://..."}]
 
 def schema_detect(data: Union[List, Dict], sample_size: int = 1000) -> Dict[str, Any]:
     """Detect data schema from sample"""
-    # Pure function: schema inference
+    # BUILD ON: Existing schema detection patterns
     # Returns: {"columns": [{"name": "col", "type": "int64", "nullable": True}]}
 
-def stats_calculate(data: List[Dict[str, Any]], columns: List[str] = None) -> Dict[str, Any]:
-    """Calculate basic statistics for dataset"""
-    # Pure function: statistical analysis
-    # Returns: {"rows": 123, "columns": 5, "numeric_summary": {...}, "missing": {...}}
-
-def data_filter(data: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Apply filters to dataset"""
-    # Pure function: data filtering
-    # Returns: filtered data array
-```
-
-**Content Generation Operations**
-```python
-# New utility functions for content generation
 def readme_generate(package_info: Dict[str, Any], entries: Dict[str, Any]) -> str:
     """Generate README.md content for package"""
-    # Pure function: content generation
+    # CREATE NEW: Pure function for content generation
     # Returns: markdown string
 
 def chart_generate(data: List[Dict[str, Any]], chart_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
     """Generate chart from data"""
-    # Pure function: visualization generation
+    # CREATE NEW: Visualization generation
     # Returns: {"image_base64": "...", "config": {...}, "data_summary": {...}}
 
 def table_render(data: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
     """Render data as interactive table"""
-    # Pure function: table generation
+    # EXTRACT/ADAPT FROM: Existing tabulator functionality
     # Returns: {"html": "...", "config_json": "...", "data_url": "..."}
-
-def tabulator_config_generate(data: List[Dict[str, Any]], features: List[str]) -> Dict[str, Any]:
-    """Generate Tabulator configuration from data and desired features"""
-    # Pure function: configuration generation
-    # Returns: {"columns": [...], "pagination": "local", "features": [...]}
-
-def export_generate(data: List[Dict[str, Any]], format: str) -> Union[str, bytes]:
-    """Export data to specified format"""
-    # Pure function: format conversion
-    # Returns: exported data as string or bytes
-
-def summary_generate(package_info: Dict[str, Any], entries: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate SUMMARY.json with package statistics and structure"""
-    # Pure function: package summary generation
-    # Returns: {"file_count": 15, "total_size": 1024000, "structure": {...}}
-
-def metadata_generate(entries: Dict[str, Any], user_metadata: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Generate package metadata from entries and user input"""
-    # Pure function: metadata compilation
-    # Returns: {"generated": {...}, "user": {...}, "computed": {...}}
 ```
 
-**Search and Query Operations**
+### 6. Search Operations Layer (search_ops.py)
+
+**Depends on all other layers**:
+
 ```python
-# New utility functions for search and query
+from .core_ops import s3_object_list
+from .package_ops import package_list
+from .content_ops import data_load
+
 def elasticsearch_query(query: Dict[str, Any], index: str) -> Dict[str, Any]:
     """Execute Elasticsearch query"""
-    # Pure function: search execution
+    # CREATE NEW: Search execution
     # Returns: {"hits": [...], "total": 123, "took_ms": 45}
 
 def graphql_query(query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
     """Execute GraphQL query against Quilt API"""
-    # Pure function: query execution
+    # CREATE NEW: Query execution
     # Returns: {"data": {...}, "errors": [...]}
 
 def package_schema_detect(entries: Dict[str, Any]) -> Dict[str, Any]:
     """Detect schema information from package entries"""
-    # Pure function: schema inference from package data
+    # BUILD ON: Existing schema detection + package analysis
     # Returns: {"schemas": {...}, "data_files": [...], "formats": [...]}
 
 def s3_search(bucket: str, query: str, file_types: List[str] = None) -> List[Dict[str, str]]:
     """Search S3 objects by name/content patterns"""
-    # Pure function: object search
+    # BUILD ON: s3_object_list with filtering
     # Returns: [{"key": "path", "bucket": "...", "score": 0.95}]
-
-def athena_query(sql: str, database: str, output_location: str) -> Dict[str, Any]:
-    """Execute Athena SQL query"""
-    # Pure function: SQL execution
-    # Returns: {"results": [...], "execution_id": "...", "cost_estimate": "$0.05"}
-
-def sql_execute(query: str, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Execute SQL-like query on in-memory data"""
-    # Pure function: in-memory SQL
-    # Returns: query results as data array
-```
-
-### 2. Utility Function Design Principles
-
-**Pure Function Characteristics**
-- Single responsibility - one clear purpose per function
-- No side effects - reads data, returns results, no logging/caching
-- Minimal parameters - typically 1-4 parameters with clear types
-- Predictable output - consistent return format with type hints
-- Good docstrings - clear description of purpose, parameters, and return value
-
-**Example: Good vs Bad**
-```python
-# GOOD: Pure utility function
-def package_manifest_get(registry: str, package: str, hash: Optional[str] = None) -> Dict[str, Any]:
-    """Get package manifest (entries, metadata)"""
-    # Implementation: reads manifest, returns data
-    
-# BAD: Complex tool function (what we're replacing)  
-def package_browse(registry: str, package: str = None, **kwargs) -> Dict[str, Any]:
-    """Complex tool that does authentication, listing, UI generation, etc."""
-    # Multiple responsibilities, side effects, complex schema
-```
-
-### 3. Implementation Structure
-
-**File Organization**
-```python
-# Simple utility layer structure
-src/
-└── quilt_mcp_server/
-    └── utilities/
-        ├── __init__.py              # Simple imports
-        ├── aws_operations.py        # AWS identity, config, S3 bucket ops
-        ├── package_operations.py    # Package listing, manifest, validation  
-        ├── object_operations.py     # S3 object CRUD, usage analysis
-        ├── data_operations.py       # Data loading, analysis, filtering
-        ├── content_generation.py    # README, charts, tables, exports
-        └── search_operations.py     # Search, query, SQL execution
-
-# Test structure mirrors utilities
-tests/
-└── utilities/
-    ├── test_aws_operations.py
-    ├── test_package_operations.py
-    ├── test_object_operations.py
-    ├── test_data_operations.py
-    ├── test_content_generation.py
-    └── test_search_operations.py
-```
-
-**Simple Import System**
-```python
-# src/quilt_mcp_server/utilities/__init__.py
-"""Utility functions for internal use by workflow tools"""
-
-# Direct imports for easy access
-from .aws_operations import (
-    aws_identity_get,
-    quilt_config_get,
-    quilt_config_set,
-    s3_bucket_list,
-    bucket_permissions_test,
-    bucket_location_get,
-    athena_catalog_get,
-    glue_table_list
-)
-
-from .package_operations import (
-    package_list,
-    package_manifest_get,
-    package_manifest_validate,
-    package_dependencies_check,
-    package_metadata_generate,
-    package_schema_detect
-)
-
-# ... other imports
 ```
 
 ## Implementation Strategy
 
-### Stage 1: AWS Operations Utilities (Days 1-2)
-1. **Extract Identity and Config Functions**
-   - Extract `aws_identity_get()` from auth.py
-   - Extract `quilt_config_*()` functions from auth.py  
-   - Create pure functions with minimal schemas
-   - Write comprehensive BDD tests
+**Key Learning**: 80% extraction, 20% creation. Build on proven implementations.
 
-2. **Extract Bucket Operations**
-   - Extract `s3_bucket_list()` from buckets.py
-   - Extract `bucket_permissions_test()` from buckets.py
-   - Create `bucket_location_get()` utility
-   - Test all bucket utilities with real AWS credentials
+### Stage 1: Prefactoring - Prepare for Extraction
 
-### Stage 2: Package Operations Utilities (Days 3-4)
-1. **Extract Package Core Functions** 
-   - Extract `package_list()` from packages.py
-   - Extract `package_manifest_get()` from packages.py
-   - Create `package_manifest_validate()` utility
-   - Create `package_dependencies_check()` utility
+**Objective**: Strengthen test coverage and prepare existing code for extraction.
 
-2. **Add Package Support Functions**
-   - Create `package_metadata_generate()` utility
-   - Test all package utilities with real S3 packages
-   - Validate schema consistency across package functions
+#### 1.1 Test Coverage Expansion
 
-### Stage 3: Object Operations Utilities (Days 5-6)
-1. **Extract S3 Object Functions**
-   - Extract `s3_object_get()` from s3_package.py
-   - Extract `s3_object_put()` from s3_package.py  
-   - Extract `s3_object_delete()` from s3_package.py
-   - Extract `s3_object_list()` from s3_package.py
+- **Audit existing tests** around extraction areas - identify behavior coverage gaps
+- **Add missing behavioral tests** for edge cases and integration points  
+- **Ensure test reliability** - tests should fail when they should, pass when they should
 
-2. **Add Object Analysis Functions**
-   - Create `object_usage_check()` utility
-   - Extract `file_organize()` from s3_package.py
-   - Test all object utilities with real S3 objects
+#### 1.2 Code Preparation
 
-### Stage 4: Data and Content Operations (Days 7-8)
-1. **Create Data Processing Utilities**
-   - Implement `data_load()` utility
-   - Implement `schema_detect()` utility
-   - Implement `stats_calculate()` utility
-   - Implement `data_filter()` utility
+**Eliminate technical debt** in areas where utilities will be extracted:
 
-2. **Create Content Generation Utilities**
-   - Implement `readme_generate()` utility
-   - Implement `chart_generate()` utility (basic charts)
-   - Implement `table_render()` utility
-   - Implement `export_generate()` utility
+**PREFACTOR auth.py:**
 
-### Stage 5: Search and Query Utilities (Days 9-10)
-1. **Create Search Functions**
-   - Implement `elasticsearch_query()` utility
-   - Implement `graphql_query()` utility
-   - Implement `s3_search()` utility
+- Extract identity logic from `auth_status()` (line 348) into separate helper function
+- Extract config logic from `_get_catalog_info()` (line 38) into separate helper function
+- Ensure all existing auth tests still pass
 
-2. **Create Query Functions**
-   - Implement `athena_query()` utility
-   - Implement `sql_execute()` utility (in-memory SQL)
-   - Test all search/query utilities
+**PREFACTOR permission_discovery.py:**  
 
+- Extract bucket listing from `AWSPermissionDiscovery.discover_accessible_buckets()` (line 177)
+- Extract region detection from `AWSPermissionDiscovery.discover_bucket_permissions()` (line 521)
+- Ensure all existing permission tests still pass
 
-## Integration Points
+**PREFACTOR packages.py:**
 
-### Input Dependencies
-- **Requirements Document**: Core use cases and acceptance criteria from `01-requirements.md`
-- **Specifications**: Two-tier architecture and utility layer specifications from `03-specifications.md`
-- **Current Tools**: Existing MCP tools in `src/quilt_mcp_server/tools/` (auth.py, buckets.py, packages.py, s3_package.py)
+- Extract manifest access logic from `package_browse()` (line 177) into separate helper
+- Ensure all existing package tests still pass
 
-### Output Artifacts
-- **Utility Layer**: Complete `src/quilt_mcp_server/utilities/` module with 42-50 functions
-- **Test Suite**: Comprehensive BDD tests for all utilities in `tests/utilities/`
-- **Simple Import System**: Direct imports for workflow tools to use
+**PREFACTOR analytics code:**
 
-### Phase 2 Handoff
-- **Utility Functions**: 42-50 tested, pure utility functions organized by category
-- **Function Documentation**: Clear docstrings and type hints for each utility
-- **Test Examples**: BDD tests showing expected behavior and usage patterns
+- Make telemetry/metrics.py functions more modular for extraction
+- Prepare data_analyzer.py functions for utility extraction
+
+### Stage 2: Direct Extraction
+
+**Objective**: Extract existing functionality into clean utility functions.
+
+#### 2.1 Core Operations Extraction
+
+Follow TDD: **Red → Green → Refactor** for each extraction.
+
+**EXTRACT AWS Operations:**
+
+```python
+# 1. Write failing test for aws_identity_get()
+# 2. Extract identity logic from auth_status() 
+# 3. Refactor for clean utility API
+```
+
+**EXTRACT S3 Operations:**  
+
+```python
+# 1. Write failing tests for s3_object_get/put/list()
+# 2. Adapt from bucket_object_*() functions
+# 3. Refactor for generic S3 use
+```
+
+**EXTRACT Package Operations:**
+
+```python  
+# 1. Write failing tests for package_manifest_get()
+# 2. Extract from package_browse() 
+# 3. Refactor for utility use
+```
+
+#### 2.2 Dependency Layer Implementation
+
+**Import Strategy** (prevents circular dependencies):
+
+```python
+# core_ops.py - No imports from other utils
+# package_ops.py
+from .core_ops import s3_object_get, s3_bucket_list
+
+# content_ops.py  
+from .core_ops import s3_object_get
+from .package_ops import package_manifest_get
+
+# search_ops.py
+from .core_ops import s3_object_list
+from .package_ops import package_list  
+from .content_ops import data_load
+```
+
+### Stage 3: Missing Functionality Creation
+
+**Objective**: Create only the truly missing functions.
+
+#### 3.1 S3 Delete Operations
+
+**CREATE `s3_object_delete()`:**
+
+- **Reality**: No S3 delete functionality exists anywhere in codebase
+- **Implementation**: Follow existing S3 operation patterns from buckets.py
+- **Error Handling**: Use same response format as other S3 operations
+
+#### 3.2 Package Delete Operations
+
+**CREATE `package_delete()`:**  
+
+- **Reality**: No package deletion functionality exists
+- **Implementation**: Use Quilt3 package deletion APIs
+- **Safety**: Include confirmation and dependency checking
+
+### Stage 4: Refactoring and Optimization
+
+**Objective**: Clean up extracted utilities and optimize for workflow tool use.
+
+#### 4.1 Performance Optimization
+
+- Optimize extracted functions for better performance
+- Add appropriate caching where beneficial  
+- Improve error handling and edge cases
+- Add comprehensive type hints and documentation
+
+#### 4.2 Integration Testing
+
+- Test extracted utilities work together correctly
+- Verify original tools still function with extracted utilities
+- Performance regression testing
+
+## Testing Strategy
+
+### Test-Driven Development Requirements
+
+**Each stage MUST follow TDD principles:**
+
+1. **Red Phase**: Write failing BDD tests for each utility before implementation
+2. **Green Phase**: Implement minimal code to make tests pass
+3. **Refactor Phase**: Clean up implementation while keeping tests green
+
+### Extraction-Specific Testing
+
+**Test Extracted Functions Independently:**
+
+```python
+# Good: Test utility function directly
+def test_aws_identity_get():
+    identity = aws_identity_get()
+    assert "account_id" in identity
+    assert "user_arn" in identity
+
+# Also Good: Test original tool still works
+def test_auth_status_still_works():
+    result = auth_status()
+    assert result["success"] == True
+```
+
+**Test Dependency Layers:**
+
+```python
+# Ensure import dependencies work correctly
+def test_package_ops_uses_core_ops():
+    # package_ops.py should be able to import from core_ops
+    from quilt_mcp_server.utils.core_ops import s3_object_get
+    from quilt_mcp_server.utils.package_ops import package_manifest_get
+    
+    # Test that package_manifest_get can use s3_object_get internally
+```
 
 ## Success Metrics
 
-### Utility Function Quality
-- **Function Count**: Utility functions extracted from existing tools
-- **Pure Function Compliance**: 100% of utilities are pure functions (no side effects)
-- **Single Responsibility**: Each utility has one clear, testable responsibility
-- **Minimal Schemas**: All utilities have simple, consistent input/output schemas
+### Quantitative Goals
 
-### Test Coverage and Quality
-- **BDD Test Coverage**: 100% coverage with behavior-driven tests
-- **Test Isolation**: All tests run independently with proper fixtures and mocks
-- **Test Documentation**: Clear test names and descriptions showing expected behavior
+- **Test Coverage**: Maintain 100% test coverage for all utilities
+- **Function Count**: Extract ~15 utilities, create ~2 new utilities
+- **Performance**: No regression in existing tool performance  
+- **Documentation**: Complete docstrings and type hints for all utilities
 
-### Organization and Integration
-- **Category Organization**: Utilities properly categorized into 6 functional areas  
-- **Simple Import System**: Direct imports make utilities easy to use in workflow tools
-- **Phase 2 Readiness**: All utilities ready for integration into workflow tools
+### Qualitative Goals
+
+- **Code Quality**: All utilities are clean, single-responsibility functions
+- **Dependency Clarity**: Clean dependency layers prevent circular imports
+- **Extraction Quality**: Utilities maintain functionality of original implementations
+- **Phase 2 Readiness**: All utilities ready for workflow tool composition
 
 ## Risk Mitigation
 
 ### Extraction Risks
-1. **Complex Function Dependencies**: Some tool functions may have complex interdependencies
-   - **Mitigation**: Extract utilities incrementally, maintaining backward compatibility
+
+1. **Complex Function Dependencies**: Embedded functions may be tightly coupled
+   - **Mitigation**: Prefactoring phase prepares code for clean extraction
    - **Validation**: Test each utility in isolation before integration
 
-2. **Pure Function Design**: Existing tools may have hidden side effects
-   - **Mitigation**: Careful analysis and refactoring to remove side effects
+2. **Hidden Side Effects**: Original functions may have undocumented side effects  
+   - **Mitigation**: Comprehensive behavior testing during prefactoring
    - **Testing**: BDD tests validate expected behavior without side effects
 
+3. **Performance Degradation**: Extracted utilities may be slower than embedded versions
+   - **Mitigation**: Performance testing and optimization during refactoring
+   - **Advantage**: Building on proven implementations reduces risk
+
 ### Integration Risks
+
 1. **Backward Compatibility**: Extraction may break existing tool functionality
-   - **Mitigation**: Maintain existing tools during Phase 1, refactor carefully
+   - **Mitigation**: Maintain existing tools during extraction, test thoroughly
    - **Testing**: Comprehensive regression testing after each extraction
 
-2. **Test Coverage Gaps**: Complex scenarios may be missed in utility tests
-   - **Mitigation**: BDD tests cover real usage patterns from existing tools
-   - **Validation**: Integration testing with actual data
-
-## Technology Choices
-
-### Utility Function Implementation
-- **Function Design**: Pure functions with type hints and comprehensive docstrings
-- **Error Handling**: Consistent exception hierarchy with clear error messages
-- **Return Types**: Structured dictionaries with consistent key naming
-
-### Testing Framework
-- **Testing Library**: `pytest` with BDD-style test organization
-- **Mocking**: `pytest-mock` for external service mocking
-- **Fixtures**: Shared test fixtures for common data structures
-- **Coverage**: `pytest-cov` for coverage measurement and reporting
-
-### Code Organization
-- **Module Structure**: Category-based modules with clear naming
-- **Import System**: Simple direct imports in `__init__.py`
-- **Type Safety**: `mypy` for static type checking
+2. **Circular Dependencies**: Poor organization may create import cycles
+   - **Mitigation**: Strict dependency-layer organization prevents cycles
+   - **Validation**: Import testing verifies clean dependency structure
 
 ## Deliverables
 
-1. **Utility Layer**: Complete `src/quilt_mcp_server/utilities/` module with pure utility functions
-2. **Test Suite**: Comprehensive BDD tests achieving 100% coverage for all utilities
-3. **Import System**: Simple direct imports for easy workflow tool integration
-4. **Documentation**: Clear docstrings and type hints for all utility functions
-5. **Phase 2 Foundation**: Ready-to-use building blocks for workflow tool implementation
+1. **Utility Layer**: Complete `src/quilt_mcp_server/utils/` module with dependency-layer organization
+2. **Test Suite**: Comprehensive BDD tests achieving 100% coverage for all utilities  
+3. **Extraction Documentation**: Clear mapping of source → utility for all extractions
+4. **Performance Validation**: Proof that extractions maintain original performance
+5. **Phase 2 Foundation**: Ready-to-compose building blocks for workflow tool implementation
 
-This Phase 1 design creates the essential utility layer foundation for the two-tier architecture by extracting atomic, composable functions from existing tools, enabling Phase 2 to build workflow tools through utility composition rather than complex monolithic implementations.
+This Phase 1 design leverages the critical learning that most functionality already exists, transforming the approach from creation-heavy to extraction-heavy while using dependency-layer organization to prevent the circular dependency problems discovered in the learnings analysis.

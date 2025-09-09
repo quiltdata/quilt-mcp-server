@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Requirements: Streamline MCP Tools Architecture
 
 **Issue**: [#116 - Streamline Tools](https://github.com/quiltdata/quilt-mcp-server/issues/116)  
@@ -9,6 +10,7 @@
 The Quilt MCP Server needs **"a minimal, orthogonal set of tools that span the core use cases"** rather than the current proliferating architecture. The goal is to create tools that are **"atomic based on their input and output schema"** to efficiently serve the essential data management workflows.
 
 Current challenges:
+
 - **16+ tool modules** scattered across directories without focus on core use cases
 - **Tool proliferation** that obscures the essential Quilt data management capabilities  
 - **Missing focus on core workflows**: catalog access, package read/write, search, visualization, querying, and tabulation
@@ -20,6 +22,7 @@ The system should prioritize delivering streamlined tools for the **core Quilt u
 ## User Stories
 
 ### Core Use Case Focus
+
 1. **As a data analyst**, I want **catalog access tools** so that **I can authenticate, list available buckets, and discover tables/datasets across Quilt catalogs**
 2. **As a data scientist**, I want **package read/write/delete tools** so that **I can efficiently access and modify Quilt package data and metadata**
 3. **As a data scientist**, I want **object read/write/delete tools** so that **I can efficiently access and modify individual Quilt object data and metadata**
@@ -27,8 +30,6 @@ The system should prioritize delivering streamlined tools for the **core Quilt u
 5. **As a data explorer**, I want **visualization tools** so that **I can create charts and graphs from Quilt package data**
 6. **As a business user**, I want **Athena SQL search tools** so that **I can use familiar SQL syntax to query Quilt data with proper table discovery**
 7. **As a dashboard creator**, I want **tabulator table tools** so that **I can create flexible, interactive data tables**
-
-### Developer Experience
 8. **As a developer**, I want **atomic, orthogonal tools** so that **each tool has clear input/output schemas and single responsibilities**
 9. **As a maintainer**, I want **minimal tool set** so that **I can focus maintenance on core use cases rather than comprehensive edge cases**
 
@@ -78,6 +79,6 @@ The system should prioritize delivering streamlined tools for the **core Quilt u
 
 ## Notes
 
-This requirements document is based on GitHub issue #116 which calls for **"a minimal, orthogonal set of tools that span the core use cases"** with tools that are **"atomic based on their input and output schema"**. 
+This requirements document is based on GitHub issue #116 which calls for **"a minimal, orthogonal set of tools that span the core use cases"** with tools that are **"atomic based on their input and output schema"**.
 
 The focus is on creating a purpose-driven toolset that efficiently handles the 7 core Quilt use cases rather than comprehensive coverage of all possible operations. The approach prioritizes archiving or consolidating non-essential tools to achieve a streamlined, maintainable architecture focused on core data management workflows.

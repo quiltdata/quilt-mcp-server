@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # IRS/DSCO Methodology Implementation Guide
 
 **Foundation**: Implements [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) principles through the IRS/DSCO structured development process.
@@ -11,6 +12,7 @@
 ## IRS/DSCO Process Overview
 
 **IRS Phase (Analysis)**:
+
 1. **I**ssue - Problem identification and GitHub issue tracking
 2. **R**equirements - User stories, acceptance criteria, success metrics  
 3. **S**pecifications - Engineering constraints, technical goals (NO implementation details)
@@ -26,6 +28,7 @@
 ## Document Structure Pattern
 
 **Sequential numbering for chronological phases**:
+
 - `01-requirements.md` - Problem definition and acceptance criteria
 - `02-specifications.md` - Engineering constraints and success metrics
 - `{x}-phase{N}-design.md` - Phase N technical design (x = 2N+1)
@@ -39,6 +42,7 @@
 #### 🤖 Issue Prompt (to Agent)
 
 **AI Agent**: Create GitHub issue for problem identification
+
 - Document problem scope and business impact
 - Identify stakeholders and affected systems
 - Establish tracking number for IRS/DSCO process
@@ -47,6 +51,7 @@
 #### 👤 Issue Review (by Human)
 
 **Human Review**: Validate issue scope and priority
+
 - Confirm problem statement accuracy
 - Approve priority and milestone assignment
 - Authorize IRS/DSCO process initiation
@@ -77,6 +82,7 @@ Format as markdown with clear sections and numbered lists. Fix IDE Diagnostics.
 #### 👤 Requirements Review (by Human)
 
 Validate problem understanding and acceptance criteria
+
 - Address Open Questions
 - Verify user stories capture actual needs
 - Confirm acceptance criteria are measurable
@@ -109,6 +115,7 @@ Format as markdown with clear sections and numbered lists.
 #### 👤 Specification Review (by Human)
 
 Confirm engineering approach and success metrics
+
 - Validate technical feasibility
 - Approve phase breakdown strategy
 - Confirm success metrics are appropriate
@@ -143,6 +150,7 @@ Format as markdown with clear sections. Fix IDE Diagnostics.
 ##### 👤 Design Review (by Human)
 
 Approve technical architecture and implementation strategy
+
 - Validate design decisions
 - Confirm integration approach
 - Approve technology choices
@@ -153,6 +161,7 @@ Approve technical architecture and implementation strategy
 ##### 🤖 Checklist Prompt (to Agent)
 
 > Create, in order to implement the above design:
+>
 > 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
 > 2. a`spec/{issue_number}/{n+1}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 3b of @spec/WORKFLOW.md (then commit + push)
 > 3. a PR for the new branch against the original branch
@@ -166,7 +175,7 @@ Using the design document from this phase, create validation checklist following
 - Create validation procedures that verify each design decision is properly implemented
 - Define Behavior-Driven Development (BDD) requirements that validate the architecture and integration points from design
   - Do NOT write any code in this document
-  - Do concisely itemize critical test cases 
+  - Do concisely itemize critical test cases
 - Establish quality gates that confirm success metrics from specifications are met
 - Link back to original GitHub issue and reference acceptance criteria from requirements
 
@@ -176,6 +185,7 @@ Format as markdown with task lists. Fix IDE Diagnostics.
 ##### 👤 Checklist Review (by Human)
 
 Approve checklist and validation procedures
+
 - Confirm tasks and validation steps are comprehensive
 - Approve, edit or request revisions before implementation
 
@@ -243,6 +253,7 @@ Using all completed phase checklists from Step 3, coordinate final integration:
 #### 👤 Integration Review (by Human)
 
 Final approval and release authorization
+
 - Complete system validation
 - Approve for production deployment
 - Document lessons learned
