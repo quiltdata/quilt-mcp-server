@@ -571,7 +571,7 @@ def data_tabulate(
 1. `catalog_authenticate` - Connect to Quilt catalogs with login guidance
 2. `catalog_buckets` - List available S3 buckets  
 3. `catalog_tables` - List available tables/datasets for SQL querying
-4. `package_create` - Create packages from S3/local sources (with auto-organize)
+4. `package_create` - Create packages from S3/local sources (with optional generation)
 5. `package_get` - Get package structure and entries
 6. `package_delete` - Delete package versions with safety confirmations
 7. `package_search` - Search packages with fallback to listing
@@ -654,6 +654,108 @@ Create 4 new functions:
 - Archive non-core tools with migration guides
 - Performance validation and optimization
 - Documentation updates
+
+## Legacy Tool Migration Strategy
+
+### Current State Tools Analysis
+
+The existing MCP server exposes **75+ tools** from 16 modules, creating a complex orchestration burden for MCP clients. The proposed architecture consolidates this into **14 workflow-oriented tools** that handle complete user workflows through single calls.
+
+### Tool Mapping: Current → Proposed
+
+#### Catalog Operations (8 current → 3 proposed)
+
+**Current tools being consolidated:**
+
+- `catalog_url`, `catalog_uri`, `catalog_info`, `catalog_name` → **`catalog_authenticate`**
+- `auth_status`, `filesystem_status`, `configure_catalog`, `switch_catalog` → **`catalog_authenticate`**
+- Various bucket listing functions → **`catalog_buckets`**
+- Athena database/table discovery → **`catalog_tables`**
+
+**Migration impact:** Clients using multiple catalog tools will need single workflow calls.
+
+#### Package Operations (11+ current → 4 proposed)
+
+**Current tools being consolidated:**
+
+- `package_create`, `package_update`, `package_create_from_s3`, `create_package`, `create_package_enhanced` → **`package_create`**
+- `packages_list`, `package_browse` → **`package_get`**
+- `package_delete` → **`package_delete`** (enhanced with safety features)
+- `packages_search`, `package_contents_search`, `unified_search` → **`package_search`**
+
+**Metadata tools being internalized:** All metadata template and validation tools become internal utilities.
+
+**Migration impact:** Simplified package lifecycle management with enhanced safety features.
+
+#### Object Operations (8+ current → 4 proposed)
+
+**Current tools being consolidated:**
+
+- `bucket_objects_put` → **`object_create`**
+- `bucket_object_info`, `bucket_object_text`, `bucket_object_fetch` → **`object_get`**
+- No current delete tool → **`object_delete`** (new with safety features)
+- `bucket_objects_list`, `bucket_objects_search`, `bucket_objects_search_graphql` → **`object_search`**
+
+**Migration impact:** Unified object interface with new deletion capabilities and safety checks.
+
+#### Data Operations (2 current → 3 proposed)
+
+**Current tools being enhanced:**
+
+- `generate_package_visualizations` → **`data_visualize`** (enhanced with more chart types)
+- Athena query tools → **`data_query`** (enhanced with filters and export)
+- `get_tabulator_service` → **`data_tabulate`** (enhanced with configuration)
+
+**Migration impact:** Richer data interaction capabilities with unified interfaces.
+
+#### Tools Being Archived
+
+**Workflow tools (6 tools):** Replaced by external workflow orchestration
+**GraphQL tools (2 tools):** Functionality absorbed into search operations
+**Permission discovery (3 tools):** Moved to internal utilities
+**Error recovery (4 tools):** Integrated into all workflow tools
+**Governance tools (21+ tools):** Remain as separate administrative interface
+
+### Client Migration Path
+
+#### Phase 1: Parallel Operation
+
+- Both old and new tools available
+- Deprecation warnings on legacy tools
+- Migration documentation published
+
+#### Phase 2: Gradual Deprecation
+
+- 6-month deprecation period
+- Legacy tools return migration guidance
+- Client support for transition
+
+#### Phase 3: Legacy Removal
+
+- Old tools archived
+- Only workflow tools remain
+- Performance optimization
+
+### Breaking Changes Summary
+
+**Removed complexity:**
+
+- No more multi-tool orchestration for basic workflows
+- No more metadata template management
+- No more separate GraphQL query interface
+
+**Enhanced capabilities:**
+
+- Safety confirmations for destructive operations
+- Fallback search when advanced backends fail
+- Integrated visualization and export options
+- Complete workflow execution in single calls
+
+**Client adaptation required:**
+
+- Replace tool sequences with single workflow calls
+- Update error handling for new response formats
+- Adapt to enhanced safety confirmation flows
 
 ## Conclusion
 
