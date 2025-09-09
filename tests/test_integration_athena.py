@@ -338,6 +338,7 @@ class TestAthenaErrorHandling:
     """Test error handling scenarios."""
 
     @pytest.mark.aws
+    @pytest.mark.timeout(30)
     def test_glue_connection_error_real_aws(self):
         """Test handling of Glue connection errors with real AWS."""
 
