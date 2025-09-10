@@ -194,16 +194,17 @@ def test_mcp_tools():
 
         workgroups_result = athena_workgroups_list()
         if workgroups_result.get("success"):
-            accessible = workgroups_result.get("accessible_count", 0)
             total = workgroups_result.get("count", 0)
-            print(f"✅ Workgroups listing successful: {accessible}/{total} accessible")
+            print(f"✅ Workgroups listing successful: {total} workgroups found")
 
-            # Show the top few workgroups
+            # Show the top few workgroups (Episodes 2-3: no 'accessible' or 'state' fields)
             for wg in workgroups_result.get("workgroups", [])[:3]:
-                status = "✅" if wg.get("accessible") else "❌"
-                print(f"   {status} {wg.get('name')} ({wg.get('state')})")
+                name = wg.get('name', 'Unknown')
+                description = wg.get('description', 'No description')
+                print(f"   ✅ {name} - {description}")
         else:
-            print(f"❌ Workgroups listing failed: {workgroups_result.get('error', 'Unknown error')}")
+            error_msg = workgroups_result.get('error', 'Unknown error')
+            print(f"❌ Workgroups listing failed: {error_msg}")
 
         return result.get("success", False) and workgroups_result.get("success", False)
 

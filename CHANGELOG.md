@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - UNRELEASED
+
+### Enhanced Athena Workgroups Management
+
+- **Enhanced Athena Workgroups Listing**: Complete redesign of `athena_workgroups_list` functionality (#133)
+  - **ENABLED-only filtering**: Only shows workgroups in ENABLED state for cleaner results
+  - **Clean AWS data presentation**: Removed synthetic fields (`accessible`, `state`) that polluted AWS API data
+  - **Layered API access patterns**: Graceful degradation when users have varying permission levels
+  - **Error-free descriptions**: AWS descriptions no longer contaminated with error messages
+  - **Consolidated authentication**: Eliminated code duplication between workgroup discovery methods
+  - **Enhanced table formatting**: Better CLI presentation with automatic table detection
+  - **Comprehensive test coverage**: 11 BDD tests covering all enhancement scenarios
+
+### Code Quality Improvements
+
+- **Authentication consolidation**: Refactored `_discover_workgroup` to use `list_workgroups` method internally
+  - Eliminated 40+ lines of duplicate authentication and workgroup discovery logic
+  - Single source of truth for workgroup access patterns
+  - Improved maintainability and reduced complexity
+- **Test infrastructure**: Fixed CI test failures related to deprecated field references
+- **Enhanced error handling**: Clean separation of data presentation and error reporting
+
 ## [0.6.3] - 2025-09-10
 
 ### Added Tool Exclusion System
