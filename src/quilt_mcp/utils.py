@@ -107,7 +107,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     # List of deprecated tools (to reduce client confusion)
     excluded_tools = {
         "packages_list",
-        "bucket_objects_list", 
+        "bucket_objects_list",
     }
 
     tools_registered = 0
