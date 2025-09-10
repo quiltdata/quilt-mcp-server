@@ -1,41 +1,45 @@
 <!-- markdownlint-disable MD013 -->
-# IRS/DSCO Methodology Implementation Guide
+# I RASP DECO Methodology Implementation Guide
 
-**Foundation**: Implements [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) principles through the IRS/DSCO structured development process.
+**Foundation**: Implements [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) principles through the I RASP DECO structured development process.
 
 **Universal Patterns**: See [AGENTS.md](./AGENTS.md) for core AI collaboration principles that underlie this methodology.
 
-**Complete Specification**: See [spec/112/02-specifications.md](./112/02-specifications.md) for detailed IRS/DSCO methodology specification.
+**Complete Specification**: See [spec/112/03-specifications.md](./112/03-specifications.md) for detailed I RASP DECO methodology specification.
 
 **Examples**: See `./spec/100/*.md` for real-world examples of each document
 
-## IRS/DSCO Process Overview
+## I RASP DECO Process Overview
 
-**IRS Phase (Analysis)**:
+**I RASP Phase (Analysis)**:
 
-1. **I**ssue - Problem identification and GitHub issue tracking
-2. **R**equirements - User stories, acceptance criteria, success metrics  
-3. **S**pecifications - Engineering constraints, technical goals (NO implementation details)
+1. **I**ssue - Presenting problem identification and GitHub issue tracking
+2. **R**equirements - User-centered stories and UAT acceptance criteria  
+3. **A**nalysis - Current code idiom/architecture and challenges assessment
+4. **S**pecifications - Desired end state goals (NO implementation details)
+5. **P**hases - Incremental PRs breakdown for sequential implementation
 
-**/** - **Divide into Phases** (separate branches and PRs for binary review)
+**DECO Phase (Implementation)**:
 
-**DSCO Phase (Implementation)**:
-4. **D**esign - Phase-specific technical design documents
-5. **S**tage - Implementation with BDD and staged commits  
-6. **C**hecklist - Validation procedures and progress tracking
-7. **O**rchestrator - Process coordination and dependency management
+1. **D**esign - Specific work to be done for each phase
+2. **E**pisodes - Atomic change units to test and push  
+3. **C**hecklist - Detailed instructions to ensure compliance
+4. **O**rchestrator - Use dedicated Agents to ensure checklist is followed
 
 ## Document Structure Pattern
 
 **Sequential numbering for chronological phases**:
 
-- `01-requirements.md` - Problem definition and acceptance criteria
-- `02-specifications.md` - Engineering constraints and success metrics
-- `{x}-phase{N}-design.md` - Phase N technical design (x = 2N+1)
-- `{x+1}-phase{N}-checklist.md` - Phase 1 validation and tracking
+- `01-requirements.md` - User-centered stories and acceptance criteria
+- `02-analysis.md` - Current code idiom/architecture and challenges
+- `03-specifications.md` - Desired end state and engineering constraints
+- `04-phases.md` - Incremental PRs breakdown for implementation
+- `{x}-phase{N}-design.md` - Phase N specific work design (x = 4+2N)
+- `{x+1}-phase{N}-episodes.md` - Phase N atomic change units
+- `{x+2}-phase{N}-checklist.md` - Phase N validation and tracking
 - `{M}-review.md` - Implementation review and lessons learned
 
-## Initiate IRS/DSCO Workflow
+## Initiate I RASP DECO Workflow
 
 ### Step 0: Create GitHub Issue
 
@@ -45,7 +49,7 @@
 
 - Document problem scope and business impact
 - Identify stakeholders and affected systems
-- Establish tracking number for IRS/DSCO process
+- Establish tracking number for I RASP DECO process
 - Link to any related issues or PRs
 
 #### 👤 Issue Review (by Human)
@@ -54,8 +58,8 @@
 
 - Confirm problem statement accuracy
 - Approve priority and milestone assignment
-- Authorize IRS/DSCO process initiation
-- **Branch**: Use GitHub to create `{issue-number}-short-name` for IRS phase
+- Authorize I RASP DECO process initiation
+- **Branch**: Use GitHub to create `{issue-number}-short-name` for I RASP phase
 - Open in Editor / Agenta (typically VS Code + Claude Code)
 
 ---
@@ -68,7 +72,7 @@
 
 #### 📝 Requirements Instructions (for Agent)
 
-Using the GitHub issue from Step 0, create requirements document following IRS/DSCO methodology:
+Using the GitHub issue from Step 0, create requirements document following I RASP DECO methodology:
 
 - Reference the GitHub issue number and problem statement
 - Expand the issue description into detailed user stories: "As a [role], I want [functionality] so that [benefit]"
@@ -90,23 +94,57 @@ Validate problem understanding and acceptance criteria
 
 ---
 
-### Step 2: Engineering Specifications
+### Step 2: Analysis
+
+#### 🤖 Analysis Prompt (to Agent)
+
+> Create `spec/{issue_number}/02-analysis.md` using a research analyst or architecture agent, following the Analysis Instructions in Step 2 of @spec/WORKFLOW.md
+
+#### 📝 Analysis Instructions (for Agent)
+
+Using the requirements document from Step 1, create an analysis document that:
+
+- Reference the user stories and acceptance criteria from 01-requirements.md
+- Analyze current codebase architecture and implementation patterns
+- Identify existing code idioms and conventions that should be followed
+- Document current system constraints and limitations
+- Assess technical debt and refactoring opportunities
+- Identify gaps between current state and requirements
+- Document architectural challenges and design considerations
+- Do NOT propose solutions or implementation approaches yet
+
+Focus on "what exists now" and "what are the challenges".
+Format as markdown with clear sections and numbered lists.
+
+#### 👤 Analysis Review (by Human)
+
+Validate current state assessment and challenge identification
+
+- Confirm accuracy of current system analysis
+- Verify architectural constraints are properly identified
+- Approve challenge assessment before proceeding
+- Approve, edit or request revisions before initiating next step
+
+---
+
+### Step 3: Engineering Specifications
 
 #### 🤖 Specification Prompt (to Agent)
 
-> Create `spec/{issue_number}/02-specifications.md` using an appropriate architecture or developer agent, following the Specification Instructions in Step 2 of @spec/WORKFLOW.md
+> Create `spec/{issue_number}/03-specifications.md` using an appropriate architecture or developer agent, following the Specification Instructions in Step 3 of @spec/WORKFLOW.md
 
 #### 📝 Specification Instructions (for Agent)
 
-Using the requirements document from Step 1, create a specifications document that:
+Using the requirements and analysis documents from Steps 1-2, create a specifications document that:
 
 - Reference the acceptance criteria from 01-requirements.md
-- Propose implementation architecture consistent with the current repository
-- Write high-level specs describing the ideal end state (NO Implementation details)
-- Perform gap-analysis against current repository state
-- Identify "pre-factoring" opportunities: make the change easy, then make the easy change
-- Break implementation down into Phases that can be sequentially reviewed and merged
-- Do NOT write the actual implementation or any code samples (at most: signatures)
+- Build upon the current state analysis from 02-analysis.md
+- Write high-level specs describing the desired end state (NO Implementation details)
+- Define success criteria and measurable outcomes
+- Specify architectural goals and design principles
+- Define integration points and API contracts
+- Establish quality gates and validation criteria
+- Do NOT write implementation details or code samples (at most: signatures)
 - Identify technical (architectural, algorithmic, dependency) uncertainties and risks
 
 EXCLUDE: Implementation code, detailed procedures.
@@ -123,26 +161,60 @@ Confirm engineering approach and success metrics
 
 ---
 
-### Step 3: Implementation Phases
+### Step 4: Implementation Phases Breakdown
+
+#### 🤖 Phases Prompt (to Agent)
+
+> Create `spec/{issue_number}/04-phases.md` using a project manager or workflow orchestrator agent, following the Phases Instructions in Step 4 of @spec/WORKFLOW.md
+
+#### 📝 Phases Instructions (for Agent)
+
+Using the specifications document from Step 3, create a phases breakdown document that:
+
+- Reference the desired end state from 03-specifications.md
+- Build upon the gap analysis from 02-analysis.md
+- Break implementation down into incremental PRs that can be sequentially reviewed and merged
+- Define clear deliverables and success criteria for each phase
+- Identify dependencies and sequencing requirements between phases
+- Ensure each phase delivers working, testable functionality
+- Plan "pre-factoring" opportunities: make the change easy, then make the easy change
+- Define integration testing strategy across phases
+
+Focus on "how to get there incrementally" with clear phase boundaries.
+Format as markdown with clear sections and numbered lists.
+
+#### 👤 Phases Review (by Human)
+
+Validate implementation strategy and phase breakdown
+
+- Confirm phases are appropriately scoped
+- Verify dependencies and sequencing
+- Approve incremental delivery strategy
+- Approve, edit or request revisions before initiating next step
+
+---
+
+### Step 5: Implementation Phases
 
 For each implementation phase (repeat as needed):
 
-#### Step 3a: Create Design Document
+#### Step 5a: Create Design Document
 
 ##### 🤖 Design Prompt (to Agent)
 
-> Create `spec/{issue_number}/{n}-phase{k}-design.md` using a developer agent with the relevant skills, following the Design Instructions in Step 3a of @spec/WORKFLOW.md
+> Create `spec/{issue_number}/{n}-phase{k}-design.md` using a developer agent with the relevant skills, following the Design Instructions in Step 5a of @spec/WORKFLOW.md
 
 ##### 📝 Design Instructions (for Agent)
 
-Using the specifications document from Step 2, create phase-specific design document following the IRS/DSCO methodology:
+Using the specifications and phases documents from Steps 3-4, create phase-specific design document following the I RASP DECO methodology:
 
-- Reference the specific phase from the implementation phases breakdown in 02-specifications.md
+- Reference the specific phase from the implementation phases breakdown in 04-phases.md
 - Design technical architecture to meet the target state goals for this phase
 - Make design decisions that address the constraints and dependencies identified in specifications
 - Create implementation strategy that aligns with the success metrics from specifications
 - Plan integration points with other phases as outlined in the phase breakdown
 - Justify technology choices against the risk assessment and constraints from specifications
+- Define specific work to be done in this phase
 
 Focus on "what" and "how" for this specific phase, grounded in specifications.
 Format as markdown with clear sections. Fix IDE Diagnostics.
@@ -156,28 +228,59 @@ Approve technical architecture and implementation strategy
 - Approve technology choices
 - Commit design document, then create a NEW child branch and PR for implementation
 
-#### Step 3b: Create Checklist Document
+#### Step 5b: Create Episodes Document
+
+##### 🤖 Episodes Prompt (to Agent)
+
+> Create `spec/{issue_number}/{n+1}-phase{k}-episodes.md` using a developer agent, following the Episodes Instructions in Step 5b of @spec/WORKFLOW.md
+
+##### 📝 Episodes Instructions (for Agent)
+
+Using the design document from this phase, create atomic change units following the I RASP DECO methodology:
+
+- Break down the implementation strategy into atomic change units
+- Define each episode as a single, testable, committable change
+- Ensure episodes can be tested and pushed independently
+- Plan TDD cycle for each episode (Red → Green → Refactor)
+- Define clear success criteria for each atomic change
+- Sequence episodes to maintain working state throughout
+- Link episodes to specific design components
+
+Focus on "atomic units of change" that can be independently validated.
+Format as markdown with clear episode definitions.
+
+##### 👤 Episodes Review (by Human)
+
+Approve atomic change breakdown and sequencing
+
+- Confirm episodes are appropriately atomic
+- Verify sequencing maintains working state
+- Approve episode definitions before proceeding
+
+#### Step 5c: Create Checklist Document
 
 ##### 🤖 Checklist Prompt (to Agent)
 
 > Create, in order to implement the above design:
 >
 > 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
-> 2. a`spec/{issue_number}/{n+1}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 3b of @spec/WORKFLOW.md (then commit + push)
+> 2. a`spec/{issue_number}/{n+2}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 5c of @spec/WORKFLOW.md (then commit + push)
 > 3. a PR for the new branch against the original branch
 
 ##### 📝 Checklist Instructions (for Agent)
 
-Using the design document from this phase, create validation checklist following the IRS/DSCO methodology:
+Using the design and episodes documents from this phase, create detailed compliance checklist following the I RASP DECO methodology:
 
-- Break down the implementation strategy into coherent Stages that can be iteratively committed, pushed, and tested
-- Break each stage into granular tasks with [ ] status tracking
-- Create validation procedures that verify each design decision is properly implemented
+- Reference atomic change units from episodes document
+- Create granular tasks with [ ] status tracking for each episode
+- Define detailed instructions to ensure compliance with design decisions
+- Create validation procedures that verify each design component is properly implemented
 - Define Behavior-Driven Development (BDD) requirements that validate the architecture and integration points from design
   - Do NOT write any code in this document
-  - Do concisely itemize critical test cases
+  - Do concisely itemize critical test cases for each episode
 - Establish quality gates that confirm success metrics from specifications are met
 - Link back to original GitHub issue and reference acceptance criteria from requirements
+- Provide detailed instructions for orchestrator agent to follow
 
 Use checkbox format for trackable progress.
 Format as markdown with task lists. Fix IDE Diagnostics.
@@ -189,34 +292,36 @@ Approve checklist and validation procedures
 - Confirm tasks and validation steps are comprehensive
 - Approve, edit or request revisions before implementation
 
-#### Step 3c: Implement with BDD following design
+#### Step 5d: Orchestrate Implementation
 
-##### 🤖 Implementation Prompt (to Agent)
+##### 🤖 Orchestrator Prompt (to Agent)
 
-> Use an Orchestrator agent to execute the above checklist, following the Implementation Instructions in Step 3c of @spec/WORKFLOW.md.
+> Use dedicated Orchestrator agents to execute the above checklist, following the Orchestrator Instructions in Step 5d of @spec/WORKFLOW.md.
 
-##### 📝 Implementation Instructions (for Agent)
+##### 📝 Orchestrator Instructions (for Agent)
 
-Using the design document for this phase, implement following BDD:
+Using the design, episodes, and checklist documents for this phase, orchestrate implementation using dedicated agents:
 
 - Use TodoWrite tool for granular progress tracking (unless Agent has another mechanism)
+- Use dedicated agents to ensure checklist compliance (see AGENTS.md)
 - Write any scratch documents in the `spec/{issue_number}/` folder
-- Write failing behavior-driven tests for each design component first (using same methodology as existing tests)
+- Execute atomic change units from episodes document in sequence
+- For each episode:
+  - Write failing behavior-driven tests first (using same methodology as existing tests)
   - Test the expected behavior, NOT the implementation details
-- Commit failing tests before beginning implementation
-- Implement minimum code to pass tests
+  - Commit failing tests before beginning implementation
+  - Implement minimum code to pass tests
   - Clearly annotate if/when/why you had to modify tests after the fact
-- Commit and push to PR, address any issues
-- Refactor while keeping tests green
-- Commit with format: "feat: implement {component} from phase{N} design"
-- After each major change:
+  - Refactor while keeping tests green
+  - Commit and push episode completion
+- After each episode:
   - Run `make test`
   - Run `make lint`
   - Fix IDE diagnostics
-  - Update Checklist
+  - Update Checklist with episode completion
   - Commit and push
   - Fix PR errors, address/reply to PR comments; repeat if necessary
-- When implementation appears done:
+- When phase implementation appears done:
   - Ensure checklist is a) updated, and b) accurate
   - Check coverage, increase to 85%+
   - Resolve any outdated PR comments
@@ -234,20 +339,23 @@ Code quality, testing, and functionality validation
 
 ---
 
-### Step 4: Final Integration
+### Step 6: Final Integration
 
 #### 🤖 Integration Prompt (to Agent)
 
-> Process coordination and final integration, following the Integration Instructions in Step 4 of @spec/WORKFLOW.md
+> Process coordination and final integration, following the Integration Instructions in Step 6 of @spec/WORKFLOW.md
 
 #### 📝 Integration Instructions (for Agent)
 
-Using all completed phase checklists from Step 3, coordinate final integration:
+Using all completed phase checklists from Step 5, coordinate final integration:
 
 - Verify all checkboxes are completed across all phase checklists
 - Validate that implementation meets all acceptance criteria from 01-requirements.md
-- Confirm all success metrics from 02-specifications.md are achieved
+- Confirm current state analysis challenges from 02-analysis.md are addressed
+- Confirm all success metrics from 03-specifications.md are achieved
+- Verify all phases from 04-phases.md are completed
 - Test integration points identified in all design documents
+- Validate all atomic change units from episodes documents are working
 - Prepare release documentation referencing original GitHub issue resolution
 
 #### 👤 Integration Review (by Human)
@@ -265,13 +373,21 @@ Final approval and release authorization
 
 ### Specialized Agent Usage
 
-**workflow-orchestrator**: Complex multi-phase implementations, dependency management, process coordination
+**business-analyst**: Requirements gathering, user story creation, acceptance criteria (Step 1)
 
-**research-analyst**: Problem investigation, requirements gathering, technology research
+**research-analyst**: Current state analysis, architecture assessment, challenge identification (Step 2)
 
-**business-analyst**: User story creation, acceptance criteria, success metrics, business value
+**cloud-architect/python-pro**: Engineering specifications, desired end state design (Step 3)
 
-**code-reviewer**: Implementation validation, architecture review, security assessment
+**project-manager**: Phases breakdown, implementation strategy, sequencing (Step 4)
+
+**mcp-developer/python-pro**: Phase-specific design, episodes definition (Steps 5a-5b)
+
+**project-manager**: Detailed checklist creation, compliance instructions (Step 5c)
+
+**workflow-orchestrator**: Orchestrate implementation using dedicated agents (Step 5d)
+
+**code-reviewer**: Implementation validation, architecture review, security assessment (All steps)
 
 ### Anti-Deception Framework
 
@@ -291,5 +407,6 @@ Final approval and release authorization
 ### Commit Patterns
 
 - **Spec commits**: "docs: add {phase} documentation for issue #{N}"
+- **Episode commits**: "feat: implement {episode} from phase{N} design"  
 - **Implementation commits**: Follow BDD cycle with conventional commits
 - **Review commits**: "review: complete phase {N} validation"
