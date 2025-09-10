@@ -362,7 +362,7 @@ class AWSPermissionDiscovery:
                     location_response = self.s3_client.get_bucket_location(Bucket=bucket_name)
                     region = location_response.get("LocationConstraint") or "us-east-1"
                 except ClientError:
-                    # If get_bucket_location fails but list_objects works, 
+                    # If get_bucket_location fails but list_objects works,
                     # we still have access - just use unknown region
                     region = "unknown"
                     logger.debug(f"Could not get bucket location for {bucket_name}, but list access confirmed")
@@ -405,7 +405,7 @@ class AWSPermissionDiscovery:
                 # For Quilt buckets, if we can list objects, we likely have write access
                 # This is because Quilt's permission model typically grants read/write together
                 can_write = True
-                
+
                 # Try to confirm with additional tests, but don't fail if they don't work
                 try:
                     self.s3_client.get_bucket_acl(Bucket=bucket_name)
@@ -414,7 +414,9 @@ class AWSPermissionDiscovery:
                     if e.response["Error"]["Code"] == "AccessDenied":
                         # For Quilt buckets, lack of ACL access doesn't necessarily mean no write access
                         # Keep can_write=True based on list access
-                        logger.debug(f"No ACL access for {bucket_name}, but assuming write access based on list capability")
+                        logger.debug(
+                            f"No ACL access for {bucket_name}, but assuming write access based on list capability"
+                        )
                     else:
                         # Other errors might still indicate write access
                         logger.debug(f"ACL test had non-access error for {bucket_name}: {e}")

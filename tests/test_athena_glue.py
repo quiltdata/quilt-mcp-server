@@ -25,6 +25,7 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 @pytest.mark.slow
 class TestAthenaDatabasesList:
     """Test athena_databases_list function."""
+
     def test_list_databases_success(self):
         """Test successful database listing with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -44,6 +45,7 @@ class TestAthenaDatabasesList:
 @pytest.mark.slow
 class TestAthenaTablesList:
     """Test athena_tables_list function."""
+
     def test_list_tables_success(self):
         """Test successful table listing with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -71,6 +73,7 @@ class TestAthenaTablesList:
 @pytest.mark.slow
 class TestAthenaTableSchema:
     """Test athena_table_schema function."""
+
     def test_get_table_schema_success(self):
         """Test successful table schema retrieval with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -412,7 +415,7 @@ class TestAthenaQueryValidate:
 
 class TestAthenaQueryService:
     """Test AthenaQueryService class."""
-    
+
     @pytest.fixture(scope="class")
     def athena_service(self):
         """Shared AthenaQueryService instance for all tests in this class."""
@@ -498,7 +501,6 @@ class TestAthenaQueryService:
         skip_if_no_aws_credentials()
 
         try:
-
             # Use a simple query that should work on any Athena setup
             result = athena_service.execute_query("SELECT 1 as test_column")
 

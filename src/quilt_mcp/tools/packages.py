@@ -288,6 +288,7 @@ def package_browse(
                     import boto3
 
                     from ..utils import get_s3_client
+
                     s3_client = get_s3_client()
                     bucket_name = physical_key.split("/")[2]
                     object_key = "/".join(physical_key.split("/")[3:])

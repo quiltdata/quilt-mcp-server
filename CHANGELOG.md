@@ -5,16 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.3] - 2025-09-10
 
-### Added
+### Added Tool Exclusion System
 
 - **Tool Exclusion System**: Added ability to exclude deprecated tools to reduce client confusion
   - Excluded `packages_list` (prefer `packages_search`)  
   - Excluded `bucket_objects_list` (prefer `bucket_objects_search`)
   - Clear messaging when tools are skipped during registration
 
-### Fixed
+### Fixed Issues
 
 - **Test Infrastructure**: Major improvements to test stability and reliability (#131)
   - Unbroken test suite with improved reliability
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.2] - 2025-01-09
 
-### Fixed
+### Fixed Test Infrastructure
 
 - **Test Infrastructure**: Fixed flaky tests causing CI failures (#122)
   - Improved test reliability and reduced intermittent failures
@@ -42,13 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] - 2025-01-09
 
-### Added
+### Added Repository Organization
 
 - **Repository Organization**: Comprehensive cleanup and standardization (#101, #106)
   - Complete Ruff lint configuration and code quality improvements
   - Enhanced repository structure and maintainability
 
-### Fixed
+### Fixed Build System v6.1
 
 - **Build System**: Removed static manifest.json and use template-based approach (#99)
   - Dynamic manifest generation for better flexibility
@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2025-01-09
 
-### Fixed
+### Fixed Build System v6.0
 
 - **Build System**: Major DXT build system improvements
   - Clean up DXT build structure and resolve build issues
@@ -65,27 +65,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.9] - 2025-01-09
 
-### Added
+### Added Release Process
 
 - **Release Process**: Enhanced release automation and testing (#95)
 
 ## [0.5.8] - 2025-01-09
 
-### Added
+### Added Development Infrastructure
 
 - **Development Infrastructure**: Major CI/CD improvements
   - Auto-test README installation instructions (#88)
   - Enhanced integration workflows with forced AWS tests (#94)
   - Version synchronization templates and automation
 
-### Fixed
+### Fixed Repository Organization v5.8
 
 - **Repository Organization**: Cleanup and standardization
   - Removed unused build phases (build-docker, catalog-push, deploy-aws) (#84)
   - Fixed DXT Makefile targets to use `tools/dxt` instead of `build-dxt` (#92)  
   - Updated CLAUDE.md references to use top-level location (#86)
 
-### Changed
+### Changed CI/CD
 
 - **CI/CD**: Radically simplified and optimized CI workflows
   - Reduced workflow complexity and improved reliability

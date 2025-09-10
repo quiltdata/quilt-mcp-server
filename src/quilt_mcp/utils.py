@@ -129,7 +129,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
                 if verbose:
                     print(f"Skipped _list tool: {module.__name__}.{name} (prefer search instead)", file=sys.stderr)
                 continue
-                
+
             # Register each function as an MCP tool
             mcp.tool(func)
             tools_registered += 1
@@ -142,17 +142,17 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
 def get_s3_client(use_quilt_auth: bool = True):
     """Get an S3 client instance with optional Quilt authentication.
-    
+
     Args:
         use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-    
+
     Returns:
         boto3 S3 client instance
     """
     if use_quilt_auth:
         try:
             import quilt3
-            
+
             # Check if we have Quilt session available
             if hasattr(quilt3, "logged_in") and quilt3.logged_in():
                 if hasattr(quilt3, "get_boto3_session"):
@@ -161,24 +161,24 @@ def get_s3_client(use_quilt_auth: bool = True):
                         return session.client("s3")
         except Exception:
             pass
-    
+
     # Fallback to default boto3 client
     return boto3.client("s3")
 
 
 def get_sts_client(use_quilt_auth: bool = True):
     """Get an STS client instance with optional Quilt authentication.
-    
+
     Args:
         use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-    
+
     Returns:
         boto3 STS client instance
     """
     if use_quilt_auth:
         try:
             import quilt3
-            
+
             # Check if we have Quilt session available
             if hasattr(quilt3, "logged_in") and quilt3.logged_in():
                 if hasattr(quilt3, "get_boto3_session"):
@@ -187,7 +187,7 @@ def get_sts_client(use_quilt_auth: bool = True):
                         return session.client("sts")
         except Exception:
             pass
-    
+
     # Fallback to default boto3 client
     return boto3.client("sts")
 

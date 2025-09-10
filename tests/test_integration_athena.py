@@ -23,7 +23,7 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 @pytest.mark.slow
 class TestAthenaIntegration:
     """Integration tests for Athena functionality."""
-    
+
     @pytest.fixture(scope="class")
     def athena_service(self):
         """Shared AthenaQueryService instance for all tests in this class."""
@@ -140,7 +140,7 @@ class TestAthenaIntegration:
 @pytest.mark.slow
 class TestQuiltAuthIntegration:
     """Integration tests for quilt3 authentication."""
-    
+
     @pytest.fixture(scope="class")
     def athena_service_with_quilt(self):
         """Shared AthenaQueryService instance with quilt auth for all tests in this class."""
@@ -220,7 +220,7 @@ class TestQuiltAuthIntegration:
 @pytest.mark.slow
 class TestAthenaPerformance:
     """Performance tests for Athena functionality."""
-    
+
     @pytest.fixture(scope="class")
     def athena_service(self):
         """Shared AthenaQueryService instance for all tests in this class."""
@@ -345,7 +345,7 @@ class TestAthenaPerformance:
 @pytest.mark.slow
 class TestAthenaErrorHandling:
     """Test error handling scenarios."""
-    
+
     @pytest.fixture(scope="class")
     def athena_service(self):
         """Shared AthenaQueryService instance for all tests in this class."""
