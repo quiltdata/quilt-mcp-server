@@ -59,7 +59,7 @@
 - Confirm problem statement accuracy
 - Approve priority and milestone assignment
 - Authorize I RASP DECO process initiation
-- **Branch**: Use GitHub to create `{issue-number}-short-name` for I RASP phase
+- **Branch**: Use GitHub to create `YYYY-MM-DD-short-name` for I RASP phase
 - Open in Editor / Agenta (typically VS Code + Claude Code)
 
 ---
@@ -68,7 +68,7 @@
 
 #### 🤖 Requirements Prompt (to Agent)
 
-> Create `spec/{issue_number}/01-requirements.md` using a Business Analyst or Product Owner agent, following the Requirements Instructions in Step 1 of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/01-requirements.md` using a Business Analyst or Product Owner agent, following the Requirements Instructions in Step 1 of @spec/WORKFLOW.md
 
 #### 📝 Requirements Instructions (for Agent)
 
@@ -98,7 +98,7 @@ Validate problem understanding and acceptance criteria
 
 #### 🤖 Analysis Prompt (to Agent)
 
-> Create `spec/{issue_number}/02-analysis.md` using a research analyst or architecture agent, following the Analysis Instructions in Step 2 of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/02-analysis.md` using a research analyst or architecture agent, following the Analysis Instructions in Step 2 of @spec/WORKFLOW.md
 
 #### 📝 Analysis Instructions (for Agent)
 
@@ -131,7 +131,7 @@ Validate current state assessment and challenge identification
 
 #### 🤖 Specification Prompt (to Agent)
 
-> Create `spec/{issue_number}/03-specifications.md` using an appropriate architecture or developer agent, following the Specification Instructions in Step 3 of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/03-specifications.md` using an appropriate architecture or developer agent, following the Specification Instructions in Step 3 of @spec/WORKFLOW.md
 
 #### 📝 Specification Instructions (for Agent)
 
@@ -165,7 +165,7 @@ Confirm engineering approach and success metrics
 
 #### 🤖 Phases Prompt (to Agent)
 
-> Create `spec/{issue_number}/04-phases.md` using a project manager or workflow orchestrator agent, following the Phases Instructions in Step 4 of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/04-phases.md` using a project manager or workflow orchestrator agent, following the Phases Instructions in Step 4 of @spec/WORKFLOW.md
 
 #### 📝 Phases Instructions (for Agent)
 
@@ -202,7 +202,7 @@ For each implementation phase (repeat as needed):
 
 ##### 🤖 Design Prompt (to Agent)
 
-> Create `spec/{issue_number}/{n}-phase{k}-design.md` using a developer agent with the relevant skills, following the Design Instructions in Step 5a of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/{n}-phase{k}-design.md` using a developer agent with the relevant skills, following the Design Instructions in Step 5a of @spec/WORKFLOW.md
 
 ##### 📝 Design Instructions (for Agent)
 
@@ -232,7 +232,7 @@ Approve technical architecture and implementation strategy
 
 ##### 🤖 Episodes Prompt (to Agent)
 
-> Create `spec/{issue_number}/{n+1}-phase{k}-episodes.md` using a developer agent, following the Episodes Instructions in Step 5b of @spec/WORKFLOW.md
+> Create `spec/{branch_name}/{n+1}-phase{k}-episodes.md` using a developer agent, following the Episodes Instructions in Step 5b of @spec/WORKFLOW.md
 
 ##### 📝 Episodes Instructions (for Agent)
 
@@ -263,8 +263,8 @@ Approve atomic change breakdown and sequencing
 
 > Create, in order to implement the above design:
 >
-> 1. a new branch `{issue-number}-short-name/{n}-phase{k}`
-> 2. a`spec/{issue_number}/{n+2}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 5c of @spec/WORKFLOW.md (then commit + push)
+> 1. a new branch `{branch_name}/phase{k}-tagline`
+> 2. a`spec/{branch_name}/{n+2}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 5c of @spec/WORKFLOW.md (then commit + push)
 > 3. a PR for the new branch against the original branch
 
 ##### 📝 Checklist Instructions (for Agent)
@@ -304,7 +304,7 @@ Using the design, episodes, and checklist documents for this phase, orchestrate 
 
 - Use TodoWrite tool for granular progress tracking (unless Agent has another mechanism)
 - Use dedicated agents to ensure checklist compliance (see AGENTS.md)
-- Write any scratch documents in the `spec/{issue_number}/` folder
+- Write any scratch documents in the `spec/{branch_name}/` folder
 - Execute atomic change units from episodes document in sequence
 - For each episode:
   - Write failing behavior-driven tests first (using same methodology as existing tests)
