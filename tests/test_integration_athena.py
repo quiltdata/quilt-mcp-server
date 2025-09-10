@@ -20,6 +20,7 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 
 
 @pytest.mark.aws
+@pytest.mark.slow
 class TestAthenaIntegration:
     """Integration tests for Athena functionality."""
 
@@ -69,7 +70,6 @@ class TestAthenaIntegration:
             workgroup_names = [wg["name"] for wg in result["workgroups"]]
             assert "primary" in workgroup_names
 
-    @pytest.mark.slow
     def test_query_execution_integration(self):
         """Test executing a simple query against Athena."""
         # Use a simple query that should work in most AWS accounts
@@ -113,7 +113,6 @@ class TestAthenaIntegration:
             # If initialization fails, it should be due to AWS config issues
             assert "credential" in str(e).lower() or "auth" in str(e).lower()
 
-    @pytest.mark.slow
     def test_database_discovery_integration(self):
         """Test database discovery integration."""
         try:
@@ -213,6 +212,7 @@ class TestQuiltAuthIntegration:
 
 
 @pytest.mark.performance
+@pytest.mark.slow
 class TestAthenaPerformance:
     """Performance tests for Athena functionality."""
 
@@ -334,6 +334,7 @@ class TestAthenaPerformance:
 
 
 @pytest.mark.error_handling
+@pytest.mark.slow
 class TestAthenaErrorHandling:
     """Test error handling scenarios."""
 

@@ -21,10 +21,10 @@ from quilt_mcp.tools.athena_glue import (
 from quilt_mcp.aws.athena_service import AthenaQueryService
 
 
+@pytest.mark.aws
+@pytest.mark.slow
 class TestAthenaDatabasesList:
     """Test athena_databases_list function."""
-
-    @pytest.mark.aws
     def test_list_databases_success(self):
         """Test successful database listing with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -40,10 +40,10 @@ class TestAthenaDatabasesList:
         # Should have at least the default database
 
 
+@pytest.mark.aws
+@pytest.mark.slow
 class TestAthenaTablesList:
     """Test athena_tables_list function."""
-
-    @pytest.mark.aws
     def test_list_tables_success(self):
         """Test successful table listing with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -67,10 +67,10 @@ class TestAthenaTablesList:
             print(f"Database {test_database} not accessible (expected for some environments): {result['error']}")
 
 
+@pytest.mark.aws
+@pytest.mark.slow
 class TestAthenaTableSchema:
     """Test athena_table_schema function."""
-
-    @pytest.mark.aws
     def test_get_table_schema_success(self):
         """Test successful table schema retrieval with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -92,6 +92,7 @@ class TestAthenaQueryExecute:
     """Test athena_query_execute function."""
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_query_execute_success(self):
         """Test successful query execution with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -128,6 +129,7 @@ class TestAthenaQueryExecute:
         assert "output_format must be one of" in result["error"]
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_query_execute_with_builtin_credentials(self):
         """Test query execution using built-in AWS credentials (not quilt3)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -173,6 +175,7 @@ class TestAthenaQueryHistory:
     """Test athena_query_history function."""
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_query_history_success(self):
         """Test query history retrieval with real AWS connection."""
         # Skip if AWS credentials not available
@@ -268,6 +271,7 @@ class TestAthenaWorkgroupsList:
     """Test athena_workgroups_list function."""
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_list_workgroups_success(self):
         """Test workgroups listing with real AWS connection."""
         # Skip if AWS credentials not available
@@ -410,6 +414,7 @@ class TestAthenaQueryService:
     """Test AthenaQueryService class."""
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_service_initialization(self):
         """Test service initialization with real AWS connection."""
         # Skip if AWS credentials not available
@@ -429,6 +434,7 @@ class TestAthenaQueryService:
         assert service_with_auth.use_quilt_auth is True
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_discover_databases(self):
         """Test database discovery with real AWS connection."""
         # Skip if AWS credentials not available
@@ -484,6 +490,7 @@ class TestAthenaQueryService:
         mock_read_sql.assert_called_once()
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_execute_query(self):
         """Test query execution with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -522,6 +529,7 @@ class TestAthenaQueryService:
         assert result["truncated"] is False
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_format_results_json(self):
         """Test result formatting to JSON with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
@@ -548,6 +556,7 @@ class TestAthenaQueryService:
         assert "formatted_data" in result
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_format_results_csv(self):
         """Test result formatting to CSV with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
