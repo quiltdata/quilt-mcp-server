@@ -143,9 +143,6 @@ def create_package_enhanced(
                             ],
                             "tip": "Use proper JSON format with quotes around keys and string values"
                         }
-                elif isinstance(metadata, dict):
-                    # Metadata is already a dictionary, use as-is
-                    pass
                 else:
                     return {
                         "success": False,
