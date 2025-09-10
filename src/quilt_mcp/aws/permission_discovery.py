@@ -299,7 +299,7 @@ class AWSPermissionDiscovery:
             try:
                 from ..constants import DEFAULT_BUCKET
             except ImportError:
-                DEFAULT_BUCKET = None
+                DEFAULT_BUCKET: Optional[str] = None
             candidates: List[str] = []
             if DEFAULT_BUCKET and isinstance(DEFAULT_BUCKET, str) and DEFAULT_BUCKET.startswith("s3://"):
                 candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET))
