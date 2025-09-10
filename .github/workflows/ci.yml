@@ -27,7 +27,17 @@ jobs:
         python-version: ${{ matrix.python-version }}
       
     - name: Run tests
-      run: make test-ci
+      run: |
+        if [ "${{ matrix.python-version }}" = "3.11" ]; then
+          echo "Running all tests including slow tests for Python 3.11..."
+          uv sync --group test
+          mkdir -p build/test-results
+          export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search" --timeout=30 --disable-warnings \
+            --junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
+        else
+          echo "Running CI tests (skipping slow tests) for Python ${{ matrix.python-version }}..."
+          make test-ci
+        fi
       env:
         # AWS credentials for tests that need them
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
