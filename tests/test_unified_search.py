@@ -194,7 +194,7 @@ class TestS3FallbackBackend:
             "s3": mock_s3_client,
             "sts": mock_sts_client,
         }[service]
-        
+
         mock_get_s3_client.return_value = mock_s3_client
 
         backend = S3FallbackBackend()

@@ -160,11 +160,11 @@ def create_package_enhanced(
                         "expected": "Dictionary object or JSON string",
                         "examples": [
                             '{"description": "My dataset", "version": "1.0"}',
-                            '{"tags": ["research", "2024"], "author": "scientist"}'
+                            '{"tags": ["research", "2024"], "author": "scientist"}',
                         ],
-                        "tip": "Pass metadata as a dictionary object or JSON string"
+                        "tip": "Pass metadata as a dictionary object or JSON string",
                     }
-                
+
                 # Extract README content from user metadata before merging
                 # readme_content takes priority if both fields exist
                 readme_content = None
