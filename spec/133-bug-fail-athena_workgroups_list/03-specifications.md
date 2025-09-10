@@ -7,148 +7,139 @@
 
 ## Overview
 
-This specification defines the enhanced behavior for the `athena_workgroups_list` MCP tool to provide clean, user-friendly workgroup information while gracefully handling AWS permission limitations. The system shall maintain full backward compatibility while improving the user experience through better error handling and status reporting.
+This specification defines the optimized behavior for the `athena_workgroups_list` MCP tool to provide clean workgroup information using AWS terminology and minimal API calls. The system shall use `ListWorkGroups` as the primary data source and optionally enhance with `GetWorkGroup` details when permissions allow.
 
 ## Functional Requirements
 
-### FR1: Workgroup Discovery and Classification
+### FR1: Workgroup Information Retrieval
 
-**Requirement:** The system shall discover and classify workgroups into accessible and restricted categories.
+**Requirement:** The system shall retrieve workgroup information using AWS APIs efficiently and present it using AWS terminology.
 
-**Behavior:**
+**Primary Data Source (ListWorkGroups):**
 
-- Enumerate all workgroups using `ListWorkGroups` API
-- Attempt detailed access validation for each workgroup using `GetWorkGroup` API
-- Classify workgroups as either `accessible: true` or `accessible: false`
-- Preserve all currently accessible workgroups in their current format
+- Retrieve all workgroups using `ListWorkGroups` API
+- Extract available information: Name, State, Description (when AWS provides it)
+- Use AWS State values directly: "ENABLED" or "DISABLED"
 
-**Success Criteria:**
+**Optional Enhancement (GetWorkGroup):**
 
-- All workgroups discovered by `ListWorkGroups` are included in results
-- Accessible workgroups retain complete metadata (creation_time, output_location, etc.)
-- Classification is deterministic and repeatable
-
-### FR2: Enhanced Error Message Handling
-
-**Requirement:** The system shall provide clean, user-friendly status information for restricted workgroups instead of exposing raw AWS exception messages.
-
-**Current Problem:**
-
-```json
-{
-  "description": "Access denied: An error occurred (AccessDeniedException) when calling the GetWorkGroup operation: You are not authorized to perform: athena:GetWorkGroup on the resource. After your AWS administrator or you have updated your permissions, please try again."
-}
-```
-
-**Desired Behavior:**
-
-- Replace raw exception messages with clean status indicators
-- Preserve meaningful description content when available from `ListWorkGroups`
-- Maintain separate error context for debugging purposes
-- Provide consistent messaging across similar error conditions
+- Attempt `GetWorkGroup` for each ENABLED workgroup to retrieve additional details
+- On success: Include CreationTime, Configuration details
+- On failure: Use only information from `ListWorkGroups`
 
 **Success Criteria:**
 
-- Description field contains clean, readable status information
-- No raw AWS exception messages exposed to end users
-- Consistent status messaging format across all restricted workgroups
+- All workgroups from `ListWorkGroups` included in results
+- AWS State field preserved accurately for all workgroups
+- Additional details included when `GetWorkGroup` succeeds
+- No synthetic status fields or error message pollution
 
-### FR3: Enhanced State Reporting
+### FR2: Clean Information Structure
 
-**Requirement:** The system shall provide accurate state information for both accessible and restricted workgroups.
+**Requirement:** The system shall present workgroup information using AWS field names and values without synthetic additions.
 
-**Current Problem:**
+**Information Structure:**
 
-- Accessible workgroups: Show actual state (`"ENABLED"`, `"DISABLED"`)
-- Restricted workgroups: Show generic `"UNKNOWN"` state
-
-**Desired Behavior:**
-
-- Preserve actual state from `ListWorkGroups` response when available
-- Use descriptive state indicators for permission-restricted workgroups
-- Maintain clear distinction between actual state and access limitation
+- Use AWS field names directly: `Name`, `State`, `Description`
+- Include AWS values as provided: `State` as "ENABLED"/"DISABLED"
+- Add configuration details when available from `GetWorkGroup`
+- Omit fields when information is not available rather than using placeholder values
 
 **Success Criteria:**
 
-- State field reflects available information rather than access status
-- Clear differentiation between workgroup state and access permissions
-- Consistent state representation across authentication methods
+- Field names match AWS API response structure
+- State field contains actual AWS values, never "UNKNOWN" or synthetic states
+- Description field contains AWS-provided description or is omitted
+- No error messages or synthetic status information in data fields
 
-### FR4: Granular Exception Handling
+### FR3: AWS API Data Fidelity
 
-**Requirement:** The system shall handle different types of AWS exceptions with appropriate specificity and user guidance.
+**Requirement:** The system shall preserve AWS API response data without modification or synthetic additions.
 
-**Exception Categories:**
+**Data Preservation:**
 
-- `AccessDeniedException`: Permission-related restrictions (expected in enterprise environments)
-- `WorkGroupNotFoundException`: Workgroup deleted between list and get operations
-- `ThrottlingException`: API rate limiting issues
-- Network/connectivity errors: Temporary infrastructure issues
-- Other AWS service errors: Unexpected service conditions
-
-**Desired Behavior:**
-
-- Distinguish between permission errors and other failure types
-- Provide specific user guidance based on error category
-- Maintain diagnostic information for debugging without exposing technical details
-- Enable appropriate retry logic for transient errors
+- `ListWorkGroups` response data used as primary source
+- `GetWorkGroup` response data merged when available
+- No modification of AWS-provided values
+- Field presence indicates data availability
 
 **Success Criteria:**
 
-- Different exception types result in appropriate user messaging
-- Permission errors clearly indicated as expected behavior
-- Transient errors distinguished from permanent access restrictions
+- AWS State values ("ENABLED"/"DISABLED") preserved exactly
+- AWS Description values used when provided
+- AWS Configuration data included when `GetWorkGroup` succeeds
+- No synthetic fields added beyond AWS API responses
+
+### FR4: Optional Detail Enhancement
+
+**Requirement:** The system shall attempt to retrieve additional workgroup details without impacting core functionality when retrieval fails.
+
+**Enhancement Behavior:**
+
+- `GetWorkGroup` failures are expected and acceptable
+- Core workgroup listing succeeds with `ListWorkGroups` data only
+- Additional fields included only when `GetWorkGroup` succeeds
+- No retry logic for permission errors (expected failures)
+
+**Success Criteria:**
+
+- Tool completes successfully with any level of AWS permissions
+- `GetWorkGroup` failures do not affect output quality
+- Enhanced details appear when permissions allow
+- Diagnostic logging for troubleshooting without user-facing errors
 
 ## Non-Functional Requirements
 
-### NFR1: Backward Compatibility
+### NFR1: Simplified Output Structure
 
-**Requirement:** The system shall maintain complete backward compatibility with existing integrations.
+**Requirement:** The system shall provide clean, minimal output structure using AWS terminology.
 
-**Constraints:**
+**Output Structure:**
 
-- JSON structure and field names must remain unchanged
-- `accessible` field behavior must be preserved
-- Summary statistics (`count`, `accessible_count`) must continue to work
-- Formatting enhancement integration must be maintained
-
-**Success Criteria:**
-
-- Existing downstream consumers continue to function without modification
-- All current field names and types remain consistent
-- API contract remains unchanged
-
-### NFR2: Performance Consistency
-
-**Requirement:** The system shall maintain current performance characteristics while improving error handling.
-
-**Constraints:**
-
-- No additional AWS API calls beyond current implementation
-- Error handling improvements should not impact successful path performance
-- Memory usage should remain consistent with current implementation
+- Use AWS field names and values directly
+- Include fields only when data is available
+- Eliminate synthetic status fields
+- Provide summary count of total workgroups
 
 **Success Criteria:**
 
-- Response times for successful operations remain within 5% of current performance
-- Memory usage does not increase significantly
-- Error handling does not add measurable latency to success cases
+- Output structure reflects AWS API responses
+- No artificial fields beyond AWS data
+- Field presence indicates data availability
 
-### NFR3: Authentication Method Consistency
+### NFR2: Performance Optimization
 
-**Requirement:** The system shall provide consistent behavior across both Quilt3 and default AWS authentication methods.
+**Requirement:** The system shall improve performance by reducing unnecessary API calls while maintaining information quality.
 
-**Constraints:**
+**Optimization Strategy:**
 
-- Quilt3 authentication with assumed roles (us-east-1 region)
-- Default AWS credential chain authentication (environment-based region)
-- Error handling must work identically for both authentication paths
+- Maximize information extraction from `ListWorkGroups` API call (single required call)
+- Use `GetWorkGroup` calls only for enhanced details, not basic workgroup information
+- Fail fast on permission errors to avoid retry overhead on expected failures
+- Maintain current parallel processing approach for enhanced detail retrieval
 
 **Success Criteria:**
 
-- Identical error handling behavior regardless of authentication method
-- Consistent result structure across authentication methods
-- Region handling remains as currently implemented
+- Reduced API call volume for environments with limited permissions
+- Response times improve for permission-restricted scenarios
+- Memory usage remains consistent with current implementation
+- Enhanced detail retrieval performance unchanged for accessible workgroups
+
+### NFR3: Authentication Method Support
+
+**Requirement:** The system shall work with both Quilt3 and default AWS authentication methods.
+
+**Authentication Support:**
+
+- Quilt3 authentication with assumed roles
+- Default AWS credential chain authentication
+- Consistent AWS API access patterns for both methods
+
+**Success Criteria:**
+
+- Both authentication methods produce identical output structure
+- AWS API responses processed consistently regardless of credential source
+- Regional configuration handled appropriately for each authentication method
 
 ## Quality Requirements
 
@@ -202,38 +193,43 @@ This specification defines the enhanced behavior for the `athena_workgroups_list
 
 ## Integration Requirements
 
-### IR1: MCP Tool Interface Compliance
+### IR1: MCP Tool Interface
 
-**Requirement:** The system shall maintain full compliance with MCP tool interface standards.
+**Requirement:** The system shall provide a clean MCP tool interface for workgroup listing.
 
-**Interface Contract:**
+**Interface Specification:**
 
-- Function signature: `athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]`
-- Success response structure with `success: true` field
-- Error response structure via `format_error_response()` utility
-- Result enhancement via `enhance_result_with_table_format()`
+- Function: `athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]`
+- Success response with workgroups array and summary information
+- Error response for service-level failures only
+- Optional formatting enhancement for display
 
 **Validation Criteria:**
 
-- MCP tool registration continues to work automatically
-- Return type structure matches existing contract
-- Formatting enhancement integration functions correctly
+- Tool registration works through MCP framework
+- Response structure contains workgroups and metadata
+- Service-level errors handled appropriately
 
 ### IR2: AWS Service Integration
 
-**Requirement:** The system shall integrate cleanly with AWS Athena service APIs while handling permission limitations.
+**Requirement:** The system shall integrate efficiently with AWS Athena service APIs using a layered access approach.
 
-**AWS API Usage:**
+**AWS API Usage Pattern:**
 
-- `ListWorkGroups`: Required for workgroup discovery (must succeed)
-- `GetWorkGroup`: Optional for detailed metadata (may fail due to permissions)
-- Error handling must account for AWS service limitations and enterprise security policies
+- `ListWorkGroups`: Required baseline API call (must succeed for tool functionality)
+  - Extracts: Name, State, Description (when provided)
+  - Minimum permission: `athena:ListWorkGroups`
+- `GetWorkGroup`: Enhancement API call (failure acceptable)
+  - Extracts: CreationTime, OutputLocation, Configuration details
+  - Additional permission: `athena:GetWorkGroup` (per workgroup)
+- Error handling optimized for enterprise security policies expecting limited permissions
 
 **Validation Criteria:**
 
-- Works correctly with minimal AWS permissions (ListWorkGroups only)
-- Gracefully handles additional permissions when available
-- Respects AWS API rate limits and retry policies
+- Provides meaningful results with only `athena:ListWorkGroups` permission
+- Enhances information quality when additional permissions available
+- Respects AWS API rate limits and implements appropriate retry logic
+- No functional degradation when `GetWorkGroup` permissions unavailable
 
 ### IR3: Logging and Monitoring Integration
 
@@ -285,15 +281,58 @@ This specification defines the enhanced behavior for the `athena_workgroups_list
 - Diagnostic information is available through appropriate channels
 - No information leakage that could assist unauthorized access attempts
 
+## API Optimization Strategy
+
+### Current vs Optimized Approach
+
+**Current Implementation Issues:**
+
+- Replaces AWS State values with synthetic "UNKNOWN" when `GetWorkGroup` fails
+- Pollutes Description field with exception messages instead of using AWS-provided descriptions
+- Creates synthetic `accessible` status fields not present in AWS APIs
+- Treats permission limitations as errors rather than expected behavior
+
+**Optimized Implementation:**
+
+```json
+// Information from ListWorkGroups (minimal permissions)
+{
+  "Name": "workgroup-name",
+  "State": "ENABLED",
+  "Description": "Purpose description"
+}
+
+// Enhanced Information (when GetWorkGroup succeeds)
+{
+  "Name": "workgroup-name",
+  "State": "ENABLED", 
+  "Description": "Purpose description",
+  "CreationTime": "2023-01-15T10:30:00Z",
+  "Configuration": {
+    "ResultConfiguration": {
+      "OutputLocation": "s3://bucket/results/"
+    },
+    "EnforceWorkGroupConfiguration": true
+  }
+}
+```
+
+### Performance and Permission Benefits
+
+1. **Minimal API Usage:** Core functionality uses single `ListWorkGroups` call
+2. **AWS Data Preservation:** Direct use of AWS-provided field names and values
+3. **Permission Independence:** Useful output regardless of `GetWorkGroup` access
+4. **Clean Presentation:** No synthetic fields or error message pollution
+
 ## Technical Uncertainties and Risks
 
-### Risk 1: AWS Permission Model Variability
+### Risk 1: ListWorkGroups Data Completeness Variability
 
-**Uncertainty:** Different AWS accounts and organizations may have varying permission models that could affect workgroup accessibility patterns.
+**Uncertainty:** Different AWS accounts may provide varying levels of detail in `ListWorkGroups` response (e.g., description field may be empty).
 
-**Risk Assessment:** Medium - Could impact the generalizability of error handling improvements
+**Risk Assessment:** Low - `ListWorkGroups` consistently provides Name and State; Description variability is manageable
 
-**Mitigation Strategy:** Design error handling to be flexible and account for various permission configurations
+**Mitigation Strategy:** Design information presentation to handle optional fields gracefully and provide clear indicators when information is unavailable
 
 ### Risk 2: AWS API Changes
 
@@ -303,28 +342,28 @@ This specification defines the enhanced behavior for the `athena_workgroups_list
 
 **Mitigation Strategy:** Implement robust error handling that can adapt to API response variations
 
-### Risk 3: Performance Impact of Enhanced Error Handling
+### Risk 3: GetWorkGroup Permission Patterns
 
-**Uncertainty:** More sophisticated error handling might introduce performance overhead.
+**Uncertainty:** Organizations may have inconsistent `GetWorkGroup` permissions across workgroups, leading to partial enhanced detail availability.
 
-**Risk Assessment:** Low - Error handling enhancements should not affect the critical path
+**Risk Assessment:** Low - Layered access approach handles partial permissions gracefully
 
-**Mitigation Strategy:** Focus error handling improvements on failure paths that already have performance impacts
+**Mitigation Strategy:** Design clear indicators for information completeness levels and ensure tool provides value regardless of permission scope
 
 ## Success Measurement
 
 ### Primary Success Metrics
 
-1. **User Experience Score:** Manual evaluation of output readability and professionalism
-2. **Error Message Quality:** Zero raw AWS exception messages in user-facing output
-3. **Functional Completeness:** All workgroups discovered and appropriately classified
-4. **Backward Compatibility:** All existing integrations continue to function
+1. **AWS Data Fidelity:** All workgroup information preserved exactly as provided by AWS APIs
+2. **Permission Independence:** Core functionality works with minimal permissions
+3. **Clean Structure:** Output uses AWS field names and values without synthetic additions
+4. **Optional Enhancement:** Additional details included when permissions allow
 
 ### Secondary Success Metrics
 
-1. **Performance Consistency:** Response times within 5% of current performance
-2. **Diagnostic Capability:** Support team can troubleshoot issues using available information
-3. **Code Quality:** Improved error handling patterns that can be applied to other AWS integrations
+1. **Performance Optimization:** Minimal required API calls with optional enhancements
+2. **Information Accuracy:** Direct use of AWS-provided values without synthetic modifications
+3. **Code Simplification:** Elimination of error handling complexity in data presentation
 
 ### Validation Approach
 
@@ -337,17 +376,17 @@ This specification defines the enhanced behavior for the `athena_workgroups_list
 
 ### Design Principles
 
-1. **Graceful Degradation:** System provides value even with minimal AWS permissions
-2. **Clear Separation of Concerns:** User experience improvements do not compromise diagnostic capability
-3. **Consistent Error Handling:** Establish patterns that can be applied to other AWS integrations
-4. **Minimal Disruption:** Changes focused on error handling without affecting successful operation paths
+1. **AWS API Transparency:** Present AWS data without modification or synthetic additions
+2. **Minimal Permissions:** Core functionality requires only `ListWorkGroups` access
+3. **Optional Enhancement:** Additional details when `GetWorkGroup` permissions available
+4. **Clean Structure:** Use AWS field names and values directly
 
 ### Quality Gates
 
-1. **All existing tests must pass** without modification
-2. **New BDD tests must cover permission failure scenarios**
-3. **Manual review must confirm improved user experience**
-4. **Performance regression tests must show no significant impact**
-5. **Security review must confirm no information disclosure issues**
+1. **BDD tests must cover minimal permission scenarios** (`ListWorkGroups` only)
+2. **Manual review must confirm clean AWS data presentation**
+3. **Performance tests must validate reduced API call overhead**
+4. **Field validation must confirm AWS API response fidelity**
+5. **Permission independence tests must verify core functionality with limited access**
 
-This specification establishes the framework for enhancing the `athena_workgroups_list` tool to provide professional, user-friendly output while maintaining all existing functionality and performance characteristics. The implementation should focus on the error handling and user experience improvements specified above while preserving the robust architecture already in place.
+This specification establishes the framework for a clean, AWS-native `athena_workgroups_list` tool that presents workgroup information using AWS terminology and structure. The implementation should focus on direct presentation of AWS API responses with optional enhancement when permissions allow, eliminating synthetic fields and error message pollution.
