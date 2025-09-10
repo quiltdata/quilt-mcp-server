@@ -152,7 +152,7 @@ def create_package_enhanced(
                             ],
                             "tip": "Use proper JSON format with quotes around keys and string values",
                         }
-                else:
+                elif not isinstance(metadata, dict):
                     return {
                         "success": False,
                         "error": "Invalid metadata type",
