@@ -454,6 +454,7 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 ### Test Coverage Achieved
 
 **New BDD Tests Added** (all passing):
+
 - `test_athena_workgroups_list_filters_enabled_only` - Episode 1
 - `test_athena_workgroups_list_no_synthetic_accessible_field` - Episode 2  
 - `test_athena_workgroups_list_no_state_field_in_output` - Episode 3
