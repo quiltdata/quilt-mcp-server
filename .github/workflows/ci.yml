@@ -6,6 +6,7 @@ on:
     tags: ['v*']
   pull_request:
     branches: ['**']  # Run CI on PRs to any branch (for stacked PR workflows)
+  merge_group:  # Run CI on merge queue
   workflow_dispatch:
 
 jobs:
