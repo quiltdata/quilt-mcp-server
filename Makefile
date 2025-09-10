@@ -83,34 +83,3 @@ update-cursor-rules:
 config-claude:
 	@claude mcp add quilt-mcp --env FASTMCP_TRANSPORT=stdio -- make run
 	@claude mcp list
-
-# Error messages for removed targets
-package:
-	@echo "❌ Target 'package' has been removed for clarity"
-	@echo "💡 Use 'make dxt' to create DXT packages"
-	@exit 1
-
-dxt-package:
-	@echo "❌ Target 'dxt-package' has been removed (redundant)"
-	@echo "💡 Use 'make dxt' to create DXT packages"
-	@exit 1
-
-validate-package:
-	@echo "❌ Target 'validate-package' has been renamed for clarity"
-	@echo "💡 Use 'make dxt-validate' to validate DXT packages"
-	@exit 1
-
-release-package:
-	@echo "❌ Target 'release-package' has been renamed for clarity"
-	@echo "💡 Use 'make release-zip' to create release bundles"
-	@exit 1
-
-tag:
-	@echo "❌ Target 'tag' has been renamed for clarity"
-	@echo "💡 Use 'make release' to create and push release tags"
-	@exit 1
-
-tag-dev:
-	@echo "❌ Target 'tag-dev' has been renamed for clarity"
-	@echo "💡 Use 'make release-dev' to create and push development tags"
-	@exit 1
