@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.4] - UNRELEASED
 
-- **Tool Exclusion System**
-  - Re-enabled `bucket_objects_list`
+### Tool Management
+
+- **Tool Re-enablement**: Re-enabled `bucket_objects_list` tool
+  - Removed from excluded tools list to restore client access
+  - Tool remains fully functional for bucket object listing operations
 
 ### Enhanced Athena Workgroups Management
 
