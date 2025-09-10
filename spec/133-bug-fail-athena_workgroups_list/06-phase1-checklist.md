@@ -10,15 +10,31 @@
 
 This checklist provides detailed instructions for orchestrator agents to implement the enhanced Athena workgroups listing functionality following the I RASP DECO methodology. Each episode represents an atomic change unit that maintains working state throughout implementation.
 
+## Test Strategy Overview
+
+**Target Test File**: All new tests go in `tests/test_athena_glue.py` (existing workgroup tests are here)
+
+**Existing Tests Requiring Updates**:
+
+- `test_list_workgroups_success()` at line 278: Update assertion at line 302 to remove `accessible` field check
+- `test_list_workgroups_mocked()` at line 309: Update assertions that expect synthetic fields
+
+**New Tests Required**:
+
+- Episodes 1, 2, 3, 4, 5, 6, 7: Each requires a NEW BDD test to verify specific behavior
+- **Rationale**: Existing tests don't cover the failure scenarios and field filtering we're implementing
+
 ## Episode 1: Add ENABLED State Filter
 
 ### [ ] Episode 1 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_filters_enabled_only()` in appropriate test file
-- [ ] Mock `ListWorkGroups` to return both ENABLED and DISABLED workgroups
+- [ ] Add test `test_athena_workgroups_list_filters_enabled_only()` to `tests/test_athena_glue.py`
+- [ ] Mock `ListWorkGroups` to return both ENABLED and DISABLED workgroups in mock data
 - [ ] Assert that only ENABLED workgroups appear in final result
 - [ ] Verify test fails without implementation
 - [ ] Commit failing test: `"test: Add BDD test for ENABLED workgroup filtering"`
+
+**Note**: This is a NEW test - existing tests in `test_athena_glue.py:309-337` only use ENABLED workgroups
 
 ### [ ] Episode 1 Green Phase: Minimal Implementation
 
@@ -51,10 +67,12 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 2 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_no_synthetic_accessible_field()`
+- [ ] Add test `test_athena_workgroups_list_no_synthetic_accessible_field()` to `tests/test_athena_glue.py`
 - [ ] Assert 'accessible' field is not present in any workgroup result
 - [ ] Verify test fails with current implementation
 - [ ] Commit failing test: `"test: Add BDD test ensuring no synthetic accessible field"`
+
+**Note**: This is a NEW test - will conflict with existing assertions at `test_athena_glue.py:302`
 
 ### [ ] Episode 2 Green Phase: Minimal Implementation
 
@@ -62,7 +80,7 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 - [ ] Remove `accessible` field creation/assignment code
 - [ ] Remove sorting by `accessible` field if present
 - [ ] Ensure response contains only AWS API fields
-- [ ] Update existing test assertions to remove checks for `accessible` field
+- [ ] **CRITICAL**: Update existing test assertions in `test_athena_glue.py:302` to remove checks for `accessible` field
 - [ ] Verify test passes and existing tests still work
 - [ ] Commit implementation: `"feat: Remove synthetic accessible field from workgroups"`
 
@@ -88,11 +106,13 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 3 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_no_state_field_in_output()`
+- [ ] Add test `test_athena_workgroups_list_no_state_field_in_output()` to `tests/test_athena_glue.py`
 - [ ] Assert 'state' field is not present in workgroup results
 - [ ] Rationale: Since all results are ENABLED (Episode 1), state field is redundant
 - [ ] Verify test fails with current implementation
 - [ ] Commit failing test: `"test: Add BDD test ensuring no state field in output"`
+
+**Note**: This is a NEW test - may need to check if existing tests expect `state` field
 
 ### [ ] Episode 3 Green Phase: Minimal Implementation
 
@@ -124,12 +144,14 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 4 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_clean_description_field()`
+- [ ] Add test `test_athena_workgroups_list_clean_description_field()` to `tests/test_athena_glue.py`
 - [ ] Mock GetWorkGroup failure scenarios (access denied, not found, etc.)
 - [ ] Assert description field contains only AWS data or remains unchanged
 - [ ] Assert no error messages pollute the description field
 - [ ] Verify test fails with current error handling
 - [ ] Commit failing test: `"test: Add BDD test for clean description field handling"`
+
+**Note**: This is a NEW test - existing tests don't cover GetWorkGroup failure scenarios
 
 ### [ ] Episode 4 Green Phase: Minimal Implementation
 
@@ -164,13 +186,15 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 5 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_layered_api_access()`
+- [ ] Add test `test_athena_workgroups_list_layered_api_access()` to `tests/test_athena_glue.py`
 - [ ] Test minimal permissions scenario (ListWorkGroups only)
 - [ ] Test enhanced permissions scenario (both ListWorkGroups and GetWorkGroup)
 - [ ] Assert core functionality works in both cases
 - [ ] Assert graceful degradation when GetWorkGroup fails
 - [ ] Verify tests fail with current implementation
 - [ ] Commit failing test: `"test: Add BDD tests for layered API access pattern"`
+
+**Note**: This is a NEW test - existing `test_list_workgroups_mocked` assumes both APIs work
 
 ### [ ] Episode 5 Green Phase: Minimal Implementation
 
@@ -206,15 +230,17 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 6 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_end_to_end_integration()`
+- [ ] Add test `test_athena_workgroups_list_end_to_end_integration()` to `tests/test_athena_glue.py`
 - [ ] Test complete workflow with all changes applied:
   - ENABLED filtering
   - No synthetic fields (`accessible`, `state`)
-  - Clean descriptions
+  - Clean descriptions  
   - Layered API access
 - [ ] Assert comprehensive integration works end-to-end
 - [ ] Verify test should pass after all previous episodes are complete
 - [ ] Commit integration test: `"test: Add end-to-end integration test for workgroups enhancement"`
+
+**Note**: This is a NEW comprehensive test - combines all episode requirements
 
 ### [ ] Episode 6 Green Phase: Final Validation
 
@@ -250,12 +276,14 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### [ ] Episode 7 Red Phase: Write Failing Test
 
-- [ ] Create test `test_athena_workgroups_list_uses_athena_query_service()`
+- [ ] Add test `test_athena_workgroups_list_uses_athena_query_service()` to `tests/test_athena_glue.py`
 - [ ] Test that workgroups listing uses same auth patterns as other Athena tools
 - [ ] Assert consistent credential handling and error patterns
 - [ ] Mock AthenaQueryService integration scenarios
 - [ ] Verify test fails without service integration
 - [ ] Commit test: `"test: Add BDD test for AthenaQueryService integration"`
+
+**Note**: This is a NEW test - existing tests use direct boto3, not AthenaQueryService
 
 ### [ ] Episode 7 Green Phase: Minimal Implementation
 
