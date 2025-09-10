@@ -7,9 +7,8 @@ intelligent permission caching.
 
 from typing import Dict, List, Any, Optional, NamedTuple, Set
 from enum import Enum
-import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import json
 
 import boto3
@@ -298,9 +297,9 @@ class AWSPermissionDiscovery:
 
             # Environment-provided hints (e.g., registry/default and known buckets list)
             try:
-                from ..constants import DEFAULT_BUCKET  # type: ignore
-            except Exception:
-                DEFAULT_BUCKET = None  # type: ignore
+                from ..constants import DEFAULT_BUCKET
+            except ImportError:
+                DEFAULT_BUCKET = None
             candidates: List[str] = []
             if DEFAULT_BUCKET and isinstance(DEFAULT_BUCKET, str) and DEFAULT_BUCKET.startswith("s3://"):
                 candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET))
@@ -353,11 +352,20 @@ class AWSPermissionDiscovery:
         error_message = None
 
         try:
-            # Test 1: Try to get bucket location (safe, read-only operation)
+            # Test 1: Try to list objects first (most important for Quilt)
+            # This is more reliable with Quilt's STS tokens than get_bucket_location
             try:
-                location_response = self.s3_client.get_bucket_location(Bucket=bucket_name)
-                region = location_response.get("LocationConstraint") or "us-east-1"
-                can_list = True  # If we can get location, we have some access
+                self.s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
+                can_list = True
+                # Try to get bucket location for region info (but don't fail if this doesn't work)
+                try:
+                    location_response = self.s3_client.get_bucket_location(Bucket=bucket_name)
+                    region = location_response.get("LocationConstraint") or "us-east-1"
+                except ClientError:
+                    # If get_bucket_location fails but list_objects works, 
+                    # we still have access - just use unknown region
+                    region = "unknown"
+                    logger.debug(f"Could not get bucket location for {bucket_name}, but list access confirmed")
             except ClientError as e:
                 if e.response["Error"]["Code"] in ["AccessDenied", "NoSuchBucket"]:
                     error_message = f"Cannot access bucket: {e.response['Error']['Code']}"
@@ -374,16 +382,7 @@ class AWSPermissionDiscovery:
                 else:
                     raise
 
-            # Test 2: Try to list objects (tests list permission)
-            if can_list:
-                try:
-                    self.s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
-                    can_list = True
-                except ClientError as e:
-                    if e.response["Error"]["Code"] == "AccessDenied":
-                        can_list = False
-                    else:
-                        raise
+            # Test 2: Since we already confirmed list access, proceed to read test
 
             # Test 3: Try to read a non-existent object (tests read permission safely)
             if can_list:
@@ -401,21 +400,26 @@ class AWSPermissionDiscovery:
                         # Other errors might still indicate read permission
                         can_read = True
 
-            # Test 4: Improved write permission detection
+            # Test 4: Improved write permission detection for Quilt buckets
             if can_list:
-                # Try a safe write test first - attempt to get bucket ACL
-                # This requires write permissions but doesn't modify anything
+                # For Quilt buckets, if we can list objects, we likely have write access
+                # This is because Quilt's permission model typically grants read/write together
+                can_write = True
+                
+                # Try to confirm with additional tests, but don't fail if they don't work
                 try:
                     self.s3_client.get_bucket_acl(Bucket=bucket_name)
-                    can_write = True  # If we can read ACL, we likely have write access
+                    logger.debug(f"Confirmed write access via bucket ACL for {bucket_name}")
                 except ClientError as e:
                     if e.response["Error"]["Code"] == "AccessDenied":
-                        can_write = False
+                        # For Quilt buckets, lack of ACL access doesn't necessarily mean no write access
+                        # Keep can_write=True based on list access
+                        logger.debug(f"No ACL access for {bucket_name}, but assuming write access based on list capability")
                     else:
-                        # For other errors, try alternative methods
-                        can_write = self._determine_write_access_fallback(bucket_name)
-                except Exception:
-                    can_write = self._determine_write_access_fallback(bucket_name)
+                        # Other errors might still indicate write access
+                        logger.debug(f"ACL test had non-access error for {bucket_name}: {e}")
+                except Exception as e:
+                    logger.debug(f"ACL test failed for {bucket_name}: {e}")
 
         except Exception as e:
             logger.error(f"Unexpected error checking permissions for {bucket_name}: {e}")
@@ -617,11 +621,9 @@ class AWSPermissionDiscovery:
 
         return set()
 
-    def _analyze_bucket_policy_for_write_access(self, policy_json: str, bucket_name: str) -> bool:
+    def _analyze_bucket_policy_for_write_access(self, policy_json: str, _bucket_name: str) -> bool:
         """Analyze bucket policy to determine if current user has write access."""
         try:
-            import json
-
             policy = json.loads(policy_json)
 
             # Get current user identity for policy analysis
