@@ -10,7 +10,7 @@ include make.deploy
 # Load environment variables from .env if it exists
 sinclude .env
 
-.PHONY: help clean release-local test-readme update-cursor-rules
+.PHONY: help clean release-local test-readme update-cursor-rules config-claude
 
 # Default target - show organized help
 help:
@@ -25,6 +25,7 @@ help:
 	@echo "  make lint             - Code formatting and type checking"
 	@echo "  make coverage         - Run tests with coverage report"
 	@echo "  make run-inspector    - Launch MCP Inspector for testing"
+	@echo "  make config-claude    - Configure Claude CLI to use local MCP server"
 	@echo ""
 	@echo "📦 Production Workflow (make.deploy):"
 	@echo "  make build            - Prepare production build environment"
@@ -79,33 +80,6 @@ update-cursor-rules:
 		echo "⚠️  CLAUDE.md not found, skipping cursor rules update"; \
 	fi
 
-# Error messages for removed targets
-package:
-	@echo "❌ Target 'package' has been removed for clarity"
-	@echo "💡 Use 'make dxt' to create DXT packages"
-	@exit 1
-
-dxt-package:
-	@echo "❌ Target 'dxt-package' has been removed (redundant)"
-	@echo "💡 Use 'make dxt' to create DXT packages"
-	@exit 1
-
-validate-package:
-	@echo "❌ Target 'validate-package' has been renamed for clarity"
-	@echo "💡 Use 'make dxt-validate' to validate DXT packages"
-	@exit 1
-
-release-package:
-	@echo "❌ Target 'release-package' has been renamed for clarity"
-	@echo "💡 Use 'make release-zip' to create release bundles"
-	@exit 1
-
-tag:
-	@echo "❌ Target 'tag' has been renamed for clarity"
-	@echo "💡 Use 'make release' to create and push release tags"
-	@exit 1
-
-tag-dev:
-	@echo "❌ Target 'tag-dev' has been renamed for clarity"
-	@echo "💡 Use 'make release-dev' to create and push development tags"
-	@exit 1
+config-claude:
+	@claude mcp add quilt-mcp --env FASTMCP_TRANSPORT=stdio -- make run
+	@claude mcp list
