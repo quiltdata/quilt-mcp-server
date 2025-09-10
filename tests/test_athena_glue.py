@@ -502,6 +502,74 @@ class TestAthenaWorkgroupsList:
         assert "output_location" in workgroup
         assert "enforce_workgroup_config" in workgroup
 
+    @patch("boto3.client")
+    def test_athena_workgroups_list_clean_description_field(self, mock_boto3_client):
+        """Test that description field contains only AWS data, no error messages (Episode 4)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "accessible-workgroup",
+                    "Description": "Original AWS description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "inaccessible-workgroup",
+                    "Description": "Another AWS description",
+                    "State": "ENABLED", 
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls - one succeeds, one fails
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup == "accessible-workgroup":
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": "Detailed AWS description",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": False,
+                        },
+                    }
+                }
+            elif WorkGroup == "inaccessible-workgroup":
+                # Simulate access denied error
+                raise Exception("AccessDenied: User does not have permission")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Verify success and basic structure
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+
+        # Find accessible and inaccessible workgroups
+        accessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "accessible-workgroup")
+        inaccessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "inaccessible-workgroup")
+
+        # Assert accessible workgroup has clean AWS description
+        assert accessible_wg["description"] == "Detailed AWS description"
+        assert "Access denied" not in accessible_wg["description"]
+        assert "Error" not in accessible_wg["description"]
+
+        # Assert inaccessible workgroup preserves original AWS description or remains clean
+        # NO error messages should pollute the description field
+        assert "Access denied" not in inaccessible_wg["description"]
+        assert "AccessDenied" not in inaccessible_wg["description"]
+        assert "permission" not in inaccessible_wg["description"]
+        # Should preserve original AWS description from ListWorkGroups
+        assert inaccessible_wg["description"] == "Another AWS description"
+
 
 class TestAthenaQueryValidate:
     """Test athena_query_validate function."""
