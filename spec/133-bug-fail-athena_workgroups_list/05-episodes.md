@@ -258,57 +258,47 @@ def test_athena_workgroups_list_end_to_end_integration():
 
 ---
 
-## Optional Refactoring Episodes
+## Additional Episode
 
-### Episode R1: AthenaQueryService Integration (Optional)
+### Episode 7: AthenaQueryService Integration
 
 **Category:** Service Consolidation  
-**Type:** Refactoring Episode  
-**Dependencies:** All core episodes complete
+**Type:** Atomic Change Unit  
+**Dependencies:** Episode 1, Episode 2, Episode 3, Episode 4, Episode 5, Episode 6
 
-#### Assessment Phase: Evaluate Integration Benefits
+#### Episode 7 Red Phase: Write Failing Test
 
-- Evaluate if AthenaQueryService integration would improve maintainability
-- Consider impact on authentication patterns
-- Assess effort vs. benefit ratio
+```python
+def test_athena_workgroups_list_uses_athena_query_service():
+    """Should use AthenaQueryService for consistent authentication patterns"""
+    # Test that workgroups listing uses same auth patterns as other Athena tools
+    # Assert consistent credential handling and error patterns
+```
 
-#### Implementation Phase: Service Consolidation
+#### Episode 7 Green Phase: Minimal Implementation
 
 - Add workgroup methods to AthenaQueryService
 - Update athena_workgroups_list to use consolidated service
 - Ensure authentication patterns remain consistent
+- Update tests to reflect service integration
 
-#### Episode R1 Success Criteria
+#### Episode 7 Refactor Phase: Structure Assessment
+
+- Assess if service consolidation improves maintainability
+- Consider if further Athena service methods could be unified
+
+#### Episode 7 Success Criteria
 
 - [ ] Consolidated authentication patterns across Athena tools
 - [ ] No breaking changes to public API
 - [ ] All tests pass with refactored implementation
+- [ ] Reduced code duplication in auth handling
 
----
+#### Episode 7 Commit Messages
 
-### Episode R2: Service-Level Error Handling Improvements (Optional)
-
-**Category:** Error Handling Enhancement  
-**Type:** Refactoring Episode  
-**Dependencies:** All core episodes complete
-
-#### Assessment Phase: Evaluate Error Handling
-
-- Evaluate current error handling patterns across Athena tools
-- Consider standardizing error logging and reporting
-- Assess opportunities for improved diagnostics
-
-#### Implementation Phase: Error Handling Enhancement
-
-- Standardize error handling patterns
-- Improve diagnostic logging consistency
-- Enhance error context for troubleshooting
-
-#### Episode R2 Success Criteria
-
-- [ ] Consistent error handling across Athena tools
-- [ ] Enhanced diagnostic capabilities
-- [ ] No impact on user-facing functionality
+- Red: `test: Add BDD test for AthenaQueryService integration`
+- Green: `refactor: Integrate workgroups listing with AthenaQueryService`
+- Refactor: `refactor: Clean up service integration patterns` (if needed)
 
 ---
 
@@ -321,9 +311,8 @@ graph TD
     E2 --> E4[Episode 4: Clean description]
     E3 --> E4
     E4 --> E5[Episode 5: Layered API]
-    E5 --> E6[Episode 6: Update tests]
-    E6 --> R1[Episode R1: Service Integration]
-    E6 --> R2[Episode R2: Error Handling]
+    E5 --> E6[Episode 6: Integration validation]
+    E6 --> E7[Episode 7: Service integration]
 ```
 
 ## TDD Cycle Management
@@ -369,4 +358,6 @@ Each episode follows strict TDD:
 - [ ] Clean AWS field structure preserved
 - [ ] Layered API access working
 - [ ] Enhanced diagnostic logging in place
+- [ ] AthenaQueryService integration complete
+- [ ] Consolidated authentication patterns
 - [ ] 100% test coverage maintained
