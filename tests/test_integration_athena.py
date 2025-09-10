@@ -23,6 +23,11 @@ from quilt_mcp.aws.athena_service import AthenaQueryService
 @pytest.mark.slow
 class TestAthenaIntegration:
     """Integration tests for Athena functionality."""
+    
+    @pytest.fixture(scope="class")
+    def athena_service(self):
+        """Shared AthenaQueryService instance for all tests in this class."""
+        return AthenaQueryService(use_quilt_auth=False)
 
     @pytest.fixture(autouse=True)
     def setup_aws_env(self):
@@ -96,14 +101,12 @@ class TestAthenaIntegration:
             # Query might fail due to Athena setup, but should fail gracefully
             assert "error" in result
 
-    def test_service_initialization_integration(self):
+    def test_service_initialization_integration(self, athena_service):
         """Test AthenaQueryService initialization with real AWS."""
         try:
-            service = AthenaQueryService(use_quilt_auth=False)
-
             # Test lazy initialization doesn't fail
-            glue_client = service.glue_client
-            s3_client = service.s3_client
+            glue_client = athena_service.glue_client
+            s3_client = athena_service.s3_client
 
             # These should be boto3 clients
             assert hasattr(glue_client, "get_databases")
@@ -113,11 +116,10 @@ class TestAthenaIntegration:
             # If initialization fails, it should be due to AWS config issues
             assert "credential" in str(e).lower() or "auth" in str(e).lower()
 
-    def test_database_discovery_integration(self):
+    def test_database_discovery_integration(self, athena_service):
         """Test database discovery integration."""
         try:
-            service = AthenaQueryService(use_quilt_auth=False)
-            result = service.discover_databases()
+            result = athena_service.discover_databases()
 
             assert isinstance(result, dict)
             assert "success" in result
@@ -138,6 +140,11 @@ class TestAthenaIntegration:
 @pytest.mark.slow
 class TestQuiltAuthIntegration:
     """Integration tests for quilt3 authentication."""
+    
+    @pytest.fixture(scope="class")
+    def athena_service_with_quilt(self):
+        """Shared AthenaQueryService instance with quilt auth for all tests in this class."""
+        return AthenaQueryService(use_quilt_auth=True)
 
     @pytest.fixture(autouse=True)
     def check_quilt_available(self):
@@ -155,7 +162,7 @@ class TestQuiltAuthIntegration:
             pytest.skip(f"Quilt3 configuration issue: {e}")
 
     @pytest.mark.aws
-    def test_service_with_quilt_auth(self):
+    def test_service_with_quilt_auth(self, athena_service_with_quilt):
         """Test service initialization with quilt3 authentication."""
 
         # Skip if no AWS credentials
@@ -164,18 +171,16 @@ class TestQuiltAuthIntegration:
         skip_if_no_aws_credentials()
 
         try:
-            service = AthenaQueryService(use_quilt_auth=True)
-
             # Test that we can create clients
-            glue_client = service.glue_client
-            s3_client = service.s3_client
+            glue_client = athena_service_with_quilt.glue_client
+            s3_client = athena_service_with_quilt.s3_client
 
             assert glue_client is not None
             assert s3_client is not None
 
             # Try to access the engine - this might fail if quilt3 auth isn't configured
             try:
-                engine = service.engine
+                engine = athena_service_with_quilt.engine
                 assert engine is not None
             except Exception as engine_error:
                 # This is expected if quilt3 auth isn't properly configured
@@ -215,6 +220,11 @@ class TestQuiltAuthIntegration:
 @pytest.mark.slow
 class TestAthenaPerformance:
     """Performance tests for Athena functionality."""
+    
+    @pytest.fixture(scope="class")
+    def athena_service(self):
+        """Shared AthenaQueryService instance for all tests in this class."""
+        return AthenaQueryService(use_quilt_auth=False)
 
     @pytest.mark.aws
     def test_concurrent_database_discovery(self):
@@ -308,7 +318,7 @@ class TestAthenaPerformance:
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_large_result_set_handling(self, mock_boto3, mock_create_engine, mock_read_sql):
+    def test_large_result_set_handling(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test handling of large result sets."""
         import pandas as pd
 
@@ -316,17 +326,15 @@ class TestAthenaPerformance:
         large_df = pd.DataFrame({"id": range(10000), "value": [f"value_{i}" for i in range(10000)]})
         mock_read_sql.return_value = large_df
 
-        service = AthenaQueryService(use_quilt_auth=False)
-
         # Test with default max_results (should truncate)
-        result = service.execute_query("SELECT * FROM large_table", max_results=1000)
+        result = athena_service.execute_query("SELECT * FROM large_table", max_results=1000)
 
         assert result["success"] is True
         assert result["row_count"] == 1000  # Should be truncated
         assert result["truncated"] is True
 
         # Test with higher limit
-        result = service.execute_query("SELECT * FROM large_table", max_results=5000)
+        result = athena_service.execute_query("SELECT * FROM large_table", max_results=5000)
 
         assert result["success"] is True
         assert result["row_count"] == 5000  # Should be truncated to 5000
@@ -337,6 +345,11 @@ class TestAthenaPerformance:
 @pytest.mark.slow
 class TestAthenaErrorHandling:
     """Test error handling scenarios."""
+    
+    @pytest.fixture(scope="class")
+    def athena_service(self):
+        """Shared AthenaQueryService instance for all tests in this class."""
+        return AthenaQueryService(use_quilt_auth=False)
 
     @pytest.mark.aws
     def test_glue_connection_error_real_aws(self):
@@ -360,7 +373,7 @@ class TestAthenaErrorHandling:
 
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
-    def test_sqlalchemy_connection_error(self, mock_create_engine, mock_read_sql):
+    def test_sqlalchemy_connection_error(self, mock_create_engine, mock_read_sql, athena_service):
         """Test handling of SQLAlchemy connection errors."""
         from sqlalchemy.exc import SQLAlchemyError
 
@@ -371,8 +384,7 @@ class TestAthenaErrorHandling:
         # Mock pandas to raise a connection error
         mock_read_sql.side_effect = SQLAlchemyError("Connection failed")
 
-        service = AthenaQueryService(use_quilt_auth=False)
-        result = service.execute_query("SELECT 1")
+        result = athena_service.execute_query("SELECT 1")
 
         assert result["success"] is False
         assert "Connection failed" in result["error"]

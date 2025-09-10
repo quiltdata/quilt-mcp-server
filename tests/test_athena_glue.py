@@ -412,6 +412,11 @@ class TestAthenaQueryValidate:
 
 class TestAthenaQueryService:
     """Test AthenaQueryService class."""
+    
+    @pytest.fixture(scope="class")
+    def athena_service(self):
+        """Shared AthenaQueryService instance for all tests in this class."""
+        return AthenaQueryService(use_quilt_auth=False)
 
     @pytest.mark.aws
     @pytest.mark.slow
@@ -435,7 +440,7 @@ class TestAthenaQueryService:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_discover_databases(self):
+    def test_discover_databases(self, athena_service):
         """Test database discovery with real AWS connection."""
         # Skip if AWS credentials not available
         try:
@@ -446,8 +451,7 @@ class TestAthenaQueryService:
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
 
-        service = AthenaQueryService(use_quilt_auth=False)
-        result = service.discover_databases()
+        result = athena_service.discover_databases()
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
@@ -463,25 +467,21 @@ class TestAthenaQueryService:
 
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_service_initialization_mocked(self, mock_boto3, mock_create_engine):
+    def test_service_initialization_mocked(self, mock_boto3, mock_create_engine, athena_service):
         """Test service initialization with mocks (unit test)."""
-        service = AthenaQueryService(use_quilt_auth=False)
-
-        assert service.use_quilt_auth is False
-        assert service.query_cache.maxsize == 100
+        assert athena_service.use_quilt_auth is False
+        assert athena_service.query_cache.maxsize == 100
 
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
+    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test database discovery with mocks (unit test)."""
-        service = AthenaQueryService(use_quilt_auth=False)
-
         # Mock pandas DataFrame result from SQL query
         mock_df = pd.DataFrame({"database_name": ["analytics_db", "test_db"]})
         mock_read_sql.return_value = mock_df
 
-        result = service.discover_databases()
+        result = athena_service.discover_databases()
 
         assert result["success"] is True
         assert len(result["databases"]) == 2
@@ -491,17 +491,16 @@ class TestAthenaQueryService:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_execute_query(self):
+    def test_execute_query(self, athena_service):
         """Test query execution with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
         try:
-            service = AthenaQueryService(use_quilt_auth=False)
 
             # Use a simple query that should work on any Athena setup
-            result = service.execute_query("SELECT 1 as test_column")
+            result = athena_service.execute_query("SELECT 1 as test_column")
 
             assert result["success"] is True
             assert result["row_count"] >= 1
@@ -513,15 +512,14 @@ class TestAthenaQueryService:
     @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
     @patch("quilt_mcp.aws.athena_service.create_engine")
     @patch("quilt_mcp.aws.athena_service.boto3")
-    def test_execute_query_mocked(self, mock_boto3, mock_create_engine, mock_read_sql):
+    def test_execute_query_mocked(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test query execution with mocks (unit test)."""
-        service = AthenaQueryService(use_quilt_auth=False)
 
         # Mock pandas DataFrame result
         mock_df = pd.DataFrame({"event_type": ["page_view", "purchase"], "count": [125432, 23891]})
         mock_read_sql.return_value = mock_df
 
-        result = service.execute_query("SELECT event_type, COUNT(*) FROM events GROUP BY event_type")
+        result = athena_service.execute_query("SELECT event_type, COUNT(*) FROM events GROUP BY event_type")
 
         assert result["success"] is True
         assert result["row_count"] == 2
@@ -530,13 +528,11 @@ class TestAthenaQueryService:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_format_results_json(self):
+    def test_format_results_json(self, athena_service):
         """Test result formatting to JSON with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
-
-        service = AthenaQueryService(use_quilt_auth=False)
 
         # Create test data
         df = pd.DataFrame({"test_column": ["value1", "value2"], "count": [1, 2]})
@@ -549,7 +545,7 @@ class TestAthenaQueryService:
             "data": df,  # Pass DataFrame directly, not as dict
             "truncated": False,
         }
-        result = service.format_results(result_data, "json")
+        result = athena_service.format_results(result_data, "json")
 
         assert result["success"] is True
         assert result["format"] == "json"
@@ -557,13 +553,11 @@ class TestAthenaQueryService:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_format_results_csv(self):
+    def test_format_results_csv(self, athena_service):
         """Test result formatting to CSV with real AWS (integration test)."""
         from tests.test_helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
-
-        service = AthenaQueryService(use_quilt_auth=False)
 
         # Create test data
         df = pd.DataFrame({"event_type": ["page_view", "purchase"], "count": [125432, 23891]})
@@ -576,7 +570,7 @@ class TestAthenaQueryService:
             "data": df,  # Pass DataFrame directly, not as dict
             "truncated": False,
         }
-        result = service.format_results(result_data, "csv")
+        result = athena_service.format_results(result_data, "csv")
 
         assert result["success"] is True
         assert result["format"] == "csv"
