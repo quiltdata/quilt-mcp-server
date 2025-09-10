@@ -81,10 +81,8 @@ update-cursor-rules:
 	fi
 
 config-claude:
-	@echo "🤖 Configuring Claude CLI to use local MCP server..."
 	@claude mcp add quilt-mcp --env FASTMCP_TRANSPORT=stdio -- make run
-	@echo "✅ Claude CLI configured with 'quilt-mcp' server"
-	@echo "💡 Verify with: claude mcp list"
+	@claude mcp list
 
 # Error messages for removed targets
 package:
