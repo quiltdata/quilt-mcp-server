@@ -106,8 +106,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     # List of deprecated tools (to reduce client confusion)
     excluded_tools = {
-        "packages_list",  # use package_search instead
-        "bucket_objects_list",  # use bucket_objects_search instead
+        "packages_list",
+        "bucket_objects_list",
     }
 
     tools_registered = 0
@@ -124,7 +124,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         functions = inspect.getmembers(module, predicate=make_predicate(module))
 
         for name, func in functions:
-            # Skip deprecated tools
+            # Skip _list functions to prefer search functionality
             if name in excluded_tools:
                 if verbose:
                     print(f"Skipped _list tool: {module.__name__}.{name} (prefer search instead)", file=sys.stderr)
