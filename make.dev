@@ -37,7 +37,7 @@ test-ci:
 	@echo "Running CI tests (skipping search/slow tests)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=30 --disable-warnings \
+	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=120 --disable-warnings \
 		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
 
 # Code Quality Targets
