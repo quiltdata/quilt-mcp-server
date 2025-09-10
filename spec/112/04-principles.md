@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Core Principles: IRS/DSCO Methodology Foundation
 
 **Issue**: [#112 - IRS/DSCO](https://github.com/quiltdata/quilt-mcp-server/issues/112)  
@@ -16,6 +17,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 **Purpose**: Protect against potentially deceptive or misguided AI behavior through structural safeguards.
 
 **Implementation**:
+
 - **Concrete artifacts** - Everything produces reviewable documents and code (no "trust me" implementations)
 - **Atomic changes** - One focused change per PR/branch (smallest unit of accountability)
 - **Branch isolation** - Specifications cannot be modified during implementation phase
@@ -31,6 +33,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 **Core Insight**: *"In the age of AI, accountability is the bottleneck"* - The limiting factor is not AI capability but human ability to verify and approve AI work.
 
 **Implementation**:
+
 - **AI autonomy** - Agents can work independently within defined phases
 - **Human oversight** - Strategic control at phase transitions (not micromanagement)
 - **Clear boundaries** - AI knows exactly what it can and cannot do in each phase
@@ -43,11 +46,13 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 **Purpose**: Organize work into manageable, accountable units that enable systematic progress tracking.
 
 **Three Components**:
+
 - **Branch Strategy** - Each unit of work lives in separate branch/PR (accountability unit)
 - **Phase Strategy** - IRS analysis → DSCO implementation (work cadence)  
 - **Meta-pattern** - Test → Refactor → Implement sequence (prefactoring before features)
 
 **Implementation**:
+
 - `spec/{issue-number}` branches for analysis phase
 - `impl/{feature-name}` branches for implementation phase
 - Quality gates between each phase transition
@@ -60,6 +65,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 **Purpose**: Structure knowledge development from abstract to concrete through systematic refinement stages.
 
 **Refinement Sequence**:
+
 1. **Issue** - Problem identification and business context
 2. **Requirements** - User stories and acceptance criteria  
 3. **Specifications** - Engineering goals and constraints (NO implementation details)
@@ -67,6 +73,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 5. **Implementation** - Actual code and artifacts
 
 **Key Constraints**:
+
 - Each phase builds on previous with increasing specificity
 - No implementation details until design phase
 - Clear handoff points between analysis and implementation
@@ -79,12 +86,14 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 **Purpose**: Create clear verification points that maintain human control over AI work quality and direction.
 
 **Implementation**:
+
 - **Human approval required** at each major phase transition
 - **Clear "yes/no" decisions** (not "maybe" or "needs work")
 - **Quality gates** that must pass before proceeding (tests, lint, coverage)
 - **Explicit approval language** - "Binary approval required - clear 'yes/no' decision"
 
 **Decision Points**:
+
 - Requirements approval before specifications
 - Specifications approval before design
 - Design approval before implementation
@@ -117,18 +126,21 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 ## Practical Implications
 
 ### For Human Developers
+
 - Focus review effort on phase transitions rather than every code change
 - Make clear binary decisions rather than iterative feedback loops
 - Trust the process to catch issues through structured validation
 - Maintain strategic control without micromanaging implementation
 
 ### For AI Agents
+
 - Work autonomously within defined phase boundaries
 - Reference prior artifacts when creating new documents
 - Follow structured progression from abstract to concrete
 - Expect and prepare for binary approval gates
 
 ### For Organizations
+
 - Invest in process discipline rather than AI supervision overhead
 - Train teams on binary decision-making for AI work
 - Establish clear quality gates and validation procedures
@@ -137,6 +149,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 ## Success Metrics
 
 **Process Health Indicators**:
+
 - Clear binary decisions at phase gates (no extended "maybe" states)
 - Immutable specification history (no post-completion edits)
 - Complete artifact trails (all decisions documented)
@@ -144,6 +157,7 @@ The IRS/DSCO methodology is built on **five fundamental principles** that addres
 - Quality gates consistently passing before phase transitions
 
 **Outcome Indicators**:
+
 - Reduced time from problem identification to solution delivery
 - Improved quality and consistency of deliverables
 - Enhanced trust between human and AI collaborators

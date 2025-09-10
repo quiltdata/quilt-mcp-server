@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Universal AI Collaboration Patterns
 
 **Foundation**: [Accountability-Driven Development (ADD)](https://ihack.us/2025/08/22/add-the-beat-accountability-driven-development-in-an-ai-world/) - "autonomy with accountability"
@@ -7,6 +8,7 @@
 ## Core Principles
 
 ### 1. Anti-Deception Framework
+
 - **Concrete artifacts** - All work produces reviewable documents/code
 - **Atomic changes** - One focused change per branch/PR  
 - **Branch isolation** - Specifications cannot be modified during implementation
@@ -14,6 +16,7 @@
 - **Binary gates** - Clear yes/no approval points (no "maybe" states)
 
 ### 2. Accountability Architecture
+
 - **AI autonomy within phases** - Agents work independently in defined boundaries
 - **Human oversight at transitions** - Strategic control, not micromanagement
 - **Clear responsibility assignment** - Explicit ownership of decisions
@@ -21,6 +24,7 @@
 - **Sequential Sessions** - Start a new Claude Code session for each document, to ensure it is only relying on explicit artifacts rather than implicit (possibly erroneous) state.
 
 ### 3. Progressive Refinement
+
 - **Abstract to concrete progression** - Problem → Requirements → Design → Implementation
 - **Phase completion gates** - Each stage validated before proceeding
 - **No premature implementation** - Technical details only after proper analysis
@@ -37,6 +41,7 @@
 ## Specialized Agent Usage
 
 **When to use specialized agents**:
+
 - **workflow-orchestrator**: Complex multi-phase implementations, dependency management
 - **research-analyst**: Problem investigation, requirements gathering, technology research
 - **business-analyst**: User story creation, acceptance criteria, business value assessment
@@ -47,6 +52,7 @@
 ## Collaboration Rules
 
 ### For AI Agents
+
 - **Work autonomously within assigned phase boundaries**
 - **Always reference and build upon prior validated artifacts**
 - **Expect binary approval gates** - prepare work for clear yes/no decisions
@@ -54,6 +60,7 @@
 - **Follow TDD when implementing** - test-first development required
 
 ### For Human Collaborators  
+
 - **Make binary decisions at phase gates** - avoid extended "maybe" states
 - **Focus review on phase transitions** - not every individual code change
 - **Maintain strategic oversight** - guide direction without micromanaging implementation
@@ -63,6 +70,7 @@
 ## Quality Gates
 
 **Universal validation requirements**:
+
 - All tests pass (automated validation)
 - Code quality standards met (linting, type checking)
 - Documentation complete and accurate
@@ -70,6 +78,7 @@
 - Success criteria from requirements satisfied
 
 **Human approval checkpoints**:
+
 - Problem definition approved before solution design
 - Architecture approved before implementation begins  
 - Implementation approved before release/deployment
@@ -78,6 +87,7 @@
 ## Success Indicators
 
 **Process health**:
+
 - Clear binary decisions at all approval gates
 - No unauthorized modifications to historical specifications
 - Complete audit trail of all AI contributions and human decisions
@@ -85,6 +95,7 @@
 - Consistent quality gate enforcement
 
 **Collaboration effectiveness**:
+
 - Reduced time from problem to solution delivery
 - High-quality deliverables with predictable outcomes
 - Enhanced trust between human and AI collaborators

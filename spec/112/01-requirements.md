@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Requirements: IRS Data Scraping and Configuration (IRSDSCO)
 
 **Issue**: [#112 - IRS/DSCO](https://github.com/quiltdata/quilt-mcp-server/issues/112)  
@@ -51,6 +52,7 @@ As a developer (human or AI), I want a documented, repeatable process for comple
 ## Notes
 
 The IRS/DSCO process represents a structured approach to complex software development that emphasizes:
+
 - Systematic problem breakdown
 - Phase-based implementation
 - Comprehensive validation at each stage
