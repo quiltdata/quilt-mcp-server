@@ -261,7 +261,7 @@ class TestMetadataTemplates:
         assert result["valid"] is True
 
         # Invalid metadata (not a dict)
-        invalid_result = validate_metadata_structure("not a dict")
+        invalid_result = validate_metadata_structure("not a dict") # type: ignore
         assert invalid_result["valid"] is False
 
 
