@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.4] - UNRELEASED
 
+- **Tool Exclusion System**
+  - Re-enabled `bucket_objects_list`
+
 ### Enhanced Athena Workgroups Management
 
 - **Enhanced Athena Workgroups Listing**: Complete redesign of `athena_workgroups_list` functionality (#133)
