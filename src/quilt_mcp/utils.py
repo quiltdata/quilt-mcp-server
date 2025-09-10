@@ -106,7 +106,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     # List of deprecated tools (to reduce client confusion)
     excluded_tools = {
-        "packages_list"  # Prefer packages_search
+        "packages_list",  # Prefer packages_search
+        "athena_tables_list",  # Prefer athena_query_execute
     }
 
     tools_registered = 0
