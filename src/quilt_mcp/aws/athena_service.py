@@ -114,55 +114,36 @@ class AthenaQueryService:
             raise
 
     def _discover_workgroup(self, credentials, region: str) -> str:
-        """Discover the best available Athena workgroup for the user."""
+        """Discover the best available Athena workgroup for the user.
+        
+        Uses the consolidated list_workgroups method to avoid code duplication.
+        """
         try:
-            import boto3
-
-            # Create Athena client with provided credentials or default
-            if credentials:
-                athena_client = boto3.client(
-                    "athena",
-                    region_name=region,
-                    aws_access_key_id=credentials.access_key,
-                    aws_secret_access_key=credentials.secret_key,
-                    aws_session_token=credentials.token,
-                )
-            else:
-                athena_client = boto3.client("athena", region_name=region)
-
-            # List all available workgroups
-            response = athena_client.list_work_groups()
-            workgroups = []
-
-            # Test access to each workgroup and filter valid ones
-            for wg in response.get("WorkGroups", []):
-                name = wg.get("Name")
-                if not name:
-                    continue
-
-                try:
-                    # Validate workgroup is accessible and properly configured
-                    wg_details = athena_client.get_work_group(WorkGroup=name)
-                    config = wg_details.get("WorkGroup", {}).get("Configuration", {})
-
-                    # Check if workgroup is enabled and has output location
-                    if wg_details.get("WorkGroup", {}).get("State") == "ENABLED" and config.get(
-                        "ResultConfiguration", {}
-                    ).get("OutputLocation"):
-                        workgroups.append(name)
-                except Exception as e:
-                    # Skip workgroups we can't access
-                    logger.debug(f"Cannot access workgroup {name}: {e}")
-                    continue
-
+            # Use the consolidated list_workgroups method instead of duplicating logic
+            workgroups = self.list_workgroups()
+            
+            if not workgroups:
+                # Fallback to primary if no workgroups available
+                return "primary"
+            
+            # Filter workgroups with valid output locations for query execution
+            valid_workgroups = [
+                wg["name"] for wg in workgroups 
+                if wg.get("output_location") is not None
+            ]
+            
+            if not valid_workgroups:
+                # If no workgroups have output locations, use the first available
+                return workgroups[0]["name"]
+            
             # Prioritize workgroups (Quilt workgroups first, then others)
-            quilt_workgroups = [wg for wg in workgroups if "quilt" in wg.lower()]
+            quilt_workgroups = [name for name in valid_workgroups if "quilt" in name.lower()]
             if quilt_workgroups:
                 return quilt_workgroups[0]
-            elif workgroups:
-                return workgroups[0]
+            elif valid_workgroups:
+                return valid_workgroups[0]
             else:
-                # Fallback to primary if no workgroups discovered
+                # Fallback to primary if no valid workgroups found
                 return "primary"
 
         except Exception as e:
