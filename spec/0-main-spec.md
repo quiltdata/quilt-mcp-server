@@ -1,25 +1,20 @@
-# Fast MCP Server - Phase-based Deployment Specifications
+# Quilt MCP Server - Phase-based Build System Specifications
 
-This document provides an overview of the 4-phase deployment pipeline. Each phase has its own dedicated Makefile and SPEC.md for focused, maintainable development.
+This document provides an overview of the 2-phase build pipeline. Each phase has its own dedicated Makefile
+and specification for focused, maintainable development.
 
 ## Architecture Overview
 
-The Quilt MCP server uses a 4-phase pipeline for robust build and deployment:
+The Quilt MCP server uses a 2-phase pipeline for local development and desktop extension packaging:
 
 ```tree
-fast-mcp-server/
+quilt-mcp-server/
 ├── app/           # Phase 1: Local MCP server
 │   ├── Makefile   # Phase-specific build targets
-│   └── SPEC.md    # Detailed phase specification
-├── build-docker/  # Phase 2: Docker containerization
+│   └── main.py    # Server implementation
+├── build-dxt/     # Phase 2: Claude Desktop Extension build
 │   ├── Makefile   # Phase-specific build targets
-│   └── SPEC.md    # Detailed phase specification
-├── catalog-push/  # Phase 3: ECR registry operations
-│   ├── Makefile   # Phase-specific build targets
-│   └── SPEC.md    # Detailed phase specification
-├── deploy-aws/    # Phase 4: ECS/ALB deployment
-│   ├── Makefile   # Phase-specific build targets
-│   └── SPEC.md    # Detailed phase specification
+│   └── assets/    # DXT package assets
 └── shared/        # Common utilities
 ```
 
@@ -27,21 +22,17 @@ fast-mcp-server/
 
 Each phase is fully documented with its own specification:
 
-- **[Phase 1: App](app/SPEC.md)** - Local MCP server with FastMCP
-- **[Phase 2: Build-Docker](build-docker/SPEC.md)** - Docker containerization
-- **[Phase 3: Catalog-Push](catalog-push/SPEC.md)** - ECR registry operations
-- **[Phase 4: Deploy-AWS](deploy-aws/SPEC.md)** - ECS/ALB deployment
+- **[Phase 1: App](1-app-spec.md)** - Local MCP server with FastMCP
+- **[Phase 2: Build-DXT](5-dxt-spec.md)** - Claude Desktop Extension packaging
 
 ## Validation System
 
-**Validation** means each phase successfully completes the following SPEC-compliant process:
+**Validation** means each phase successfully completes the following process:
 
-1. **Preconditions** (`make init-<phase>`): Check dependencies and environment
-2. **Execution** (`make <phase>`): Create/execute phase artifacts
-3. **Testing** (`make test-<phase>`): Run phase-specific tests
-4. **Verification** (`make verify-<phase>`): Validate MCP endpoint functionality
-5. **Cleanup** (`make zero-<phase>`): Clean up processes and resources
-6. **Configuration** (`make config-<phase>`): Generate `.config` with results
+1. **Preconditions**: Check dependencies and environment
+2. **Execution**: Create/execute phase artifacts
+3. **Testing**: Run phase-specific tests
+4. **Verification**: Validate functionality
 
 Each phase must fail and abort validation on any error.
 
@@ -51,10 +42,8 @@ Each phase must fail and abort validation on any error.
 
 ```bash
 # Work with specific phases
-cd app && make help          # Phase 1 commands
-cd build-docker && make help # Phase 2 commands
-cd catalog-push && make help # Phase 3 commands
-cd deploy-aws && make help   # Phase 4 commands
+cd app && make help        # Phase 1 commands
+cd build-dxt && make help  # Phase 2 commands
 ```
 
 ### Root Makefile Delegation
@@ -64,22 +53,16 @@ The root Makefile delegates to phase-specific Makefiles:
 ```bash
 # Phase execution (delegates to <phase>/Makefile)
 make app        # Phase 1: Local MCP server
-make build      # Phase 2: Docker container
-make catalog    # Phase 3: ECR registry push
-make deploy     # Phase 4: ECS deployment
+make build-dxt  # Phase 2: Claude Desktop Extension
 
-# Validation (SPEC-compliant 6-step process)
+# Validation
 make validate       # All phases sequentially
 make validate-app   # Phase 1 only
-make validate-build # Phase 2 only
-make validate-catalog # Phase 3 only
-make validate-deploy # Phase 4 only
+make validate-build-dxt # Phase 2 only
 
 # Utilities
 make check-env      # Validate environment
-make status         # Show deployment status
 make clean          # Clean artifacts
-make destroy        # Clean up AWS resources
 ```
 
 ## Environment Setup

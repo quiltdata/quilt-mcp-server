@@ -1,0 +1,44 @@
+name: 'Create Release'
+description: 'Build DXT package and create GitHub release with bundle'
+inputs:
+  tag-version:
+    description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
+    required: true
+
+outputs:
+  release-url:
+    description: 'URL of the created release'
+    value: ${{ steps.create-release.outputs.url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build DXT package
+      shell: bash  
+      run: make dxt
+      
+    - name: Validate DXT package
+      shell: bash
+      run: make dxt-validate
+
+    - name: Create release bundle
+      shell: bash
+      run: make release-zip
+
+    - name: Create GitHub Release
+      id: create-release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Quilt MCP DXT v${{ inputs.tag-version }}"
+        files: |
+          dist/*-release.zip
+        draft: false
+        prerelease: ${{ contains(inputs.tag-version, '-') }}
+        generate_release_notes: true
+        
+    - name: Upload DXT artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dxt-package
+        path: dist/*.dxt
+        retention-days: 90

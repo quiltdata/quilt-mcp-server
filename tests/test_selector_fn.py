@@ -7,31 +7,31 @@ from quilt_mcp.tools.s3_package import package_create_from_s3
 
 class MockPackage:
     """Mock quilt3.Package that can handle set operations and push calls."""
-    
+
     def __init__(self):
         self._entries = {}
         self._metadata = {}
-    
+
     def set(self, logical_path, source):
         """Mock set operation."""
         self._entries[logical_path] = MockEntry(source)
         return None
-    
+
     def set_meta(self, metadata):
         """Mock set_meta operation."""
         self._metadata.update(metadata)
         return None
-    
+
     def __getitem__(self, logical_path):
         """Mock getitem to return entries."""
         if logical_path not in self._entries:
             raise KeyError(logical_path)
         return self._entries[logical_path]
-    
+
     def __contains__(self, logical_path):
         """Mock contains check."""
         return logical_path in self._entries
-    
+
     def push(self, name, registry=None, message=None, selector_fn=None, **kwargs):
         """Mock push operation that tests selector_fn."""
         if selector_fn:
@@ -48,7 +48,7 @@ class MockPackage:
 
 class MockEntry:
     """Mock package entry with physical_key attribute."""
-    
+
     def __init__(self, source):
         self.physical_key = source
 
@@ -57,7 +57,7 @@ class MockEntry:
 def test_package_ops_copy_mode_none(mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
-    
+
     result = package_create(
         package_name="team/pkg",
         s3_uris=[
@@ -78,7 +78,7 @@ def test_package_ops_copy_mode_none(mock_package_class):
 def test_package_ops_copy_mode_same_bucket(mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
-    
+
     result = package_create(
         package_name="team/pkg",
         s3_uris=[
@@ -93,4 +93,3 @@ def test_package_ops_copy_mode_same_bucket(mock_package_class):
     # The function should succeed and return status
     assert result.get("status") == "success"
     assert result.get("top_hash") == "test_top_hash"
-
