@@ -18,6 +18,7 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
+from ...utils import get_s3_client
 
 
 class S3FallbackBackend(SearchBackend):
@@ -31,8 +32,9 @@ class S3FallbackBackend(SearchBackend):
     def _check_s3_access(self):
         """Check if S3 access is available."""
         try:
-            self._s3_client = boto3.client("s3")
+            self._s3_client = get_s3_client()
             # Test with a simple STS call to verify credentials
+            # Note: We don't use get_s3_client() here for STS since it's a different service
             sts_client = boto3.client("sts")
             sts_client.get_caller_identity()
             self._update_status(BackendStatus.AVAILABLE)
@@ -43,9 +45,10 @@ class S3FallbackBackend(SearchBackend):
         """Check if S3 backend is healthy."""
         try:
             if not self._s3_client:
-                self._s3_client = boto3.client("s3")
+                self._s3_client = get_s3_client()
 
             # Simple health check with STS
+            # Note: We don't use get_s3_client() here for STS since it's a different service  
             sts_client = boto3.client("sts")
             sts_client.get_caller_identity()
 

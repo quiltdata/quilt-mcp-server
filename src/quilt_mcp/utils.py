@@ -35,7 +35,7 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
     expiration = max(1, min(expiration, 604800))  # 1 sec to 7 days
 
     try:
-        client = boto3.client("s3")
+        client = get_s3_client()
         url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
         return str(url) if url else None
     except Exception:
@@ -128,8 +128,29 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     return tools_registered
 
 
-def get_s3_client():
-    """Get an S3 client instance."""
+def get_s3_client(use_quilt_auth: bool = True):
+    """Get an S3 client instance with optional Quilt authentication.
+    
+    Args:
+        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
+    
+    Returns:
+        boto3 S3 client instance
+    """
+    if use_quilt_auth:
+        try:
+            import quilt3
+            
+            # Check if we have Quilt session available
+            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
+                if hasattr(quilt3, "get_boto3_session"):
+                    session = quilt3.get_boto3_session()
+                    if session is not None:
+                        return session.client("s3")
+        except Exception:
+            pass
+    
+    # Fallback to default boto3 client
     return boto3.client("s3")
 
 
