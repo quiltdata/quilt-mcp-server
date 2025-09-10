@@ -154,6 +154,32 @@ def get_s3_client(use_quilt_auth: bool = True):
     return boto3.client("s3")
 
 
+def get_sts_client(use_quilt_auth: bool = True):
+    """Get an STS client instance with optional Quilt authentication.
+    
+    Args:
+        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
+    
+    Returns:
+        boto3 STS client instance
+    """
+    if use_quilt_auth:
+        try:
+            import quilt3
+            
+            # Check if we have Quilt session available
+            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
+                if hasattr(quilt3, "get_boto3_session"):
+                    session = quilt3.get_boto3_session()
+                    if session is not None:
+                        return session.client("sts")
+        except Exception:
+            pass
+    
+    # Fallback to default boto3 client
+    return boto3.client("sts")
+
+
 def validate_package_name(package_name: str) -> bool:
     """Validate package name format (namespace/name)."""
     if not package_name or "/" not in package_name:

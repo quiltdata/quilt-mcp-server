@@ -18,7 +18,7 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
-from ...utils import get_s3_client
+from ...utils import get_s3_client, get_sts_client
 
 
 class S3FallbackBackend(SearchBackend):
@@ -34,8 +34,7 @@ class S3FallbackBackend(SearchBackend):
         try:
             self._s3_client = get_s3_client()
             # Test with a simple STS call to verify credentials
-            # Note: We don't use get_s3_client() here for STS since it's a different service
-            sts_client = boto3.client("sts")
+            sts_client = get_sts_client()
             sts_client.get_caller_identity()
             self._update_status(BackendStatus.AVAILABLE)
         except Exception as e:
@@ -48,8 +47,7 @@ class S3FallbackBackend(SearchBackend):
                 self._s3_client = get_s3_client()
 
             # Simple health check with STS
-            # Note: We don't use get_s3_client() here for STS since it's a different service  
-            sts_client = boto3.client("sts")
+            sts_client = get_sts_client()
             sts_client.get_caller_identity()
 
             self._update_status(BackendStatus.AVAILABLE)
