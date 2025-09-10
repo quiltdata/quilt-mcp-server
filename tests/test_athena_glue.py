@@ -452,6 +452,56 @@ class TestAthenaWorkgroupsList:
         assert "output_location" in workgroup
         assert "enforce_workgroup_config" in workgroup
 
+    @patch("boto3.client")
+    def test_athena_workgroups_list_no_state_field_in_output(self, mock_boto3_client):
+        """Test that 'state' field is not present in workgroup results (Episode 3)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "test-workgroup",
+                    "Description": "Test workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock successful GetWorkGroup call
+        mock_athena_client.get_work_group.return_value = {
+            "WorkGroup": {
+                "Name": "test-workgroup",
+                "State": "ENABLED",  # AWS API returns state
+                "Description": "Test workgroup description",
+                "CreationTime": mock_time,
+                "Configuration": {
+                    "ResultConfiguration": {"OutputLocation": "s3://results/test-workgroup/"},
+                    "EnforceWorkGroupConfiguration": False,
+                },
+            }
+        }
+
+        result = athena_workgroups_list()
+
+        # Verify success and basic structure
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 1
+        
+        # Assert 'state' field is not present in workgroup result
+        # Since all workgroups are ENABLED (Episode 1), state field is redundant
+        workgroup = result["workgroups"][0]
+        assert "state" not in workgroup
+        
+        # Verify expected AWS API fields are still present
+        assert "name" in workgroup
+        assert "description" in workgroup
+        assert "creation_time" in workgroup
+        assert "output_location" in workgroup
+        assert "enforce_workgroup_config" in workgroup
+
 
 class TestAthenaQueryValidate:
     """Test athena_query_validate function."""

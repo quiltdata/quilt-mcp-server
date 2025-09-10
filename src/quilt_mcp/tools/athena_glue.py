@@ -169,7 +169,6 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                 workgroups.append(
                     {
                         "name": name,
-                        "state": workgroup_info.get("State"),
                         "description": workgroup_info.get("Description", ""),
                         "creation_time": workgroup_info.get("CreationTime"),
                         "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
@@ -181,7 +180,6 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                 workgroups.append(
                     {
                         "name": name,
-                        "state": "UNKNOWN",
                         "description": f"Access denied: {str(e)}",
                         "creation_time": None,
                         "output_location": None,
