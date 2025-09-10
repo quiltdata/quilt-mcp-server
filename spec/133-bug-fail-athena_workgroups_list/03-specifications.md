@@ -11,28 +11,28 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 
 ## Functional Requirements
 
-### FR1: Workgroup Information Retrieval
+### FR1: Usable Workgroup Discovery
 
-**Requirement:** The system shall retrieve workgroup information using AWS APIs efficiently and present it using AWS terminology.
+**Requirement:** The system shall discover and return only ENABLED workgroups that users can actually use for queries.
 
-**Primary Data Source (ListWorkGroups):**
+**Filtering Strategy:**
 
 - Retrieve all workgroups using `ListWorkGroups` API
-- Extract available information: Name, State, Description (when AWS provides it)
-- Use AWS State values directly: "ENABLED" or "DISABLED"
+- Filter to only workgroups with `State == "ENABLED"`
+- Extract Name, Description (when AWS provides it) for ENABLED workgroups
 
 **Optional Enhancement (GetWorkGroup):**
 
 - Attempt `GetWorkGroup` for each ENABLED workgroup to retrieve additional details
 - On success: Include CreationTime, Configuration details
-- On failure: Use only information from `ListWorkGroups`
+- On failure: Use only basic information from `ListWorkGroups`
 
 **Success Criteria:**
 
-- All workgroups from `ListWorkGroups` included in results
-- AWS State field preserved accurately for all workgroups
+- Only ENABLED workgroups included in results
+- All returned workgroups are usable for queries
 - Additional details included when `GetWorkGroup` succeeds
-- No synthetic status fields or error message pollution
+- No unusable or synthetic information presented to users
 
 ### FR2: Clean Information Structure
 
@@ -40,16 +40,16 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 
 **Information Structure:**
 
-- Use AWS field names directly: `Name`, `State`, `Description`
-- Include AWS values as provided: `State` as "ENABLED"/"DISABLED"
+- Use AWS field names directly: `Name`, `Description`
+- Omit State field since all returned workgroups are ENABLED
 - Add configuration details when available from `GetWorkGroup`
 - Omit fields when information is not available rather than using placeholder values
 
 **Success Criteria:**
 
 - Field names match AWS API response structure
-- State field contains actual AWS values, never "UNKNOWN" or synthetic states
 - Description field contains AWS-provided description or is omitted
+- No redundant State information since all results are ENABLED
 - No error messages or synthetic status information in data fields
 
 ### FR3: AWS API Data Fidelity
@@ -58,17 +58,17 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 
 **Data Preservation:**
 
-- `ListWorkGroups` response data used as primary source
+- `ListWorkGroups` response data used for filtering and basic information
 - `GetWorkGroup` response data merged when available
 - No modification of AWS-provided values
 - Field presence indicates data availability
 
 **Success Criteria:**
 
-- AWS State values ("ENABLED"/"DISABLED") preserved exactly
 - AWS Description values used when provided
 - AWS Configuration data included when `GetWorkGroup` succeeds
 - No synthetic fields added beyond AWS API responses
+- Filtering based on AWS State without exposing redundant information
 
 ### FR4: Optional Detail Enhancement
 
@@ -287,7 +287,8 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 
 **Current Implementation Issues:**
 
-- Replaces AWS State values with synthetic "UNKNOWN" when `GetWorkGroup` fails
+- Returns DISABLED workgroups that users cannot use
+- Includes redundant State field when all results should be ENABLED
 - Pollutes Description field with exception messages instead of using AWS-provided descriptions
 - Creates synthetic `accessible` status fields not present in AWS APIs
 - Treats permission limitations as errors rather than expected behavior
@@ -298,14 +299,12 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 // Information from ListWorkGroups (minimal permissions)
 {
   "Name": "workgroup-name",
-  "State": "ENABLED",
   "Description": "Purpose description"
 }
 
 // Enhanced Information (when GetWorkGroup succeeds)
 {
   "Name": "workgroup-name",
-  "State": "ENABLED", 
   "Description": "Purpose description",
   "CreationTime": "2023-01-15T10:30:00Z",
   "Configuration": {
@@ -354,9 +353,9 @@ This specification defines the optimized behavior for the `athena_workgroups_lis
 
 ### Primary Success Metrics
 
-1. **AWS Data Fidelity:** All workgroup information preserved exactly as provided by AWS APIs
+1. **Usable Results Only:** All returned workgroups are ENABLED and usable for queries
 2. **Permission Independence:** Core functionality works with minimal permissions
-3. **Clean Structure:** Output uses AWS field names and values without synthetic additions
+3. **Clean Structure:** Output uses AWS field names without redundant or synthetic information
 4. **Optional Enhancement:** Additional details included when permissions allow
 
 ### Secondary Success Metrics
