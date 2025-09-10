@@ -160,6 +160,9 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
             if not name:
                 continue
 
+            # Preserve original AWS Description from ListWorkGroups
+            original_description = wg.get("Description", "")
+
             try:
                 # Get detailed workgroup info
                 wg_details = athena_client.get_work_group(WorkGroup=name)
@@ -169,19 +172,22 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                 workgroups.append(
                     {
                         "name": name,
-                        "description": workgroup_info.get("Description", ""),
+                        "description": workgroup_info.get("Description", original_description),
                         "creation_time": workgroup_info.get("CreationTime"),
                         "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
                         "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
                     }
                 )
             except Exception as e:
-                # Still include workgroup but mark as inaccessible
+                # Log GetWorkGroup failures for diagnostics but don't pollute description field
+                logger.info(f"GetWorkGroup failed for {name}: {str(e)}")
+                
+                # Still include workgroup but preserve original AWS description
                 workgroups.append(
                     {
                         "name": name,
-                        "description": f"Access denied: {str(e)}",
-                        "creation_time": None,
+                        "description": original_description,
+                        "creation_time": wg.get("CreationTime"),
                         "output_location": None,
                         "enforce_workgroup_config": False,
                     }
