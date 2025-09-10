@@ -8,7 +8,7 @@ export
 # Development endpoint configuration
 DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: test test-unit test-integration test-ci lint coverage run run-inspector dev-clean
+.PHONY: test test-unit test-integration test-ci lint coverage run run-inspector kill dev-clean
 
 # Test Targets
 test:
@@ -68,6 +68,15 @@ run-inspector:
 	@echo "Starting MCP Inspector with server at $(DEV_ENDPOINT)"
 	@echo "Inspector UI will be available at http://127.0.0.1:6274"
 	@export PYTHONPATH="src" && npx @modelcontextprotocol/inspector uv run python src/main.py
+
+kill:
+	@echo "Killing running MCP server processes..."
+	@pkill -f "python.*main.py" 2>/dev/null || echo "No main.py processes found"
+	@pkill -f "python.*quilt_mcp" 2>/dev/null || echo "No quilt_mcp processes found" 
+	@pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || echo "No MCP Inspector processes found"
+	@lsof -ti :8000 | xargs -r kill 2>/dev/null || echo "No processes on port 8000"
+	@lsof -ti :8001 | xargs -r kill 2>/dev/null || echo "No processes on port 8001"
+	@echo "✅ Server kill completed"
 
 # Cleanup Targets
 dev-clean:
