@@ -353,14 +353,14 @@ class TestAthenaWorkgroupsList:
                     "CreationTime": mock_time,
                 },
                 {
-                    "Name": "disabled-workgroup", 
+                    "Name": "disabled-workgroup",
                     "Description": "Disabled workgroup",
                     "State": "DISABLED",
                     "CreationTime": mock_time,
                 },
                 {
                     "Name": "another-enabled",
-                    "Description": "Another enabled workgroup", 
+                    "Description": "Another enabled workgroup",
                     "State": "ENABLED",
                     "CreationTime": mock_time,
                 },
@@ -440,11 +440,11 @@ class TestAthenaWorkgroupsList:
         # Verify success and basic structure
         assert result["success"] is True
         assert len(result["workgroups"]) == 1
-        
+
         # Assert 'accessible' field is not present in any workgroup result
         workgroup = result["workgroups"][0]
         assert "accessible" not in workgroup
-        
+
         # Verify expected AWS API fields are present
         assert "name" in workgroup
         assert "description" in workgroup
@@ -489,12 +489,12 @@ class TestAthenaWorkgroupsList:
         # Verify success and basic structure
         assert result["success"] is True
         assert len(result["workgroups"]) == 1
-        
+
         # Assert 'state' field is not present in workgroup result
         # Since all workgroups are ENABLED (Episode 1), state field is redundant
         workgroup = result["workgroups"][0]
         assert "state" not in workgroup
-        
+
         # Verify expected AWS API fields are still present
         assert "name" in workgroup
         assert "description" in workgroup
@@ -520,7 +520,7 @@ class TestAthenaWorkgroupsList:
                 {
                     "Name": "inaccessible-workgroup",
                     "Description": "Another AWS description",
-                    "State": "ENABLED", 
+                    "State": "ENABLED",
                     "CreationTime": mock_time,
                 },
             ]
@@ -569,6 +569,87 @@ class TestAthenaWorkgroupsList:
         assert "permission" not in inaccessible_wg["description"]
         # Should preserve original AWS description from ListWorkGroups
         assert inaccessible_wg["description"] == "Another AWS description"
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_layered_api_access(self, mock_boto3_client):
+        """Test layered API access pattern - minimal and enhanced permissions (Episode 5)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "basic-workgroup",
+                    "Description": "Basic workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "enhanced-workgroup", 
+                    "Description": "Enhanced workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls - one succeeds (enhanced), one fails (minimal permissions)
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup == "enhanced-workgroup":
+                # Enhanced permissions: GetWorkGroup succeeds
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": "Detailed enhanced description",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": True,
+                        },
+                    }
+                }
+            elif WorkGroup == "basic-workgroup":
+                # Minimal permissions: GetWorkGroup fails
+                raise Exception("AccessDenied: Insufficient permissions for GetWorkGroup")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Verify core functionality works regardless of permission level
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+
+        # Find workgroups
+        basic_wg = next(wg for wg in result["workgroups"] if wg["name"] == "basic-workgroup")
+        enhanced_wg = next(wg for wg in result["workgroups"] if wg["name"] == "enhanced-workgroup")
+
+        # Test minimal permissions scenario (ListWorkGroups only)
+        # Core functionality should work with data from ListWorkGroups
+        assert basic_wg["name"] == "basic-workgroup"
+        assert basic_wg["description"] == "Basic workgroup description"  # From ListWorkGroups
+        assert basic_wg["creation_time"] == mock_time  # From ListWorkGroups
+        assert basic_wg["output_location"] is None  # GetWorkGroup failed
+        assert basic_wg["enforce_workgroup_config"] is False  # Default when GetWorkGroup fails
+
+        # Test enhanced permissions scenario (both ListWorkGroups and GetWorkGroup)  
+        # Enhanced functionality available when GetWorkGroup succeeds
+        assert enhanced_wg["name"] == "enhanced-workgroup"
+        assert enhanced_wg["description"] == "Detailed enhanced description"  # From GetWorkGroup
+        assert enhanced_wg["creation_time"] == mock_time  # From GetWorkGroup
+        assert enhanced_wg["output_location"] == "s3://results/enhanced-workgroup/"  # From GetWorkGroup
+        assert enhanced_wg["enforce_workgroup_config"] is True  # From GetWorkGroup
+
+        # Assert graceful degradation - GetWorkGroup failures don't break core functionality
+        # Both workgroups should be present and have essential information
+        for wg in result["workgroups"]:
+            assert "name" in wg and wg["name"]  # Essential info always available
+            assert "description" in wg  # Always has description (from ListWorkGroups at minimum)
+            assert "creation_time" in wg  # Always has creation time
+            assert "output_location" in wg  # Field exists (may be None)
+            assert "enforce_workgroup_config" in wg  # Field exists (may be default)
 
 
 class TestAthenaQueryValidate:
