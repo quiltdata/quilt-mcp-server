@@ -126,7 +126,7 @@ def create_package_enhanced(
             
             # Merge with user-provided metadata
             if metadata:
-                # Handle metadata as string, dict, or other formats
+                # Handle metadata as string (JSON) or dict types
                 if isinstance(metadata, str):
                     try:
                         import json
