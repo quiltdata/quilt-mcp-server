@@ -379,6 +379,7 @@ The following permissions are granted for this repository:
 The release system has been transformed from confusing legacy targets to semantic, self-documenting targets:
 
 **Legacy Targets (REMOVED):**
+
 - ❌ `make package` - Was misleading (created DXT not Python package)
 - ❌ `make dxt-package` - Redundant alias
 - ❌ `make validate-package` - Unclear package type
@@ -386,6 +387,7 @@ The release system has been transformed from confusing legacy targets to semanti
 - ❌ `make tag`, `make tag-dev` - Unclear what they tag
 
 **New Semantic Targets:**
+
 - ✅ `make dxt` - Creates DXT package (.dxt file)
 - ✅ `make dxt-validate` - Validates DXT package integrity
 - ✅ `make release-zip` - Creates release bundle (.zip with docs)
@@ -394,16 +396,19 @@ The release system has been transformed from confusing legacy targets to semanti
 - ✅ `make release-dev` - Creates and pushes development tags
 
 **File Organization:**
+
 - `build/` - Build staging (replaces `tools/dxt/build/`)
 - `dist/` - Final packages (replaces `tools/dxt/dist/`)
 - Artifacts now use top-level directories for clarity
 
 **DXT Testing Integration:**
+
 - `make test` now includes DXT package validation
 - Complete build pipeline tested as part of standard workflow
 - Ensures deliverable packages are always validated
 
-# important-instruction-reminders
+## important-instruction-reminders
+
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
