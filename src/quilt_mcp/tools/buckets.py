@@ -5,7 +5,7 @@ from typing import Any
 import boto3
 
 from ..constants import DEFAULT_BUCKET
-from ..utils import generate_signed_url
+from ..utils import generate_signed_url, get_s3_client
 
 # Helpers
 
@@ -37,7 +37,7 @@ def bucket_objects_list(
     """
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
-    client = boto3.client("s3")
+    client = get_s3_client()
     params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
     if prefix:
         params["Prefix"] = prefix
@@ -90,7 +90,7 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     if "/" not in without:
         return {"error": "s3_uri must include a key after the bucket/"}
     bucket, key = without.split("/", 1)
-    client = boto3.client("s3")
+    client = get_s3_client()
     try:
         head = client.head_object(Bucket=bucket, Key=key)
     except Exception as e:
@@ -125,7 +125,7 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     if "/" not in without:
         return {"error": "s3_uri must include a key after the bucket/"}
     bucket, key = without.split("/", 1)
-    client = boto3.client("s3")
+    client = get_s3_client()
     try:
         obj = client.get_object(Bucket=bucket, Key=key)
         body = obj["Body"].read(max_bytes + 1)
@@ -164,7 +164,7 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     bkt = _normalize_bucket(bucket)
     if not items:
         return {"error": "items list is empty", "bucket": bkt}
-    client = boto3.client("s3")
+    client = get_s3_client()
     results: list[dict[str, Any]] = []
     for idx, item in enumerate(items):
         key = item.get("key")
@@ -234,7 +234,7 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     if "/" not in without:
         return {"error": "s3_uri must include a key after the bucket/"}
     bucket, key = without.split("/", 1)
-    client = boto3.client("s3")
+    client = get_s3_client()
     try:
         obj = client.get_object(Bucket=bucket, Key=key)
         body = obj["Body"].read(max_bytes + 1)
@@ -300,7 +300,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         return {"error": "s3_uri must include a key after the bucket/"}
     bucket, key = without.split("/", 1)
     expiration = max(1, min(expiration, 604800))
-    client = boto3.client("s3")
+    client = get_s3_client()
     try:
         url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
         return {

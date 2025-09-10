@@ -32,7 +32,7 @@ def create_package_enhanced(
     files: List[str],
     description: str = "",
     metadata_template: str = "standard",
-    metadata: dict[str, Any] | None = None,
+    metadata: Any = None,
     registry: Optional[str] = None,
     dry_run: bool = False,
     auto_organize: bool = True,
@@ -134,7 +134,7 @@ def create_package_enhanced(
 
             # Merge with user-provided metadata
             if metadata:
-                # Handle metadata as string (common user mistake)
+                # Handle metadata as string (JSON) or dict types
                 if isinstance(metadata, str):
                     try:
                         import json
@@ -152,7 +152,19 @@ def create_package_enhanced(
                             ],
                             "tip": "Use proper JSON format with quotes around keys and string values",
                         }
-
+                else:
+                    return {
+                        "success": False,
+                        "error": "Invalid metadata type",
+                        "provided_type": type(metadata).__name__,
+                        "expected": "Dictionary object or JSON string",
+                        "examples": [
+                            '{"description": "My dataset", "version": "1.0"}',
+                            '{"tags": ["research", "2024"], "author": "scientist"}'
+                        ],
+                        "tip": "Pass metadata as a dictionary object or JSON string"
+                    }
+                
                 # Extract README content from user metadata before merging
                 # readme_content takes priority if both fields exist
                 readme_content = None

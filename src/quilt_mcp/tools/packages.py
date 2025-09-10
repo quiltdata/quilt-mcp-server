@@ -287,7 +287,8 @@ def package_browse(
                     # Try to get additional S3 metadata
                     import boto3
 
-                    s3_client = boto3.client("s3")
+                    from ..utils import get_s3_client
+                    s3_client = get_s3_client()
                     bucket_name = physical_key.split("/")[2]
                     object_key = "/".join(physical_key.split("/")[3:])
 

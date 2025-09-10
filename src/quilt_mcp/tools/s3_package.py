@@ -479,7 +479,7 @@ def package_create_from_s3(
             # Continue anyway - the user might have permissions that we can't detect
 
         # Initialize clients
-        s3_client = boto3.client("s3")
+        s3_client = get_s3_client()
 
         # Validate source bucket access
         try:

@@ -162,9 +162,10 @@ class TestS3FallbackBackend:
         backend = S3FallbackBackend()
         assert backend.status == BackendStatus.AVAILABLE
 
+    @patch("quilt_mcp.search.backends.s3.get_s3_client")
     @patch("quilt_mcp.search.backends.s3.boto3")
     @pytest.mark.asyncio
-    async def test_bucket_search(self, mock_boto3):
+    async def test_bucket_search(self, mock_boto3, mock_get_s3_client):
         """Test S3 bucket search functionality."""
         # Mock S3 client and paginator
         mock_s3_client = Mock()
@@ -188,10 +189,13 @@ class TestS3FallbackBackend:
         mock_sts_client = Mock()
         mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
 
+        # Mock both the direct boto3 calls and our centralized helper
         mock_boto3.client.side_effect = lambda service: {
             "s3": mock_s3_client,
             "sts": mock_sts_client,
         }[service]
+        
+        mock_get_s3_client.return_value = mock_s3_client
 
         backend = S3FallbackBackend()
         response = await backend.search("csv", scope="bucket", target="test-bucket")
