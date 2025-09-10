@@ -112,48 +112,36 @@ class TestAthenaTableFormatIntegration:
         mock_service = Mock()
         mock_service_class.return_value = mock_service
 
-        # Mock boto3 client and responses
-        with patch("boto3.client") as mock_boto3_client:
-            mock_client = Mock()
-            mock_boto3_client.return_value = mock_client
-
-            # Mock list_work_groups response
-            mock_client.list_work_groups.return_value = {
-                "WorkGroups": [{"Name": "QuiltUserAthena-test"}, {"Name": "primary"}]
+        # Mock the service's list_workgroups method to return test data
+        mock_service.list_workgroups.return_value = [
+            {
+                "name": "QuiltUserAthena-test",
+                "description": "Test workgroup", 
+                "creation_time": None,
+                "output_location": "s3://test-bucket/results/",
+                "enforce_workgroup_config": False,
+            },
+            {
+                "name": "primary",
+                "description": "Default workgroup",
+                "creation_time": None, 
+                "output_location": None,
+                "enforce_workgroup_config": False,
             }
+        ]
 
-            # Mock get_work_group responses
-            def mock_get_work_group(WorkGroup):
-                if WorkGroup == "QuiltUserAthena-test":
-                    return {
-                        "WorkGroup": {
-                            "Name": "QuiltUserAthena-test",
-                            "State": "ENABLED",
-                            "Description": "Test workgroup",
-                            "Configuration": {"ResultConfiguration": {"OutputLocation": "s3://test-bucket/results/"}},
-                        }
-                    }
-                elif WorkGroup == "primary":
-                    return {
-                        "WorkGroup": {
-                            "Name": "primary",
-                            "State": "ENABLED",
-                            "Description": "Default workgroup",
-                            "Configuration": {},
-                        }
-                    }
+        result = athena_workgroups_list()
 
-            mock_client.get_work_group.side_effect = mock_get_work_group
+        assert result["success"] is True
+        assert "workgroups" in result
+        assert len(result["workgroups"]) == 2
 
-            result = athena_workgroups_list()
+        # Verify the service method was called
+        mock_service.list_workgroups.assert_called_once()
 
-            assert result["success"] is True
-            assert "workgroups" in result
-            assert len(result["workgroups"]) == 2
-
-            # Should have table formatting enhancement
-            # Note: The actual implementation may not have this yet
-            # This test verifies the integration works without errors
+        # Should have table formatting enhancement
+        # Note: The actual implementation may not have this yet
+        # This test verifies the integration works without errors
 
     @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
     def test_athena_databases_list_with_table_format(self, mock_service_class):
