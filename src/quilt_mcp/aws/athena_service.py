@@ -460,3 +460,82 @@ class AthenaQueryService:
         except Exception as e:
             logger.error(f"Failed to format results: {e}")
             return format_error_response(f"Failed to format results: {str(e)}")
+
+    def list_workgroups(self) -> List[Dict[str, Any]]:
+        """List available Athena workgroups using the service's authentication patterns."""
+        try:
+            import boto3
+
+            # Use the same auth pattern as other service methods
+            if self.use_quilt_auth:
+                import quilt3
+                botocore_session = quilt3.session.create_botocore_session()
+                credentials = botocore_session.get_credentials()
+                region = "us-east-1"  # Force region for Quilt Athena workgroups
+                
+                athena_client = boto3.client(
+                    "athena",
+                    region_name=region,
+                    aws_access_key_id=credentials.access_key,
+                    aws_secret_access_key=credentials.secret_key,
+                    aws_session_token=credentials.token,
+                )
+            else:
+                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+                athena_client = boto3.client("athena", region_name=region)
+
+            # List all workgroups and filter to ENABLED only
+            response = athena_client.list_work_groups()
+            workgroups = []
+
+            # Filter to only ENABLED workgroups before processing
+            enabled_workgroups = [
+                wg for wg in response.get("WorkGroups", [])
+                if wg.get("State") == "ENABLED"
+            ]
+
+            # Process each ENABLED workgroup
+            for wg in enabled_workgroups:
+                name = wg.get("Name")
+                if not name:
+                    continue
+
+                # Preserve original AWS Description from ListWorkGroups
+                original_description = wg.get("Description", "")
+
+                try:
+                    # Get detailed workgroup info if available
+                    wg_details = athena_client.get_work_group(WorkGroup=name)
+                    workgroup_info = wg_details.get("WorkGroup", {})
+                    config = workgroup_info.get("Configuration", {})
+
+                    workgroups.append({
+                        "name": name,
+                        "description": workgroup_info.get("Description", original_description),
+                        "creation_time": workgroup_info.get("CreationTime"),
+                        "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
+                        "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
+                    })
+                except Exception as e:
+                    # Log GetWorkGroup failures but preserve original AWS description
+                    logger.info(f"GetWorkGroup failed for {name}: {str(e)}")
+                    
+                    workgroups.append({
+                        "name": name,
+                        "description": original_description,
+                        "creation_time": wg.get("CreationTime"),
+                        "output_location": None,
+                        "enforce_workgroup_config": False,
+                    })
+
+            # Sort workgroups: Quilt workgroups first, then alphabetical
+            workgroups.sort(key=lambda x: (
+                "quilt" not in x["name"].lower(),  # Quilt workgroups first
+                x["name"],  # Alphabetical
+            ))
+
+            return workgroups
+
+        except Exception as e:
+            logger.error(f"Failed to list workgroups in service: {e}")
+            raise  # Re-raise to be handled by caller

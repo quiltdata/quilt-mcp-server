@@ -761,6 +761,48 @@ class TestAthenaWorkgroupsList:
             assert "state" not in wg
             assert "Access denied" not in str(wg.get("description", ""))
 
+    @patch.object(AthenaQueryService, 'list_workgroups')
+    def test_athena_workgroups_list_uses_athena_query_service(self, mock_list_workgroups):
+        """Test that workgroups listing uses AthenaQueryService for consistent auth patterns (Episode 7)."""
+        mock_time = datetime.now(timezone.utc)
+        
+        # Mock the AthenaQueryService.list_workgroups method to return test data
+        mock_list_workgroups.return_value = [
+            {
+                "name": "service-managed-workgroup",
+                "description": "Enhanced description from service",
+                "creation_time": mock_time,
+                "output_location": "s3://results/service-managed/",
+                "enforce_workgroup_config": False,
+            }
+        ]
+
+        result = athena_workgroups_list()
+
+        # Verify success
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 1
+        
+        # Verify the result has expected structure from consolidated service
+        workgroup = result["workgroups"][0] 
+        assert workgroup["name"] == "service-managed-workgroup"
+        assert workgroup["description"] == "Enhanced description from service"
+        assert workgroup["output_location"] == "s3://results/service-managed/"
+        
+        # Key test: Verify AthenaQueryService.list_workgroups was called
+        # This will fail if the function doesn't use the service method
+        mock_list_workgroups.assert_called_once()
+        
+        # Verify all Episodes 1-6 functionality is preserved through service integration
+        # Episode 1: Only ENABLED workgroups (handled by service)
+        # Episode 2-3: No synthetic fields (accessible, state)
+        assert "accessible" not in workgroup
+        assert "state" not in workgroup
+        # Episode 4: Clean descriptions (handled by service)
+        assert "Access denied" not in workgroup["description"]
+        # Episode 5: Layered API access (handled by service)
+        assert "output_location" in workgroup
+
 
 class TestAthenaQueryValidate:
     """Test athena_query_validate function."""
