@@ -469,10 +469,11 @@ class AthenaQueryService:
             # Use the same auth pattern as other service methods
             if self.use_quilt_auth:
                 import quilt3
+
                 botocore_session = quilt3.session.create_botocore_session()
                 credentials = botocore_session.get_credentials()
                 region = "us-east-1"  # Force region for Quilt Athena workgroups
-                
+
                 athena_client = boto3.client(
                     "athena",
                     region_name=region,
@@ -489,10 +490,7 @@ class AthenaQueryService:
             workgroups = []
 
             # Filter to only ENABLED workgroups before processing
-            enabled_workgroups = [
-                wg for wg in response.get("WorkGroups", [])
-                if wg.get("State") == "ENABLED"
-            ]
+            enabled_workgroups = [wg for wg in response.get("WorkGroups", []) if wg.get("State") == "ENABLED"]
 
             # Process each ENABLED workgroup
             for wg in enabled_workgroups:
@@ -509,30 +507,36 @@ class AthenaQueryService:
                     workgroup_info = wg_details.get("WorkGroup", {})
                     config = workgroup_info.get("Configuration", {})
 
-                    workgroups.append({
-                        "name": name,
-                        "description": workgroup_info.get("Description", original_description),
-                        "creation_time": workgroup_info.get("CreationTime"),
-                        "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
-                        "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
-                    })
+                    workgroups.append(
+                        {
+                            "name": name,
+                            "description": workgroup_info.get("Description", original_description),
+                            "creation_time": workgroup_info.get("CreationTime"),
+                            "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
+                            "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
+                        }
+                    )
                 except Exception as e:
                     # Log GetWorkGroup failures but preserve original AWS description
                     logger.info(f"GetWorkGroup failed for {name}: {str(e)}")
-                    
-                    workgroups.append({
-                        "name": name,
-                        "description": original_description,
-                        "creation_time": wg.get("CreationTime"),
-                        "output_location": None,
-                        "enforce_workgroup_config": False,
-                    })
+
+                    workgroups.append(
+                        {
+                            "name": name,
+                            "description": original_description,
+                            "creation_time": wg.get("CreationTime"),
+                            "output_location": None,
+                            "enforce_workgroup_config": False,
+                        }
+                    )
 
             # Sort workgroups: Quilt workgroups first, then alphabetical
-            workgroups.sort(key=lambda x: (
-                "quilt" not in x["name"].lower(),  # Quilt workgroups first
-                x["name"],  # Alphabetical
-            ))
+            workgroups.sort(
+                key=lambda x: (
+                    "quilt" not in x["name"].lower(),  # Quilt workgroups first
+                    x["name"],  # Alphabetical
+                )
+            )
 
             return workgroups
 

@@ -586,7 +586,7 @@ class TestAthenaWorkgroupsList:
                     "CreationTime": mock_time,
                 },
                 {
-                    "Name": "enhanced-workgroup", 
+                    "Name": "enhanced-workgroup",
                     "Description": "Enhanced workgroup description",
                     "State": "ENABLED",
                     "CreationTime": mock_time,
@@ -634,7 +634,7 @@ class TestAthenaWorkgroupsList:
         assert basic_wg["output_location"] is None  # GetWorkGroup failed
         assert basic_wg["enforce_workgroup_config"] is False  # Default when GetWorkGroup fails
 
-        # Test enhanced permissions scenario (both ListWorkGroups and GetWorkGroup)  
+        # Test enhanced permissions scenario (both ListWorkGroups and GetWorkGroup)
         # Enhanced functionality available when GetWorkGroup succeeds
         assert enhanced_wg["name"] == "enhanced-workgroup"
         assert enhanced_wg["description"] == "Detailed enhanced description"  # From GetWorkGroup
@@ -663,14 +663,14 @@ class TestAthenaWorkgroupsList:
             "WorkGroups": [
                 {
                     "Name": "enabled-accessible",
-                    "Description": "Accessible workgroup description", 
+                    "Description": "Accessible workgroup description",
                     "State": "ENABLED",
                     "CreationTime": mock_time,
                 },
                 {
                     "Name": "enabled-inaccessible",
                     "Description": "Inaccessible workgroup description",
-                    "State": "ENABLED", 
+                    "State": "ENABLED",
                     "CreationTime": mock_time,
                 },
                 {
@@ -711,7 +711,7 @@ class TestAthenaWorkgroupsList:
 
         # Verify comprehensive integration
         assert result["success"] is True
-        
+
         # Episode 1: Only ENABLED workgroups should be present (DISABLED filtered out)
         assert len(result["workgroups"]) == 2  # disabled-workgroup should be filtered out
         workgroup_names = {wg["name"] for wg in result["workgroups"]}
@@ -743,7 +743,7 @@ class TestAthenaWorkgroupsList:
         # Enhanced permissions scenario
         assert accessible_wg["output_location"] == "s3://results/enabled-accessible/"
         assert accessible_wg["enforce_workgroup_config"] is True
-        # Minimal permissions scenario (graceful degradation) 
+        # Minimal permissions scenario (graceful degradation)
         assert inaccessible_wg["output_location"] is None
         assert inaccessible_wg["enforce_workgroup_config"] is False
 
@@ -755,7 +755,7 @@ class TestAthenaWorkgroupsList:
             assert "creation_time" in wg
             assert "output_location" in wg  # May be None
             assert "enforce_workgroup_config" in wg  # May be False
-            
+
             # No synthetic or error fields
             assert "accessible" not in wg
             assert "state" not in wg
@@ -765,7 +765,7 @@ class TestAthenaWorkgroupsList:
     def test_athena_workgroups_list_uses_athena_query_service(self, mock_list_workgroups):
         """Test that workgroups listing uses AthenaQueryService for consistent auth patterns (Episode 7)."""
         mock_time = datetime.now(timezone.utc)
-        
+
         # Mock the AthenaQueryService.list_workgroups method to return test data
         mock_list_workgroups.return_value = [
             {
@@ -782,17 +782,17 @@ class TestAthenaWorkgroupsList:
         # Verify success
         assert result["success"] is True
         assert len(result["workgroups"]) == 1
-        
+
         # Verify the result has expected structure from consolidated service
-        workgroup = result["workgroups"][0] 
+        workgroup = result["workgroups"][0]
         assert workgroup["name"] == "service-managed-workgroup"
         assert workgroup["description"] == "Enhanced description from service"
         assert workgroup["output_location"] == "s3://results/service-managed/"
-        
+
         # Key test: Verify AthenaQueryService.list_workgroups was called
         # This will fail if the function doesn't use the service method
         mock_list_workgroups.assert_called_once()
-        
+
         # Verify all Episodes 1-6 functionality is preserved through service integration
         # Episode 1: Only ENABLED workgroups (handled by service)
         # Episode 2-3: No synthetic fields (accessible, state)

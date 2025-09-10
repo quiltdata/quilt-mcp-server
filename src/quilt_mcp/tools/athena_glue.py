@@ -118,10 +118,10 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
         service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
-        
+
         # Get workgroups using the service's consolidated method
         workgroups = service.list_workgroups()
-        
+
         # Determine region for response metadata
         region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
