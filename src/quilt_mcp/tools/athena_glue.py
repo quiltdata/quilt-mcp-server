@@ -148,8 +148,14 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
         response = athena_client.list_work_groups()
         workgroups = []
 
-        # Test access to each workgroup
-        for wg in response.get("WorkGroups", []):
+        # Filter to only ENABLED workgroups before processing
+        enabled_workgroups = [
+            wg for wg in response.get("WorkGroups", [])
+            if wg.get("State") == "ENABLED"
+        ]
+
+        # Test access to each ENABLED workgroup
+        for wg in enabled_workgroups:
             name = wg.get("Name")
             if not name:
                 continue
@@ -168,7 +174,6 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                         "creation_time": workgroup_info.get("CreationTime"),
                         "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
                         "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
-                        "accessible": True,
                     }
                 )
             except Exception as e:
@@ -181,15 +186,13 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
                         "creation_time": None,
                         "output_location": None,
                         "enforce_workgroup_config": False,
-                        "accessible": False,
                     }
                 )
 
-        # Sort workgroups: accessible first, then Quilt workgroups first
+        # Sort workgroups: Quilt workgroups first, then alphabetical
         workgroups.sort(
             key=lambda x: (
-                not x["accessible"],  # Accessible first
-                "quilt" not in x["name"].lower(),  # Quilt workgroups first within accessible
+                "quilt" not in x["name"].lower(),  # Quilt workgroups first
                 x["name"],  # Alphabetical
             )
         )
@@ -199,7 +202,6 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
             "workgroups": workgroups,
             "region": region,
             "count": len(workgroups),
-            "accessible_count": len([wg for wg in workgroups if wg["accessible"]]),
         }
 
         # Enhance with table formatting for better readability
