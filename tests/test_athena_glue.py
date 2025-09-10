@@ -299,7 +299,7 @@ class TestAthenaWorkgroupsList:
             # Each workgroup should have required fields
             for wg in result["workgroups"]:
                 assert "name" in wg
-                assert "accessible" in wg
+                # Note: accessible field removed in Episode 2
         else:
             # Should have error message if failed
             assert "error" in result
@@ -335,6 +335,533 @@ class TestAthenaWorkgroupsList:
         assert len(result["workgroups"]) == 2
         assert result["workgroups"][0]["name"] == "analytics"  # Sorted alphabetically
         assert result["workgroups"][1]["name"] == "primary"
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_filters_enabled_only(self, mock_boto3_client):
+        """Test that only ENABLED workgroups appear in results (Episode 1)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        # Mock response with both ENABLED and DISABLED workgroups
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "enabled-workgroup",
+                    "Description": "Enabled workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "disabled-workgroup",
+                    "Description": "Disabled workgroup",
+                    "State": "DISABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "another-enabled",
+                    "Description": "Another enabled workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls for enabled workgroups only
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup in ["enabled-workgroup", "another-enabled"]:
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": f"Description for {WorkGroup}",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": False,
+                        },
+                    }
+                }
+            else:
+                # Should not be called for disabled workgroups
+                raise Exception(f"GetWorkGroup should not be called for {WorkGroup}")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Only ENABLED workgroups should appear in results
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+        workgroup_names = [wg["name"] for wg in result["workgroups"]]
+        assert "enabled-workgroup" in workgroup_names
+        assert "another-enabled" in workgroup_names
+        assert "disabled-workgroup" not in workgroup_names
+
+        # Verify GetWorkGroup was only called for ENABLED workgroups
+        expected_calls = ["enabled-workgroup", "another-enabled"]
+        actual_calls = [call.kwargs["WorkGroup"] for call in mock_athena_client.get_work_group.call_args_list]
+        assert set(actual_calls) == set(expected_calls)
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_no_synthetic_accessible_field(self, mock_boto3_client):
+        """Test that 'accessible' field is not present in any workgroup result (Episode 2)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "test-workgroup",
+                    "Description": "Test workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock successful GetWorkGroup call
+        mock_athena_client.get_work_group.return_value = {
+            "WorkGroup": {
+                "Name": "test-workgroup",
+                "State": "ENABLED",
+                "Description": "Test workgroup description",
+                "CreationTime": mock_time,
+                "Configuration": {
+                    "ResultConfiguration": {"OutputLocation": "s3://results/test-workgroup/"},
+                    "EnforceWorkGroupConfiguration": False,
+                },
+            }
+        }
+
+        result = athena_workgroups_list()
+
+        # Verify success and basic structure
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 1
+
+        # Assert 'accessible' field is not present in any workgroup result
+        workgroup = result["workgroups"][0]
+        assert "accessible" not in workgroup
+
+        # Verify expected AWS API fields are present
+        assert "name" in workgroup
+        assert "description" in workgroup
+        assert "creation_time" in workgroup
+        assert "output_location" in workgroup
+        assert "enforce_workgroup_config" in workgroup
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_no_state_field_in_output(self, mock_boto3_client):
+        """Test that 'state' field is not present in workgroup results (Episode 3)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "test-workgroup",
+                    "Description": "Test workgroup",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock successful GetWorkGroup call
+        mock_athena_client.get_work_group.return_value = {
+            "WorkGroup": {
+                "Name": "test-workgroup",
+                "State": "ENABLED",  # AWS API returns state
+                "Description": "Test workgroup description",
+                "CreationTime": mock_time,
+                "Configuration": {
+                    "ResultConfiguration": {"OutputLocation": "s3://results/test-workgroup/"},
+                    "EnforceWorkGroupConfiguration": False,
+                },
+            }
+        }
+
+        result = athena_workgroups_list()
+
+        # Verify success and basic structure
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 1
+
+        # Assert 'state' field is not present in workgroup result
+        # Since all workgroups are ENABLED (Episode 1), state field is redundant
+        workgroup = result["workgroups"][0]
+        assert "state" not in workgroup
+
+        # Verify expected AWS API fields are still present
+        assert "name" in workgroup
+        assert "description" in workgroup
+        assert "creation_time" in workgroup
+        assert "output_location" in workgroup
+        assert "enforce_workgroup_config" in workgroup
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_clean_description_field(self, mock_boto3_client):
+        """Test that description field contains only AWS data, no error messages (Episode 4)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "accessible-workgroup",
+                    "Description": "Original AWS description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "inaccessible-workgroup",
+                    "Description": "Another AWS description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls - one succeeds, one fails
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup == "accessible-workgroup":
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": "Detailed AWS description",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": False,
+                        },
+                    }
+                }
+            elif WorkGroup == "inaccessible-workgroup":
+                # Simulate access denied error
+                raise Exception("AccessDenied: User does not have permission")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Verify success and basic structure
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+
+        # Find accessible and inaccessible workgroups
+        accessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "accessible-workgroup")
+        inaccessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "inaccessible-workgroup")
+
+        # Assert accessible workgroup has clean AWS description
+        assert accessible_wg["description"] == "Detailed AWS description"
+        assert "Access denied" not in accessible_wg["description"]
+        assert "Error" not in accessible_wg["description"]
+
+        # Assert inaccessible workgroup preserves original AWS description or remains clean
+        # NO error messages should pollute the description field
+        assert "Access denied" not in inaccessible_wg["description"]
+        assert "AccessDenied" not in inaccessible_wg["description"]
+        assert "permission" not in inaccessible_wg["description"]
+        # Should preserve original AWS description from ListWorkGroups
+        assert inaccessible_wg["description"] == "Another AWS description"
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_layered_api_access(self, mock_boto3_client):
+        """Test layered API access pattern - minimal and enhanced permissions (Episode 5)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "basic-workgroup",
+                    "Description": "Basic workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "enhanced-workgroup",
+                    "Description": "Enhanced workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls - one succeeds (enhanced), one fails (minimal permissions)
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup == "enhanced-workgroup":
+                # Enhanced permissions: GetWorkGroup succeeds
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": "Detailed enhanced description",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": True,
+                        },
+                    }
+                }
+            elif WorkGroup == "basic-workgroup":
+                # Minimal permissions: GetWorkGroup fails
+                raise Exception("AccessDenied: Insufficient permissions for GetWorkGroup")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Verify core functionality works regardless of permission level
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 2
+
+        # Find workgroups
+        basic_wg = next(wg for wg in result["workgroups"] if wg["name"] == "basic-workgroup")
+        enhanced_wg = next(wg for wg in result["workgroups"] if wg["name"] == "enhanced-workgroup")
+
+        # Test minimal permissions scenario (ListWorkGroups only)
+        # Core functionality should work with data from ListWorkGroups
+        assert basic_wg["name"] == "basic-workgroup"
+        assert basic_wg["description"] == "Basic workgroup description"  # From ListWorkGroups
+        assert basic_wg["creation_time"] == mock_time  # From ListWorkGroups
+        assert basic_wg["output_location"] is None  # GetWorkGroup failed
+        assert basic_wg["enforce_workgroup_config"] is False  # Default when GetWorkGroup fails
+
+        # Test enhanced permissions scenario (both ListWorkGroups and GetWorkGroup)
+        # Enhanced functionality available when GetWorkGroup succeeds
+        assert enhanced_wg["name"] == "enhanced-workgroup"
+        assert enhanced_wg["description"] == "Detailed enhanced description"  # From GetWorkGroup
+        assert enhanced_wg["creation_time"] == mock_time  # From GetWorkGroup
+        assert enhanced_wg["output_location"] == "s3://results/enhanced-workgroup/"  # From GetWorkGroup
+        assert enhanced_wg["enforce_workgroup_config"] is True  # From GetWorkGroup
+
+        # Assert graceful degradation - GetWorkGroup failures don't break core functionality
+        # Both workgroups should be present and have essential information
+        for wg in result["workgroups"]:
+            assert "name" in wg and wg["name"]  # Essential info always available
+            assert "description" in wg  # Always has description (from ListWorkGroups at minimum)
+            assert "creation_time" in wg  # Always has creation time
+            assert "output_location" in wg  # Field exists (may be None)
+            assert "enforce_workgroup_config" in wg  # Field exists (may be default)
+
+    @patch("boto3.client")
+    def test_athena_workgroups_list_end_to_end_integration(self, mock_boto3_client):
+        """Test complete workflow with all changes applied (Episode 6)."""
+        mock_athena_client = Mock()
+        mock_boto3_client.return_value = mock_athena_client
+
+        mock_time = datetime.now(timezone.utc)
+        # Mock ListWorkGroups with ENABLED and DISABLED workgroups to test Episode 1 filtering
+        mock_athena_client.list_work_groups.return_value = {
+            "WorkGroups": [
+                {
+                    "Name": "enabled-accessible",
+                    "Description": "Accessible workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "enabled-inaccessible",
+                    "Description": "Inaccessible workgroup description",
+                    "State": "ENABLED",
+                    "CreationTime": mock_time,
+                },
+                {
+                    "Name": "disabled-workgroup",
+                    "Description": "This should be filtered out",
+                    "State": "DISABLED",  # Should be filtered by Episode 1
+                    "CreationTime": mock_time,
+                },
+            ]
+        }
+
+        # Mock GetWorkGroup calls to test Episode 4 & 5 (layered access + clean descriptions)
+        def mock_get_work_group(WorkGroup):
+            if WorkGroup == "enabled-accessible":
+                # Enhanced permissions scenario
+                return {
+                    "WorkGroup": {
+                        "Name": WorkGroup,
+                        "State": "ENABLED",
+                        "Description": "Enhanced detailed description",
+                        "CreationTime": mock_time,
+                        "Configuration": {
+                            "ResultConfiguration": {"OutputLocation": f"s3://results/{WorkGroup}/"},
+                            "EnforceWorkGroupConfiguration": True,
+                        },
+                    }
+                }
+            elif WorkGroup == "enabled-inaccessible":
+                # Minimal permissions scenario - GetWorkGroup fails
+                raise Exception("AccessDenied: Insufficient permissions")
+            elif WorkGroup == "disabled-workgroup":
+                # Should NEVER be called due to Episode 1 filtering
+                raise Exception("This workgroup should have been filtered out!")
+
+        mock_athena_client.get_work_group.side_effect = mock_get_work_group
+
+        result = athena_workgroups_list()
+
+        # Verify comprehensive integration
+        assert result["success"] is True
+
+        # Episode 1: Only ENABLED workgroups should be present (DISABLED filtered out)
+        assert len(result["workgroups"]) == 2  # disabled-workgroup should be filtered out
+        workgroup_names = {wg["name"] for wg in result["workgroups"]}
+        assert "enabled-accessible" in workgroup_names
+        assert "enabled-inaccessible" in workgroup_names
+        assert "disabled-workgroup" not in workgroup_names  # Filtered by Episode 1
+
+        # Find workgroups for detailed testing
+        accessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "enabled-accessible")
+        inaccessible_wg = next(wg for wg in result["workgroups"] if wg["name"] == "enabled-inaccessible")
+
+        # Episode 2: No synthetic 'accessible' field
+        for wg in result["workgroups"]:
+            assert "accessible" not in wg
+
+        # Episode 3: No redundant 'state' field (all are ENABLED)
+        for wg in result["workgroups"]:
+            assert "state" not in wg
+
+        # Episode 4: Clean descriptions (no error messages)
+        assert "Access denied" not in accessible_wg["description"]
+        assert "AccessDenied" not in inaccessible_wg["description"]
+        assert "permission" not in inaccessible_wg["description"]
+        # Preserve original AWS descriptions
+        assert accessible_wg["description"] == "Enhanced detailed description"  # From GetWorkGroup
+        assert inaccessible_wg["description"] == "Inaccessible workgroup description"  # From ListWorkGroups
+
+        # Episode 5: Layered API access working correctly
+        # Enhanced permissions scenario
+        assert accessible_wg["output_location"] == "s3://results/enabled-accessible/"
+        assert accessible_wg["enforce_workgroup_config"] is True
+        # Minimal permissions scenario (graceful degradation)
+        assert inaccessible_wg["output_location"] is None
+        assert inaccessible_wg["enforce_workgroup_config"] is False
+
+        # Verify all workgroups have clean AWS field structure
+        for wg in result["workgroups"]:
+            # Required AWS API fields
+            assert "name" in wg and wg["name"]
+            assert "description" in wg
+            assert "creation_time" in wg
+            assert "output_location" in wg  # May be None
+            assert "enforce_workgroup_config" in wg  # May be False
+
+            # No synthetic or error fields
+            assert "accessible" not in wg
+            assert "state" not in wg
+            assert "Access denied" not in str(wg.get("description", ""))
+
+    @patch.object(AthenaQueryService, 'list_workgroups')
+    def test_athena_workgroups_list_uses_athena_query_service(self, mock_list_workgroups):
+        """Test that workgroups listing uses AthenaQueryService for consistent auth patterns (Episode 7)."""
+        mock_time = datetime.now(timezone.utc)
+
+        # Mock the AthenaQueryService.list_workgroups method to return test data
+        mock_list_workgroups.return_value = [
+            {
+                "name": "service-managed-workgroup",
+                "description": "Enhanced description from service",
+                "creation_time": mock_time,
+                "output_location": "s3://results/service-managed/",
+                "enforce_workgroup_config": False,
+            }
+        ]
+
+        result = athena_workgroups_list()
+
+        # Verify success
+        assert result["success"] is True
+        assert len(result["workgroups"]) == 1
+
+        # Verify the result has expected structure from consolidated service
+        workgroup = result["workgroups"][0]
+        assert workgroup["name"] == "service-managed-workgroup"
+        assert workgroup["description"] == "Enhanced description from service"
+        assert workgroup["output_location"] == "s3://results/service-managed/"
+
+        # Key test: Verify AthenaQueryService.list_workgroups was called
+        # This will fail if the function doesn't use the service method
+        mock_list_workgroups.assert_called_once()
+
+        # Verify all Episodes 1-6 functionality is preserved through service integration
+        # Episode 1: Only ENABLED workgroups (handled by service)
+        # Episode 2-3: No synthetic fields (accessible, state)
+        assert "accessible" not in workgroup
+        assert "state" not in workgroup
+        # Episode 4: Clean descriptions (handled by service)
+        assert "Access denied" not in workgroup["description"]
+        # Episode 5: Layered API access (handled by service)
+        assert "output_location" in workgroup
+
+    @patch.object(AthenaQueryService, 'list_workgroups')
+    def test_discover_workgroup_uses_list_workgroups_method(self, mock_list_workgroups):
+        """Test that _discover_workgroup uses list_workgroups method internally (Episode 7 consolidation)."""
+        mock_time = datetime.now(timezone.utc)
+        
+        # Mock the list_workgroups method to return test data
+        mock_list_workgroups.return_value = [
+            {
+                "name": "QuiltUserAthena-test",
+                "description": "Quilt workgroup with output location",
+                "creation_time": mock_time,
+                "output_location": "s3://quilt-results/test/",
+                "enforce_workgroup_config": True,
+            },
+            {
+                "name": "primary",
+                "description": "Primary workgroup without output location",
+                "creation_time": mock_time,
+                "output_location": None,
+                "enforce_workgroup_config": False,
+            }
+        ]
+        
+        # Create service and test _discover_workgroup method
+        service = AthenaQueryService(use_quilt_auth=True)
+        
+        # Call _discover_workgroup (this should internally call list_workgroups)
+        result = service._discover_workgroup(None, "us-east-1")
+        
+        # Verify it returns the Quilt workgroup (prioritized and has output location)
+        assert result == "QuiltUserAthena-test"
+        
+        # Key test: Verify that list_workgroups was called internally
+        # This ensures Episode 7 consolidation is working correctly
+        mock_list_workgroups.assert_called_once()
+        
+    @patch.object(AthenaQueryService, 'list_workgroups')
+    def test_discover_workgroup_fallback_behavior(self, mock_list_workgroups):
+        """Test _discover_workgroup fallback behavior when no valid workgroups available."""
+        # Test empty workgroups list
+        mock_list_workgroups.return_value = []
+        service = AthenaQueryService(use_quilt_auth=False)
+        
+        result = service._discover_workgroup(None, "us-east-1")
+        assert result == "primary"
+        
+        # Test workgroups without output locations
+        mock_list_workgroups.return_value = [
+            {
+                "name": "test-workgroup",
+                "description": "Test workgroup",
+                "creation_time": None,
+                "output_location": None,
+                "enforce_workgroup_config": False,
+            }
+        ]
+        
+        result = service._discover_workgroup(None, "us-east-1")
+        assert result == "test-workgroup"  # Uses first available when no valid output locations
 
 
 class TestAthenaQueryValidate:

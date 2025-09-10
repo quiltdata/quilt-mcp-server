@@ -116,90 +116,20 @@ def athena_workgroups_list(use_quilt_auth: bool = True) -> Dict[str, Any]:
         List of accessible workgroups with their configurations
     """
     try:
+        # Use consolidated AthenaQueryService for consistent authentication patterns
         service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
 
-        # Get credentials and region for workgroup discovery
-        if use_quilt_auth:
-            import quilt3
+        # Get workgroups using the service's consolidated method
+        workgroups = service.list_workgroups()
 
-            botocore_session = quilt3.session.create_botocore_session()
-            credentials = botocore_session.get_credentials()
-            region = "us-east-1"
-        else:
-            credentials = None
-            region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-
-        # Use the service's workgroup discovery method
-        import boto3
-
-        # Create Athena client
-        if credentials:
-            athena_client = boto3.client(
-                "athena",
-                region_name=region,
-                aws_access_key_id=credentials.access_key,
-                aws_secret_access_key=credentials.secret_key,
-                aws_session_token=credentials.token,
-            )
-        else:
-            athena_client = boto3.client("athena", region_name=region)
-
-        # List all workgroups
-        response = athena_client.list_work_groups()
-        workgroups = []
-
-        # Test access to each workgroup
-        for wg in response.get("WorkGroups", []):
-            name = wg.get("Name")
-            if not name:
-                continue
-
-            try:
-                # Get detailed workgroup info
-                wg_details = athena_client.get_work_group(WorkGroup=name)
-                workgroup_info = wg_details.get("WorkGroup", {})
-                config = workgroup_info.get("Configuration", {})
-
-                workgroups.append(
-                    {
-                        "name": name,
-                        "state": workgroup_info.get("State"),
-                        "description": workgroup_info.get("Description", ""),
-                        "creation_time": workgroup_info.get("CreationTime"),
-                        "output_location": config.get("ResultConfiguration", {}).get("OutputLocation"),
-                        "enforce_workgroup_config": config.get("EnforceWorkGroupConfiguration", False),
-                        "accessible": True,
-                    }
-                )
-            except Exception as e:
-                # Still include workgroup but mark as inaccessible
-                workgroups.append(
-                    {
-                        "name": name,
-                        "state": "UNKNOWN",
-                        "description": f"Access denied: {str(e)}",
-                        "creation_time": None,
-                        "output_location": None,
-                        "enforce_workgroup_config": False,
-                        "accessible": False,
-                    }
-                )
-
-        # Sort workgroups: accessible first, then Quilt workgroups first
-        workgroups.sort(
-            key=lambda x: (
-                not x["accessible"],  # Accessible first
-                "quilt" not in x["name"].lower(),  # Quilt workgroups first within accessible
-                x["name"],  # Alphabetical
-            )
-        )
+        # Determine region for response metadata
+        region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
         result = {
             "success": True,
             "workgroups": workgroups,
             "region": region,
             "count": len(workgroups),
-            "accessible_count": len([wg for wg in workgroups if wg["accessible"]]),
         }
 
         # Enhance with table formatting for better readability
