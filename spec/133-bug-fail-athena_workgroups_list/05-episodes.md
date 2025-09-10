@@ -67,6 +67,7 @@ def test_athena_workgroups_list_no_synthetic_accessible_field():
 - Remove `accessible` field creation logic
 - Remove sorting by `accessible` field
 - Ensure response contains only AWS API fields
+- Update existing test assertions to remove checks for `accessible` field
 
 #### Episode 2 Refactor Phase: Structure Assessment
 
@@ -106,6 +107,7 @@ def test_athena_workgroups_list_no_state_field_in_output():
 
 - Remove `state` field from response structure
 - Update response building to exclude state information
+- Update existing test assertions to remove checks for `state` field
 
 #### Episode 3 Refactor Phase: Structure Assessment
 
@@ -146,6 +148,7 @@ def test_athena_workgroups_list_clean_description_field():
 - Remove error message injection into `description` field
 - Preserve original AWS `Description` field value
 - Handle GetWorkGroup failures without polluting description
+- Update existing test assertions to verify clean description field handling
 
 #### Episode 4 Refactor Phase: Structure Assessment
 
@@ -188,6 +191,7 @@ def test_athena_workgroups_list_layered_api_access():
 - Implement core functionality using ListWorkGroups only
 - Add optional enhancement using GetWorkGroup when available
 - Handle GetWorkGroup failures gracefully without affecting core results
+- Add new test scenarios for both minimal and enhanced permissions
 
 #### Episode 5 Refactor Phase: Structure Assessment
 
@@ -209,46 +213,48 @@ def test_athena_workgroups_list_layered_api_access():
 
 ---
 
-### Episode 6: Update Test Assertions
+### Episode 6: Final Integration Validation
 
-**Category:** Test Maintenance  
+**Category:** Integration Testing  
 **Type:** Atomic Change Unit  
 **Dependencies:** Episode 1, Episode 2, Episode 3, Episode 4, Episode 5
 
 #### Episode 6 Red Phase: Write Failing Test
 
 ```python
-def test_athena_workgroups_list_updated_assertions():
-    """All test assertions should reflect new response structure"""
-    # Update all existing test assertions
-    # Remove checks for removed fields
-    # Add checks for clean AWS field structure
+def test_athena_workgroups_list_end_to_end_integration():
+    """Complete integration test with all changes applied"""
+    # Test complete workflow with ENABLED filtering, no synthetic fields,
+    # clean descriptions, and layered API access
+    # This test should pass after all previous episodes are complete
 ```
 
-#### Episode 6 Green Phase: Minimal Implementation
+#### Episode 6 Green Phase: Final Validation
 
-- Update all test assertions in TestAthenaWorkgroupsList class
-- Remove assertions for `accessible` and `state` fields
-- Add assertions for clean description field
-- Update mock scenarios for layered API access
+- Run complete test suite to ensure all episodes work together
+- Verify no regressions in existing functionality
+- Confirm all design goals are met end-to-end
 
-#### Episode 6 Refactor Phase: Structure Assessment
+#### Episode 6 Refactor Phase: Documentation Update
 
-- Assess if test coverage is comprehensive
-- Consider if test organization could be improved
+- Update any inline documentation affected by changes
+- Ensure code comments reflect new behavior
+- Update function docstrings if needed
 
 #### Episode 6 Success Criteria
 
-- [ ] All tests pass with updated assertions
-- [ ] Test coverage maintained or improved
-- [ ] BDD scenarios cover both minimal and enhanced permissions
-- [ ] Clean data assertions in place
+- [ ] All existing tests pass
+- [ ] New integration test passes
+- [ ] No synthetic fields in any response
+- [ ] Only ENABLED workgroups returned
+- [ ] Clean AWS field structure preserved
+- [ ] Layered API access working correctly
 
 #### Episode 6 Commit Messages
 
-- Red: `test: Update failing assertions for new response structure`
-- Green: `test: Fix all workgroups list test assertions`
-- Refactor: `test: Clean up and organize workgroups test cases` (if needed)
+- Red: `test: Add end-to-end integration test for workgroups enhancement`
+- Green: `feat: Complete athena workgroups enhancement integration`
+- Refactor: `docs: Update workgroups function documentation` (if needed)
 
 ---
 
@@ -336,6 +342,9 @@ Each episode follows strict TDD:
 - All tests pass after each episode completion
 - No broken intermediate states
 - Independent testability for each atomic change
+- **CRITICAL**: Each episode updates its own test assertions during Green phase
+- Test updates are NOT deferred to a later episode
+- Every commit leaves the codebase in a working, testable state
 
 ### Commit Strategy
 
