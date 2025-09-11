@@ -28,7 +28,7 @@ help:
 	@echo "  make config-claude    - Configure Claude CLI to use local MCP server"
 	@echo ""
 	@echo "📦 Production Workflow (make.deploy):"
-	@echo "  make build            - Prepare production build environment"
+	@echo "  make deploy-build     - Prepare production build environment"
 	@echo "  make dxt              - Create DXT package"
 	@echo "  make dxt-validate     - Validate DXT package"
 	@echo "  make release-zip      - Create release bundle with documentation"
@@ -45,7 +45,7 @@ help:
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
-	@echo "  make release-local    - Full local workflow (test → build → dxt → validate → zip)"
+	@echo "  make release-local    - Full local workflow (test → deploy-build → dxt → validate → zip)"
 	@echo "  make test-readme      - Test README installation commands"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
@@ -61,7 +61,7 @@ help:
 clean: dev-clean deploy-clean
 	@echo "✅ All artifacts cleaned"
 
-release-local: test lint build dxt-validate release-zip
+release-local: clean test lint deploy-build dxt-validate release-zip
 	@echo "✅ Full local release workflow completed"
 
 # Release targets (delegated to make.deploy for semantic clarity)

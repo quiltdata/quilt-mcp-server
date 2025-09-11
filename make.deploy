@@ -26,7 +26,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: build dxt dxt-validate release-zip deploy-clean check-tools
+.PHONY: deploy-build dxt dxt-validate release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
@@ -35,7 +35,7 @@ check-tools:
 	@echo "✅ All required tools found"
 
 # Build Environment Preparation
-build: check-tools
+deploy-build: check-tools
 	@echo "Preparing production build environment..."
 	@$(MAKE) -f make.deploy build-contents
 	@$(MAKE) -f make.deploy build-test
