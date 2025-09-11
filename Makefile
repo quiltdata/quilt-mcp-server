@@ -56,12 +56,10 @@ clean: dev-clean deploy-clean
 release-local: test lint build dxt-validate release-zip
 	@echo "✅ Full local release workflow completed"
 
-# Release targets (delegated to make.deploy but renamed for semantic clarity)
-release:
-	@$(MAKE) -f make.deploy release
+# Release targets (delegated to make.deploy for semantic clarity)
+release: release-tag
 
-release-dev:
-	@$(MAKE) -f make.deploy release-dev
+release-dev: release-dev-tag
 
 # Utilities
 test-readme:

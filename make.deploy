@@ -109,8 +109,8 @@ $(RELEASE_ZIP): dxt-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
 release-zip: $(RELEASE_ZIP)
 	@echo "✅ Release bundle $(RELEASE_ZIP) ready for distribution"
 
-# Release Tagging Targets (to be renamed in main Makefile)
-release:
+# Release Tagging Targets
+release-tag:
 	@echo "Creating release tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create release tag"; \
@@ -119,7 +119,7 @@ release:
 		./bin/release.sh release; \
 	fi
 
-release-dev:
+release-dev-tag:
 	@echo "Creating development tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create development tag"; \
