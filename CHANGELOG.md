@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -6,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.6.4] - 2025-09-11
+
+### Added
+
+- **Claude CLI Integration**: Added `make config-claude` target for Claude CLI integration (#128)
+  - Streamlined setup for Claude Code development environment
+  - Automated configuration for optimal Claude CLI workflow
+
+### Enhanced
+
+- **Version Support for S3 Objects**: Added versionId support for `bucket_object_text` tool (#137, #142)
+  - Support for versioned S3 object retrieval with `?versionId=xyz` syntax
+  - Enhanced error handling for version-specific operations (InvalidVersionId, NoSuchVersion, AccessDenied)
+  - Complete implementation with comprehensive error messaging
 
 ### Tool Management
 
@@ -228,8 +242,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.1] - 2025-08-21
 
-
 ### Added
+
 - **Athena/SQL Analytics Integration**: Complete AWS Athena integration for SQL queries on Quilt data
   - `athena_databases_list` - List available Athena databases
   - `athena_tables_list` - List tables in a database  
@@ -258,6 +272,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multiple output formats (table, JSON, CSV)
 
 ### Fixed
+
 - **Installation Instructions**: Completely revised broken README installation instructions
   - Removed non-functional `uvx quilt-mcp` and `uv run quilt-mcp` commands
   - Added proper local development setup with working `uv sync` → `make app` flow
@@ -275,12 +290,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved CI/CD pipeline with better error reporting
 
 ### Changed
+
 - **Tool Count**: Updated from 13 to 66+ comprehensive tools
 - **Dependencies**: Added support for Athena, Tabulator, and GraphQL operations
 - **Error Handling**: Enhanced error messages with actionable suggestions
 - **Documentation**: Improved tool documentation and usage examples
 
 ### Technical Details
+
 - **New AWS Services**: Athena, Glue Data Catalog integration
 - **New Dependencies**: Added pandas, matplotlib, plotly for data visualization
 - **Enhanced Permissions**: Better AWS IAM permission discovery and validation
@@ -289,6 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - Previous Release
 
 ### Added
+
 - Initial MCP server implementation
 - Basic Quilt package management tools
 - S3 operations and bucket management

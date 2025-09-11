@@ -18,6 +18,84 @@ check_clean_repo() {
     echo "✅ Repository is clean"
 }
 
+bump_version() {
+    local version_type="$1"
+    
+    if [ -z "$version_type" ]; then
+        echo "❌ Version type required: major, minor, patch"
+        echo "Usage: $0 bump [major|minor|patch]"
+        exit 1
+    fi
+    
+    if [ "$version_type" != "major" ] && [ "$version_type" != "minor" ] && [ "$version_type" != "patch" ]; then
+        echo "❌ Invalid version type: $version_type"
+        echo "Valid types: major, minor, patch"
+        exit 1
+    fi
+    
+    if [ "$DRY_RUN" != "1" ]; then
+        check_clean_repo
+    fi
+    
+    echo "🔍 Reading current version from pyproject.toml..."
+    CURRENT_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+    if [ -z "$CURRENT_VERSION" ]; then
+        echo "❌ Could not read version from pyproject.toml"
+        exit 1
+    fi
+    
+    echo "📋 Current version: $CURRENT_VERSION"
+    
+    # Parse semantic version (MAJOR.MINOR.PATCH)
+    if ! echo "$CURRENT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "❌ Version must be in MAJOR.MINOR.PATCH format (e.g., 1.2.3)"
+        exit 1
+    fi
+    
+    MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+    MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)  
+    PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+    
+    # Bump version based on type
+    case "$version_type" in
+        "major")
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            ;;
+        "minor")
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            ;;
+        "patch")
+            PATCH=$((PATCH + 1))
+            ;;
+    esac
+    
+    NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+    echo "📋 New version: $NEW_VERSION"
+    
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "🔍 DRY RUN: Would update pyproject.toml version from $CURRENT_VERSION to $NEW_VERSION"
+        return
+    fi
+    
+    echo "✏️  Updating pyproject.toml..."
+    sed -i.bak "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" pyproject.toml
+    
+    # Verify the change
+    UPDATED_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+    if [ "$UPDATED_VERSION" != "$NEW_VERSION" ]; then
+        echo "❌ Failed to update version. Rolling back..."
+        mv pyproject.toml.bak pyproject.toml
+        exit 1
+    fi
+    
+    rm pyproject.toml.bak
+    echo "✅ Version updated from $CURRENT_VERSION to $NEW_VERSION"
+    echo "💡 Don't forget to commit this change before creating a release!"
+}
+
 tag_dev() {
     echo "🔍 Creating development tag..."
     
@@ -132,18 +210,36 @@ case "${1:-}" in
         fi
         tag_release
         ;;
+    "bump")
+        if [ "${3:-}" = "--dry-run" ]; then
+            DRY_RUN=1
+        fi
+        bump_version "${2:-}"
+        ;;
     *)
-        echo "Usage: $0 {dev|release} [--dry-run]"
+        echo "Usage: $0 {dev|release|bump} [options]"
         echo ""
         echo "Commands:"
-        echo "  dev     - Create development tag with timestamp"
-        echo "  release - Create release tag from pyproject.toml version"
+        echo "  dev              - Create development tag with timestamp"
+        echo "  release          - Create release tag from pyproject.toml version"  
+        echo "  bump {type}      - Bump version in pyproject.toml"
+        echo ""
+        echo "Bump types:"
+        echo "  major            - Increment major version (1.2.3 → 2.0.0)"
+        echo "  minor            - Increment minor version (1.2.3 → 1.3.0)"
+        echo "  patch            - Increment patch version (1.2.3 → 1.2.4)"
         echo ""
         echo "Options:"
-        echo "  --dry-run - Show what would be done without making changes"
+        echo "  --dry-run        - Show what would be done without making changes"
         echo ""
         echo "Environment Variables:"
-        echo "  DRY_RUN=1 - Enable dry-run mode"
+        echo "  DRY_RUN=1        - Enable dry-run mode"
+        echo ""
+        echo "Examples:"
+        echo "  $0 bump patch           # Bump patch version"
+        echo "  $0 bump minor --dry-run # Preview minor version bump"
+        echo "  $0 dev                  # Create dev tag"
+        echo "  $0 release              # Create release tag"
         exit 1
         ;;
 esac
