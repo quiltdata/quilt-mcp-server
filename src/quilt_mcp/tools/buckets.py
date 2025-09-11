@@ -5,7 +5,7 @@ from typing import Any
 import boto3
 
 from ..constants import DEFAULT_BUCKET
-from ..utils import generate_signed_url, get_s3_client
+from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
 
 # Helpers
 
@@ -84,12 +84,11 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     Returns:
         Dict with object metadata including size, content type, etag, and modification date.
     """
-    if not s3_uri.startswith("s3://"):
-        return {"error": "s3_uri must start with s3://"}
-    without = s3_uri[5:]
-    if "/" not in without:
-        return {"error": "s3_uri must include a key after the bucket/"}
-    bucket, key = without.split("/", 1)
+    try:
+        bucket, key, _ = parse_s3_uri(s3_uri)
+    except ValueError as e:
+        return {"error": str(e)}
+    
     client = get_s3_client()
     try:
         head = client.head_object(Bucket=bucket, Key=key)
@@ -119,12 +118,11 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     Returns:
         Dict with decoded text content and metadata.
     """
-    if not s3_uri.startswith("s3://"):
-        return {"error": "s3_uri must start with s3://"}
-    without = s3_uri[5:]
-    if "/" not in without:
-        return {"error": "s3_uri must include a key after the bucket/"}
-    bucket, key = without.split("/", 1)
+    try:
+        bucket, key, _ = parse_s3_uri(s3_uri)
+    except ValueError as e:
+        return {"error": str(e)}
+    
     client = get_s3_client()
     try:
         obj = client.get_object(Bucket=bucket, Key=key)
@@ -228,12 +226,11 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     """
     import base64
 
-    if not s3_uri.startswith("s3://"):
-        return {"error": "s3_uri must start with s3://"}
-    without = s3_uri[5:]
-    if "/" not in without:
-        return {"error": "s3_uri must include a key after the bucket/"}
-    bucket, key = without.split("/", 1)
+    try:
+        bucket, key, _ = parse_s3_uri(s3_uri)
+    except ValueError as e:
+        return {"error": str(e)}
+    
     client = get_s3_client()
     try:
         obj = client.get_object(Bucket=bucket, Key=key)
@@ -293,12 +290,11 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     Returns:
         Dict with presigned URL and metadata.
     """
-    if not s3_uri.startswith("s3://"):
-        return {"error": "s3_uri must start with s3://"}
-    without = s3_uri[5:]
-    if "/" not in without:
-        return {"error": "s3_uri must include a key after the bucket/"}
-    bucket, key = without.split("/", 1)
+    try:
+        bucket, key, _ = parse_s3_uri(s3_uri)
+    except ValueError as e:
+        return {"error": str(e)}
+    
     expiration = max(1, min(expiration, 604800))
     client = get_s3_client()
     try:

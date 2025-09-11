@@ -13,6 +13,7 @@ from quilt_mcp.utils import (
     create_mcp_server,
     generate_signed_url,
     get_tool_modules,
+    parse_s3_uri,
     register_tools,
     run_server,
 )
@@ -154,6 +155,75 @@ class TestUtils(unittest.TestCase):
                 Params={"Bucket": "bucket", "Key": "path/to/my-file.txt"},
                 ExpiresIn=3600,  # default
             )
+
+    def test_parse_s3_uri_valid_basic_uri(self):
+        """Test parse_s3_uri with valid basic S3 URI."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")
+        self.assertIsNone(version_id)  # Phase 2: always returns None
+
+    def test_parse_s3_uri_valid_complex_key(self):
+        """Test parse_s3_uri with complex S3 key containing slashes."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/path/to/my-file.txt")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "path/to/my-file.txt")
+        self.assertIsNone(version_id)  # Phase 2: always returns None
+
+    def test_parse_s3_uri_with_versionid_ignored(self):
+        """Test parse_s3_uri with versionId parameter (ignored in Phase 2)."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt?versionId=abc123")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt?versionId=abc123")  # Phase 2: treated as part of key
+        self.assertIsNone(version_id)  # Phase 2: always returns None
+
+    def test_parse_s3_uri_invalid_not_s3_scheme(self):
+        """Test parse_s3_uri with non-s3:// URI."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("https://bucket/key")
+        
+        self.assertIn("Invalid S3 URI format", str(context.exception))
+
+    def test_parse_s3_uri_invalid_empty_string(self):
+        """Test parse_s3_uri with empty string."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("")
+        
+        self.assertIn("Invalid S3 URI format", str(context.exception))
+
+    def test_parse_s3_uri_invalid_no_key(self):
+        """Test parse_s3_uri with URI missing key."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://bucket")
+        
+        # This should raise ValueError when trying to split without a slash
+        # The exact error message will depend on the implementation
+
+    def test_parse_s3_uri_invalid_only_scheme(self):
+        """Test parse_s3_uri with only s3:// scheme."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://")
+        
+        # This should raise ValueError when trying to split an empty string
+
+    def test_parse_s3_uri_bucket_with_special_chars(self):
+        """Test parse_s3_uri with bucket containing allowed special characters."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket-123/key.txt")
+        
+        self.assertEqual(bucket, "my-bucket-123")
+        self.assertEqual(key, "key.txt")
+        self.assertIsNone(version_id)
+
+    def test_parse_s3_uri_key_with_special_chars(self):
+        """Test parse_s3_uri with key containing special characters."""
+        bucket, key, version_id = parse_s3_uri("s3://bucket/path/with spaces and-symbols_123.txt")
+        
+        self.assertEqual(bucket, "bucket")
+        self.assertEqual(key, "path/with spaces and-symbols_123.txt")
+        self.assertIsNone(version_id)
 
 
 class TestMCPServerConfiguration(unittest.TestCase):
