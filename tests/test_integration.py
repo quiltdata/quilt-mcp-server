@@ -751,14 +751,17 @@ class TestBucketObjectVersionConsistency:
         fetch_result = bucket_object_fetch(nonexistent_uri)
         link_result = bucket_object_link(nonexistent_uri)
 
-        # All should fail with error
+        # info, text, and fetch should fail with error (they access the object)
         assert "error" in info_result
         assert "error" in text_result  
         assert "error" in fetch_result
-        assert "error" in link_result
+        
+        # link should succeed (S3 allows presigned URLs for non-existent objects)
+        assert "error" not in link_result
+        assert "presigned_url" in link_result
 
-        # Error messages should indicate object not found
-        for result in [info_result, text_result, fetch_result, link_result]:
+        # Error messages should indicate object not found for functions that access objects
+        for result in [info_result, text_result, fetch_result]:
             error_msg = result["error"].lower()
             assert any(term in error_msg for term in ["not found", "does not exist", "no such key"]), \
                 f"Expected 'not found' error, got: {result['error']}"
