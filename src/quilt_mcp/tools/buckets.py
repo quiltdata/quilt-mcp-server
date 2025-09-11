@@ -79,10 +79,19 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     """Get metadata information for a specific S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/object" or "s3://bucket-name/path/to/object?versionId=xyz")
+        s3_uri: Full S3 URI, optionally with versionId query parameter
+                Examples:
+                - "s3://bucket-name/path/to/object"
+                - "s3://bucket-name/path/to/object?versionId=abc123"
 
     Returns:
         Dict with object metadata including size, content type, etag, and modification date.
+        For versioned objects, includes version-specific metadata.
+        
+    Version-specific Error Responses:
+        - InvalidVersionId: Generic error with operation details
+        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
+        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
@@ -122,12 +131,21 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     """Read text content from an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file.txt" or "s3://bucket-name/path/to/file.txt?versionId=xyz")
+        s3_uri: Full S3 URI, optionally with versionId query parameter
+                Examples:
+                - "s3://bucket-name/path/to/file.txt"
+                - "s3://bucket-name/path/to/file.txt?versionId=xyz"
         max_bytes: Maximum bytes to read (default: 65536)
         encoding: Text encoding to use (default: "utf-8")
 
     Returns:
         Dict with decoded text content and metadata.
+        For versioned objects, retrieves content from the specific version.
+        
+    Version-specific Error Responses:
+        - InvalidVersionId: Generic error with operation details
+        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
+        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
@@ -239,12 +257,21 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     """Fetch binary or text data from an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file" or "s3://bucket-name/path/to/file?versionId=xyz")
+        s3_uri: Full S3 URI, optionally with versionId query parameter
+                Examples:
+                - "s3://bucket-name/path/to/file"
+                - "s3://bucket-name/path/to/file?versionId=xyz"
         max_bytes: Maximum bytes to read (default: 65536)
         base64_encode: Return binary data as base64 (default: True)
 
     Returns:
         Dict with object data as base64 or text, plus metadata.
+        For versioned objects, fetches data from the specific version.
+        
+    Version-specific Error Responses:
+        - InvalidVersionId: Generic error with operation details
+        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
+        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
     import base64
 
@@ -317,11 +344,20 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     """Generate a presigned URL for downloading an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file" or "s3://bucket-name/path/to/file?versionId=xyz")
+        s3_uri: Full S3 URI, optionally with versionId query parameter
+                Examples:
+                - "s3://bucket-name/path/to/file"
+                - "s3://bucket-name/path/to/file?versionId=xyz"
         expiration: URL expiration time in seconds (default: 3600, max: 604800)
 
     Returns:
         Dict with presigned URL and metadata.
+        For versioned objects, generates URL for the specific version.
+        
+    Version-specific Error Responses:
+        - InvalidVersionId: Generic error with operation details
+        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
+        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
