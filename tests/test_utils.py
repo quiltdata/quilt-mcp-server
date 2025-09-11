@@ -13,6 +13,7 @@ from quilt_mcp.utils import (
     create_mcp_server,
     generate_signed_url,
     get_tool_modules,
+    parse_s3_uri,
     register_tools,
     run_server,
 )
@@ -54,17 +55,17 @@ class TestUtils(unittest.TestCase):
             self.assertIn("quilt-example", result)
             self.assertIn("README.md", result)
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_mocked(self, mock_s3_client):
         """Test successful URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         result = generate_signed_url("s3://my-bucket/my-key.txt", 1800)
 
         self.assertEqual(result, "https://signed.url")
-        mock_boto_client.assert_called_once_with("s3")
+        mock_s3_client.assert_called_once()
         mock_client.generate_presigned_url.assert_called_once_with(
             "get_object",
             Params={"Bucket": "my-bucket", "Key": "my-key.txt"},
@@ -92,12 +93,12 @@ class TestUtils(unittest.TestCase):
         result2 = generate_signed_url(test_s3_uri, 700000)  # > 7 days
         assert result2.startswith("https://")
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_expiration_limits_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_expiration_limits_mocked(self, mock_s3_client):
         """Test expiration time limits with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         # Test minimum (0 should become 1)
         generate_signed_url("s3://bucket/key", 0)
@@ -128,12 +129,12 @@ class TestUtils(unittest.TestCase):
         # So we expect either a valid URL or None (depending on credentials/permissions)
         assert result is None or (isinstance(result, str) and result.startswith("https://"))
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_exception_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_exception_mocked(self, mock_s3_client):
         """Test handling of exceptions during URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.side_effect = Exception("AWS Error")
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         result = generate_signed_url("s3://bucket/key")
 
@@ -141,10 +142,10 @@ class TestUtils(unittest.TestCase):
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
-        with patch("quilt_mcp.utils.boto3.client") as mock_boto_client:
+        with patch("quilt_mcp.utils.get_s3_client") as mock_s3_client:
             mock_client = MagicMock()
             mock_client.generate_presigned_url.return_value = "https://signed.url"
-            mock_boto_client.return_value = mock_client
+            mock_s3_client.return_value = mock_client
 
             result = generate_signed_url("s3://bucket/path/to/my-file.txt")
 
@@ -155,6 +156,143 @@ class TestUtils(unittest.TestCase):
                 ExpiresIn=3600,  # default
             )
 
+    def test_parse_s3_uri_valid_basic_uri(self):
+        """Test parse_s3_uri with valid basic S3 URI."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")
+        self.assertIsNone(version_id)  # Phase 2: always returns None
+
+    def test_parse_s3_uri_valid_complex_key(self):
+        """Test parse_s3_uri with complex S3 key containing slashes."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/path/to/my-file.txt")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "path/to/my-file.txt")
+        self.assertIsNone(version_id)  # Phase 2: always returns None
+
+    def test_parse_s3_uri_with_versionid_parsed(self):
+        """Test parse_s3_uri with versionId parameter (parsed in Phase 3)."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt?versionId=abc123")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")  # Phase 3: query parameters extracted from key
+        self.assertEqual(version_id, "abc123")  # Phase 3: returns parsed version_id
+    def test_parse_s3_uri_with_versionid_extracted(self):
+        """Test parse_s3_uri with versionId parameter (extracted in Phase 3)."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt?versionId=abc123")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")  # Phase 3: query parameters extracted from key
+        self.assertEqual(version_id, "abc123")  # Phase 3: returns parsed version_id
+
+    def test_parse_s3_uri_invalid_not_s3_scheme(self):
+        """Test parse_s3_uri with non-s3:// URI."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("https://bucket/key")
+        
+        self.assertIn("Invalid S3 URI scheme", str(context.exception))
+
+    def test_parse_s3_uri_invalid_empty_string(self):
+        """Test parse_s3_uri with empty string."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("")
+        
+        self.assertIn("Invalid S3 URI scheme", str(context.exception))
+
+    def test_parse_s3_uri_invalid_no_key(self):
+        """Test parse_s3_uri with URI missing key."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://bucket")
+        
+        # This should raise ValueError when trying to split without a slash
+        # The exact error message will depend on the implementation
+
+    def test_parse_s3_uri_invalid_only_scheme(self):
+        """Test parse_s3_uri with only s3:// scheme."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://")
+        
+        # This should raise ValueError when trying to split an empty string
+
+    def test_parse_s3_uri_bucket_with_special_chars(self):
+        """Test parse_s3_uri with bucket containing allowed special characters."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket-123/key.txt")
+        
+        self.assertEqual(bucket, "my-bucket-123")
+        self.assertEqual(key, "key.txt")
+        self.assertIsNone(version_id)
+
+    def test_parse_s3_uri_key_with_special_chars(self):
+        """Test parse_s3_uri with key containing special characters."""
+        bucket, key, version_id = parse_s3_uri("s3://bucket/path/with spaces and-symbols_123.txt")
+        
+        self.assertEqual(bucket, "bucket")
+        self.assertEqual(key, "path/with spaces and-symbols_123.txt")
+        self.assertIsNone(version_id)
+
+    # Phase 3 Tests: versionId query parameter support
+    
+    def test_parse_s3_uri_with_valid_versionid(self):
+        """Test parse_s3_uri with valid versionId query parameter."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt?versionId=abc123")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")
+        self.assertEqual(version_id, "abc123")
+
+    def test_parse_s3_uri_with_versionid_complex_key(self):
+        """Test parse_s3_uri with versionId and complex key path."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/path/to/file.txt?versionId=def456")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "path/to/file.txt")
+        self.assertEqual(version_id, "def456")
+
+    def test_parse_s3_uri_with_url_encoded_key_and_versionid(self):
+        """Test parse_s3_uri with URL encoded key and versionId."""
+        bucket, key, version_id = parse_s3_uri("s3://bucket/key%20with%20spaces?versionId=abc123")
+        
+        self.assertEqual(bucket, "bucket")
+        self.assertEqual(key, "key with spaces")  # Should be URL decoded
+        self.assertEqual(version_id, "abc123")
+
+    def test_parse_s3_uri_with_url_encoded_path_and_versionid(self):
+        """Test parse_s3_uri with URL encoded path separators and versionId."""
+        bucket, key, version_id = parse_s3_uri("s3://bucket/path%2Fto%2Ffile?versionId=def456")
+        
+        self.assertEqual(bucket, "bucket")
+        self.assertEqual(key, "path/to/file")  # Should be URL decoded
+        self.assertEqual(version_id, "def456")
+
+    def test_parse_s3_uri_with_invalid_query_parameter(self):
+        """Test parse_s3_uri with invalid query parameter."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://bucket/key?other=value")
+        
+        self.assertIn("Unexpected S3 query string", str(context.exception))
+
+    def test_parse_s3_uri_with_multiple_query_parameters(self):
+        """Test parse_s3_uri with multiple query parameters (versionId + other)."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://bucket/key?versionId=abc&other=value")
+        
+        self.assertIn("Unexpected S3 query string", str(context.exception))
+
+    def test_parse_s3_uri_with_prefix_query_parameter(self):
+        """Test parse_s3_uri with prefix query parameter (should fail)."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("s3://bucket/key?prefix=test")
+        
+        self.assertIn("Unexpected S3 query string", str(context.exception))
+
+    def test_parse_s3_uri_invalid_scheme_with_query(self):
+        """Test parse_s3_uri with invalid scheme but valid query format."""
+        with self.assertRaises(ValueError) as context:
+            parse_s3_uri("https://bucket/key?versionId=abc123")
+        
+        self.assertIn("Invalid S3 URI scheme", str(context.exception))
 
 class TestMCPServerConfiguration(unittest.TestCase):
     """Test MCP server creation and configuration."""
