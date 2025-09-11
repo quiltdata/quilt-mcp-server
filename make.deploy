@@ -56,7 +56,7 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 $(APP_MARKER): $(APP_FILES)
 	@echo "Copying app source code..."
 	@for file in $(APP_FILES); do \
-		rel_path=$${file#app/}; \
+		rel_path=$${file#src/}; \
 		mkdir -p "$$(dirname "$(BUILD_DIR)/$$rel_path")"; \
 		cp $$file $(BUILD_DIR)/$$rel_path; \
 	done
