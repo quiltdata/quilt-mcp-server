@@ -10,8 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tool Management
 
 - **Tool Re-enablement**: Re-enabled `bucket_objects_list` tool
-  - Removed from excluded tools list to restore client access
-  - Tool remains fully functional for bucket object listing operations
+  - Still useful as a complement to bucket search
+
+- **Tool Consolidation**: Disabled `athena_tables_list` tool
+  - Does not seem to work
+  - Prefer using `athena_query_execute` for table listing operations
 
 ### Enhanced Athena Workgroups Management
 
