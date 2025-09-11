@@ -147,12 +147,27 @@ class PhysicalKey:
 
 ### 3. Testing Limitations
 
-**Current Test Patterns** (from `/Users/ernest/GitHub/quilt-mcp-server/tests/test_bucket_tools.py`):
+**Current Test Patterns**:
 
-- Integration tests use real AWS objects from `DEFAULT_BUCKET`
-- Test URIs constructed as `f"{DEFAULT_BUCKET}/{test_object['key']}"` (lines 53, 111, 134)
+**Unit Tests** (`/Users/ernest/GitHub/quilt-mcp-server/tests/test_bucket_tools.py`):
+
+- `test_bucket_object_info_success()` - Real AWS integration test (line 40)
+- `test_bucket_object_info_invalid_uri()` - Mock error test (line 62)
+- `test_bucket_object_fetch_base64()` - Mock success test (line 98)
+- `test_bucket_object_link_success()` - Mock success test (line 121)
+- `test_bucket_object_link_invalid_uri()` - Mock error test (line 145)
+
+**Integration Tests** (`/Users/ernest/GitHub/quilt-mcp-server/tests/test_integration.py`):
+
+- `test_bucket_object_info_known_file()` - Real AWS with known object (line 207)
+- `test_bucket_object_text_csv_file()` - Real AWS text reading (line 220)
+- `test_bucket_object_fetch_returns_data()` - Real AWS fetch test (line 431)
+
+**Current Coverage Gaps**:
+
 - No existing tests for URI query parameters or versioned objects
-- Mock tests use basic error simulation but no version-specific scenarios
+- No version-specific error scenarios (invalid version, access denied)
+- Missing `bucket_object_link` integration tests with real AWS
 
 ## Architectural Challenges and Design Considerations
 
