@@ -680,5 +680,89 @@ class TestQuiltAPI:
         ), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 
+@pytest.mark.aws
+class TestBucketObjectVersionConsistency:
+    """Integration tests for versionId consistency across bucket_object_* functions."""
+
+    def test_bucket_object_functions_consistency_with_real_object(self):
+        """Test that all bucket_object_* functions work consistently with a real S3 object."""
+        from tests.test_helpers import skip_if_no_aws_credentials
+
+        skip_if_no_aws_credentials()
+
+        # Get a real object from the test bucket
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
+        if not objects_result.get("objects"):
+            pytest.skip(f"No objects found in test bucket {KNOWN_BUCKET}")
+
+        test_object = objects_result["objects"][0]
+        test_s3_uri = f"{KNOWN_BUCKET}/{test_object['key']}"
+
+        # Call all four functions with the same URI
+        info_result = bucket_object_info(test_s3_uri)
+        text_result = bucket_object_text(test_s3_uri, max_bytes=1024)
+        fetch_result = bucket_object_fetch(test_s3_uri, max_bytes=1024)
+        link_result = bucket_object_link(test_s3_uri)
+
+        # All should succeed (or all should fail consistently)
+        all_succeed = all("error" not in result for result in [info_result, text_result, fetch_result, link_result])
+        all_fail = all("error" in result for result in [info_result, text_result, fetch_result, link_result])
+
+        assert all_succeed or all_fail, "Functions should have consistent success/failure status"
+
+        if all_succeed:
+            # Verify consistent bucket/key information
+            expected_bucket = KNOWN_BUCKET.replace("s3://", "")
+            assert info_result["bucket"] == expected_bucket
+            assert text_result["bucket"] == expected_bucket
+            assert fetch_result["bucket"] == expected_bucket
+            assert link_result["bucket"] == expected_bucket
+
+            assert info_result["key"] == test_object["key"]
+            assert text_result["key"] == test_object["key"]
+            assert fetch_result["key"] == test_object["key"]
+            assert link_result["key"] == test_object["key"]
+
+    def test_invalid_uri_handling_consistency(self):
+        """Test that all functions handle invalid URIs consistently."""
+        invalid_uri = "not-a-valid-s3-uri"
+
+        info_result = bucket_object_info(invalid_uri)
+        text_result = bucket_object_text(invalid_uri)
+        fetch_result = bucket_object_fetch(invalid_uri)
+        link_result = bucket_object_link(invalid_uri)
+
+        # All should fail with error
+        assert "error" in info_result
+        assert "error" in text_result
+        assert "error" in fetch_result
+        assert "error" in link_result
+
+    def test_nonexistent_object_handling_consistency(self):
+        """Test that all functions handle non-existent objects consistently."""
+        from tests.test_helpers import skip_if_no_aws_credentials
+
+        skip_if_no_aws_credentials()
+
+        nonexistent_uri = f"{KNOWN_BUCKET}/definitely-does-not-exist-{int(time.time())}.txt"
+
+        info_result = bucket_object_info(nonexistent_uri)
+        text_result = bucket_object_text(nonexistent_uri)
+        fetch_result = bucket_object_fetch(nonexistent_uri)
+        link_result = bucket_object_link(nonexistent_uri)
+
+        # All should fail with error
+        assert "error" in info_result
+        assert "error" in text_result  
+        assert "error" in fetch_result
+        assert "error" in link_result
+
+        # Error messages should indicate object not found
+        for result in [info_result, text_result, fetch_result, link_result]:
+            error_msg = result["error"].lower()
+            assert any(term in error_msg for term in ["not found", "does not exist", "no such key"]), \
+                f"Expected 'not found' error, got: {result['error']}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
