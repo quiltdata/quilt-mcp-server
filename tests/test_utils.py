@@ -179,6 +179,13 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(bucket, "my-bucket")
         self.assertEqual(key, "my-key.txt")  # Phase 3: query parameters extracted from key
         self.assertEqual(version_id, "abc123")  # Phase 3: returns parsed version_id
+    def test_parse_s3_uri_with_versionid_extracted(self):
+        """Test parse_s3_uri with versionId parameter (extracted in Phase 3)."""
+        bucket, key, version_id = parse_s3_uri("s3://my-bucket/my-key.txt?versionId=abc123")
+        
+        self.assertEqual(bucket, "my-bucket")
+        self.assertEqual(key, "my-key.txt")  # Phase 3: query parameters extracted from key
+        self.assertEqual(version_id, "abc123")  # Phase 3: returns parsed version_id
 
     def test_parse_s3_uri_invalid_not_s3_scheme(self):
         """Test parse_s3_uri with non-s3:// URI."""
@@ -286,7 +293,6 @@ class TestUtils(unittest.TestCase):
             parse_s3_uri("https://bucket/key?versionId=abc123")
         
         self.assertIn("Invalid S3 URI scheme", str(context.exception))
-
 
 class TestMCPServerConfiguration(unittest.TestCase):
     """Test MCP server creation and configuration."""

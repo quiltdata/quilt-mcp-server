@@ -50,7 +50,6 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
     
     return bucket, path, version_id
 
-
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
     """Generate a presigned URL for an S3 URI.
 
