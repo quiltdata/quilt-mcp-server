@@ -35,6 +35,14 @@ help:
 	@echo "  make release          - Create and push release tag"
 	@echo "  make release-dev      - Create and push development tag"
 	@echo ""
+	@echo "🔢 Version Management:"
+	@echo "  make bump-patch       - Bump patch version (1.2.3 → 1.2.4)"
+	@echo "  make bump-minor       - Bump minor version (1.2.3 → 1.3.0)"
+	@echo "  make bump-major       - Bump major version (1.2.3 → 2.0.0)"
+	@echo "  make release-patch    - Bump patch version, commit, and create release"
+	@echo "  make release-minor    - Bump minor version, commit, and create release"
+	@echo "  make release-major    - Bump major version, commit, and create release"
+	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
 	@echo "  make release-local    - Full local workflow (test → build → dxt → validate → zip)"
@@ -81,3 +89,41 @@ update-cursor-rules:
 config-claude:
 	@claude mcp add quilt-mcp --env FASTMCP_TRANSPORT=stdio -- make run
 	@claude mcp list
+
+# Version Management Targets
+bump-patch:
+	@bin/release.sh bump patch
+
+bump-minor:
+	@bin/release.sh bump minor
+
+bump-major:
+	@bin/release.sh bump major
+
+# Combined Release Targets (bump + commit + tag)
+release-patch: bump-patch
+	@echo "🔍 Committing patch version bump..."
+	@git add pyproject.toml
+	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
+	git commit -m "bump: patch version to $$VERSION"; \
+	echo "✅ Committed version bump to $$VERSION"
+	@echo "🏷️  Creating release tag..."
+	@bin/release.sh release
+
+release-minor: bump-minor
+	@echo "🔍 Committing minor version bump..."
+	@git add pyproject.toml
+	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
+	git commit -m "bump: minor version to $$VERSION"; \
+	echo "✅ Committed version bump to $$VERSION"
+	@echo "🏷️  Creating release tag..."
+	@bin/release.sh release
+
+release-major: bump-major
+	@echo "🔍 Committing major version bump..."
+	@git add pyproject.toml
+	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
+	git commit -m "bump: major version to $$VERSION"; \
+	echo "✅ Committed version bump to $$VERSION"
+	@echo "🏷️  Creating release tag..."
+	@bin/release.sh release

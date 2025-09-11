@@ -463,16 +463,23 @@ This automatically:
 - Triggers GitHub Actions for full release
 - Creates GitHub release with DXT package and documentation
 
-#### Manual Version Bumping
+#### Version Bumping
 
-Before creating releases, update the version in `pyproject.toml`:
+Update versions using convenient make targets:
 
 ```bash
-# Edit version manually
-vim pyproject.toml
+# Automated version bumping
+make bump-patch       # 0.6.4 → 0.6.5
+make bump-minor       # 0.6.4 → 0.7.0  
+make bump-major       # 0.6.4 → 1.0.0
 
-# Or use sed for patch bumps
-sed -i 's/version = "0.6.4"/version = "0.6.5"/' pyproject.toml
+# Combined bump + commit + release
+make release-patch    # Bump patch, commit, and create release tag
+make release-minor    # Bump minor, commit, and create release tag
+make release-major    # Bump major, commit, and create release tag
+
+# Manual editing (if needed)
+vim pyproject.toml
 
 # Test the release process locally
 make release-local  # Builds but doesn't push tags
