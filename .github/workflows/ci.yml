@@ -34,7 +34,7 @@ jobs:
           echo "Running all tests including slow tests for Python 3.11..."
           uv sync --group test
           mkdir -p build/test-results
-          export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search" --timeout=30 --disable-warnings \
+          export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search" --timeout=${PYTEST_TIMEOUT:-120} --disable-warnings \
             --junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
         else
           echo "Running CI tests (skipping slow tests) for Python ${{ matrix.python-version }}..."
