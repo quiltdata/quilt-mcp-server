@@ -374,19 +374,7 @@ The following permissions are granted for this repository:
 - **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
 - **NEVER update historical specs** - Spec files in `./spec/` are historical documentation of what was done at the time. Only update current operational files like README.md, Makefiles, and source code when fixing references
 
-**Release System Transformation (Phase 4 Clean Release System):**
-
-The release system has been transformed from confusing legacy targets to semantic, self-documenting targets:
-
-**Legacy Targets (REMOVED):**
-
-- ❌ `make package` - Was misleading (created DXT not Python package)
-- ❌ `make dxt-package` - Redundant alias
-- ❌ `make validate-package` - Unclear package type
-- ❌ `make release-package` - Confusing (creates zip bundle)
-- ❌ `make tag`, `make tag-dev` - Unclear what they tag
-
-**New Semantic Targets:**
+**Release System
 
 - ✅ `make dxt` - Creates DXT package (.dxt file)
 - ✅ `make dxt-validate` - Validates DXT package integrity

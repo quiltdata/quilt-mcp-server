@@ -425,6 +425,102 @@ make build                 # Build Docker image
 make deploy               # Deploy to AWS
 ```
 
+## 📦 Release Management
+
+### Creating Releases
+
+The project follows semantic versioning with automated release workflows:
+
+#### Development Releases (Pre-releases)
+
+Create development tags for testing and internal distribution:
+
+```bash
+# Create a development release from current branch
+make release-dev
+```
+
+This automatically:
+
+- Reads version from `pyproject.toml`
+- Creates a timestamped dev tag (e.g., `v0.6.4-dev-20250910212915`)
+- Triggers GitHub Actions to build DXT package
+- Creates GitHub pre-release with assets
+
+#### Production Releases
+
+Create stable releases from main branch:
+
+```bash
+# Create a production release (must be on main branch)  
+make release
+```
+
+This automatically:
+
+- Reads version from `pyproject.toml`
+- Creates a stable tag (e.g., `v0.6.4`)
+- Triggers GitHub Actions for full release
+- Creates GitHub release with DXT package and documentation
+
+#### Version Bumping
+
+Update versions using convenient make targets:
+
+```bash
+# Automated version bumping
+make bump-patch       # 0.6.4 → 0.6.5
+make bump-minor       # 0.6.4 → 0.7.0  
+make bump-major       # 0.6.4 → 1.0.0
+
+# Combined bump + commit + release
+make release-patch    # Bump patch, commit, and create release tag
+make release-minor    # Bump minor, commit, and create release tag
+make release-major    # Bump major, commit, and create release tag
+
+# Manual editing (if needed)
+vim pyproject.toml
+
+# Test the release process locally
+make release-local  # Builds but doesn't push tags
+```
+
+#### Release Validation
+
+All releases undergo automated validation:
+
+```bash
+# Local release workflow (no git operations)
+make release-local
+
+# Individual release targets for testing
+make dxt           # Build DXT package
+make dxt-validate  # Validate DXT integrity
+make release-zip   # Create release bundle
+```
+
+**GitHub Actions** automatically:
+
+1. Runs full test suite (Python 3.11, 3.12, 3.13)
+2. Builds and validates DXT package
+3. Creates release bundle with documentation
+4. Publishes to GitHub Releases
+
+### Release Artifacts
+
+Each release includes:
+
+- **`.dxt` file**: Claude Desktop Extension package
+- **`-release.zip`**: Complete release bundle with installation scripts
+- **Release notes**: Auto-generated from commit history
+
+### Version Management
+
+- **Single source of truth**: `pyproject.toml` contains authoritative version
+- **Semantic versioning**: `MAJOR.MINOR.PATCH` format
+- **Development tags**: Include timestamp for uniqueness
+- **Pre-release tags**: Support `-rc.1`, `-alpha.1`, `-beta.1` formats
+
 ## 🔒 Security
 
 - **IAM Integration**: AWS IAM roles and policies for secure access
