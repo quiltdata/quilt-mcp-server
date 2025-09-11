@@ -169,6 +169,17 @@ class PhysicalKey:
 - No version-specific error scenarios (invalid version, access denied)
 - Missing `bucket_object_link` integration tests with real AWS
 
+**Known Test Failures**:
+
+- `test_bucket_object_link_error()` - Mocks `boto3.client` but code uses `get_s3_client()`, causing mock to be ineffective and test to fail
+- `test_utils.py` mocking failures:
+  - `test_generate_signed_url_complex_key` - Mock expectations not met
+  - `test_generate_signed_url_exception_mocked` - Mock setup ineffective
+  - `test_generate_signed_url_expiration_limits_mocked` - Mock not called as expected
+  - `test_generate_signed_url_mocked` - Mock returning real URLs instead of mocked values
+
+**Root Cause**: Systematic mocking inconsistency where tests mock `boto3.client()` but code uses `get_s3_client()` helper function
+
 ## Architectural Challenges and Design Considerations
 
 ### 1. URI Parsing Architecture
