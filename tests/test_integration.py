@@ -22,6 +22,7 @@ from quilt_mcp.tools.auth import (
 from quilt_mcp.tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,
+    bucket_object_link,
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
@@ -459,6 +460,32 @@ class TestQuiltAPI:
         assert "data" in result or "text" in result, "Should return either data or text"
         assert "size" in result
         assert result["size"] > 0, "Fetched object should have content"
+
+    def test_bucket_object_link_integration(self):
+        """Test bucket_object_link integration with real AWS."""
+        # Use a small object from bucket listing
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
+        if not objects_result.get("objects"):
+            pytest.skip("No objects found to test presigned URL generation")
+
+        # Find any object to test with
+        test_object = objects_result["objects"][0]
+        s3_uri = f"s3://{objects_result['bucket']}/{test_object['key']}"
+        
+        result = bucket_object_link(s3_uri, expiration=7200)
+
+        assert isinstance(result, dict)
+        if "error" in result:
+            pytest.skip(f"Object not accessible for URL generation: {result['error']}")
+
+        assert "bucket" in result
+        assert "key" in result
+        assert "presigned_url" in result
+        assert "expires_in" in result
+        assert result["expires_in"] == 7200
+        assert result["presigned_url"].startswith("https://")
+        assert result["bucket"] == objects_result["bucket"]
+        assert result["key"] == test_object["key"]
 
     def test_bucket_objects_put_small_file(self):
         """Test uploading small objects to S3."""
