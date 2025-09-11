@@ -14,6 +14,31 @@ import boto3
 from fastmcp import FastMCP
 
 
+def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
+    """
+    Parse S3 URI into bucket, key, and version_id components.
+    
+    Args:
+        s3_uri: S3 URI in format 's3://bucket/key' or 's3://bucket/key?versionId=xyz'
+        
+    Returns:
+        Tuple of (bucket, key, version_id) where version_id is always None in Phase 2
+        
+    Raises:
+        ValueError: If URI format is invalid
+    """
+    if not s3_uri.startswith("s3://"):
+        raise ValueError(f"Invalid S3 URI format: {s3_uri}")
+    
+    without = s3_uri[5:]  # Remove s3:// prefix
+    if "/" not in without:
+        raise ValueError(f"Invalid S3 URI format: {s3_uri}")
+    
+    bucket, key = without.split("/", 1)  # Split on first slash
+    
+    return bucket, key, None  # version_id always None in Phase 2
+
+
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
     """Generate a presigned URL for an S3 URI.
 
