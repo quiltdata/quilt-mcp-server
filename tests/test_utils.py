@@ -54,17 +54,17 @@ class TestUtils(unittest.TestCase):
             self.assertIn("quilt-example", result)
             self.assertIn("README.md", result)
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_mocked(self, mock_s3_client):
         """Test successful URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         result = generate_signed_url("s3://my-bucket/my-key.txt", 1800)
 
         self.assertEqual(result, "https://signed.url")
-        mock_boto_client.assert_called_once_with("s3")
+        mock_s3_client.assert_called_once()
         mock_client.generate_presigned_url.assert_called_once_with(
             "get_object",
             Params={"Bucket": "my-bucket", "Key": "my-key.txt"},
@@ -92,12 +92,12 @@ class TestUtils(unittest.TestCase):
         result2 = generate_signed_url(test_s3_uri, 700000)  # > 7 days
         assert result2.startswith("https://")
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_expiration_limits_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_expiration_limits_mocked(self, mock_s3_client):
         """Test expiration time limits with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.return_value = "https://signed.url"
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         # Test minimum (0 should become 1)
         generate_signed_url("s3://bucket/key", 0)
@@ -128,12 +128,12 @@ class TestUtils(unittest.TestCase):
         # So we expect either a valid URL or None (depending on credentials/permissions)
         assert result is None or (isinstance(result, str) and result.startswith("https://"))
 
-    @patch("quilt_mcp.utils.boto3.client")
-    def test_generate_signed_url_exception_mocked(self, mock_boto_client):
+    @patch("quilt_mcp.utils.get_s3_client")
+    def test_generate_signed_url_exception_mocked(self, mock_s3_client):
         """Test handling of exceptions during URL generation with mocks (unit test)."""
         mock_client = MagicMock()
         mock_client.generate_presigned_url.side_effect = Exception("AWS Error")
-        mock_boto_client.return_value = mock_client
+        mock_s3_client.return_value = mock_client
 
         result = generate_signed_url("s3://bucket/key")
 
@@ -141,10 +141,10 @@ class TestUtils(unittest.TestCase):
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
-        with patch("quilt_mcp.utils.boto3.client") as mock_boto_client:
+        with patch("quilt_mcp.utils.get_s3_client") as mock_s3_client:
             mock_client = MagicMock()
             mock_client.generate_presigned_url.return_value = "https://signed.url"
-            mock_boto_client.return_value = mock_client
+            mock_s3_client.return_value = mock_client
 
             result = generate_signed_url("s3://bucket/path/to/my-file.txt")
 

@@ -31,7 +31,7 @@ def test_bucket_objects_list_success():
 def test_bucket_objects_list_error():
     mock_client = MagicMock()
     mock_client.list_objects_v2.side_effect = Exception("boom")
-    with patch("boto3.client", return_value=mock_client):
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
         result = bucket_objects_list(bucket="my-bucket")
         assert "error" in result
 
@@ -150,7 +150,7 @@ def test_bucket_object_link_invalid_uri():
 def test_bucket_object_link_error():
     mock_client = MagicMock()
     mock_client.generate_presigned_url.side_effect = Exception("access denied")
-    with patch("boto3.client", return_value=mock_client):
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
         result = bucket_object_link("s3://my-bucket/file.txt")
         assert "error" in result
         assert result["bucket"] == "my-bucket"
