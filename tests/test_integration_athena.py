@@ -9,6 +9,9 @@ import pytest
 import os
 from unittest.mock import patch, Mock
 
+# Test timeout from environment variable
+PYTEST_TIMEOUT = float(os.getenv('PYTEST_TIMEOUT', '120'))
+
 from quilt_mcp.tools.athena_glue import (
     athena_databases_list,
     athena_tables_list,
@@ -263,7 +266,7 @@ class TestAthenaPerformance:
 
             # Verify results (more lenient for real AWS)
             assert len(results) >= 0  # Allow for some failures
-            assert end_time - start_time < 30  # Allow more time for real AWS
+            assert end_time - start_time < PYTEST_TIMEOUT  # Allow more time for real AWS
 
         except Exception as e:
             pytest.skip(f"Athena service not available: {e}")
@@ -307,7 +310,7 @@ class TestAthenaPerformance:
         assert len(results) == 3
 
         # Should complete in reasonable time (allow more time for real AWS)
-        assert end_time - start_time < 30.0
+        assert end_time - start_time < PYTEST_TIMEOUT
 
         # Results should either be successful or handle errors gracefully
         for result in results:
