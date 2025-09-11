@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Specifications Document: bucket_object_text with versionId Support
 
 **Issue**: #137 - Add versionId support to bucket_object_text function
