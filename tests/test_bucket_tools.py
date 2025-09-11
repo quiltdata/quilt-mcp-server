@@ -155,3 +155,173 @@ def test_bucket_object_link_error():
         assert "error" in result
         assert result["bucket"] == "my-bucket"
         assert result["key"] == "file.txt"
+
+
+# Version ID Tests - These should fail initially (TDD Red phase)
+
+def test_bucket_object_info_with_version_id():
+    """Test bucket_object_info calls head_object with VersionId when provided."""
+    mock_client = MagicMock()
+    mock_head_response = {
+        "ContentLength": 1024,
+        "ContentType": "text/plain",
+        "ETag": '"abc123"',
+        "LastModified": "2023-01-01T00:00:00Z",
+        "VersionId": "test-version-123"
+    }
+    mock_client.head_object.return_value = mock_head_response
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_info("s3://my-bucket/file.txt?versionId=test-version-123")
+        
+        # Verify S3 API was called with VersionId
+        mock_client.head_object.assert_called_once_with(
+            Bucket="my-bucket",
+            Key="file.txt",
+            VersionId="test-version-123"
+        )
+        assert "error" not in result
+
+
+def test_bucket_object_text_with_version_id():
+    """Test bucket_object_text calls get_object with VersionId when provided."""
+    mock_client = MagicMock()
+    mock_body = MagicMock()
+    mock_body.read.return_value = b"test content"
+    mock_get_response = {"Body": mock_body}
+    mock_client.get_object.return_value = mock_get_response
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_text("s3://my-bucket/file.txt?versionId=test-version-123")
+        
+        # Verify S3 API was called with VersionId  
+        mock_client.get_object.assert_called_once_with(
+            Bucket="my-bucket",
+            Key="file.txt",
+            VersionId="test-version-123"
+        )
+        assert "error" not in result
+        assert result["text"] == "test content"
+
+
+def test_bucket_object_fetch_with_version_id():
+    """Test bucket_object_fetch calls get_object with VersionId when provided."""
+    mock_client = MagicMock()
+    mock_body = MagicMock()
+    mock_body.read.return_value = b"binary data"
+    mock_get_response = {"Body": mock_body, "ContentType": "application/octet-stream"}
+    mock_client.get_object.return_value = mock_get_response
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_fetch("s3://my-bucket/file.bin?versionId=test-version-123")
+        
+        # Verify S3 API was called with VersionId
+        mock_client.get_object.assert_called_once_with(
+            Bucket="my-bucket", 
+            Key="file.bin",
+            VersionId="test-version-123"
+        )
+        assert "error" not in result
+
+
+def test_bucket_object_link_with_version_id():
+    """Test bucket_object_link calls generate_presigned_url with VersionId when provided."""
+    mock_client = MagicMock()
+    mock_client.generate_presigned_url.return_value = "https://example.com/signed-url"
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_link("s3://my-bucket/file.txt?versionId=test-version-123")
+        
+        # Verify S3 API was called with VersionId in Params
+        mock_client.generate_presigned_url.assert_called_once_with(
+            "get_object",
+            Params={
+                "Bucket": "my-bucket",
+                "Key": "file.txt", 
+                "VersionId": "test-version-123"
+            },
+            ExpiresIn=3600
+        )
+        assert "error" not in result
+        assert result["presigned_url"] == "https://example.com/signed-url"
+
+
+def test_bucket_object_info_version_error_handling():
+    """Test bucket_object_info handles version-specific errors correctly."""
+    from botocore.exceptions import ClientError
+    
+    mock_client = MagicMock()
+    # Simulate NoSuchVersion error
+    error_response = {
+        'Error': {
+            'Code': 'NoSuchVersion',
+            'Message': 'The specified version does not exist'
+        }
+    }
+    mock_client.head_object.side_effect = ClientError(error_response, 'HeadObject')
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_info("s3://my-bucket/file.txt?versionId=invalid-version")
+        
+        assert "error" in result
+        assert "Version invalid-version not found" in result["error"]
+
+
+def test_bucket_object_text_version_error_handling():
+    """Test bucket_object_text handles version-specific errors correctly."""
+    from botocore.exceptions import ClientError
+    
+    mock_client = MagicMock()
+    # Simulate AccessDenied error with version context
+    error_response = {
+        'Error': {
+            'Code': 'AccessDenied',
+            'Message': 'Access Denied'
+        }
+    }
+    mock_client.get_object.side_effect = ClientError(error_response, 'GetObject')
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        result = bucket_object_text("s3://my-bucket/file.txt?versionId=restricted-version")
+        
+        assert "error" in result
+        assert "Access denied for version restricted-version" in result["error"]
+
+
+def test_bucket_object_functions_without_version_id():
+    """Test all functions work correctly without version ID (backward compatibility)."""
+    mock_client = MagicMock()
+    
+    # Setup mocks for each function
+    mock_client.head_object.return_value = {
+        "ContentLength": 1024,
+        "ContentType": "text/plain"
+    }
+    
+    mock_body = MagicMock()
+    mock_body.read.return_value = b"test"
+    mock_client.get_object.return_value = {"Body": mock_body}
+    
+    mock_client.generate_presigned_url.return_value = "https://example.com/url"
+    
+    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+        # Test without version ID - should not pass VersionId parameter
+        info_result = bucket_object_info("s3://my-bucket/file.txt")
+        text_result = bucket_object_text("s3://my-bucket/file.txt")
+        fetch_result = bucket_object_fetch("s3://my-bucket/file.txt") 
+        link_result = bucket_object_link("s3://my-bucket/file.txt")
+        
+        # Verify calls were made without VersionId
+        mock_client.head_object.assert_called_with(Bucket="my-bucket", Key="file.txt")
+        mock_client.get_object.assert_any_call(Bucket="my-bucket", Key="file.txt")
+        mock_client.generate_presigned_url.assert_called_with(
+            "get_object",
+            Params={"Bucket": "my-bucket", "Key": "file.txt"},
+            ExpiresIn=3600
+        )
+        
+        # All should succeed
+        assert "error" not in info_result
+        assert "error" not in text_result
+        assert "error" not in fetch_result
+        assert "error" not in link_result
