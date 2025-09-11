@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Phase 2 Results: Extract URI Parsing Logic
 
 ## Overview
@@ -37,24 +38,29 @@ Phase 2 successfully extracted duplicate S3 URI parsing logic from four bucket_o
 ### Code Quality Improvements
 
 #### DRY Principle Applied
+
 - **Before**: 16 lines of duplicate S3 URI parsing code across four functions
 - **After**: Single centralized function used by all four functions
 
 #### Centralized Error Handling
+
 - Consistent error messages: `"Invalid S3 URI format: {s3_uri}"`
 - Same validation logic applied uniformly
 - Reduced maintenance burden for URI parsing changes
 
 #### Type Safety Enhanced
+
 ```python
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
 ```
+
 - Clear return type specification
 - Explicit `version_id` as `str | None` for future Phase 3 compatibility
 
 ### Implementation Details
 
 #### New Utility Function
+
 ```python
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
     """
@@ -79,13 +85,16 @@ def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
 ```
 
 #### Refactoring Pattern
+
 **Before (duplicate code in each function):**
+
 ```python
 without = s3_uri[5:]  # Remove s3:// prefix
 bucket, key = without.split("/", 1)  # Split on first slash
 ```
 
 **After (using shared utility):**
+
 ```python
 bucket, key, _ = parse_s3_uri(s3_uri)
 ```
@@ -93,12 +102,14 @@ bucket, key, _ = parse_s3_uri(s3_uri)
 ### Test Coverage
 
 #### Comprehensive Test Cases
+
 - **Valid S3 URIs**: Basic and complex key formats
 - **Invalid formats**: Non-s3 scheme, missing components, empty strings
 - **Special characters**: Handling of complex bucket/key names
 - **Version ID handling**: Confirms version_id returns None in Phase 2
 
 #### Test Results
+
 ```bash
 tests/test_utils.py::test_parse_s3_uri_valid_basic ✓
 tests/test_utils.py::test_parse_s3_uri_valid_complex_key ✓
@@ -140,6 +151,7 @@ The Phase 2 implementation establishes the foundation for Phase 3's version ID s
 ## Next Steps
 
 Phase 2 is complete and ready for Phase 3 implementation:
+
 - Version ID parameter parsing
 - Integration with S3 API calls
 - Extended test coverage for version scenarios

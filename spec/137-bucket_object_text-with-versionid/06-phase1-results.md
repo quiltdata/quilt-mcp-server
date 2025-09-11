@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Phase 1 Results: Test Infrastructure Foundation
 
 **Issue**: #137 - Add versionId support to bucket_object_text function  
@@ -16,13 +17,15 @@ Successfully completed Phase 1 by fixing test infrastructure issues and establis
 
 **Solution**: Updated mock targets to point to the actual helper functions used in production code.
 
-#### Changes Made:
+#### Changes Made
 
 **`tests/test_bucket_tools.py`** - 2 fixes:
+
 - `test_bucket_objects_list_error()`: Changed `@patch("boto3.client")` → `@patch("quilt_mcp.tools.buckets.get_s3_client")`
 - `test_bucket_object_link_error()`: Changed `@patch("boto3.client")` → `@patch("quilt_mcp.tools.buckets.get_s3_client")`
 
 **`tests/test_utils.py`** - 4 fixes:
+
 - `test_generate_signed_url_mocked()`: Changed `@patch("quilt_mcp.utils.boto3.client")` → `@patch("quilt_mcp.utils.get_s3_client")`
 - `test_generate_signed_url_expiration_limits_mocked()`: Same change
 - `test_generate_signed_url_exception_mocked()`: Same change  
@@ -36,9 +39,10 @@ Also updated mock variable names and assertions to match the new helper function
 
 **Solution**: Added `test_bucket_object_link_integration()` to complete test coverage.
 
-#### Changes Made:
+#### Integration Changes Made
 
 **`tests/test_integration.py`**:
+
 - Added import for `bucket_object_link`
 - Added comprehensive integration test following existing patterns
 - Test validates presigned URL generation with real AWS objects
@@ -47,6 +51,7 @@ Also updated mock variable names and assertions to match the new helper function
 ### 3. Verified Test Infrastructure ✅
 
 **Results**:
+
 - ✅ Unit tests: All 338 unit tests pass
 - ✅ Mock fixes: Previously failing tests now pass
 - ✅ Integration tests: New integration test follows established patterns
@@ -67,12 +72,14 @@ Also updated mock variable names and assertions to match the new helper function
 
 ## Test Infrastructure Status
 
-### Before Phase 1:
+### Before Phase 1
+
 - ❌ Tests failing due to incorrect mock targets
-- ❌ Missing integration test for `bucket_object_link` 
+- ❌ Missing integration test for `bucket_object_link`
 - ❌ Inconsistent test coverage across bucket_object_* functions
 
-### After Phase 1:
+### After Phase 1
+
 - ✅ All mocks point to correct production code (`get_s3_client()`)
 - ✅ Complete integration test coverage for all 4 bucket_object_* functions:
   - `bucket_object_info` ✅
