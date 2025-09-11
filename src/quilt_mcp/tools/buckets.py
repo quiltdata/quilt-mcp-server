@@ -79,20 +79,31 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     """Get metadata information for a specific S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/object")
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/object" or "s3://bucket-name/path/to/object?versionId=xyz")
 
     Returns:
         Dict with object metadata including size, content type, etag, and modification date.
     """
     try:
-        bucket, key, _ = parse_s3_uri(s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
     
     client = get_s3_client()
     try:
-        head = client.head_object(Bucket=bucket, Key=key)
+        # Build params dict and conditionally add VersionId
+        params = {"Bucket": bucket, "Key": key}
+        if version_id:
+            params["VersionId"] = version_id
+        head = client.head_object(**params)
     except Exception as e:
+        # Handle version-specific errors
+        if hasattr(e, 'response') and 'Error' in e.response:
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchVersion':
+                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
+            elif error_code == 'AccessDenied' and version_id:
+                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
         return {"error": f"Failed to head object: {e}", "bucket": bucket, "key": key}
     return {
         "bucket": bucket,
@@ -111,7 +122,7 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     """Read text content from an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file.txt")
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file.txt" or "s3://bucket-name/path/to/file.txt?versionId=xyz")
         max_bytes: Maximum bytes to read (default: 65536)
         encoding: Text encoding to use (default: "utf-8")
 
@@ -119,15 +130,26 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
         Dict with decoded text content and metadata.
     """
     try:
-        bucket, key, _ = parse_s3_uri(s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
     
     client = get_s3_client()
     try:
-        obj = client.get_object(Bucket=bucket, Key=key)
+        # Build params dict and conditionally add VersionId
+        params = {"Bucket": bucket, "Key": key}
+        if version_id:
+            params["VersionId"] = version_id
+        obj = client.get_object(**params)
         body = obj["Body"].read(max_bytes + 1)
     except Exception as e:
+        # Handle version-specific errors
+        if hasattr(e, 'response') and 'Error' in e.response:
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchVersion':
+                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
+            elif error_code == 'AccessDenied' and version_id:
+                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
         return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
     truncated = len(body) > max_bytes
     if truncated:
@@ -217,7 +239,7 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     """Fetch binary or text data from an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file")
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file" or "s3://bucket-name/path/to/file?versionId=xyz")
         max_bytes: Maximum bytes to read (default: 65536)
         base64_encode: Return binary data as base64 (default: True)
 
@@ -227,16 +249,27 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     import base64
 
     try:
-        bucket, key, _ = parse_s3_uri(s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
     
     client = get_s3_client()
     try:
-        obj = client.get_object(Bucket=bucket, Key=key)
+        # Build params dict and conditionally add VersionId
+        params = {"Bucket": bucket, "Key": key}
+        if version_id:
+            params["VersionId"] = version_id
+        obj = client.get_object(**params)
         body = obj["Body"].read(max_bytes + 1)
         content_type = obj.get("ContentType")
     except Exception as e:
+        # Handle version-specific errors
+        if hasattr(e, 'response') and 'Error' in e.response:
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchVersion':
+                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
+            elif error_code == 'AccessDenied' and version_id:
+                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
         return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
     truncated = len(body) > max_bytes
     if truncated:
@@ -284,21 +317,25 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     """Generate a presigned URL for downloading an S3 object.
 
     Args:
-        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file")
+        s3_uri: Full S3 URI (e.g., "s3://bucket-name/path/to/file" or "s3://bucket-name/path/to/file?versionId=xyz")
         expiration: URL expiration time in seconds (default: 3600, max: 604800)
 
     Returns:
         Dict with presigned URL and metadata.
     """
     try:
-        bucket, key, _ = parse_s3_uri(s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
     
     expiration = max(1, min(expiration, 604800))
     client = get_s3_client()
     try:
-        url = client.generate_presigned_url("get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expiration)
+        # Build params dict and conditionally add VersionId
+        params = {"Bucket": bucket, "Key": key}
+        if version_id:
+            params["VersionId"] = version_id
+        url = client.generate_presigned_url("get_object", Params=params, ExpiresIn=expiration)
         return {
             "bucket": bucket,
             "key": key,
@@ -306,6 +343,13 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
             "expires_in": expiration,
         }
     except Exception as e:
+        # Handle version-specific errors
+        if hasattr(e, 'response') and 'Error' in e.response:
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchVersion':
+                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
+            elif error_code == 'AccessDenied' and version_id:
+                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
         return {
             "error": f"Failed to generate presigned URL: {e}",
             "bucket": bucket,
