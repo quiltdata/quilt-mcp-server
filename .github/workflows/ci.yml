@@ -31,11 +31,8 @@ jobs:
     - name: Run tests
       run: |
         if [ "${{ matrix.python-version }}" = "3.11" ]; then
-          echo "Running all tests including slow tests for Python 3.11..."
-          uv sync --group test
-          mkdir -p build/test-results
-          export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search" --timeout=${PYTEST_TIMEOUT:-120} --disable-warnings \
-            --junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
+          echo "Running split coverage analysis for Python 3.11..."
+          make coverage-split
         else
           echo "Running CI tests (skipping slow tests) for Python ${{ matrix.python-version }}..."
           make test-ci
@@ -59,7 +56,6 @@ jobs:
         name: test-results-py${{ matrix.python-version }}
         path: |
           build/test-results/
-          src/coverage.xml
         retention-days: 7
 
   build-and-release:
