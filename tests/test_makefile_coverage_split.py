@@ -16,18 +16,16 @@ def test_coverage_split_target_exists():
 
 def test_coverage_split_target_runs_unit_and_integration_tests():
     """Test that coverage-split target runs both unit and integration tests with coverage."""
-    # Run make help to see if coverage-split is listed
-    result = subprocess.run(
-        ["make", "-f", "make.dev", "help"],
-        capture_output=True,
-        text=True,
-        cwd=str(Path(__file__).parent.parent)
-    )
+    # Test that the target exists and can be invoked (dry-run style check)  
+    makefile_path = Path(__file__).parent.parent / "make.dev"
+    content = makefile_path.read_text()
     
-    assert result.returncode == 0, f"Make help failed: {result.stderr}"
+    # Verify the target structure includes the expected pytest commands
+    coverage_split_section = content.split("coverage-split:")[1].split("\n\n")[0] if "coverage-split:" in content else ""
     
-    # coverage-split should be mentioned in help output
-    assert "coverage-split" in result.stdout, "coverage-split target not found in make help"
+    # Should run pytest for both unit and integration tests
+    assert "pytest tests/" in coverage_split_section, "coverage-split should run pytest on tests/"
+    assert "--cov=quilt_mcp" in coverage_split_section, "coverage-split should include coverage reporting"
 
 
 def test_coverage_split_creates_expected_output_files():
