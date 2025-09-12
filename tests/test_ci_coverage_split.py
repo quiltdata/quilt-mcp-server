@@ -1,15 +1,15 @@
-"""Tests for CI workflow coverage-split integration."""
+"""Tests for CI workflow coverage-tools integration."""
 
 from pathlib import Path
 
 
 def test_ci_workflow_uses_coverage_split():
-    """Test that CI workflow uses coverage-split instead of single coverage."""
+    """Test that CI workflow uses coverage-tools instead of single coverage."""
     ci_file = Path(__file__).parent.parent / ".github/workflows/ci.yml"
     content = ci_file.read_text()
     
-    # Should use make coverage-split
-    assert "make coverage-split" in content, "CI should use 'make coverage-split' command"
+    # Should use make coverage-tools
+    assert "make coverage-tools" in content, "CI should use 'make coverage-tools' command"
 
 
 def test_ci_workflow_uploads_split_coverage_artifacts():
@@ -34,7 +34,7 @@ def test_ci_workflow_does_not_use_old_coverage_command():
     # We'll look for this pattern to ensure it's been replaced
     lines = content.split('\n')
     
-    coverage_lines = [line for line in lines if "--cov=quilt_mcp" in line and "make coverage-split" not in line]
+    coverage_lines = [line for line in lines if "--cov=quilt_mcp" in line and "make coverage-tools" not in line]
     
-    # We should not find any old coverage command lines (outside of make coverage-split)
+    # We should not find any old coverage command lines (outside of make coverage-tools)
     assert len(coverage_lines) == 0, f"Found old coverage commands that should be replaced: {coverage_lines}"

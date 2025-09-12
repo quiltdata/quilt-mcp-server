@@ -111,12 +111,12 @@ def parse_coverage_xml(xml_path: Path) -> Dict[str, Tuple[int, int]]:
         return {}
 
 
-def calculate_tool_coverage(
+def calculate_file_coverage(
     tool_mapping: Dict[str, List[str]], 
     unit_coverage: Dict[str, Tuple[int, int]], 
     integration_coverage: Dict[str, Tuple[int, int]]
 ) -> List[Dict[str, Any]]:
-    """Calculate coverage statistics for each MCP tool.
+    """Calculate coverage statistics for each file containing MCP tools.
     
     Args:
         tool_mapping: Mapping of file paths to MCP tool names
@@ -124,36 +124,23 @@ def calculate_tool_coverage(
         integration_coverage: File-level integration test coverage data
         
     Returns:
-        List of dictionaries with tool coverage statistics
+        List of dictionaries with file coverage statistics
     """
-    tool_stats = []
+    file_stats = []
     
-    # Get all unique tools across all files
-    all_tools = set()
-    for tools in tool_mapping.values():
-        all_tools.update(tools)
-    
-    # Sort tools for consistent output
-    for tool_name in sorted(all_tools):
-        # Find which files contain this tool
-        tool_files = [file_path for file_path, tools in tool_mapping.items() if tool_name in tools]
+    # Sort files for consistent output
+    for file_path in sorted(tool_mapping.keys()):
+        tools = tool_mapping[file_path]
         
-        # Aggregate coverage across all files containing this tool
+        # Get coverage for this file
         unit_covered = unit_total = 0
         integration_covered = integration_total = 0
         
-        for file_path in tool_files:
-            # Unit coverage
-            if file_path in unit_coverage:
-                covered, total = unit_coverage[file_path]
-                unit_covered += covered
-                unit_total += total
+        if file_path in unit_coverage:
+            unit_covered, unit_total = unit_coverage[file_path]
             
-            # Integration coverage  
-            if file_path in integration_coverage:
-                covered, total = integration_coverage[file_path]
-                integration_covered += covered
-                integration_total += total
+        if file_path in integration_coverage:
+            integration_covered, integration_total = integration_coverage[file_path]
         
         # Calculate percentages
         unit_pct = (unit_covered / unit_total * 100) if unit_total > 0 else 0.0
@@ -167,8 +154,9 @@ def calculate_tool_coverage(
         # Determine status (✅ if unit >= 100% AND integration >= 85%)
         status = "✅" if unit_pct >= 100.0 and integration_pct >= 85.0 else "❌"
         
-        tool_stats.append({
-            "tool": tool_name,
+        file_stats.append({
+            "file_path": file_path,
+            "tools": tools,
             "unit_covered": unit_covered,
             "unit_total": unit_total,
             "unit_pct": unit_pct,
@@ -181,40 +169,50 @@ def calculate_tool_coverage(
             "status": status
         })
     
-    return tool_stats
+    return file_stats
 
 
-def generate_markdown_report(tool_stats: List[Dict[str, Any]]) -> str:
+def generate_markdown_report(file_stats: List[Dict[str, Any]]) -> str:
     """Generate markdown coverage report.
     
     Args:
-        tool_stats: List of tool coverage statistics
+        file_stats: List of file coverage statistics
         
     Returns:
         Markdown report as string
     """
     lines = [
-        "# Split Coverage Report by MCP Tool",
+        "# Tool Coverage Report By File",
         "",
-        "| MCP Tool | Unit Coverage | Integration Coverage | Combined | Status |",
-        "|----------|---------------|---------------------|----------|--------|"
+        "| File | MCP Tools | Unit Coverage | Integration Coverage | Combined | Status |",
+        "|------|-----------|---------------|---------------------|----------|--------"
     ]
     
-    # Add tool rows
+    # Add file rows
     total_unit_covered = total_unit_total = 0
     total_integration_covered = total_integration_total = 0
     
-    for stats in tool_stats:
+    for stats in file_stats:
         unit_pct = stats["unit_pct"]
         integration_pct = stats["integration_pct"] 
         combined_pct = stats["combined_pct"]
+        
+        # Format file path (remove .py extension for cleaner display)
+        file_display = stats["file_path"].replace(".py", "").replace("/", ".")
+        
+        # Format tools list (limit to reasonable display length)
+        tools = stats["tools"]
+        if len(tools) <= 3:
+            tools_display = ", ".join(f"`{tool}`" for tool in tools)
+        else:
+            tools_display = f"`{tools[0]}`, `{tools[1]}`, `{tools[2]}` + {len(tools)-3} more"
         
         # Format percentages and counts
         unit_display = f"{unit_pct:.1f}% ({stats['unit_covered']}/{stats['unit_total']})"
         integration_display = f"{integration_pct:.1f}% ({stats['integration_covered']}/{stats['integration_total']})"
         combined_display = f"{combined_pct:.1f}%"
         
-        lines.append(f"| `{stats['tool']}` | {unit_display} | {integration_display} | {combined_display} | {stats['status']} |")
+        lines.append(f"| `{file_display}` | {tools_display} | {unit_display} | {integration_display} | {combined_display} | {stats['status']} |")
         
         # Accumulate totals
         total_unit_covered += stats["unit_covered"]
@@ -230,22 +228,29 @@ def generate_markdown_report(tool_stats: List[Dict[str, Any]]) -> str:
     total_unit_display = f"**{total_unit_pct:.1f}%** ({total_unit_covered}/{total_unit_total})"
     total_integration_display = f"**{total_integration_pct:.1f}%** ({total_integration_covered}/{total_integration_total})"
     
+    total_tools = sum(len(stats["tools"]) for stats in file_stats)
+    
     lines.extend([
-        f"| **TOTAL** | {total_unit_display} | {total_integration_display} | - | {overall_status} |",
+        f"| **TOTAL** | **{total_tools} tools** | {total_unit_display} | {total_integration_display} | - | {overall_status} |",
         "",
         "## Targets",
+        "",
         "- **Unit Coverage**: 100% (error scenarios, mocked dependencies)",
         "- **Integration Coverage**: 85%+ (end-to-end workflows, real services)",
         "",
         "## Current Status",
+        "",
         f"- Unit: {total_unit_pct:.1f}% ({'✅ PASS' if total_unit_pct >= 100.0 else '❌ FAIL'})",
         f"- Integration: {total_integration_pct:.1f}% ({'✅ PASS' if total_integration_pct >= 85.0 else '❌ FAIL'})",
         "",
         "## Notes",
-        "- Each MCP tool function is listed separately",
-        "- Coverage shows which specific tools need unit vs integration tests",
-        "- Focus unit testing on tools with <100% unit coverage",
-        "- Focus integration testing on tools with <85% integration coverage"
+        "",
+        "- Each file containing MCP tools is listed with its coverage",
+        "- Files with many tools show first 3 tools + count of remaining",
+        "- Coverage is at file level since tools share the same implementation",
+        "- Focus unit testing on files with <100% unit coverage",
+        "- Focus integration testing on files with <85% integration coverage",
+        ""
     ])
     
     return "\n".join(lines)
@@ -277,13 +282,13 @@ def main():
         print(f"Unit coverage: {len(unit_coverage)} files", file=sys.stderr)
         print(f"Integration coverage: {len(integration_coverage)} files", file=sys.stderr)
         
-        # Calculate tool-level coverage
-        print("Calculating tool-level coverage...", file=sys.stderr)
-        tool_stats = calculate_tool_coverage(tool_mapping, unit_coverage, integration_coverage)
+        # Calculate file-level coverage
+        print("Calculating file-level coverage...", file=sys.stderr)
+        file_stats = calculate_file_coverage(tool_mapping, unit_coverage, integration_coverage)
         
         # Generate markdown report
         print("Generating markdown report...", file=sys.stderr)
-        report = generate_markdown_report(tool_stats)
+        report = generate_markdown_report(file_stats)
         
         # Write output file
         args.output.parent.mkdir(parents=True, exist_ok=True)

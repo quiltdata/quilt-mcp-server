@@ -32,7 +32,7 @@ jobs:
       run: |
         if [ "${{ matrix.python-version }}" = "3.11" ]; then
           echo "Running split coverage analysis for Python 3.11..."
-          make coverage-split
+          make coverage-tools
         else
           echo "Running CI tests (skipping slow tests) for Python ${{ matrix.python-version }}..."
           make test-ci

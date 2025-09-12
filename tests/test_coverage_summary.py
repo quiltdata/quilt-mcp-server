@@ -93,8 +93,9 @@ def test_coverage_summary_generates_markdown_report():
         
         # Check the content contains expected markdown structure
         content = output_file.read_text()
-        assert "# Split Coverage Report by MCP Tool" in content
-        assert "| MCP Tool |" in content
+        assert "# Tool Coverage Report By File" in content
+        assert "| File |" in content
+        assert "| MCP Tools |" in content
         assert "Unit Coverage" in content
         assert "Integration Coverage" in content
         assert "auth_status" in content or "catalog_info" in content  # At least one MCP tool should be found
@@ -123,7 +124,7 @@ def test_coverage_summary_handles_missing_xml_files():
         assert output_file.exists(), "Output file should be created even with missing input files"
         
         content = output_file.read_text()
-        assert "# Split Coverage Report by MCP Tool" in content
+        assert "# Tool Coverage Report By File" in content
 
 
 def test_coverage_summary_discovers_mcp_tools():
