@@ -69,7 +69,6 @@ markers = [
     "search: marks tests that require search functionality",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "performance: marks tests as performance benchmarks",
-    "integration: marks tests as integration tests",
     "error_handling: marks tests as error handling tests",
     "asyncio: marks tests as async tests",
 ]
