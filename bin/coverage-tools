@@ -1,0 +1,281 @@
+#!/usr/bin/env python3
+"""
+Split coverage tracking tool for quilt-mcp-server.
+
+Processes unit and integration coverage XML files to generate
+a file-level breakdown showing coverage by test type.
+
+Usage:
+    ./bin/coverage-tools
+
+Input:
+    - build/test-results/coverage-unit.xml
+    - build/test-results/coverage-integration.xml
+
+Output:
+    - build/test-results/coverage-summary.md
+"""
+
+import xml.etree.ElementTree as ET
+from pathlib import Path
+import sys
+from typing import Dict, Tuple, Optional
+
+
+def parse_coverage_xml(xml_path: Path) -> Dict[str, Tuple[int, int, float]]:
+    """
+    Parse a coverage XML file and extract file-level statistics.
+    
+    Args:
+        xml_path: Path to the coverage XML file
+        
+    Returns:
+        Dict mapping filename to (covered_lines, total_lines, percentage)
+    """
+    if not xml_path.exists():
+        print(f"Warning: Coverage file not found: {xml_path}")
+        return {}
+    
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        
+        file_stats = {}
+        
+        for class_elem in root.findall(".//class"):
+            filename = class_elem.get("filename")
+            if not filename:
+                continue
+            
+            # Normalize filename to start with src/
+            if not filename.startswith("src/"):
+                filename = f"src/{filename}"
+            
+            # Count lines
+            lines = class_elem.findall(".//line")
+            total_lines = len(lines)
+            covered_lines = len([line for line in lines if int(line.get("hits", 0)) > 0])
+            
+            if total_lines > 0:
+                percentage = (covered_lines / total_lines) * 100
+            else:
+                percentage = 0.0
+            
+            file_stats[filename] = (covered_lines, total_lines, percentage)
+        
+        return file_stats
+        
+    except ET.ParseError as e:
+        print(f"Error parsing {xml_path}: {e}")
+        return {}
+
+
+def get_all_source_files() -> set[str]:
+    """
+    Get all Python source files under src/quilt_mcp/.
+    
+    Returns:
+        Set of source file paths relative to project root
+    """
+    src_path = Path("src/quilt_mcp")
+    if not src_path.exists():
+        return set()
+    
+    py_files = set()
+    for py_file in src_path.rglob("*.py"):
+        py_files.add(str(py_file))
+    
+    return py_files
+
+
+def calculate_combined_coverage(unit_stats: Tuple[int, int, float], 
+                              integration_stats: Tuple[int, int, float]) -> Tuple[int, int, float]:
+    """
+    Calculate combined coverage from unit and integration stats.
+    
+    Args:
+        unit_stats: (covered_lines, total_lines, percentage) for unit tests
+        integration_stats: (covered_lines, total_lines, percentage) for integration tests
+        
+    Returns:
+        Combined (covered_lines, total_lines, percentage)
+    """
+    unit_covered, unit_total, _ = unit_stats
+    int_covered, int_total, _ = integration_stats
+    
+    # Use the maximum total lines (should be the same, but handle edge cases)
+    total_lines = max(unit_total, int_total)
+    
+    # Union of covered lines (approximation - actual would require line-by-line analysis)
+    # For now, use the maximum coverage as an approximation
+    combined_covered = max(unit_covered, int_covered)
+    
+    if total_lines > 0:
+        combined_percentage = (combined_covered / total_lines) * 100
+    else:
+        combined_percentage = 0.0
+    
+    return combined_covered, total_lines, combined_percentage
+
+
+def get_status_indicator(unit_pct: float, integration_pct: float) -> str:
+    """
+    Get status indicator based on coverage targets.
+    
+    Args:
+        unit_pct: Unit test coverage percentage
+        integration_pct: Integration test coverage percentage
+        
+    Returns:
+        "✅" if both meet targets, "❌" otherwise
+    """
+    unit_target = 100.0
+    integration_target = 85.0
+    
+    unit_meets_target = unit_pct >= unit_target
+    integration_meets_target = integration_pct >= integration_target
+    
+    return "✅" if unit_meets_target and integration_meets_target else "❌"
+
+
+def format_coverage_cell(covered: int, total: int, percentage: float) -> str:
+    """Format a coverage cell for the markdown table."""
+    return f"{percentage:.1f}% ({covered}/{total})"
+
+
+def generate_coverage_report(unit_file: Path, integration_file: Path, output_file: Path) -> None:
+    """
+    Generate the split coverage report.
+    
+    Args:
+        unit_file: Path to unit coverage XML
+        integration_file: Path to integration coverage XML
+        output_file: Path to output markdown file
+    """
+    # Parse both coverage files
+    unit_stats = parse_coverage_xml(unit_file)
+    integration_stats = parse_coverage_xml(integration_file)
+    
+    # Get all source files
+    all_files = get_all_source_files()
+    
+    # Combine with files from coverage reports
+    all_files.update(unit_stats.keys())
+    all_files.update(integration_stats.keys())
+    
+    # Filter to only src/quilt_mcp files
+    src_files = sorted([f for f in all_files if f.startswith("src/quilt_mcp/")])
+    
+    # Calculate totals
+    total_unit_covered = 0
+    total_unit_lines = 0
+    total_integration_covered = 0
+    total_integration_lines = 0
+    total_combined_covered = 0
+    total_combined_lines = 0
+    
+    # Generate report content
+    report_lines = [
+        "# Split Coverage Report by Source File",
+        "",
+        "| Source File | Unit Coverage | Integration Coverage | Combined | Status |",
+        "|-------------|---------------|---------------------|----------|--------|"
+    ]
+    
+    for filename in src_files:
+        # Get stats for this file
+        unit_cov = unit_stats.get(filename, (0, 0, 0.0))
+        int_cov = integration_stats.get(filename, (0, 0, 0.0))
+        
+        # Calculate combined coverage
+        combined_cov = calculate_combined_coverage(unit_cov, int_cov)
+        
+        # Update totals
+        total_unit_covered += unit_cov[0]
+        total_unit_lines += unit_cov[1]
+        total_integration_covered += int_cov[0]
+        total_integration_lines += int_cov[1]
+        total_combined_covered += combined_cov[0]
+        total_combined_lines += combined_cov[1]
+        
+        # Format row
+        unit_cell = format_coverage_cell(*unit_cov)
+        int_cell = format_coverage_cell(*int_cov)
+        combined_cell = format_coverage_cell(*combined_cov)
+        status = get_status_indicator(unit_cov[2], int_cov[2])
+        
+        report_lines.append(f"| {filename} | {unit_cell} | {int_cell} | {combined_cell} | {status} |")
+    
+    # Add totals row
+    if total_unit_lines > 0:
+        total_unit_pct = (total_unit_covered / total_unit_lines) * 100
+    else:
+        total_unit_pct = 0.0
+    
+    if total_integration_lines > 0:
+        total_int_pct = (total_integration_covered / total_integration_lines) * 100
+    else:
+        total_int_pct = 0.0
+    
+    if total_combined_lines > 0:
+        total_combined_pct = (total_combined_covered / total_combined_lines) * 100
+    else:
+        total_combined_pct = 0.0
+    
+    total_status = get_status_indicator(total_unit_pct, total_int_pct)
+    
+    report_lines.extend([
+        f"| **TOTAL** | **{total_unit_pct:.1f}%** ({total_unit_covered}/{total_unit_lines}) | **{total_int_pct:.1f}%** ({total_integration_covered}/{total_integration_lines}) | **{total_combined_pct:.1f}%** | {total_status} |",
+        "",
+        "## Coverage Targets",
+        "",
+        "- **Unit Coverage**: 100% (error scenarios, mocked dependencies)",
+        "- **Integration Coverage**: 85%+ (end-to-end workflows, real services)",
+        "",
+        "## Current Status",
+        "",
+        f"- Unit: {total_unit_pct:.1f}% ({'✅ PASS' if total_unit_pct >= 100.0 else '❌ FAIL'} - Target: 100%)",
+        f"- Integration: {total_int_pct:.1f}% ({'✅ PASS' if total_int_pct >= 85.0 else '❌ FAIL'} - Target: 85%+)",
+        f"- Combined: {total_combined_pct:.1f}%",
+        "",
+        "## Test Classification",
+        "",
+        "- **Unit Tests**: Tests marked with `not aws and not search`",
+        "- **Integration Tests**: Tests marked with `aws or search`",
+        "",
+        "## Priority Actions",
+        "",
+        "- **Focus unit testing** on files with 0% unit coverage",
+        "- **Focus integration testing** on files with <85% integration coverage",
+        "- **High Priority**: Files with 0% in either category"
+    ])
+    
+    # Ensure output directory exists
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write report
+    with open(output_file, 'w') as f:
+        f.write('\n'.join(report_lines))
+        f.write('\n')  # Final newline
+    
+    print(f"✅ Split coverage report generated: {output_file}")
+    print(f"   Unit: {total_unit_pct:.1f}% | Integration: {total_int_pct:.1f}% | Combined: {total_combined_pct:.1f}%")
+
+
+def main() -> int:
+    """Main entry point for the coverage tools script."""
+    # Define file paths
+    unit_file = Path("build/test-results/coverage-unit.xml")
+    integration_file = Path("build/test-results/coverage-integration.xml")
+    output_file = Path("build/test-results/coverage-summary.md")
+    
+    try:
+        generate_coverage_report(unit_file, integration_file, output_file)
+        return 0
+    except Exception as e:
+        print(f"Error generating coverage report: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
