@@ -49,10 +49,9 @@ lint:
 	@uv run ruff check --fix src/quilt_mcp/ tests/
 	@echo "✅ All linting completed"
 
-coverage:
-	@echo "Running tests with coverage (≥85% required)..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+coverage: coverage-unit coverage-integration
+	@echo "Split coverage analysis complete."
+	@echo "Run 'make coverage-tools' to generate the split coverage report."
 
 coverage-unit:
 	@echo "Running unit tests with coverage..."
