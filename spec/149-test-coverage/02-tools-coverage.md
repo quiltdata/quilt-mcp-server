@@ -77,18 +77,19 @@ Currently, the quilt-mcp-server has a unified test coverage system that doesn't 
 
 **Design Options**:
 
-1. **Reuse Existing Coverage Targets** (Selected Approach)
-   - Leverage existing `coverage` and `test-unit` targets from `make.dev`
-   - Generate separate XML reports for unit and integration coverage
-   - **Pros**: Minimal disruption, uses proven infrastructure
-   - **Cons**: None significant
+1. **Separate Coverage Targets** (Selected Approach)
+   - Create distinct `coverage-unit` and `coverage-integration` targets
+   - Make main `coverage` target depend on both unit and integration coverage
+   - Make `coverage-tools` depend on both XML outputs for processing
+   - **Pros**: Clear separation, explicit dependencies, reuses infrastructure
+   - **Cons**: Requires new Makefile targets
 
-2. **Create New Coverage Infrastructure** (Rejected)
-   - Build custom coverage system from scratch
-   - **Pros**: Complete control over implementation
-   - **Cons**: High complexity, reinvents existing functionality
+2. **Single Coverage Target with Split Processing** (Rejected)
+   - Use existing single coverage target and split results post-hoc
+   - **Pros**: Minimal Makefile changes
+   - **Cons**: Less clear separation, harder to debug individual coverage types
 
-**Decision**: Reuse existing coverage targets with additional XML output for split reporting.
+**Decision**: Create separate `coverage-unit` and `coverage-integration` targets with explicit dependencies.
 
 ### Coverage Display Requirements
 
@@ -114,17 +115,22 @@ Currently, the quilt-mcp-server has a unified test coverage system that doesn't 
 
 **Components Required**:
 
-1. **Coverage Tools Script** (`bin/coverage-tools`)
-   - Simple Python script that processes coverage XML files
-   - No complex tool discovery - just file-level coverage analysis
-   - Reuses existing coverage infrastructure from `make.dev`
+1. **Separate Coverage Targets** (`make.dev`)
+   - `coverage-unit`: Runs tests with `"not aws and not search"` markers, outputs `coverage-unit.xml`
+   - `coverage-integration`: Runs tests with `"aws or search"` markers, outputs `coverage-integration.xml`
+   - `coverage`: Depends on both `coverage-unit` and `coverage-integration`
 
-2. **Coverage XML Processing**  
-   - Parse pytest-cov XML output for unit and integration runs
-   - Extract file-level coverage statistics
+2. **Coverage Tools Script** (`bin/coverage-tools`)
+   - Simple Python script that processes both XML files
+   - Depends on `coverage-unit.xml` and `coverage-integration.xml` existing
+   - No complex tool discovery - just file-level coverage analysis
+
+3. **Coverage XML Processing**  
+   - Parse pytest-cov XML output from separate unit and integration runs
+   - Extract file-level coverage statistics from both XML files
    - Handle missing coverage gracefully (0% attribution)
 
-3. **Report Generation**
+4. **Report Generation**
    - Generate markdown table with file-level breakdown
    - Include overall statistics and pass/fail status
    - Save to `build/test-results/coverage-summary.md` for PR artifacts
@@ -132,9 +138,9 @@ Currently, the quilt-mcp-server has a unified test coverage system that doesn't 
 
 **Integration Points**:
 
-- **Makefile**: `coverage-tools` target extends existing coverage infrastructure
-- **CI Pipeline**: Minimal changes to existing coverage workflow
-- **PR Artifacts**: Existing artifact upload includes new coverage files
+- **Makefile**: Explicit dependency chain: `coverage-tools` → `coverage` → `coverage-unit` + `coverage-integration`
+- **CI Pipeline**: Run `make coverage-tools` which automatically runs all dependencies
+- **PR Artifacts**: Existing artifact upload includes all three coverage files
 
 ### Design Constraints & Simplifications
 
@@ -165,20 +171,21 @@ Currently, the quilt-mcp-server has a unified test coverage system that doesn't 
 
 ### Technical Requirements
 
-1. **Python Script** (`bin/coverage-tools`)
-   - Process pytest-cov XML files for unit and integration coverage
+1. **Makefile Targets** (`make.dev`)
+   - Add `coverage-unit` target: runs unit tests with coverage, outputs `coverage-unit.xml`
+   - Add `coverage-integration` target: runs integration tests with coverage, outputs `coverage-integration.xml`  
+   - Update `coverage` target: depends on both `coverage-unit` and `coverage-integration`
+   - Add `coverage-tools` target: depends on `coverage`, processes both XML files
+
+2. **Python Script** (`bin/coverage-tools`)
+   - Process both `coverage-unit.xml` and `coverage-integration.xml` files
    - Generate markdown table with file-level breakdown
    - Handle edge cases (missing files, 0 coverage, parsing errors)
    - Ensure markdown lint compliance in output
 
-2. **Makefile Integration** (`make.dev`)
-   - Add `coverage-tools` target that extends existing coverage infrastructure
-   - Reuse existing `test-unit` and `coverage` targets
-   - Output coverage files to `build/test-results/` for CI artifact upload
-
 3. **CI Integration** (`.github/workflows/ci.yml`)
    - Minimal changes to existing coverage workflow
-   - Add `make coverage-tools` to generate split reports
+   - Add `make coverage-tools` to generate all coverage reports with dependencies
    - Leverage existing artifact upload mechanism
 
 ### Expected Output Table
@@ -225,9 +232,15 @@ The generated `coverage-summary.md` will show:
 **Current Makefile Targets** (from `make.dev`):
 
 - ✅ `test-unit`: Already runs tests with `"not aws and not search"` markers
-- ✅ `coverage`: Already generates coverage reports with XML output
+- ✅ `coverage`: Will be updated to depend on both unit and integration coverage
 - ✅ `test-ci`: Already has coverage infrastructure for CI integration
 - ✅ No new markers or test infrastructure required
+
+**New Makefile Targets** (to be added):
+
+- ➕ `coverage-unit`: Runs unit tests with coverage, outputs `coverage-unit.xml`
+- ➕ `coverage-integration`: Runs integration tests with coverage, outputs `coverage-integration.xml`
+- ➕ `coverage-tools`: Depends on `coverage`, processes both XML files to generate summary
 
 **Existing Configuration** (from `pyproject.toml`):
 
@@ -307,18 +320,27 @@ From `make.dev` line 41:
 
 When viewing PR artifacts, reviewers will see:
 
-- `coverage-unit.xml` - Machine-readable unit test coverage
-- `coverage-integration.xml` - Machine-readable integration test coverage  
-- `coverage-summary.md` - **File-by-file coverage table** showing exactly where to focus effort
+- `build/test-results/coverage-unit.xml` - Machine-readable unit test coverage
+- `build/test-results/coverage-integration.xml` - Machine-readable integration test coverage  
+- `build/test-results/coverage-summary.md` - **File-by-file coverage table** showing exactly where to focus effort
+
+**Dependency Chain**:
+```
+coverage-tools → coverage → coverage-unit + coverage-integration
+                    ↓           ↓                 ↓
+                generates:  coverage-unit.xml  coverage-integration.xml
+                    ↓
+            coverage-summary.md
+```
 
 ## Implementation Plan
 
 ### Phase 1: Core Implementation
 
-1. **Create `bin/coverage-tools`** - Simple Python script for XML processing
-2. **Add `coverage-tools` target to `make.dev`** - Extends existing infrastructure
-3. **Test locally** - Verify report generation with existing tests
-4. **Update CI** - Add `make coverage-tools` to workflow
+1. **Add Makefile targets** - Create `coverage-unit`, `coverage-integration`, update `coverage`
+2. **Create `bin/coverage-tools`** - Simple Python script for processing both XML files
+3. **Add `coverage-tools` target** - Depends on `coverage`, processes XML files  
+4. **Test locally** - Verify all targets work and generate expected files
 
 ### Phase 2: Integration
 

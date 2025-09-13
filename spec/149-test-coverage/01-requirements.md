@@ -106,7 +106,6 @@ The quilt-mcp-server currently has 52.78% overall test coverage (4,200/7,958 lin
 2. **Phase 2 (High Value): Golden path integration coverage**
    - End-to-end workflows for core user value propositions
    - Real AWS service integration scenarios
-   - MCP protocol compliance validation
 3. **Phase 3 (Coverage Completion): Remaining unit coverage gaps**
    - GraphQL backend: Focus on error handling (19% → 100% unit)
    - AWS permission discovery: Edge cases (31% → 100% unit)  
