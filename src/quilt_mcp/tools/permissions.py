@@ -237,21 +237,24 @@ def _generate_bucket_recommendations(bucket_permissions: List[Dict[str, Any]], i
     }
 
     for bucket in bucket_permissions:
-        bucket_name = bucket["name"]
+        bucket_name = bucket.get("name")
         permission_level = bucket.get("permission_level")
 
-        if permission_level in ["full_access", "read_write"]:
-            # Categorize based on naming patterns
-            bucket_lower = bucket_name.lower()
+        # Skip buckets with invalid names or insufficient permissions
+        if not bucket_name or permission_level not in ["full_access", "read_write"]:
+            continue
+            
+        # Categorize based on naming patterns
+        bucket_lower = bucket_name.lower()
 
-            if any(pattern in bucket_lower for pattern in ["package", "registry", "quilt"]):
-                recommendations["package_creation"].append(bucket_name)
-            elif any(pattern in bucket_lower for pattern in ["data", "storage", "warehouse"]):
-                recommendations["data_storage"].append(bucket_name)
-            elif any(pattern in bucket_lower for pattern in ["temp", "tmp", "scratch", "work"]):
-                recommendations["temporary_storage"].append(bucket_name)
-            else:
-                recommendations["data_storage"].append(bucket_name)
+        if any(pattern in bucket_lower for pattern in ["package", "registry", "quilt"]):
+            recommendations["package_creation"].append(bucket_name)
+        elif any(pattern in bucket_lower for pattern in ["data", "storage", "warehouse"]):
+            recommendations["data_storage"].append(bucket_name)
+        elif any(pattern in bucket_lower for pattern in ["temp", "tmp", "scratch", "work"]):
+            recommendations["temporary_storage"].append(bucket_name)
+        else:
+            recommendations["data_storage"].append(bucket_name)
 
     return recommendations
 
