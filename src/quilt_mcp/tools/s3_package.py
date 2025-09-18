@@ -19,10 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-import quilt3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..utils import get_s3_client, validate_package_name, format_error_response
+from ..services.quilt_service import QuiltService
 from .permissions import bucket_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
@@ -181,10 +181,8 @@ This package is organized into the following structure:
 ## Usage
 
 ```python
-import quilt3
-
-# Browse the package
-pkg = quilt3.Package.browse("{package_name}")
+# Browse the package using Quilt
+# pkg = Package.browse("{package_name}")
 
 # Access specific data files
 """
@@ -748,7 +746,8 @@ def _create_enhanced_package(
     """Create the enhanced Quilt package with organized structure and documentation."""
     try:
         # Create a new Quilt package
-        pkg = quilt3.Package()
+        quilt_service = QuiltService()
+        pkg = quilt_service.create_package()
 
         # Add files to package according to organized structure
         for folder, objects in organized_structure.items():

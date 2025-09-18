@@ -504,12 +504,16 @@ def package_diff(
         quilt_service = QuiltService()
         with suppress_stdout():
             if package1_hash:
-                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry, top_hash=package1_hash)
+                pkg1 = quilt_service.browse_package(
+                    package1_name, registry=normalized_registry, top_hash=package1_hash
+                )
             else:
                 pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
 
             if package2_hash:
-                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry, top_hash=package2_hash)
+                pkg2 = quilt_service.browse_package(
+                    package2_name, registry=normalized_registry, top_hash=package2_hash
+                )
             else:
                 pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
 

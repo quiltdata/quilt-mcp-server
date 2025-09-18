@@ -20,13 +20,13 @@ class TestAuthMigrationToQuiltService:
         mock_service.get_logged_in_url.return_value = 'https://example.quiltdata.com'
         mock_service.get_config.return_value = {
             'registryUrl': 's3://example-bucket',
-            'navigator_url': 'https://example.quiltdata.com'
+            'navigator_url': 'https://example.quiltdata.com',
         }
         mock_service.get_catalog_info.return_value = {
             'catalog_name': 'example.quiltdata.com',
             'is_authenticated': True,
             'logged_in_url': 'https://example.quiltdata.com',
-            'registry_url': 's3://example-bucket'
+            'registry_url': 's3://example-bucket',
         }
 
         # Patch QuiltService to return our mock
@@ -56,7 +56,7 @@ class TestAuthMigrationToQuiltService:
             'is_authenticated': True,
             'logged_in_url': 'https://test.quiltdata.com',
             'navigator_url': 'https://test.quiltdata.com',
-            'registry_url': 's3://test-bucket'
+            'registry_url': 's3://test-bucket',
         }
 
         # Patch QuiltService in the _get_catalog_info function

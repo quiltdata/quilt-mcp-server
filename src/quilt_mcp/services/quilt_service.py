@@ -229,13 +229,7 @@ class QuiltService:
         """
         return quilt3.Package()
 
-    def browse_package(
-        self,
-        package_name: str,
-        registry: str,
-        top_hash: str | None = None,
-        **kwargs: Any
-    ) -> Any:
+    def browse_package(self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any) -> Any:
         """Browse an existing package.
 
         Args:
@@ -298,6 +292,7 @@ class QuiltService:
             Search API module
         """
         from quilt3.search_util import search_api
+
         return search_api
 
     # Admin Operations Methods (Conditional)
@@ -309,7 +304,14 @@ class QuiltService:
         Returns:
             True if admin functionality is available
         """
-        raise NotImplementedError
+        try:
+            import quilt3.admin.users
+            import quilt3.admin.roles
+            import quilt3.admin.sso_config
+            import quilt3.admin.tabulator
+            return True
+        except ImportError:
+            return False
 
     def get_tabulator_admin(self) -> Any:
         """Get tabulator admin module.
@@ -320,7 +322,8 @@ class QuiltService:
         Raises:
             ImportError: If admin modules not available
         """
-        raise NotImplementedError
+        import quilt3.admin.tabulator
+        return quilt3.admin.tabulator
 
     def get_users_admin(self) -> Any:
         """Get users admin module.
@@ -331,7 +334,8 @@ class QuiltService:
         Raises:
             ImportError: If admin modules not available
         """
-        raise NotImplementedError
+        import quilt3.admin.users
+        return quilt3.admin.users
 
     def get_roles_admin(self) -> Any:
         """Get roles admin module.
@@ -342,7 +346,8 @@ class QuiltService:
         Raises:
             ImportError: If admin modules not available
         """
-        raise NotImplementedError
+        import quilt3.admin.roles
+        return quilt3.admin.roles
 
     def get_sso_config_admin(self) -> Any:
         """Get SSO config admin module.
@@ -353,7 +358,8 @@ class QuiltService:
         Raises:
             ImportError: If admin modules not available
         """
-        raise NotImplementedError
+        import quilt3.admin.sso_config
+        return quilt3.admin.sso_config
 
     def get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes.
@@ -364,4 +370,17 @@ class QuiltService:
         Raises:
             ImportError: If admin modules not available
         """
-        raise NotImplementedError
+        import quilt3.admin.exceptions
+        return {
+            'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
+            'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
+            'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
+        }
+
+    def get_quilt3_module(self) -> Any:
+        """Get the quilt3 module for backward compatibility.
+
+        Returns:
+            The quilt3 module
+        """
+        return quilt3

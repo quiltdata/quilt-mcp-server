@@ -25,8 +25,10 @@ class TestBucketsMigrationValidation:
         mock_bucket.search.return_value = [{"key": "test.txt"}]
         mock_service.create_bucket.return_value = mock_bucket
 
-        with patch('quilt_mcp.tools.buckets.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'):
+        with (
+            patch('quilt_mcp.tools.buckets.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+        ):
             result = bucket_objects_search('test-bucket', 'query')
 
         mock_service.create_bucket.assert_called_once_with('s3://test-bucket')
@@ -52,11 +54,11 @@ class TestBucketsMigrationValidation:
                                 "updated": "2023-01-01",
                                 "contentType": "text/plain",
                                 "extension": "txt",
-                                "package": {"name": "user/pkg", "topHash": "abc123"}
+                                "package": {"name": "user/pkg", "topHash": "abc123"},
                             }
                         }
                     ],
-                    "pageInfo": {"endCursor": "cursor123", "hasNextPage": False}
+                    "pageInfo": {"endCursor": "cursor123", "hasNextPage": False},
                 }
             }
         }

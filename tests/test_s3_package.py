@@ -334,7 +334,7 @@ class TestEnhancedFunctionality:
         assert "Test package" in readme
         assert "data/processed" in readme
         assert "Usage" in readme
-        assert "quilt3.Package.browse" in readme
+        assert "Package.browse" in readme
 
     def test_generate_package_metadata(self):
         """Test metadata generation."""

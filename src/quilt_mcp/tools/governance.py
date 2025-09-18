@@ -16,22 +16,33 @@ from ..formatting import format_users_as_table, format_roles_as_table
 
 logger = logging.getLogger(__name__)
 
-# Import quilt3.admin when available
-try:
-    import quilt3.admin.users as admin_users
-    import quilt3.admin.roles as admin_roles
-    import quilt3.admin.sso_config as admin_sso_config
-    import quilt3.admin.tabulator as admin_tabulator
-    from quilt3.admin.exceptions import (
-        Quilt3AdminError,
-        UserNotFoundError,
-        BucketNotFoundError,
-    )
+# QuiltService provides admin module access
+from ..services.quilt_service import QuiltService
 
-    ADMIN_AVAILABLE = True
-except ImportError:
-    ADMIN_AVAILABLE = False
+# Initialize service and check availability
+quilt_service = QuiltService()
+ADMIN_AVAILABLE = quilt_service.is_admin_available()
+
+if not ADMIN_AVAILABLE:
     logger.warning("quilt3.admin not available - governance functionality disabled")
+
+# Export module-level admin objects for backward compatibility with tests
+admin_users = quilt_service.get_users_admin() if ADMIN_AVAILABLE else None
+admin_roles = quilt_service.get_roles_admin() if ADMIN_AVAILABLE else None
+admin_sso_config = quilt_service.get_sso_config_admin() if ADMIN_AVAILABLE else None
+admin_tabulator = quilt_service.get_tabulator_admin() if ADMIN_AVAILABLE else None
+
+# Export exception classes for backward compatibility with tests
+if ADMIN_AVAILABLE:
+    admin_exceptions = quilt_service.get_admin_exceptions()
+    UserNotFoundError = admin_exceptions.get('UserNotFoundError', Exception)
+    BucketNotFoundError = admin_exceptions.get('BucketNotFoundError', Exception)
+    Quilt3AdminError = admin_exceptions.get('Quilt3AdminError', Exception)
+else:
+    # Fallback exception classes when admin is not available
+    UserNotFoundError = Exception
+    BucketNotFoundError = Exception
+    Quilt3AdminError = Exception
 
 
 class GovernanceService:
@@ -52,17 +63,18 @@ class GovernanceService:
     def _handle_admin_error(self, e: Exception, operation: str) -> Dict[str, Any]:
         """Handle admin operation errors with appropriate messaging."""
         try:
+            # Use module-level exception classes so tests can patch them
             if isinstance(e, UserNotFoundError):
                 return format_error_response(f"User not found: {str(e)}")
             elif isinstance(e, BucketNotFoundError):
                 return format_error_response(f"Bucket not found: {str(e)}")
             elif isinstance(e, Quilt3AdminError):
                 return format_error_response(f"Admin operation failed: {str(e)}")
-            else:
-                operation_str = str(operation) if operation is not None else "perform admin operation"
-                error_str = str(e) if e is not None else "Unknown error"
-                logger.error(f"Failed to {operation_str}: {error_str}")
-                return format_error_response(f"Failed to {operation_str}: {error_str}")
+
+            operation_str = str(operation) if operation is not None else "perform admin operation"
+            error_str = str(e) if e is not None else "Unknown error"
+            logger.error(f"Failed to {operation_str}: {error_str}")
+            return format_error_response(f"Failed to {operation_str}: {error_str}")
         except Exception as format_error:
             # Fallback if even error formatting fails
             logger.error(f"Error handling failed: {format_error}")
@@ -89,6 +101,7 @@ async def admin_users_list() -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_users = quilt_service.get_users_admin()
         users = admin_users.list()
 
         # Convert users to dictionaries for better handling
@@ -144,6 +157,7 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.get(name)
 
         if user is None:
@@ -227,6 +241,7 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
 
         user_data = {
@@ -268,6 +283,7 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         admin_users.delete(name)
 
         return {"success": True, "message": f"Successfully deleted user '{name}'"}
@@ -303,6 +319,7 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.set_email(name, email)
 
         return {
@@ -336,6 +353,7 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.set_admin(name, admin)
 
         return {
@@ -369,6 +387,7 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.set_active(name, active)
 
         return {
@@ -401,6 +420,7 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         admin_users.reset_password(name)
 
         return {
@@ -439,6 +459,7 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
 
         return {
@@ -478,6 +499,7 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.add_roles(name, roles)
 
         return {
@@ -518,6 +540,7 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
+        admin_users = quilt_service.get_users_admin()
         user = admin_users.remove_roles(name, roles, fallback)
 
         return {
@@ -555,6 +578,7 @@ async def admin_roles_list() -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_roles = quilt_service.get_roles_admin()
         roles = admin_roles.list()
 
         # Convert roles to dictionaries for better handling
@@ -601,6 +625,7 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_sso_config = quilt_service.get_sso_config_admin()
         sso_config = admin_sso_config.get()
 
         if sso_config is None:
@@ -648,6 +673,7 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
+        admin_sso_config = quilt_service.get_sso_config_admin()
         sso_config = admin_sso_config.set(config)
 
         if sso_config is None:
@@ -685,6 +711,7 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_sso_config = quilt_service.get_sso_config_admin()
         admin_sso_config.set(None)
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
@@ -710,6 +737,7 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_tabulator = quilt_service.get_tabulator_admin()
         open_query_enabled = admin_tabulator.get_open_query()
 
         return {
@@ -739,6 +767,7 @@ async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
         if error_check:
             return error_check
 
+        admin_tabulator = quilt_service.get_tabulator_admin()
         admin_tabulator.set_open_query(enabled)
 
         return {

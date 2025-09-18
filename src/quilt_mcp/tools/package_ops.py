@@ -15,9 +15,14 @@ and converted to package files.
 import os
 from typing import Any
 
-import quilt3
-
 from ..constants import DEFAULT_REGISTRY
+from ..services.quilt_service import QuiltService
+
+# Initialize service
+quilt_service = QuiltService()
+
+# Export quilt3 module for backward compatibility with tests
+quilt3 = quilt_service.get_quilt3_module()
 
 # Helpers
 
@@ -40,7 +45,7 @@ def _normalize_registry(bucket_or_uri: str) -> str:
 
 
 def _collect_objects_into_package(
-    pkg: quilt3.Package, s3_uris: list[str], flatten: bool, warnings: list[str]
+    pkg: Any, s3_uris: list[str], flatten: bool, warnings: list[str]
 ) -> list[dict[str, Any]]:
     added: list[dict[str, Any]] = []
     for uri in s3_uris:
@@ -180,7 +185,8 @@ def package_create(
         return {"error": "No S3 URIs provided"}
     if not package_name:
         return {"error": "Package name is required"}
-    pkg = quilt3.Package()
+    quilt_service = QuiltService()
+    pkg = quilt_service.create_package()
     added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
     if not added:
         return {
@@ -326,7 +332,8 @@ def package_update(
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+            quilt_service = QuiltService()
+            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",

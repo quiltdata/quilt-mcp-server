@@ -26,8 +26,10 @@ class TestPackagesMigrationValidation:
         mock_service = Mock()
         mock_service.list_packages.return_value = iter(['user/package1', 'user/package2'])
 
-        with patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'):
+        with (
+            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+        ):
             result = packages_list('s3://test-bucket')
 
         mock_service.list_packages.assert_called_once_with(registry='s3://test-bucket')
@@ -46,9 +48,11 @@ class TestPackagesMigrationValidation:
         mock_package.__getitem__ = Mock(return_value=mock_entry)
         mock_service.browse_package.return_value = mock_package
 
-        with patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'), \
-             patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'):
+        with (
+            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+            patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
+        ):
             result = package_browse('user/package', 's3://test-bucket')
 
         mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
@@ -67,9 +71,11 @@ class TestPackagesMigrationValidation:
         mock_package.__getitem__ = Mock(return_value=mock_entry)
         mock_service.browse_package.return_value = mock_package
 
-        with patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'), \
-             patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'):
+        with (
+            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+            patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
+        ):
             result = package_contents_search('user/package', 'csv', 's3://test-bucket')
 
         mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
@@ -85,8 +91,10 @@ class TestPackagesMigrationValidation:
         mock_pkg1.diff.return_value = {'added': [], 'removed': [], 'modified': []}
         mock_service.browse_package.side_effect = [mock_pkg1, mock_pkg2]
 
-        with patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'):
+        with (
+            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+        ):
             result = package_diff('user/package1', 'user/package2', 's3://test-bucket')
 
         assert mock_service.browse_package.call_count == 2
@@ -103,9 +111,11 @@ class TestPackagesMigrationValidation:
         mock_service.create_bucket.return_value = mock_bucket
         mock_service.get_search_api.side_effect = Exception("Search API not available")
 
-        with patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service), \
-             patch('quilt_mcp.utils.suppress_stdout'), \
-             patch('quilt_mcp.tools.stack_buckets.build_stack_search_indices', return_value=None):
+        with (
+            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
+            patch('quilt_mcp.utils.suppress_stdout'),
+            patch('quilt_mcp.tools.stack_buckets.build_stack_search_indices', return_value=None),
+        ):
             result = packages_search('test query', 's3://test-bucket')
 
         mock_service.get_search_api.assert_called_once()
