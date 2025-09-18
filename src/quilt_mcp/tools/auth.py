@@ -7,7 +7,7 @@ import tempfile
 from typing import Any
 from urllib.parse import quote, urlparse
 
-import quilt3
+from ..services.quilt_service import QuiltService
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -41,47 +41,8 @@ def _get_catalog_info() -> dict[str, Any]:
     Returns:
         Dict with catalog name, URLs, and configuration details.
     """
-    catalog_info: dict[str, Any] = {
-        "catalog_name": None,
-        "navigator_url": None,
-        "registry_url": None,
-        "logged_in_url": None,
-        "is_authenticated": False,
-    }
-
-    try:
-        # Get current authentication status
-        logged_in_url = quilt3.logged_in()
-        if logged_in_url:
-            catalog_info["logged_in_url"] = logged_in_url
-            catalog_info["is_authenticated"] = True
-            catalog_info["catalog_name"] = _extract_catalog_name_from_url(logged_in_url)
-    except Exception:
-        pass
-
-    try:
-        # Get configuration details
-        config = quilt3.config()
-        if config:
-            navigator_url = config.get("navigator_url")
-            registry_url = config.get("registryUrl")
-
-            catalog_info["navigator_url"] = navigator_url
-            catalog_info["registry_url"] = registry_url
-
-            # If we don't have a catalog name from authentication, try config
-            if not catalog_info["catalog_name"] and navigator_url:
-                catalog_info["catalog_name"] = _extract_catalog_name_from_url(navigator_url)
-            elif not catalog_info["catalog_name"] and registry_url:
-                catalog_info["catalog_name"] = _extract_catalog_name_from_url(registry_url)
-    except Exception:
-        pass
-
-    # Fallback catalog name if nothing found
-    if not catalog_info["catalog_name"]:
-        catalog_info["catalog_name"] = "unknown"
-
-    return catalog_info
+    service = QuiltService()
+    return service.get_catalog_info()
 
 
 def _extract_bucket_from_registry(registry: str) -> str:
@@ -105,15 +66,17 @@ def _get_catalog_host_from_config() -> str | None:
         Catalog hostname or None if not found
     """
     try:
+        service = QuiltService()
+
         # Try authenticated URL first
-        logged_in_url = quilt3.logged_in()
+        logged_in_url = service.get_logged_in_url()
         if logged_in_url:
             parsed = urlparse(logged_in_url)
             hostname = parsed.hostname
             return hostname if hostname else None
 
         # Fall back to navigator_url from config
-        config = quilt3.config()
+        config = service.get_config()
         if config and config.get("navigator_url"):
             nav_url = config.get("navigator_url")
             if nav_url:
@@ -353,14 +316,15 @@ def auth_status() -> dict[str, Any]:
     """
     try:
         # Get comprehensive catalog information
-        catalog_info = _get_catalog_info()
-        logged_in_url = quilt3.logged_in()
+        service = QuiltService()
+        catalog_info = service.get_catalog_info()
+        logged_in_url = service.get_logged_in_url()
 
         if logged_in_url:
             # Get registry bucket information
             registry_bucket = None
             try:
-                config = quilt3.config()
+                config = service.get_config()
                 if config and config.get("registryUrl"):
                     registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
             except Exception:
@@ -573,10 +537,11 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
             }
 
         # Configure the catalog
-        quilt3.config(catalog_url)
+        service = QuiltService()
+        service.set_config(catalog_url)
 
         # Verify configuration
-        config = quilt3.config()
+        config = service.get_config()
         configured_url = config.get("navigator_url") if config else None
 
         return {
