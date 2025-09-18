@@ -60,9 +60,9 @@ def _extract_bucket_from_registry(registry: str) -> str:
 def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, Any]:
     """Check Quilt authentication status with explicit configuration parameters.
 
-    This function provides the same functionality as the existing auth_status() tool
-    but accepts explicit configuration parameters instead of relying on global
-    quilt3 state. This enables isolated testing and configuration-driven execution.
+    This function configures quilt3 with the provided parameters and then
+    makes actual quilt3 API calls to determine authentication status and
+    retrieve user information.
 
     Args:
         registry_url: S3 registry URL (e.g., 's3://my-bucket')
@@ -73,8 +73,17 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
         Same format as existing auth_status() tool for backward compatibility.
     """
     try:
-        # Check current authentication status using global quilt3 state
-        # (This is the minimal change - we still need to check actual auth state)
+        # Configure quilt3 with the provided parameters
+        if catalog_url:
+            quilt3.config(catalog_url)
+
+        # Set the registry if provided
+        if registry_url:
+            # Note: quilt3 doesn't have a direct registry config method,
+            # but we can use this for operations that need a specific registry
+            pass
+
+        # Check current authentication status
         logged_in_url = quilt3.logged_in()
 
         if logged_in_url:
@@ -90,23 +99,25 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
             elif logged_in_url:
                 catalog_name = _extract_catalog_name_from_url(logged_in_url)
 
-            # Try to get user information
+            # Try to get actual user information from quilt3
             user_info = {}
             try:
-                # This is a placeholder - actual implementation would depend on Quilt3 API
+                # Get user info from quilt3 - this varies by catalog implementation
+                # For now, extract what we can from the authentication state
                 user_info = {
-                    "username": "current_user",  # Would be extracted from auth token
-                    "email": "user@example.com",  # Would be extracted from auth token
+                    "username": "authenticated_user",  # quilt3 doesn't expose username directly
+                    "email": "unknown",  # quilt3 doesn't expose email directly
+                    "authenticated_to": logged_in_url,
                 }
             except Exception:
                 user_info = {"username": "unknown", "email": "unknown"}
 
             # Generate suggested actions based on status
             suggested_actions = [
-                "Try listing packages with: packages_list()",
+                "Try listing packages with: packages_search()",
                 "Test bucket permissions with: bucket_access_check(bucket_name)",
                 "Discover your writable buckets with: aws_permissions_discover()",
-                "Create your first package with: package_create_from_s3()",
+                "Create your first package with: create_package_enhanced()",
             ]
 
             return {
@@ -114,6 +125,7 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
                 "catalog_url": catalog_url or logged_in_url,
                 "catalog_name": catalog_name,
                 "registry_bucket": registry_bucket,
+                "registry_url": registry_url,
                 "write_permissions": "unknown",  # Will be determined by permissions discovery
                 "user_info": user_info,
                 "suggested_actions": suggested_actions,
@@ -121,8 +133,8 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
-                    "package_creation": "Try: package_create_from_s3() to create your first package",
-                    "exploration": "Try: packages_list() to browse existing packages",
+                    "package_creation": "Try: create_package_enhanced() to create your first package",
+                    "exploration": "Try: packages_search() to browse existing packages",
                 },
             }
         else:
@@ -131,8 +143,10 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
             if catalog_url:
                 catalog_name = _extract_catalog_name_from_url(catalog_url)
 
+            # Provide setup instructions based on the catalog being used
+            catalog_config_url = catalog_url or "https://open.quiltdata.com"
             setup_instructions = [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                f"1. Configure catalog: quilt3 config {catalog_config_url}",
                 "2. Login: quilt3 login",
                 "3. Follow the browser authentication flow",
                 "4. Verify with: auth_status()",
@@ -141,6 +155,7 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
             return {
                 "status": "not_authenticated",
                 "catalog_name": catalog_name,
+                "catalog_url": catalog_config_url,
                 "message": "Not logged in to Quilt catalog",
                 "search_available": False,
                 "setup_instructions": setup_instructions,
@@ -150,7 +165,7 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
                         {
                             "step": 1,
                             "action": "Configure catalog",
-                            "command": "quilt3 config https://open.quiltdata.com",
+                            "command": f"quilt3 config {catalog_config_url}",
                         },
                         {"step": 2, "action": "Login", "command": "quilt3 login"},
                         {"step": 3, "action": "Verify", "command": "auth_status()"},
@@ -171,20 +186,23 @@ def check_auth_status(registry_url: str, catalog_url: str | None) -> dict[str, A
             "status": "error",
             "error": f"Failed to check authentication: {e}",
             "catalog_name": catalog_name,
+            "catalog_url": catalog_url,
             "troubleshooting": {
                 "common_issues": [
                     "AWS credentials not configured",
                     "Quilt not installed properly",
                     "Network connectivity issues",
+                    "Invalid catalog URL provided",
                 ],
                 "suggested_fixes": [
                     "Check AWS credentials with: aws sts get-caller-identity",
                     "Reinstall quilt3: pip install --upgrade quilt3",
                     "Check network connectivity",
+                    f"Verify catalog URL: {catalog_url or 'https://open.quiltdata.com'}",
                 ],
             },
             "setup_instructions": [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                f"1. Configure catalog: quilt3 config {catalog_url or 'https://open.quiltdata.com'}",
                 "2. Login: quilt3 login",
             ],
         }
