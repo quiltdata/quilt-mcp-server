@@ -115,27 +115,24 @@ class AthenaQueryService:
 
     def _discover_workgroup(self, credentials, region: str) -> str:
         """Discover the best available Athena workgroup for the user.
-        
+
         Uses the consolidated list_workgroups method to avoid code duplication.
         """
         try:
             # Use the consolidated list_workgroups method instead of duplicating logic
             workgroups = self.list_workgroups()
-            
+
             if not workgroups:
                 # Fallback to primary if no workgroups available
                 return "primary"
-            
+
             # Filter workgroups with valid output locations for query execution
-            valid_workgroups = [
-                wg["name"] for wg in workgroups 
-                if wg.get("output_location") is not None
-            ]
-            
+            valid_workgroups = [wg["name"] for wg in workgroups if wg.get("output_location") is not None]
+
             if not valid_workgroups:
                 # If no workgroups have output locations, use the first available
                 return workgroups[0]["name"]
-            
+
             # Prioritize workgroups (Quilt workgroups first, then others)
             quilt_workgroups = [name for name in valid_workgroups if "quilt" in name.lower()]
             if quilt_workgroups:

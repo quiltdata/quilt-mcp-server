@@ -18,37 +18,38 @@ from fastmcp import FastMCP
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
     """
     Parse S3 URI into bucket, key, and version_id components.
-    
+
     Args:
         s3_uri: S3 URI in format 's3://bucket/key' or 's3://bucket/key?versionId=xyz'
-        
+
     Returns:
         Tuple of (bucket, key, version_id) where version_id is extracted from query params
-        
+
     Raises:
         ValueError: If URI format is invalid or has unexpected query parameters
     """
     parsed = urlparse(s3_uri)
     if parsed.scheme != 's3':
         raise ValueError(f"Invalid S3 URI scheme: {parsed.scheme}")
-    
+
     bucket = parsed.netloc
     if not bucket:
         raise ValueError(f"Invalid S3 URI format: {s3_uri}")
-    
+
     path = unquote(parsed.path)[1:]  # Remove leading / and URL decode
     if not path:
         raise ValueError(f"Invalid S3 URI format: {s3_uri}")
-    
+
     # Extract and validate query parameters
     query = parse_qs(parsed.query)
     version_id = query.pop('versionId', [None])[0]
-    
+
     # Strict validation - no other query parameters allowed
     if query:
         raise ValueError(f"Unexpected S3 query string: {parsed.query!r}")
-    
+
     return bucket, path, version_id
+
 
 def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
     """Generate a presigned URL for an S3 URI.
