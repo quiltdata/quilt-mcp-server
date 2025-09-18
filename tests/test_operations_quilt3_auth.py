@@ -119,8 +119,11 @@ class TestCheckAuthStatusReturnFormat:
         from quilt_mcp.operations.quilt3.auth import check_auth_status
 
         # Mock quilt3 to simulate authenticated state
-        with patch('quilt3.logged_in') as mock_logged_in:
+        with patch('quilt_mcp.operations.quilt3.auth.quilt3.logged_in') as mock_logged_in, \
+             patch('quilt_mcp.operations.quilt3.auth.quilt3.config') as mock_config:
+
             mock_logged_in.return_value = "https://catalog.example.com"
+            mock_config.return_value = None  # config() doesn't return anything meaningful
 
             result = check_auth_status(registry_url="s3://test-bucket", catalog_url="https://catalog.example.com")
 
