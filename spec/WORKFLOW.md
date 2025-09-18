@@ -215,6 +215,7 @@ Using the specifications and phases documents from Steps 3-4, create phase-speci
 - Plan integration points with other phases as outlined in the phase breakdown
 - Justify technology choices against the risk assessment and constraints from specifications
 - Define specific work to be done in this phase
+- DO NOT WRITE ANY CODE.  Just *describe* the design, do not implement it.
 
 Focus on "what" and "how" for this specific phase, grounded in specifications.
 Format as markdown with clear sections. Fix IDE Diagnostics.
