@@ -7,390 +7,236 @@
 
 ## 1. System Architecture Goals
 
-### 1.1 Dual Environment Support
+### 1.1 Simplified Abstraction Layer
 
-The MCP server shall operate seamlessly in two distinct deployment environments:
+Create a single, centralized abstraction layer that isolates all quilt3 API usage:
 
-1. **Local Development Environment**
-   - Uses quilt3 authentication and configuration
-   - Maintains full backward compatibility with existing workflows
-   - Supports interactive authentication via `quilt3 login`
+1. **Centralized quilt3 Access**: All quilt3 imports and API calls consolidated into one abstraction module
+2. **Single Service Interface**: One unified interface that handles all quilt3 operations
+3. **Tool Isolation**: MCP tools interact only with the abstraction layer, never directly with quilt3
+4. **Future-Ready Design**: Architecture prepared for eventual backend swapping without additional complexity
 
-2. **Stack Deployment Environment**
-   - Operates without quilt3 dependencies
-   - Uses stack-native service authentication
-   - Accesses enhanced stack services directly
+### 1.2 Current Implementation Strategy
 
-### 1.2 Abstraction Layer Architecture
+#### Phase 1: Centralization (This Specification)
 
-Create a service abstraction layer that isolates quilt3 knowledge from MCP tools:
+- Consolidate all quilt3 usage behind a single abstraction layer
+- Remove direct quilt3 imports from all MCP tools
+- Maintain identical functionality and interfaces
 
-1. **Service Interface Layer**: MCP tools interact only with well-defined service interfaces
-2. **Implementation Layer**: Backend implementations handle quilt3 vs stack service decisions
-3. **Configuration Layer**: Environment-aware configuration management
-4. **Authentication Layer**: Dual authentication pathway management
+#### Future Phases: Backend Flexibility
 
-### 1.3 Consistent Tool Interface
+- The centralized abstraction enables future backend implementations
+- Potential for stack-native services or alternative implementations
+- Foundation for deployment environment flexibility
 
-All 84+ MCP tools shall maintain identical interfaces and behavior patterns across both environments, with feature parity where technically feasible.
+### 1.3 Design Principles
 
-## 2. Service Abstraction Specifications
+1. **Single Point of Control**: All quilt3 operations flow through one abstraction layer
+2. **Zero Direct Dependencies**: MCP tools have no direct quilt3 imports or API calls
+3. **Transparent Operation**: Tools function identically, abstraction is invisible to users
+4. **Maintainable Architecture**: Clear separation of concerns for future evolution
 
-### 2.1 AWS Client Service Interface
+## 2. Centralized Abstraction Layer Specification
 
-**Purpose**: Provide authenticated AWS clients for S3 and STS operations
+### 2.1 QuiltService - Single Abstraction Interface
 
-**Interface Contract**:
+**Purpose**: Centralize all quilt3 API access behind a unified interface
 
-```python
-def get_s3_client(use_quilt_auth: bool = True) -> S3Client
-def get_sts_client(use_quilt_auth: bool = True) -> STSClient
-```
-
-**Behavior Specifications**:
-
-1. **Local Environment**: Use quilt3 session-based authentication when available
-2. **Stack Environment**: Use environment-provided credentials (IAM roles, service accounts)
-3. **Fallback Strategy**: Gracefully degrade to boto3 default credential chain
-4. **Error Handling**: Provide actionable error messages for authentication failures
-
-### 2.2 Catalog Information Service Interface
-
-**Purpose**: Provide catalog configuration and discovery capabilities
-
-**Interface Contract**:
+**Core Interface**:
 
 ```python
-def get_catalog_info() -> dict[str, Any]
-def get_registry_url() -> str
-def get_navigator_url() -> str
+class QuiltService:
+    """Centralized abstraction for all quilt3 operations"""
+
+    # Authentication & Configuration
+    def get_auth_status(self) -> dict[str, Any]
+    def get_catalog_info(self) -> dict[str, Any]
+    def get_registry_url(self) -> str
+    def get_navigator_url(self) -> str
+
+    # AWS Client Access
+    def get_s3_client(self) -> S3Client
+    def get_sts_client(self) -> STSClient
+
+    # GraphQL Operations
+    def execute_graphql_query(self, query: str, variables: dict) -> dict
+
+    # Package Operations
+    def list_packages(self, registry: str) -> Iterator[PackageInfo]
+    def get_package(self, package_name: str, registry: str) -> Package
+    def create_package(self, package_name: str, **kwargs) -> PackageResult
+
+    # S3 Operations
+    def list_bucket_objects(self, bucket: str, **kwargs) -> dict
+    def get_object_info(self, s3_uri: str) -> dict
+    def fetch_object_data(self, s3_uri: str, **kwargs) -> bytes
+
+    # Search Operations
+    def search_packages(self, query: str, **kwargs) -> dict
+    def search_bucket_objects(self, bucket: str, query: str, **kwargs) -> dict
 ```
 
-**Behavior Specifications**:
+### 2.2 Implementation Strategy
 
-1. **Local Environment**: Extract configuration from quilt3.config()
-2. **Stack Environment**: Use environment variables or stack service discovery
-3. **Configuration Keys**: `navigator_url`, `registry_url`, `default_bucket`
-4. **Validation**: Ensure returned URLs are accessible and valid
+**Single Module Design**:
 
-### 2.3 GraphQL Service Interface
+- All quilt3 imports contained in `quilt_mcp/services/quilt_service.py`
+- One class (`QuiltService`) handles all quilt3 operations
+- All MCP tools import and use only this service class
 
-**Purpose**: Provide authenticated access to Quilt catalog GraphQL endpoints
+**Current Implementation Approach**:
 
-**Interface Contract**:
+- Use quilt3 APIs directly within the service implementation
+- Maintain all existing functionality and behavior
+- Preserve error handling and authentication patterns
+- No environment detection or backend switching in initial implementation
+
+## 3. Service Integration Requirements
+
+### 3.1 Tool Integration Pattern
+
+**Migration Strategy**:
+
+1. Replace direct quilt3 imports with `QuiltService` imports
+2. Replace quilt3 API calls with equivalent service method calls
+3. Maintain identical tool interfaces and behavior
+
+**Example Migration Pattern**:
 
 ```python
-def get_graphql_session() -> Tuple[Session, str]
-def execute_graphql_query(query: str, variables: dict) -> dict
+# Before: Direct quilt3 usage
+import quilt3
+session, endpoint = quilt3.get_api_session()
+
+# After: Service abstraction
+from quilt_mcp.services.quilt_service import QuiltService
+service = QuiltService()
+session, endpoint = service.get_graphql_session()
 ```
 
-**Behavior Specifications**:
+### 3.2 Configuration Access
 
-1. **Local Environment**: Use quilt3 authenticated session and endpoint discovery
-2. **Stack Environment**: Use stack service authentication and direct endpoint access
-3. **Session Management**: Handle session lifecycle and token refresh
-4. **Error Handling**: Provide specific error messages for authentication and network issues
+**Simplified Configuration**:
 
-### 2.4 Package Operations Service Interface
+- Service handles all quilt3 configuration access internally
+- Tools access configuration through service methods only
+- No direct quilt3.config() calls in tool modules
 
-**Purpose**: Provide package management capabilities across both environments
+**Configuration Methods**:
 
-**Interface Contract**:
+- `service.get_catalog_info()` - replaces `quilt3.config()`
+- `service.get_registry_url()` - centralized registry access
+- `service.get_navigator_url()` - centralized navigator access
 
-```python
-def list_packages(registry: str) -> Iterator[PackageInfo]
-def get_package_info(package_name: str, registry: str) -> PackageInfo
-def create_package(package_name: str, **kwargs) -> PackageResult
-```
+## 4. Quality Gates and Success Criteria
 
-**Behavior Specifications**:
+### 4.1 Implementation Requirements
 
-1. **Local Environment**: Use quilt3 package APIs directly
-2. **Stack Environment**: Use stack package management APIs
-3. **Performance**: Stack environment should leverage enhanced stack performance
-4. **Feature Parity**: Maintain consistent package operation results
+**Zero Direct quilt3 Usage**:
 
-## 3. Environment Detection and Configuration
+1. No direct quilt3 imports in any MCP tool module
+2. All quilt3 operations flow through `QuiltService` only
+3. Service module is the single point of quilt3 dependency
 
-### 3.1 Environment Detection Strategy
+**Functional Equivalence**:
 
-**Automatic Detection Criteria**:
+1. All existing tool functionality preserved exactly
+2. Error handling patterns maintained
+3. Performance characteristics preserved
+4. Tool interfaces remain unchanged
 
-1. **Stack Environment Indicators**:
-   - Presence of stack-specific environment variables
-   - Availability of stack service endpoints
-   - IAM role-based authentication context
+### 4.2 Validation Criteria
 
-2. **Local Environment Indicators**:
-   - Presence of quilt3 configuration files
-   - Valid quilt3 authentication state
-   - Local filesystem access patterns
+**Code Quality Gates**:
 
-### 3.2 Configuration Management
+- Static analysis confirms no quilt3 imports in tool modules
+- All tool tests pass without modification
+- Service module provides complete API coverage
+- Type safety maintained across all interfaces
 
-**Configuration Sources (Priority Order)**:
+**Integration Testing**:
 
-1. **Environment Variables**: Override all other sources
-2. **Stack Service Discovery**: For stack deployments
-3. **quilt3 Configuration**: For local environments
-4. **Default Values**: Fallback configuration
+- All 84+ MCP tools function identically through service layer
+- Authentication workflows preserved
+- Configuration access patterns maintained
+- Error scenarios handled consistently
 
-**Required Configuration Parameters**:
+## 5. Implementation Phases
 
-- `QUILT_CATALOG_URL`: Catalog base URL
-- `QUILT_REGISTRY_URL`: Package registry URL
-- `QUILT_GRAPHQL_ENDPOINT`: GraphQL service endpoint
-- `QUILT_DEFAULT_BUCKET`: Default S3 bucket for operations
+### 5.1 Phase 1: Create QuiltService (Current)
 
-## 4. Authentication Architecture
+**Deliverables**:
 
-### 4.1 Dual Authentication Pathways
+1. Implement `QuiltService` class with complete API coverage
+2. Migrate core authentication and configuration tools
+3. Establish testing patterns for service layer
+4. Document migration patterns for remaining tools
 
-**Local Authentication Pathway**:
+**Success Criteria**:
 
-- Uses quilt3.logged_in() for authentication state
-- Leverages quilt3.get_boto3_session() for AWS credentials
-- Maintains compatibility with existing `quilt3 login` workflows
+- `QuiltService` handles all identified quilt3 operations
+- Core tools (auth, config) successfully migrated
+- All existing functionality preserved
+- Test coverage maintained at 100%
 
-**Stack Authentication Pathway**:
+### 5.2 Phase 2: Migrate All Tools
 
-- Uses IAM roles or service account credentials
-- Accesses stack services with service-to-service authentication
-- No dependency on local filesystem or interactive authentication
+**Deliverables**:
 
-### 4.2 Authentication State Management
+1. Migrate all 84+ MCP tools to use `QuiltService`
+2. Remove all direct quilt3 imports from tool modules
+3. Validate functional equivalence across all tools
+4. Update documentation and examples
 
-**Authentication Validation**:
+**Success Criteria**:
 
-- Verify authentication state before critical operations
-- Provide clear authentication status reporting
-- Handle authentication refresh and expiration
+- Zero direct quilt3 imports in tool modules
+- All tools pass existing test suites
+- Performance benchmarks maintained
+- Complete API migration documented
 
-**Error Handling**:
+### 5.3 Future Phases: Backend Flexibility
 
-- Distinguish between authentication and authorization failures
-- Provide actionable guidance for authentication setup
-- Support graceful degradation when authentication is partial
+**Potential Enhancements** (Not in Current Scope):
 
-## 5. Integration Points and API Contracts
+- Environment detection and backend switching
+- Stack-native service implementations
+- Performance optimization for deployment environments
+- Enhanced error handling for different backends
 
-### 5.1 Tool Integration Requirements
+## 6. Architecture Benefits
 
-**MCP Tool Modifications**:
+### 6.1 Immediate Benefits
 
-1. Tools shall use service interface functions exclusively
-2. No direct quilt3 imports permitted in tool modules
-3. All AWS operations shall use abstracted client functions
-4. Configuration access shall use abstracted configuration functions
+**Simplified Maintenance**:
 
-**Backward Compatibility**:
+- Single point of quilt3 dependency management
+- Centralized error handling and authentication patterns
+- Easier debugging and troubleshooting
+- Consistent API usage patterns across all tools
 
-1. Existing tool function signatures remain unchanged
-2. Tool behavior remains consistent across environments
-3. Error messages maintain existing format and detail level
+**Future Flexibility**:
 
-### 5.2 Service Discovery Integration
+- Foundation for backend swapping without tool changes
+- Enables deployment environment optimization
+- Supports gradual migration to alternative implementations
+- Clean separation of concerns for easier testing
 
-**Stack Service Discovery**:
+### 6.2 Long-term Strategic Value
 
-- Automatic discovery of available stack services
-- Dynamic endpoint configuration based on environment
-- Health checking and failover capabilities
+**Deployment Options**:
 
-**Local Service Integration**:
+- Preparation for stack environments without quilt3 dependency
+- Foundation for performance-optimized backends
+- Support for different authentication mechanisms
+- Enables environment-specific feature optimization
 
-- Seamless integration with existing quilt3 workflows
-- Preservation of local development capabilities
-- Support for offline development scenarios
+**Development Efficiency**:
 
-## 6. Quality Gates and Validation Criteria
+- Standardized patterns reduce implementation complexity
+- Centralized quilt3 expertise in service layer
+- Simplified onboarding for new developers
+- Consistent error handling across all operations
 
-### 6.1 Functional Validation Gates
-
-**Environment Compatibility**:
-
-1. All tools function correctly in local environment (existing behavior)
-2. All tools function correctly in stack environment (new requirement)
-3. Authentication works correctly in both environments
-4. Configuration discovery works correctly in both environments
-
-**Feature Parity Validation**:
-
-1. Core package operations maintain identical results
-2. Search functionality provides equivalent capabilities
-3. Metadata access maintains consistency
-4. Performance meets or exceeds current benchmarks
-
-### 6.2 Integration Validation Gates
-
-**Authentication Integration**:
-
-1. Local authentication maintains existing workflows
-2. Stack authentication integrates with IAM/service accounts
-3. Authentication failures provide actionable error messages
-4. Authentication state is correctly reported across all tools
-
-**Configuration Integration**:
-
-1. Environment detection works automatically
-2. Configuration override via environment variables
-3. Fallback configuration provides reasonable defaults
-4. Configuration validation prevents runtime errors
-
-### 6.3 Quality Assurance Gates
-
-**Code Quality Standards**:
-
-1. Zero direct quilt3 imports in tool modules
-2. All service interfaces properly abstracted
-3. Comprehensive error handling in abstraction layer
-4. Type safety maintained across all interfaces
-
-**Testing Coverage Requirements**:
-
-1. Unit tests for all service interface implementations
-2. Integration tests for both environment scenarios
-3. End-to-end tests for critical user workflows
-4. Performance benchmarks for both environments
-
-## 7. Success Criteria and Measurable Outcomes
-
-### 7.1 Primary Success Metrics
-
-**Deployment Capability**:
-
-1. MCP server successfully deploys in stack environment without quilt3
-2. All 84+ tools remain functional in stack deployment
-3. Authentication works seamlessly in both environments
-4. Configuration discovery works without manual intervention
-
-**Performance Criteria**:
-
-1. Local environment performance matches or exceeds current performance
-2. Stack environment leverages enhanced stack service performance
-3. Authentication latency remains within acceptable bounds
-4. Memory usage remains within current resource constraints
-
-### 7.2 User Experience Metrics
-
-**Developer Experience**:
-
-1. Local development workflow remains unchanged
-2. Tool behavior is consistent across environments
-3. Error messages provide clear guidance for environment-specific issues
-4. Documentation clearly explains environment differences
-
-**Operations Experience**:
-
-1. Stack deployment requires no additional configuration steps
-2. Authentication setup is automated for stack environment
-3. Monitoring and logging provide environment-specific visibility
-4. Troubleshooting procedures work for both environments
-
-## 8. Architectural Constraints and Design Principles
-
-### 8.1 Design Principles
-
-**Separation of Concerns**:
-
-1. Tools focus on business logic, not infrastructure concerns
-2. Service interfaces abstract environment-specific implementation
-3. Configuration management is centralized and environment-aware
-4. Authentication is abstracted from service access patterns
-
-**Graceful Degradation**:
-
-1. Fallback mechanisms for all critical operations
-2. Progressive enhancement based on available capabilities
-3. Clear communication of reduced functionality when applicable
-4. No silent failures or undefined behavior states
-
-### 8.2 Implementation Constraints
-
-**Compatibility Requirements**:
-
-1. Maintain backward compatibility with existing local workflows
-2. Preserve existing tool interfaces and behavior patterns
-3. Support incremental rollout and testing strategies
-4. Enable environment-specific feature toggles when necessary
-
-**Dependency Management**:
-
-1. quilt3 remains optional dependency for stack deployments
-2. Core functionality available without quilt3 installation
-3. Clear dependency boundaries between environments
-4. Minimal additional dependencies for abstraction layer
-
-## 9. Technical Uncertainties and Risk Assessment
-
-### 9.1 Authentication Integration Risks
-
-**Risk**: Stack service authentication complexity
-
-- **Impact**: High - Authentication failures break all functionality
-- **Mitigation**: Comprehensive testing with actual stack service accounts
-
-**Risk**: Session management differences between environments
-
-- **Impact**: Medium - May cause intermittent authentication failures
-- **Mitigation**: Robust session lifecycle management and error handling
-
-### 9.2 Performance and Compatibility Risks
-
-**Risk**: Stack service API differences from quilt3 APIs
-
-- **Impact**: High - Could break tool functionality or degrade performance
-- **Mitigation**: Careful API mapping and comprehensive integration testing
-
-**Risk**: Configuration discovery failures in stack environment
-
-- **Impact**: Medium - Tools may not find required services or endpoints
-- **Mitigation**: Multiple discovery mechanisms with comprehensive fallbacks
-
-### 9.3 Implementation Complexity Risks
-
-**Risk**: Deep quilt3 integration requires extensive refactoring
-
-- **Impact**: High - Risk of introducing regressions in local environment
-- **Mitigation**: Incremental implementation with comprehensive test coverage
-
-**Risk**: Environment detection may be unreliable
-
-- **Impact**: Medium - Wrong environment assumptions could cause failures
-- **Mitigation**: Multiple detection criteria with explicit override capabilities
-
-## 10. Validation and Testing Strategy
-
-### 10.1 Environment Simulation Strategy
-
-**Local Environment Testing**:
-
-1. Maintain existing test suite for local environment functionality
-2. Add tests for new abstraction layer with quilt3 backend
-3. Verify backward compatibility with existing authentication flows
-4. Performance regression testing for abstraction overhead
-
-**Stack Environment Testing**:
-
-1. Mock stack service implementations for unit testing
-2. Integration testing with actual stack service endpoints
-3. Authentication testing with service account credentials
-4. End-to-end workflow testing in simulated stack environment
-
-### 10.2 Quality Assurance Process
-
-**Code Review Requirements**:
-
-1. All changes reviewed for proper abstraction boundaries
-2. No direct quilt3 usage permitted in tool modules
-3. Error handling patterns consistently applied
-4. Documentation updated for environment-specific behavior
-
-**Integration Testing Protocol**:
-
-1. Both environments tested for each tool modification
-2. Authentication scenarios tested across both environments
-3. Configuration discovery tested with various environment setups
-4. Performance benchmarking for both environments maintained
-
-This specification defines the desired end state architecture that enables the MCP server to operate in both local development and stack deployment environments while maintaining consistent tool interfaces and behavior patterns. The success of this architecture depends on proper abstraction of quilt3 dependencies behind well-defined service interfaces that can be implemented differently for each environment.
+This simplified specification focuses on the immediate goal of centralizing quilt3 access behind a single abstraction layer. This approach provides the foundation for future backend flexibility while maintaining all current functionality and significantly simplifying the migration effort.
