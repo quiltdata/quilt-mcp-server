@@ -28,6 +28,7 @@ class ConfigurationError(Exception):
     This is the root of the configuration error hierarchy.
     All configuration-specific exceptions should inherit from this.
     """
+
     pass
 
 
@@ -37,6 +38,7 @@ class ValidationError(ConfigurationError):
     This should be used for errors during configuration validation,
     such as invalid URLs, missing required values, or format violations.
     """
+
     pass
 
 
@@ -46,6 +48,7 @@ class SerializationError(ConfigurationError):
     This should be used for errors during to_dict/from_dict operations,
     such as unsupported data types or corruption during roundtrip.
     """
+
     pass
 
 
@@ -60,6 +63,7 @@ class ConfigValidationResult:
         success: True if validation passed, False otherwise
         errors: List of error messages describing validation failures
     """
+
     success: bool
     errors: List[str]
 
@@ -83,12 +87,12 @@ class ConfigValidationResult:
         self.success = False
 
     @classmethod
-    def success_result(cls) -> 'ConfigValidationResult':
+    def success_result(cls) -> ConfigValidationResult:
         """Create a successful validation result."""
         return cls(success=True, errors=[])
 
     @classmethod
-    def failure_result(cls, errors: List[str]) -> 'ConfigValidationResult':
+    def failure_result(cls, errors: List[str]) -> ConfigValidationResult:
         """Create a failed validation result with error messages.
 
         Args:
@@ -144,7 +148,7 @@ class Configuration(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Configuration':
+    def from_dict(cls, data: Dict[str, Any]) -> Configuration:
         """Create configuration instance from dictionary data.
 
         This should be the inverse of to_dict() - any configuration
@@ -185,7 +189,5 @@ class Configuration(ABC):
         """
         result = self.validate()
         if not result.success:
-            error_msg = "Configuration validation failed:\n" + "\n".join(
-                f"  - {error}" for error in result.errors
-            )
+            error_msg = "Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in result.errors)
             raise ValidationError(error_msg)

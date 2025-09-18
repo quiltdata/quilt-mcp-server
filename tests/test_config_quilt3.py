@@ -26,17 +26,20 @@ class TestQuilt3ConfigBasicFunctionality:
     def test_quilt3_config_can_be_imported(self):
         """Quilt3Config should be importable from the config module."""
         from quilt_mcp.config.quilt3 import Quilt3Config
+
         assert Quilt3Config is not None
 
     def test_quilt3_config_inherits_from_configuration(self):
         """Quilt3Config should inherit from the base Configuration class."""
         from quilt_mcp.config.quilt3 import Quilt3Config
         from quilt_mcp.config.base import Configuration
+
         assert issubclass(Quilt3Config, Configuration)
 
     def test_quilt3_config_has_required_attributes(self):
         """Quilt3Config should have registry_url and catalog_url attributes."""
         from quilt_mcp.config.quilt3 import Quilt3Config
+
         config = Quilt3Config(registry_url="s3://test-bucket")
         assert hasattr(config, 'registry_url')
         assert hasattr(config, 'catalog_url')
@@ -45,6 +48,7 @@ class TestQuilt3ConfigBasicFunctionality:
     def test_quilt3_config_can_be_created_with_minimal_parameters(self):
         """Quilt3Config should be creatable with just registry_url."""
         from quilt_mcp.config.quilt3 import Quilt3Config
+
         config = Quilt3Config(registry_url="s3://test-bucket")
         assert config.registry_url == "s3://test-bucket"
         assert config.catalog_url is None
@@ -87,8 +91,9 @@ class TestQuilt3ConfigRegistryUrlValidation:
             config = Quilt3Config(registry_url=url)
             result = config.validate()
             assert not result.success, f"URL {url} should be invalid but passed validation"
-            assert any("registry" in error.lower() for error in result.errors), \
+            assert any("registry" in error.lower() for error in result.errors), (
                 f"Error message should mention registry for URL {url}"
+            )
 
     def test_registry_url_validation_error_messages_are_clear(self):
         """Registry URL validation errors should provide clear, actionable guidance."""
@@ -192,10 +197,9 @@ class TestQuilt3ConfigEnvironmentVariables:
         """Catalog URL should be loaded from QUILT_CATALOG_URL environment variable."""
         from quilt_mcp.config.quilt3 import Quilt3Config
 
-        with patch.dict(os.environ, {
-            'QUILT_REGISTRY_URL': 's3://test-bucket',
-            'QUILT_CATALOG_URL': 'https://catalog.example.com'
-        }):
+        with patch.dict(
+            os.environ, {'QUILT_REGISTRY_URL': 's3://test-bucket', 'QUILT_CATALOG_URL': 'https://catalog.example.com'}
+        ):
             config = Quilt3Config.from_environment()
             assert config.catalog_url == 'https://catalog.example.com'
 
@@ -286,10 +290,7 @@ class TestQuilt3ConfigSerialization:
         """Serialization should preserve all Quilt3-specific data."""
         from quilt_mcp.config.quilt3 import Quilt3Config
 
-        config_data = {
-            "registry_url": "s3://test-bucket",
-            "catalog_url": "https://catalog.example.com"
-        }
+        config_data = {"registry_url": "s3://test-bucket", "catalog_url": "https://catalog.example.com"}
         config = Quilt3Config.from_dict(config_data)
         serialized = config.to_dict()
         assert serialized == config_data
@@ -321,10 +322,7 @@ class TestQuilt3ConfigSerialization:
         """Serialization roundtrip should preserve all data."""
         from quilt_mcp.config.quilt3 import Quilt3Config
 
-        original = Quilt3Config(
-            registry_url="s3://test-bucket",
-            catalog_url="https://catalog.example.com"
-        )
+        original = Quilt3Config(registry_url="s3://test-bucket", catalog_url="https://catalog.example.com")
         serialized = original.to_dict()
         restored = Quilt3Config.from_dict(serialized)
 
@@ -350,10 +348,7 @@ class TestQuilt3ConfigErrorHandling:
         """Multiple validation errors should be collected and reported together."""
         from quilt_mcp.config.quilt3 import Quilt3Config
 
-        config = Quilt3Config(
-            registry_url="invalid-registry",
-            catalog_url="invalid-catalog"
-        )
+        config = Quilt3Config(registry_url="invalid-registry", catalog_url="invalid-catalog")
         result = config.validate()
         assert not result.success
         assert len(result.errors) >= 2  # Should have errors for both fields
@@ -424,10 +419,9 @@ class TestQuilt3ConfigIntegration:
         # 4. Restore from serialization
         # 5. Use in application
 
-        with patch.dict(os.environ, {
-            'QUILT_REGISTRY_URL': 's3://test-bucket',
-            'QUILT_CATALOG_URL': 'https://catalog.example.com'
-        }):
+        with patch.dict(
+            os.environ, {'QUILT_REGISTRY_URL': 's3://test-bucket', 'QUILT_CATALOG_URL': 'https://catalog.example.com'}
+        ):
             # 1. Load from environment
             config = Quilt3Config.from_environment()
 
@@ -461,9 +455,6 @@ class TestQuilt3ConfigIntegration:
         from quilt_mcp.config.quilt3 import Quilt3Config
 
         # Real-world style URLs
-        config = Quilt3Config(
-            registry_url="s3://quilt-example-bucket",
-            catalog_url="https://example.quiltdata.com"
-        )
+        config = Quilt3Config(registry_url="s3://quilt-example-bucket", catalog_url="https://example.quiltdata.com")
         result = config.validate()
         assert result.success, f"Real-world config should be valid: {result.errors}"

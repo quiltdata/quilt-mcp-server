@@ -471,7 +471,7 @@ class TestQuiltAPI:
         # Find any object to test with
         test_object = objects_result["objects"][0]
         s3_uri = f"s3://{objects_result['bucket']}/{test_object['key']}"
-        
+
         result = bucket_object_link(s3_uri, expiration=7200)
 
         assert isinstance(result, dict)
@@ -753,9 +753,9 @@ class TestBucketObjectVersionConsistency:
 
         # info, text, and fetch should fail with error (they access the object)
         assert "error" in info_result
-        assert "error" in text_result  
+        assert "error" in text_result
         assert "error" in fetch_result
-        
+
         # link should succeed (S3 allows presigned URLs for non-existent objects)
         assert "error" not in link_result
         assert "presigned_url" in link_result
@@ -763,8 +763,9 @@ class TestBucketObjectVersionConsistency:
         # Error messages should indicate object not found for functions that access objects
         for result in [info_result, text_result, fetch_result]:
             error_msg = result["error"].lower()
-            assert any(term in error_msg for term in ["not found", "does not exist", "no such key"]), \
+            assert any(term in error_msg for term in ["not found", "does not exist", "no such key"]), (
                 f"Expected 'not found' error, got: {result['error']}"
+            )
 
 
 if __name__ == "__main__":

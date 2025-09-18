@@ -87,7 +87,7 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     Returns:
         Dict with object metadata including size, content type, etag, and modification date.
         For versioned objects, includes version-specific metadata.
-        
+
     Version-specific Error Responses:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
@@ -97,7 +97,7 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
         bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
-    
+
     client = get_s3_client()
     try:
         # Build params dict and conditionally add VersionId
@@ -141,7 +141,7 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     Returns:
         Dict with decoded text content and metadata.
         For versioned objects, retrieves content from the specific version.
-        
+
     Version-specific Error Responses:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
@@ -151,7 +151,7 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
         bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
-    
+
     client = get_s3_client()
     try:
         # Build params dict and conditionally add VersionId
@@ -267,7 +267,7 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     Returns:
         Dict with object data as base64 or text, plus metadata.
         For versioned objects, fetches data from the specific version.
-        
+
     Version-specific Error Responses:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
@@ -279,7 +279,7 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
         bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
-    
+
     client = get_s3_client()
     try:
         # Build params dict and conditionally add VersionId
@@ -353,7 +353,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
     Returns:
         Dict with presigned URL and metadata.
         For versioned objects, generates URL for the specific version.
-        
+
     Version-specific Error Responses:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
@@ -363,7 +363,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return {"error": str(e)}
-    
+
     expiration = max(1, min(expiration, 604800))
     client = get_s3_client()
     try:

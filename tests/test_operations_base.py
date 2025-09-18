@@ -26,28 +26,33 @@ class TestOperationModuleStructure:
     def test_operations_module_imports_successfully(self):
         """Operations module should be importable without errors."""
         import quilt_mcp.operations  # Should not raise ImportError
+
         assert hasattr(quilt_mcp.operations, '__all__')
 
     def test_operations_base_module_imports_successfully(self):
         """Operations base module should be importable without errors."""
         from quilt_mcp.operations import base  # Should not raise ImportError
+
         assert hasattr(base, 'Operation')
         assert hasattr(base, 'OperationResult')
 
     def test_no_circular_import_dependencies(self):
         """Operations module should not have circular import dependencies."""
         import quilt_mcp.operations
+
         # Should be able to import without issues and have proper module structure
         assert hasattr(quilt_mcp.operations, '__path__')
 
         # Should be able to import base classes through main module
         from quilt_mcp.operations import Operation, OperationResult
+
         assert Operation is not None
         assert OperationResult is not None
 
     def test_operations_module_documentation_is_comprehensive(self):
         """Operations module should have comprehensive documentation."""
         import quilt_mcp.operations
+
         assert hasattr(quilt_mcp.operations, '__doc__')
         assert quilt_mcp.operations.__doc__ is not None
         assert "operation framework" in quilt_mcp.operations.__doc__.lower()
@@ -73,8 +78,10 @@ class TestAbstractOperationClass:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -96,8 +103,10 @@ class TestAbstractOperationClass:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -119,8 +128,10 @@ class TestAbstractOperationClass:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -146,11 +157,7 @@ class TestOperationResultHierarchy:
 
     def test_operation_result_hierarchy_exists(self):
         """OperationResult hierarchy should exist for all result types."""
-        from quilt_mcp.operations.base import (
-            OperationResult,
-            SuccessResult,
-            ErrorResult
-        )
+        from quilt_mcp.operations.base import OperationResult, SuccessResult, ErrorResult
 
         assert issubclass(SuccessResult, OperationResult)
         assert issubclass(ErrorResult, OperationResult)
@@ -207,7 +214,7 @@ class TestErrorCategorization:
             AuthenticationError,
             ConfigurationError,
             AuthorizationError,
-            OperationError
+            OperationError,
         )
 
         # Should have error types for different failure categories
@@ -234,10 +241,7 @@ class TestErrorCategorization:
         """Error messages should provide actionable guidance for resolution."""
         from quilt_mcp.operations.base import ErrorResult
 
-        error = ErrorResult(
-            error_type="config",
-            message="Invalid registry URL format. Use s3://bucket-name"
-        )
+        error = ErrorResult(error_type="config", message="Invalid registry URL format. Use s3://bucket-name")
         assert "s3://" in error.message
         assert "registry URL" in error.message
 
@@ -248,7 +252,7 @@ class TestErrorCategorization:
             NetworkError,
             AuthenticationError,
             ConfigurationError,
-            AuthorizationError
+            AuthorizationError,
         )
 
         # Test different exception types
@@ -338,11 +342,7 @@ class TestResultSerialization:
         assert serialized["success"] is True
 
         # Result with all fields
-        result = SuccessResult(
-            data={"key": "value"},
-            message="Operation completed",
-            operation_id="test-123"
-        )
+        result = SuccessResult(data={"key": "value"}, message="Operation completed", operation_id="test-123")
         serialized = result.to_dict()
         assert serialized["data"] == {"key": "value"}
         assert serialized["message"] == "Operation completed"
@@ -366,7 +366,7 @@ class TestResultSerialization:
             message="Authentication failed",
             details={"code": 401},
             traceback="Stack trace here",
-            operation_id="test-456"
+            operation_id="test-456",
         )
         serialized = result.to_dict()
         assert serialized["details"] == {"code": 401}
@@ -386,8 +386,10 @@ class TestOperationLifecycleManagement:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -431,8 +433,10 @@ class TestOperationLifecycleManagement:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -469,8 +473,10 @@ class TestOperationLifecycleManagement:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -521,8 +527,10 @@ class TestOperationExecution:
         class InvalidConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.failure_result(["Configuration is invalid"])
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -546,7 +554,7 @@ class TestOperationExecution:
             NetworkError,
             AuthenticationError,
             ConfigurationError,
-            AuthorizationError
+            AuthorizationError,
         )
         from quilt_mcp.config.base import Configuration, ConfigValidationResult
 
@@ -554,8 +562,10 @@ class TestOperationExecution:
         class ValidConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -588,8 +598,10 @@ class TestOperationExecution:
         class ValidConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -615,8 +627,10 @@ class TestOperationExecution:
         class InvalidConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.failure_result(["Error 1", "Error 2"])
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -649,8 +663,10 @@ class TestOperationFrameworkExtensibility:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -675,8 +691,10 @@ class TestOperationFrameworkExtensibility:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -728,10 +746,9 @@ class TestOperationIntegrationWithConfiguration:
 
         class ConfigTestOperation(Operation):
             def execute(self):
-                return SuccessResult(data={
-                    "has_config": self.config is not None,
-                    "config_type": type(self.config).__name__
-                })
+                return SuccessResult(
+                    data={"has_config": self.config is not None, "config_type": type(self.config).__name__}
+                )
 
         config = Quilt3Config(registry_url="s3://test-bucket")
         operation = ConfigTestOperation(config)
@@ -768,10 +785,7 @@ class TestOperationIntegrationWithConfiguration:
         class IsolatedOperation(Operation):
             def execute(self):
                 # Should work using only injected configuration
-                return SuccessResult(data={
-                    "registry_url": self.config.registry_url,
-                    "isolated": True
-                })
+                return SuccessResult(data={"registry_url": self.config.registry_url, "isolated": True})
 
         config = Quilt3Config(registry_url="s3://test-bucket")
         operation = IsolatedOperation(config)
@@ -795,11 +809,8 @@ class TestOperationFrameworkIntegration:
             def execute(self):
                 # Simulate operation that uses configuration
                 return SuccessResult(
-                    data={
-                        "registry": self.config.registry_url,
-                        "operation": "complete_workflow"
-                    },
-                    message="Workflow completed successfully"
+                    data={"registry": self.config.registry_url, "operation": "complete_workflow"},
+                    message="Workflow completed successfully",
                 )
 
         # 1. Create configuration
@@ -830,7 +841,7 @@ class TestOperationFrameworkIntegration:
             NetworkError,
             AuthenticationError,
             ConfigurationError,
-            AuthorizationError
+            AuthorizationError,
         )
         from quilt_mcp.config.base import Configuration, ConfigValidationResult
 
@@ -838,8 +849,10 @@ class TestOperationFrameworkIntegration:
         class ValidConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()
@@ -855,6 +868,7 @@ class TestOperationFrameworkIntegration:
         ]
 
         for exception, expected_type in error_tests:
+
             class ErrorOperation(Operation):
                 def execute(self):
                     raise exception
@@ -876,8 +890,10 @@ class TestOperationFrameworkIntegration:
         class TestConfig(Configuration):
             def validate(self):
                 return ConfigValidationResult.success_result()
+
             def to_dict(self):
                 return {}
+
             @classmethod
             def from_dict(cls, data):
                 return cls()

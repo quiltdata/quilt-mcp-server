@@ -35,6 +35,7 @@ class OperationError(Exception):
     This is the root of the operation error hierarchy.
     All operation-specific exceptions should inherit from this.
     """
+
     pass
 
 
@@ -47,6 +48,7 @@ class NetworkError(OperationError):
     - HTTP request failures
     - Network connectivity issues
     """
+
     pass
 
 
@@ -59,6 +61,7 @@ class AuthenticationError(OperationError):
     - Authentication token expiration
     - Authentication service unavailability
     """
+
     pass
 
 
@@ -71,6 +74,7 @@ class AuthorizationError(OperationError):
     - Operation not allowed for user role
     - Policy violations
     """
+
     pass
 
 
@@ -83,6 +87,7 @@ class ConfigurationError(OperationError):
     - Configuration validation failures
     - Incompatible configuration combinations
     """
+
     pass
 
 
@@ -98,6 +103,7 @@ class OperationResult(ABC):
         timestamp: ISO timestamp when result was created
         operation_id: Optional identifier for the operation
     """
+
     success: bool
     timestamp: str = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
     operation_id: Optional[str] = None
@@ -113,7 +119,7 @@ class OperationResult(ABC):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'OperationResult':
+    def from_dict(cls, data: Dict[str, Any]) -> OperationResult:
         """Create result instance from dictionary data.
 
         Args:
@@ -136,6 +142,7 @@ class SuccessResult(OperationResult):
         data: Optional data payload from the operation
         message: Optional success message
     """
+
     success: bool = field(default=True, init=False)
     data: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
@@ -163,7 +170,7 @@ class SuccessResult(OperationResult):
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'SuccessResult':
+    def from_dict(cls, data: Dict[str, Any]) -> SuccessResult:
         """Create SuccessResult from dictionary.
 
         Args:
@@ -176,7 +183,7 @@ class SuccessResult(OperationResult):
             data=data.get("data"),
             message=data.get("message"),
             timestamp=data.get("timestamp", datetime.datetime.now(datetime.timezone.utc).isoformat()),
-            operation_id=data.get("operation_id")
+            operation_id=data.get("operation_id"),
         )
 
 
@@ -194,6 +201,7 @@ class ErrorResult(OperationResult):
         details: Optional additional error details
         traceback: Optional exception traceback for debugging
     """
+
     success: bool = field(default=False, init=False)
     error_type: str = ""
     message: str = ""
@@ -225,7 +233,7 @@ class ErrorResult(OperationResult):
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ErrorResult':
+    def from_dict(cls, data: Dict[str, Any]) -> ErrorResult:
         """Create ErrorResult from dictionary.
 
         Args:
@@ -240,16 +248,13 @@ class ErrorResult(OperationResult):
             details=data.get("details"),
             traceback=data.get("traceback"),
             timestamp=data.get("timestamp", datetime.datetime.now(datetime.timezone.utc).isoformat()),
-            operation_id=data.get("operation_id")
+            operation_id=data.get("operation_id"),
         )
 
     @classmethod
     def from_exception(
-        cls,
-        exc: Exception,
-        operation_id: Optional[str] = None,
-        include_traceback: bool = False
-    ) -> 'ErrorResult':
+        cls, exc: Exception, operation_id: Optional[str] = None, include_traceback: bool = False
+    ) -> ErrorResult:
         """Create ErrorResult from an exception.
 
         Args:
@@ -277,7 +282,7 @@ class ErrorResult(OperationResult):
             message=str(exc),
             details={"exception_type": type(exc).__name__},
             traceback=traceback.format_exc() if include_traceback else None,
-            operation_id=operation_id
+            operation_id=operation_id,
         )
 
 
@@ -311,7 +316,7 @@ class Operation(ABC):
         self.config = config
         self._resources_acquired = False
 
-    def __enter__(self) -> 'Operation':
+    def __enter__(self) -> Operation:
         """Enter context manager and acquire resources.
 
         Returns:
@@ -380,7 +385,7 @@ class Operation(ABC):
                 return ErrorResult(
                     error_type="config",
                     message=f"Configuration validation failed: {'; '.join(validation_result.errors)}",
-                    operation_id=operation_id
+                    operation_id=operation_id,
                 )
 
             # Execute with resource management
@@ -402,7 +407,7 @@ class Operation(ABC):
                 error_type="unknown",
                 message=f"Unexpected error during operation: {str(e)}",
                 details={"exception_type": type(e).__name__},
-                operation_id=operation_id
+                operation_id=operation_id,
             )
 
     def validate_config_or_raise(self) -> None:

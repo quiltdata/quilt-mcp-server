@@ -54,11 +54,7 @@ class Quilt3Config(Configuration):
                 print(f"Configuration error: {error}")
     """
 
-    def __init__(
-        self,
-        registry_url: Optional[str] = None,
-        catalog_url: Optional[str] = None
-    ):
+    def __init__(self, registry_url: Optional[str] = None, catalog_url: Optional[str] = None):
         """Initialize Quilt3Config with registry and optional catalog URLs.
 
         Args:
@@ -116,9 +112,7 @@ class Quilt3Config(Configuration):
 
         # Must start with s3://
         if not url.startswith("s3://"):
-            errors.append(
-                "Registry URL must start with 's3://' (e.g., 's3://my-bucket')"
-            )
+            errors.append("Registry URL must start with 's3://' (e.g., 's3://my-bucket')")
             return errors
 
         # Parse the URL
@@ -170,10 +164,7 @@ class Quilt3Config(Configuration):
 
         # Must be HTTP or HTTPS
         if not (url.startswith("http://") or url.startswith("https://")):
-            errors.append(
-                "Catalog URL must start with 'http://' or 'https://' "
-                "(e.g., 'https://catalog.example.com')"
-            )
+            errors.append("Catalog URL must start with 'http://' or 'https://' (e.g., 'https://catalog.example.com')")
             return errors
 
         # Parse the URL
@@ -185,10 +176,7 @@ class Quilt3Config(Configuration):
 
         # Must have a hostname
         if not parsed.netloc:
-            errors.append(
-                "Catalog URL must specify a hostname "
-                "(e.g., 'https://catalog.example.com')"
-            )
+            errors.append("Catalog URL must specify a hostname (e.g., 'https://catalog.example.com')")
 
         return errors
 
@@ -248,7 +236,7 @@ class Quilt3Config(Configuration):
             raise SerializationError(f"Failed to serialize Quilt3Config: {e}")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Quilt3Config':
+    def from_dict(cls, data: Dict[str, Any]) -> Quilt3Config:
         """Create Quilt3Config from dictionary data.
 
         Args:
@@ -261,15 +249,12 @@ class Quilt3Config(Configuration):
             SerializationError: If data cannot be deserialized
         """
         try:
-            return cls(
-                registry_url=data.get("registry_url"),
-                catalog_url=data.get("catalog_url")
-            )
+            return cls(registry_url=data.get("registry_url"), catalog_url=data.get("catalog_url"))
         except Exception as e:
             raise SerializationError(f"Failed to deserialize Quilt3Config: {e}")
 
     @classmethod
-    def from_environment(cls) -> 'Quilt3Config':
+    def from_environment(cls) -> Quilt3Config:
         """Create Quilt3Config from environment variables.
 
         Reads configuration from:
@@ -279,13 +264,10 @@ class Quilt3Config(Configuration):
         Returns:
             New Quilt3Config instance with values from environment
         """
-        return cls(
-            registry_url=os.environ.get("QUILT_REGISTRY_URL"),
-            catalog_url=os.environ.get("QUILT_CATALOG_URL")
-        )
+        return cls(registry_url=os.environ.get("QUILT_REGISTRY_URL"), catalog_url=os.environ.get("QUILT_CATALOG_URL"))
 
     @classmethod
-    def with_defaults(cls, **kwargs) -> 'Quilt3Config':
+    def with_defaults(cls, **kwargs) -> Quilt3Config:
         """Create Quilt3Config with explicit parameters taking precedence over environment.
 
         This method follows the priority order:
@@ -306,7 +288,4 @@ class Quilt3Config(Configuration):
         registry_url = kwargs.get("registry_url", env_config.registry_url)
         catalog_url = kwargs.get("catalog_url", env_config.catalog_url)
 
-        return cls(
-            registry_url=registry_url,
-            catalog_url=catalog_url
-        )
+        return cls(registry_url=registry_url, catalog_url=catalog_url)

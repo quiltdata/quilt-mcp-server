@@ -24,22 +24,26 @@ class TestConfigurationModuleStructure:
     def test_configuration_module_imports_successfully(self):
         """Configuration module should be importable without errors."""
         import quilt_mcp.config  # Should not raise ImportError
+
         assert hasattr(quilt_mcp.config, '__all__')
 
     def test_configuration_base_module_imports_successfully(self):
         """Configuration base module should be importable without errors."""
         from quilt_mcp.config import base  # Should not raise ImportError
+
         assert hasattr(base, 'Configuration')
         assert hasattr(base, 'ConfigValidationResult')
 
     def test_no_circular_import_dependencies(self):
         """Configuration module should not have circular import dependencies."""
         import quilt_mcp.config
+
         # Should be able to import without issues and have proper module structure
         assert hasattr(quilt_mcp.config, '__path__')
 
         # Should be able to import base classes through main module
         from quilt_mcp.config import Configuration, ConfigValidationResult
+
         assert Configuration is not None
         assert ConfigValidationResult is not None
 
@@ -75,11 +79,7 @@ class TestConfigurationValidationFramework:
 
     def test_configuration_error_hierarchy_exists(self):
         """Configuration errors should have appropriate hierarchy and messages."""
-        from quilt_mcp.config.base import (
-            ConfigurationError,
-            ValidationError,
-            SerializationError
-        )
+        from quilt_mcp.config.base import ConfigurationError, ValidationError, SerializationError
 
         # Test error hierarchy
         assert issubclass(ValidationError, ConfigurationError)
@@ -114,7 +114,7 @@ class TestConfigurationValidationFramework:
                 return {"valid": self.valid}
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'TestConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> TestConfig:
                 return cls(data.get("valid", True))
 
         # Test validation interface
@@ -166,7 +166,7 @@ class TestConfigurationErrorHandling:
                 return {"valid": self.valid}
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'TestConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> TestConfig:
                 return cls(data.get("valid", True))
 
         # Valid config should not raise
@@ -202,7 +202,7 @@ class TestConfigurationSerialization:
                 return self.data.copy()
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'TestConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> TestConfig:
                 return cls(data)
 
         # Test roundtrip with various data types
@@ -228,7 +228,7 @@ class TestConfigurationSerialization:
                 return self.data.copy()
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'TestConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> TestConfig:
                 return cls(data)
 
         # Test edge cases
@@ -254,7 +254,7 @@ class TestConfigurationSerialization:
                 return self.data.copy()
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'TestConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> TestConfig:
                 return cls(data)
 
         # Test JSON compatibility
@@ -325,7 +325,7 @@ class TestConfigurationFrameworkExtensibility:
                 return {"value": self.value}
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'CustomConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> CustomConfig:
                 return cls(data.get("value", ""))
 
         # Test that custom configuration works
@@ -366,7 +366,7 @@ class TestConfigurationFrameworkExtensibility:
                 return {"name": self.name, "age": self.age}
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'ExtendedConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> ExtendedConfig:
                 return cls(data.get("name", ""), data.get("age", 0))
 
         # Test valid configuration
@@ -412,7 +412,7 @@ class TestConfigurationFrameworkIntegration:
                 return {"url": self.url, "timeout": self.timeout}
 
             @classmethod
-            def from_dict(cls, data: Dict[str, Any]) -> 'WorkflowConfig':
+            def from_dict(cls, data: Dict[str, Any]) -> WorkflowConfig:
                 return cls(data.get("url", ""), data.get("timeout", 30))
 
         # 1. Create configuration from dict
