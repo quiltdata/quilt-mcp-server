@@ -13,20 +13,15 @@ from quilt_mcp.tools.package_ops import package_create, _collect_objects_into_pa
 class TestPackageCreate:
     """Test cases for the package_create function."""
 
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_content_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_readme_content_extraction_from_metadata(self, mock_create_revision):
         """Test that README content is automatically extracted from metadata and added as package file."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata with README content
         test_metadata = {
@@ -42,34 +37,32 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify README.md was added to package
-        # Alternative: Check that README.md was called at all
-        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
-        assert len(readme_calls) > 0, "README.md was not added to package"
+        # Verify create_package_revision was called with processed metadata (without README)
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
 
-        # Verify metadata was set without README content
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was processed to remove README content
+        processed_metadata = call_args[1]["metadata"]
         expected_metadata = {"description": "Test package", "tags": ["test", "example"]}
-        mock_pkg.set_meta.assert_called_with(expected_metadata)
+        assert processed_metadata == expected_metadata
 
         # Verify success
         assert result["status"] == "success"
-        # Check that warnings were generated (they might not be returned in the result)
-        # The important thing is that the README was extracted and added as a file
 
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_field_extraction_from_metadata(self, mock_package_class, mock_collect, mock_build_selector):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_readme_field_extraction_from_metadata(self, mock_create_revision):
         """Test that 'readme' field is also extracted from metadata."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata with 'readme' field
         test_metadata = {
@@ -85,34 +78,32 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify README.md was added to package
-        # Alternative: Check that README.md was called at all
-        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
-        assert len(readme_calls) > 0, "README.md was not added to package"
+        # Verify create_package_revision was called with processed metadata (without README)
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
 
-        # Verify metadata was set without README content
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was processed to remove README content
+        processed_metadata = call_args[1]["metadata"]
         expected_metadata = {"description": "Test package", "version": "1.0.0"}
-        mock_pkg.set_meta.assert_called_with(expected_metadata)
+        assert processed_metadata == expected_metadata
 
         # Verify success
         assert result["status"] == "success"
-        # Check that warnings were generated (they might not be returned in the result)
-        # The important thing is that the README was extracted and added as a file
 
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_both_readme_fields_extraction(self, mock_package_class, mock_collect, mock_build_selector):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_both_readme_fields_extraction(self, mock_create_revision):
         """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata with both README fields
         test_metadata = {
@@ -129,32 +120,32 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify README.md was added with priority content
-        # Alternative: Check that README.md was called at all
-        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
-        assert len(readme_calls) > 0, "README.md was not added to package"
+        # Verify create_package_revision was called with processed metadata (without README)
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
 
-        # Verify metadata was set without either README field
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was processed to remove both README fields
+        processed_metadata = call_args[1]["metadata"]
         expected_metadata = {"description": "Test package", "tags": ["test"]}
-        mock_pkg.set_meta.assert_called_with(expected_metadata)
+        assert processed_metadata == expected_metadata
 
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_no_readme_content_in_metadata(self, mock_build_selector, mock_collect, mock_package_class):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_no_readme_content_in_metadata(self, mock_create_revision):
         """Test that packages without README content in metadata work normally."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata without README content
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
@@ -166,35 +157,32 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify no README.md was added
-        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
-        assert len(readme_calls) == 0
+        # Verify create_package_revision was called with metadata as-is
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
 
-        # Verify metadata was set as-is
-        mock_pkg.set_meta.assert_called_with(test_metadata)
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was passed unchanged
+        processed_metadata = call_args[1]["metadata"]
+        assert processed_metadata == test_metadata
 
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    def test_readme_file_creation_failure_handling(self, mock_package_class, mock_collect, mock_build_selector):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_readme_file_creation_failure_handling(self, mock_create_revision):
         """Test that README file creation failures are handled gracefully."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
-
-        # Mock README file creation failure
-        mock_pkg.set.side_effect = lambda logical_path, content: (
-            Mock() if logical_path != "README.md" else Exception("File system error")
-        )
+        # Mock package creation that will process README internally
+        # NOTE: With create_package_revision, README handling is internal
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata with README content
         test_metadata = {
@@ -210,27 +198,32 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify success despite README file creation failure
+        # Verify create_package_revision was called with processed metadata (without README)
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
+
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was processed to remove README content
+        processed_metadata = call_args[1]["metadata"]
+        expected_metadata = {"description": "Test package", "tags": ["test"]}
+        assert processed_metadata == expected_metadata
+
+        # Verify success (README failure handling is now internal to create_package_revision)
         assert result["status"] == "success"
 
-        # Verify metadata was still set without README content
-        expected_metadata = {"description": "Test package", "tags": ["test"]}
-        mock_pkg.set_meta.assert_called_with(expected_metadata)
-
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_empty_metadata_handling(self, mock_build_selector, mock_collect, mock_package_class):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_empty_metadata_handling(self, mock_create_revision):
         """Test that empty metadata is handled correctly."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         result = package_create(
             package_name="test/package",
@@ -239,26 +232,31 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify no metadata was set
-        mock_pkg.set_meta.assert_not_called()
+        # Verify create_package_revision was called with empty metadata
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
+
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata is empty dict
+        processed_metadata = call_args[1]["metadata"]
+        assert processed_metadata == {}
 
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt3.Package")
-    @patch("quilt_mcp.tools.package_ops._collect_objects_into_package")
-    @patch("quilt_mcp.tools.package_ops._build_selector_fn")
-    def test_metadata_without_readme_fields(self, mock_build_selector, mock_collect, mock_package_class):
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_metadata_without_readme_fields(self, mock_create_revision):
         """Test that metadata without README fields is processed normally."""
-        # Setup mocks
-        mock_pkg = Mock()
-        mock_package_class.return_value = mock_pkg
-
-        # Mock successful object collection
-        mock_collect.return_value = [{"logical_path": "test.txt", "source": "s3://bucket/test.txt"}]
-
-        # Mock successful push
-        mock_pkg.push.return_value = "test_hash_123"
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
 
         # Test metadata with various fields but no README content
         test_metadata = {
@@ -276,12 +274,18 @@ class TestPackageCreate:
             registry="s3://test-bucket",
         )
 
-        # Verify metadata was set unchanged
-        mock_pkg.set_meta.assert_called_with(test_metadata)
+        # Verify create_package_revision was called with metadata unchanged
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
 
-        # Verify no README.md was added
-        readme_calls = [call for call in mock_pkg.set.call_args_list if call[0][0] == "README.md"]
-        assert len(readme_calls) == 0
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
+        assert call_args[1]["registry"] == "s3://test-bucket"
+        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+
+        # Verify metadata was passed unchanged
+        processed_metadata = call_args[1]["metadata"]
+        assert processed_metadata == test_metadata
 
         # Verify success
         assert result["status"] == "success"

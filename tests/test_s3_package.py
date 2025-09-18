@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch, AsyncMock
 
 from quilt_mcp.tools.s3_package import (
     package_create_from_s3,
+    _create_enhanced_package,
     _validate_bucket_access,
     _discover_s3_objects,
     _should_include_object,
@@ -640,3 +641,62 @@ class TestREADMEContentExtraction:
 
         # Verify extracted README content was used instead of generated content
         assert passed_readme_content == "# Custom README from metadata"
+
+
+class TestCreateEnhancedPackageMigration:
+    """Test cases for the _create_enhanced_package migration to create_package_revision."""
+
+    @patch("quilt_mcp.tools.s3_package.QuiltService")
+    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class):
+        """Test that _create_enhanced_package uses create_package_revision with auto_organize=True."""
+        from pathlib import Path
+
+        # Mock the QuiltService instance and its create_package_revision method
+        mock_quilt_service = Mock()
+        mock_quilt_service_class.return_value = mock_quilt_service
+        mock_quilt_service.create_package_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 2,
+        }
+
+        # Test data
+        organized_structure = {
+            "data": [
+                {"Key": "file1.txt", "Size": 100},
+                {"Key": "file2.csv", "Size": 200},
+            ]
+        }
+        enhanced_metadata = {
+            "description": "Test package",
+            "tags": ["test", "migration"],
+        }
+
+        result = _create_enhanced_package(
+            s3_client=Mock(),
+            organized_structure=organized_structure,
+            source_bucket="test-bucket",
+            package_name="test/package",
+            target_registry="s3://test-registry",
+            description="Test package description",
+            enhanced_metadata=enhanced_metadata,
+        )
+
+        # Verify create_package_revision was called with auto_organize=True
+        mock_quilt_service.create_package_revision.assert_called_once()
+        call_args = mock_quilt_service.create_package_revision.call_args
+
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["registry"] == "s3://test-registry"
+        assert call_args[1]["auto_organize"] == True  # s3_package.py should use True
+        assert call_args[1]["metadata"] == enhanced_metadata
+
+        # Verify expected S3 URIs were passed
+        expected_s3_uris = [
+            "s3://test-bucket/file1.txt",
+            "s3://test-bucket/file2.csv",
+        ]
+        assert set(call_args[1]["s3_uris"]) == set(expected_s3_uris)
+
+        # Verify success result
+        assert result["top_hash"] == "test_hash_123"

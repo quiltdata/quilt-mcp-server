@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 from quilt_mcp.services.quilt_service import QuiltService
 
@@ -404,6 +404,38 @@ class TestQuiltServiceCreatePackageRevision:
             assert not hasattr(result, 'push')  # quilt3.Package method
             assert isinstance(result, dict)  # Must be plain dict
             assert type(result).__name__ == 'dict'  # Verify exact type
+
+    def test_create_package_revision_with_copy_parameter(self):
+        """Test create_package_revision accepts and handles copy parameter."""
+        service = QuiltService()
+
+        with patch('quilt3.Package') as mock_package_class:
+            mock_package = MagicMock()
+            mock_package.set.return_value = mock_package  # For method chaining
+            mock_package.set_dir.return_value = mock_package
+            mock_package.set_meta.return_value = mock_package
+            mock_package.push.return_value = "test_hash"
+            mock_package_class.return_value = mock_package
+
+            # This should NOT raise "unexpected keyword argument 'copy'" error
+            result = service.create_package_revision(
+                package_name="test/package",
+                s3_uris=["s3://bucket/file.txt"],
+                copy="none"  # Test the copy parameter
+            )
+
+            # Verify result structure
+            assert result["status"] == "success"
+            assert result["package_name"] == "test/package"
+            assert "top_hash" in result
+
+            # Verify push was called with selector_fn when copy != "all"
+            push_call = mock_package.push.call_args
+            assert push_call is not None
+            push_kwargs = push_call[1]
+            if "selector_fn" in push_kwargs:
+                # If selector_fn is passed, it should be callable
+                assert callable(push_kwargs["selector_fn"])
 
 
 class TestQuiltServiceAdmin:

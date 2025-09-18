@@ -353,3 +353,66 @@ class TestUtilityFunctions:
 
                 # Verify metadata was passed unchanged
                 assert passed_metadata == test_metadata
+
+
+class TestUnifiedPackageMigration:
+    """Test cases for unified package integration with create_package_revision."""
+
+    @patch("quilt_mcp.tools.s3_package.QuiltService")
+    def test_unified_package_uses_create_package_revision_integration(self, mock_quilt_service_class):
+        """Test that unified package creation integrates with create_package_revision through s3_package."""
+        # Mock the QuiltService instance and its create_package_revision method
+        mock_quilt_service = Mock()
+        mock_quilt_service_class.return_value = mock_quilt_service
+        mock_quilt_service.create_package_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+        }
+
+        # Mock the file analysis to return S3 sources only
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            # Mock bucket access validation and recommendations
+            with patch("quilt_mcp.tools.s3_package._validate_bucket_access") as mock_validate, \
+                 patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover, \
+                 patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations, \
+                 patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check, \
+                 patch("quilt_mcp.tools.s3_package.get_s3_client") as mock_s3_client:
+
+                mock_validate.return_value = None
+                mock_discover.return_value = [{"Key": "file.csv", "Size": 100}]
+                mock_recommendations.return_value = {
+                    "success": True,
+                    "recommendations": {"package_creation": ["test-bucket"]},
+                }
+                mock_access_check.return_value = {
+                    "success": True,
+                    "access_summary": {"can_write": True},
+                }
+                mock_s3_client.return_value = Mock()
+
+                result = create_package(
+                    name="test/package",
+                    files=["s3://bucket/file.csv"],
+                    description="Test package",
+                    auto_organize=True,
+                )
+
+                # Verify success
+                assert result["success"] is True
+
+                # Verify create_package_revision was called with auto_organize=True
+                # (unified_package.py uses s3_package.py which should use auto_organize=True)
+                mock_quilt_service.create_package_revision.assert_called_once()
+                call_args = mock_quilt_service.create_package_revision.call_args
+
+                assert call_args[1]["package_name"] == "test/package"
+                assert call_args[1]["auto_organize"] == True  # unified_package uses s3_package which should use True
+                assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]

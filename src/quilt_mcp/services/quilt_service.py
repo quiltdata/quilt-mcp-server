@@ -230,7 +230,8 @@ class QuiltService:
         metadata: Optional[Dict] = None,
         registry: Optional[str] = None,
         message: str = "Package created via QuiltService",
-        auto_organize: bool = True
+        auto_organize: bool = True,
+        copy: str = "all"
     ) -> Dict[str, Any]:
         """Create and push package in single operation.
 
@@ -245,6 +246,8 @@ class QuiltService:
             message: Commit message for package creation
             auto_organize: True for smart folder organization (s3_package style),
                           False for simple flattening (package_ops style)
+            copy: Copy mode for objects - "all" (copy all), "none" (copy none),
+                 or "same_bucket" (copy only objects in same bucket as registry)
 
         Returns:
             Dict with package creation results, never quilt3.Package objects
@@ -269,8 +272,11 @@ class QuiltService:
         if metadata:
             pkg.set_meta(metadata)
 
+        # Build selector function based on copy mode
+        selector_fn = self._build_selector_fn(copy, normalized_registry) if copy != "all" else None
+
         # Push package and get hash
-        top_hash = self._push_package(pkg, package_name, normalized_registry, message)
+        top_hash = self._push_package(pkg, package_name, normalized_registry, message, selector_fn)
 
         # Return dictionary result - NEVER expose quilt3.Package objects
         return self._build_creation_result(package_name, top_hash, normalized_registry, message)
@@ -511,7 +517,7 @@ class QuiltService:
         for obj in collected_objects:
             pkg.set(obj["logical_key"], obj["s3_uri"])
 
-    def _push_package(self, pkg: Any, package_name: str, registry: Optional[str], message: str) -> str:
+    def _push_package(self, pkg: Any, package_name: str, registry: Optional[str], message: str, selector_fn: Optional[callable] = None) -> str:
         """Push package to registry and return top hash.
 
         Args:
@@ -519,6 +525,7 @@ class QuiltService:
             package_name: Name of the package
             registry: Target registry (optional)
             message: Commit message
+            selector_fn: Optional selector function for copy behavior
 
         Returns:
             Top hash of the pushed package
@@ -532,6 +539,8 @@ class QuiltService:
         }
         if registry:
             push_args["registry"] = registry
+        if selector_fn:
+            push_args["selector_fn"] = selector_fn
 
         return pkg.push(package_name, **push_args)
 
@@ -655,3 +664,46 @@ class QuiltService:
                 })
 
         return collected
+
+    def _build_selector_fn(self, copy_mode: str, target_registry: Optional[str]):
+        """Build a Quilt selector_fn based on desired copy behavior.
+
+        Args:
+            copy_mode: Copy mode - "all", "none", or "same_bucket"
+            target_registry: Target registry for bucket comparison
+
+        Returns:
+            Callable selector function for quilt3.Package.push()
+        """
+        if not target_registry:
+            # Default behavior if no registry
+            return lambda _logical_key, _entry: copy_mode == "all"
+
+        # Extract target bucket from registry
+        target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
+
+        def selector_all(_logical_key, _entry):
+            return True
+
+        def selector_none(_logical_key, _entry):
+            return False
+
+        def selector_same_bucket(_logical_key, entry):
+            try:
+                physical_key = str(getattr(entry, "physical_key", ""))
+            except Exception:
+                physical_key = ""
+            if not physical_key.startswith("s3://"):
+                return False
+            try:
+                bucket = physical_key.split("/", 3)[2]
+            except Exception:
+                return False
+            return bucket == target_bucket
+
+        if copy_mode == "none":
+            return selector_none
+        elif copy_mode == "same_bucket":
+            return selector_same_bucket
+        else:  # "all" or default
+            return selector_all
