@@ -5,6 +5,8 @@
 
 **Implementation Example**: See [WORKFLOW.md](./WORKFLOW.md) for IRS/DSCO methodology that applies these patterns.
 
+- Write all temporary files in ./scratch
+
 ## Core Principles
 
 ### 1. Anti-Deception Framework
