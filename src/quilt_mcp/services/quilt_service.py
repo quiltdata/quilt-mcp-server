@@ -6,7 +6,9 @@ isolating the 84+ MCP tools from direct quilt3 dependencies.
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from typing import Any, Iterator, Dict, List, Optional
+from pathlib import Path
+import re
 
 import quilt3
 
@@ -229,6 +231,58 @@ class QuiltService:
         """
         return quilt3.Package()
 
+    def create_package_revision(
+        self,
+        package_name: str,
+        s3_uris: List[str],
+        metadata: Optional[Dict] = None,
+        registry: Optional[str] = None,
+        message: str = "Package created via QuiltService",
+        auto_organize: bool = True
+    ) -> Dict[str, Any]:
+        """Create and push package in single operation.
+
+        This method replaces the object-based manipulation pattern and provides
+        complete package creation without exposing quilt3.Package objects.
+
+        Args:
+            package_name: Name of the package to create
+            s3_uris: List of S3 URIs to include in the package
+            metadata: Optional metadata dictionary for the package
+            registry: Target registry (uses default if None)
+            message: Commit message for package creation
+            auto_organize: True for smart folder organization (s3_package style),
+                          False for simple flattening (package_ops style)
+
+        Returns:
+            Dict with package creation results, never quilt3.Package objects
+
+        Raises:
+            ValueError: If input parameters are invalid
+            Exception: If package creation or push fails
+        """
+        # Validate inputs
+        self._validate_package_inputs(package_name, s3_uris)
+
+        # Create empty package instance (internal use only)
+        pkg = quilt3.Package()
+
+        # Normalize registry
+        normalized_registry = self._normalize_registry(registry) if registry else None
+
+        # Populate package with files based on organization strategy
+        self._populate_package_files(pkg, s3_uris, auto_organize)
+
+        # Set metadata if provided
+        if metadata:
+            pkg.set_meta(metadata)
+
+        # Push package and get hash
+        top_hash = self._push_package(pkg, package_name, normalized_registry, message)
+
+        # Return dictionary result - NEVER expose quilt3.Package objects
+        return self._build_creation_result(package_name, top_hash, normalized_registry, message)
+
     def browse_package(self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any) -> Any:
         """Browse an existing package.
 
@@ -384,3 +438,228 @@ class QuiltService:
             The quilt3 module
         """
         return quilt3
+
+    # Helper methods for create_package_revision
+
+    def _validate_package_inputs(self, package_name: str, s3_uris: List[str]) -> None:
+        """Validate inputs for package creation.
+
+        Args:
+            package_name: Package name to validate
+            s3_uris: List of S3 URIs to validate
+
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        if not package_name or not package_name.strip():
+            raise ValueError("Package name cannot be empty")
+
+        if not s3_uris:
+            raise ValueError("At least one S3 URI must be provided")
+
+        # Validate package name format (basic check)
+        if "/" not in package_name:
+            raise ValueError("Package name must be in 'namespace/name' format")
+
+    def _populate_package_files(self, pkg: Any, s3_uris: List[str], auto_organize: bool) -> None:
+        """Populate package with files using the specified organization strategy.
+
+        Args:
+            pkg: Package instance to populate
+            s3_uris: List of S3 URIs to add
+            auto_organize: Whether to use smart organization or flattening
+        """
+        if auto_organize:
+            self._add_files_with_smart_organization(pkg, s3_uris)
+        else:
+            self._add_files_with_flattening(pkg, s3_uris)
+
+    def _add_files_with_smart_organization(self, pkg: Any, s3_uris: List[str]) -> None:
+        """Add files to package using smart folder organization.
+
+        Args:
+            pkg: Package instance to populate
+            s3_uris: List of S3 URIs to organize and add
+        """
+        organized_structure = self._organize_s3_files_smart(s3_uris)
+
+        # Build URI-to-key mapping for efficient lookup
+        uri_to_key = {}
+        for s3_uri in s3_uris:
+            parts = s3_uri.replace("s3://", "").split("/")
+            if len(parts) >= 2:
+                key = "/".join(parts[1:])
+                uri_to_key[key] = s3_uri
+
+        # Add files according to organized structure
+        for folder, objects in organized_structure.items():
+            for obj in objects:
+                source_key = obj["Key"]
+
+                # Determine logical path in package
+                if folder:
+                    logical_path = f"{folder}/{Path(source_key).name}"
+                else:
+                    logical_path = Path(source_key).name
+
+                # Find matching S3 URI
+                s3_uri = uri_to_key.get(source_key)
+                if s3_uri:
+                    pkg.set(logical_path, s3_uri)
+
+    def _add_files_with_flattening(self, pkg: Any, s3_uris: List[str]) -> None:
+        """Add files to package using simple flattening strategy.
+
+        Args:
+            pkg: Package instance to populate
+            s3_uris: List of S3 URIs to add with flattened keys
+        """
+        collected_objects = self._collect_objects_flat(s3_uris)
+
+        for obj in collected_objects:
+            pkg.set(obj["logical_key"], obj["s3_uri"])
+
+    def _push_package(self, pkg: Any, package_name: str, registry: Optional[str], message: str) -> str:
+        """Push package to registry and return top hash.
+
+        Args:
+            pkg: Package instance to push
+            package_name: Name of the package
+            registry: Target registry (optional)
+            message: Commit message
+
+        Returns:
+            Top hash of the pushed package
+
+        Raises:
+            Exception: If push fails
+        """
+        push_args = {
+            "message": message,
+            "force": True
+        }
+        if registry:
+            push_args["registry"] = registry
+
+        return pkg.push(package_name, **push_args)
+
+    def _build_creation_result(
+        self,
+        package_name: str,
+        top_hash: str,
+        registry: Optional[str],
+        message: str
+    ) -> Dict[str, Any]:
+        """Build the package creation result dictionary.
+
+        Args:
+            package_name: Name of the created package
+            top_hash: Hash of the created package
+            registry: Registry where package was created
+            message: Commit message used
+
+        Returns:
+            Dictionary with creation results
+        """
+        return {
+            "status": "success",
+            "action": "created",
+            "package_name": package_name,
+            "top_hash": top_hash,
+            "registry": registry or "default",
+            "message": message
+        }
+
+    def _normalize_registry(self, registry: Optional[str]) -> Optional[str]:
+        """Normalize registry URL format.
+
+        Args:
+            registry: Registry URL to normalize
+
+        Returns:
+            Normalized registry URL
+        """
+        if not registry:
+            return None
+
+        # Basic normalization - ensure s3:// prefix for S3 registries
+        if registry.startswith("s3://"):
+            return registry
+        elif "/" in registry and not registry.startswith("http"):
+            return f"s3://{registry}"
+        else:
+            return registry
+
+    def _organize_s3_files_smart(self, s3_uris: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+        """Smart organization of S3 files into logical folders.
+
+        This implements the s3_package.py organization strategy.
+
+        Args:
+            s3_uris: List of S3 URIs to organize
+
+        Returns:
+            Dict mapping folder names to lists of file objects
+        """
+        organized = {}
+
+        for s3_uri in s3_uris:
+            # Extract key from S3 URI
+            parts = s3_uri.replace("s3://", "").split("/")
+            if len(parts) < 2:
+                continue
+
+            bucket = parts[0]
+            key = "/".join(parts[1:])
+
+            # Determine folder based on file extension and path
+            file_path = Path(key)
+            file_ext = file_path.suffix.lower()
+
+            # Simple folder classification based on file extension
+            if file_ext in ['.csv', '.tsv', '.json', '.parquet']:
+                folder = "data"
+            elif file_ext in ['.txt', '.md', '.rst', '.pdf']:
+                folder = "docs"
+            elif file_ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg']:
+                folder = "images"
+            elif file_ext in ['.py', '.r', '.sql', '.sh']:
+                folder = "scripts"
+            else:
+                folder = "misc"
+
+            if folder not in organized:
+                organized[folder] = []
+
+            organized[folder].append({
+                "Key": key,
+                "Size": 1000,  # Mock size for testing
+                "LastModified": "2023-01-01T00:00:00Z"
+            })
+
+        return organized
+
+    def _collect_objects_flat(self, s3_uris: List[str]) -> List[Dict[str, str]]:
+        """Collect S3 objects with simple flattened logical keys.
+
+        This implements the package_ops.py flattening strategy.
+
+        Args:
+            s3_uris: List of S3 URIs to collect
+
+        Returns:
+            List of objects with s3_uri and logical_key
+        """
+        collected = []
+
+        for s3_uri in s3_uris:
+            # Extract filename from S3 URI for logical key
+            parts = s3_uri.replace("s3://", "").split("/")
+            if len(parts) >= 2:
+                filename = parts[-1]  # Just the filename
+                collected.append({
+                    "s3_uri": s3_uri,
+                    "logical_key": filename
+                })
+
+        return collected
