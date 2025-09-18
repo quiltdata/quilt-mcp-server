@@ -29,22 +29,26 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Create reusable configuration infrastructure without Quilt3-specific implementation.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for configuration base classes, validation framework, and error types
 - **Green**: Implement minimal configuration framework to pass tests
 - **Refactor**: Clean up configuration abstractions and error handling
 
 **Deliverables**:
+
 - `src/quilt_mcp/config/__init__.py` - Configuration module exports
 - `src/quilt_mcp/config/base.py` - Abstract configuration classes and validation framework
 - `tests/test_config_base.py` - Comprehensive configuration framework tests
 
 **Success Criteria**:
+
 - Configuration base class with validation interface
 - Typed error classes for configuration validation
 - Serialization/deserialization support
 - 100% test coverage for configuration framework
 
 **Files Modified**:
+
 - `src/quilt_mcp/config/` (new directory)
 - `tests/` (new test files)
 
@@ -55,15 +59,18 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Create concrete Quilt3Config class with registry/catalog URL validation and environment integration.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for Quilt3Config class including URL validation, environment variables, and error scenarios
 - **Green**: Implement Quilt3Config with minimal functionality to pass tests
 - **Refactor**: Optimize URL validation and environment variable handling
 
 **Deliverables**:
+
 - `src/quilt_mcp/config/quilt3.py` - Quilt3Config implementation
 - `tests/test_config_quilt3.py` - Quilt3-specific configuration tests
 
 **Success Criteria**:
+
 - Valid registry URL validation (S3 bucket format)
 - Optional catalog URL validation (HTTP/HTTPS)
 - Environment variable integration (`QUILT_REGISTRY_URL`, `QUILT_CATALOG_URL`)
@@ -71,9 +78,11 @@ Episodes are ordered to maintain working state throughout implementation:
 - Configuration serialization for debugging
 
 **Dependencies**:
+
 - Episode 1 (Configuration Framework Foundation)
 
 **Files Modified**:
+
 - `src/quilt_mcp/config/quilt3.py` (new file)
 - `tests/test_config_quilt3.py` (new file)
 
@@ -84,16 +93,19 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Establish reusable operation patterns without Quilt3-specific implementation.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for operation base classes, result types, and error categorization
 - **Green**: Implement minimal operation framework to pass tests
 - **Refactor**: Refine operation interfaces and result type hierarchy
 
 **Deliverables**:
+
 - `src/quilt_mcp/operations/__init__.py` - Operations module exports
 - `src/quilt_mcp/operations/base.py` - Base operation classes and result types
 - `tests/test_operations_base.py` - Operation framework tests
 
 **Success Criteria**:
+
 - Base operation interface with configuration injection
 - Typed result classes for success/error states
 - Error categorization framework
@@ -101,6 +113,7 @@ Episodes are ordered to maintain working state throughout implementation:
 - 100% test coverage for operation framework
 
 **Files Modified**:
+
 - `src/quilt_mcp/operations/` (new directory)
 - `tests/` (new test files)
 
@@ -111,16 +124,19 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Create auth.py with complete authentication operations using isolated Quilt3 clients.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for authentication operations including success, failure, and error scenarios
 - **Green**: Implement authentication operations with minimal Quilt3 integration
 - **Refactor**: Optimize error handling and client lifecycle management
 
 **Deliverables**:
+
 - `src/quilt_mcp/operations/quilt3/__init__.py` - Quilt3 operations module
 - `src/quilt_mcp/operations/quilt3/auth.py` - Authentication operations
 - `tests/test_operations_quilt3_auth.py` - Authentication operation tests
 
 **Success Criteria**:
+
 - Isolated Quilt3 client creation without global state
 - Authentication status detection with clear results
 - Comprehensive error categorization (config, network, auth, authz)
@@ -128,10 +144,12 @@ Episodes are ordered to maintain working state throughout implementation:
 - Proper resource cleanup and client lifecycle management
 
 **Dependencies**:
+
 - Episode 2 (Quilt3 Configuration Implementation)
 - Episode 3 (Operation Framework Foundation)
 
 **Files Modified**:
+
 - `src/quilt_mcp/operations/quilt3/` (new directory)
 - `tests/test_operations_quilt3_auth.py` (new file)
 
@@ -142,16 +160,19 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Establish reusable MCP integration patterns without specific tool implementations.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for MCP tool framework including registration, validation, and response formatting
 - **Green**: Implement minimal MCP framework to pass tests
 - **Refactor**: Optimize tool registration patterns and response standardization
 
 **Deliverables**:
+
 - `src/quilt_mcp/api/__init__.py` - API module exports
 - `src/quilt_mcp/api/base.py` - MCP tool framework and response utilities
 - `tests/test_api_base.py` - MCP framework tests
 
 **Success Criteria**:
+
 - Tool registration utilities with parameter validation
 - Standardized response formatting across all tools
 - Error response consistency
@@ -159,6 +180,7 @@ Episodes are ordered to maintain working state throughout implementation:
 - Parameter schema validation framework
 
 **Files Modified**:
+
 - `src/quilt_mcp/api/` (new directory)
 - `tests/` (new test files)
 
@@ -169,15 +191,18 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Create auth_status tool definition with complete MCP integration.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for auth_status MCP tool including parameter validation and response formatting
 - **Green**: Implement auth_status tool with minimal functionality
 - **Refactor**: Optimize tool interface and error handling
 
 **Deliverables**:
+
 - `src/quilt_mcp/api/quilt3.py` - Quilt3 MCP tool definitions
 - `tests/test_api_quilt3.py` - Quilt3 MCP tool tests
 
 **Success Criteria**:
+
 - `auth_status` tool with clear parameter schema
 - Proper integration with authentication operations
 - Standardized response formatting
@@ -185,10 +210,12 @@ Episodes are ordered to maintain working state throughout implementation:
 - Complete tool documentation
 
 **Dependencies**:
+
 - Episode 4 (Quilt3 Authentication Operations)
 - Episode 5 (MCP API Framework)
 
 **Files Modified**:
+
 - `src/quilt_mcp/api/quilt3.py` (new file)
 - `tests/test_api_quilt3.py` (new file)
 
@@ -199,15 +226,18 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Modify existing server.py to support configuration injection and new tool registration patterns.
 
 **TDD Cycle**:
+
 - **Red**: Write tests for server configuration loading, tool registration, and error handling
 - **Green**: Implement server enhancements with minimal changes to existing functionality
 - **Refactor**: Optimize configuration loading pipeline and tool registration
 
 **Deliverables**:
+
 - Enhanced `src/quilt_mcp/server.py` - Configuration injection and tool registration
 - `tests/test_server_config.py` - Server configuration integration tests
 
 **Success Criteria**:
+
 - Configuration loading from multiple sources at startup
 - Automatic tool registration from API modules
 - Graceful handling of configuration errors
@@ -215,10 +245,12 @@ Episodes are ordered to maintain working state throughout implementation:
 - No breaking changes to current MCP server interface
 
 **Dependencies**:
+
 - Episode 2 (Quilt3 Configuration Implementation)
 - Episode 6 (Quilt3 Authentication Tools)
 
 **Files Modified**:
+
 - `src/quilt_mcp/server.py` (existing file)
 - `tests/test_server_config.py` (new file)
 
@@ -229,15 +261,18 @@ Episodes are ordered to maintain working state throughout implementation:
 **Scope**: Create comprehensive integration tests that validate the complete stack from configuration to MCP response.
 
 **TDD Cycle**:
+
 - **Red**: Write integration tests for complete auth_status workflow including MCP Inspector scenarios
 - **Green**: Fix any integration issues discovered by tests
 - **Refactor**: Optimize integration points and error propagation
 
 **Deliverables**:
+
 - `tests/test_integration_quilt3.py` - End-to-end integration tests
 - Updated configuration and documentation
 
 **Success Criteria**:
+
 - Complete configuration → operation → API → response workflow
 - Error propagation through all architectural layers
 - MCP Inspector compatibility validation
@@ -245,9 +280,11 @@ Episodes are ordered to maintain working state throughout implementation:
 - Documentation updates with working examples
 
 **Dependencies**:
+
 - Episode 7 (Server Configuration Integration)
 
 **Files Modified**:
+
 - `tests/test_integration_quilt3.py` (new file)
 - Documentation files (as needed)
 
