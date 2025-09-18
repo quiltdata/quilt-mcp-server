@@ -116,7 +116,7 @@ class TestAthenaTableFormatIntegration:
         mock_service.list_workgroups.return_value = [
             {
                 "name": "QuiltUserAthena-test",
-                "description": "Test workgroup", 
+                "description": "Test workgroup",
                 "creation_time": None,
                 "output_location": "s3://test-bucket/results/",
                 "enforce_workgroup_config": False,
@@ -124,10 +124,10 @@ class TestAthenaTableFormatIntegration:
             {
                 "name": "primary",
                 "description": "Default workgroup",
-                "creation_time": None, 
+                "creation_time": None,
                 "output_location": None,
                 "enforce_workgroup_config": False,
-            }
+            },
         ]
 
         result = athena_workgroups_list()
