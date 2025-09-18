@@ -134,3 +134,48 @@ class TestQuiltServicePackageOperations:
         with patch('quilt3.search_util.search_api', mock_search_api):
             result = service.get_search_api()
             assert result == mock_search_api
+
+    def test_has_session_support_when_available(self):
+        """Test has_session_support returns True when session is available."""
+        service = QuiltService()
+        mock_session = Mock()
+        mock_session.get_session = Mock()
+        with patch('quilt3.session', mock_session):
+            result = service.has_session_support()
+            assert result is True
+
+    def test_has_session_support_when_not_available(self):
+        """Test has_session_support returns False when session is not available."""
+        service = QuiltService()
+        with patch('quilt3.session', None):
+            result = service.has_session_support()
+            assert result is False
+
+    def test_get_session_when_available(self):
+        """Test get_session returns session object when available."""
+        service = QuiltService()
+        mock_session_obj = Mock()
+        mock_session = Mock()
+        mock_session.get_session = Mock(return_value=mock_session_obj)
+        with patch('quilt3.session', mock_session):
+            result = service.get_session()
+            assert result == mock_session_obj
+            mock_session.get_session.assert_called_once()
+
+    def test_get_registry_url_when_available(self):
+        """Test get_registry_url returns URL when available."""
+        service = QuiltService()
+        mock_session = Mock()
+        mock_session.get_registry_url = Mock(return_value='s3://test-registry')
+        with patch('quilt3.session', mock_session):
+            result = service.get_registry_url()
+            assert result == 's3://test-registry'
+
+    def test_get_registry_url_when_not_available(self):
+        """Test get_registry_url returns None when not available."""
+        service = QuiltService()
+        mock_session = Mock()
+        del mock_session.get_registry_url  # Simulate missing method
+        with patch('quilt3.session', mock_session):
+            result = service.get_registry_url()
+            assert result is None

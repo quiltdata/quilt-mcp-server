@@ -162,7 +162,10 @@ class QuiltService:
         Returns:
             True if session support is available
         """
-        raise NotImplementedError
+        try:
+            return hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session")
+        except Exception:
+            return False
 
     def get_session(self) -> Any:
         """Get authenticated requests session.
@@ -173,7 +176,9 @@ class QuiltService:
         Raises:
             Exception: If session is not available
         """
-        raise NotImplementedError
+        if not self.has_session_support():
+            raise Exception("quilt3 session not available")
+        return quilt3.session.get_session()
 
     def get_registry_url(self) -> str | None:
         """Get registry URL from session.
@@ -181,7 +186,12 @@ class QuiltService:
         Returns:
             Registry URL or None if not available
         """
-        raise NotImplementedError
+        try:
+            if hasattr(quilt3.session, "get_registry_url"):
+                return quilt3.session.get_registry_url()
+            return None
+        except Exception:
+            return None
 
     def create_botocore_session(self) -> Any:
         """Create authenticated botocore session.
