@@ -185,6 +185,4 @@ cython_debug/
 
 # Cursor IDE
 .cursor/
-
-# Scratch folder for temporary files and scripts
-scratch/
+/scratch
