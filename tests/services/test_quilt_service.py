@@ -59,14 +59,6 @@ class TestQuiltServiceAuthentication:
 class TestQuiltServicePackageOperations:
     """Test package operation methods."""
 
-    def test_create_package_returns_package_instance(self):
-        """Test create_package returns a Package instance."""
-        service = QuiltService()
-        mock_package = Mock()
-        with patch('quilt3.Package', return_value=mock_package):
-            result = service.create_package()
-            assert result == mock_package
-
     def test_list_packages_returns_package_list(self):
         """Test list_packages returns iterator of package names."""
         service = QuiltService()
@@ -527,3 +519,23 @@ class TestQuiltServiceAdmin:
             assert isinstance(result, dict)
         except ImportError:
             pass
+
+
+class TestQuiltServiceAbstractionCompleteness:
+    """Test that QuiltService abstraction is complete and doesn't leak quilt3 objects."""
+
+    def test_create_package_method_does_not_exist(self):
+        """Test that old leaky create_package() method has been removed from QuiltService.
+
+        This test ensures the abstraction is complete and no quilt3.Package objects
+        are exposed through the service interface.
+        """
+        service = QuiltService()
+
+        # Verify the old method no longer exists
+        assert not hasattr(service, 'create_package'), \
+            "create_package() method should be removed from QuiltService to complete abstraction"
+
+        # Verify only the new abstracted method exists
+        assert hasattr(service, 'create_package_revision'), \
+            "create_package_revision() method should exist as the abstracted replacement"

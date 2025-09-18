@@ -223,14 +223,6 @@ class QuiltService:
     # Package Operations Methods
     # Based on usage analysis: 18 calls across packages.py, package_ops.py, etc.
 
-    def create_package(self) -> Any:
-        """Create a new empty Package instance.
-
-        Returns:
-            New Package instance
-        """
-        return quilt3.Package()
-
     def create_package_revision(
         self,
         package_name: str,
