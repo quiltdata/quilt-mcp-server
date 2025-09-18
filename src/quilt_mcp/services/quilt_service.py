@@ -237,7 +237,12 @@ class QuiltService:
         Returns:
             Package instance
         """
-        raise NotImplementedError
+        browse_args = {"registry": registry}
+        if top_hash:
+            browse_args["top_hash"] = top_hash
+        browse_args.update(kwargs)
+
+        return quilt3.Package.browse(package_name, **browse_args)
 
     def list_packages(self, registry: str) -> Iterator[str]:
         """List all packages in a registry.
@@ -271,7 +276,7 @@ class QuiltService:
         Returns:
             Bucket instance
         """
-        raise NotImplementedError
+        return quilt3.Bucket(bucket_uri)
 
     # Search Operations Methods
     # Based on usage analysis: 1 call in packages.py
@@ -282,7 +287,8 @@ class QuiltService:
         Returns:
             Search API module
         """
-        raise NotImplementedError
+        from quilt3.search_util import search_api
+        return search_api
 
     # Admin Operations Methods (Conditional)
     # Based on usage analysis: 11 calls in tabulator.py and governance.py

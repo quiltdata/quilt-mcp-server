@@ -99,3 +99,38 @@ class TestQuiltServicePackageOperations:
         with patch('quilt3.config') as mock_config:
             service.set_config('https://example.quiltdata.com')
             mock_config.assert_called_once_with('https://example.quiltdata.com')
+
+    def test_browse_package_without_hash(self):
+        """Test browse_package calls Package.browse without top_hash."""
+        service = QuiltService()
+        mock_package = Mock()
+        with patch('quilt3.Package.browse', return_value=mock_package) as mock_browse:
+            result = service.browse_package('user/package', 's3://test-bucket')
+            assert result == mock_package
+            mock_browse.assert_called_once_with('user/package', registry='s3://test-bucket')
+
+    def test_browse_package_with_hash(self):
+        """Test browse_package calls Package.browse with top_hash."""
+        service = QuiltService()
+        mock_package = Mock()
+        with patch('quilt3.Package.browse', return_value=mock_package) as mock_browse:
+            result = service.browse_package('user/package', 's3://test-bucket', top_hash='abc123')
+            assert result == mock_package
+            mock_browse.assert_called_once_with('user/package', registry='s3://test-bucket', top_hash='abc123')
+
+    def test_create_bucket_returns_bucket_instance(self):
+        """Test create_bucket returns a Bucket instance."""
+        service = QuiltService()
+        mock_bucket = Mock()
+        with patch('quilt3.Bucket', return_value=mock_bucket) as mock_bucket_class:
+            result = service.create_bucket('s3://test-bucket')
+            assert result == mock_bucket
+            mock_bucket_class.assert_called_once_with('s3://test-bucket')
+
+    def test_get_search_api_returns_search_module(self):
+        """Test get_search_api returns the search_util.search_api module."""
+        service = QuiltService()
+        mock_search_api = Mock()
+        with patch('quilt3.search_util.search_api', mock_search_api):
+            result = service.get_search_api()
+            assert result == mock_search_api
