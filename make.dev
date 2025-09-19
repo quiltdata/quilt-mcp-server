@@ -8,7 +8,7 @@ export
 # Development endpoint configuration
 DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: test test-unit test-integration test-ci lint coverage run run-inspector kill dev-clean
+.PHONY: test test-unit test-integration test-ci lint coverage coverage-html run run-inspector kill dev-clean
 
 # Test Targets
 test:
@@ -53,6 +53,13 @@ coverage:
 	@echo "Running tests with coverage (≥85% required)..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+
+coverage-html:
+	@echo "Running tests with HTML coverage report..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=html:htmlcov --cov-report=term-missing -v
+	@echo "✅ HTML coverage report generated in htmlcov/"
+	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
 # Development Server Targets
 run:
