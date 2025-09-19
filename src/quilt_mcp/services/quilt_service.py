@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Dict, List, Optional
 from pathlib import Path
-import re
 
 import quilt3
 
@@ -85,8 +84,6 @@ class QuiltService:
             Dict with catalog_name, navigator_url, registry_url,
             logged_in_url, and is_authenticated
         """
-        from urllib.parse import urlparse
-
         catalog_info: dict[str, Any] = {
             "catalog_name": None,
             "navigator_url": None,
@@ -204,21 +201,7 @@ class QuiltService:
         Raises:
             Exception: If session creation fails
         """
-        raise NotImplementedError
-
-    # AWS Client Access Methods
-    # Based on usage analysis: 8 calls in utils.py and permission_discovery.py
-
-    def get_boto3_session(self) -> Any:
-        """Get authenticated boto3 session.
-
-        Returns:
-            Boto3 session object
-
-        Raises:
-            Exception: If not authenticated or session unavailable
-        """
-        raise NotImplementedError
+        return quilt3.session.create_botocore_session()
 
     # Package Operations Methods
     # Based on usage analysis: 18 calls across packages.py, package_ops.py, etc.
@@ -310,15 +293,6 @@ class QuiltService:
             Iterator of package names
         """
         return quilt3.list_packages(registry=registry)
-
-    def delete_package(self, package_name: str, registry: str) -> None:
-        """Delete a package from registry.
-
-        Args:
-            package_name: Name of package to delete
-            registry: Registry URL
-        """
-        raise NotImplementedError
 
     # Bucket Operations Methods
     # Based on usage analysis: 4 calls in packages.py and buckets.py

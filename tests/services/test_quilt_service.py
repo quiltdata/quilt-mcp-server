@@ -171,6 +171,22 @@ class TestQuiltServicePackageOperations:
             result = service.get_registry_url()
             assert result is None
 
+    def test_create_botocore_session_returns_session_object(self):
+        """Test create_botocore_session returns a botocore session object."""
+        service = QuiltService()
+        mock_botocore_session = Mock()
+        with patch('quilt3.session.create_botocore_session', return_value=mock_botocore_session) as mock_create:
+            result = service.create_botocore_session()
+            assert result == mock_botocore_session
+            mock_create.assert_called_once()
+
+    def test_create_botocore_session_raises_exception_on_failure(self):
+        """Test create_botocore_session raises exception when underlying call fails."""
+        service = QuiltService()
+        with patch('quilt3.session.create_botocore_session', side_effect=Exception("Authentication failed")):
+            with pytest.raises(Exception, match="Authentication failed"):
+                service.create_botocore_session()
+
 
 class TestQuiltServiceCreatePackageRevision:
     """Test create_package_revision method - Complete abstraction without leaks."""

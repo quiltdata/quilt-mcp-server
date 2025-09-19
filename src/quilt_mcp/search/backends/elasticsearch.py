@@ -17,6 +17,7 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
+from ...services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 class Quilt3ElasticsearchBackend(SearchBackend):
     """Elasticsearch backend using existing quilt3.Bucket.search() API."""
 
-    def __init__(self):
+    def __init__(self, quilt_service: Optional[QuiltService] = None):
         super().__init__(BackendType.ELASTICSEARCH)
+        self.quilt_service = quilt_service or QuiltService()
         self._session_available = False
         self._check_session()
 
@@ -33,7 +35,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """Check if quilt3 session is available."""
         try:
             # Test if we can get registry URL (indicates session is configured)
-            registry_url = quilt3.session.get_registry_url()
+            registry_url = self.quilt_service.get_registry_url()
             self._session_available = bool(registry_url)
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
@@ -47,7 +49,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """Check if Elasticsearch backend is healthy."""
         try:
             # Simple health check by attempting to get registry URL
-            registry_url = quilt3.session.get_registry_url()
+            registry_url = self.quilt_service.get_registry_url()
             if registry_url:
                 self._update_status(BackendStatus.AVAILABLE)
                 return True
@@ -123,7 +125,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         es_query = self._build_elasticsearch_query(query, filters)
 
         with suppress_stdout():
-            bucket_obj = quilt3.Bucket(bucket_uri)
+            bucket_obj = self.quilt_service.create_bucket(bucket_uri)
             raw_results = bucket_obj.search(es_query, limit=limit)
 
         return self._convert_bucket_results(raw_results, bucket)
