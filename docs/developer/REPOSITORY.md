@@ -85,10 +85,9 @@ Comprehensive test coverage with multiple test types:
 
 ```text
 tests/
-├── 📁 configs/               # Test configurations
-│   └── 📄 mcp-test.yaml     # MCP testing configuration
 ├── 📁 fixtures/              # Test data and fixtures
-├── 📁 results/               # Test execution results
+│   ├── 📄 mcp-test.yaml     # MCP testing configuration
+│   └── 📁 runners/           # Test runner scripts
 ├── 📄 test_*.py              # Unit and integration tests
 └── 📄 conftest.py            # Pytest configuration
 ```

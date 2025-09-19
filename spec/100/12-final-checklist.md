@@ -36,4 +36,4 @@
   - Convert JSON config to YAML/TOML format with 14 pre-configured MCP tools
   - Add proper JSON schema validation for MCP responses
   - Better error handling and structured output
-  - Suggested name: `bin/mcp-test.py` with `tests/configs/mcp-test.yaml`
+  - Suggested name: `bin/mcp-test.py` with `tests/fixtures/mcp-test.yaml`
