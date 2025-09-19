@@ -60,6 +60,8 @@ name: Pull Request Validation
 on:
   pull_request:
     branches: ['**']
+  push:
+    branches-ignore: [main]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -75,7 +77,7 @@ jobs:
   dev-release:
     runs-on: ubuntu-latest
     needs: test
-    if: startsWith(github.head_ref, 'dev-') || contains(github.event.pull_request.labels.*.name, 'dev-release')
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
     steps:
       - uses: ./.github/actions/setup-build-env
         with:
@@ -117,11 +119,12 @@ on:
     branches: [main]
   push:
     tags: ['v*']
+    tags-ignore: ['v*-dev-*']
 jobs:
   prod-release:
     runs-on: ubuntu-latest
-    # Workflow_run takes precedence: only run if main tests passed OR direct emergency tag push
-    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+    # Workflow_run takes precedence: only run if main tests passed OR direct emergency tag push (production tags only)
+    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev-')) }}
     steps:
       - uses: ./.github/actions/setup-build-env
         with:
@@ -130,24 +133,45 @@ jobs:
         run: make release
 ```
 
+#### Dev Release Workflow (`dev-release.yml`)
+
+```yaml
+name: Development Release
+on:
+  push:
+    tags: ['v*-dev-*']
+jobs:
+  dev-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-build-env
+        with:
+          python-version: '3.11'
+      - name: Create Development Release
+        uses: ./.github/actions/create-release
+        with:
+          prerelease: true
+```
+
 #### Release Strategy
 
 The architecture supports both development and production releases with appropriate safety gates:
 
 **Dev Releases (PR Workflow)**:
 
-- **Trigger**: PRs with `dev-` branch prefix or `dev-release` label
-- **Dependency**: Requires successful PR test completion
-- **Target**: `make release-dev` for development testing
+- **Trigger**: Any push to PR branches (not main)
+- **Dependency**: Requires successful PR test completion (`make test-ci`)
+- **Target**: `make release-dev` creates timestamped dev tags (`v*-dev-*`)
 - **Safety**: Only after fast PR validation passes
+- **Workflow**: Separate dev release workflow triggered by dev tag pattern
 
 **Production Releases (Release Workflow)**:
 
-- **Trigger**: Main branch test completion or direct tag push
+- **Trigger**: Main branch merges or production tag pushes (excluding dev tags)
 - **Dependency**: Requires successful main branch validation via `workflow_run`
-- **Target**: `make release` for production deployment
+- **Target**: `make release` creates production tags (`v*` but not `v*-dev-*`)
 - **Safety**: Only after comprehensive main branch testing
-- **Manual Override**: Direct tag pushes for emergency releases
+- **Manual Override**: Direct production tag pushes for emergency releases
 
 ### 2. Reusable GitHub Actions
 
