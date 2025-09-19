@@ -1,0 +1,1 @@
+"""End-to-end tests package - complete workflow and user scenario tests."""

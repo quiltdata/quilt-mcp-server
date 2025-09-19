@@ -28,7 +28,7 @@ class TestAthenaDatabasesList:
 
     def test_list_databases_success(self):
         """Test successful database listing with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -48,7 +48,7 @@ class TestAthenaTablesList:
 
     def test_list_tables_success(self):
         """Test successful table listing with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -76,7 +76,7 @@ class TestAthenaTableSchema:
 
     def test_get_table_schema_success(self):
         """Test successful table schema retrieval with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -98,7 +98,7 @@ class TestAthenaQueryExecute:
     @pytest.mark.slow
     def test_query_execute_success(self):
         """Test successful query execution with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -135,7 +135,7 @@ class TestAthenaQueryExecute:
     @pytest.mark.slow
     def test_query_execute_with_builtin_credentials(self):
         """Test query execution using built-in AWS credentials (not quilt3)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -1023,7 +1023,7 @@ class TestAthenaQueryService:
     @pytest.mark.slow
     def test_execute_query(self, athena_service):
         """Test query execution with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -1059,7 +1059,7 @@ class TestAthenaQueryService:
     @pytest.mark.slow
     def test_format_results_json(self, athena_service):
         """Test result formatting to JSON with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -1084,7 +1084,7 @@ class TestAthenaQueryService:
     @pytest.mark.slow
     def test_format_results_csv(self, athena_service):
         """Test result formatting to CSV with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 

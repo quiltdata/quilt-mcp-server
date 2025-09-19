@@ -75,7 +75,7 @@ print("hello")
 
 def test_readme_bash_syntax():
     """Test that all bash blocks in README have valid syntax."""
-    readme_path = Path(__file__).parent.parent / "README.md"
+    readme_path = Path(__file__).parent.parent.parent / "README.md"
     content = readme_path.read_text()
 
     bash_blocks = extract_bash_blocks(content)
@@ -96,7 +96,7 @@ def test_readme_bash_syntax():
 
 def test_readme_commands_work():
     """Test the actual commands from README.md work in a temp directory."""
-    readme_path = Path(__file__).parent.parent / "README.md"
+    readme_path = Path(__file__).parent.parent.parent / "README.md"
     content = readme_path.read_text()
 
     # Extract bash blocks from actual README

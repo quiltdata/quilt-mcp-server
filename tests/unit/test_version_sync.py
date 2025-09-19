@@ -437,7 +437,7 @@ description = "Secure MCP server for accessing Quilt data with JWT authenticatio
     },
     "aws_profile": {
       "type": "string",
-      "title": "AWS Profile", 
+      "title": "AWS Profile",
       "description": "AWS profile for authentication",
       "required": false
     },

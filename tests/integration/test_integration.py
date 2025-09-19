@@ -686,7 +686,7 @@ class TestBucketObjectVersionConsistency:
 
     def test_bucket_object_functions_consistency_with_real_object(self):
         """Test that all bucket_object_* functions work consistently with a real S3 object."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -740,7 +740,7 @@ class TestBucketObjectVersionConsistency:
 
     def test_nonexistent_object_handling_consistency(self):
         """Test that all functions handle non-existent objects consistently."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 

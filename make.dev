@@ -8,7 +8,7 @@ export
 # Development endpoint configuration
 DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: test test-unit test-integration test-ci lint coverage coverage-html run run-inspector kill dev-clean
+.PHONY: test test-unit test-integration test-e2e test-ci lint coverage coverage-html run run-inspector kill dev-clean
 
 # Test Targets
 test:
@@ -24,20 +24,25 @@ test:
 	@$(MAKE) -f make.deploy dxt-validate
 
 test-unit:
-	@echo "Running unit tests only (no AWS/integration tests)..."
+	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not aws and not search"
+	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v
 
 test-integration:
-	@echo "Running integration tests (with AWS)..."
+	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v
+	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v
+
+test-e2e:
+	@echo "Running end-to-end workflow tests..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v
 
 test-ci:
-	@echo "Running CI tests (skipping search/slow tests)..."
+	@echo "Running CI tests (unit + integration, skipping e2e and slow tests)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
+	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/unit/ tests/integration/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
 		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:build/test-results/coverage.xml
 
 # Code Quality Targets
