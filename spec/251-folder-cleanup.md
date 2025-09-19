@@ -42,7 +42,7 @@ Based on markers and dependencies analysis:
 - `test_helpers.py`
 - `test_metadata_examples.py`
 - `test_selector_fn.py`
-- `test_utils.py` (partial)
+- `test_utils.py` (mocked parts only, AWS parts moved to integration)
 - `test_version_sync.py`
 - `test_visualization.py`
 - `services/test_quilt_service.py`
@@ -58,10 +58,10 @@ Based on markers and dependencies analysis:
 - `test_s3_package.py` (`@pytest.mark.aws`)
 - All files in `fixtures/` directory
 
-**Mixed/Hybrid Tests** (both unit and integration):
+**Mixed/Hybrid Tests** (both unit and integration - **NEED SPLITTING**):
 
-- `test_mcp_server.py` (smoke tests with `@pytest.mark.aws`)
-- `test_utils.py` (has both mocked and AWS-dependent tests)
+- `test_mcp_server.py` (smoke tests with `@pytest.mark.aws`) - Split AWS parts to integration
+- `test_utils.py` (has both mocked and AWS-dependent tests) - Split AWS parts to integration
 
 ## Problems Identified
 
@@ -87,26 +87,24 @@ tests/
 │   ├── test_helpers.py
 │   ├── test_metadata_examples.py
 │   ├── test_selector_fn.py
-│   ├── test_utils.py
+│   ├── test_utils.py               # Mocked parts only
 │   ├── test_version_sync.py
 │   ├── test_visualization.py
 │   ├── test_athena_service.py      # From aws/
-│   └── test_quilt_service.py       # From services/
-├── integration/                    # Integration tests (require external services)
+│   ├── test_quilt_service.py       # From services/
+│   └── test_mcp_server.py          # Unit parts only
+├── integration/                    # Integration tests (includes smoke tests)
 │   ├── __init__.py
+│   ├── test_athena_integration.py  # Renamed for consistency
 │   ├── test_athena_glue.py
-│   ├── test_athena_integration.py  # Renamed from test_integration_athena.py
 │   ├── test_bucket_tools.py
 │   ├── test_integration.py
 │   ├── test_permissions.py
 │   ├── test_s3_package.py
 │   ├── test_auth_migration.py      # From tools/
-│   └── test_elasticsearch_backend.py  # From search/
-├── smoke/                          # Smoke tests (basic functionality)
-│   ├── __init__.py
-│   ├── test_athena_smoke.py
-│   ├── test_mcp_server.py
-│   └── test_local.py
+│   ├── test_elasticsearch_backend.py  # From search/
+│   ├── test_mcp_server_integration.py  # AWS parts from test_mcp_server.py
+│   └── test_utils_integration.py   # AWS parts from test_utils.py
 ├── e2e/                           # End-to-end workflow tests
 │   ├── __init__.py
 │   ├── test_buckets_migration.py
@@ -164,12 +162,14 @@ tests/
 - Marked with `@pytest.mark.aws` or similar
 - May be slower (< 30 seconds per test)
 
-**Smoke Tests** (`tests/smoke/`):
+**Integration Tests** (`tests/integration/`) - **EXPANDED DEFINITION**:
 
-- Basic functionality validation
-- Quick sanity checks that core features work
-- Minimal external dependencies
-- Should run in CI/CD pipelines
+- Test interaction with external services (AWS, Elasticsearch)
+- Require real credentials and network access
+- Marked with `@pytest.mark.aws` or similar
+- May be slower (< 30 seconds per test)
+- **Includes smoke tests**: Basic "does it connect/start" health checks
+- **Rationale**: Smoke tests are just lightweight integration tests
 
 **End-to-End Tests** (`tests/e2e/`):
 
@@ -199,9 +199,9 @@ tests/
 
 ### Phase 4: Categorize Remaining Tests
 
-1. Move smoke tests to `tests/smoke/`
-2. Move complex workflow tests to `tests/e2e/`
-3. Reorganize fixtures directory
+1. Move complex workflow tests to `tests/e2e/`
+2. Reorganize fixtures directory
+3. Split mixed test files (move AWS parts to integration)
 
 ### Phase 5: Update Tooling
 
@@ -238,9 +238,6 @@ test-unit:
 test-integration:
     @export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v -m "aws"
 
-test-smoke:
-    @export PYTHONPATH="src" && uv run python -m pytest tests/smoke/ -v
-
 test-e2e:
     @export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v
 
@@ -267,6 +264,22 @@ Update GitHub Actions and CI scripts to use new paths:
 7. **Scalability**: Structure supports growth as test suite expands
 
 ## Risks and Mitigation
+
+## Additional Considerations
+
+### Source Folder Structure
+
+The `src/` folder also contains similar organizational issues:
+
+- **Empty directories**: `config/`, `operations/`, `operations/quilt3/`, `utilities/`, `utilities/aws/`
+- **Single-file directory**: `search/utils/` (1 file)
+
+**Decision**: Keep current src structure unchanged during this cleanup because:
+
+- Empty directories may be architectural placeholders for future features
+- Module restructuring affects import paths across entire codebase
+- This cleanup is focused on tests (issue #251), mixing concerns could complicate migration
+- Source refactoring should be separate initiative if needed
 
 ### Risk: Import Path Changes
 
@@ -313,5 +326,31 @@ Update GitHub Actions and CI scripts to use new paths:
 - Verify CI/CD pipeline functionality
 - Check test discovery with `pytest --collect-only`
 - Validate coverage reporting still works
+
+## Naming Convention Standardization
+
+**Current Inconsistencies:**
+- `test_integration_athena.py` → proposed `test_athena_integration.py`
+- Mixed prefixes: `test_integration_*` vs `test_*_integration`
+- Inconsistent service vs function naming patterns
+
+**Proposed Standards:**
+
+**Unit Tests**: `test_<component>.py`
+- Examples: `test_formatting.py`, `test_helpers.py`, `test_governance.py`
+
+**Integration Tests**: `test_<service>_integration.py`
+- Examples: `test_athena_integration.py`, `test_elasticsearch_integration.py`
+- **Rationale**: Service name first for grouping, then type
+
+**End-to-End Tests**: `test_<workflow>.py`
+- Examples: `test_package_creation_workflow.py`, `test_search_workflow.py`
+- **Rationale**: Workflow name describes the user scenario being tested
+
+**Benefits:**
+- Consistent, predictable naming
+- Clear indication of test category and scope
+- Easy to find related tests
+- Supports IDE autocomplete and filtering
 
 This restructuring will significantly improve the maintainability and clarity of the test suite while preserving all existing functionality.
