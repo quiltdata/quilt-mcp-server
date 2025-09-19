@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Integration Test Failures: Analysis and Remediation (A02)
 
 ## Executive Summary

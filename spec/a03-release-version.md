@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # A03: Release Version Management
 
 ## Problem Statement
