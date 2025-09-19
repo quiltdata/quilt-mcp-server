@@ -1,0 +1,39 @@
+name: 'Coverage Analysis'
+description: 'Comprehensive coverage analysis with multi-suite reporting'
+
+inputs:
+  python-version:
+    description: 'Python version for artifact naming'
+    required: true
+  retention-days:
+    description: 'Days to retain coverage artifacts'
+    required: false
+    default: '30'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run comprehensive coverage
+      shell: bash
+      run: |
+        echo "Running comprehensive coverage analysis..."
+        make coverage
+
+    - name: Generate coverage analysis CSV
+      shell: bash
+      run: |
+        echo "Generating coverage analysis report..."
+        if [ -f "scripts/coverage_analysis.py" ]; then
+          export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
+          echo "✅ Coverage analysis CSV generated"
+        else
+          echo "⚠️  Coverage analysis script not found, skipping CSV generation"
+        fi
+
+    - name: Upload coverage artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-analysis-py${{ inputs.python-version }}
+        path: build/test-results/
+        retention-days: ${{ inputs.retention-days }}
