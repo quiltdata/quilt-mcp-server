@@ -3,7 +3,9 @@ name: Main Branch Validation
 on:
   push:
     branches: [main]
-    tags: ['v*']  # Add tag triggers for production releases
+    tags:
+      - 'v*'
+      - '!v*-dev-*'  # Exclude dev tags - those trigger PR workflow only
 
 jobs:
   test:
