@@ -24,6 +24,7 @@ help:
 	@echo "  make test-ci          - Run CI-optimized tests"
 	@echo "  make lint             - Code formatting and type checking"
 	@echo "  make coverage         - Run tests with coverage report"
+	@echo "  make coverage-html    - Generate HTML coverage report for local viewing"
 	@echo "  make run-inspector    - Launch MCP Inspector for testing"
 	@echo "  make config-claude    - Configure Claude CLI to use local MCP server"
 	@echo ""
