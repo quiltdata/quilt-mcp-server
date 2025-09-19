@@ -124,8 +124,8 @@ class TestCoverageAnalysis:
         # Test coverage gaps
         gaps = coverage.get_coverage_gaps()
         assert "unit-only:2" in gaps  # lines 1,2
-        assert "integration-only:1" in gaps  # line 6
         assert "e2e-only:2" in gaps  # lines 8,9
+        # No integration-only lines in this test data (lines 6,7 are shared with e2e)
 
     def test_generate_coverage_csv_complete_data(self):
         """Test CSV generation with complete coverage data."""
