@@ -346,7 +346,7 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.aws
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -371,7 +371,7 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.aws
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 

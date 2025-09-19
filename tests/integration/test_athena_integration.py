@@ -169,7 +169,7 @@ class TestQuiltAuthIntegration:
         """Test service initialization with quilt3 authentication."""
 
         # Skip if no AWS credentials
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -232,7 +232,7 @@ class TestAthenaPerformance:
     @pytest.mark.aws
     def test_concurrent_database_discovery(self):
         """Test concurrent database discovery operations with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -278,7 +278,7 @@ class TestAthenaPerformance:
         import time
 
         # Skip if no AWS credentials
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -359,7 +359,7 @@ class TestAthenaErrorHandling:
         """Test handling of Glue connection errors with real AWS."""
 
         # Skip if no AWS credentials
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -397,7 +397,7 @@ class TestAthenaErrorHandling:
         """Test handling of SQL syntax errors with real AWS."""
 
         # Skip if no AWS credentials
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 

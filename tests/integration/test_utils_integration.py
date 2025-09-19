@@ -32,7 +32,7 @@ class TestUtilsAWSIntegration:
     @pytest.mark.aws
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
@@ -53,7 +53,7 @@ class TestUtilsAWSIntegration:
     @pytest.mark.aws
     def test_generate_signed_url_exception(self):
         """Test handling of exceptions with real AWS (integration test)."""
-        from tests.test_helpers import skip_if_no_aws_credentials
+        from tests.helpers import skip_if_no_aws_credentials
 
         skip_if_no_aws_credentials()
 
