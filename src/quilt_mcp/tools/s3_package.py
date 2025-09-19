@@ -19,10 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
-import quilt3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..utils import get_s3_client, validate_package_name, format_error_response
+from ..services.quilt_service import QuiltService
 from .permissions import bucket_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
@@ -181,10 +181,8 @@ This package is organized into the following structure:
 ## Usage
 
 ```python
-import quilt3
-
-# Browse the package
-pkg = quilt3.Package.browse("{package_name}")
+# Browse the package using Quilt
+# pkg = Package.browse("{package_name}")
 
 # Access specific data files
 """
@@ -747,110 +745,57 @@ def _create_enhanced_package(
 ) -> Dict[str, Any]:
     """Create the enhanced Quilt package with organized structure and documentation."""
     try:
-        # Create a new Quilt package
-        pkg = quilt3.Package()
-
-        # Add files to package according to organized structure
+        # Collect all S3 URIs from organized structure
+        s3_uris = []
         for folder, objects in organized_structure.items():
             for obj in objects:
                 source_key = obj["Key"]
-
-                # Determine logical path in package
-                if folder:
-                    logical_path = f"{folder}/{Path(source_key).name}"
-                else:
-                    logical_path = Path(source_key).name
-
-                # Add S3 object to package
                 s3_uri = f"s3://{source_bucket}/{source_key}"
-                pkg.set(logical_path, s3_uri)
+                s3_uris.append(s3_uri)
+                logger.debug(f"Collected S3 URI: {s3_uri}")
 
-                logger.debug(f"Added {s3_uri} as {logical_path}")
-
-        # Add README.md if generated
-        # IMPORTANT: README content is added as a FILE in the package, never as metadata
-        if readme_content:
-            # Add README content as a file in the package
-            import io
-
-            pkg.set("README.md", io.StringIO(readme_content))
-            logger.info("Added generated README.md to package")
-
-        # Add summary files if provided
-        if summary_files and summary_files.get("summary_package"):
-            summary_package = summary_files["summary_package"]
-
-            # Add quilt_summarize.json
-            if "quilt_summarize.json" in summary_package:
-                import json
-
-                quilt_summary_json = json.dumps(summary_package["quilt_summarize.json"], indent=2)
-                pkg.set("quilt_summarize.json", io.StringIO(quilt_summary_json))
-                logger.info("Added quilt_summarize.json to package")
-
-            # Add visualizations if they exist
-            if "visualizations" in summary_package and summary_package["visualizations"]:
-                # Create a visualizations directory and add visualization files
-                for viz_name, viz_data in summary_package["visualizations"].items():
-                    if viz_data.get("image_base64"):
-                        import base64
-
-                        # Decode base64 image and add as file
-                        image_data = base64.b64decode(viz_data["image_base64"])
-                        pkg.set(f"visualizations/{viz_name}.png", io.BytesIO(image_data))
-                        logger.info(f"Added visualization {viz_name}.png to package")
-
-        # Set comprehensive metadata
+        # Prepare metadata - README content and other files will be handled by create_package_revision
         # IMPORTANT: README content should NEVER be added to package metadata
-        # Only add README content as files using pkg.set() - never in enhanced_metadata
-        pkg.set_meta(enhanced_metadata)
+        # The create_package_revision method will handle README content automatically
+        processed_metadata = enhanced_metadata.copy()
 
-        # Build selector_fn for desired copy behavior
-        def _selector_all(_lk, _e):
-            return True
+        # If readme_content exists, add it to metadata for processing by create_package_revision
+        if readme_content:
+            processed_metadata["readme_content"] = readme_content
+            logger.info("Added README content to metadata for processing")
 
-        def _selector_none(_lk, _e):
-            return False
-
-        def _selector_same_bucket(_lk, e):
-            try:
-                physical_key = str(getattr(e, "physical_key", ""))
-            except Exception:
-                physical_key = ""
-            if not physical_key.startswith("s3://"):
-                return False
-            try:
-                bucket = physical_key.split("/", 3)[2]
-            except Exception:
-                return False
-            target_bucket = target_registry.replace("s3://", "").split("/", 1)[0]
-            return bucket == target_bucket
-
-        # Set the appropriate selector function
-        if copy_mode == "none":
-            selector_fn = _selector_none
-        elif copy_mode == "same_bucket":
-            selector_fn = _selector_same_bucket
-        else:
-            selector_fn = _selector_all
-
-        # Push package to registry
+        # Prepare message
         message = (
             f"Created via enhanced S3-to-package tool: {description}"
             if description
             else "Created via enhanced S3-to-package tool"
         )
 
-        # For now, use simple push without selector_fn due to mock testing issues
-        # TODO: Re-implement copy mode logic - real quilt3 works fine, but test mocks need fixing
-        top_hash = pkg.push(
-            package_name,
+        # Create package using create_package_revision with auto_organize=True
+        # This preserves the smart organization behavior of s3_package.py
+        quilt_service = QuiltService()
+        result = quilt_service.create_package_revision(
+            package_name=package_name,
+            s3_uris=s3_uris,
+            metadata=processed_metadata,
             registry=target_registry,
             message=message,
-            force=force,
+            auto_organize=True,  # Preserve smart organization behavior
+            copy=copy_mode,
         )
 
+        # Handle the result
+        if result.get("error"):
+            logger.error(f"Package creation failed: {result['error']}")
+            raise Exception(result["error"])
+
+        top_hash = result.get("top_hash")
         logger.info(f"Successfully created package {package_name} with hash {top_hash}")
+
+        # TODO: Handle summary files and visualizations in future enhancement
+        # For now, basic package creation with README is supported
+        if summary_files:
+            logger.warning("Summary files and visualizations not yet supported with create_package_revision")
 
         return {
             "top_hash": top_hash,

@@ -18,6 +18,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..utils import format_error_response, suppress_stdout
+from ..services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +26,15 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
-    def __init__(self, use_quilt_auth: bool = True):
+    def __init__(self, use_quilt_auth: bool = True, quilt_service: Optional[QuiltService] = None):
         """Initialize the Athena service.
 
         Args:
             use_quilt_auth: Whether to use quilt3 authentication
+            quilt_service: Optional QuiltService instance for dependency injection
         """
         self.use_quilt_auth = use_quilt_auth
+        self.quilt_service = quilt_service
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
@@ -64,10 +67,9 @@ class AthenaQueryService:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
             if self.use_quilt_auth:
-                # Use quilt3 session credentials
-                import quilt3
-
-                botocore_session = quilt3.session.create_botocore_session()
+                # Use QuiltService for complete abstraction
+                quilt_service = self.quilt_service or QuiltService()
+                botocore_session = quilt_service.create_botocore_session()
                 credentials = botocore_session.get_credentials()
 
                 # Force region to us-east-1 for Quilt Athena workgroup
@@ -152,9 +154,9 @@ class AthenaQueryService:
         """Create Glue client for metadata operations."""
         if self.use_quilt_auth:
             try:
-                import quilt3
-
-                botocore_session = quilt3.session.create_botocore_session()
+                # Use QuiltService for complete abstraction
+                quilt_service = self.quilt_service or QuiltService()
+                botocore_session = quilt_service.create_botocore_session()
                 # Use us-east-1 region for Quilt Athena workgroup resources
                 return botocore_session.create_client("glue", region_name="us-east-1")
             except Exception:
@@ -166,9 +168,9 @@ class AthenaQueryService:
         """Create S3 client for result management."""
         if self.use_quilt_auth:
             try:
-                import quilt3
-
-                botocore_session = quilt3.session.create_botocore_session()
+                # Use QuiltService for complete abstraction
+                quilt_service = self.quilt_service or QuiltService()
+                botocore_session = quilt_service.create_botocore_session()
                 return botocore_session.create_client("s3")
             except Exception:
                 # Fallback to default credentials
@@ -446,9 +448,9 @@ class AthenaQueryService:
 
             # Use the same auth pattern as other service methods
             if self.use_quilt_auth:
-                import quilt3
-
-                botocore_session = quilt3.session.create_botocore_session()
+                # Use QuiltService for complete abstraction
+                quilt_service = self.quilt_service or QuiltService()
+                botocore_session = quilt_service.create_botocore_session()
                 credentials = botocore_session.get_credentials()
                 region = "us-east-1"  # Force region for Quilt Athena workgroups
 

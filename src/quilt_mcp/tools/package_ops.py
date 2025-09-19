@@ -15,9 +15,14 @@ and converted to package files.
 import os
 from typing import Any
 
-import quilt3
-
 from ..constants import DEFAULT_REGISTRY
+from ..services.quilt_service import QuiltService
+
+# Initialize service
+quilt_service = QuiltService()
+
+# Export quilt3 module for backward compatibility with tests
+quilt3 = quilt_service.get_quilt3_module()
 
 # Helpers
 
@@ -40,7 +45,7 @@ def _normalize_registry(bucket_or_uri: str) -> str:
 
 
 def _collect_objects_into_package(
-    pkg: quilt3.Package, s3_uris: list[str], flatten: bool, warnings: list[str]
+    pkg: Any, s3_uris: list[str], flatten: bool, warnings: list[str]
 ) -> list[dict[str, Any]]:
     added: list[dict[str, Any]] = []
     for uri in s3_uris:
@@ -180,25 +185,18 @@ def package_create(
         return {"error": "No S3 URIs provided"}
     if not package_name:
         return {"error": "Package name is required"}
-    pkg = quilt3.Package()
-    added = _collect_objects_into_package(pkg, s3_uris, flatten, warnings)
-    if not added:
-        return {
-            "error": "No valid S3 objects were added to the package",
-            "warnings": warnings,
-        }
+
     # Process metadata to ensure README content is handled correctly
     processed_metadata = metadata.copy() if metadata else {}
 
-    # Extract README content from metadata and add as package file
+    # Extract README content from metadata (it will be handled by create_package_revision)
     # readme_content takes priority if both fields exist
-    readme_content = None
     if "readme_content" in processed_metadata:
-        readme_content = processed_metadata.pop("readme_content")
+        processed_metadata.pop("readme_content")
         warnings.append("README content moved from metadata to package file (README.md)")
 
     elif "readme" in processed_metadata:
-        readme_content = processed_metadata.pop("readme")
+        processed_metadata.pop("readme")
         warnings.append("README content moved from metadata to package file (README.md)")
 
     # Remove any remaining README fields to avoid duplication
@@ -206,57 +204,54 @@ def package_create(
         processed_metadata.pop("readme")
         warnings.append("Removed duplicate 'readme' field from metadata")
 
-    # Add README.md file if we extracted content
-    if readme_content:
-        try:
-            import io
-
-            pkg.set("README.md", io.StringIO(readme_content))
-        except Exception as e:
-            warnings.append(f"Failed to add README.md file: {e}")
-
-    # Set the cleaned metadata (without README content)
-    if processed_metadata:
-        try:
-            pkg.set_meta(processed_metadata)
-        except Exception as e:
-            warnings.append(f"Failed to set metadata: {e}")
     normalized_registry = _normalize_registry(registry)
-    try:
-        # Suppress stdout during push to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
 
-        with suppress_stdout():
-            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
-            top_hash = pkg.push(
-                package_name,
-                registry=normalized_registry,
-                message=message,
-                selector_fn=selector_fn,
-                force=True,
-            )
+    try:
+        # Use the new create_package_revision method with auto_organize=False
+        # to preserve the existing flattening behavior
+        result = quilt_service.create_package_revision(
+            package_name=package_name,
+            s3_uris=s3_uris,
+            metadata=processed_metadata,
+            registry=normalized_registry,
+            message=message,
+            auto_organize=False,  # Preserve flattening behavior like _collect_objects_into_package
+            copy=copy_mode,
+        )
+
+        # Handle the result based on its structure
+        if result.get("error"):
+            return {
+                "error": result["error"],
+                "package_name": package_name,
+                "warnings": warnings,
+            }
+
+        # Extract the top_hash from the result
+        top_hash = result.get("top_hash")
+        entries_added = result.get("entries_added", len(s3_uris))
 
     except Exception as e:
         return {
-            "error": f"Failed to push package: {e}",
+            "error": f"Failed to create package: {e}",
             "package_name": package_name,
             "warnings": warnings,
         }
 
     # Ensure all values are JSON serializable
-    result = {
+    result_data = {
         "status": "success",
         "action": "created",
         "package_name": str(package_name),
         "registry": str(registry),
         "top_hash": str(top_hash),
-        "entries_added": len(added),
-        "files": added,
+        "entries_added": entries_added,
+        "files": result.get("files", []),  # Use files from create_package_revision if available
         "metadata_provided": bool(metadata),
         "warnings": warnings,
         "message": str(message),
     }
-    return result
+    return result_data
 
 
 def package_update(
@@ -326,7 +321,8 @@ def package_update(
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            existing_pkg = quilt3.Package.browse(package_name, registry=normalized_registry)
+            quilt_service = QuiltService()
+            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",
