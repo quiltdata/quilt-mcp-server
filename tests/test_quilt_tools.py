@@ -40,13 +40,15 @@ class TestQuiltTools:
             assert "setup_instructions" in result
 
     def test_auth_status_error(self):
-        """Test auth_status when an error occurs."""
+        """Test auth_status when an error occurs - now gracefully handled as not_authenticated."""
         with patch("quilt3.logged_in", side_effect=Exception("Test error")):
             result = auth_status()
 
-            assert result["status"] == "error"
-            assert "Failed to check authentication" in result["error"]
+            # The improved implementation gracefully handles errors as not_authenticated
+            # instead of crashing, providing better user experience
+            assert result["status"] == "not_authenticated"
             assert "setup_instructions" in result
+            assert result["search_available"] is False
 
     def test_packages_list_success(self):
         """Test packages_list with successful response."""
