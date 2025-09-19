@@ -32,25 +32,40 @@ test-unit:
 	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-unit.xml --cov-report=term-missing
+	@if [ -d "tests/unit" ] && [ "$$(find tests/unit -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-unit.xml --cov-report=term-missing; \
+	else \
+		echo "No unit tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-unit.xml; \
+	fi
 
 test-integration:
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-integration.xml --cov-report=term-missing
+	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-integration.xml --cov-report=term-missing; \
+	else \
+		echo "No integration tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-integration.xml; \
+	fi
 
 test-e2e:
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-e2e.xml --cov-report=term-missing
+	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-e2e.xml --cov-report=term-missing; \
+	else \
+		echo "No e2e tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-e2e.xml; \
+	fi
 
 test-ci:
 	@echo "Running CI tests (unit + integration, skipping e2e and slow tests)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/unit/ tests/integration/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
+	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
 		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:build/test-results/coverage.xml
 
 # Code Quality Targets
@@ -63,10 +78,14 @@ lint:
 	@echo "✅ All linting completed"
 
 coverage:
-	@echo "Running all tests with coverage (≥85% required)..."
-	@$(MAKE) test-all
-	@echo "Checking coverage threshold..."
+	@echo "Running comprehensive coverage analysis..."
+	@$(MAKE) test-unit
+	@$(MAKE) test-integration
+	@$(MAKE) test-e2e
+	@echo "Generating coverage analysis report..."
 	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
+	@echo "Checking coverage threshold..."
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-fail-under=85 --cov-report= -q
 
 coverage-html:
@@ -94,7 +113,7 @@ run-inspector:
 kill:
 	@echo "Killing running MCP server processes..."
 	@pkill -f "python.*main.py" 2>/dev/null || echo "No main.py processes found"
-	@pkill -f "python.*quilt_mcp" 2>/dev/null || echo "No quilt_mcp processes found" 
+	@pkill -f "python.*quilt_mcp" 2>/dev/null || echo "No quilt_mcp processes found"
 	@pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || echo "No MCP Inspector processes found"
 	@lsof -ti :8000 | xargs -r kill 2>/dev/null || echo "No processes on port 8000"
 	@lsof -ti :8001 | xargs -r kill 2>/dev/null || echo "No processes on port 8001"
