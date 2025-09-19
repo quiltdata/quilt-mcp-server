@@ -330,6 +330,7 @@ The `src/` folder also contains similar organizational issues:
 ## Naming Convention Standardization
 
 **Current Inconsistencies:**
+
 - `test_integration_athena.py` → proposed `test_athena_integration.py`
 - Mixed prefixes: `test_integration_*` vs `test_*_integration`
 - Inconsistent service vs function naming patterns
@@ -337,17 +338,21 @@ The `src/` folder also contains similar organizational issues:
 **Proposed Standards:**
 
 **Unit Tests**: `test_<component>.py`
+
 - Examples: `test_formatting.py`, `test_helpers.py`, `test_governance.py`
 
 **Integration Tests**: `test_<service>_integration.py`
+
 - Examples: `test_athena_integration.py`, `test_elasticsearch_integration.py`
 - **Rationale**: Service name first for grouping, then type
 
 **End-to-End Tests**: `test_<workflow>.py`
+
 - Examples: `test_package_creation_workflow.py`, `test_search_workflow.py`
 - **Rationale**: Workflow name describes the user scenario being tested
 
 **Benefits:**
+
 - Consistent, predictable naming
 - Clear indication of test category and scope
 - Easy to find related tests
