@@ -15,7 +15,7 @@ test:
 	@echo "Running local tests..."
 	@uv sync --group test
 	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/ -v; \
+		export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=term-missing; \
 	else \
 		echo "No tests found, running import test..."; \
 		export PYTHONPATH="src" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
@@ -26,17 +26,17 @@ test:
 test-unit:
 	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v
+	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=term-missing
 
 test-integration:
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v
+	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v --cov=quilt_mcp --cov-report=term-missing
 
 test-e2e:
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v
+	@export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=term-missing
 
 test-ci:
 	@echo "Running CI tests (unit + integration, skipping e2e and slow tests)..."
