@@ -38,7 +38,7 @@ test-ci:
 	@uv sync --group test
 	@mkdir -p build/test-results
 	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not search and not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
-		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:src/coverage.xml
+		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:build/test-results/coverage.xml
 
 # Code Quality Targets
 lint:
