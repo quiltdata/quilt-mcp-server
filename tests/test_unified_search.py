@@ -102,7 +102,7 @@ class TestQueryParser:
 class TestElasticsearchBackend:
     """Test cases for Elasticsearch backend."""
 
-    @patch("quilt_mcp.search.backends.elasticsearch.quilt3")
+    @patch("quilt_mcp.services.quilt_service.quilt3")
     def test_session_check(self, mock_quilt3):
         """Test session availability checking."""
         mock_quilt3.session.get_registry_url.return_value = "https://example.com"
@@ -110,7 +110,7 @@ class TestElasticsearchBackend:
         backend = Quilt3ElasticsearchBackend()
         assert backend.status == BackendStatus.AVAILABLE
 
-    @patch("quilt_mcp.search.backends.elasticsearch.quilt3")
+    @patch("quilt_mcp.services.quilt_service.quilt3")
     def test_session_unavailable(self, mock_quilt3):
         """Test handling when session is unavailable."""
         mock_quilt3.session.get_registry_url.return_value = None
@@ -118,10 +118,13 @@ class TestElasticsearchBackend:
         backend = Quilt3ElasticsearchBackend()
         assert backend.status == BackendStatus.UNAVAILABLE
 
-    @patch("quilt_mcp.search.backends.elasticsearch.quilt3")
+    @patch("quilt_mcp.services.quilt_service.quilt3")
     @pytest.mark.asyncio
     async def test_bucket_search(self, mock_quilt3):
         """Test bucket search functionality."""
+        # Mock quilt3 session to show available
+        mock_quilt3.session.get_registry_url.return_value = "https://example.com"
+
         # Mock quilt3 bucket search
         mock_bucket = Mock()
         mock_bucket.search.return_value = [
@@ -133,7 +136,6 @@ class TestElasticsearchBackend:
             }
         ]
         mock_quilt3.Bucket.return_value = mock_bucket
-        mock_quilt3.session.get_registry_url.return_value = "https://example.com"
 
         backend = Quilt3ElasticsearchBackend()
         response = await backend.search("CSV files", scope="bucket", target="test-bucket")
