@@ -576,4 +576,3 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LI
 
 **Ready to get started?** Follow our [Installation Guide](docs/user/INSTALLATION.md)
 or jump right in with the [Quick Start](#-quick-start) above!
-
