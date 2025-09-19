@@ -51,127 +51,56 @@ make.dev:
 
 ### 1. CI Workflow Split
 
-The architecture uses three separate workflows with smart dependencies to optimize CI performance while ensuring release safety.
+The architecture uses two primary workflows that handle testing and conditional release creation within the same workflow for reliability.
 
 #### Pull Request Workflow (`pr.yml`)
 
-```yaml
-name: Pull Request Validation
-on:
-  pull_request:
-    branches: ['**']
-  push:
-    branches-ignore: [main]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: ./.github/actions/setup-build-env
-        with:
-          python-version: '3.11'
-      - uses: ./.github/actions/run-tests
-        with:
-          test-target: 'test-ci'
-          upload-artifacts: true
+**Purpose**: Fast PR validation with optional dev releases
 
-  dev-release:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    steps:
-      - uses: ./.github/actions/setup-build-env
-        with:
-          python-version: '3.11'
-      - name: Create Dev Release
-        run: make release-dev
-```
+**Triggers**:
+
+- Pull requests against any branch
+- Conditional dev release for `dev-*` branches or labeled PRs
+
+**Behavior**:
+
+- Run fast tests (`make test-ci`) on Python 3.11 only
+- If PR is on `dev-*` branch or has `dev-release` label:
+  - After tests pass, create dev GitHub release directly (no separate workflow needed)
 
 #### Main Branch Workflow (`push.yml`)
 
-```yaml
-name: Main Branch Validation
-on:
-  push:
-    branches: [main]
-  merge_group:
-jobs:
-  test:
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-    steps:
-      - uses: ./.github/actions/setup-build-env
-        with:
-          python-version: ${{ matrix.python-version }}
-      - uses: ./.github/actions/coverage-report
-        with:
-          python-version: ${{ matrix.python-version }}
-```
+**Purpose**: Comprehensive testing with conditional production release
 
-#### Production Release Workflow (`release.yml`)
+**Triggers**:
 
-```yaml
-name: Production Release
-on:
-  workflow_run:
-    workflows: ["Main Branch Validation"]
-    types: [completed]
-    branches: [main]
-  push:
-    tags: ['v*']
-    tags-ignore: ['v*-dev-*']
-jobs:
-  prod-release:
-    runs-on: ubuntu-latest
-    # Workflow_run takes precedence: only run if main tests passed OR direct emergency tag push (production tags only)
-    if: ${{ (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-dev-')) }}
-    steps:
-      - uses: ./.github/actions/setup-build-env
-        with:
-          python-version: '3.11'
-      - name: Create Production Release
-        run: make release
-```
+- Pushes to main branch
+- Tag pushes (`v*` pattern)
+- Merge group events
 
-#### Dev Release Workflow (`dev-release.yml`)
+**Behavior**:
 
-```yaml
-name: Development Release
-on:
-  push:
-    tags: ['v*-dev-*']
-jobs:
-  dev-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: ./.github/actions/setup-build-env
-        with:
-          python-version: '3.11'
-      - name: Create Development Release
-        uses: ./.github/actions/create-release
-        with:
-          prerelease: true
-```
+- **For main branch pushes**: Run comprehensive tests across Python versions (3.11, 3.12, 3.13)
+- **For tag pushes**:
+  1. Run comprehensive tests FIRST
+  2. IF tests pass AND tag matches production pattern (`v*` but not `v*-dev-*`)
+  3. THEN build and create GitHub release within same workflow
+- **Coverage analysis**: Generate multi-suite coverage reports and CSV analysis
 
 #### Release Strategy
 
-The architecture supports both development and production releases with appropriate safety gates:
+**Dev Releases**:
 
-**Dev Releases (PR Workflow)**:
+- Triggered by `dev-*` branch PRs or `dev-release` label
+- Flow: PR tests pass → create dev GitHub release directly within `pr.yml`
+- Safety: Release creation only after PR tests pass, no separate workflows
 
-- **Trigger**: Any push to PR branches (not main)
-- **Dependency**: Requires successful PR test completion (`make test-ci`)
-- **Target**: `make release-dev` creates timestamped dev tags (`v*-dev-*`)
-- **Safety**: Only after fast PR validation passes
-- **Workflow**: Separate dev release workflow triggered by dev tag pattern
+**Production Releases**:
 
-**Production Releases (Release Workflow)**:
-
-- **Trigger**: Main branch merges or production tag pushes (excluding dev tags)
-- **Dependency**: Requires successful main branch validation via `workflow_run`
-- **Target**: `make release` creates production tags (`v*` but not `v*-dev-*`)
-- **Safety**: Only after comprehensive main branch testing
-- **Manual Override**: Direct production tag pushes for emergency releases
+- Triggered by production tag pushes (`v*` but not `v*-dev-*`)
+- Flow: Tag push → run tests in main workflow → IF tests pass THEN create GitHub release
+- Safety: Release creation happens within same workflow as testing
+- No separate release workflow - everything in `push.yml`
 
 ### 2. Reusable GitHub Actions
 
@@ -222,9 +151,42 @@ runs:
       # ... coverage-specific artifacts
 ```
 
+#### Release Creation Action (`create-release`)
+
+```yaml
+# .github/actions/create-release/action.yml
+name: 'Create Release'
+description: 'Build DXT package and create GitHub release with bundle'
+inputs:
+  tag-version:
+    description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Build DXT package
+      shell: bash
+      run: make dxt
+    - name: Validate DXT package
+      shell: bash
+      run: make dxt-validate
+    - name: Create release bundle
+      shell: bash
+      run: make release-zip
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: "Quilt MCP DXT v${{ inputs.tag-version }}"
+        files: dist/*-release.zip
+        prerelease: ${{ contains(inputs.tag-version, '-') }}
+        generate_release_notes: true
+```
+
 ### 3. Enhanced Make Targets
 
-#### New Coverage Implementation
+#### Enhanced Coverage Implementation
+
+The `coverage` target now runs multiple test suites and generates comprehensive analysis:
 
 ```makefile
 coverage:
@@ -235,9 +197,17 @@ coverage:
  @echo "Generating coverage analysis report..."
  @uv sync --group test
  @export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
- @echo "Checking coverage threshold..."
- @export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-fail-under=85 --cov-report= -q
 ```
+
+#### Release System Integration
+
+The release system separates tag creation from GitHub release creation:
+
+- **`make release`** - Creates and pushes git tags using `bin/release.sh`
+- **`make release-dev`** - Creates and pushes dev tags using `bin/release.sh`
+- **`create-release` action** - Builds packages and creates GitHub releases (triggered by tag pushes)
+
+**Key insight**: `make release` creates git tags, NOT GitHub releases. GitHub releases are created by the `create-release` action when workflows detect tag pushes.
 
 #### Coverage File Organization
 
@@ -389,6 +359,29 @@ src/quilt_mcp/tools/buckets.py,72.4,89.1,34.5,95.2,234,223,e2e-only:12;integrati
 - Actionable feedback on coverage improvements
 - Simplified workflow maintenance
 
+## Corrected Release Understanding
+
+**CRITICAL CORRECTION**: The original spec confused tag creation with GitHub release creation. Here's the correct flow:
+
+### Tag Creation (Local/Make Targets)
+
+- `make release` → calls `bin/release.sh release` → creates git tags → pushes to GitHub
+- `make release-dev` → calls `bin/release.sh dev` → creates dev tags → pushes to GitHub
+
+### GitHub Release Creation (GitHub Actions)
+
+- Tag push triggers workflow (`.github/workflows/release.yml` or `dev-release.yml`)
+- Workflow runs tests FIRST
+- ONLY if tests pass, workflow calls `.github/actions/create-release`
+- `create-release` action builds DXT package and creates GitHub release
+
+### Key Principles
+
+1. **Never call `make release` in CI** - it creates tags, not GitHub releases
+2. **Use `create-release` action in workflows** - it creates actual GitHub releases
+3. **Tests must pass before release creation** - happens within the same workflow
+4. **Release creation follows tag creation** - two separate operations with safety gates
+
 ## Dependencies
 
 ### External
@@ -444,16 +437,33 @@ build/test-results/         # ENHANCED - Structured coverage files
 └── results.xml            # JUnit results
 ```
 
+## Release Understanding
+
+**CRITICAL CORRECTION**: Eliminate separate `release.yml` workflow. Use reliable same-workflow approach.
+
+### Simplified Architecture
+
+- **Two workflows only**: `pr.yml` and `push.yml`
+- **No auxiliary workflows** - everything handled within the two main workflows
+- **No separate release workflows** - both dev and production releases handled inline
+
+### Reliable Release Flow
+
+1. **Production tags** (`v*` not `v*-dev-*`) trigger `push.yml`
+2. **Same workflow** runs tests first
+3. **IF tests pass** THEN create GitHub release
+4. **No `workflow_run` dependencies** - everything in one reliable workflow
+
 ## Appendix B: Migration Checklist
 
-- [ ] Create workflow files (pr.yml, push.yml, release.yml)
-- [ ] Configure workflow_run dependencies for release safety
-- [ ] Implement reusable actions (run-tests, coverage-report)
+- [ ] Create workflow files (pr.yml, push.yml) - NO release.yml, NO dev-release.yml
+- [ ] Remove workflow_run dependencies - use conditional logic within push.yml
+- [ ] Implement reusable actions (run-tests, coverage-report, create-release)
 - [ ] Develop coverage_analysis.py script
 - [ ] Update make.dev coverage target
 - [ ] Test PR workflow with sample branch
-- [ ] Test push workflow with main branch
-- [ ] Test workflow dependency triggers
+- [ ] Test push workflow with main branch AND tag pushes
+- [ ] Test same-workflow release creation (tag → test → release)
 - [ ] Validate coverage CSV generation
 - [ ] Update project documentation
 - [ ] Remove deprecated ci.yml
