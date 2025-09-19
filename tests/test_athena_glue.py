@@ -807,7 +807,7 @@ class TestAthenaWorkgroupsList:
     def test_discover_workgroup_uses_list_workgroups_method(self, mock_list_workgroups):
         """Test that _discover_workgroup uses list_workgroups method internally (Episode 7 consolidation)."""
         mock_time = datetime.now(timezone.utc)
-        
+
         # Mock the list_workgroups method to return test data
         mock_list_workgroups.return_value = [
             {
@@ -823,32 +823,32 @@ class TestAthenaWorkgroupsList:
                 "creation_time": mock_time,
                 "output_location": None,
                 "enforce_workgroup_config": False,
-            }
+            },
         ]
-        
+
         # Create service and test _discover_workgroup method
         service = AthenaQueryService(use_quilt_auth=True)
-        
+
         # Call _discover_workgroup (this should internally call list_workgroups)
         result = service._discover_workgroup(None, "us-east-1")
-        
+
         # Verify it returns the Quilt workgroup (prioritized and has output location)
         assert result == "QuiltUserAthena-test"
-        
+
         # Key test: Verify that list_workgroups was called internally
         # This ensures Episode 7 consolidation is working correctly
         mock_list_workgroups.assert_called_once()
-        
+
     @patch.object(AthenaQueryService, 'list_workgroups')
     def test_discover_workgroup_fallback_behavior(self, mock_list_workgroups):
         """Test _discover_workgroup fallback behavior when no valid workgroups available."""
         # Test empty workgroups list
         mock_list_workgroups.return_value = []
         service = AthenaQueryService(use_quilt_auth=False)
-        
+
         result = service._discover_workgroup(None, "us-east-1")
         assert result == "primary"
-        
+
         # Test workgroups without output locations
         mock_list_workgroups.return_value = [
             {
@@ -859,7 +859,7 @@ class TestAthenaWorkgroupsList:
                 "enforce_workgroup_config": False,
             }
         ]
-        
+
         result = service._discover_workgroup(None, "us-east-1")
         assert result == "test-workgroup"  # Uses first available when no valid output locations
 
