@@ -3,7 +3,7 @@
 A production-ready MCP (Model Context Protocol) server providing secure access to Quilt data with 84+ comprehensive tools
 for package management, S3 operations, analytics, and system utilities.
 
-[![Tests](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/test.yml/badge.svg)](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/test.yml)
+[![Tests](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml/badge.svg)](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml)
 [![Coverage](https://img.shields.io/badge/coverage-85%25-green.svg)](https://github.com/quiltdata/quilt-mcp-server)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE.txt)
