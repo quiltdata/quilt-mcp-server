@@ -183,7 +183,7 @@ spec/
 ### Coverage and Analysis
 
 - **`src/coverage.xml`**: Test coverage reports
-- **`tests/results/`**: Test execution results and reports
+- **`build/test-results/`**: Test execution results and reports
 
 ## 🏆 Key Features
 
