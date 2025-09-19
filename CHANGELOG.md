@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.6] - 2025-09-18
 
+### Added
+
+- **Architecture**: Abstract quilt3 dependency (#158, #155)
+  - Created centralized QuiltService abstraction layer to isolate all quilt3 API usage
+  - Migrated all MCP tools to use QuiltService instead of direct quilt3 imports
+
 ### Changed
 
 - **Build System**: Updated .gitignore for better artifact management
