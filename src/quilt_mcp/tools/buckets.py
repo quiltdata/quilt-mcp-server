@@ -5,6 +5,7 @@ from typing import Any
 import boto3
 
 from ..constants import DEFAULT_BUCKET
+from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
 
 # Helpers
@@ -404,16 +405,15 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
     Returns:
         Dict with search results including matching objects and metadata.
     """
-    import quilt3
-
     bkt = _normalize_bucket(bucket)
     bucket_uri = f"s3://{bkt}"
     try:
         # Suppress stdout during bucket operations to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
+        quilt_service = QuiltService()
         with suppress_stdout():
-            bucket_obj = quilt3.Bucket(bucket_uri)
+            bucket_obj = quilt_service.create_bucket(bucket_uri)
             results = bucket_obj.search(query, limit=limit)
         return {"bucket": bkt, "query": query, "limit": limit, "results": results}
     except Exception as e:
@@ -447,12 +447,13 @@ def bucket_objects_search_graphql(
         Dict with objects, pagination info, and the effective filter used.
     """
     import json
-    import quilt3
     from urllib.parse import urljoin
 
     bkt = _normalize_bucket(bucket)
-    # Acquire authenticated session and registry from quilt3
-    if not hasattr(quilt3, "session") or not hasattr(quilt3.session, "get_session"):
+    # Acquire authenticated session and registry from QuiltService
+    quilt_service = QuiltService()
+
+    if not quilt_service.has_session_support():
         return {
             "success": False,
             "error": "quilt3 session not available for GraphQL",
@@ -460,8 +461,8 @@ def bucket_objects_search_graphql(
             "objects": [],
         }
 
-    session = quilt3.session.get_session()
-    registry_url = getattr(quilt3.session, "get_registry_url", lambda: None)()
+    session = quilt_service.get_session()
+    registry_url = quilt_service.get_registry_url()
     if not registry_url:
         return {
             "success": False,

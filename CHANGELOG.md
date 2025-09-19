@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2025-09-18
+
+### Added
+
+- **Architecture**: Abstract quilt3 dependency (#158, #155)
+  - Created centralized QuiltService abstraction layer to isolate all quilt3 API usage
+  - Migrated all MCP tools to use QuiltService instead of direct quilt3 imports
+
+### Changed
+
+- **Build System**: Updated .gitignore for better artifact management
+- **Code Quality**: Enhanced lint checks and code formatting
+
 ## [0.6.5] - 2025-09-11
 
 - Bumped version due to CI failure

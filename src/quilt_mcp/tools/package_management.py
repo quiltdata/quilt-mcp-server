@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
+from ..services.quilt_service import QuiltService
 from .metadata_templates import (
     get_metadata_template,
     validate_metadata_structure,
@@ -395,7 +396,6 @@ def package_update_metadata(
         # Implementation: Update package metadata
         try:
             from ..constants import DEFAULT_REGISTRY
-            import quilt3
 
             # Use default registry if none provided
             if not registry:
@@ -405,8 +405,9 @@ def package_update_metadata(
             # Suppress stdout during browse to avoid JSON-RPC interference
             from ..utils import suppress_stdout
 
+            quilt_service = QuiltService()
             with suppress_stdout():
-                pkg = quilt3.Package.browse(package_name, registry=registry)
+                pkg = quilt_service.browse_package(package_name, registry=registry)
 
             # Get current metadata
             current_metadata = {}

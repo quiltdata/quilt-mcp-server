@@ -4,7 +4,7 @@ import logging
 from typing import List, Set, Optional
 from urllib.parse import urljoin
 
-import quilt3
+from ..services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +53,12 @@ def get_stack_buckets() -> List[str]:
 def _get_stack_buckets_via_graphql() -> Set[str]:
     """Get stack buckets using GraphQL bucketConfigs query."""
     try:
-        # Get the authenticated session from quilt3
-        if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
-            session = quilt3.session.get_session()
-            registry_url = quilt3.session.get_registry_url()
+        quilt_service = QuiltService()
+
+        # Get the authenticated session from QuiltService
+        if quilt_service.has_session_support():
+            session = quilt_service.get_session()
+            registry_url = quilt_service.get_registry_url()
 
             if not registry_url:
                 logger.debug("No registry URL available for GraphQL query")

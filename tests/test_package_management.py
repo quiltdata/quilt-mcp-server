@@ -370,3 +370,42 @@ class TestToolDocumentation:
         assert "create_package_enhanced" in result["primary_tools"]
         assert "package_browse" in result["primary_tools"]
         assert "package_validate" in result["primary_tools"]
+
+
+class TestPackageManagementMigration:
+    """Test cases for package_management integration with create_package_revision."""
+
+    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    def test_package_management_uses_create_package_revision_integration(self, mock_create_revision):
+        """Test that package_management integrates with create_package_revision through package_ops."""
+        # Mock successful package creation
+        mock_create_revision.return_value = {
+            "status": "success",
+            "top_hash": "test_hash_123",
+            "entries_added": 1,
+            "files": [{"logical_path": "file.csv", "source": "s3://bucket/file.csv"}],
+        }
+
+        result = create_package_enhanced(
+            name="test/package",
+            files=["s3://bucket/file.csv"],
+            description="Test package",
+            metadata_template="standard",
+        )
+
+        # Verify success
+        assert result["status"] == "success"
+
+        # Verify create_package_revision was called with auto_organize=False
+        # (package_management.py uses package_ops.py which should use auto_organize=False)
+        mock_create_revision.assert_called_once()
+        call_args = mock_create_revision.call_args
+
+        assert call_args[1]["package_name"] == "test/package"
+        assert call_args[1]["auto_organize"] == False  # package_management uses package_ops which should use False
+        assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]
+
+        # Verify metadata template was processed
+        processed_metadata = call_args[1]["metadata"]
+        assert "description" in processed_metadata
+        assert "creation_date" in processed_metadata  # Should be added by template
