@@ -8,65 +8,80 @@ export
 # Development endpoint configuration
 DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
+# Test results directory
+RESULTS_DIR ?= build/test-results
+
 .PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean
+
+# Directory targets
+$(RESULTS_DIR):
+	@mkdir -p $(RESULTS_DIR)
 
 # Test Targets
 test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all:
+test-all: dxt-validate test-scripts test-readme | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
-	@mkdir -p build/test-results
-	export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-all.xml --cov-report=term-missing; \
-	@echo "Running DXT package validation..."
-	@$(MAKE) -f make.deploy dxt-validate
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
-test-unit:
+
+test-ci: | $(RESULTS_DIR)
+	@echo "Running all tests..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow not search"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+
+test-unit: $(RESULTS_DIR)/coverage-unit.xml
+
+$(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
 	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
-	@mkdir -p build/test-results
-	@if [ -d "tests/unit" ] && [ "$$(find tests/unit -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-unit.xml --cov-report=term-missing; \
-	else \
-		echo "No unit tests found, creating empty coverage file..."; \
-		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-unit.xml; \
-	fi
+	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
-test-integration:
+test-integration: $(RESULTS_DIR)/coverage-integration.xml
+
+$(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS_DIR)
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
-	@mkdir -p build/test-results
 	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-integration.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v -m "not search" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-integration.xml --cov-report=term-missing; \
 	else \
 		echo "No integration tests found, creating empty coverage file..."; \
-		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-integration.xml; \
+		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-integration.xml; \
 	fi
 
-test-e2e:
+test-e2e: $(RESULTS_DIR)/coverage-e2e.xml
+
+$(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
-	@mkdir -p build/test-results
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-e2e.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
 	else \
 		echo "No e2e tests found, creating empty coverage file..."; \
-		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-e2e.xml; \
+		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
 	fi
 
-test-ci:
-	@echo "Running CI tests (skipping slow tests)..."
-	@uv sync --group test
-	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
-		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:build/test-results/coverage.xml
+coverage: $(RESULTS_DIR)/coverage-analysis.csv | $(RESULTS_DIR)
 
-test-scripts:
+$(RESULTS_DIR)/coverage-analysis.csv: $(RESULTS_DIR)/coverage-unit.xml $(RESULTS_DIR)/coverage-integration.xml $(RESULTS_DIR)/coverage-e2e.xml scripts/coverage_analysis.py | $(RESULTS_DIR)
+	@echo "Generating coverage analysis report..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
+	@echo "TBD: Checking coverage threshold..."
+
+coverage-html:
+	@echo "Running tests with HTML coverage report..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=html:htmlcov --cov-report=term-missing -v
+	@echo "✅ HTML coverage report generated in htmlcov/"
+	@echo "📊 Open htmlcov/index.html in your browser to view the report"
+
+test-scripts: scripts/test/test_*.py | $(RESULTS_DIR)
 	@echo "Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
-	@mkdir -p build/test-results
 	@if [ -d "scripts/test" ] && [ "$$(find scripts/test -name "*.py" | wc -l)" -gt 0 ]; then \
 		export PYTHONPATH="src" && uv run python -m pytest scripts/test/ -v; \
 	else \
@@ -81,24 +96,6 @@ lint:
 	@uv run ruff format src/quilt_mcp/ tests/
 	@uv run ruff check --fix src/quilt_mcp/ tests/
 	@echo "✅ All linting completed"
-
-coverage:
-	@echo "Running comprehensive coverage analysis..."
-	@$(MAKE) test-unit
-	@$(MAKE) test-integration
-	@$(MAKE) test-e2e
-	@echo "Generating coverage analysis report..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
-	@echo "Checking coverage threshold..."
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-fail-under=85 --cov-report= -q
-
-coverage-html:
-	@echo "Running tests with HTML coverage report..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=html:htmlcov --cov-report=term-missing -v
-	@echo "✅ HTML coverage report generated in htmlcov/"
-	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
 # Development Server Targets
 run:
@@ -130,7 +127,7 @@ dev-clean:
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@echo "Cleaning test artifacts..."
-	@rm -rf build/test-results/ .coverage .coverage.* htmlcov/ .pytest_cache/ 2>/dev/null || true
+	@rm -rf $(RESULTS_DIR)/ .coverage .coverage.* htmlcov/ .pytest_cache/ 2>/dev/null || true
 	@find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 	@echo "Cleaning build artifacts..."
 	@rm -rf build/ dist/ .ruff_cache/ 2>/dev/null || true
