@@ -58,7 +58,7 @@ kill $SERVER_PID
   \"mcpServers\": {
     \"quilt\": {
       \"command\": \"/path/to/quilt-mcp-server/.venv/bin/python\",
-      \"args\": [\"/path/to/quilt-mcp-server/app/main.py\"],
+      \"args\": [\"/path/to/quilt-mcp-server/src/main.py\"],
       \"env\": {
         \"PYTHONPATH\": \"/path/to/quilt-mcp-server/app\",
         \"QUILT_CATALOG_DOMAIN\": \"demo.quiltdata.com\",
@@ -76,7 +76,7 @@ kill $SERVER_PID
   \"mcpServers\": {
     \"quilt\": {
       \"command\": \"/path/to/quilt-mcp-server/.venv/bin/python\",
-      \"args\": [\"/path/to/quilt-mcp-server/app/main.py\"],
+      \"args\": [\"/path/to/quilt-mcp-server/src/main.py\"],
       \"env\": {
         \"PYTHONPATH\": \"/path/to/quilt-mcp-server/app\",
         \"QUILT_CATALOG_DOMAIN\": \"demo.quiltdata.com\"
