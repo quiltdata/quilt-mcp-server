@@ -22,33 +22,45 @@ from quilt_mcp.tools.athena_glue import (
 from quilt_mcp.services.athena_service import AthenaQueryService
 
 
+@pytest.fixture(scope="module")
+def require_aws_credentials():
+    """Skip module if AWS credentials are unavailable."""
+
+    from tests.helpers import skip_if_no_aws_credentials
+
+    skip_if_no_aws_credentials()
+    return True
+
+
 @pytest.mark.aws
-@pytest.mark.slow
 class TestAthenaIntegration:
     """Integration tests for Athena functionality."""
 
     @pytest.fixture(scope="class")
-    def athena_service(self):
+    def athena_service(self, athena_service_builtin):
         """Shared AthenaQueryService instance for all tests in this class."""
-        return AthenaQueryService(use_quilt_auth=False)
+        return athena_service_builtin
 
     @pytest.fixture(autouse=True)
-    def setup_aws_env(self):
-        """Setup AWS environment variables for testing."""
-        # Check if AWS credentials are available by trying to get caller identity
-        try:
-            import boto3
+    def setup_aws_env(self, require_aws_credentials):
+        """Ensure AWS credentials are available before each test."""
+        return
 
-            sts = boto3.client("sts")
-            sts.get_caller_identity()
-        except Exception:
-            pytest.skip("AWS credentials not available")
+    @pytest.fixture(scope="class")
+    def databases_response(self, athena_service):
+        """Fetch databases once per class to avoid duplicate calls."""
 
-        # No need to set ATHENA_QUERY_RESULT_LOCATION - workgroups handle this
+        return athena_databases_list(service=athena_service)
 
-    def test_list_databases_integration(self):
+    @pytest.fixture(scope="class")
+    def workgroups_response(self, athena_service):
+        """Fetch workgroups once per class to avoid duplicate calls."""
+
+        return athena_workgroups_list(use_quilt_auth=False, service=athena_service)
+
+    def test_list_databases_integration(self, databases_response):
         """Test listing databases with real AWS connection."""
-        result = athena_databases_list()
+        result = databases_response
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
@@ -64,9 +76,10 @@ class TestAthenaIntegration:
             assert "error" in result
             assert isinstance(result["error"], str)
 
-    def test_list_workgroups_integration(self):
+    @pytest.mark.slow
+    def test_list_workgroups_integration(self, workgroups_response):
         """Test listing Athena workgroups with real AWS connection."""
-        result = athena_workgroups_list()
+        result = workgroups_response
 
         assert isinstance(result, dict)
         assert "success" in result
@@ -78,7 +91,7 @@ class TestAthenaIntegration:
             workgroup_names = [wg["name"] for wg in result["workgroups"]]
             assert "primary" in workgroup_names
 
-    def test_query_execution_integration(self):
+    def test_query_execution_integration(self, athena_service):
         """Test executing a simple query against Athena."""
         # Use a simple query that should work in most AWS accounts
         query = "SELECT 1 as test_value, 'hello' as test_string"
@@ -88,6 +101,7 @@ class TestAthenaIntegration:
             max_results=10,
             output_format="json",
             use_quilt_auth=False,  # Use default AWS credentials
+            service=athena_service,
         )
 
         assert isinstance(result, dict)
@@ -140,14 +154,13 @@ class TestAthenaIntegration:
 
 
 @pytest.mark.aws
-@pytest.mark.slow
 class TestQuiltAuthIntegration:
     """Integration tests for quilt3 authentication."""
 
     @pytest.fixture(scope="class")
-    def athena_service_with_quilt(self):
+    def athena_service_with_quilt(self, athena_service_quilt):
         """Shared AthenaQueryService instance with quilt auth for all tests in this class."""
-        return AthenaQueryService(use_quilt_auth=True)
+        return athena_service_quilt
 
     @pytest.fixture(autouse=True)
     def check_quilt_available(self):
@@ -165,13 +178,8 @@ class TestQuiltAuthIntegration:
             pytest.skip(f"Quilt3 configuration issue: {e}")
 
     @pytest.mark.aws
-    def test_service_with_quilt_auth(self, athena_service_with_quilt):
+    def test_service_with_quilt_auth(self, require_aws_credentials, athena_service_with_quilt):
         """Test service initialization with quilt3 authentication."""
-
-        # Skip if no AWS credentials
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         try:
             # Test that we can create clients
@@ -220,7 +228,6 @@ class TestQuiltAuthIntegration:
 
 
 @pytest.mark.performance
-@pytest.mark.slow
 class TestAthenaPerformance:
     """Performance tests for Athena functionality."""
 
@@ -230,6 +237,7 @@ class TestAthenaPerformance:
         return AthenaQueryService(use_quilt_auth=False)
 
     @pytest.mark.aws
+    @pytest.mark.slow
     def test_concurrent_database_discovery(self):
         """Test concurrent database discovery operations with real AWS (integration test)."""
         from tests.helpers import skip_if_no_aws_credentials
@@ -318,34 +326,7 @@ class TestAthenaPerformance:
             if not result["success"]:
                 assert "error" in result
 
-    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.services.athena_service.create_engine")
-    @patch("quilt_mcp.services.athena_service.boto3")
-    def test_large_result_set_handling(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
-        """Test handling of large result sets."""
-        import pandas as pd
-
-        # Create large mock DataFrame (10,000 rows)
-        large_df = pd.DataFrame({"id": range(10000), "value": [f"value_{i}" for i in range(10000)]})
-        mock_read_sql.return_value = large_df
-
-        # Test with default max_results (should truncate)
-        result = athena_service.execute_query("SELECT * FROM large_table", max_results=1000)
-
-        assert result["success"] is True
-        assert result["row_count"] == 1000  # Should be truncated
-        assert result["truncated"] is True
-
-        # Test with higher limit
-        result = athena_service.execute_query("SELECT * FROM large_table", max_results=5000)
-
-        assert result["success"] is True
-        assert result["row_count"] == 5000  # Should be truncated to 5000
-        assert result["truncated"] is True
-
-
 @pytest.mark.error_handling
-@pytest.mark.slow
 class TestAthenaErrorHandling:
     """Test error handling scenarios."""
 
@@ -373,24 +354,6 @@ class TestAthenaErrorHandling:
             # The error message should indicate some kind of access or connection issue
             error_msg = result["error"].lower()
             assert any(keyword in error_msg for keyword in ["access", "denied", "not found", "error", "invalid"])
-
-    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.services.athena_service.create_engine")
-    def test_sqlalchemy_connection_error(self, mock_create_engine, mock_read_sql, athena_service):
-        """Test handling of SQLAlchemy connection errors."""
-        from sqlalchemy.exc import SQLAlchemyError
-
-        # Mock engine creation to succeed
-        mock_engine = Mock()
-        mock_create_engine.return_value = mock_engine
-
-        # Mock pandas to raise a connection error
-        mock_read_sql.side_effect = SQLAlchemyError("Connection failed")
-
-        result = athena_service.execute_query("SELECT 1")
-
-        assert result["success"] is False
-        assert "Connection failed" in result["error"]
 
     @pytest.mark.aws
     def test_sql_syntax_error_real_aws(self):

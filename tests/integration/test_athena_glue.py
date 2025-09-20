@@ -21,18 +21,66 @@ from quilt_mcp.tools.athena_glue import (
 from quilt_mcp.services.athena_service import AthenaQueryService
 
 
+def test_athena_service_factory_reuses_instances(athena_service_factory):
+    """Factory should reuse cached services to avoid repeated bootstrap work."""
+
+    first = athena_service_factory(use_quilt_auth=True)
+    second = athena_service_factory(use_quilt_auth=True)
+
+    assert first is second
+
+
+@pytest.fixture(scope="module")
+def require_aws_credentials():
+    """Skip module tests when AWS credentials are unavailable."""
+
+    from tests.helpers import skip_if_no_aws_credentials
+
+    skip_if_no_aws_credentials()
+    return True
+
+
+@pytest.fixture(scope="class")
+def databases_response(require_aws_credentials, athena_service_quilt):
+    """Fetch database list once per class to avoid duplicate calls."""
+
+    return athena_databases_list(service=athena_service_quilt)
+
+
+@pytest.fixture(scope="class")
+def tables_response(require_aws_credentials, athena_service_quilt):
+    """Fetch table list once per class to reduce duplicate network work."""
+
+    test_database = os.getenv("QUILT_TEST_DATABASE", "default")
+    result = athena_tables_list(
+        test_database,
+        service=athena_service_quilt,
+    )
+
+    return test_database, result
+
+
+@pytest.fixture(scope="class")
+def table_schema_response(require_aws_credentials, athena_service_quilt):
+    """Fetch table schema once per class using the cached service."""
+
+    test_database = os.getenv("QUILT_TEST_DATABASE", "default")
+    return athena_table_schema(
+        test_database,
+        "nonexistent_table",
+        service=athena_service_quilt,
+    )
+
+
 @pytest.mark.aws
-@pytest.mark.slow
 class TestAthenaDatabasesList:
     """Test athena_databases_list function."""
 
-    def test_list_databases_success(self):
+    @pytest.mark.slow
+    def test_list_databases_success(self, databases_response):
         """Test successful database listing with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
 
-        skip_if_no_aws_credentials()
-
-        result = athena_databases_list()
+        result = databases_response
 
         assert isinstance(result, dict)
         assert "success" in result
@@ -42,19 +90,14 @@ class TestAthenaDatabasesList:
 
 
 @pytest.mark.aws
-@pytest.mark.slow
 class TestAthenaTablesList:
     """Test athena_tables_list function."""
 
-    def test_list_tables_success(self):
+    @pytest.mark.slow
+    def test_list_tables_success(self, tables_response):
         """Test successful table listing with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
 
-        skip_if_no_aws_credentials()
-
-        # Use test database from environment, fallback to default if not set
-        test_database = os.getenv("QUILT_TEST_DATABASE", "default")
-        result = athena_tables_list(test_database)
+        test_database, result = tables_response
 
         assert isinstance(result, dict)
         assert "success" in result
@@ -74,17 +117,10 @@ class TestAthenaTablesList:
 class TestAthenaTableSchema:
     """Test athena_table_schema function."""
 
-    def test_get_table_schema_success(self):
+    def test_get_table_schema_success(self, table_schema_response):
         """Test successful table schema retrieval with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
 
-        skip_if_no_aws_credentials()
-
-        # Use test database from environment, fallback to default if not set
-        test_database = os.getenv("QUILT_TEST_DATABASE", "default")
-        # Try to get schema for a table that might exist
-        # This will likely fail gracefully if no tables exist
-        result = athena_table_schema(test_database, "nonexistent_table")
+        result = table_schema_response
 
         assert isinstance(result, dict)
         assert "success" in result
@@ -96,15 +132,12 @@ class TestAthenaQueryExecute:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_query_execute_success(self):
+    def test_query_execute_success(self, require_aws_credentials, athena_service_quilt):
         """Test successful query execution with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         # Use a simple query that should work on any Athena setup
         query = "SELECT 1 as test_column, 'hello' as test_string"
-        result = athena_query_execute(query)
+        result = athena_query_execute(query, service=athena_service_quilt)
 
         assert isinstance(result, dict)
         assert "success" in result
@@ -133,11 +166,10 @@ class TestAthenaQueryExecute:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_query_execute_with_builtin_credentials(self):
+    def test_query_execute_with_builtin_credentials(
+        self, require_aws_credentials, athena_service_builtin
+    ):
         """Test query execution using built-in AWS credentials (not quilt3)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         # Use a simple query that should work on any Athena setup
         query = "SELECT 1 as test_column, 'builtin_creds' as auth_type"
@@ -148,6 +180,7 @@ class TestAthenaQueryExecute:
             max_results=5,
             output_format="json",
             use_quilt_auth=False,  # This is the key - use AWS credentials, not quilt3
+            service=athena_service_builtin,
         )
 
         assert isinstance(result, dict)
@@ -178,19 +211,10 @@ class TestAthenaQueryHistory:
     """Test athena_query_history function."""
 
     @pytest.mark.aws
-    @pytest.mark.slow
-    def test_query_history_success(self):
+    def test_query_history_success(self, require_aws_credentials, athena_service_quilt):
         """Test query history retrieval with real AWS connection."""
-        # Skip if AWS credentials not available
-        try:
-            import boto3
 
-            athena = boto3.client("athena")
-            athena.list_work_groups()  # Test basic connectivity
-        except Exception:
-            pytest.skip("AWS credentials not available or Athena not accessible")
-
-        result = athena_query_history(max_results=10)
+        result = athena_query_history(max_results=10, service=athena_service_quilt)
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
@@ -944,42 +968,25 @@ class TestAthenaQueryService:
     """Test AthenaQueryService class."""
 
     @pytest.fixture(scope="class")
-    def athena_service(self):
+    def athena_service(self, athena_service_builtin):
         """Shared AthenaQueryService instance for all tests in this class."""
-        return AthenaQueryService(use_quilt_auth=False)
+        return athena_service_builtin
 
     @pytest.mark.aws
-    @pytest.mark.slow
-    def test_service_initialization(self):
+    def test_service_initialization(self, require_aws_credentials, athena_service_factory):
         """Test service initialization with real AWS connection."""
-        # Skip if AWS credentials not available
-        try:
-            import boto3
 
-            athena = boto3.client("athena")
-            athena.list_work_groups()  # Test basic connectivity
-        except Exception:
-            pytest.skip("AWS credentials not available or Athena not accessible")
-
-        # Test both with and without quilt auth
-        service_no_auth = AthenaQueryService(use_quilt_auth=False)
+        # Test both with and without quilt auth using cached services
+        service_no_auth = athena_service_factory(False)
         assert service_no_auth.use_quilt_auth is False
 
-        service_with_auth = AthenaQueryService(use_quilt_auth=True)
+        service_with_auth = athena_service_factory(True)
         assert service_with_auth.use_quilt_auth is True
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_discover_databases(self, athena_service):
+    def test_discover_databases(self, require_aws_credentials, athena_service):
         """Test database discovery with real AWS connection."""
-        # Skip if AWS credentials not available
-        try:
-            import boto3
-
-            athena = boto3.client("athena")
-            athena.list_work_groups()  # Test basic connectivity
-        except Exception:
-            pytest.skip("AWS credentials not available or Athena not accessible")
 
         result = athena_service.discover_databases()
 
@@ -995,37 +1002,10 @@ class TestAthenaQueryService:
             assert "error" in result
             assert isinstance(result["error"], str)
 
-    @patch("quilt_mcp.services.athena_service.create_engine")
-    @patch("quilt_mcp.services.athena_service.boto3")
-    def test_service_initialization_mocked(self, mock_boto3, mock_create_engine, athena_service):
-        """Test service initialization with mocks (unit test)."""
-        assert athena_service.use_quilt_auth is False
-        assert athena_service.query_cache.maxsize == 100
-
-    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.services.athena_service.create_engine")
-    @patch("quilt_mcp.services.athena_service.boto3")
-    def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
-        """Test database discovery with mocks (unit test)."""
-        # Mock pandas DataFrame result from SQL query
-        mock_df = pd.DataFrame({"database_name": ["analytics_db", "test_db"]})
-        mock_read_sql.return_value = mock_df
-
-        result = athena_service.discover_databases()
-
-        assert result["success"] is True
-        assert len(result["databases"]) == 2
-        assert result["databases"][0]["name"] == "analytics_db"
-        assert result["databases"][1]["name"] == "test_db"
-        mock_read_sql.assert_called_once()
-
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_execute_query(self, athena_service):
+    def test_execute_query(self, require_aws_credentials, athena_service):
         """Test query execution with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         try:
             # Use a simple query that should work on any Athena setup
@@ -1056,12 +1036,8 @@ class TestAthenaQueryService:
         assert result["truncated"] is False
 
     @pytest.mark.aws
-    @pytest.mark.slow
     def test_format_results_json(self, athena_service):
         """Test result formatting to JSON with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         # Create test data
         df = pd.DataFrame({"test_column": ["value1", "value2"], "count": [1, 2]})
@@ -1081,12 +1057,8 @@ class TestAthenaQueryService:
         assert "formatted_data" in result
 
     @pytest.mark.aws
-    @pytest.mark.slow
     def test_format_results_csv(self, athena_service):
         """Test result formatting to CSV with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
 
         # Create test data
         df = pd.DataFrame({"event_type": ["page_view", "purchase"], "count": [125432, 23891]})

@@ -50,10 +50,38 @@ EXPECTED_S3_OBJECT = KNOWN_TEST_S3_OBJECT
 # AWS profile configuration is handled in conftest.py
 
 
+@pytest.fixture(scope="module")
+def require_aws_credentials():
+    """Skip when AWS credentials are unavailable."""
+
+    from tests.helpers import skip_if_no_aws_credentials
+
+    skip_if_no_aws_credentials()
+    return True
+
+
 @pytest.mark.aws
 @pytest.mark.search
 class TestQuiltAPI:
     """Test suite for quilt MCP server using real data - tests that expect actual results."""
+
+    @pytest.fixture(scope="class")
+    def known_package_browse_result(self, require_aws_credentials):
+        """Browse the known package once to reuse across tests."""
+
+        result = package_browse(
+            KNOWN_PACKAGE,
+            registry=TEST_REGISTRY,
+            include_file_info=False,
+            include_signed_urls=False,
+        )
+
+        if result.get("success") is False and "AccessDenied" in str(result.get("cause", "")):
+            pytest.skip(
+                f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}"
+            )
+
+        return result
 
     def test_packages_list_returns_data(self):
         """Test that packages_list returns actual packages from configured registry."""
@@ -142,17 +170,13 @@ class TestQuiltAPI:
 
             warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
 
-    @pytest.mark.slow
-    def test_package_browse_known_package(self):
+    def test_package_browse_known_package(self, known_package_browse_result):
         """Test browsing the known test package."""
-        result = package_browse(KNOWN_PACKAGE, registry=TEST_REGISTRY)
+        result = known_package_browse_result
 
         assert isinstance(result, dict)
 
         # Check if we got an access denied error and skip if so
-        if result.get("success") is False and "AccessDenied" in str(result.get("cause", "")):
-            pytest.skip(f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}")
-
         assert "entries" in result
         assert "package_name" in result
         assert "total_entries" in result
@@ -171,7 +195,12 @@ class TestQuiltAPI:
         """Test searching within a known package for files."""
         # Try searching for the known test entry first
         known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README.md"
-        result = package_contents_search(KNOWN_PACKAGE, known_entry, registry=TEST_REGISTRY)
+        result = package_contents_search(
+            KNOWN_PACKAGE,
+            known_entry,
+            registry=TEST_REGISTRY,
+            include_signed_urls=False,
+        )
 
         assert isinstance(result, dict)
         assert "matches" in result
@@ -180,7 +209,12 @@ class TestQuiltAPI:
         # If the known entry isn't found, try common extensions
         if result["count"] == 0:
             for ext in [".md", ".txt", ".csv", ".json", ".parquet"]:
-                result = package_contents_search(KNOWN_PACKAGE, ext, registry=TEST_REGISTRY)
+                result = package_contents_search(
+                    KNOWN_PACKAGE,
+                    ext,
+                    registry=TEST_REGISTRY,
+                    include_signed_urls=False,
+                )
                 if result["count"] > 0:
                     break
 
@@ -630,6 +664,7 @@ class TestQuiltAPI:
             # If diff returns structured data, check for minimal differences
             assert len(diff.get("added", [])) == 0 or len(diff.get("deleted", [])) == 0
 
+    @pytest.mark.slow
     def test_package_diff_different_packages(self):
         """Test package_diff comparing two different packages."""
         # Get available packages first

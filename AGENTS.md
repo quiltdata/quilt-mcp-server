@@ -395,6 +395,10 @@ The following permissions are granted for this repository:
 - Complete build pipeline tested as part of standard workflow
 - Ensures deliverable packages are always validated
 
+### Athena test caching
+
+- Integration tests now share a cached `AthenaQueryService` via fixtures (`tests/integration/conftest.py`) to avoid repeated STS/session setup; reuse the factory when adding new slow tests instead of instantiating services directly.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

@@ -7,6 +7,8 @@ import os
 import sys
 import logging
 
+import pytest
+
 # Add app to Python path
 sys.path.insert(0, "app")
 
@@ -164,6 +166,7 @@ def check_glue_client(service):
         return False
 
 
+@pytest.mark.slow
 def test_mcp_tools():
     """Test MCP tool functions directly"""
     print("\n" + "=" * 60)
