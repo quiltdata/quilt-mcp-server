@@ -261,7 +261,7 @@ class ToolCallInterceptor:
             },
             "packages_list": {
                 "condition": lambda args: args.get("prefix", ""),
-                "alternative": "packages_search",
+                "alternative": "catalog_search",
             },
         }
 

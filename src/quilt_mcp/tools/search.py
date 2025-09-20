@@ -6,12 +6,12 @@ This module exposes the unified search functionality as MCP tools.
 import asyncio
 from typing import Dict, List, Any, Optional
 
-from ..search.tools.unified_search import unified_search as _unified_search
+from ..search.tools.unified_search import unified_search as _catalog_search_backend
 from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.search_explain import search_explain as _search_explain
 
 
-def unified_search(
+def catalog_search(
     query: str,
     scope: str = "global",
     target: str = "",
@@ -24,7 +24,7 @@ def unified_search(
     count_only: bool = False,
 ) -> Dict[str, Any]:
     """
-    Intelligent unified search across Quilt catalogs, packages, and S3 buckets.
+    Intelligent catalog search across Quilt catalogs, packages, and S3 buckets.
 
     This tool automatically:
     - Parses natural language queries
@@ -47,11 +47,11 @@ def unified_search(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        unified_search("CSV files in genomics packages")
-        unified_search("packages created last month", scope="catalog")
-        unified_search("README files", scope="package", target="user/dataset")
-        unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
-        unified_search("*.csv", scope="bucket", target="s3://quilt-example")
+        catalog_search("CSV files in genomics packages")
+        catalog_search("packages created last month", scope="catalog")
+        catalog_search("README files", scope="package", target="user/dataset")
+        catalog_search("files larger than 100MB", filters={"size_gt": "100MB"})
+        catalog_search("*.csv", scope="bucket", target="s3://quilt-example")
     """
     try:
         # Set default backends if None
@@ -68,7 +68,7 @@ def unified_search(
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
-                    _unified_search(
+                    _catalog_search_backend(
                         query=query,
                         scope=scope,
                         target=target,
@@ -85,7 +85,7 @@ def unified_search(
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
             return asyncio.run(
-                _unified_search(
+                _catalog_search_backend(
                     query=query,
                     scope=scope,
                     target=target,
@@ -101,7 +101,7 @@ def unified_search(
     except (RuntimeError, asyncio.TimeoutError, OSError) as e:
         return {
             "success": False,
-            "error": f"Unified search failed: {e}",
+            "error": f"Catalog search failed: {e}",
             "query": query,
             "scope": scope,
             "target": target,

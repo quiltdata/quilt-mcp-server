@@ -32,17 +32,14 @@ from .tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
 )
-from .tools.package_ops import package_create, package_delete, package_update
-from .tools.s3_package import package_create_from_s3
+from .tools.package_ops import package_delete, package_update
 from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
     bucket_recommendations_get,
 )
 from .tools.unified_package import (
-    create_package,
     list_available_resources,
     quick_start,
 )
@@ -52,10 +49,10 @@ from .tools.metadata_templates import (
     validate_metadata_structure,
 )
 from .tools.package_management import (
-    create_package_enhanced,
+    package_create,
     package_update_metadata,
     package_validate,
-    list_package_tools,
+    package_tools_list,
 )
 from .tools.metadata_examples import (
     show_metadata_examples,
@@ -67,20 +64,22 @@ from .tools.quilt_summary import (
     generate_quilt_summarize_json,
     generate_package_visualizations,
 )
+from .tools.search import (
+    catalog_search,
+    search_explain,
+    search_suggest,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
     packages_list,
-    packages_search,
 )
 from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
-    tabulator_open_query_status,
-    tabulator_open_query_toggle,
 )
 
 __version__ = "0.5.6"
@@ -108,30 +107,26 @@ __all__ = [
     "bucket_objects_put",
     "bucket_object_fetch",
     "bucket_object_link",
-    "bucket_objects_search",
     # Package tools
     "package_browse",
     "package_contents_search",
-    "package_create",
-    "package_create_from_s3",
     "package_delete",
     "package_diff",
     "package_update",
     "packages_list",
-    "packages_search",
+    "catalog_search",
     # Permission tools
     "aws_permissions_discover",
     "bucket_access_check",
     "bucket_recommendations_get",
     # Unified tools
-    "create_package",
     "list_available_resources",
     "quick_start",
     # Enhanced package management
-    "create_package_enhanced",
+    "package_create",
     "get_metadata_template",
     "list_metadata_templates",
-    "list_package_tools",
+    "package_tools_list",
     "package_update_metadata",
     "package_validate",
     "validate_metadata_structure",
@@ -143,11 +138,13 @@ __all__ = [
     "create_quilt_summary_files",
     "generate_quilt_summarize_json",
     "generate_package_visualizations",
+    # Search tools
+    "search_explain",
+    "search_suggest",
+    "catalog_search",
     # Tabulator tools
     "tabulator_tables_list",
     "tabulator_table_create",
     "tabulator_table_delete",
     "tabulator_table_rename",
-    "tabulator_open_query_status",
-    "tabulator_open_query_toggle",
 ]

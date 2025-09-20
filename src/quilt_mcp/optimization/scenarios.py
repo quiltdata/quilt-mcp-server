@@ -122,8 +122,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="List available packages",
             ),
             TestStep(
-                tool_name="packages_search",
-                args={"query": "dataset", "limit": 10},
+                tool_name="catalog_search",
+                args={"query": "dataset", "scope": "catalog", "limit": 10},
                 description="Search for dataset packages",
             ),
             TestStep(
@@ -480,8 +480,8 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
         expected_call_count=8,
         steps=[
             TestStep(
-                tool_name="packages_search",
-                args={"query": "genomics", "limit": 50},
+                tool_name="catalog_search",
+                args={"query": "genomics", "scope": "catalog", "limit": 50},
                 description="Search for genomics packages",
             ),
             TestStep(

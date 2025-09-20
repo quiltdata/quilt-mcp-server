@@ -77,9 +77,7 @@ class TestQuiltAPI:
         )
 
         if result.get("success") is False and "AccessDenied" in str(result.get("cause", "")):
-            pytest.skip(
-                f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}"
-            )
+            pytest.skip(f"Access denied to package {KNOWN_PACKAGE} - check AWS permissions: {result.get('error')}")
 
         return result
 

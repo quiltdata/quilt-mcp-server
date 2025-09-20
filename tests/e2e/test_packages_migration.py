@@ -103,23 +103,17 @@ class TestPackagesMigrationValidation:
         assert result['package1'] == 'user/package1'
         assert result['package2'] == 'user/package2'
 
-    def test_packages_search_uses_quilt_service_for_bucket_fallback(self):
-        """Test packages_search uses QuiltService.create_bucket for fallback search."""
-        mock_service = Mock()
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = [{'name': 'user/package1'}]
-        mock_service.create_bucket.return_value = mock_bucket
-        mock_service.get_search_api.side_effect = Exception("Search API not available")
+    @patch('quilt_mcp.tools.search.catalog_search')
+    def test_packages_search_delegates_to_catalog_search(self, mock_catalog_search):
+        """Shimmed packages_search should delegate to catalog_search."""
+        mock_catalog_search.return_value = {"success": True, "results": []}
 
-        with (
-            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
-            patch('quilt_mcp.utils.suppress_stdout'),
-            patch('quilt_mcp.tools.stack_buckets.build_stack_search_indices', return_value=None),
-        ):
-            result = packages_search('test query', 's3://test-bucket')
+        result = packages_search('test query', 's3://test-bucket', limit=7, from_=3)
 
-        mock_service.get_search_api.assert_called_once()
-        mock_service.create_bucket.assert_called_once_with('s3://test-bucket')
-        mock_bucket.search.assert_called_once_with('test query', limit=10)
-        assert result['fallback_used'] == 'bucket_search'
-        assert result['results'] == [{'name': 'user/package1'}]
+        mock_catalog_search.assert_called_once_with(
+            query='test query',
+            scope='catalog',
+            limit=7,
+            filters={'registry': 's3://test-bucket', 'offset': 3},
+        )
+        assert result == mock_catalog_search.return_value
