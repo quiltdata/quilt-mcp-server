@@ -8,6 +8,46 @@ set -e
 REPO_URL=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
 DRY_RUN=${DRY_RUN:-0}
 
+ensure_uv_env() {
+    if [ -n "$UV_PUBLISH_TOKEN" ]; then
+        echo "🔐 Using UV_PUBLISH_TOKEN for uv packaging"
+        return 0
+    fi
+
+    if [ -n "$UV_PUBLISH_USERNAME" ] && [ -n "$UV_PUBLISH_PASSWORD" ]; then
+        echo "🔐 Using UV_PUBLISH_USERNAME/UV_PUBLISH_PASSWORD for uv packaging"
+        return 0
+    fi
+
+    echo "❌ Missing UV packaging credentials. Set UV_PUBLISH_TOKEN or UV_PUBLISH_USERNAME and UV_PUBLISH_PASSWORD."
+    return 1
+}
+
+uv_package() {
+    echo "🚀 Starting uv-package workflow"
+
+    ensure_uv_env || return 1
+
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "❌ uv not found - install uv package manager"
+        return 1
+    fi
+
+    local dist_dir="${DIST_DIR:-dist}"
+    mkdir -p "$dist_dir"
+
+    local build_cmd=(uv build --wheel --sdist --out-dir "$dist_dir")
+
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "🔍 DRY RUN: Would run: ${build_cmd[*]}"
+        return 0
+    fi
+
+    echo "📦 Building Python artifacts into $dist_dir"
+    "${build_cmd[@]}"
+    echo "✅ uv packaging complete"
+}
+
 check_clean_repo() {
     echo "🔍 Checking repository state..."
     if [ -n "$(git status --porcelain)" ]; then
@@ -232,6 +272,12 @@ case "${1:-}" in
         fi
         tag_release
         ;;
+    "uv-package")
+        if [ "${2:-}" = "--dry-run" ]; then
+            DRY_RUN=1
+        fi
+        uv_package
+        ;;
     "bump")
         if [ "${3:-}" = "--dry-run" ]; then
             DRY_RUN=1
@@ -239,11 +285,12 @@ case "${1:-}" in
         bump_version "${2:-}"
         ;;
     *)
-        echo "Usage: $0 {dev|release|bump} [options]"
+        echo "Usage: $0 {dev|release|uv-package|bump} [options]"
         echo ""
         echo "Commands:"
         echo "  dev              - Create development tag with timestamp"
         echo "  release          - Create release tag from pyproject.toml version"  
+        echo "  uv-package       - Build Python artifacts (wheel + sdist) with uv"
         echo "  bump {type}      - Bump version in pyproject.toml"
         echo ""
         echo "Bump types:"
@@ -256,6 +303,9 @@ case "${1:-}" in
         echo ""
         echo "Environment Variables:"
         echo "  DRY_RUN=1        - Enable dry-run mode"
+        echo "  DIST_DIR         - Override packaging output directory (default: dist)"
+        echo "  UV_PUBLISH_TOKEN or UV_PUBLISH_USERNAME/UV_PUBLISH_PASSWORD"
+        echo "                    - Credentials required before running uv-package"
         echo ""
         echo "Examples:"
         echo "  $0 bump patch           # Bump patch version"
