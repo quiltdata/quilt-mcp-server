@@ -51,15 +51,12 @@ This specification **DELETES REDUNDANT TOOLS IMMEDIATELY** with zero deprecation
 
 **NO MIGRATION PERIOD** - Use unified_search or break.
 
-### 3. URL Generation - DELETE LEGACY
-
-**DELETE IMMEDIATELY:**
-
-- `catalog_uri` - GONE (URIs are dead)
+### 3. URL Generation - KEEP BOTH FOR DIFFERENT PURPOSES
 
 **SURVIVORS:**
 
-- `catalog_url` - URLs only, no legacy URIs
+- `catalog_url` - Web URLs for human browsing
+- `catalog_uri` - Quilt+ URIs for QuiltSync integration (REQUIRED)
 
 ### 4. Tabulator Admin - DELETE INSECURE TOOLS
 
@@ -130,7 +127,7 @@ __all__ = [
     # ... existing tools ...
     # DELETED: "package_create", "create_package", "package_create_from_s3"
     # DELETED: "packages_search", "bucket_objects_search"
-    # DELETED: "catalog_uri"
+    # KEPT: "catalog_uri" (required for QuiltSync)
     # DELETED: "tabulator_open_query_status", "tabulator_open_query_toggle"
 ]
 ```
@@ -153,7 +150,7 @@ __all__ = [
     ! grep -r "create_package[^_]" src/ --include="*.py" || exit 1
     ! grep -r "packages_search" src/ --include="*.py" || exit 1
     ! grep -r "bucket_objects_search" src/ --include="*.py" || exit 1
-    ! grep -r "catalog_uri" src/ --include="*.py" || exit 1
+    # catalog_uri is ALLOWED (required for QuiltSync)
 ```
 
 ### 3. Make Targets
