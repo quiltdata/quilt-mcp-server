@@ -39,6 +39,21 @@ jobs:
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
 
+    - name: Debug GitHub context for dev-release
+      run: |
+        echo "=== GitHub Context Debug ==="
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Ref type: ${{ github.ref_type }}"
+        echo "Ref name: ${{ github.ref_name }}"
+        echo "Head ref: ${{ github.head_ref }}"
+        echo "Base ref: ${{ github.base_ref }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "=== Tag Detection ==="
+        echo "Starts with refs/tags/v: ${{ startsWith(github.ref, 'refs/tags/v') }}"
+        echo "Contains -dev-: ${{ contains(github.ref, '-dev-') }}"
+        echo "Combined condition: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') }}"
+
   dev-release:
     runs-on: ubuntu-latest
     needs: test
@@ -54,12 +69,25 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         include-nodejs: 'true'
+    - name: Debug dev-release context
+      run: |
+        echo "=== Dev-Release Context Debug ==="
+        echo "Event: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "Ref type: ${{ github.ref_type }}"
+        echo "Ref name: ${{ github.ref_name }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "=== Condition Check ==="
+        echo "startsWith(github.ref, 'refs/tags/v'): ${{ startsWith(github.ref, 'refs/tags/v') }}"
+        echo "contains(github.ref, '-dev-'): ${{ contains(github.ref, '-dev-') }}"
+        echo "Combined condition result: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') }}"
+
     - name: Extract version from tag
       id: version
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
-        echo "Production Tag Version: $TAG_VERSION"
+        echo "Dev Tag Version: $TAG_VERSION"
     - name: Create dev release
       uses: ./.github/actions/create-release
       with:
