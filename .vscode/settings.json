@@ -1,0 +1,20 @@
+{
+  "yaml.validate": true,
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.{yml,yaml}"
+  },
+  "yaml.customTags": [
+    "!reference sequence"
+  ],
+  // Disable specific YAML validation rules
+  "yaml.completion": true,
+  "yaml.hover": true,
+  "yaml.format.enable": true,
+  // Suppress GitHub Actions context warnings
+  "problems.showCurrentInStatus": false,
+  // Filter out "Context access might be invalid" warnings
+  "problems.autoReveal": false,
+  // GitHub Actions extension settings
+  "github-actions.workflows.pinned.refresh.enabled": true,
+  "github-actions.workflows.pinned.refresh.interval": 300
+}
