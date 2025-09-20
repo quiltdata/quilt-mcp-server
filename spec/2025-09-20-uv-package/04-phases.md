@@ -33,18 +33,18 @@
 
 ## Phase 3 – GitHub Trusted Publishing Integration
 
-- **Goal**: Automate production publishing via GitHub Actions using Trusted Publishing on tag push, delegating to `release.sh python-publish`.
+- **Goal**: Automate production publishing via GitHub Actions using Trusted Publishing on tag push, delegating to `release.sh` so DXT and Python artifacts are handled together.
 - **Deliverables**:
-  - Workflow YAML that calls `release.sh python-dist` then `release.sh python-publish` under Trusted Publishing.
-  - Release documentation noting tag-driven publish process and credential separation.
-  - Safeguards ensuring DXT workflow remains unaffected (separate jobs or conditionals).
+  - Workflow YAML that invokes the release entry point (`release.sh release` or equivalent) which now runs DXT packaging, `python-dist`, and `python-publish` in sequence under Trusted Publishing.
+  - Release documentation noting tag-driven publish process, credential separation, and dual-artifact output.
+  - Safeguards ensuring combined flow still preserves legacy DXT behaviour for other callers.
 - **Validation**:
-  - Workflow dry run or manual approval confirming Trusted Publishing handshake.
-  - Tag-triggered build completes without manual secrets.
+  - Workflow dry run or manual approval confirming Trusted Publishing handshake and dist publishing.
+  - Tag-triggered build completes without manual secrets while producing both DXT and Python artifacts.
 
 # Cross-Phase Considerations
 
 1. Ensure environment validation logic lives in the publish path, keeping local build command credential-free while CI and publish flows remain consistent.
 2. Each phase should run the existing test suite to maintain safety net coverage.
-3. Communicate rollout plan so maintainers know when to use DXT vs uv packaging.
+3. Communicate rollout plan so maintainers know the release script now emits both DXT and Python artifacts while standalone targets remain available for focused workflows.
 4. Track external dependencies (GitHub settings) as risks if they cannot be completed within the repo.

@@ -407,8 +407,8 @@ The following permissions are granted for this repository:
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
 ### 2025-09-20 uv packaging notes
-- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow is centralized in `bin/release.sh python-dist` with a `make python-dist` wrapper, mirroring how `make dxt` exposes DXT packaging.
-- `python-dist` only builds local artifacts—no credentials required. A future `bin/release.sh python-publish` will enforce `UV_PUBLISH_TOKEN` or username/password before pushing to PyPI/TestPyPI.
+- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `bin/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
+- `python-dist` builds local artifacts without credentials. `bin/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
 
 ## important-instruction-reminders
 

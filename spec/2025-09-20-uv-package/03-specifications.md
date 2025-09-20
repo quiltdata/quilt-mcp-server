@@ -10,7 +10,7 @@
 
 1. **Authoritative uv Packaging Pipeline**
    - Wheel and sdist builds are produced through uv (`uv build` or equivalent) with reproducible output in `dist/`.
-   - `bin/release.sh` orchestrates the uv packaging so the release script remains the single entry point, mirroring the existing DXT flow.
+   - `bin/release.sh` orchestrates both uv packaging and DXT packaging so the release script remains the single entry point.
 2. **Make Target Coverage**
    - A make target (parallel to `make dxt`) delegates to `bin/release.sh` to invoke the uv packaging path while inheriting `.env` sourcing.
 3. **Separated Build vs Publish Flows**
@@ -19,13 +19,14 @@
 4. **Developer Guidance for `.env`**
    - Approved documentation clearly lists TestPyPI credential keys, usage patterns, and where to store them locally.
 5. **Trusted Publishing in CI**
-   - GitHub Actions workflow builds artifacts and publishes through Trusted Publishing on tag push without storing static credentials, calling into the same `release.sh` logic so command parity is maintained.
+   - GitHub Actions workflow invokes `release.sh` so tag pushes build the DXT package, build Python distributions, and publish them through Trusted Publishing without storing static credentials.
 6. **DXT Workflow Continuity**
-   - Newly introduced packaging flow coexists with existing DXT targets and communicates when each path should be used. DXT-specific commands in `release.sh` remain functional.
+   - Newly introduced packaging flow coexists with existing DXT targets and communicates when each path should be used. DXT-specific commands in `release.sh` remain functional while the combined release path coordinates both artifact families.
 
 # Success Criteria
 
 - Running the packaging make target produces wheel and sdist artifacts via `release.sh` and uv in a clean workspace, regardless of publish credentials.
+- Invoking the release path from CI results in both DXT and Python artifacts being built, with publish flows delegated through `release.sh`.
 - Publish command (when added) fails fast with actionable errors if required credentials are missing.
 - Documentation update is merged that references `.env` keys and provides TestPyPI dry-run guidance.
 - CI tag push triggers a Trusted Publishing workflow that completes without manual secrets while delegating to `release.sh`.
@@ -34,7 +35,7 @@
 # Architectural & Design Principles
 
 1. Define environment variable requirements within the future publish path so enforcement is consistent across local and CI usage.
-2. Ensure local and CI commands call the same `release.sh` entry points to minimize environment-specific drift.
+2. Ensure local and CI commands call the same `release.sh` entry points so DXT, build, and publish steps execute together without divergence.
 3. Maintain separation of artifact directories to avoid cross-contamination between DXT and Python package outputs.
 4. Prefer additive changes that introduce minimal risk to existing release automation.
 5. Keep credential handling secure by avoiding persistent secrets in repo or CI secrets; rely on `.env` locally and OIDC in CI.
