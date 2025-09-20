@@ -372,10 +372,10 @@ class TestToolDocumentation:
         assert "package_validate" in result["primary_tools"]
 
 
-@pytest.mark.slow
 class TestPackageManagementMigration:
     """Test cases for package_management integration with create_package_revision."""
 
+    @pytest.mark.slow
     @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
     def test_package_management_uses_create_package_revision_integration(self, mock_create_revision):
         """Test that package_management integrates with create_package_revision through package_ops."""

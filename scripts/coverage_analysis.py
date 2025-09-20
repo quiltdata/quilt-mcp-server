@@ -35,7 +35,7 @@ import logging
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Set, Tuple, Optional
+from typing import Dict, Set, Tuple
 
 
 # Configure logging
@@ -125,15 +125,17 @@ def parse_coverage_xml(xml_file: Path) -> Dict[str, Tuple[Set[int], int]]:
 
                 # Extract line coverage
                 covered_lines = set()
-                total_lines = 0
+                all_lines = set()
 
                 for line in class_elem.findall(".//line"):
                     line_num = int(line.get("number", "0"))
                     hits = int(line.get("hits", "0"))
 
-                    total_lines = max(total_lines, line_num)
+                    all_lines.add(line_num)
                     if hits > 0:
                         covered_lines.add(line_num)
+
+                total_lines = len(all_lines)
 
                 coverage_data[filename] = (covered_lines, total_lines)
 
@@ -179,8 +181,8 @@ def generate_coverage_analysis() -> None:
         with open(output_csv, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
-                'file', 'unit_coverage', 'integration_coverage', 'e2e_coverage',
-                'combined_coverage', 'lines_total', 'lines_covered', 'coverage_gaps'
+                'file', 'unit_pct_covered', 'integration_pct_covered', 'e2e_pct_covered',
+                'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
             ])
         return
 
@@ -204,16 +206,32 @@ def generate_coverage_analysis() -> None:
 
             # Write header
             writer.writerow([
-                'file', 'unit_coverage', 'integration_coverage', 'e2e_coverage',
-                'combined_coverage', 'lines_total', 'lines_covered', 'coverage_gaps'
+                'file', 'unit_pct_covered', 'integration_pct_covered', 'e2e_pct_covered',
+                'combined_pct_covered', 'lines_total', 'lines_covered', 'coverage_gaps'
             ])
 
-            # Write data rows
+            # Calculate totals for summary using global line tracking
+            total_lines_all = 0
+            all_unit_lines = set()
+            all_integration_lines = set()
+            all_e2e_lines = set()
+
+            # Write data rows and accumulate totals with global line tracking
             for file_path in sorted(file_coverage_map.keys()):
                 coverage = file_coverage_map[file_path]
                 unit_pct, integration_pct, e2e_pct, combined_pct = coverage.get_coverage_percentages()
 
                 combined_lines = coverage.unit_lines | coverage.integration_lines | coverage.e2e_lines
+
+                # Accumulate totals for summary - track lines globally to avoid double counting
+                total_lines_all += coverage.total_lines
+                # Create globally unique line identifiers to properly track coverage across files
+                for line_num in coverage.unit_lines:
+                    all_unit_lines.add(f"{file_path}:{line_num}")
+                for line_num in coverage.integration_lines:
+                    all_integration_lines.add(f"{file_path}:{line_num}")
+                for line_num in coverage.e2e_lines:
+                    all_e2e_lines.add(f"{file_path}:{line_num}")
 
                 writer.writerow([
                     file_path,
@@ -224,6 +242,28 @@ def generate_coverage_analysis() -> None:
                     coverage.total_lines,
                     len(combined_lines),
                     coverage.get_coverage_gaps()
+                ])
+
+            # Calculate summary percentages using global line counts
+            if total_lines_all > 0:
+                summary_unit_pct = len(all_unit_lines) / total_lines_all * 100
+                summary_integration_pct = len(all_integration_lines) / total_lines_all * 100
+                summary_e2e_pct = len(all_e2e_lines) / total_lines_all * 100
+
+                # Combined coverage is the union of all covered lines
+                all_combined_lines = all_unit_lines | all_integration_lines | all_e2e_lines
+                summary_combined_pct = len(all_combined_lines) / total_lines_all * 100
+
+                # Write summary row
+                writer.writerow([
+                    "SUMMARY",
+                    f"{summary_unit_pct:.1f}",
+                    f"{summary_integration_pct:.1f}",
+                    f"{summary_e2e_pct:.1f}",
+                    f"{summary_combined_pct:.1f}",
+                    total_lines_all,
+                    len(all_combined_lines),
+                    "overall-totals"
                 ])
 
         logger.info(f"Coverage analysis CSV generated: {output_csv}")
