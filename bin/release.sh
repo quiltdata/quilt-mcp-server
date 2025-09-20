@@ -152,6 +152,7 @@ tag_dev() {
     git pull origin $(git rev-parse --abbrev-ref HEAD)
     git tag -a "v$DEV_VERSION" -m "Development build v$DEV_VERSION"
     git push origin "v$DEV_VERSION"
+    push_pending_commits
     echo "✅ Development tag v$DEV_VERSION created and pushed"
     echo "! Will only take effect if part of a pull request !"
     echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
