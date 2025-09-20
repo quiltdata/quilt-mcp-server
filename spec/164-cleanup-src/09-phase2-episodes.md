@@ -3,14 +3,13 @@
 
 ## Episode 1 - Services Module Consolidation
 
-- Move `quilt_mcp/services/quilt_service.py` to a flattened structure (e.g., `quilt_mcp/services.py`).
-- Provide backward-compatible imports through the former package path.
-- Update tests and runtime references.
+- Co-locate `QuiltService`, `AthenaQueryService`, and permission discovery primitives under the `quilt_mcp.services` package.
+- Update tests and runtime references to import from the new structure.
 
-## Episode 2 - AWS Utilities Alignment
+## Episode 2 - Remove Legacy AWS Namespace
 
-- Collapse `quilt_mcp/aws/` into a single module or clearly grouped submodules based on actual usage.
-- Adjust imports and ensure AWS-related tests still execute.
+- Delete the `quilt_mcp/aws` package after migrating modules.
+- Ensure all imports reference `quilt_mcp.services` equivalents.
 
 ## Episode 3 - Telemetry & Validators Review
 

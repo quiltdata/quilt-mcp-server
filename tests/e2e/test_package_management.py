@@ -402,7 +402,7 @@ class TestPackageManagementMigration:
         call_args = mock_create_revision.call_args
 
         assert call_args[1]["package_name"] == "test/package"
-        assert call_args[1]["auto_organize"] == False  # package_management uses package_ops which should use False
+        assert not call_args[1]["auto_organize"]  # package_management uses package_ops which should use False
         assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]
 
         # Verify metadata template was processed

@@ -41,6 +41,7 @@ class TestElasticsearchBackendDependencyInjection:
         # Mock async method call
         with patch('quilt_mcp.utils.suppress_stdout'):
             import asyncio
+
             async def test_search():
                 # This triggers _search_bucket which should use QuiltService
                 await backend._search_bucket("test query", "test-bucket", None, 10)
@@ -61,6 +62,7 @@ class TestElasticsearchBackendDependencyInjection:
 
         # Test health check which should use QuiltService
         import asyncio
+
         async def test_health():
             result = await backend.health_check()
             return result

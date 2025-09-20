@@ -13,7 +13,7 @@ from quilt_mcp.tools.package_ops import (
     package_delete,
     _collect_objects_into_package,
     _normalize_registry,
-    _build_selector_fn
+    _build_selector_fn,
 )
 
 
@@ -51,7 +51,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was processed to remove README content
         processed_metadata = call_args[1]["metadata"]
@@ -92,7 +92,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was processed to remove README content
         processed_metadata = call_args[1]["metadata"]
@@ -134,7 +134,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was processed to remove both README fields
         processed_metadata = call_args[1]["metadata"]
@@ -171,7 +171,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was passed unchanged
         processed_metadata = call_args[1]["metadata"]
@@ -212,7 +212,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was processed to remove README content
         processed_metadata = call_args[1]["metadata"]
@@ -246,7 +246,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata is empty dict
         processed_metadata = call_args[1]["metadata"]
@@ -288,7 +288,7 @@ class TestPackageCreate:
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["s3_uris"] == ["s3://bucket/test.txt"]
         assert call_args[1]["registry"] == "s3://test-bucket"
-        assert call_args[1]["auto_organize"] == False  # package_ops.py should use False
+        assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
         # Verify metadata was passed unchanged
         processed_metadata = call_args[1]["metadata"]
@@ -522,21 +522,13 @@ class TestPackageCreateErrorHandling:
 
     def test_package_create_with_empty_s3_uris(self):
         """Test package_create with empty S3 URIs list."""
-        result = package_create(
-            package_name="test/package",
-            s3_uris=[],
-            registry="s3://test-bucket"
-        )
+        result = package_create(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
 
         assert result["error"] == "No S3 URIs provided"
 
     def test_package_create_with_empty_package_name(self):
         """Test package_create with empty package name."""
-        result = package_create(
-            package_name="",
-            s3_uris=["s3://bucket/file.txt"],
-            registry="s3://test-bucket"
-        )
+        result = package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
         assert result["error"] == "Package name is required"
 
@@ -546,7 +538,7 @@ class TestPackageCreateErrorHandling:
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
             metadata='{"invalid": json syntax}',  # Invalid JSON
-            registry="s3://test-bucket"
+            registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -560,7 +552,7 @@ class TestPackageCreateErrorHandling:
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
             metadata=123,  # Invalid type
-            registry="s3://test-bucket"
+            registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -573,13 +565,11 @@ class TestPackageCreateErrorHandling:
         """Test package_create when service returns error response."""
         mock_create_revision.return_value = {
             "error": "Service failed to create package",
-            "details": "Some internal error"
+            "details": "Some internal error",
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            registry="s3://test-bucket"
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
 
         assert result["error"] == "Service failed to create package"
@@ -592,9 +582,7 @@ class TestPackageCreateErrorHandling:
         mock_create_revision.side_effect = Exception("Network error")
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            registry="s3://test-bucket"
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
 
         assert "Failed to create package: Network error" in result["error"]
@@ -607,21 +595,13 @@ class TestPackageUpdate:
 
     def test_package_update_with_empty_s3_uris(self):
         """Test package_update with empty S3 URIs list."""
-        result = package_update(
-            package_name="test/package",
-            s3_uris=[],
-            registry="s3://test-bucket"
-        )
+        result = package_update(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
 
         assert result["error"] == "No S3 URIs provided"
 
     def test_package_update_with_empty_package_name(self):
         """Test package_update with empty package name."""
-        result = package_update(
-            package_name="",
-            s3_uris=["s3://bucket/file.txt"],
-            registry="s3://test-bucket"
-        )
+        result = package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
         assert result["error"] == "package_name is required for package_update"
 
@@ -631,7 +611,7 @@ class TestPackageUpdate:
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
             metadata='{"invalid": json}',  # Invalid JSON
-            registry="s3://test-bucket"
+            registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -644,7 +624,7 @@ class TestPackageUpdate:
             package_name="test/package",
             s3_uris=["s3://bucket/file.txt"],
             metadata=["invalid", "type"],  # Invalid type
-            registry="s3://test-bucket"
+            registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -660,9 +640,7 @@ class TestPackageUpdate:
         mock_quilt_service_class.return_value = mock_service
 
         result = package_update(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            registry="s3://test-bucket"
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
 
         assert "Failed to browse existing package 'test/package':" in result["error"]
@@ -674,10 +652,7 @@ class TestPackageDelete:
 
     def test_package_delete_with_empty_package_name(self):
         """Test package_delete with empty package name."""
-        result = package_delete(
-            package_name="",
-            registry="s3://test-bucket"
-        )
+        result = package_delete(package_name="", registry="s3://test-bucket")
 
         assert result["error"] == "package_name is required for package deletion"
 
@@ -687,10 +662,7 @@ class TestPackageDelete:
         """Test successful package deletion."""
         mock_delete.return_value = None  # Successful deletion
 
-        result = package_delete(
-            package_name="test/package",
-            registry="s3://test-bucket"
-        )
+        result = package_delete(package_name="test/package", registry="s3://test-bucket")
 
         assert result["status"] == "success"
         assert result["action"] == "deleted"
@@ -704,10 +676,7 @@ class TestPackageDelete:
         """Test package deletion failure."""
         mock_delete.side_effect = Exception("Deletion failed")
 
-        result = package_delete(
-            package_name="test/package",
-            registry="s3://test-bucket"
-        )
+        result = package_delete(package_name="test/package", registry="s3://test-bucket")
 
         assert "Failed to delete package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"

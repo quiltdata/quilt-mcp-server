@@ -11,7 +11,7 @@ import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
-from ..aws.athena_service import AthenaQueryService
+from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
 
 logger = logging.getLogger(__name__)

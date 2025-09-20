@@ -9,8 +9,8 @@
 
 ## Target Structure (Tentative)
 
-- Promote `services/quilt_service.py` to `quilt_mcp/services.py` or integrate into a broader `infrastructure` package with other service wrappers.
-- Merge `aws/athena_service.py` and related helpers into a cohesive `quilt_mcp/aws_services.py` module (or similar) while keeping AWS concerns isolated.
+- Flatten service implementations under `quilt_mcp/services/` so core classes (`QuiltService`, `AthenaQueryService`, permission discovery primitives) share a package.
+- Delete the legacy `quilt_mcp/aws/` namespace entirely after migrating modules to `services/`.
 - Evaluate `telemetry/` and `validators/` to determine whether consolidating into single modules improves clarity or whether subpackages remain justified.
 - Remove empty packages (`config`, `operations`, `utilities`) after ensuring no references depend on them.
 

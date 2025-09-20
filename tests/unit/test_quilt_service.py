@@ -214,11 +214,13 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart') as mock_organize,
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             mock_organize.return_value = {
                 "data": [{"Key": "file1.csv", "Size": 1000}],
-                "docs": [{"Key": "readme.txt", "Size": 500}]
+                "docs": [{"Key": "readme.txt", "Size": 500}],
             }
 
             result = service.create_package_revision(
@@ -227,7 +229,7 @@ class TestQuiltServiceCreatePackageRevision:
                 metadata={"description": "test package"},
                 registry="s3://test-bucket",
                 message="Test message",
-                auto_organize=True
+                auto_organize=True,
             )
 
             # Verify method returns Dict, never quilt3.Package objects
@@ -251,11 +253,13 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._collect_objects_flat') as mock_collect,
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             mock_collect.return_value = [
                 {"s3_uri": "s3://source/file1.csv", "logical_key": "file1.csv"},
-                {"s3_uri": "s3://source/readme.txt", "logical_key": "readme.txt"}
+                {"s3_uri": "s3://source/readme.txt", "logical_key": "readme.txt"},
             ]
 
             result = service.create_package_revision(
@@ -264,7 +268,7 @@ class TestQuiltServiceCreatePackageRevision:
                 metadata={"description": "test package"},
                 registry="s3://test-bucket",
                 message="Test message",
-                auto_organize=False
+                auto_organize=False,
             )
 
             # Verify method returns Dict, never quilt3.Package objects
@@ -284,22 +288,20 @@ class TestQuiltServiceCreatePackageRevision:
         mock_package.set_meta = Mock()
         mock_package.push = Mock(return_value="test-hash-meta")
 
-        test_metadata = {
-            "description": "Test package with metadata",
-            "version": "1.0.0",
-            "tags": ["test", "sample"]
-        }
+        test_metadata = {"description": "Test package with metadata", "version": "1.0.0", "tags": ["test", "sample"]}
 
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             result = service.create_package_revision(
                 package_name="test/package",
                 s3_uris=["s3://source/file1.csv"],
                 metadata=test_metadata,
-                auto_organize=True
+                auto_organize=True,
             )
 
             # Verify metadata was passed to package
@@ -321,13 +323,12 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             result = service.create_package_revision(
-                package_name="test/package",
-                s3_uris=["s3://source/file1.csv"],
-                metadata=None,
-                auto_organize=True
+                package_name="test/package", s3_uris=["s3://source/file1.csv"], metadata=None, auto_organize=True
             )
 
             # Verify set_meta not called with None
@@ -347,13 +348,15 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://custom-bucket") as mock_norm,
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://custom-bucket"
+            ) as mock_norm,
         ):
             result = service.create_package_revision(
                 package_name="test/package",
                 s3_uris=["s3://source/file1.csv"],
                 registry="s3://custom-bucket",
-                auto_organize=True
+                auto_organize=True,
             )
 
             # Verify registry normalization was called
@@ -374,12 +377,12 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             result = service.create_package_revision(
-                package_name="test/package",
-                s3_uris=["s3://source/file1.csv"],
-                auto_organize=True
+                package_name="test/package", s3_uris=["s3://source/file1.csv"], auto_organize=True
             )
 
             # Verify push called with default message
@@ -396,14 +399,14 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             # Should raise exception, not return quilt3.Package
             with pytest.raises(Exception, match="Push failed"):
                 service.create_package_revision(
-                    package_name="test/package",
-                    s3_uris=["s3://source/file1.csv"],
-                    auto_organize=True
+                    package_name="test/package", s3_uris=["s3://source/file1.csv"], auto_organize=True
                 )
 
     def test_create_package_revision_never_returns_quilt3_package(self):
@@ -416,12 +419,12 @@ class TestQuiltServiceCreatePackageRevision:
         with (
             patch('quilt3.Package', return_value=mock_package),
             patch('quilt_mcp.services.quilt_service.QuiltService._organize_s3_files_smart', return_value={}),
-            patch('quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"),
+            patch(
+                'quilt_mcp.services.quilt_service.QuiltService._normalize_registry', return_value="s3://test-bucket"
+            ),
         ):
             result = service.create_package_revision(
-                package_name="test/package",
-                s3_uris=["s3://source/file1.csv"],
-                auto_organize=True
+                package_name="test/package", s3_uris=["s3://source/file1.csv"], auto_organize=True
             )
 
             # Critical: verify no quilt3.Package objects are exposed
@@ -447,7 +450,7 @@ class TestQuiltServiceCreatePackageRevision:
             result = service.create_package_revision(
                 package_name="test/package",
                 s3_uris=["s3://bucket/file.txt"],
-                copy="none"  # Test the copy parameter
+                copy="none",  # Test the copy parameter
             )
 
             # Verify result structure
@@ -476,12 +479,15 @@ class TestQuiltServiceAdmin:
         mock_sso = Mock()
         mock_tabulator = Mock()
 
-        with patch.dict('sys.modules', {
-            'quilt3.admin.users': mock_users,
-            'quilt3.admin.roles': mock_roles,
-            'quilt3.admin.sso_config': mock_sso,
-            'quilt3.admin.tabulator': mock_tabulator,
-        }):
+        with patch.dict(
+            'sys.modules',
+            {
+                'quilt3.admin.users': mock_users,
+                'quilt3.admin.roles': mock_roles,
+                'quilt3.admin.sso_config': mock_sso,
+                'quilt3.admin.tabulator': mock_tabulator,
+            },
+        ):
             result = service.is_admin_available()
             assert result is True
 
@@ -591,9 +597,11 @@ class TestQuiltServiceAbstractionCompleteness:
         service = QuiltService()
 
         # Verify the old method no longer exists
-        assert not hasattr(service, 'create_package'), \
+        assert not hasattr(service, 'create_package'), (
             "create_package() method should be removed from QuiltService to complete abstraction"
+        )
 
         # Verify only the new abstracted method exists
-        assert hasattr(service, 'create_package_revision'), \
+        assert hasattr(service, 'create_package_revision'), (
             "create_package_revision() method should exist as the abstracted replacement"
+        )
