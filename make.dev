@@ -62,7 +62,7 @@ test-e2e:
 	fi
 
 test-ci:
-	@echo "Running CI tests (unit + integration, skipping e2e and slow tests)..."
+	@echo "Running CI tests (skipping slow tests)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
 	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
