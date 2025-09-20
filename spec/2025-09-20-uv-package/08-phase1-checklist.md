@@ -8,7 +8,7 @@
 - [ ] Write failing tests for `release.sh uv-package` credential validation and happy path under `DRY_RUN=1`.
 - [ ] Implement `ensure_uv_env` helper enforcing token or username/password.
 - [ ] Implement `uv-package` subcommand that builds artifacts (or logs in dry runs) and ensures `dist/` exists.
-- [ ] Add `package-uv` target in `make.deploy` delegating to the new subcommand.
+- [ ] Add `python-dist` target in `make.deploy` delegating to the new subcommand.
 - [ ] Confirm DXT targets (`make dxt`) still function (smoke test optional if time allows).
 
 ## Validation

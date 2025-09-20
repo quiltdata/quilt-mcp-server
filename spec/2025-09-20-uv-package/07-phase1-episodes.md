@@ -8,7 +8,7 @@
 3. **Add UV Packaging Command**
    - Implement `uv-package` subcommand in `bin/release.sh` honoring `DRY_RUN` and creating artifacts directory.
 4. **Expose Make Target**
-   - Add `package-uv` target to `make.deploy` delegating to `release.sh uv-package`.
+   - Add `python-dist` target to `make.deploy` delegating to `release.sh uv-package`.
 5. **Polish & Docs**
    - Update CLAUDE notes if new insights arise; ensure tests and lint pass.
 

@@ -23,7 +23,7 @@
    - Log which credential path is being used for transparency.
 
 3. **Make Integration**
-   - Add target `package-uv` (naming consistent with spec) to `make.deploy` that runs `./bin/release.sh uv-package`.
+   - Add target `python-dist` to `make.deploy` that runs `./bin/release.sh uv-package`.
    - Target should reuse `.env` sourcing from top-level Makefile.
 
 4. **Testing Strategy**

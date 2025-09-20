@@ -56,7 +56,7 @@ def test_make_package_uv_delegates_to_release(tmp_path):
     env["DRY_RUN"] = "1"
     env["DIST_DIR"] = str(tmp_path / "dist")
 
-    make_args = ["make", f"DIST_DIR={env['DIST_DIR']}", "package-uv"]
+    make_args = ["make", f"DIST_DIR={env['DIST_DIR']}", "python-dist"]
 
     proc = subprocess.run(
         make_args,
