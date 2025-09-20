@@ -1,0 +1,19 @@
+<!-- markdownlint-disable MD013 -->
+# Phase 1 Checklist - Inventory & Safety Net
+
+ - [x] Inventory single-file directories in `src/quilt_mcp` and document decisions
+- [x] Confirm existing tests cover critical import paths
+- [x] Add new behavior-driven tests for tool discovery/imports (failing first)
+- [ ] Update checklist with catalog of external references (configs/docs)
+- [x] Run `make test-unit` to validate safety net additions
+
+## Inventory Notes
+
+- Collapsible candidates: `services/` (single functional module), `aws/` (two concrete modules plus `__init__`), `telemetry/` (multi-module but may expose single entry point), `validators/` (three validator modules sharing purpose).
+- Empty legacy packages: `config/`, `operations/`, `operations/quilt3/`, and `utilities/` (plus `utilities/aws/`) contain no tracked `.py` files; safe removal requires confirming no external imports rely on them.
+- Rich subpackages to keep structured: `search/` hierarchy, `visualization/` (analyzers/generators/layouts/utils), and `optimization/` already house multiple cohesive modules.
+
+## Test Notes
+
+- Confirmed existing unit/integration tests exercise imports for service-layer functionality.
+- Added failing test (`TestQuiltServiceAuthentication.test_services_package_exports_core_classes`) to require `quilt_mcp.services` to expose service classes directly.

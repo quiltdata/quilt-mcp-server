@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional
 import logging
 from datetime import datetime, timezone
 
-from ..aws.permission_discovery import AWSPermissionDiscovery, PermissionLevel
+from ..services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
 from ..utils import format_error_response
 
 logger = logging.getLogger(__name__)

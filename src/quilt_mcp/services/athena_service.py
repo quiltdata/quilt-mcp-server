@@ -18,7 +18,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..utils import format_error_response, suppress_stdout
-from ..services.quilt_service import QuiltService
+from .quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 

@@ -57,7 +57,7 @@ def test_athena_service_creation():
     print("=" * 60)
 
     try:
-        from quilt_mcp.aws.athena_service import AthenaQueryService
+        from quilt_mcp.services.athena_service import AthenaQueryService
 
         print("✅ AthenaQueryService imported successfully")
 

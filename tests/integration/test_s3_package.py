@@ -688,7 +688,7 @@ class TestCreateEnhancedPackageMigration:
 
         assert call_args[1]["package_name"] == "test/package"
         assert call_args[1]["registry"] == "s3://test-registry"
-        assert call_args[1]["auto_organize"] == True  # s3_package.py should use True
+        assert call_args[1]["auto_organize"]  # s3_package.py should use True
         assert call_args[1]["metadata"] == enhanced_metadata
 
         # Verify expected S3 URIs were passed

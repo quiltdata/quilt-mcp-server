@@ -380,12 +380,13 @@ class TestUnifiedPackageMigration:
             }
 
             # Mock bucket access validation and recommendations
-            with patch("quilt_mcp.tools.s3_package._validate_bucket_access") as mock_validate, \
-                 patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover, \
-                 patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations, \
-                 patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check, \
-                 patch("quilt_mcp.tools.s3_package.get_s3_client") as mock_s3_client:
-
+            with (
+                patch("quilt_mcp.tools.s3_package._validate_bucket_access") as mock_validate,
+                patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
+                patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations,
+                patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check,
+                patch("quilt_mcp.tools.s3_package.get_s3_client") as mock_s3_client,
+            ):
                 mock_validate.return_value = None
                 mock_discover.return_value = [{"Key": "file.csv", "Size": 100}]
                 mock_recommendations.return_value = {
@@ -414,5 +415,5 @@ class TestUnifiedPackageMigration:
                 call_args = mock_quilt_service.create_package_revision.call_args
 
                 assert call_args[1]["package_name"] == "test/package"
-                assert call_args[1]["auto_organize"] == True  # unified_package uses s3_package which should use True
+                assert call_args[1]["auto_organize"]  # unified_package uses s3_package which should use True
                 assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]

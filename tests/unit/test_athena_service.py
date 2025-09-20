@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from quilt_mcp.aws.athena_service import AthenaQueryService
+from quilt_mcp.services.athena_service import AthenaQueryService
 from quilt_mcp.services.quilt_service import QuiltService
 
 
@@ -37,7 +37,7 @@ class TestAthenaQueryServiceDependencyInjection:
         service = AthenaQueryService(use_quilt_auth=True, quilt_service=mock_quilt_service)
 
         with patch.object(service, '_discover_workgroup', return_value='test-workgroup'):
-            with patch('quilt_mcp.aws.athena_service.create_engine') as mock_create_engine:
+            with patch('quilt_mcp.services.athena_service.create_engine') as mock_create_engine:
                 mock_engine = Mock()
                 mock_create_engine.return_value = mock_engine
 
@@ -71,7 +71,7 @@ class TestAthenaQueryServiceDependencyInjection:
             mock_create_session.return_value = mock_botocore_session
 
             with patch.object(service, '_discover_workgroup', return_value='test-workgroup'):
-                with patch('quilt_mcp.aws.athena_service.create_engine') as mock_create_engine:
+                with patch('quilt_mcp.services.athena_service.create_engine') as mock_create_engine:
                     mock_engine = Mock()
                     mock_create_engine.return_value = mock_engine
 
