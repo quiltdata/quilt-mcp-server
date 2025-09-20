@@ -119,7 +119,6 @@ tag_dev() {
 
     if [ "$DRY_RUN" != "1" ]; then
         check_clean_repo
-        push_pending_commits
     fi
     
     echo "🔍 Reading base version from pyproject.toml..."
@@ -154,6 +153,7 @@ tag_dev() {
     git tag -a "v$DEV_VERSION" -m "Development build v$DEV_VERSION"
     git push origin "v$DEV_VERSION"
     echo "✅ Development tag v$DEV_VERSION created and pushed"
+    echo "! Will only take effect if part of a pull request !"
     echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
     echo "📦 Release will be available at: https://github.com/$REPO_URL/releases/tag/v$DEV_VERSION"
 }
