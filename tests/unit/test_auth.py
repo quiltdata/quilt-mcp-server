@@ -91,9 +91,7 @@ class TestGetCatalogHostFromConfig:
         with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {
-                "navigator_url": "https://nightly.quilttest.com"
-            }
+            mock_service.get_config.return_value = {"navigator_url": "https://nightly.quilttest.com"}
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
@@ -126,9 +124,7 @@ class TestGetCatalogHostFromConfig:
         with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {
-                "navigator_url": ""
-            }
+            mock_service.get_config.return_value = {"navigator_url": ""}
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
@@ -291,7 +287,7 @@ class TestCatalogInfo:
             "is_authenticated": True,
             "navigator_url": "https://demo.quiltdata.com",
             "registry_url": "s3://registry-bucket",
-            "logged_in_url": "https://demo.quiltdata.com"
+            "logged_in_url": "https://demo.quiltdata.com",
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -312,7 +308,7 @@ class TestCatalogInfo:
             "is_authenticated": False,
             "navigator_url": "https://demo.quiltdata.com",
             "registry_url": None,
-            "logged_in_url": None
+            "logged_in_url": None,
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -333,7 +329,7 @@ class TestCatalogInfo:
             "is_authenticated": True,
             "navigator_url": None,
             "registry_url": "s3://registry-bucket",
-            "logged_in_url": None
+            "logged_in_url": None,
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -365,7 +361,7 @@ class TestCatalogName:
             "logged_in_url": None,
             "navigator_url": None,
             "registry_url": "s3://registry-bucket",
-            "is_authenticated": False
+            "is_authenticated": False,
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):

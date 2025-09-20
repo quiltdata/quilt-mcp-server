@@ -96,7 +96,7 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
 def _get_stack_buckets_via_permissions() -> Set[str]:
     """Get stack buckets using AWS permission discovery."""
     try:
-        from ..aws.permission_discovery import AWSPermissionDiscovery
+        from ..services.permission_discovery import AWSPermissionDiscovery
 
         discovery = AWSPermissionDiscovery()
         accessible_buckets = discovery.discover_accessible_buckets()

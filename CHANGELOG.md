@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Testing**: Updated make coverage target to run comprehensive multi-suite analysis with threshold validation
 - **CI Performance**: PR feedback time reduced to <5 minutes with single Python version testing
 - **Release Safety**: Production releases now require successful main branch validation via workflow dependencies
+- **Source Layout**: Collapsed legacy `quilt_mcp.aws` namespace into `quilt_mcp.services`, updated tests/docs, and added full spec package describing the src cleanup (Issue #164)
 
 ## [0.6.6] - 2025-09-18
 

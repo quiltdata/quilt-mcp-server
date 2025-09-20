@@ -214,7 +214,7 @@ class QuiltService:
         registry: Optional[str] = None,
         message: str = "Package created via QuiltService",
         auto_organize: bool = True,
-        copy: str = "all"
+        copy: str = "all",
     ) -> Dict[str, Any]:
         """Create and push package in single operation.
 
@@ -335,6 +335,7 @@ class QuiltService:
             import quilt3.admin.roles
             import quilt3.admin.sso_config
             import quilt3.admin.tabulator
+
             return True
         except ImportError:
             return False
@@ -349,6 +350,7 @@ class QuiltService:
             ImportError: If admin modules not available
         """
         import quilt3.admin.tabulator
+
         return quilt3.admin.tabulator
 
     def get_users_admin(self) -> Any:
@@ -361,6 +363,7 @@ class QuiltService:
             ImportError: If admin modules not available
         """
         import quilt3.admin.users
+
         return quilt3.admin.users
 
     def get_roles_admin(self) -> Any:
@@ -373,6 +376,7 @@ class QuiltService:
             ImportError: If admin modules not available
         """
         import quilt3.admin.roles
+
         return quilt3.admin.roles
 
     def get_sso_config_admin(self) -> Any:
@@ -385,6 +389,7 @@ class QuiltService:
             ImportError: If admin modules not available
         """
         import quilt3.admin.sso_config
+
         return quilt3.admin.sso_config
 
     def get_admin_exceptions(self) -> dict[str, type]:
@@ -397,6 +402,7 @@ class QuiltService:
             ImportError: If admin modules not available
         """
         import quilt3.admin.exceptions
+
         return {
             'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
             'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
@@ -491,7 +497,14 @@ class QuiltService:
         for obj in collected_objects:
             pkg.set(obj["logical_key"], obj["s3_uri"])
 
-    def _push_package(self, pkg: Any, package_name: str, registry: Optional[str], message: str, selector_fn: Optional[callable] = None) -> str:
+    def _push_package(
+        self,
+        pkg: Any,
+        package_name: str,
+        registry: Optional[str],
+        message: str,
+        selector_fn: Optional[callable] = None,
+    ) -> str:
         """Push package to registry and return top hash.
 
         Args:
@@ -507,10 +520,7 @@ class QuiltService:
         Raises:
             Exception: If push fails
         """
-        push_args = {
-            "message": message,
-            "force": True
-        }
+        push_args = {"message": message, "force": True}
         if registry:
             push_args["registry"] = registry
         if selector_fn:
@@ -519,11 +529,7 @@ class QuiltService:
         return pkg.push(package_name, **push_args)
 
     def _build_creation_result(
-        self,
-        package_name: str,
-        top_hash: str,
-        registry: Optional[str],
-        message: str
+        self, package_name: str, top_hash: str, registry: Optional[str], message: str
     ) -> Dict[str, Any]:
         """Build the package creation result dictionary.
 
@@ -542,7 +548,7 @@ class QuiltService:
             "package_name": package_name,
             "top_hash": top_hash,
             "registry": registry or "default",
-            "message": message
+            "message": message,
         }
 
     def _normalize_registry(self, registry: Optional[str]) -> Optional[str]:
@@ -606,11 +612,13 @@ class QuiltService:
             if folder not in organized:
                 organized[folder] = []
 
-            organized[folder].append({
-                "Key": key,
-                "Size": 1000,  # Mock size for testing
-                "LastModified": "2023-01-01T00:00:00Z"
-            })
+            organized[folder].append(
+                {
+                    "Key": key,
+                    "Size": 1000,  # Mock size for testing
+                    "LastModified": "2023-01-01T00:00:00Z",
+                }
+            )
 
         return organized
 
@@ -632,10 +640,7 @@ class QuiltService:
             parts = s3_uri.replace("s3://", "").split("/")
             if len(parts) >= 2:
                 filename = parts[-1]  # Just the filename
-                collected.append({
-                    "s3_uri": s3_uri,
-                    "logical_key": filename
-                })
+                collected.append({"s3_uri": s3_uri, "logical_key": filename})
 
         return collected
 

@@ -102,3 +102,7 @@
 - High-quality deliverables with predictable outcomes
 - Enhanced trust between human and AI collaborators
 - Scalable development process maintaining quality standards
+
+## Repo Learnings
+
+- Service modules that used to live under `quilt_mcp.aws` now live in `quilt_mcp.services.*`. Remove legacy references before touching the service layer so tests stay aligned with the current layout.
