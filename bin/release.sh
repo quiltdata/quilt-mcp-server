@@ -107,9 +107,38 @@ python_publish() {
         return 0
     fi
 
-    echo "📦 Publishing artifacts from $dist_dir to $publish_url"
+    echo "📦 Publishing artifacts from $dist_dir to ${publish_url:-https://test.pypi.org/legacy/}"
     "${publish_cmd[@]}"
     echo "✅ python-publish completed"
+
+    local package_name
+    package_name=$(python3 - <<'PY'
+import tomllib
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+print(data["project"]["name"])
+PY
+)
+
+    local package_version
+    package_version=$(python3 - <<'PY'
+import tomllib
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+print(data["project"]["version"])
+PY
+)
+
+    local project_url=""
+    if [[ "${publish_url:-https://test.pypi.org/legacy/}" == *"test.pypi.org"* ]]; then
+        project_url="https://test.pypi.org/project/${package_name}/${package_version}/"
+    elif [[ "${publish_url}" == *"pypi.org"* ]]; then
+        project_url="https://pypi.org/project/${package_name}/${package_version}/"
+    fi
+
+    if [ -n "$project_url" ]; then
+        echo "🔗 View package at $project_url"
+    fi
 }
 
 check_clean_repo() {
