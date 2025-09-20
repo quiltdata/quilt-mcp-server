@@ -333,6 +333,8 @@ class TelemetryCollector:
 
         for session_id in old_sessions:
             del self.sessions[session_id]
+            if session_id == self.current_session_id:
+                self.current_session_id = None
 
         logger.debug(f"Cleaned up {len(old_sessions)} old telemetry sessions")
         return len(old_sessions)
