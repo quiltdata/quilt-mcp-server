@@ -4,8 +4,9 @@ name: Pull Request Validation
 on:
   pull_request:
     branches: ['**']
-  workflow_dispatch:
-
+  push:
+    tags:
+      - 'v*-dev-*'  # This was missing and needs to be added
 jobs:
   test:
     runs-on: ubuntu-latest

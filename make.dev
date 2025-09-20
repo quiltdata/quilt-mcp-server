@@ -19,12 +19,7 @@ test-all:
 	@echo "Running all tests..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-all.xml --cov-report=term-missing; \
-	else \
-		echo "No tests found, running import test..."; \
-		export PYTHONPATH="src" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
-	fi
+	export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-all.xml --cov-report=term-missing; \
 	@echo "Running DXT package validation..."
 	@$(MAKE) -f make.deploy dxt-validate
 
