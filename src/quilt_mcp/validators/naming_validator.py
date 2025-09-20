@@ -1,6 +1,7 @@
 """Package naming validation and suggestion utilities."""
 
 import re
+from datetime import datetime, timezone
 from typing import List, Tuple, Optional, Dict, Any
 
 
@@ -284,9 +285,7 @@ def _clean_name_component(component: str) -> str:
 
 def _generate_timestamp_suffix() -> str:
     """Generate a timestamp suffix for generic names."""
-    from datetime import datetime
-
-    return datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+    return datetime.now(timezone.utc).strftime("%Y%m%d")
 
 
 def validate_and_suggest_name(
