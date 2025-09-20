@@ -19,7 +19,7 @@ from quilt_mcp.tools.athena_glue import (
     athena_query_execute,
     athena_workgroups_list,
 )
-from quilt_mcp.aws.athena_service import AthenaQueryService
+from quilt_mcp.services.athena_service import AthenaQueryService
 
 
 @pytest.mark.aws
@@ -318,9 +318,9 @@ class TestAthenaPerformance:
             if not result["success"]:
                 assert "error" in result
 
-    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.aws.athena_service.create_engine")
-    @patch("quilt_mcp.aws.athena_service.boto3")
+    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.services.athena_service.create_engine")
+    @patch("quilt_mcp.services.athena_service.boto3")
     def test_large_result_set_handling(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test handling of large result sets."""
         import pandas as pd
@@ -374,8 +374,8 @@ class TestAthenaErrorHandling:
             error_msg = result["error"].lower()
             assert any(keyword in error_msg for keyword in ["access", "denied", "not found", "error", "invalid"])
 
-    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.aws.athena_service.create_engine")
+    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.services.athena_service.create_engine")
     def test_sqlalchemy_connection_error(self, mock_create_engine, mock_read_sql, athena_service):
         """Test handling of SQLAlchemy connection errors."""
         from sqlalchemy.exc import SQLAlchemyError
@@ -426,7 +426,7 @@ class TestAthenaErrorHandling:
         result = athena_query_execute("SELECT 1", output_format="invalid")
         assert result["success"] is False
 
-    @patch("quilt_mcp.aws.athena_service.boto3")
+    @patch("quilt_mcp.services.athena_service.boto3")
     def test_table_not_found_error(self, mock_boto3):
         """Test handling when table is not found."""
         from botocore.exceptions import ClientError

@@ -14,7 +14,7 @@ from quilt_mcp.tools.permissions import (
     _generate_bucket_recommendations,
     _generate_smart_recommendations,
 )
-from quilt_mcp.aws.permission_discovery import (
+from quilt_mcp.services.permission_discovery import (
     AWSPermissionDiscovery,
     PermissionLevel,
     BucketInfo,
@@ -235,8 +235,8 @@ class TestBucketRecommendations:
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
-    @patch("quilt_mcp.aws.permission_discovery.quilt3")
-    @patch("quilt_mcp.aws.permission_discovery.boto3.client")
+    @patch("quilt_mcp.services.permission_discovery.quilt3")
+    @patch("quilt_mcp.services.permission_discovery.boto3.client")
     def test_uses_quilt3_session_when_logged_in(self, mock_boto_client, mock_quilt3):
         """When quilt3 is logged in, discovery should use quilt3.get_boto3_session()."""
         # If default boto3.client is called, fail the test

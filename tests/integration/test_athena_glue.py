@@ -18,7 +18,7 @@ from quilt_mcp.tools.athena_glue import (
     athena_workgroups_list,
     athena_query_validate,
 )
-from quilt_mcp.aws.athena_service import AthenaQueryService
+from quilt_mcp.services.athena_service import AthenaQueryService
 
 
 @pytest.mark.aws
@@ -995,16 +995,16 @@ class TestAthenaQueryService:
             assert "error" in result
             assert isinstance(result["error"], str)
 
-    @patch("quilt_mcp.aws.athena_service.create_engine")
-    @patch("quilt_mcp.aws.athena_service.boto3")
+    @patch("quilt_mcp.services.athena_service.create_engine")
+    @patch("quilt_mcp.services.athena_service.boto3")
     def test_service_initialization_mocked(self, mock_boto3, mock_create_engine, athena_service):
         """Test service initialization with mocks (unit test)."""
         assert athena_service.use_quilt_auth is False
         assert athena_service.query_cache.maxsize == 100
 
-    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.aws.athena_service.create_engine")
-    @patch("quilt_mcp.aws.athena_service.boto3")
+    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.services.athena_service.create_engine")
+    @patch("quilt_mcp.services.athena_service.boto3")
     def test_discover_databases_mocked(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test database discovery with mocks (unit test)."""
         # Mock pandas DataFrame result from SQL query
@@ -1038,9 +1038,9 @@ class TestAthenaQueryService:
         except Exception as e:
             pytest.skip(f"Athena service not available: {e}")
 
-    @patch("quilt_mcp.aws.athena_service.pd.read_sql_query")
-    @patch("quilt_mcp.aws.athena_service.create_engine")
-    @patch("quilt_mcp.aws.athena_service.boto3")
+    @patch("quilt_mcp.services.athena_service.pd.read_sql_query")
+    @patch("quilt_mcp.services.athena_service.create_engine")
+    @patch("quilt_mcp.services.athena_service.boto3")
     def test_execute_query_mocked(self, mock_boto3, mock_create_engine, mock_read_sql, athena_service):
         """Test query execution with mocks (unit test)."""
 

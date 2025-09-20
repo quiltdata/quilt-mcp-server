@@ -5,11 +5,21 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
+import importlib
+
 from quilt_mcp.services.quilt_service import QuiltService
 
 
 class TestQuiltServiceAuthentication:
     """Test authentication and configuration methods."""
+
+    def test_services_package_exports_core_classes(self):
+        """Services package should expose key service classes for direct import."""
+        services_pkg = importlib.import_module("quilt_mcp.services")
+
+        assert hasattr(services_pkg, "QuiltService")
+        assert hasattr(services_pkg, "AthenaQueryService")
+        assert hasattr(services_pkg, "AWSPermissionDiscovery")
 
     def test_get_logged_in_url_when_not_authenticated(self):
         """Test get_logged_in_url returns None when not authenticated."""

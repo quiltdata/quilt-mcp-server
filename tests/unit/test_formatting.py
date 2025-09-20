@@ -315,7 +315,7 @@ class TestIntegrationWithAthenaService:
     @patch("quilt_mcp.formatting.logger")
     def test_athena_service_table_format_integration(self, mock_logger):
         """Test integration with AthenaQueryService format_results method."""
-        from quilt_mcp.aws.athena_service import AthenaQueryService
+        from quilt_mcp.services.athena_service import AthenaQueryService
 
         service = AthenaQueryService()
 
@@ -340,7 +340,7 @@ class TestIntegrationWithAthenaService:
 
     def test_athena_service_auto_table_detection(self):
         """Test auto table detection in AthenaQueryService."""
-        from quilt_mcp.aws.athena_service import AthenaQueryService
+        from quilt_mcp.services.athena_service import AthenaQueryService
 
         service = AthenaQueryService()
 
