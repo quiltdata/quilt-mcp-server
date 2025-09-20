@@ -19,8 +19,7 @@
    - `make.dev` orchestrates coverage via `make coverage`, running unit/integration/e2e suites sequentially and generating XML reports under `build/test-results/`.
    - HTML coverage reports generated with `make coverage-html` (output in `htmlcov/`).
    - `scripts/coverage_analysis.py` parses coverage artifacts for additional reporting.
-4. **CI Integration**: `make.dev test-ci` enforces coverage through `--cov=quilt_mcp --cov-report=xml`. `coverage` target includes `--cov-fail-under=85`, establishing the current global threshold.
-5. **Project Layout**:
+4. **Project Layout**:
    - Source code centered in `src/quilt_mcp/` with modular domains (auth, visualization, governance, etc.).
    - Deployment utilities live in `src/deploy/` and `scripts/`.
    - Extensive fixtures under `tests/fixtures/` supporting deterministic inputs for integration/E2E tests.
@@ -35,12 +34,9 @@
 
 ## Current Constraints & Limitations
 
-1. **Baseline Coverage Unknown**: No persisted snapshot of current unit/integration/E2E coverage percentages; `htmlcov/` may be stale/out of sync.
+1. **Baseline Coverage Unknown**: No persisted snapshot of current unit/integration/E2E coverage percentages; `htmlcov/` may be stale/out of sync. 
 2. **Integration/E2E Stability**: Some tests require AWS credentials or large fixtures; execution cost/time may hinder frequent runs locally.
-3. **Coverage Aggregation**: While XML reports are generated per suite, there is no aggregated dashboard combining them (only script-based console output).
-4. **CI Gate**: Single global `--cov-fail-under=85` does not distinguish between unit, integration, and E2E targets, limiting fine-grained enforcement.
-5. **E2E Coverage Definition**: Current implementation of `tests/e2e/test_coverage.py` appears minimal, suggesting lack of clarity on measuring "coverage" for workflow tests beyond line coverage.
-6. **Tooling Dependencies**: `uv sync --group test` required before running tests; missing dependencies or environment drift can slow iteration.
+3. **Coverage Aggregation**: build/test_results/coverage_analysis.csv
 
 ## Technical Debt & Opportunities
 
