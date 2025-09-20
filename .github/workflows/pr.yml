@@ -8,6 +8,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.11"]
 
     steps:
     - name: Checkout code
@@ -16,7 +19,7 @@ jobs:
     - name: Setup build environment
       uses: ./.github/actions/setup-build-env
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
 
     - name: Run PR tests
       uses: ./.github/actions/run-tests
@@ -49,7 +52,7 @@ jobs:
     - name: Setup build environment
       uses: ./.github/actions/setup-build-env
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
         include-nodejs: 'true'
     - name: Extract version from tag
       id: version
