@@ -354,6 +354,7 @@ The following permissions are granted for this repository:
 
 - Always use `uv sync --group test` to install test dependencies before running tests
 - Use `make coverage` for full test runs, but beware matplotlib import conflicts can occur in mixed environments
+- `make coverage` consumes the suite-specific XML outputs in `build/test-results`; run `make test-unit`, `make test-integration`, and `make test-e2e` (or generate the XML another way) before invoking it if the files are missing
 - Use `make test-unit` for fast unit tests only (excludes AWS/integration tests)
 - For isolated module testing, use `PYTHONPATH=src uv run pytest tests/test_<module>.py -v`
 
