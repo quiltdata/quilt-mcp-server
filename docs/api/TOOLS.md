@@ -1,26 +1,29 @@
+<!-- markdownlint-disable MD013 -->
 # MCP Tools Reference
 
-This document provides comprehensive documentation for all 84+ MCP tools available in the Quilt MCP Server, organized by functionality and use case.
+This document provides comprehensive documentation for all 84+ MCP tools available in the Quilt MCP Server,
+organized by functionality and use case.
 
 ## 🚀 Quick Reference
 
 | Category | Tools | Purpose |
 |----------|-------|---------|
-| **[Authentication](#-authentication--authorization)** | 6 tools | Auth status, catalog configuration, filesystem checks |
+| **[Authentication](#-authentication--authorization)** | 8 tools | Auth status, catalog configuration, filesystem checks |
 | **[Package Management](#-package-management)** | 15 tools | Create, browse, search, and manage Quilt packages |
-| **[S3 Operations](#-s3-operations)** | 12 tools | Direct S3 bucket and object operations |
+| **[S3 Operations](#️-s3-operations)** | 12 tools | Direct S3 bucket and object operations |
 | **[Search & Discovery](#-search--discovery)** | 8 tools | Multi-backend search across systems |
 | **[Analytics & SQL](#-analytics--sql)** | 12 tools | Athena queries, Tabulator tables, data analysis |
 | **[Workflow Management](#-workflow-management)** | 8 tools | Multi-step workflows and orchestration |
-| **[Metadata & Templates](#-metadata--templates)** | 10 tools | Metadata templates and validation |
+| **[Metadata & Templates](#️-metadata--templates)** | 13 tools | Metadata templates, validation, and utilities |
 | **[Permissions & Security](#-permissions--security)** | 6 tools | AWS permissions, bucket access validation |
-| **[Administration](#-administration)** | 7 tools | User management, SSO configuration |
+| **[Administration](#-administration)** | 17 tools | User management, role management, SSO configuration |
 
 ## 🔐 Authentication & Authorization
 
 ### Core Authentication Tools
 
 #### `auth_status`
+
 Check current Quilt authentication status with comprehensive information.
 
 ```python
@@ -42,11 +45,13 @@ result = await mcp_client.call_tool(\"auth_status\", {})
 ```
 
 **Use Cases:**
+
 - Verify authentication before operations
 - Debug authentication issues
 - Check user permissions and roles
 
 #### `catalog_info`
+
 Get detailed information about the current Quilt catalog configuration.
 
 ```python
@@ -63,6 +68,7 @@ result = await mcp_client.call_tool(\"catalog_info\", {})
 ```
 
 #### `filesystem_status`
+
 Check filesystem permissions and environment capabilities.
 
 ```python
@@ -81,6 +87,7 @@ result = await mcp_client.call_tool(\"filesystem_status\", {})
 ### Configuration Tools
 
 #### `configure_catalog`
+
 Configure Quilt catalog URL for the session.
 
 ```python
@@ -90,6 +97,7 @@ result = await mcp_client.call_tool(\"configure_catalog\", {
 ```
 
 #### `catalog_name`
+
 Get the name of the current Quilt catalog.
 
 ```python
@@ -98,6 +106,7 @@ result = await mcp_client.call_tool(\"catalog_name\", {})
 ```
 
 #### `switch_catalog`
+
 Switch to a different Quilt catalog by name.
 
 ```python
@@ -106,11 +115,30 @@ result = await mcp_client.call_tool(\"switch_catalog\", {
 })
 ```
 
+#### `catalog_url`
+
+Get the URL for the current Quilt catalog.
+
+```python
+result = await mcp_client.call_tool("catalog_url", {})
+# Returns: {"catalog_url": "https://demo.quiltdata.com"}
+```
+
+#### `catalog_uri`
+
+Get the URI for the current Quilt catalog (includes registry).
+
+```python
+result = await mcp_client.call_tool("catalog_uri", {})
+# Returns: {"catalog_uri": "quilt+s3://quilt-example"}
+```
+
 ## 📦 Package Management
 
 ### Core Package Operations
 
 #### `package_browse`
+
 Browse package contents with enhanced file information and tree structure.
 
 ```python
@@ -154,11 +182,13 @@ result = await mcp_client.call_tool(\"package_browse\", {
 ```
 
 **Use Cases:**
+
 - Explore package structure before downloading
 - Validate package contents after creation
 - Generate file listings for documentation
 
 #### `packages_list`
+
 List packages in a registry with filtering and search capabilities.
 
 ```python
@@ -193,6 +223,7 @@ result = await mcp_client.call_tool(\"packages_list\", {
 ```
 
 #### `packages_search`
+
 Search packages by content and metadata using Elasticsearch.
 
 ```python
@@ -214,6 +245,7 @@ result = await mcp_client.call_tool(\"packages_search\", {
 ### Package Creation Tools
 
 #### `create_package_enhanced` (Recommended)
+
 Advanced package creation with metadata templates and intelligent validation.
 
 ```python
@@ -263,6 +295,7 @@ result = await mcp_client.call_tool(\"create_package_enhanced\", {
 ```
 
 **Metadata Templates Available:**
+
 - `standard`: General-purpose metadata
 - `genomics`: Genomic data with organism, genome build, etc.
 - `ml`: Machine learning models and datasets
@@ -270,6 +303,7 @@ result = await mcp_client.call_tool(\"create_package_enhanced\", {
 - `analytics`: Business analytics and reporting data
 
 #### `package_create_from_s3`
+
 Create packages from entire S3 buckets or prefixes with intelligent organization.
 
 ```python
@@ -296,6 +330,7 @@ result = await mcp_client.call_tool(\"package_create_from_s3\", {
 ```
 
 #### `create_package` (Unified Interface)
+
 Simplified package creation interface that handles everything automatically.
 
 ```python
@@ -318,6 +353,7 @@ result = await mcp_client.call_tool(\"create_package\", {
 ### Package Validation and Management
 
 #### `package_validate`
+
 Validate package integrity and accessibility with comprehensive checks.
 
 ```python
@@ -352,6 +388,7 @@ result = await mcp_client.call_tool(\"package_validate\", {
 ```
 
 #### `package_contents_search`
+
 Search within a specific package's contents by filename or path.
 
 ```python
@@ -377,6 +414,7 @@ result = await mcp_client.call_tool(\"package_contents_search\", {
 ```
 
 #### `package_update_metadata`
+
 Update package metadata without recreating the entire package.
 
 ```python
@@ -396,6 +434,7 @@ result = await mcp_client.call_tool(\"package_update_metadata\", {
 ### Bucket Operations
 
 #### `bucket_objects_list`
+
 List objects in S3 buckets with filtering and pagination.
 
 ```python
@@ -434,6 +473,7 @@ result = await mcp_client.call_tool(\"bucket_objects_list\", {
 ```
 
 #### `bucket_objects_search`
+
 Search objects using Elasticsearch with advanced query capabilities.
 
 ```python
@@ -460,6 +500,7 @@ result = await mcp_client.call_tool(\"bucket_objects_search\", {
 ```
 
 #### `bucket_objects_search_graphql`
+
 Search bucket objects using GraphQL with rich filtering capabilities.
 
 ```python
@@ -477,6 +518,7 @@ result = await mcp_client.call_tool(\"bucket_objects_search_graphql\", {
 ### Object Operations
 
 #### `bucket_object_info`
+
 Get detailed metadata for a specific S3 object.
 
 ```python
@@ -501,6 +543,7 @@ result = await mcp_client.call_tool(\"bucket_object_info\", {
 ```
 
 #### `bucket_object_text`
+
 Read text content from S3 objects with encoding support.
 
 ```python
@@ -522,6 +565,7 @@ result = await mcp_client.call_tool(\"bucket_object_text\", {
 ```
 
 #### `bucket_object_fetch`
+
 Fetch binary or text data from S3 objects.
 
 ```python
@@ -543,6 +587,7 @@ result = await mcp_client.call_tool(\"bucket_object_fetch\", {
 ```
 
 #### `bucket_object_link`
+
 Generate presigned URLs for downloading S3 objects.
 
 ```python
@@ -561,6 +606,7 @@ result = await mcp_client.call_tool(\"bucket_object_link\", {
 ```
 
 #### `bucket_objects_put`
+
 Upload multiple objects to S3 buckets.
 
 ```python
@@ -603,6 +649,7 @@ result = await mcp_client.call_tool(\"bucket_objects_put\", {
 ### Unified Search System
 
 #### `unified_search` (Primary Search Tool)
+
 Intelligent multi-backend search across Quilt catalogs, packages, and S3 buckets.
 
 ```python
@@ -664,18 +711,21 @@ result = await mcp_client.call_tool(\"unified_search\", {
 ```
 
 **Search Scopes:**
+
 - `global`: Search across all systems
 - `catalog`: Current catalog only
 - `package`: Specific package (requires target)
 - `bucket`: Specific S3 bucket (requires target)
 
 **Backend Options:**
+
 - `auto`: Intelligent backend selection (default)
 - `graphql`: GraphQL API for structured queries
 - `elasticsearch`: Full-text search
 - `s3`: Direct S3 object search
 
 #### `search_suggest`
+
 Get intelligent search suggestions based on partial queries.
 
 ```python
@@ -706,6 +756,7 @@ result = await mcp_client.call_tool(\"search_suggest\", {
 ```
 
 #### `search_explain`
+
 Explain how a search query would be processed and executed.
 
 ```python
@@ -740,6 +791,7 @@ result = await mcp_client.call_tool(\"search_explain\", {
 ### AWS Athena Integration
 
 #### `athena_query_execute`
+
 Execute SQL queries against data using AWS Athena.
 
 ```python
@@ -773,11 +825,13 @@ result = await mcp_client.call_tool(\"athena_query_execute\", {
 ```
 
 **Important SQL Syntax Notes:**
+
 - Use **double quotes** for table/column names: `\"table-with-hyphens\"`
 - **No backticks** - Athena uses Presto/Trino SQL syntax
 - Example: `SELECT * FROM \"genomics-db\".\"rna-seq\" WHERE \"sample-id\" = 'value'`
 
 #### `athena_databases_list`
+
 List available databases in AWS Glue Data Catalog.
 
 ```python
@@ -801,6 +855,7 @@ result = await mcp_client.call_tool(\"athena_databases_list\", {
 ```
 
 #### `athena_tables_list`
+
 List tables in a specific database with schema information.
 
 ```python
@@ -828,6 +883,7 @@ result = await mcp_client.call_tool(\"athena_tables_list\", {
 ```
 
 #### `athena_table_schema`
+
 Get detailed schema information for a specific table.
 
 ```python
@@ -859,6 +915,7 @@ result = await mcp_client.call_tool(\"athena_table_schema\", {
 ```
 
 #### `athena_query_validate`
+
 Validate SQL query syntax without executing it.
 
 ```python
@@ -880,6 +937,7 @@ result = await mcp_client.call_tool(\"athena_query_validate\", {
 ```
 
 #### `athena_query_history`
+
 Retrieve query execution history from Athena.
 
 ```python
@@ -906,6 +964,7 @@ result = await mcp_client.call_tool(\"athena_query_history\", {
 ```
 
 #### `athena_workgroups_list`
+
 List available Athena workgroups.
 
 ```python
@@ -933,6 +992,7 @@ result = await mcp_client.call_tool(\"athena_workgroups_list\", {
 ### Quilt Tabulator Integration
 
 #### `tabulator_tables_list`
+
 List Quilt Tabulator tables for SQL querying across packages.
 
 ```python
@@ -961,6 +1021,7 @@ result = await mcp_client.call_tool(\"tabulator_tables_list\", {
 ```
 
 #### `tabulator_table_create`
+
 Create new Tabulator tables for aggregating package data.
 
 ```python
@@ -982,6 +1043,7 @@ result = await mcp_client.call_tool(\"tabulator_table_create\", {
 ```
 
 #### `tabulator_open_query_status` / `tabulator_open_query_toggle`
+
 Manage Tabulator open query feature for broader access.
 
 ```python
@@ -994,11 +1056,35 @@ result = await mcp_client.call_tool(\"tabulator_open_query_toggle\", {
 })
 ```
 
+#### `tabulator_table_delete`
+
+Delete an existing Tabulator table.
+
+```python
+result = await mcp_client.call_tool("tabulator_table_delete", {
+    "bucket_name": "quilt-example",
+    "table_name": "deprecated_table"
+})
+```
+
+#### `tabulator_table_rename`
+
+Rename an existing Tabulator table.
+
+```python
+result = await mcp_client.call_tool("tabulator_table_rename", {
+    "bucket_name": "quilt-example",
+    "table_name": "old_table_name",
+    "new_table_name": "new_table_name"
+})
+```
+
 ## 🔧 Workflow Management
 
 ### Workflow Orchestration
 
 #### `workflow_create`
+
 Create multi-step workflows for complex operations.
 
 ```python
@@ -1024,6 +1110,7 @@ result = await mcp_client.call_tool(\"workflow_create\", {
 ```
 
 #### `workflow_add_step`
+
 Add steps to existing workflows.
 
 ```python
@@ -1054,6 +1141,7 @@ result = await mcp_client.call_tool(\"workflow_add_step\", {
 ```
 
 #### `workflow_update_step`
+
 Update step status and results.
 
 ```python
@@ -1070,6 +1158,7 @@ result = await mcp_client.call_tool(\"workflow_update_step\", {
 ```
 
 #### `workflow_get_status`
+
 Get comprehensive workflow status.
 
 ```python
@@ -1101,6 +1190,7 @@ result = await mcp_client.call_tool(\"workflow_get_status\", {
 ```
 
 #### `workflow_list_all`
+
 List all workflows with summary information.
 
 ```python
@@ -1124,6 +1214,7 @@ result = await mcp_client.call_tool(\"workflow_list_all\", {})
 ```
 
 #### `workflow_template_apply`
+
 Apply pre-defined workflow templates.
 
 ```python
@@ -1153,6 +1244,7 @@ result = await mcp_client.call_tool(\"workflow_template_apply\", {
 ### Metadata Templates
 
 #### `list_metadata_templates`
+
 List available metadata templates with descriptions.
 
 ```python
@@ -1182,6 +1274,7 @@ result = await mcp_client.call_tool(\"list_metadata_templates\", {})
 ```
 
 #### `get_metadata_template`
+
 Get a specific metadata template with optional custom fields.
 
 ```python
@@ -1214,6 +1307,7 @@ result = await mcp_client.call_tool(\"get_metadata_template\", {
 ```
 
 #### `create_metadata_from_template`
+
 Create metadata using a template - simplified interface.
 
 ```python
@@ -1245,6 +1339,7 @@ result = await mcp_client.call_tool(\"create_metadata_from_template\", {
 ```
 
 #### `validate_metadata_structure`
+
 Validate metadata structure and provide improvement suggestions.
 
 ```python
@@ -1278,9 +1373,67 @@ result = await mcp_client.call_tool(\"validate_metadata_structure\", {
 }
 ```
 
+### Utility and Helper Tools
+
+#### `quick_start`
+
+Get quick start information and common usage patterns.
+
+```python
+result = await mcp_client.call_tool("quick_start", {})
+
+# Response includes getting started guide and common patterns
+{
+    "success": true,
+    "quick_start_guide": {
+        "authentication": ["auth_status", "catalog_info"],
+        "data_exploration": ["packages_search", "package_browse"],
+        "package_creation": ["create_package_enhanced", "package_validate"]
+    },
+    "common_workflows": [...],
+    "next_steps": [...]
+}
+```
+
+#### `show_metadata_examples`
+
+Show examples of metadata structures for different use cases.
+
+```python
+result = await mcp_client.call_tool("show_metadata_examples", {})
+
+# Response includes metadata examples for different domains
+{
+    "success": true,
+    "examples": {
+        "genomics": {...},
+        "ml": {...},
+        "research": {...}
+    }
+}
+```
+
+#### `list_available_resources`
+
+List available resources and capabilities in the current environment.
+
+```python
+result = await mcp_client.call_tool("list_available_resources", {})
+
+# Response includes available catalogs, registries, and capabilities
+{
+    "success": true,
+    "catalogs": [...],
+    "registries": [...],
+    "capabilities": [...],
+    "permissions": [...]
+}
+```
+
 ### Quilt Summary Files
 
 #### `create_quilt_summary_files`
+
 Create comprehensive Quilt summary files for packages.
 
 ```python
@@ -1324,6 +1477,7 @@ result = await mcp_client.call_tool(\"create_quilt_summary_files\", {
 ```
 
 #### `generate_quilt_summarize_json`
+
 Generate machine-readable package summary following Quilt standards.
 
 ```python
@@ -1360,6 +1514,7 @@ result = await mcp_client.call_tool(\"generate_quilt_summarize_json\", {
 ### AWS Permissions Discovery
 
 #### `aws_permissions_discover`
+
 Discover comprehensive AWS permissions for the current user/role.
 
 ```python
@@ -1413,6 +1568,7 @@ result = await mcp_client.call_tool(\"aws_permissions_discover\", {
 ```
 
 #### `bucket_access_check`
+
 Check specific access permissions for a bucket.
 
 ```python
@@ -1451,6 +1607,7 @@ result = await mcp_client.call_tool(\"bucket_access_check\", {
 ```
 
 #### `bucket_recommendations_get`
+
 Get smart bucket recommendations based on permissions and context.
 
 ```python
@@ -1504,6 +1661,7 @@ result = await mcp_client.call_tool(\"bucket_recommendations_get\", {
 ### User Management
 
 #### `admin_users_list`
+
 List all users in the registry with detailed information.
 
 ```python
@@ -1529,6 +1687,7 @@ result = await mcp_client.call_tool(\"admin_users_list\", {})
 ```
 
 #### `admin_user_create`
+
 Create new users in the registry.
 
 ```python
@@ -1559,6 +1718,7 @@ result = await mcp_client.call_tool(\"admin_user_create\", {
 ```
 
 #### `admin_user_get`
+
 Get detailed information about a specific user.
 
 ```python
@@ -1589,6 +1749,7 @@ result = await mcp_client.call_tool(\"admin_user_get\", {
 ```
 
 #### `admin_user_set_role`
+
 Set primary and extra roles for a user.
 
 ```python
@@ -1601,6 +1762,7 @@ result = await mcp_client.call_tool(\"admin_user_set_role\", {
 ```
 
 #### `admin_user_set_active`
+
 Set user active status (enable/disable account).
 
 ```python
@@ -1620,6 +1782,7 @@ result = await mcp_client.call_tool(\"admin_user_set_active\", {
 ### Role Management
 
 #### `admin_roles_list`
+
 List all available roles with detailed information.
 
 ```python
@@ -1655,6 +1818,7 @@ result = await mcp_client.call_tool(\"admin_roles_list\", {})
 ### SSO Configuration
 
 #### `admin_sso_config_get`
+
 Get current SSO configuration.
 
 ```python
@@ -1675,6 +1839,7 @@ result = await mcp_client.call_tool(\"admin_sso_config_get\", {})
 ```
 
 #### `admin_sso_config_set`
+
 Configure SSO settings.
 
 ```python
@@ -1687,6 +1852,101 @@ result = await mcp_client.call_tool(\"admin_sso_config_set\", {
         </SPSSODescriptor>
     </EntityDescriptor>
     \"\"\"
+})
+```
+
+#### `admin_sso_config_remove`
+
+Remove SSO configuration.
+
+```python
+result = await mcp_client.call_tool("admin_sso_config_remove", {})
+```
+
+### Advanced User Management
+
+#### `admin_user_delete`
+
+Delete a user from the registry.
+
+```python
+result = await mcp_client.call_tool("admin_user_delete", {
+    "name": "former.employee@example.com"
+})
+```
+
+#### `admin_user_set_email`
+
+Update a user's email address.
+
+```python
+result = await mcp_client.call_tool("admin_user_set_email", {
+    "name": "researcher@example.com",
+    "email": "researcher.new@example.com"
+})
+```
+
+#### `admin_user_set_admin`
+
+Set or remove admin privileges for a user.
+
+```python
+result = await mcp_client.call_tool("admin_user_set_admin", {
+    "name": "researcher@example.com",
+    "admin": true
+})
+```
+
+#### `admin_user_reset_password`
+
+Reset a user's password.
+
+```python
+result = await mcp_client.call_tool("admin_user_reset_password", {
+    "name": "researcher@example.com"
+})
+```
+
+#### `admin_user_add_roles`
+
+Add roles to a user.
+
+```python
+result = await mcp_client.call_tool("admin_user_add_roles", {
+    "name": "researcher@example.com",
+    "roles": ["genomics_team", "data_analysts"]
+})
+```
+
+#### `admin_user_remove_roles`
+
+Remove roles from a user.
+
+```python
+result = await mcp_client.call_tool("admin_user_remove_roles", {
+    "name": "researcher@example.com",
+    "roles": ["old_team"],
+    "fallback": "user"  # Optional fallback role if all roles are removed
+})
+```
+
+### Tabulator Administration
+
+#### `admin_tabulator_open_query_get`
+
+Get Tabulator open query configuration.
+
+```python
+result = await mcp_client.call_tool("admin_tabulator_open_query_get", {})
+```
+
+#### `admin_tabulator_open_query_set`
+
+Set Tabulator open query configuration.
+
+```python
+result = await mcp_client.call_tool("admin_tabulator_open_query_set", {
+    "enabled": true
 })
 ```
 
@@ -1811,13 +2071,15 @@ status = await mcp_client.call_tool(\"workflow_get_status\", {
 | Category | Primary Tools | Use Cases |
 |----------|---------------|-----------|
 | **Authentication** | `auth_status`, `catalog_info`, `filesystem_status` | Setup, troubleshooting, environment validation |
-| **Package Management** | `create_package_enhanced`, `package_browse`, `packages_search` | Data organization, exploration, creation |
+| **Package Management** | `create_package_enhanced`, `package_browse`, `packages_search` | Data organization, exploration |
 | **S3 Operations** | `bucket_objects_list`, `bucket_object_info`, `unified_search` | Direct data access, file operations |
 | **Search & Discovery** | `unified_search`, `search_suggest`, `packages_search` | Finding data, content discovery |
 | **Analytics** | `athena_query_execute`, `tabulator_tables_list` | Data analysis, SQL queries |
 | **Workflows** | `workflow_create`, `workflow_add_step`, `workflow_get_status` | Process orchestration, automation |
 | **Metadata** | `get_metadata_template`, `validate_metadata_structure` | Data documentation, standardization |
 | **Permissions** | `aws_permissions_discover`, `bucket_access_check` | Security, access validation |
-| **Administration** | `admin_users_list`, `admin_user_create`, `admin_roles_list` | User management, system administration |
+| **Administration** | `admin_users_list`, `admin_user_create`, `admin_roles_list` | User management, role management |
 
-This comprehensive tool reference provides everything needed to effectively use the Quilt MCP Server for bioinformatics and data management workflows. Each tool is designed to work together as part of a cohesive data management ecosystem.
+This comprehensive tool reference provides everything needed to effectively use the Quilt MCP Server
+for bioinformatics and data management workflows. Each tool is designed to work together as part
+of a cohesive data management ecosystem.
