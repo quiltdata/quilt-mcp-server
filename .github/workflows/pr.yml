@@ -4,6 +4,8 @@ name: Pull Request Validation
 on:
   pull_request:
     branches: ['**']
+  push:
+    tags: ['v*-dev-*']
 jobs:
   test:
     runs-on: ubuntu-latest
