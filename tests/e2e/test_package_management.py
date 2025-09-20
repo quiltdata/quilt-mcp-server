@@ -372,6 +372,7 @@ class TestToolDocumentation:
         assert "package_validate" in result["primary_tools"]
 
 
+@pytest.mark.slow
 class TestPackageManagementMigration:
     """Test cases for package_management integration with create_package_revision."""
 

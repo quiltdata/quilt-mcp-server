@@ -64,7 +64,8 @@ class TestGovernanceIntegration:
                     assert "type" in role
             else:
                 # If it fails, should be due to permissions
-                assert "Admin" in result.get("error", "") or "permission" in result.get("error", "").lower()
+                error_msg = result.get("error") or ""
+                assert "Admin" in error_msg or "permission" in error_msg.lower()
 
         except Exception as e:
             # Integration tests may fail due to network, auth, or permission issues
@@ -91,7 +92,8 @@ class TestGovernanceIntegration:
                     assert "is_admin" in user
             else:
                 # If it fails, should be due to permissions
-                assert "Admin" in result.get("error", "") or "permission" in result.get("error", "").lower()
+                error_msg = result.get("error") or ""
+                assert "Admin" in error_msg or "permission" in error_msg.lower()
 
         except Exception as e:
             # Integration tests may fail due to network, auth, or permission issues
@@ -112,7 +114,8 @@ class TestGovernanceIntegration:
                     assert "timestamp" in result["sso_config"]
             else:
                 # If it fails, should be due to permissions
-                assert "Admin" in result.get("error", "") or "permission" in result.get("error", "").lower()
+                error_msg = result.get("error") or ""
+                assert "Admin" in error_msg or "permission" in error_msg.lower()
 
         except Exception as e:
             # Integration tests may fail due to network, auth, or permission issues
@@ -130,7 +133,8 @@ class TestGovernanceIntegration:
                 assert isinstance(result["open_query_enabled"], bool)
             else:
                 # If it fails, should be due to permissions
-                assert "Admin" in result.get("error", "") or "permission" in result.get("error", "").lower()
+                error_msg = result.get("error") or ""
+                assert "Admin" in error_msg or "permission" in error_msg.lower()
 
         except Exception as e:
             # Integration tests may fail due to network, auth, or permission issues

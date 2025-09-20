@@ -185,7 +185,7 @@ def main():
     parser.add_argument("--list-tools", action="store_true",
                        help="List available tools from MCP server")
     parser.add_argument("--config", type=Path, 
-                       default=Path(__file__).parent.parent / "tests" / "configs" / "mcp-test.yaml",
+                       default=Path(__file__).parent.parent / "tests" / "fixtures" / "mcp-test.yaml",
                        help="Path to test configuration file")
     
     args = parser.parse_args()

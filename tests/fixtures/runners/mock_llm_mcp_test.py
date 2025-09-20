@@ -468,9 +468,12 @@ async def main():
             print("⚠️  SLOW - Tool response times could be improved")
 
         # Save detailed results
-        with open("mock_llm_mcp_test_results.json", "w") as f:
+        import os
+        os.makedirs("build/test-results", exist_ok=True)
+        results_path = "build/test-results/mock_llm_mcp_test_results.json"
+        with open(results_path, "w") as f:
             json.dump(results, f, indent=2, default=str)
-        print("\n📄 Detailed results saved to: mock_llm_mcp_test_results.json")
+        print(f"\n📄 Detailed results saved to: {results_path}")
 
         return 0 if categories_passed >= 3 else 1
 
