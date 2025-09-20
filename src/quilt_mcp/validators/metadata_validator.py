@@ -1,7 +1,7 @@
 """Metadata validation utilities for Quilt packages."""
 
 from typing import Dict, List, Any, Tuple, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 
@@ -198,10 +198,11 @@ def enhance_metadata_quality(metadata: Dict[str, Any]) -> Dict[str, Any]:
         enhanced["quilt"] = {}
 
     # Add quality indicators
+    enhancement_timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     enhanced["quilt"]["metadata_quality"] = {
         "version": "1.0",
         "enhanced_by": "mcp-metadata-validator",
-        "enhancement_date": datetime.now(datetime.timezone.utc).isoformat() + "Z",
+        "enhancement_date": enhancement_timestamp,
     }
 
     # Add missing recommended fields with defaults

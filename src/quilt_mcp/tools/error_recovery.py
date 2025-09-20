@@ -156,14 +156,39 @@ def safe_operation(
     try:
         result = operation_func()
         execution_time = time.time() - start_time
+        timestamp = datetime.now(timezone.utc).isoformat()
 
-        return {
-            "success": True,
+        response: Dict[str, Any] = {
             "operation": operation_name,
-            "result": result,
             "execution_time_ms": round(execution_time * 1000, 2),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": timestamp,
         }
+
+        if isinstance(result, dict):
+            response["result"] = result
+            if result.get("_fallback_used"):
+                response["_fallback_used"] = True
+                if "_primary_error" in result:
+                    response["_primary_error"] = result["_primary_error"]
+        else:
+            response["result"] = result
+
+        if isinstance(result, dict) and result.get("success") is False:
+            error_message = result.get("error", "Operation returned failure")
+            suggestions = _get_recovery_suggestions(operation_name, Exception(error_message))
+            response.update(
+                {
+                    "success": False,
+                    "error": error_message,
+                    "error_type": result.get("error_type", "OperationFailure"),
+                    "fallback_value": fallback_value,
+                    "recovery_suggestions": result.get("recovery_suggestions", suggestions) or suggestions,
+                }
+            )
+            return response
+
+        response["success"] = True
+        return response
 
     except Exception as e:
         execution_time = time.time() - start_time
@@ -220,14 +245,11 @@ def batch_operation_with_recovery(
 
         # Execute with fallback if provided
         if fallback_func:
-
-            @_with_fallback_internal(operation_func, fallback_func)
-            def safe_func():
-                return operation_func()
-
-            result = safe_operation(operation_name, safe_func)
+            safe_func = _with_fallback_internal(operation_func, fallback_func)
         else:
-            result = safe_operation(operation_name, operation_func)
+            safe_func = operation_func
+
+        result = safe_operation(operation_name, safe_func)
 
         result["index"] = i
         results.append(result)
@@ -287,14 +309,28 @@ def health_check_with_recovery() -> Dict[str, Any]:
 
     # Generate overall health assessment
     overall_health = "healthy" if health_results["success"] else "degraded"
+    fallback_detected = any(result.get("_fallback_used") for result in health_results["results"])
+    if fallback_detected and overall_health == "healthy":
+        overall_health = "degraded"
     if health_results["failed_operations"] > health_results["successful_operations"]:
         overall_health = "unhealthy"
 
     # Generate recovery recommendations
     recovery_recommendations = []
     for result in health_results["results"]:
-        if not result["success"]:
+        if not result["success"] or result.get("_fallback_used"):
             recovery_recommendations.extend(result.get("recovery_suggestions", []))
+
+            if result.get("_fallback_used"):
+                # Surface suggestions based on the primary error that triggered the fallback
+                primary_error = None
+                if isinstance(result.get("result"), dict):
+                    primary_error = result["result"].get("_primary_error") or result["result"].get("error")
+                primary_error = primary_error or result.get("error")
+                if primary_error:
+                    recovery_recommendations.extend(
+                        _get_recovery_suggestions(result["operation"], Exception(primary_error))
+                    )
 
     return {
         "success": True,

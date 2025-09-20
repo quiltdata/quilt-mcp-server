@@ -400,6 +400,12 @@ The following permissions are granted for this repository:
 
 - Integration tests now share a cached `AthenaQueryService` via fixtures (`tests/integration/conftest.py`) to avoid repeated STS/session setup; reuse the factory when adding new slow tests instead of instantiating services directly.
 
+### Coverage-focused learnings
+
+- `safe_operation` now mirrors fallback failures at the top level; add tests that expect `_fallback_used` metadata to bubble up when the fallback path fails.
+- `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
+- Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

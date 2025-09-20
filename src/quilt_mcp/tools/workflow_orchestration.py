@@ -59,6 +59,9 @@ def workflow_create(
         Workflow creation result with tracking information
     """
     try:
+        if not workflow_id or not workflow_id.strip():
+            return format_error_response("Workflow ID cannot be empty")
+
         if workflow_id in _workflows:
             return format_error_response(f"Workflow '{workflow_id}' already exists")
 
