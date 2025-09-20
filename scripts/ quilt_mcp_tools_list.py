@@ -79,7 +79,7 @@ def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
     """Generate structured JSON output for tooling."""
     output = {
         "metadata": {
-            "generated_by": "scripts/generate_canonical_tools.py",
+            "generated_by": "scripts/quilt_mcp_tools_list.py",
             "tool_count": len(tools),
             "modules": list(set(tool["module"] for tool in tools))
         },
