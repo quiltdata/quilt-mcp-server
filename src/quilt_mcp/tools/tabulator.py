@@ -112,12 +112,20 @@ class TabulatorService:
             errors.append("Parser configuration cannot be empty")
             return errors
 
-        if "format" not in parser_config:
+        format_value = parser_config.get("format")
+        if not format_value:
             errors.append("Parser configuration missing 'format' field")
-        elif parser_config["format"] not in valid_formats:
+            return errors
+
+        if isinstance(format_value, str):
+            format_value = format_value.lower()
+            parser_config["format"] = format_value
+
+        if format_value not in valid_formats:
             errors.append(
                 f"Invalid format '{parser_config['format']}'. Valid formats: {', '.join(sorted(valid_formats))}"
             )
+            return errors
 
         # Format-specific validation
         if parser_config.get("format") in ["csv", "tsv"]:
@@ -206,7 +214,11 @@ class TabulatorService:
             validation_errors.extend(self._validate_parser_config(parser_config))
 
             if validation_errors:
-                return format_error_response(f"Validation errors: {'; '.join(validation_errors)}")
+                return {
+                    "success": False,
+                    "error": f"Validation errors: {'; '.join(validation_errors)}",
+                    "error_details": validation_errors,
+                }
 
             # Build tabulator configuration
             config_yaml = self._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)

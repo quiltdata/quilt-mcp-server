@@ -61,6 +61,7 @@ class LocalFileTransport(TelemetryTransport):
             record = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "type": "session",
+                "transport": "local_file",
                 "data": data,
             }
 
@@ -88,6 +89,7 @@ class LocalFileTransport(TelemetryTransport):
                 record = {
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "type": "session",
+                    "transport": "local_file",
                     "data": data,
                 }
                 records.append(record)
@@ -189,6 +191,7 @@ class HTTPTransport(TelemetryTransport):
             payload = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "type": "session",
+                "transport": "http",
                 "data": data,
             }
 
@@ -222,6 +225,7 @@ class HTTPTransport(TelemetryTransport):
             payload = {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "type": "batch",
+                "transport": "http",
                 "sessions": sessions,
             }
 
@@ -295,7 +299,7 @@ class CloudWatchTransport(TelemetryTransport):
 
             log_event = {
                 "timestamp": int(time.time() * 1000),  # CloudWatch expects milliseconds
-                "message": json.dumps({"type": "session", "data": data}, default=str),
+                "message": json.dumps({"type": "session", "transport": "cloudwatch", "data": data}, default=str),
             }
 
             self.client.put_log_events(
@@ -326,7 +330,7 @@ class CloudWatchTransport(TelemetryTransport):
 
                 log_event = {
                     "timestamp": int(time.time() * 1000),
-                    "message": json.dumps({"type": "session", "data": data}, default=str),
+                    "message": json.dumps({"type": "session", "transport": "cloudwatch", "data": data}, default=str),
                 }
                 log_events.append(log_event)
 
