@@ -406,6 +406,9 @@ The following permissions are granted for this repository:
 - `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
+### 2025-09-20 uv packaging notes
+- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI flow will be centralized in `bin/release.sh` with a make target wrapper, matching how `make dxt` exposes DXT packaging.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

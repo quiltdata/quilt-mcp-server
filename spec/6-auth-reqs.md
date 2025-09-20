@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD025 -->
 # Authenticating to Quilt's Built-In MCP Server
 
 Here's the real problem I want to solve.  I want the MCP server to assume a specific Role when executing on behalf of any given user.
