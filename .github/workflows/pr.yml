@@ -67,7 +67,7 @@ jobs:
     - name: Setup build environment
       uses: ./.github/actions/setup-build-env
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.11'
         include-nodejs: 'true'
     - name: Debug dev-release context
       run: |
