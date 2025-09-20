@@ -69,10 +69,30 @@ python_publish() {
         return 1
     fi
 
-    local repository="${PYPI_REPOSITORY_URL:-https://test.pypi.org/legacy/}"
-    local log_cmd="uv publish --repository-url $repository --dist-dir $dist_dir"
+    local publish_url="${PYPI_PUBLISH_URL:-https://test.pypi.org/legacy/}"
+    local -a artifacts
+    while IFS= read -r artifact; do
+        artifacts+=("$artifact")
+    done < <(find "$dist_dir" -maxdepth 1 -type f \( -name "*.whl" -o -name "*.tar.gz" \) | sort)
+
+    local log_cmd="uv publish"
     local -a publish_cmd
-    publish_cmd=(uv publish --repository-url "$repository" --dist-dir "$dist_dir")
+    publish_cmd=(uv publish)
+
+    if [ -n "$publish_url" ]; then
+        log_cmd="$log_cmd --publish-url $publish_url"
+        publish_cmd+=(--publish-url "$publish_url")
+    fi
+
+    if [ ${#artifacts[@]} -eq 0 ]; then
+        echo "❌ No artifacts found in '$dist_dir'. Run python-dist before publishing."
+        return 1
+    fi
+
+    for artifact in "${artifacts[@]}"; do
+        log_cmd="$log_cmd $artifact"
+        publish_cmd+=("$artifact")
+    done
 
     if [ "$PUBLISH_AUTH_MODE" = "token" ]; then
         log_cmd="$log_cmd --token ****"
@@ -87,7 +107,7 @@ python_publish() {
         return 0
     fi
 
-    echo "📦 Publishing artifacts from $dist_dir to $repository"
+    echo "📦 Publishing artifacts from $dist_dir to $publish_url"
     "${publish_cmd[@]}"
     echo "✅ python-publish completed"
 }

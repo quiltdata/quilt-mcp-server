@@ -18,12 +18,12 @@
 ## Implementation Outline
 1. **Environment Handling**
    - Helper `ensure_publish_env` checks for token or username/password.
-   - Accept optional `PYPI_REPOSITORY_URL` (default `https://test.pypi.org/legacy/`).
+   - Accept optional `PYPI_PUBLISH_URL` (default `https://test.pypi.org/legacy/`).
    - Validate dist artifacts exist before publishing.
 
 2. **Script Command**
    - Add `python-publish` subcommand to `bin/release.sh`.
-   - Build uv command: `uv publish --repository-url $PYPI_REPOSITORY_URL` with auth flags.
+   - Build uv command: `uv publish --publish-url $PYPI_PUBLISH_URL dist/*` with appropriate auth flags.
    - In dry run, echo command without secrets; in real run, invoke uv with env vars.
 
 3. **Make Integration**

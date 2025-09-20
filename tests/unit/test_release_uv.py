@@ -111,6 +111,7 @@ def test_python_publish_dry_run_with_token(tmp_path):
 
     assert proc.returncode == 0
     assert "uv publish" in proc.stdout
+    assert "--publish-url https://test.pypi.org/legacy/" in proc.stdout
     assert "token-value" not in proc.stdout
 
 
@@ -137,3 +138,6 @@ def test_make_python_publish_delegates(tmp_path):
 
     assert proc.returncode == 0
     assert "python-publish" in proc.stdout
+    assert "--password ****" in proc.stdout
+    password_segment = proc.stdout.split("--password ", 1)[1]
+    assert "pass" not in password_segment
