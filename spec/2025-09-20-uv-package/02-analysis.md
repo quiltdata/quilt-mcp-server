@@ -26,7 +26,7 @@
 # Technical Debt & Opportunities
 
 1. Absence of dedicated Python packaging targets presents an opportunity to add uv build/publish commands.
-2. No environment validation exists for packaging flows; introduction of checks can improve reliability.
+2. No environment validation exists for packaging flows; when a publish command is added it must validate credentials without burdening local builds.
 3. Documentation does not mention `.env` usage for credentials—gap to fill for developer experience.
 4. Release scripts assume manual tagging; aligning them with Trusted Publishing may expose automation debt.
 
@@ -34,7 +34,7 @@
 
 1. **UV Packaging Command (Req 1)** – Missing entirely.
 2. **Make Targets (Req 2)** – Missing.
-3. **Environment Preconditions (Req 3)** – Missing.
+3. **Separated Build/Publish (Req 3)** – Need distinct commands so local builds run credential-free while publish enforces validation.
 4. **Local `.env` Guidance (Req 4)** – Missing.
 5. **Trusted Publishing in CI (Req 5)** – Missing.
 6. **Backward Compatibility (Req 6)** – Requires careful design to avoid DXT regressions.

@@ -13,8 +13,9 @@
    - `bin/release.sh` orchestrates the uv packaging so the release script remains the single entry point, mirroring the existing DXT flow.
 2. **Make Target Coverage**
    - A make target (parallel to `make dxt`) delegates to `bin/release.sh` to invoke the uv packaging path while inheriting `.env` sourcing.
-3. **Environment Preconditions Enforcement**
-   - Preflight validation inside `release.sh` ensures required variables are present; failures emit actionable messages usable in both local and CI contexts.
+3. **Separated Build vs Publish Flows**
+   - `bin/release.sh python-dist` performs local artifact builds without credential requirements.
+   - A future `bin/release.sh python-publish` command will enforce credential validation before pushing to PyPI/TestPyPI.
 4. **Developer Guidance for `.env`**
    - Approved documentation clearly lists TestPyPI credential keys, usage patterns, and where to store them locally.
 5. **Trusted Publishing in CI**
@@ -24,30 +25,30 @@
 
 # Success Criteria
 
-- Running the packaging make target produces wheel and sdist artifacts via `release.sh` and uv in a clean workspace.
-- Missing environment variables stop the workflow with messages naming the absent keys.
+- Running the packaging make target produces wheel and sdist artifacts via `release.sh` and uv in a clean workspace, regardless of publish credentials.
+- Publish command (when added) fails fast with actionable errors if required credentials are missing.
 - Documentation update is merged that references `.env` keys and provides TestPyPI dry-run guidance.
 - CI tag push triggers a Trusted Publishing workflow that completes without manual secrets while delegating to `release.sh`.
 - DXT packaging commands execute successfully after changes.
 
 # Architectural & Design Principles
 
-1. Define environment variable requirements once (within `release.sh`) to prevent divergence between local, make targets, and CI usage.
-2. Ensure local and CI commands call the same `release.sh` entry point to minimize environment-specific drift.
+1. Define environment variable requirements within the future publish path so enforcement is consistent across local and CI usage.
+2. Ensure local and CI commands call the same `release.sh` entry points to minimize environment-specific drift.
 3. Maintain separation of artifact directories to avoid cross-contamination between DXT and Python package outputs.
 4. Prefer additive changes that introduce minimal risk to existing release automation.
 5. Keep credential handling secure by avoiding persistent secrets in repo or CI secrets; rely on `.env` locally and OIDC in CI.
 
 # Integration Points & Interfaces
 
-- **bin/release.sh**: central location for new uv packaging logic and environment validation.
+- **bin/release.sh**: central location for new uv packaging logic and eventual publish validation (`python-dist` vs `python-publish`).
 - **Makefile / make.deploy**: include new target that invokes the release script similar to `make dxt` exposure.
 - **GitHub Actions**: workflow YAML defining Trusted Publishing job triggered by tags, calling `release.sh` entry point.
 - **Documentation**: existing CLAUDE.md or release guide to store developer guidance per repository rules.
 
 # Validation Gates
 
-1. Local packaging dry run from clean checkout using `.env` credentials through the make target (delegating to `release.sh`).
+1. Local packaging dry run from clean checkout via `make python-dist` (no credentials required).
 2. Automated test suite (`make test`) to confirm no regressions.
 3. CI workflow dry run or manual approval demonstrating Trusted Publishing handshake (subject to GitHub settings).
 4. Documentation linting/IDE diagnostics clean.

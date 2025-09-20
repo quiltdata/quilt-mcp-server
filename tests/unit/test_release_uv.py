@@ -9,7 +9,7 @@ RELEASE_SCRIPT = REPO_ROOT / "bin" / "release.sh"
 
 
 @pytest.mark.usefixtures("monkeypatch")
-def test_uv_package_requires_credentials(tmp_path):
+def test_python_dist_dry_run_succeeds_without_credentials(tmp_path):
     env = os.environ.copy()
     for key in ["UV_PUBLISH_TOKEN", "UV_PUBLISH_USERNAME", "UV_PUBLISH_PASSWORD"]:
         env.pop(key, None)
@@ -17,26 +17,7 @@ def test_uv_package_requires_credentials(tmp_path):
     env["DIST_DIR"] = str(tmp_path / "dist")
 
     proc = subprocess.run(
-        [str(RELEASE_SCRIPT), "uv-package"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-
-    assert proc.returncode != 0
-    assert "UV_PUBLISH_TOKEN" in proc.stdout
-
-
-@pytest.mark.usefixtures("monkeypatch")
-def test_uv_package_accepts_token_credentials(tmp_path):
-    env = os.environ.copy()
-    env["UV_PUBLISH_TOKEN"] = "fake-token"
-    env["DRY_RUN"] = "1"
-    env["DIST_DIR"] = str(tmp_path / "dist")
-
-    proc = subprocess.run(
-        [str(RELEASE_SCRIPT), "uv-package"],
+        [str(RELEASE_SCRIPT), "python-dist"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -44,15 +25,30 @@ def test_uv_package_accepts_token_credentials(tmp_path):
     )
 
     assert proc.returncode == 0
-    assert "Using UV_PUBLISH_TOKEN" in proc.stdout
+    assert "python-dist" in proc.stdout
     assert Path(env["DIST_DIR"]).exists()
 
 
 @pytest.mark.usefixtures("monkeypatch")
-def test_make_package_uv_delegates_to_release(tmp_path):
+def test_python_dist_logs_dry_run_command(tmp_path):
     env = os.environ.copy()
-    env["UV_PUBLISH_USERNAME"] = "user"
-    env["UV_PUBLISH_PASSWORD"] = "pass"
+    env["DRY_RUN"] = "1"
+    env["DIST_DIR"] = str(tmp_path / "dist")
+
+    proc = subprocess.run(
+        [str(RELEASE_SCRIPT), "python-dist"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert "Would run: uv build" in proc.stdout
+
+
+@pytest.mark.usefixtures("monkeypatch")
+def test_make_python_dist_delegates_to_release(tmp_path):
+    env = os.environ.copy()
     env["DRY_RUN"] = "1"
     env["DIST_DIR"] = str(tmp_path / "dist")
 
@@ -67,5 +63,5 @@ def test_make_package_uv_delegates_to_release(tmp_path):
     )
 
     assert proc.returncode == 0
-    assert "uv-package" in proc.stdout
+    assert "python-dist" in proc.stdout
     assert Path(env["DIST_DIR"]).exists()

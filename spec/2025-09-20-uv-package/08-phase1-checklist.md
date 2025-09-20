@@ -5,9 +5,8 @@
 - [ ] `uv` CLI available locally (tests may stub when necessary).
 
 ## Development Steps
-- [ ] Write failing tests for `release.sh uv-package` credential validation and happy path under `DRY_RUN=1`.
-- [ ] Implement `ensure_uv_env` helper enforcing token or username/password.
-- [ ] Implement `uv-package` subcommand that builds artifacts (or logs in dry runs) and ensures `dist/` exists.
+- [ ] Write failing tests for `release.sh python-dist` to ensure it succeeds without credentials and logs dry-run output.
+- [ ] Implement `python-dist` subcommand that builds artifacts (or logs in dry runs) and ensures `dist/` exists.
 - [ ] Add `python-dist` target in `make.deploy` delegating to the new subcommand.
 - [ ] Confirm DXT targets (`make dxt`) still function (smoke test optional if time allows).
 

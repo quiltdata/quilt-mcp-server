@@ -88,7 +88,7 @@ dxt: $(DXT_PACKAGE)
 	@echo "✅ DXT package created: $(DXT_PACKAGE)"
 
 python-dist:
-	@./bin/release.sh uv-package
+	@./bin/release.sh python-dist
 
 # DXT Package Validation
 dxt-validate: check-tools dxt
