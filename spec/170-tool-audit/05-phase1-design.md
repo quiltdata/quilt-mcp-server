@@ -33,6 +33,7 @@
   - `workflow_add_step` → `workflow_step_add`
   - `workflow_update_step` → `workflow_step_update`
   - `workflow_get_status` → `workflow_status_get`
+- `package_contents_search` delegates to `catalog_search`, eliminating duplicated search logic while preserving package-specific affordances if necessary.
 - Documentation (`docs/api/TOOLS.md`, interim updates) reflects new names and omits removed entries pending Phase 2 automation.
 
 ## 4. Implementation Plan
@@ -53,23 +54,31 @@ For each survivor rename:
 - Modify tests and fixtures to call the renamed functions; regenerate mocked paths where decorators (`@patch`) were tied to the old names.
 - Ensure docstrings and error messages reference the new identifiers to seed Phase 2 metadata extraction.
 
-### 4.3 Metadata Prefix Alignment
+### 4.3 Catalog Search Consolidation
+
+- Rename `unified_search` to `catalog_search`, updating module exports and all direct invocations.
+- Remove redundant search helpers (`packages_search`, `bucket_objects_search`) and migrate any lingering usage to the unified entry point.
+- Refactor `package_contents_search` to delegate to the shared catalog search backend (e.g., via extracted helper) so both tools share identical result semantics while retaining the specialized wrapper interface.
+- Update response normalization and error handling to ensure parity for clients previously relying on either search path.
+- Adjust behavior tests to confirm `catalog_search` is the sole exported search function and that `package_contents_search` routes through it.
+
+### 4.4 Metadata Prefix Alignment
 
 - Rename metadata helpers and adjust any imports in modules consuming them (e.g., package metadata handlers).
 - Update docstrings and descriptions to begin with `metadata_` so alphabetical ordering remains consistent.
 
-### 4.4 Workflow Re-clustering
+### 4.5 Workflow Re-clustering
 
 - Rename workflow functions and update any registry structures (likely `WORKFLOW_HANDLERS` or similar) to use the new keys.
 - Adjust serialization payloads returned by workflow tools so response fields referencing tool IDs stay accurate.
 
-### 4.5 Export Ordering & Verification
+### 4.6 Export Ordering & Verification
 
 - Rebuild the `__all__` list alphabetically for non-admin tools.
 - Append admin-only tools (including the renamed tabulator functions) at the end as mandated by the specification.
 - Validate ordering by visual inspection and, if helpful, temporary script assertions (removed before completion).
 
-### 4.6 Transitional Documentation Update
+### 4.7 Transitional Documentation Update
 
 - Manually edit `docs/api/TOOLS.md` and any README snippets to reflect the new tool names and removal list.
 - Document the mapping table within the Phase 1 PR description for future reference and to seed Phase 3 release notes.

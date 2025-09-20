@@ -19,13 +19,13 @@
 - **Refactor Step**: Ensure helper utilities remain DRY and remove any alias shims introduced during migration.
 - **Validation**: `make test-unit`, then `make test` once green; `rg` for old package tool names.
 
-## Episode 3 – Catalog Search Unification
+## Episode 3 – Catalog Search Consolidation
 
-- **Goal**: Rename `unified_search` to `catalog_search` and remove `packages_search`/`bucket_objects_search` remnants.
-- **Red Step**: Add behavior test under `tests/` (integration or acceptance) asserting `catalog_search` is the sole search tool exposed and produces expected responses.
-- **Green Step**: Rename implementation, update exports/callers/fixtures, and delete orphaned search tools.
-- **Refactor Step**: Simplify search module imports, ensuring no dead code remains.
-- **Validation**: `make test-unit`, targeted search suite (if exists), plus `rg` for removed search names.
+- **Goal**: Rename `unified_search` to `catalog_search`, retire redundant search helpers, and ensure `package_contents_search` delegates to the unified backend.
+- **Red Step**: Add behavior test under `tests/` (integration or acceptance) asserting `catalog_search` is the sole exported search tool and that `package_contents_search` responses mirror the unified backend (e.g., via spy or fixture comparison).
+- **Green Step**: Rename the implementation, delete `packages_search` / `bucket_objects_search`, and refactor `package_contents_search` to call into the shared helper; update exports, callers, fixtures, and docs accordingly.
+- **Refactor Step**: Extract shared helpers if needed, simplify search module imports, and remove any dead code left by the consolidation.
+- **Validation**: `make test-unit`, targeted search suite (if exists), plus `rg` for removed search names and regression of `package_contents_search` delegation.
 
 ## Episode 4 – Tabulator Accessibility Alignment
 

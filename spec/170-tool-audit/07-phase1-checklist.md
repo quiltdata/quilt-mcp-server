@@ -25,12 +25,12 @@
 - [ ] Run `make test-unit` and `make test`; ensure no old package names remain (`rg`).
 - [ ] Commit after green state.
 
-## Episode 3 – Catalog Search Unification
+## Episode 3 – Catalog Search Consolidation
 
-- [ ] Add failing behavior test ensuring `catalog_search` is sole search entry.
-- [ ] Rename implementation and delete redundant search tools.
-- [ ] Update callers, fixtures, docs.
-- [ ] Run `make test-unit` (then relevant integration tests) and `rg` sweep.
+- [ ] Add failing behavior test ensuring `catalog_search` is sole export and `package_contents_search` delegates to it.
+- [ ] Rename implementation, delete redundant search tools, and refactor `package_contents_search` to call unified helper.
+- [ ] Update callers, fixtures, docs, and any shared helper wiring.
+- [ ] Run `make test-unit` (then relevant integration tests) and `rg` sweep for removed search names.
 - [ ] Commit after tests pass.
 
 ## Episode 4 – Tabulator Accessibility Alignment
