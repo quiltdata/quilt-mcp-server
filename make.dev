@@ -8,42 +8,70 @@ export
 # Development endpoint configuration
 DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 
-.PHONY: test test-unit test-integration test-e2e test-ci lint coverage coverage-html run run-inspector kill dev-clean
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean
 
 # Test Targets
 test:
-	@echo "Running local tests..."
+	@echo "Running unit tests (default)..."
+	@$(MAKE) test-unit
+
+test-all:
+	@echo "Running all tests..."
 	@uv sync --group test
-	@if [ -d "tests" ] && [ "$$(find tests -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/ -v; \
-	else \
-		echo "No tests found, running import test..."; \
-		export PYTHONPATH="src" && uv run python -c "from quilt_mcp.server import main; from quilt_mcp.tools import auth, buckets, packages, package_ops; print('✅ All imports successful')"; \
-	fi
+	@mkdir -p build/test-results
+	export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-all.xml --cov-report=term-missing; \
 	@echo "Running DXT package validation..."
 	@$(MAKE) -f make.deploy dxt-validate
 
 test-unit:
 	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v
+	@mkdir -p build/test-results
+	@if [ -d "tests/unit" ] && [ "$$(find tests/unit -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-unit.xml --cov-report=term-missing; \
+	else \
+		echo "No unit tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-unit.xml; \
+	fi
 
 test-integration:
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v
+	@mkdir -p build/test-results
+	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/integration/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-integration.xml --cov-report=term-missing; \
+	else \
+		echo "No integration tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-integration.xml; \
+	fi
 
 test-e2e:
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v
+	@mkdir -p build/test-results
+	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:build/test-results/coverage-e2e.xml --cov-report=term-missing; \
+	else \
+		echo "No e2e tests found, creating empty coverage file..."; \
+		mkdir -p build/test-results && echo '<?xml version="1.0" ?><coverage></coverage>' > build/test-results/coverage-e2e.xml; \
+	fi
 
 test-ci:
-	@echo "Running CI tests (unit + integration, skipping e2e and slow tests)..."
+	@echo "Running CI tests (skipping slow tests)..."
 	@uv sync --group test
 	@mkdir -p build/test-results
-	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/unit/ tests/integration/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
+	@export PYTHONPATH="src" && QUILT_DISABLE_QUILT3_SESSION=1 uv run python -m pytest tests/ -v -m "not slow" --timeout=$${PYTEST_TIMEOUT:-120} --disable-warnings \
 		--junitxml=build/test-results/results.xml --cov=quilt_mcp --cov-report=xml:build/test-results/coverage.xml
+
+test-scripts:
+	@echo "Running script tests (coverage analysis, workflow behavior)..."
+	@uv sync --group test
+	@mkdir -p build/test-results
+	@if [ -d "scripts/test" ] && [ "$$(find scripts/test -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest scripts/test/ -v; \
+	else \
+		echo "No script tests found"; \
+	fi
 
 # Code Quality Targets
 lint:
@@ -55,9 +83,15 @@ lint:
 	@echo "✅ All linting completed"
 
 coverage:
-	@echo "Running tests with coverage (≥85% required)..."
+	@echo "Running comprehensive coverage analysis..."
+	@$(MAKE) test-unit
+	@$(MAKE) test-integration
+	@$(MAKE) test-e2e
+	@echo "Generating coverage analysis report..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-report=term-missing --cov-fail-under=85 -v
+	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
+	@echo "Checking coverage threshold..."
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ --cov=quilt_mcp --cov-fail-under=85 --cov-report= -q
 
 coverage-html:
 	@echo "Running tests with HTML coverage report..."
@@ -84,7 +118,7 @@ run-inspector:
 kill:
 	@echo "Killing running MCP server processes..."
 	@pkill -f "python.*main.py" 2>/dev/null || echo "No main.py processes found"
-	@pkill -f "python.*quilt_mcp" 2>/dev/null || echo "No quilt_mcp processes found" 
+	@pkill -f "python.*quilt_mcp" 2>/dev/null || echo "No quilt_mcp processes found"
 	@pkill -f "@modelcontextprotocol/inspector" 2>/dev/null || echo "No MCP Inspector processes found"
 	@lsof -ti :8000 | xargs -r kill 2>/dev/null || echo "No processes on port 8000"
 	@lsof -ti :8001 | xargs -r kill 2>/dev/null || echo "No processes on port 8001"

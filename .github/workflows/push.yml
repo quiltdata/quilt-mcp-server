@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Main Branch Validation
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+      - '!v*-dev-*'  # Exclude dev tags - those trigger PR workflow only
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        python-version: ["3.13", "3.12", "3.11"]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment
+      uses: ./.github/actions/setup-build-env
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Run comprehensive tests
+      uses: ./.github/actions/run-tests
+      with:
+        test-target: ${{ matrix.python-version == '3.11' && 'test-all' || 'test-ci' }}
+        artifact-name: test-results
+        python-version: ${{ matrix.python-version }}
+      env:
+        # AWS credentials for tests that need them
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+        # Quilt configuration
+        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
+        QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
+        QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
+
+  coverage-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    if: always() && contains(needs.test.result, 'success')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment
+      uses: ./.github/actions/setup-build-env
+      with:
+        python-version: '3.11'
+
+    - name: Run comprehensive coverage analysis
+      uses: ./.github/actions/coverage-report
+      with:
+        python-version: '3.11'
+        retention-days: '30'
+      env:
+        # AWS credentials for tests that need them
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+        # Quilt configuration
+        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
+        QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
+        QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
+
+  # Production release job - runs after tests pass for production tags
+  prod-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [test, coverage-analysis]
+    # Only run for production tags (v* but not v*-dev-*) and only after tests pass
+    if: startsWith(github.ref, 'refs/tags/v') && (!contains(github.ref, '-dev-')) && contains(needs.test.result, 'success')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup build environment
+      uses: ./.github/actions/setup-build-env
+      with:
+        python-version: '3.11'
+        include-nodejs: 'true'
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        echo "Production Tag Version: $TAG_VERSION"
+
+    - name: Create production release
+      uses: ./.github/actions/create-release
+      with:
+        tag-version: ${{ steps.version.outputs.tag_version }}

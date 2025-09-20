@@ -1,0 +1,37 @@
+name: 'Run Tests'
+description: 'Common test execution with configurable targets and artifact upload'
+
+inputs:
+  test-target:
+    description: 'Make target to execute'
+    required: true
+    default: 'test-ci'
+  upload-artifacts:
+    description: 'Upload test artifacts'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for uploaded artifacts'
+    required: false
+    default: 'test-results'
+  python-version:
+    description: 'Python version for environment context'
+    required: false
+    default: '3.11'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Execute tests
+      shell: bash
+      run: |
+        echo "Running tests using target: ${{ inputs.test-target }}"
+        make ${{ inputs.test-target }}
+
+    - name: Upload test artifacts
+      if: inputs.upload-artifacts == 'true' && always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}-py${{ inputs.python-version }}
+        path: build/test-results/
+        retention-days: 7

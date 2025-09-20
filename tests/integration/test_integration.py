@@ -142,6 +142,7 @@ class TestQuiltAPI:
 
             warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
 
+    @pytest.mark.slow
     def test_package_browse_known_package(self):
         """Test browsing the known test package."""
         result = package_browse(KNOWN_PACKAGE, registry=TEST_REGISTRY)
