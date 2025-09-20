@@ -18,6 +18,24 @@ check_clean_repo() {
     echo "✅ Repository is clean"
 }
 
+push_pending_commits() {
+    echo "🔄 Checking for pending commits to push..."
+
+    # Check if there are commits ahead of the remote
+    if [ -n "$(git log --oneline @{u}..HEAD 2>/dev/null)" ]; then
+        if [ "$DRY_RUN" = "1" ]; then
+            echo "🔍 DRY RUN: Would push pending commits:"
+            git log --oneline @{u}..HEAD
+        else
+            echo "📤 Pushing pending commits to remote..."
+            git push
+            echo "✅ Pushed pending commits"
+        fi
+    else
+        echo "✅ No pending commits to push"
+    fi
+}
+
 bump_version() {
     local version_type="$1"
     
@@ -98,9 +116,10 @@ bump_version() {
 
 tag_dev() {
     echo "🔍 Creating development tag..."
-    
+
     if [ "$DRY_RUN" != "1" ]; then
         check_clean_repo
+        push_pending_commits
     fi
     
     echo "🔍 Reading base version from pyproject.toml..."
@@ -121,6 +140,7 @@ tag_dev() {
     
     if [ "$DRY_RUN" = "1" ]; then
         echo "🔍 DRY RUN: Would execute:"
+        push_pending_commits
         echo "  git pull origin $(git rev-parse --abbrev-ref HEAD)"
         echo "  git tag -a \"v$DEV_VERSION\" -m \"Development build v$DEV_VERSION\""
         echo "  git push origin \"v$DEV_VERSION\""
@@ -140,9 +160,10 @@ tag_dev() {
 
 tag_release() {
     echo "🔍 Creating release tag..."
-    
+
     if [ "$DRY_RUN" != "1" ]; then
         check_clean_repo
+        push_pending_commits
     fi
     
     echo "🔍 Reading version from pyproject.toml..."
@@ -180,6 +201,7 @@ tag_release() {
     
     if [ "$DRY_RUN" = "1" ]; then
         echo "🔍 DRY RUN: Would execute:"
+        push_pending_commits
         echo "  git pull origin main"
         echo "  git tag -a \"v$MANIFEST_VERSION\" -m \"$TAG_TYPE v$MANIFEST_VERSION\""
         echo "  git push origin \"v$MANIFEST_VERSION\""
