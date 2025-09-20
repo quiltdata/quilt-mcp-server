@@ -15,7 +15,7 @@ class TestWorkflowBehavior:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.workflows_dir = Path(__file__).parent.parent / ".github" / "workflows"
+        self.workflows_dir = Path(__file__).parent.parent.parent / ".github" / "workflows"
 
     def test_pr_workflow_exists_and_configured(self):
         """Test that pr.yml workflow exists with correct triggers and behavior."""
@@ -119,7 +119,7 @@ class TestWorkflowBehavior:
 
     def test_workflow_reusable_actions_exist(self):
         """Test that all required reusable actions exist and are properly configured."""
-        actions_dir = Path(__file__).parent.parent / ".github" / "actions"
+        actions_dir = Path(__file__).parent.parent.parent / ".github" / "actions"
 
         # Test run-tests action
         run_tests_action = actions_dir / "run-tests" / "action.yml"
@@ -153,7 +153,7 @@ class TestWorkflowBehavior:
 
     def test_coverage_script_exists_and_executable(self):
         """Test that the coverage analysis script exists and is properly configured."""
-        coverage_script = Path(__file__).parent.parent / "scripts" / "coverage_analysis.py"
+        coverage_script = Path(__file__).parent.parent / "coverage_analysis.py"
         assert coverage_script.exists(), "coverage_analysis.py script must exist"
 
         # Verify script is executable (at least readable)
@@ -170,7 +170,7 @@ class TestWorkflowBehavior:
 
     def test_make_coverage_target_enhanced(self):
         """Test that the make coverage target runs multiple test suites."""
-        makefile = Path(__file__).parent.parent / "make.dev"
+        makefile = Path(__file__).parent.parent.parent / "make.dev"
         assert makefile.exists(), "make.dev must exist"
 
         with open(makefile) as f:
@@ -205,7 +205,7 @@ class TestWorkflowSpecCompliance:
 
     def test_pr_feedback_optimization(self):
         """Test that PR workflow is optimized for fast feedback."""
-        pr_workflow = Path(__file__).parent.parent / ".github" / "workflows" / "pr.yml"
+        pr_workflow = Path(__file__).parent.parent.parent / ".github" / "workflows" / "pr.yml"
 
         with open(pr_workflow) as f:
             workflow = yaml.safe_load(f)
@@ -229,7 +229,7 @@ class TestWorkflowSpecCompliance:
 
     def test_main_branch_comprehensive_testing(self):
         """Test that main branch gets comprehensive testing."""
-        push_workflow = Path(__file__).parent.parent / ".github" / "workflows" / "push.yml"
+        push_workflow = Path(__file__).parent.parent.parent / ".github" / "workflows" / "push.yml"
 
         with open(push_workflow) as f:
             workflow = yaml.safe_load(f)
@@ -245,7 +245,7 @@ class TestWorkflowSpecCompliance:
 
     def test_no_workflow_run_dependencies(self):
         """Test that workflows don't use workflow_run dependencies per spec corrections."""
-        workflows_dir = Path(__file__).parent.parent / ".github" / "workflows"
+        workflows_dir = Path(__file__).parent.parent.parent / ".github" / "workflows"
 
         for workflow_file in workflows_dir.glob("*.yml"):
             with open(workflow_file) as f:
