@@ -38,8 +38,6 @@
    - Clean up temporary artifacts during tests to keep git status clean.
 
 ## Open Decisions
-- Final subcommand name (`uv-package`, `package-uv`, etc.) should align with make target naming.
-- Determine whether script should allow `DIST_DIR` override via env for flexibility (useful in tests).
 - Confirm uv command flags from documentation; adjust if syntax differs.
 
 ## Testing Matrix
