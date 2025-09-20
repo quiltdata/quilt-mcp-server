@@ -10,19 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **CI/CD Infrastructure**: A04 Automated Coverage Reporting and CI Optimization
-  - Split CI workflows for optimal performance: `pr.yml` (fast PR validation), `push.yml` (comprehensive main branch testing), `release.yml` (production releases)
-  - Enhanced coverage analysis with multi-suite reporting (unit, integration, e2e test coverage breakdown)
-  - Coverage analysis script generating CSV reports with file-level granularity and coverage gap identification
-  - Reusable GitHub Actions for consistent test execution and coverage reporting across workflows
-  - Reduced CI costs by 60% through strategic workflow optimization while maintaining quality gates
+- **Coverage Planning**: Captured requirements, analysis, specifications, and phased rollout for issue #166 in `spec/2025-09-19-improve-coverage/`.
+- **Coverage Analysis Tooling**: Enhanced `scripts/coverage_analysis.py` to produce per-suite and combined CSV summaries without double-counting covered lines.
 
 ### Changed
 
-- **Testing**: Updated make coverage target to run comprehensive multi-suite analysis with threshold validation
-- **CI Performance**: PR feedback time reduced to <5 minutes with single Python version testing
-- **Release Safety**: Production releases now require successful main branch validation via workflow dependencies
-- **Source Layout**: Collapsed legacy `quilt_mcp.aws` namespace into `quilt_mcp.services`, updated tests/docs, and added full spec package describing the src cleanup (Issue #164)
+- **Make Targets**: Reworked `make.dev` coverage targets to emit suite-specific XML reports (unit, integration, e2e) and drive aggregation through the coverage analysis script.
+- **CI Workflows**: Updated `.github/workflows/push.yml` to execute on merge events so fast PR workflows stay lean while `main` still runs comprehensive coverage.
+- **Integration Tests**: Cached `AthenaQueryService` creation, marked the slowest paths with `pytest.mark.slow`, and reused the fixture across test modules to keep coverage runs responsive.
+- **Contributor Guidance**: Documented the shared Athena service fixture expectations in `AGENTS.md` for future test additions.
 
 ## [0.6.6] - 2025-09-18
 

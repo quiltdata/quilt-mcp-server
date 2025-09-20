@@ -7,6 +7,8 @@ import os
 import sys
 import logging
 
+import pytest
+
 # Add app to Python path
 sys.path.insert(0, "app")
 
