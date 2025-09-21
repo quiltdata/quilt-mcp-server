@@ -8,13 +8,13 @@ from unittest.mock import Mock, patch, MagicMock
 import io
 
 from quilt_mcp.tools.package_ops import (
-    package_create,
     package_update,
     package_delete,
     _collect_objects_into_package,
     _normalize_registry,
     _build_selector_fn,
 )
+from quilt_mcp.tools.package_management import package_create
 
 
 class TestPackageCreate:
