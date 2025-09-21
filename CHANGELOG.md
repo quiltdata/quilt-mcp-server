@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.9] - 2025-09-21
+
+### Added
+
+- **uv-based Python Packaging Pipeline**: Complete integration for PyPI/TestPyPI publishing
+  - `make python-dist` - Build wheel and sdist artifacts using uv build system
+  - `make python-publish` - Publish artifacts to PyPI/TestPyPI with credential validation
+  - GitHub Actions integration with Trusted Publishing support via PyPA action
+  - Full compatibility with existing DXT packaging system
+
 ## [0.6.8] - 2025-09-20
 
 ### Added

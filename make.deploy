@@ -26,7 +26,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build dxt dxt-validate release-zip deploy-clean check-tools
+.PHONY: deploy-build dxt dxt-validate python-dist python-publish release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
@@ -86,6 +86,17 @@ $(DXT_PACKAGE): build-contents
 
 dxt: $(DXT_PACKAGE)
 	@echo "✅ DXT package created: $(DXT_PACKAGE)"
+
+# Python Package Distribution
+python-dist: check-tools
+	@echo "🚀 Building Python artifacts..."
+	@mkdir -p $(DIST_DIR)
+	@uv sync --group dev
+	@uv run python -m build --wheel --sdist --outdir $(DIST_DIR)
+	@echo "✅ Python packaging complete"
+
+python-publish:
+	@./bin/release.sh python-publish
 
 # DXT Package Validation
 dxt-validate: check-tools dxt

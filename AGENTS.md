@@ -406,17 +406,10 @@ The following permissions are granted for this repository:
 - `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
-### Workflow tool renaming
-
-- Canonical workflow exports are `workflow_list`, `workflow_step_add`, `workflow_step_update`, and `workflow_status_get`; confirm `quilt_mcp.__all__` only exposes these names plus the existing `workflow_create` and `workflow_template_apply` helpers.
-- When renaming workflow tools, update `quilt_mcp_tools.csv`, BDD export tests, and `docs/api/TOOLS.md` in the same red→green loop to keep docs/test fixtures aligned.
-- Archived specs retain historical identifiers—focus `rg` sweeps on source, tests, and active docs when verifying old workflow names are gone.
-
-### Export ordering guardrails
-
-- Keep `quilt_mcp.__all__` unique and alphabetical for public tools; constants stay in a header block and admin-only entries (`tabular_accessibility_*`) form the trailing suffix.
-- The export-ordering test (`tests/unit/test_tool_exports.py::test_public_exports_are_sorted_with_admin_suffix`) fails fast on duplicates or misplaced admin names—run it after touching `__all__`.
-- When adjusting exports, run `make lint` to let Ruff normalize formatting before executing the full test suite.
+### 2025-09-20 uv packaging notes
+- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `bin/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
+- `python-dist` builds local artifacts without credentials. `bin/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
+- GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make dxt`, `make dxt-validate`, and `make release-zip` to keep DXT parity. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
 
 ## important-instruction-reminders
 
