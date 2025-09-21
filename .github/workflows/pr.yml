@@ -97,5 +97,5 @@ jobs:
     - name: Create dev release
       uses: ./.github/actions/create-release
       with:
-        tag-version: ${{ steps.version.outputs.tag_version }}
+        package-version: ${{ steps.version.outputs.tag_version }}
         pypi-repository-url: https://test.pypi.org/legacy/

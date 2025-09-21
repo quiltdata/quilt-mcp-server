@@ -1,7 +1,7 @@
 name: 'Create Release'
 description: 'Build Python package, DXT package, and create GitHub release'
 inputs:
-  tag-version:
+  package-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
   pypi-repository-url:
@@ -43,11 +43,11 @@ runs:
       id: create-release
       uses: softprops/action-gh-release@v2
       with:
-        name: "Quilt MCP DXT v${{ inputs.tag-version }}"
+        name: "Quilt MCP DXT v${{ inputs.package-version }}"
         files: |
           dist/*-release.zip
         draft: false
-        prerelease: ${{ contains(inputs.tag-version, '-') }}
+        prerelease: ${{ contains(inputs.package-version, '-') }}
         generate_release_notes: true
 
     - name: Upload DXT artifacts
