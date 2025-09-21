@@ -8,6 +8,10 @@ inputs:
     description: 'PyPI repository URL (empty for PyPI, https://test.pypi.org/legacy/ for TestPyPI)'
     required: false
     default: ''
+  skip-existing:
+    description: 'Skip existing packages during upload'
+    required: false
+    default: 'false'
 
 outputs:
   release-url:
@@ -26,8 +30,7 @@ runs:
       with:
         repository-url: ${{ inputs.pypi-repository-url }}
         packages-dir: dist/
-        verify-metadata: false
-        skip-existing: true
+        skip-existing: ${{ inputs.skip-existing }}
         verbose: true
 
     - name: Build DXT package

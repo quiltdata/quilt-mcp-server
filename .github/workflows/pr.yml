@@ -99,3 +99,4 @@ jobs:
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
         pypi-repository-url: https://test.pypi.org/legacy/
+        skip-existing: true
