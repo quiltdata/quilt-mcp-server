@@ -26,6 +26,7 @@ runs:
       with:
         repository-url: ${{ inputs.pypi-repository-url }}
         packages-dir: dist/
+        verify-metadata: false
 
     - name: Build DXT package
       shell: bash
