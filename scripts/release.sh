@@ -287,7 +287,7 @@ tag_release() {
         exit 1
     fi
     
-    MANIFEST_VERSION=$(python3 scripts/version-utils.py get-version)
+    MANIFEST_VERSION=$(python3 scripts/version.py get-version)
     if [ -z "$MANIFEST_VERSION" ]; then
         echo "❌ Could not read version from pyproject.toml"
         exit 1
