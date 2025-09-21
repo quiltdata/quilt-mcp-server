@@ -33,18 +33,18 @@
 
 ## Phase 3 – GitHub Trusted Publishing Integration
 
-- **Goal**: Automate production publishing via GitHub Actions using Trusted Publishing on tag push, delegating to `release.sh` so DXT and Python artifacts are handled together.
+- **Goal**: Automate production publishing via GitHub Actions using the PyPA publish action on tag push, while still producing DXT artifacts in the same workflow.
 - **Deliverables**:
-  - Workflow YAML that invokes the release entry point (`release.sh release` or equivalent) which now runs DXT packaging, `python-dist`, and `python-publish` in sequence under Trusted Publishing.
+  - Workflow YAML that builds Python distributions via `release.sh python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then builds/validates the DXT bundle.
   - Release documentation noting tag-driven publish process, credential separation, and dual-artifact output.
-  - Safeguards ensuring combined flow still preserves legacy DXT behaviour for other callers.
+  - Safeguards ensuring DXT workflow remains available for local usage independent of PyPI publishing.
 - **Validation**:
-  - Workflow dry run or manual approval confirming Trusted Publishing handshake and dist publishing.
+  - Workflow dry run or manual approval confirming PyPA publish step succeeds using configured secrets.
   - Tag-triggered build completes without manual secrets while producing both DXT and Python artifacts.
 
 # Cross-Phase Considerations
 
 1. Ensure environment validation logic lives in the publish path, keeping local build command credential-free while CI and publish flows remain consistent.
 2. Each phase should run the existing test suite to maintain safety net coverage.
-3. Communicate rollout plan so maintainers know the release script now emits both DXT and Python artifacts while standalone targets remain available for focused workflows.
+3. Communicate rollout plan so maintainers know CI now builds Python artifacts first, publishes via PyPA action, and then produces DXT bundles while standalone targets remain available for focused workflows.
 4. Track external dependencies (GitHub settings) as risks if they cannot be completed within the repo.

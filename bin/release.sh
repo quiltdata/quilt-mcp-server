@@ -31,10 +31,6 @@ python_dist() {
     echo "✅ python-dist packaging complete"
 }
 
-print_dry_run_command() {
-    echo "🔍 DRY RUN: Would run: $*"
-}
-
 ensure_publish_env() {
     if [ -n "$UV_PUBLISH_TOKEN" ]; then
         PUBLISH_AUTH_MODE="token"
@@ -143,54 +139,6 @@ PY
     if [ -n "$project_url" ]; then
         echo "🔗 View package at $project_url"
     fi
-}
-
-release_artifacts() {
-    echo "🚀 Starting release-artifacts workflow"
-
-    local dist_dir="${DIST_DIR:-dist}"
-    local publish_url="${PYPI_PUBLISH_URL:-${PYPI_REPOSITORY_URL:-https://test.pypi.org/legacy/}}"
-
-    if [ "$DRY_RUN" = "1" ]; then
-        print_dry_run_command make dxt
-        print_dry_run_command make dxt-validate
-        python_dist || return 1
-
-        local publish_cmd="uv publish"
-        if [ -n "$publish_url" ]; then
-            publish_cmd="$publish_cmd --publish-url $publish_url"
-        fi
-        publish_cmd="$publish_cmd $dist_dir/*.whl $dist_dir/*.tar.gz"
-        print_dry_run_command "$publish_cmd"
-        echo "✅ release-artifacts dry run complete"
-        return 0
-    fi
-
-    if ! ensure_publish_env; then
-        return 1
-    fi
-
-    echo "🏗️  Building DXT package via make dxt"
-    if ! make dxt; then
-        echo "❌ make dxt failed"
-        return 1
-    fi
-
-    echo "🧪 Validating DXT package via make dxt-validate"
-    if ! make dxt-validate; then
-        echo "❌ make dxt-validate failed"
-        return 1
-    fi
-
-    if ! python_dist; then
-        return 1
-    fi
-
-    if ! python_publish; then
-        return 1
-    fi
-
-    echo "✅ release-artifacts workflow complete"
 }
 
 check_clean_repo() {
@@ -429,12 +377,6 @@ case "${1:-}" in
         fi
         python_publish
         ;;
-    "release-artifacts")
-        if [ "${2:-}" = "--dry-run" ]; then
-            DRY_RUN=1
-        fi
-        release_artifacts
-        ;;
     "bump")
         if [ "${3:-}" = "--dry-run" ]; then
             DRY_RUN=1
@@ -449,7 +391,6 @@ case "${1:-}" in
         echo "  release          - Create release tag from pyproject.toml version"  
         echo "  python-dist      - Build Python artifacts (wheel + sdist) with uv"
         echo "  python-publish   - Publish artifacts to PyPI/TestPyPI via uv"
-        echo "  release-artifacts - Build and publish DXT + Python artifacts"
         echo "  bump {type}      - Bump version in pyproject.toml"
         echo ""
         echo "Bump types:"

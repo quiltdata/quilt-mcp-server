@@ -4,6 +4,13 @@ inputs:
   tag-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
+  pypi-token:
+    description: 'API token used for publishing via PyPA action'
+    required: true
+  pypi-repository-url:
+    description: 'Repository endpoint for PyPA publish'
+    required: false
+    default: 'https://upload.pypi.org/legacy/'
 
 outputs:
   release-url:
@@ -13,9 +20,24 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Build and publish release artifacts
+    - name: Build python distributions
       shell: bash
-      run: ./bin/release.sh release-artifacts
+      run: ./bin/release.sh python-dist
+
+    - name: Publish to PyPI/TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ inputs.pypi-token }}
+        repository-url: ${{ inputs.pypi-repository-url }}
+        packages-dir: dist/
+
+    - name: Build DXT package
+      shell: bash
+      run: make dxt
+
+    - name: Validate DXT package
+      shell: bash
+      run: make dxt-validate
 
     - name: Create release bundle
       shell: bash

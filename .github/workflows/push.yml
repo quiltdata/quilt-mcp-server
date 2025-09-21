@@ -80,6 +80,4 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         tag-version: ${{ steps.version.outputs.tag_version }}
-      env:
-        UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        PYPI_PUBLISH_URL: https://upload.pypi.org/legacy/
+        pypi-token: ${{ secrets.PYPI_TOKEN }}

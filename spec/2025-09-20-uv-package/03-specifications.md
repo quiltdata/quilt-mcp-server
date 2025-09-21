@@ -19,14 +19,14 @@
 4. **Developer Guidance for `.env`**
    - Approved documentation clearly lists TestPyPI credential keys, usage patterns, and where to store them locally.
 5. **Trusted Publishing in CI**
-   - GitHub Actions workflow invokes `release.sh` so tag pushes build the DXT package, build Python distributions, and publish them through Trusted Publishing without storing static credentials.
+   - GitHub Actions workflow builds Python distributions through `release.sh python-dist`, publishes them with the official PyPA action, and then produces/validates the DXT bundle so artifact parity is retained without custom publish scripting.
 6. **DXT Workflow Continuity**
-   - Newly introduced packaging flow coexists with existing DXT targets and communicates when each path should be used. DXT-specific commands in `release.sh` remain functional while the combined release path coordinates both artifact families.
+   - Newly introduced packaging flow coexists with existing DXT targets and communicates when each path should be used. DXT-specific commands in `release.sh` remain functional while CI orchestrates Python publishing alongside DXT creation.
 
 # Success Criteria
 
 - Running the packaging make target produces wheel and sdist artifacts via `release.sh` and uv in a clean workspace, regardless of publish credentials.
-- Invoking the release path from CI results in both DXT and Python artifacts being built, with publish flows delegated through `release.sh`.
+- CI workflows build Python artifacts via `release.sh python-dist`, publish them with the PyPA action, and still emit DXT bundles afterward.
 - Publish command (when added) fails fast with actionable errors if required credentials are missing.
 - Documentation update is merged that references `.env` keys and provides TestPyPI dry-run guidance.
 - CI tag push triggers a Trusted Publishing workflow that completes without manual secrets while delegating to `release.sh`.
@@ -35,7 +35,7 @@
 # Architectural & Design Principles
 
 1. Define environment variable requirements within the future publish path so enforcement is consistent across local and CI usage.
-2. Ensure local and CI commands call the same `release.sh` entry points so DXT, build, and publish steps execute together without divergence.
+2. Ensure local and CI commands share the `python-dist` entry point while CI offloads publishing to the PyPA action to avoid bespoke scripting.
 3. Maintain separation of artifact directories to avoid cross-contamination between DXT and Python package outputs.
 4. Prefer additive changes that introduce minimal risk to existing release automation.
 5. Keep credential handling secure by avoiding persistent secrets in repo or CI secrets; rely on `.env` locally and OIDC in CI.
@@ -44,14 +44,14 @@
 
 - **bin/release.sh**: central location for new uv packaging logic and eventual publish validation (`python-dist` vs `python-publish`).
 - **Makefile / make.deploy**: include new target that invokes the release script similar to `make dxt` exposure.
-- **GitHub Actions**: workflow YAML defining Trusted Publishing job triggered by tags, calling `release.sh` entry point.
+- **GitHub Actions**: workflow YAML that runs `release.sh python-dist`, executes the PyPA publish action, and then builds/validates DXT artifacts on tag events.
 - **Documentation**: existing CLAUDE.md or release guide to store developer guidance per repository rules.
 
 # Validation Gates
 
 1. Local packaging dry run from clean checkout via `make python-dist` (no credentials required).
 2. Automated test suite (`make test`) to confirm no regressions.
-3. CI workflow dry run or manual approval demonstrating Trusted Publishing handshake (subject to GitHub settings).
+3. CI workflow dry run or manual approval demonstrating the PyPA publish action succeeds with configured credentials (and future Trusted Publishing when enabled).
 4. Documentation linting/IDE diagnostics clean.
 
 # Risks & Unknowns
