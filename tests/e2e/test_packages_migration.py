@@ -14,8 +14,8 @@ from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_search,
 )
+from quilt_mcp.tools.search import catalog_search
 
 
 class TestPackagesMigrationValidation:
@@ -103,23 +103,18 @@ class TestPackagesMigrationValidation:
         assert result['package1'] == 'user/package1'
         assert result['package2'] == 'user/package2'
 
-    def test_packages_search_uses_quilt_service_for_bucket_fallback(self):
-        """Test packages_search uses QuiltService.create_bucket for fallback search."""
-        mock_service = Mock()
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = [{'name': 'user/package1'}]
-        mock_service.create_bucket.return_value = mock_bucket
-        mock_service.get_search_api.side_effect = Exception("Search API not available")
+    @patch('quilt_mcp.tools.search._catalog_search_backend')
+    def test_catalog_search_replaces_packages_search(self, mock_catalog_search_backend):
+        """Test direct usage of catalog_search instead of deprecated packages_search."""
+        mock_results = {"success": True, "results": []}
 
-        with (
-            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
-            patch('quilt_mcp.utils.suppress_stdout'),
-            patch('quilt_mcp.tools.stack_buckets.build_stack_search_indices', return_value=None),
-        ):
-            result = packages_search('test query', 's3://test-bucket')
+        # Create an async function that returns our mock results
+        async def mock_async_search(*args, **kwargs):
+            return mock_results
 
-        mock_service.get_search_api.assert_called_once()
-        mock_service.create_bucket.assert_called_once_with('s3://test-bucket')
-        mock_bucket.search.assert_called_once_with('test query', limit=10)
-        assert result['fallback_used'] == 'bucket_search'
-        assert result['results'] == [{'name': 'user/package1'}]
+        mock_catalog_search_backend.side_effect = mock_async_search
+
+        result = catalog_search('test query', scope='bucket', target='s3://test-bucket', limit=7)
+
+        mock_catalog_search_backend.assert_called()
+        assert result == mock_results

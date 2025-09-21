@@ -458,7 +458,7 @@ class CCLEComputationalBiologyTester:
         # Step 1: Test package creation for sharing
         try:
             package_create = await self.call_tool(
-                "create_package_enhanced",
+                "package_create",
                 {
                     "name": f"ccle/breast-cancer-subset-{int(time.time())}",
                     "files": ["s3://quilt-sandbox-bucket/ccle/breast-samples.csv"],
@@ -470,7 +470,7 @@ class CCLEComputationalBiologyTester:
 
             if package_create.get("success"):
                 result["steps_completed"].append("collaborative_package_creation")
-                result["tools_used"].append("create_package_enhanced")
+                result["tools_used"].append("package_create")
                 result["recommendations"].append("Package creation available for data sharing")
             else:
                 result["steps_failed"].append("collaborative_package_creation")

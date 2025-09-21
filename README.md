@@ -45,7 +45,7 @@ SERVER_PID=$!
 
 # 4. Verify that it works
 sleep 8
-bin/mcp-test.py http://127.0.0.1:8000/mcp/
+scripts/mcp-test.py http://127.0.0.1:8000/mcp/
 kill $SERVER_PID
 ```
 
@@ -142,10 +142,10 @@ This server provides **84+ comprehensive tools** organized into categories:
 
 - `packages_list` - List packages with filtering and search
 - `package_browse` - Explore package contents and structure  
-- `package_create` - Create packages from S3 objects
+- `package_create` - Create packages with metadata templates and validation
 - `package_update` - Update existing packages
 - `package_validate` - Validate package integrity
-- `create_package_enhanced` - Advanced creation with templates
+- `package_tools_list` - Discover all package management helpers
 
 ### 🗄️ S3 Operations  
 
@@ -153,14 +153,14 @@ This server provides **84+ comprehensive tools** organized into categories:
 - `bucket_object_info` - Get detailed object metadata
 - `bucket_object_text` - Read text content from objects
 - `bucket_objects_put` - Upload multiple objects
-- `bucket_objects_search` - Search using Elasticsearch
+
 
 ### 📊 Analytics & SQL
 
 - `athena_query_execute` - Run SQL queries via Athena
 - `athena_databases_list` - List available databases
 - `tabulator_tables_list` - Manage Quilt Tabulator tables
-- `unified_search` - Multi-backend intelligent search
+- `catalog_search` - Multi-backend intelligent search
 
 ### 🔐 Authentication & Permissions
 
@@ -173,7 +173,6 @@ This server provides **84+ comprehensive tools** organized into categories:
 - `workflow_create` - Multi-step workflow management
 - `metadata_templates` - Generate metadata (genomics, ML, etc.)
 - `generate_quilt_summarize_json` - Create package summaries
-- `create_package_from_s3` - Smart S3-to-package conversion
 
 **[View complete tool reference →](docs/TOOLS.md)**
 
@@ -379,7 +378,7 @@ await mcp_client.call_tool(\"unified_search\", {
 })
 
 # Create package
-await mcp_client.call_tool(\"create_package_enhanced\", {
+await mcp_client.call_tool(\"package_create\", {
     \"name\": \"genomics/study-001\",
     \"files\": [\"s3://bucket/data.vcf\"],
     \"metadata_template\": \"genomics\",

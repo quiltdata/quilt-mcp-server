@@ -5,7 +5,7 @@ This module provides comprehensive test scenarios that simulate real-world
 usage patterns for MCP tool optimization and performance analysis.
 """
 
-from typing import Dict, Any, List
+from typing import List
 from .testing import TestScenario, TestStep, TestScenarioType
 
 
@@ -33,7 +33,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="List available files",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "test/basic-package",
                     "files": ["s3://quilt-sandbox-bucket/sample.csv"],
@@ -80,11 +80,10 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="Verify permissions for bulk operation",
             ),
             TestStep(
-                tool_name="package_create_from_s3",
+                tool_name="package_create",
                 args={
-                    "source_bucket": "s3://quilt-sandbox-bucket",
-                    "package_name": "test/bulk-package",
-                    "source_prefix": "data/",
+                    "name": "test/bulk-package",
+                    "files": ["s3://quilt-sandbox-bucket/data/"],
                     "description": "Bulk package from S3 data",
                 },
                 description="Create package from S3 bucket",
@@ -122,8 +121,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="List available packages",
             ),
             TestStep(
-                tool_name="packages_search",
-                args={"query": "dataset", "limit": 10},
+                tool_name="catalog_search",
+                args={"query": "dataset", "scope": "catalog", "limit": 10},
                 description="Search for dataset packages",
             ),
             TestStep(
@@ -156,8 +155,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="List bucket objects",
             ),
             TestStep(
-                tool_name="bucket_objects_search",
-                args={"bucket": "s3://quilt-sandbox-bucket", "query": "*.json"},
+                tool_name="catalog_search",
+                args={"query": "*.json", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search for JSON files",
             ),
             TestStep(
@@ -289,12 +288,12 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
                 description="List available metadata templates",
             ),
             TestStep(
-                tool_name="get_metadata_template",
+                tool_name="metadata_template_get",
                 args={"template_name": "genomics"},
                 description="Get genomics metadata template",
             ),
             TestStep(
-                tool_name="create_metadata_from_template",
+                tool_name="metadata_template_create",
                 args={
                     "template_name": "genomics",
                     "description": "Genomics dataset for testing",
@@ -447,7 +446,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Top-level browse (faster)",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "test/optimized-package",
                     "files": ["s3://quilt-sandbox-bucket/data/sample.csv"],
@@ -480,8 +479,8 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
         expected_call_count=8,
         steps=[
             TestStep(
-                tool_name="packages_search",
-                args={"query": "genomics", "limit": 50},
+                tool_name="catalog_search",
+                args={"query": "genomics", "scope": "catalog", "limit": 50},
                 description="Search for genomics packages",
             ),
             TestStep(
@@ -499,8 +498,8 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Search all contents (could be combined with browse)",
             ),
             TestStep(
-                tool_name="bucket_objects_search",
-                args={"bucket": "s3://quilt-sandbox-bucket", "query": "genomics"},
+                tool_name="catalog_search",
+                args={"query": "genomics", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search bucket for genomics files",
             ),
             TestStep(
@@ -522,7 +521,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Query without LIMIT (inefficient)",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "genomics/analysis-results",
                     "files": ["s3://quilt-sandbox-bucket/genomics/results.vcf"],

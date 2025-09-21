@@ -113,7 +113,7 @@ def _build_selector_fn(copy_mode: str, target_registry: str):
     return selector_all
 
 
-def package_create(
+def _base_package_create(
     package_name: str,
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
@@ -137,10 +137,10 @@ def package_create(
 
     Examples:
         Basic package creation:
-        package_create("my-team/dataset", ["s3://bucket/file.csv"])
+        _base_package_create("my-team/dataset", ["s3://bucket/file.csv"])
 
         With metadata:
-        package_create(
+        _base_package_create(
             "my-team/dataset",
             ["s3://bucket/file.csv"],
             metadata={"description": "My dataset", "type": "research"}

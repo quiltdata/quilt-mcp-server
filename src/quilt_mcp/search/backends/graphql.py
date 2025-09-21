@@ -612,7 +612,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return user_meta_filters
 
-    def _convert_packages_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
+    def _convert_catalog_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert searchPackages GraphQL results to standard format."""
         results = []
 

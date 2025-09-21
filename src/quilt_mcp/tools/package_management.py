@@ -18,17 +18,17 @@ from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
 from ..services.quilt_service import QuiltService
 from .metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     validate_metadata_structure,
     list_metadata_templates,
 )
-from .package_ops import package_create as _base_package_create
+from .package_ops import _base_package_create
 from .packages import package_browse
 
 logger = logging.getLogger(__name__)
 
 
-def create_package_enhanced(
+def package_create(
     name: str,
     files: List[str],
     description: str = "",
@@ -63,10 +63,10 @@ def create_package_enhanced(
 
     Examples:
         Basic usage:
-        create_package_enhanced("team/dataset", ["s3://bucket/file.csv"])
+        package_create("team/dataset", ["s3://bucket/file.csv"])
 
         With genomics template:
-        create_package_enhanced(
+        package_create(
             "genomics/study1",
             ["s3://bucket/data.vcf"],
             metadata_template="genomics",
@@ -74,7 +74,7 @@ def create_package_enhanced(
         )
 
         Dry run (preview):
-        create_package_enhanced("team/test", ["s3://bucket/file.csv"], dry_run=True)
+        package_create("team/test", ["s3://bucket/file.csv"], dry_run=True)
     """
     try:
         # Validate package name
@@ -127,7 +127,7 @@ def create_package_enhanced(
 
         # Prepare metadata using template
         try:
-            template_metadata = get_metadata_template(metadata_template)
+            template_metadata = metadata_template_get(metadata_template)
 
             # Add description to metadata
             if description:
@@ -482,9 +482,9 @@ def _validate_package_alternative(package_name: str, registry: str, browse_error
     """Alternative validation approach when package browsing fails."""
     try:
         # Try to check if package exists using search
-        from .packages import packages_search
+        from .packages import catalog_search
 
-        search_result = packages_search(package_name, registry=registry, limit=1)
+        search_result = catalog_search(package_name, registry=registry, limit=1)
 
         if search_result.get("success") and search_result.get("results"):
             # Package exists but browsing failed - likely a permissions issue
@@ -509,7 +509,7 @@ def _validate_package_alternative(package_name: str, registry: str, browse_error
                 "recommendations": [
                     "Package exists but detailed validation failed",
                     "This may be due to permissions or registry configuration",
-                    f"Try: packages_search('{package_name}') to verify package exists",
+                    f"Try: catalog_search('{package_name}') to verify package exists",
                     "Check your registry configuration and permissions",
                 ],
             }
@@ -619,7 +619,7 @@ def package_validate(
         return format_error_response(f"Package validation failed: {str(e)}")
 
 
-def list_package_tools() -> Dict[str, Any]:
+def package_tools_list() -> Dict[str, Any]:
     """
     List all package management tools with usage guidance.
 
@@ -628,10 +628,10 @@ def list_package_tools() -> Dict[str, Any]:
     """
     return {
         "primary_tools": {
-            "create_package_enhanced": {
+            "package_create": {
                 "description": "Main package creation tool with templates and validation",
                 "use_when": "Creating new packages with smart defaults",
-                "example": 'create_package_enhanced("team/dataset", ["s3://bucket/file.csv"])',
+                "example": 'package_create("team/dataset", ["s3://bucket/file.csv"])',
             },
             "package_browse": {
                 "description": "Browse package contents with file tree view",
@@ -648,7 +648,7 @@ def list_package_tools() -> Dict[str, Any]:
             "package_create": {
                 "description": "Basic package creation (legacy)",
                 "use_when": "Simple package creation without templates",
-                "note": "Consider using create_package_enhanced instead",
+                "note": "Consider using package_create instead",
             },
             "package_create_from_s3": {
                 "description": "Advanced S3-to-package creation with organization",
@@ -670,14 +670,14 @@ def list_package_tools() -> Dict[str, Any]:
                 "description": "List packages in registry",
                 "example": 'packages_list(prefix="team/")',
             },
-            "packages_search": {
+            "catalog_search": {
                 "description": "Search packages by content",
-                "example": 'packages_search("genomics")',
+                "example": 'catalog_search("genomics")',
             },
         },
         "workflow_guide": {
             "new_package": [
-                "1. create_package_enhanced() - Create with template",
+                "1. package_create() - Create with template",
                 "2. package_browse() - Verify contents",
                 "3. package_validate() - Check integrity",
                 "4. catalog_url() - Get sharing URL",

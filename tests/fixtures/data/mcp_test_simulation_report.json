@@ -50,7 +50,7 @@
       2
     ],
     [
-      "Implement missing MCP tool: mcp_quilt_create_metadata_from_template",
+      "Implement missing MCP tool: mcp_quilt_metadata_template_create",
       2
     ],
     [
@@ -132,12 +132,12 @@
       "status": "SKIP",
       "execution_time_ms": 0.0,
       "tools_used": [],
-      "error_message": "Missing required tools: ['mcp_quilt_package_create_from_s3', 'mcp_quilt_create_metadata_from_template']",
+      "error_message": "Missing required tools: ['mcp_quilt_package_create_from_s3', 'mcp_quilt_metadata_template_create']",
       "error_type": null,
       "response_summary": null,
       "recommendations": [
         "Implement missing MCP tool: mcp_quilt_package_create_from_s3",
-        "Implement missing MCP tool: mcp_quilt_create_metadata_from_template"
+        "Implement missing MCP tool: mcp_quilt_metadata_template_create"
       ]
     },
     {
@@ -161,12 +161,12 @@
       "status": "SKIP",
       "execution_time_ms": 0.0,
       "tools_used": [],
-      "error_message": "Missing required tools: ['mcp_quilt_create_package', 'mcp_quilt_create_metadata_from_template']",
+      "error_message": "Missing required tools: ['mcp_quilt_create_package', 'mcp_quilt_metadata_template_create']",
       "error_type": null,
       "response_summary": null,
       "recommendations": [
         "Implement missing MCP tool: mcp_quilt_create_package",
-        "Implement missing MCP tool: mcp_quilt_create_metadata_from_template"
+        "Implement missing MCP tool: mcp_quilt_metadata_template_create"
       ]
     },
     {

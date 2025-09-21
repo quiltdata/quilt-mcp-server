@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 import yaml
-from jsonschema import validate, ValidationError
+from jsonschema import validate
 
 
 class MCPTester:
@@ -106,8 +106,8 @@ class MCPTester:
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Call a specific tool."""
         self._log(f"Calling tool: {name}")
-        
-        params = {"name": name}
+
+        params: Dict[str, Any] = {"name": name}
         if arguments:
             params["arguments"] = arguments
             

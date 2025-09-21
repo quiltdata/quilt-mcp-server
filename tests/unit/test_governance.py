@@ -437,23 +437,23 @@ class TestTabulatorAdmin:
     """Test enhanced tabulator administration functions."""
 
     @pytest.mark.asyncio
-    async def test_admin_tabulator_open_query_get_success(self, mock_admin_available):
-        """Test successful open query status retrieval."""
+    async def test_tabular_accessibility_get_success(self, mock_admin_available):
+        """Test successful accessibility status retrieval."""
         with patch(
             "quilt_mcp.tools.governance.admin_tabulator.get_open_query",
             return_value=True,
         ):
-            result = await governance.admin_tabulator_open_query_get()
+            result = await governance.tabular_accessibility_get()
 
             assert result["success"] is True
             assert result["open_query_enabled"] is True
             assert "enabled" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_admin_tabulator_open_query_set_success(self, mock_admin_available):
-        """Test successful open query status setting."""
+    async def test_tabular_accessibility_set_success(self, mock_admin_available):
+        """Test successful accessibility status setting."""
         with patch("quilt_mcp.tools.governance.admin_tabulator.set_open_query"):
-            result = await governance.admin_tabulator_open_query_set(True)
+            result = await governance.tabular_accessibility_set(True)
 
             assert result["success"] is True
             assert result["open_query_enabled"] is True

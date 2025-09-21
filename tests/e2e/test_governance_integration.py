@@ -122,10 +122,10 @@ class TestGovernanceIntegration:
             pytest.skip(f"Integration test failed due to: {e}")
 
     @pytest.mark.asyncio
-    async def test_tabulator_open_query_get_integration(self):
-        """Test tabulator open query status retrieval with real admin API."""
+    async def test_tabular_accessibility_get_integration(self):
+        """Test tabular accessibility status retrieval with real admin API."""
         try:
-            result = await governance.admin_tabulator_open_query_get()
+            result = await governance.tabular_accessibility_get()
 
             # Should succeed if admin privileges are available
             if result["success"]:
