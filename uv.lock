@@ -1930,6 +1930,7 @@ deploy = [
 ]
 dev = [
     { name = "pytest-xdist" },
+    { name = "wheel" },
 ]
 lint = [
     { name = "ruff" },
@@ -1968,7 +1969,10 @@ deploy = [
     { name = "aws-cdk-lib", specifier = ">=2.100.0" },
     { name = "constructs", specifier = ">=10.0.0" },
 ]
-dev = [{ name = "pytest-xdist", specifier = ">=3.8.0" }]
+dev = [
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "wheel", specifier = ">=0.45.1" },
+]
 lint = [{ name = "ruff", specifier = ">=0.1.0" }]
 test = [
     { name = "pytest", specifier = ">=8.0.0" },
@@ -2433,4 +2437,13 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/32/af/d4502dc713b4ccea7175d764718d5183caf8d0867a4f0190d5d4a45cea49/werkzeug-3.1.1.tar.gz", hash = "sha256:8cd39dfbdfc1e051965f156163e2974e52c210f130810e9ad36858f0fd3edad4", size = 806453, upload-time = "2024-11-01T16:40:45.462Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ee/ea/c67e1dee1ba208ed22c06d1d547ae5e293374bfc43e0eb0ef5e262b68561/werkzeug-3.1.1-py3-none-any.whl", hash = "sha256:a71124d1ef06008baafa3d266c02f56e1836a5984afd6dd6c9230669d60d9fb5", size = 224371, upload-time = "2024-11-01T16:40:43.994Z" },
+]
+
+[[package]]
+name = "wheel"
+version = "0.45.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/98/2d9906746cdc6a6ef809ae6338005b3f21bb568bea3165cfc6a243fdc25c/wheel-0.45.1.tar.gz", hash = "sha256:661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729", size = 107545, upload-time = "2024-11-23T00:18:23.513Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl", hash = "sha256:708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248", size = 72494, upload-time = "2024-11-23T00:18:21.207Z" },
 ]
