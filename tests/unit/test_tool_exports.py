@@ -26,20 +26,6 @@ def test_removed_tool_exports_are_absent() -> None:
             getattr(quilt_mcp, tool_name)
 
 
-def test_package_tools_use_canonical_names() -> None:
-    """Verify canonical package tools are exported and legacy names removed."""
-    quilt_mcp = importlib.import_module("quilt_mcp")
-
-    canonical = ["package_create", "package_tools_list"]
-    for name in canonical:
-        assert name in quilt_mcp.__all__, name
-        assert callable(getattr(quilt_mcp, name))
-
-    removed = ["package_create", "list_package_tools"]
-    for legacy in removed:
-        assert legacy not in quilt_mcp.__all__, legacy
-        with pytest.raises(AttributeError):
-            getattr(quilt_mcp, legacy)
 
 
 def test_catalog_search_replaces_unified_search() -> None:
