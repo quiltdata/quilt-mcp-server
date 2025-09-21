@@ -85,69 +85,24 @@ Based on recent commits and test coverage:
 - `test_catalog_search_error_scenarios`: Authentication/URL validation not raising exceptions
 - `test_bucket_objects_search_success`: S3 object search returning different structure
 
-**Integration Tests (7 failures):**
+## Actual Non-Unit Failures
 
-- `test_bucket_objects_list_success`: Empty bucket name validation failing
-- `test_nonexistent_object_handling_consistency`: S3 URI scheme validation changed
-- `test_quilt_tools` (2 instances): Missing bucket configuration in test environment
-- `test_generate_signed_url_expiration_limits`: NoneType startswith() error
-
-**E2E Tests (10 failures):**
-
-- Package management mock expectations outdated
-- Optimization framework changes affecting telemetry
-- Governance workflow integration issues
-- S3/permission check behavior modifications
-
-#### Root Causes
-
-1. **API Contract Changes:** Tool consolidation changed return formats
-2. **Mock Misalignment:** Test mocks expect old function signatures
-3. **Configuration Dependencies:** Integration tests missing AWS/S3 setup
-4. **Validation Logic:** New input validation breaking existing test assumptions
-
-#### Next Steps Required
-
-1. **🔧 Update Test Mocks:** Align mock expectations with new API contracts
-2. **🗃️ Fix Integration Config:** Resolve AWS/S3 configuration in test environment
-3. **📋 Verify Search Logic:** Ensure catalog search consolidation works correctly
-4. **🛠️ Update Validation Tests:** Adjust tests for new input validation behavior
-
-### Phase 1 Completion Status: 85%
-
-**Completed:**
-
-- All tool consolidation and renaming objectives ✅
-- Export validation and testing framework ✅
-- Build system modernization ✅
-- Local development workflow ✅
-- Import compatibility fixes ✅
-
-**Remaining:**
-
-- Test suite compatibility (15%) ❌
-  - 22 test failures due to API changes
-  - Mock alignment needed
-  - Integration test configuration
-- Final PR merge and release tagging ⏳
-
-### Recommendation
-
-**Primary Implementation Complete:** All Phase 1 tool audit objectives achieved. The 22 test failures are compatibility issues from API changes during consolidation, not fundamental implementation problems.
-
-**Decision Point:**
-
-1. **Merge with known test issues:** Accept that some tests need updates post-merge
-2. **Fix tests before merge:** Spend additional time aligning test expectations with new APIs
-3. **Partial deployment:** Merge unit tests (passing) separately from integration tests
-
-**Action Required:**
-
-For each test type (unit, integration, e2e):
-
-- Run `make -B test-"type"`
-- Document the failures in spec/17-tool-audit/09-"type"-status.md
-- save and commit, then annotate whether to fix the test, the mocks, the code, or the environment
-- Implement, and ensure tests pass
-- Commit, and push
-- Go to next type
+Coverage XML written to file build/test-results/coverage-all.xml
+=========================== short test summary info ============================
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_readme_content_extraction_from_metadata - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_readme_field_extraction_from_metadata - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_both_readme_fields_extraction - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_no_readme_content_in_metadata - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_readme_file_creation_failure_handling - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_empty_metadata_handling - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreate::test_metadata_without_readme_fields - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_empty_s3_uris - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_empty_package_name - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_invalid_json_metadata - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_non_dict_non_string_metadata - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_service_error_response - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_package_ops.py::TestPackageCreateErrorHandling::test_package_create_with_service_exception - TypeError: package_create() got an unexpected keyword argument 'package_name'
+FAILED tests/e2e/test_packages_migration.py::TestPackagesMigrationValidation::test_packages_search_delegates_to_catalog_search - AssertionError: Expected 'catalog_search' to be called once. Called 0 times.
+FAILED tests/e2e/test_quilt_tools.py::TestQuiltTools::test_catalog_search_error_scenarios[401 Unauthorized-authentication error] - Failed: DID NOT RAISE <class 'Exception'>
+FAILED tests/e2e/test_quilt_tools.py::TestQuiltTools::test_catalog_search_error_scenarios[Invalid URL - No scheme supplied-configuration error] - Failed: DID NOT RAISE <class 'Exception'>
+FAILED tests/e2e/test_quilt_tools.py::TestQuiltTools::test_catalog_search_success - AssertionError: assert [] == [{'title': 'Package 1', 'metadata': {'name': 'user/package1'}}, {'title': 'Package 2', 'metadata': {'name': 'user/package2'}}]
