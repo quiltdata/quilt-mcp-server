@@ -47,7 +47,6 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@mkdir -p $(BUILD_DIR)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
 	@if [ -f "$(BUILD_DIR)/check-dxt.sh" ]; then chmod +x $(BUILD_DIR)/check-dxt.sh; fi
-	@if [ -f "$(BUILD_DIR)/check-prereqs.sh" ]; then chmod +x $(BUILD_DIR)/check-prereqs.sh; fi
 	@echo "Generating manifest.json from template..."
 	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
 	@rm $(BUILD_DIR)/manifest.json.j2
