@@ -87,8 +87,12 @@ $(DXT_PACKAGE): build-contents
 dxt: $(DXT_PACKAGE)
 	@echo "✅ DXT package created: $(DXT_PACKAGE)"
 
-python-dist:
-	@./bin/release.sh python-dist
+# Python Package Distribution
+python-dist: check-tools
+	@echo "🚀 Building Python artifacts..."
+	@mkdir -p $(DIST_DIR)
+	@python -m build --wheel --sdist --outdir $(DIST_DIR)
+	@echo "✅ Python packaging complete"
 
 python-publish:
 	@./bin/release.sh python-publish

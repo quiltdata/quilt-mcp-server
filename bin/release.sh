@@ -8,28 +8,6 @@ set -e
 REPO_URL=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
 DRY_RUN=${DRY_RUN:-0}
 
-python_dist() {
-    echo "🚀 Starting python-dist workflow"
-
-    if ! command -v uv >/dev/null 2>&1; then
-        echo "❌ uv not found - install uv package manager"
-        return 1
-    fi
-
-    local dist_dir="${DIST_DIR:-dist}"
-    mkdir -p "$dist_dir"
-
-    local build_cmd=(python -m build --wheel --sdist --outdir "$dist_dir")
-
-    if [ "$DRY_RUN" = "1" ]; then
-        echo "🔍 DRY RUN: Would run: ${build_cmd[*]}"
-        return 0
-    fi
-
-    echo "📦 Building Python artifacts into $dist_dir"
-    "${build_cmd[@]}"
-    echo "✅ python-dist packaging complete"
-}
 
 ensure_publish_env() {
     if [ -n "$UV_PUBLISH_TOKEN" ]; then
@@ -58,14 +36,14 @@ python_publish() {
 
     local dist_dir="${DIST_DIR:-dist}"
     if [ ! -d "$dist_dir" ]; then
-        echo "❌ Distribution directory '$dist_dir' does not exist. Run python-dist first."
+        echo "❌ Distribution directory '$dist_dir' does not exist. Run 'make python-dist' first."
         return 1
     fi
 
     local artifact_count
     artifact_count=$(find "$dist_dir" -maxdepth 1 -type f \( -name "*.whl" -o -name "*.tar.gz" \) | wc -l | tr -d ' ')
     if [ "$artifact_count" = "0" ]; then
-        echo "❌ No artifacts found in '$dist_dir'. Run python-dist before publishing."
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' before publishing."
         return 1
     fi
 
@@ -85,7 +63,7 @@ python_publish() {
     fi
 
     if [ ${#artifacts[@]} -eq 0 ]; then
-        echo "❌ No artifacts found in '$dist_dir'. Run python-dist before publishing."
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' before publishing."
         return 1
     fi
 
@@ -365,12 +343,6 @@ case "${1:-}" in
         fi
         tag_release
         ;;
-    "python-dist")
-        if [ "${2:-}" = "--dry-run" ]; then
-            DRY_RUN=1
-        fi
-        python_dist
-        ;;
     "python-publish")
         if [ "${2:-}" = "--dry-run" ]; then
             DRY_RUN=1
@@ -384,12 +356,11 @@ case "${1:-}" in
         bump_version "${2:-}"
         ;;
     *)
-        echo "Usage: $0 {dev|release|python-dist|python-publish|bump} [options]"
+        echo "Usage: $0 {dev|release|python-publish|bump} [options]"
         echo ""
         echo "Commands:"
         echo "  dev              - Create development tag with timestamp"
-        echo "  release          - Create release tag from pyproject.toml version"  
-        echo "  python-dist      - Build Python artifacts (wheel + sdist) with uv"
+        echo "  release          - Create release tag from pyproject.toml version"
         echo "  python-publish   - Publish artifacts to PyPI/TestPyPI via uv"
         echo "  bump {type}      - Bump version in pyproject.toml"
         echo ""
