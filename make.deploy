@@ -91,7 +91,8 @@ dxt: $(DXT_PACKAGE)
 python-dist: check-tools
 	@echo "🚀 Building Python artifacts..."
 	@mkdir -p $(DIST_DIR)
-	@python -m build --wheel --sdist --outdir $(DIST_DIR)
+	@uv sync --group dev
+	@uv run python -m build --wheel --sdist --outdir $(DIST_DIR)
 	@echo "✅ Python packaging complete"
 
 python-publish:
