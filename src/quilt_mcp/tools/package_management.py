@@ -18,7 +18,7 @@ from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
 from ..services.quilt_service import QuiltService
 from .metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     validate_metadata_structure,
     list_metadata_templates,
 )
@@ -127,7 +127,7 @@ def package_create(
 
         # Prepare metadata using template
         try:
-            template_metadata = get_metadata_template(metadata_template)
+            template_metadata = metadata_template_get(metadata_template)
 
             # Add description to metadata
             if description:

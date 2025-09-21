@@ -111,8 +111,8 @@ def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[st
 
     # Metadata template tools - PARTIAL OVERLAP
     metadata_tools = [
-        "get_metadata_template",        # metadata_templates module
-        "create_metadata_from_template" # metadata_examples module
+        "metadata_template_get",        # metadata_templates module
+        "metadata_template_create" # metadata_examples module
     ]
     overlaps["Metadata Templates"] = metadata_tools
 

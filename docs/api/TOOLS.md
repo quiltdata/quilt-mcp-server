@@ -1273,13 +1273,13 @@ result = await mcp_client.call_tool(\"list_metadata_templates\", {})
 }
 ```
 
-#### `get_metadata_template`
+#### `metadata_template_get`
 
 Get a specific metadata template with optional custom fields.
 
 ```python
 # Get genomics template
-result = await mcp_client.call_tool(\"get_metadata_template\", {
+result = await mcp_client.call_tool(\"metadata_template_get\", {
     \"template_name\": \"genomics\",
     \"custom_fields\": {
         \"study_id\": \"CCLE_2024\",
@@ -1306,12 +1306,12 @@ result = await mcp_client.call_tool(\"get_metadata_template\", {
 }
 ```
 
-#### `create_metadata_from_template`
+#### `metadata_template_create`
 
 Create metadata using a template - simplified interface.
 
 ```python
-result = await mcp_client.call_tool(\"create_metadata_from_template\", {
+result = await mcp_client.call_tool(\"metadata_template_create\", {
     \"template_name\": \"genomics\",
     \"description\": \"Human RNA-seq data from CCLE cell lines\",
     \"custom_fields\": {
@@ -2076,7 +2076,7 @@ status = await mcp_client.call_tool(\"workflow_get_status\", {
 | **Search & Discovery** | `unified_search`, `search_suggest`, `packages_search` | Finding data, content discovery |
 | **Analytics** | `athena_query_execute`, `tabulator_tables_list` | Data analysis, SQL queries |
 | **Workflows** | `workflow_create`, `workflow_add_step`, `workflow_get_status` | Process orchestration, automation |
-| **Metadata** | `get_metadata_template`, `validate_metadata_structure` | Data documentation, standardization |
+| **Metadata** | `metadata_template_get`, `validate_metadata_structure` | Data documentation, standardization |
 | **Permissions** | `aws_permissions_discover`, `bucket_access_check` | Security, access validation |
 | **Administration** | `admin_users_list`, `admin_user_create`, `admin_roles_list` | User management, role management |
 

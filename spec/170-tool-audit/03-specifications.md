@@ -77,8 +77,8 @@ This specification **DELETES REDUNDANT TOOLS IMMEDIATELY** with zero deprecation
 
 **KEEP BOTH** but clarify usage:
 
-- `get_metadata_template` - raw template retrieval
-- `create_metadata_from_template` - filled template with validation
+- `metadata_template_get` - raw template retrieval
+- `metadata_template_create` - filled template with validation
 
 NOTE: Rename all metadata tools to start with `metadata_` to allow alphabetical sorting.
 

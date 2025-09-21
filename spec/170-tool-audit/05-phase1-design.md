@@ -27,8 +27,8 @@
   - `unified_search` → `catalog_search`
   - `admin_tabulator_open_query_get` → `tabular_accessibility_get`
   - `admin_tabulator_open_query_set` → `tabular_accessibility_set`
-  - `get_metadata_template` → `metadata_template_get`
-  - `create_metadata_from_template` → `metadata_template_create`
+  - `metadata_template_get` → `metadata_template_get`
+  - `metadata_template_create` → `metadata_template_create`
   - `workflow_list_all` → `workflow_list`
   - `workflow_add_step` → `workflow_step_add`
   - `workflow_update_step` → `workflow_step_update`

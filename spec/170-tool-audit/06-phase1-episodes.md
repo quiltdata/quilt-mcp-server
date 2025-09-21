@@ -37,7 +37,7 @@
 
 ## Episode 5 – Metadata Namespace Prefixing
 
-- **Goal**: Rename metadata helpers (`get_metadata_template`, `create_metadata_from_template`, etc.) to `metadata_template_get` and `metadata_template_create`.
+- **Goal**: Rename metadata helpers (`metadata_template_get`, `metadata_template_create`, etc.) to `metadata_template_get` and `metadata_template_create`.
 - **Red Step**: Add tests confirming the new names are available and legacy names are absent, e.g., in metadata workflow scenarios.
 - **Green Step**: Rename implementations, update imports, adjust docstrings, and revise dependent modules/tests/fixtures.
 - **Refactor Step**: Ensure any metadata registry/list is alphabetized under the new prefix.

@@ -5,7 +5,7 @@ with Quilt packages, addressing common user confusion and validation issues.
 """
 
 from typing import Dict, Any, List
-from .metadata_templates import get_metadata_template, list_metadata_templates
+from .metadata_templates import metadata_template_get, list_metadata_templates
 
 
 def show_metadata_examples() -> Dict[str, Any]:
@@ -149,7 +149,7 @@ def show_metadata_examples() -> Dict[str, Any]:
     }
 
 
-def create_metadata_from_template(
+def metadata_template_create(
     template_name: str = "standard",
     description: str = "",
     custom_fields: Dict[str, Any] = None,
@@ -167,14 +167,14 @@ def create_metadata_from_template(
 
     Examples:
         Basic usage:
-        metadata = create_metadata_from_template("genomics", "Human genome study", {"organism": "human"})
+        metadata = metadata_template_create("genomics", "Human genome study", {"organism": "human"})
 
         Then use in package creation:
         package_create("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
     """
     try:
         # Get base template
-        metadata = get_metadata_template(template_name, custom_fields or {})
+        metadata = metadata_template_get(template_name, custom_fields or {})
 
         # Add description if provided
         if description:

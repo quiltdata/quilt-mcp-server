@@ -289,12 +289,12 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
                 description="List available metadata templates",
             ),
             TestStep(
-                tool_name="get_metadata_template",
+                tool_name="metadata_template_get",
                 args={"template_name": "genomics"},
                 description="Get genomics metadata template",
             ),
             TestStep(
-                tool_name="create_metadata_from_template",
+                tool_name="metadata_template_create",
                 args={
                     "template_name": "genomics",
                     "description": "Genomics dataset for testing",

@@ -10,7 +10,7 @@ from quilt_mcp.tools.package_management import (
     list_package_tools,
 )
 from quilt_mcp.tools.metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     list_metadata_templates,
     validate_metadata_structure,
 )
@@ -228,7 +228,7 @@ class TestMetadataTemplates:
 
     def test_get_standard_template(self):
         """Test getting standard metadata template."""
-        metadata = get_metadata_template("standard")
+        metadata = metadata_template_get("standard")
 
         assert "description" in metadata
         assert "created_by" in metadata
@@ -237,7 +237,7 @@ class TestMetadataTemplates:
 
     def test_get_genomics_template(self):
         """Test getting genomics metadata template."""
-        metadata = get_metadata_template("genomics", {"organism": "human"})
+        metadata = metadata_template_get("genomics", {"organism": "human"})
 
         assert metadata["package_type"] == "genomics"
         assert metadata["organism"] == "human"

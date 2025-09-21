@@ -44,7 +44,7 @@ from .tools.unified_package import (
     quick_start,
 )
 from .tools.metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     list_metadata_templates,
     validate_metadata_structure,
 )
@@ -56,7 +56,7 @@ from .tools.package_management import (
 )
 from .tools.metadata_examples import (
     show_metadata_examples,
-    create_metadata_from_template,
+    metadata_template_create,
     fix_metadata_validation_issues,
 )
 from .tools.governance import (
@@ -131,7 +131,7 @@ __all__ = [
     "quick_start",
     # Enhanced package management
     "package_create",
-    "get_metadata_template",
+    "metadata_template_get",
     "list_metadata_templates",
     "package_tools_list",
     "package_update_metadata",
@@ -139,7 +139,7 @@ __all__ = [
     "validate_metadata_structure",
     # Metadata examples and guidance
     "show_metadata_examples",
-    "create_metadata_from_template",
+    "metadata_template_create",
     "fix_metadata_validation_issues",
     # Quilt summary and visualization tools
     "create_quilt_summary_files",

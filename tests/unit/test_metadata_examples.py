@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from quilt_mcp.tools.metadata_examples import (
     show_metadata_examples,
-    create_metadata_from_template,
+    metadata_template_create,
     fix_metadata_validation_issues,
 )
 
@@ -26,8 +26,8 @@ def test_show_metadata_examples_structure():
     assert set(["standard", "genomics", "ml", "research", "analytics"]).issubset(set(quick["available_templates"]))
 
 
-def test_create_metadata_from_template_success():
-    result = create_metadata_from_template(
+def test_metadata_template_create_success():
+    result = metadata_template_create(
         template_name="ml",
         description="Test dataset",
         custom_fields={"features_count": 10},
@@ -41,12 +41,12 @@ def test_create_metadata_from_template_success():
     assert metadata.get("package_type") in {"ml_dataset", "ml"}
 
 
-def test_create_metadata_from_template_failure():
+def test_metadata_template_create_failure():
     with patch(
-        "quilt_mcp.tools.metadata_examples.get_metadata_template",
+        "quilt_mcp.tools.metadata_examples.metadata_template_get",
         side_effect=Exception("boom"),
     ):
-        result = create_metadata_from_template("unknown", "desc", {"x": 1})
+        result = metadata_template_create("unknown", "desc", {"x": 1})
         assert result["success"] is False
         assert "Failed to create metadata from template" in result["error"]
         assert result["template_requested"] == "unknown"

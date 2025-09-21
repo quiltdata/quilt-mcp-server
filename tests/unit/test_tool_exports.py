@@ -74,3 +74,19 @@ def test_tabulator_accessibility_exports() -> None:
         assert legacy not in quilt_mcp.__all__, legacy
         with pytest.raises(AttributeError):
             getattr(quilt_mcp, legacy)
+
+
+def test_metadata_templates_use_prefixed_names() -> None:
+    """Metadata template helpers expose metadata_ prefixed names."""
+    quilt_mcp = importlib.import_module("quilt_mcp")
+
+    canonical = ["metadata_template_get", "metadata_template_create"]
+    for name in canonical:
+        assert name in quilt_mcp.__all__, name
+        assert callable(getattr(quilt_mcp, name))
+
+    removed = ["get_metadata_template", "create_metadata_from_template"]
+    for legacy in removed:
+        assert legacy not in quilt_mcp.__all__, legacy
+        with pytest.raises(AttributeError):
+            getattr(quilt_mcp, legacy)
