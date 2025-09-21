@@ -166,9 +166,7 @@ class TestAthenaQueryExecute:
 
     @pytest.mark.aws
     @pytest.mark.slow
-    def test_query_execute_with_builtin_credentials(
-        self, require_aws_credentials, athena_service_builtin
-    ):
+    def test_query_execute_with_builtin_credentials(self, require_aws_credentials, athena_service_builtin):
         """Test query execution using built-in AWS credentials (not quilt3)."""
 
         # Use a simple query that should work on any Athena setup

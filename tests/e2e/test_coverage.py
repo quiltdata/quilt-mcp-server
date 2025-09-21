@@ -9,11 +9,7 @@ class TestCoverageE2E:
     def test_e2e_workflow(self):
         """Test end-to-end workflow scenario."""
         # Simple e2e test
-        workflow = {
-            "start": True,
-            "steps": ["prepare", "execute", "validate"],
-            "end": True
-        }
+        workflow = {"start": True, "steps": ["prepare", "execute", "validate"], "end": True}
         assert workflow["start"] is True
         assert len(workflow["steps"]) == 3
         assert workflow["end"] is True
