@@ -406,6 +406,18 @@ The following permissions are granted for this repository:
 - `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
+### Workflow tool renaming
+
+- Canonical workflow exports are `workflow_list`, `workflow_step_add`, `workflow_step_update`, and `workflow_status_get`; confirm `quilt_mcp.__all__` only exposes these names plus the existing `workflow_create` and `workflow_template_apply` helpers.
+- When renaming workflow tools, update `quilt_mcp_tools.csv`, BDD export tests, and `docs/api/TOOLS.md` in the same red→green loop to keep docs/test fixtures aligned.
+- Archived specs retain historical identifiers—focus `rg` sweeps on source, tests, and active docs when verifying old workflow names are gone.
+
+### Export ordering guardrails
+
+- Keep `quilt_mcp.__all__` unique and alphabetical for public tools; constants stay in a header block and admin-only entries (`tabular_accessibility_*`) form the trailing suffix.
+- The export-ordering test (`tests/unit/test_tool_exports.py::test_public_exports_are_sorted_with_admin_suffix`) fails fast on duplicates or misplaced admin names—run it after touching `__all__`.
+- When adjusting exports, run `make lint` to let Ruff normalize formatting before executing the full test suite.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

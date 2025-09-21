@@ -90,9 +90,9 @@ def workflow_create(
             "workflow": workflow,
             "message": f"Workflow '{name}' created successfully",
             "next_steps": [
-                f"Add steps: workflow_add_step('{workflow_id}', 'step-name', 'description')",
+                f"Add steps: workflow_step_add('{workflow_id}', 'step-name', 'description')",
                 f"Start workflow: workflow_start('{workflow_id}')",
-                f"Check status: workflow_get_status('{workflow_id}')",
+                f"Check status: workflow_status_get('{workflow_id}')",
             ],
         }
 
@@ -101,7 +101,7 @@ def workflow_create(
         return format_error_response(f"Failed to create workflow: {str(e)}")
 
 
-def workflow_add_step(
+def workflow_step_add(
     workflow_id: str,
     step_id: str,
     description: str,
@@ -175,7 +175,7 @@ def workflow_add_step(
         return format_error_response(f"Failed to add step: {str(e)}")
 
 
-def workflow_update_step(
+def workflow_step_update(
     workflow_id: str,
     step_id: str,
     status: str,
@@ -278,7 +278,7 @@ def workflow_update_step(
         return format_error_response(f"Failed to update step: {str(e)}")
 
 
-def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
+def workflow_status_get(workflow_id: str) -> Dict[str, Any]:
     """
     Get the current status of a workflow.
 
@@ -340,7 +340,7 @@ def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
         return format_error_response(f"Failed to get workflow status: {str(e)}")
 
 
-def workflow_list_all() -> Dict[str, Any]:
+def workflow_list() -> Dict[str, Any]:
     """
     List all workflows with their current status.
 
@@ -438,7 +438,7 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
 
         # Add all template steps
         for step_config in workflow_config["steps"]:
-            step_result = workflow_add_step(
+            step_result = workflow_step_add(
                 workflow_id=workflow_id,
                 step_id=step_config["id"],
                 description=step_config["description"],
@@ -457,8 +457,8 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
             "workflow": _workflows[workflow_id],
             "message": f"Template '{template_name}' applied successfully",
             "next_steps": [
-                f"Check status: workflow_get_status('{workflow_id}')",
-                f"Start first step: workflow_update_step('{workflow_id}', 'step-1', 'in_progress')",
+                f"Check status: workflow_status_get('{workflow_id}')",
+                f"Start first step: workflow_step_update('{workflow_id}', 'step-1', 'in_progress')",
             ],
         }
 

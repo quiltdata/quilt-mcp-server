@@ -50,29 +50,53 @@
 
 ## Episode 6 – Workflow Tool Re-clustering
 
-- [ ] Add failing tests covering new workflow names and behavior.
-- [ ] Rename functions, registries, payload fixtures.
-- [ ] Run workflow-related tests and `make test`.
-- [ ] Confirm old workflow names removed (`rg`).
+- [x] Add failing tests covering new workflow names and behavior.
+- [x] Rename functions, registries, payload fixtures.
+- [x] Run workflow-related tests and `make test`.
+- [x] Confirm old workflow names removed (`rg`).
 - [ ] Commit after passing suites.
 
 ## Episode 7 – Export Ordering & Transitional Docs
 
-- [ ] Add failing test verifying `__all__` alphabetical ordering and admin grouping.
-- [ ] Reorder exports, update docs (`docs/api/TOOLS.md`, README snippets).
-- [ ] Run `make lint`, `make test`, final `rg` sweeps.
-- [ ] Capture mapping table and doc updates in PR notes.
+- [x] Add failing test verifying `__all__` alphabetical ordering and admin grouping.
+- [x] Reorder exports, update docs (`docs/api/TOOLS.md`, README snippets).
+- [x] Run `make lint`, `make test`, final `rg` sweeps.
+- [x] Capture mapping table and doc updates in PR notes.
 - [ ] Commit after green state.
+
+### Phase 1 Export Mapping (for PR notes)
+
+| Legacy Name | Canonical Name |
+| --- | --- |
+| `create_package_enhanced` | `package_create` |
+| `list_package_tools` | `package_tools_list` |
+| `unified_search` | `catalog_search` |
+| `packages_search` | `catalog_search` |
+| `bucket_objects_search` | `catalog_search` |
+| `admin_tabulator_open_query_get` | `tabular_accessibility_get` |
+| `admin_tabulator_open_query_set` | `tabular_accessibility_set` |
+| `get_metadata_template` | `metadata_template_get` |
+| `create_metadata_from_template` | `metadata_template_create` |
+| `workflow_list_all` | `workflow_list` |
+| `workflow_add_step` | `workflow_step_add` |
+| `workflow_update_step` | `workflow_step_update` |
+| `workflow_get_status` | `workflow_status_get` |
 
 ## Phase Closure
 
 - [ ] Ensure all checklist items checked off.
-- [ ] Confirm `make test` and `make lint` pass on clean tree.
+- [x] Confirm `make test` and `make lint` pass on clean tree.
 - [ ] Update PR description with mapping table, test results, and Phase 1 summary.
-- [ ] Update `CLAUDE.md` with Phase 1 learnings/notes.
+- [x] Update `CLAUDE.md` with Phase 1 learnings/notes.
 - [ ] Commit Phase 1 completion (`feat`/`refactor` summary as appropriate).
 
 ## Hand-off to Phase 2
 
-- [ ] Tag required follow-ups for Phase 2 (automation needs, doc gaps).
-- [ ] Prepare initial notes for Phase 2 design kick-off referencing final export surface.
+- [x] Tag required follow-ups for Phase 2 (automation needs, doc gaps).
+- [x] Prepare initial notes for Phase 2 design kick-off referencing final export surface.
+
+**Phase 2 follow-up notes**
+
+- Automate regeneration of `quilt_mcp_tools.csv` and `docs/api/TOOLS.md` from the canonical `__all__` list to prevent future drift.
+- Review MCP inspector scripts to ensure they surface the renamed workflow tools without relying on deprecated identifiers.
+- Capture integration test updates for workflow orchestration once Phase 2 introduces automation harnesses.
