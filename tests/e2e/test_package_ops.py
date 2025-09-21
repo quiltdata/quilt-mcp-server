@@ -38,8 +38,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -53,10 +53,23 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was processed to remove README content
+        # Verify metadata was processed to remove README content and includes template fields
         processed_metadata = call_args[1]["metadata"]
-        expected_metadata = {"description": "Test package", "tags": ["test", "example"]}
-        assert processed_metadata == expected_metadata
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["tags"] == ["test", "example"]
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert processed_metadata["version"] == "1.0.0"
+        assert "creation_date" in processed_metadata
+
+        # Verify README content was extracted and stored separately
+        assert "_extracted_readme" in processed_metadata
+        assert processed_metadata["_extracted_readme"] == "# Test Package\n\nThis is a test package with README content."
+
+        # Verify original readme_content field was removed from metadata
+        assert "readme_content" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -79,8 +92,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -94,10 +107,22 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was processed to remove README content
+        # Verify metadata was processed to remove README content and includes template fields
         processed_metadata = call_args[1]["metadata"]
-        expected_metadata = {"description": "Test package", "version": "1.0.0"}
-        assert processed_metadata == expected_metadata
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["version"] == "1.0.0"  # User-provided version overrides template
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert "creation_date" in processed_metadata
+
+        # Verify README content was extracted and stored separately
+        assert "_extracted_readme" in processed_metadata
+        assert processed_metadata["_extracted_readme"] == "This is a simple README."
+
+        # Verify original readme field was removed from metadata
+        assert "readme" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -121,8 +146,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -136,10 +161,24 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was processed to remove both README fields
+        # Verify metadata was processed to remove both README fields and includes template fields
         processed_metadata = call_args[1]["metadata"]
-        expected_metadata = {"description": "Test package", "tags": ["test"]}
-        assert processed_metadata == expected_metadata
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["tags"] == ["test"]
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert processed_metadata["version"] == "1.0.0"
+        assert "creation_date" in processed_metadata
+
+        # Verify README content was extracted (readme_content takes priority over readme)
+        assert "_extracted_readme" in processed_metadata
+        assert processed_metadata["_extracted_readme"] == "# Priority README"
+
+        # Verify both original readme fields were removed from metadata
+        assert "readme_content" not in processed_metadata
+        assert "readme" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -158,8 +197,8 @@ class TestPackageCreate:
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -173,9 +212,21 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was passed unchanged
+        # Verify metadata includes template fields (no README extraction needed)
         processed_metadata = call_args[1]["metadata"]
-        assert processed_metadata == test_metadata
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["tags"] == ["test", "example"]
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert processed_metadata["version"] == "1.0.0"
+        assert "creation_date" in processed_metadata
+
+        # No README extraction should happen (no readme fields in input)
+        assert "_extracted_readme" not in processed_metadata
+        assert "readme_content" not in processed_metadata
+        assert "readme" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -199,8 +250,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -214,10 +265,24 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was processed to remove README content
+        # Verify metadata was processed to remove README content and includes template fields
         processed_metadata = call_args[1]["metadata"]
-        expected_metadata = {"description": "Test package", "tags": ["test"]}
-        assert processed_metadata == expected_metadata
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["tags"] == ["test"]
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert processed_metadata["version"] == "1.0.0"
+        assert "creation_date" in processed_metadata
+
+        # Verify README content was extracted and stored separately
+        assert "_extracted_readme" in processed_metadata
+        assert processed_metadata["_extracted_readme"] == "# Test Package\n\nThis is a test package with README content."
+
+        # Verify original readme fields were removed from metadata
+        assert "readme_content" not in processed_metadata
+        assert "readme" not in processed_metadata
 
         # Verify success (README failure handling is now internal to create_package_revision)
         assert result["status"] == "success"
@@ -233,8 +298,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=None,  # No metadata
             registry="s3://test-bucket",
         )
@@ -248,9 +313,18 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata is empty dict
+        # Verify metadata includes standard template (even when input is None)
         processed_metadata = call_args[1]["metadata"]
-        assert processed_metadata == {}
+
+        # Check that standard template fields are present
+        assert processed_metadata["description"] == "Standard data package"
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert processed_metadata["version"] == "1.0.0"
+        assert "creation_date" in processed_metadata
+
+        # No README extraction should happen (no readme fields)
+        assert "_extracted_readme" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -275,8 +349,8 @@ class TestPackageCreate:
         }
 
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/test.txt"],
+            name="test/package",
+            files=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
@@ -290,9 +364,25 @@ class TestPackageCreate:
         assert call_args[1]["registry"] == "s3://test-bucket"
         assert not call_args[1]["auto_organize"]  # package_ops.py should use False
 
-        # Verify metadata was passed unchanged
+        # Verify metadata includes user fields plus template fields
         processed_metadata = call_args[1]["metadata"]
-        assert processed_metadata == test_metadata
+
+        # Check that user-provided fields are preserved
+        assert processed_metadata["description"] == "Test package"
+        assert processed_metadata["version"] == "1.0.0"  # User version overrides template
+        assert processed_metadata["author"] == "test@example.com"
+        assert processed_metadata["tags"] == ["test", "example"]
+        assert processed_metadata["custom_field"] == "custom_value"
+
+        # Check that standard template fields are also present
+        assert processed_metadata["created_by"] == "quilt-mcp-server"
+        assert processed_metadata["package_type"] == "data"
+        assert "creation_date" in processed_metadata
+
+        # No README extraction should happen (no readme fields)
+        assert "_extracted_readme" not in processed_metadata
+        assert "readme_content" not in processed_metadata
+        assert "readme" not in processed_metadata
 
         # Verify success
         assert result["status"] == "success"
@@ -522,35 +612,35 @@ class TestPackageCreateErrorHandling:
 
     def test_package_create_with_empty_s3_uris(self):
         """Test package_create with empty S3 URIs list."""
-        result = package_create(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+        result = package_create(name="test/package", files=[], registry="s3://test-bucket")
 
-        assert result["error"] == "No S3 URIs provided"
+        assert result["error"] == "Invalid files parameter"
 
     def test_package_create_with_empty_package_name(self):
         """Test package_create with empty package name."""
-        result = package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
+        result = package_create(name="", files=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
-        assert result["error"] == "Package name is required"
+        assert result["error"] == "Invalid package name format"
 
     def test_package_create_with_invalid_json_metadata(self):
         """Test package_create with invalid JSON string metadata."""
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
+            name="test/package",
+            files=["s3://bucket/file.txt"],
             metadata='{"invalid": json syntax}',  # Invalid JSON
             registry="s3://test-bucket",
         )
 
         assert result["success"] is False
-        assert result["error"] == "Invalid metadata format"
+        assert result["error"] == "Invalid metadata JSON format"
         assert "json_error" in result
         assert "examples" in result
 
     def test_package_create_with_non_dict_non_string_metadata(self):
         """Test package_create with metadata that's not a dict or string."""
         result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
+            name="test/package",
+            files=["s3://bucket/file.txt"],
             metadata=123,  # Invalid type
             registry="s3://test-bucket",
         )
@@ -569,7 +659,7 @@ class TestPackageCreateErrorHandling:
         }
 
         result = package_create(
-            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+            name="test/package", files=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
 
         assert result["error"] == "Service failed to create package"
@@ -582,7 +672,7 @@ class TestPackageCreateErrorHandling:
         mock_create_revision.side_effect = Exception("Network error")
 
         result = package_create(
-            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+            name="test/package", files=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
 
         assert "Failed to create package: Network error" in result["error"]
