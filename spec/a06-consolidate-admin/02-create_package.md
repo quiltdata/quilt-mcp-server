@@ -336,6 +336,6 @@ The consolidation analysis confirms that `create_package` should be the canonica
 **Final API**:
 
 - `create_package` - Primary interface (enhanced with templates)
-- `package_create_from_s3` - Specialized S3 bulk processing
+- `create_package_from_prefix` - Specialized S3 bulk processing
 
 This consolidation reduces API surface area by 50% while preserving all valuable functionality and eliminating confusing anti-patterns.
