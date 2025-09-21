@@ -96,7 +96,7 @@ python-dist: check-tools
 	@echo "✅ Python packaging complete"
 
 python-publish:
-	@./bin/release.sh python-publish
+	@./scripts/release.sh python-publish
 
 # DXT Package Validation
 dxt-validate: check-tools dxt
@@ -126,18 +126,18 @@ release-tag:
 	@echo "Creating release tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create release tag"; \
-		./bin/release.sh release --dry-run; \
+		./scripts/release.sh release --dry-run; \
 	else \
-		./bin/release.sh release; \
+		./scripts/release.sh release; \
 	fi
 
 release-dev-tag:
 	@echo "Creating development tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create development tag"; \
-		./bin/release.sh dev --dry-run; \
+		./scripts/release.sh dev --dry-run; \
 	else \
-		./bin/release.sh dev; \
+		./scripts/release.sh dev; \
 	fi
 
 # Cleanup Targets

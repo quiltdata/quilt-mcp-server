@@ -79,11 +79,11 @@ coverage-html:
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
-test-scripts: scripts/test/test_*.py | $(RESULTS_DIR)
+test-scripts: scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
-	@if [ -d "scripts/test" ] && [ "$$(find scripts/test -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest scripts/test/ -v; \
+	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "*.py" | wc -l)" -gt 0 ]; then \
+		export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v; \
 	else \
 		echo "No script tests found"; \
 	fi
