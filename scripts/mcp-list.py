@@ -96,7 +96,7 @@ def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
+def identify_overlapping_tools(_tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """Identify tools with overlapping functionality that should be consolidated."""
     overlaps = {}
 
@@ -142,9 +142,8 @@ def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[st
 
     return overlaps
 
-def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str):
+def generate_consolidation_report(_tools: List[Dict[str, Any]], output_file: str):
     """Generate detailed consolidation recommendations."""
-    overlaps = identify_overlapping_tools(tools)
 
     report = {
         "breaking_changes_required": True,
