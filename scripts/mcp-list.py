@@ -13,15 +13,22 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+script_dir = Path(__file__).parent
+repo_root = script_dir.parent
+src_dir = repo_root / "src"
 
-from quilt_mcp.server import create_server
+# Only add to path if not already in PYTHONPATH
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
 
-def extract_tool_metadata(server) -> List[Dict[str, Any]]:
+from quilt_mcp.utils import create_configured_server
+
+async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered tools."""
     tools = []
 
-    for tool_name, handler in server.tools.items():
+    server_tools = await server.get_tools()
+    for tool_name, handler in server_tools.items():
         # Get function signature and docstring
         sig = inspect.signature(handler.fn)
         doc = inspect.getdoc(handler.fn) or "No description available"
@@ -89,7 +96,7 @@ def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
+def identify_overlapping_tools(_tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """Identify tools with overlapping functionality that should be consolidated."""
     overlaps = {}
 
@@ -135,9 +142,8 @@ def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[st
 
     return overlaps
 
-def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str):
+def generate_consolidation_report(_tools: List[Dict[str, Any]], output_file: str):
     """Generate detailed consolidation recommendations."""
-    overlaps = identify_overlapping_tools(tools)
 
     report = {
         "breaking_changes_required": True,
@@ -207,27 +213,28 @@ def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str)
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
-def main():
+async def main():
     """Generate all canonical tool listings."""
     print("🔍 Extracting tools from MCP server...")
 
     # Create server instance to introspect tools
-    server = create_server()
-    tools = extract_tool_metadata(server)
+    server = create_configured_server(verbose=False)
+    tools = await extract_tool_metadata(server)
 
     print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
 
     # Generate outputs
     output_dir = Path(__file__).parent.parent
+    tests_fixtures_dir = output_dir / "tests" / "fixtures"
 
     print("📝 Generating CSV output...")
-    generate_csv_output(tools, output_dir / "quilt_mcp_tools_canonical.csv")
+    generate_csv_output(tools, str(tests_fixtures_dir / "mcp-list.csv"))
 
     print("📋 Generating JSON metadata...")
-    generate_json_output(tools, output_dir / "build" / "tools_metadata.json")
+    generate_json_output(tools, str(output_dir / "build" / "tools_metadata.json"))
 
     print("⚠️  Generating consolidation report...")
-    generate_consolidation_report(tools, output_dir / "build" / "consolidation_report.json")
+    generate_consolidation_report(tools, str(output_dir / "build" / "consolidation_report.json"))
 
     # Print summary
     overlaps = identify_overlapping_tools(tools)
@@ -240,9 +247,10 @@ def main():
 
     print("✅ Canonical tool listings generated!")
     print("📂 Files created:")
-    print("   - quilt_mcp_tools_canonical.csv")
+    print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
     print("   - build/consolidation_report.json")
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())

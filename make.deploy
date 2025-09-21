@@ -11,7 +11,7 @@ DIST_DIR := dist
 # Variables
 DXT_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
-MANIFEST_VERSION := $(shell python3 scripts/version-utils.py get-version 2>/dev/null || echo "dev")
+MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
 DXT_PACKAGE := $(PACKAGE_ID).dxt
@@ -47,7 +47,6 @@ $(ASSETS_MARKER): $(ASSET_FILES)
 	@mkdir -p $(BUILD_DIR)
 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
 	@if [ -f "$(BUILD_DIR)/check-dxt.sh" ]; then chmod +x $(BUILD_DIR)/check-dxt.sh; fi
-	@if [ -f "$(BUILD_DIR)/check-prereqs.sh" ]; then chmod +x $(BUILD_DIR)/check-prereqs.sh; fi
 	@echo "Generating manifest.json from template..."
 	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
 	@rm $(BUILD_DIR)/manifest.json.j2
@@ -96,7 +95,7 @@ python-dist: check-tools
 	@echo "✅ Python packaging complete"
 
 python-publish:
-	@./bin/release.sh python-publish
+	@./scripts/release.sh python-publish
 
 # DXT Package Validation
 dxt-validate: check-tools dxt
@@ -126,18 +125,18 @@ release-tag:
 	@echo "Creating release tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create release tag"; \
-		./bin/release.sh release --dry-run; \
+		./scripts/release.sh release --dry-run; \
 	else \
-		./bin/release.sh release; \
+		./scripts/release.sh release; \
 	fi
 
 release-dev-tag:
 	@echo "Creating development tag..."
 	@if [ "${DRY_RUN}" = "1" ]; then \
 		echo "🔍 DRY RUN: Would create development tag"; \
-		./bin/release.sh dev --dry-run; \
+		./scripts/release.sh dev --dry-run; \
 	else \
-		./bin/release.sh dev; \
+		./scripts/release.sh dev; \
 	fi
 
 # Cleanup Targets
