@@ -478,7 +478,7 @@ class CCLEDirectTester:
 
         # Step 1: Test package creation for sharing
         try:
-            package_create = package_management.create_package_enhanced(
+            package_create = package_management.package_create(
                 name=f"ccle/breast-cancer-subset-{int(time.time())}",
                 files=["s3://quilt-sandbox-bucket/ccle/breast-samples.csv"],
                 description="CCLE breast cancer cell lines for collaborative study",
@@ -488,7 +488,7 @@ class CCLEDirectTester:
 
             if package_create.get("success"):
                 result["steps_completed"].append("collaborative_package_creation")
-                result["tools_used"].append("create_package_enhanced")
+                result["tools_used"].append("package_create")
                 result["recommendations"].append("Package creation available for data sharing")
                 print("      ✅ Collaborative package creation successful")
             else:

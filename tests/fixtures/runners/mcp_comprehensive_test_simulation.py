@@ -76,7 +76,7 @@ class MCPTestSimulator:
             "mcp_quilt_bucket_object_link",
             "mcp_quilt_aws_permissions_discover",
             "mcp_quilt_bucket_access_check",
-            "mcp_quilt_create_package_enhanced",
+            "mcp_quilt_package_create",
             "mcp_quilt_validate_metadata_structure",
             "mcp_quilt_metadata_template_get",
             "mcp_quilt_list_metadata_templates",
@@ -196,7 +196,7 @@ class MCPTestSimulator:
     ) -> TestResult:
         """Simulate package creation/update tests"""
         creation_tools = [
-            "mcp_quilt_create_package_enhanced",
+            "mcp_quilt_package_create",
             "mcp_quilt_package_create",
             "mcp_quilt_package_create_from_s3",
         ]

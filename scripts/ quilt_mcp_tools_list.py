@@ -97,7 +97,7 @@ def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[st
     package_creation = [
         "package_create",           # package_ops module - basic creation
         "create_package",          # unified_package module - unified interface
-        "create_package_enhanced", # package_management module - enhanced with templates
+        "package_create", # package_management module - enhanced with templates
         "package_create_from_s3"   # s3_package module - from S3 sources
     ]
     overlaps["Package Creation"] = package_creation
@@ -145,13 +145,13 @@ def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str)
     # Package Creation Consolidation
     report["consolidation_plan"]["package_creation"] = {
         "action": "BREAK_COMPATIBILITY",
-        "keep": "create_package_enhanced",
+        "keep": "package_create",
         "deprecate": ["package_create", "create_package", "package_create_from_s3"],
-        "rationale": "create_package_enhanced provides all functionality with templates and validation",
+        "rationale": "package_create provides all functionality with templates and validation",
         "migration": {
-            "package_create": "Replace with create_package_enhanced(copy_mode='all')",
-            "create_package": "Replace with create_package_enhanced(auto_organize=True)",
-            "package_create_from_s3": "Replace with create_package_enhanced(files=[bucket_prefix])"
+            "package_create": "Replace with package_create(copy_mode='all')",
+            "create_package": "Replace with package_create(auto_organize=True)",
+            "package_create_from_s3": "Replace with package_create(files=[bucket_prefix])"
         }
     }
 

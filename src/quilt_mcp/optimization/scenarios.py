@@ -33,7 +33,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="List available files",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "test/basic-package",
                     "files": ["s3://quilt-sandbox-bucket/sample.csv"],
@@ -447,7 +447,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Top-level browse (faster)",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "test/optimized-package",
                     "files": ["s3://quilt-sandbox-bucket/data/sample.csv"],
@@ -522,7 +522,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Query without LIMIT (inefficient)",
             ),
             TestStep(
-                tool_name="create_package_enhanced",
+                tool_name="package_create",
                 args={
                     "name": "genomics/analysis-results",
                     "files": ["s3://quilt-sandbox-bucket/genomics/results.vcf"],

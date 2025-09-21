@@ -35,7 +35,7 @@ def test_package_tools_use_canonical_names() -> None:
         assert name in quilt_mcp.__all__, name
         assert callable(getattr(quilt_mcp, name))
 
-    removed = ["create_package_enhanced", "list_package_tools"]
+    removed = ["package_create", "list_package_tools"]
     for legacy in removed:
         assert legacy not in quilt_mcp.__all__, legacy
         with pytest.raises(AttributeError):
