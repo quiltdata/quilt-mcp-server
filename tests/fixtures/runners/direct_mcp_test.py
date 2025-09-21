@@ -11,7 +11,7 @@ import json
 import time
 import sys
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any
 import traceback
 
 # Add the app directory to the path
@@ -49,13 +49,18 @@ class DirectMCPTester:
             if tool_name not in self.tools:
                 raise ValueError(f"Tool '{tool_name}' not found")
 
-            tool_func = self.tools[tool_name]
+            tool_obj = self.tools[tool_name]
 
-            # Call the tool function directly
-            if asyncio.iscoroutinefunction(tool_func):
-                result = await tool_func(**arguments)
+            # Call the tool - handle both FunctionTool objects and raw callables
+            if hasattr(tool_obj, "run"):
+                result = await tool_obj.run(**arguments)
+            elif callable(tool_obj):
+                if asyncio.iscoroutinefunction(tool_obj):
+                    result = await tool_obj(**arguments)
+                else:
+                    result = tool_obj(**arguments)
             else:
-                result = tool_func(**arguments)
+                raise ValueError(f"Tool '{tool_name}' is not callable")
 
             end_time = time.time()
 
@@ -82,17 +87,30 @@ class DirectMCPTester:
         tools_info = []
         for tool_name, tool_func in self.tools.items():
             try:
-                # Get function signature
+                # Get function signature - handle Tool objects
                 import inspect
 
-                sig = inspect.signature(tool_func)
+                if hasattr(tool_func, "run"):
+                    sig = inspect.signature(tool_func.run)
+                elif callable(tool_func):
+                    sig = inspect.signature(tool_func)
+                else:
+                    raise ValueError(f"Cannot inspect tool {tool_name}")
                 params = list(sig.parameters.keys())
+
+                # Check if it's async
+                if hasattr(tool_func, "run"):
+                    is_async = asyncio.iscoroutinefunction(tool_func.run)
+                elif callable(tool_func):
+                    is_async = asyncio.iscoroutinefunction(tool_func)
+                else:
+                    is_async = False
 
                 tools_info.append(
                     {
                         "name": tool_name,
                         "parameters": params,
-                        "is_async": asyncio.iscoroutinefunction(tool_func),
+                        "is_async": is_async,
                     }
                 )
             except Exception as e:
