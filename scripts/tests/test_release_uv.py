@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RELEASE_SCRIPT = REPO_ROOT / "bin" / "release.sh"
+RELEASE_SCRIPT = REPO_ROOT / "scripts" / "release.sh"
 
 
 
