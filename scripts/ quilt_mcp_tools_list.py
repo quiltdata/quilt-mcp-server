@@ -118,18 +118,15 @@ def identify_overlapping_tools(tools: List[Dict[str, Any]]) -> Dict[str, List[st
 
     # Search tools - CONSOLIDATION NEEDED
     search_tools = [
-        "packages_search",           # packages module - package-specific
+        "catalog_search",            # unified catalog search
         "bucket_objects_search",     # buckets module - S3-specific
-        "unified_search"            # search module - unified interface
     ]
     overlaps["Search Functions"] = search_tools
 
     # Tabulator admin overlap - DUPLICATE FUNCTIONALITY
     tabulator_admin = [
-        "tabulator_open_query_status",    # tabulator module
-        "tabulator_open_query_toggle",    # tabulator module
-        "admin_tabulator_open_query_get", # governance module
-        "admin_tabulator_open_query_set"  # governance module
+        "tabular_accessibility_get",   # governance module
+        "tabular_accessibility_set",   # governance module
     ]
     overlaps["Tabulator Admin"] = tabulator_admin
 
@@ -161,12 +158,12 @@ def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str)
     # Search Consolidation
     report["consolidation_plan"]["search"] = {
         "action": "BREAK_COMPATIBILITY",
-        "keep": "unified_search",
+        "keep": "catalog_search",
         "deprecate": ["packages_search", "bucket_objects_search"],
-        "rationale": "unified_search handles all search scenarios with backend selection",
+        "rationale": "catalog_search handles catalog and package scenarios with backend selection",
         "migration": {
-            "packages_search": "Replace with unified_search(scope='catalog')",
-            "bucket_objects_search": "Replace with unified_search(scope='bucket', target=bucket)"
+            "packages_search": "Replace with catalog_search(scope='catalog')",
+            "bucket_objects_search": "Replace with catalog_search(scope='bucket', target=bucket)"
         }
     }
 
@@ -184,12 +181,12 @@ def generate_consolidation_report(tools: List[Dict[str, Any]], output_file: str)
     # Tabulator Admin Consolidation
     report["consolidation_plan"]["tabulator_admin"] = {
         "action": "BREAK_COMPATIBILITY",
-        "keep": ["admin_tabulator_open_query_get", "admin_tabulator_open_query_set"],
+        "keep": ["tabular_accessibility_get", "tabular_accessibility_set"],
         "deprecate": ["tabulator_open_query_status", "tabulator_open_query_toggle"],
-        "rationale": "Admin tools provide proper permissions model",
+        "rationale": "Governance tools provide proper permissions model",
         "migration": {
-            "tabulator_open_query_status": "Replace with admin_tabulator_open_query_get",
-            "tabulator_open_query_toggle": "Replace with admin_tabulator_open_query_set"
+            "tabulator_open_query_status": "Replace with tabular_accessibility_get",
+            "tabulator_open_query_toggle": "Replace with tabular_accessibility_set"
         }
     }
 

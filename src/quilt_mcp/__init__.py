@@ -59,6 +59,10 @@ from .tools.metadata_examples import (
     create_metadata_from_template,
     fix_metadata_validation_issues,
 )
+from .tools.governance import (
+    tabular_accessibility_get,
+    tabular_accessibility_set,
+)
 from .tools.quilt_summary import (
     create_quilt_summary_files,
     generate_quilt_summarize_json,
@@ -119,6 +123,9 @@ __all__ = [
     "aws_permissions_discover",
     "bucket_access_check",
     "bucket_recommendations_get",
+    # Governance tools
+    "tabular_accessibility_get",
+    "tabular_accessibility_set",
     # Unified tools
     "list_available_resources",
     "quick_start",

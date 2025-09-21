@@ -52,3 +52,25 @@ def test_catalog_search_replaces_unified_search() -> None:
     assert "unified_search" not in quilt_mcp.__all__
     with pytest.raises(AttributeError):
         quilt_mcp.unified_search
+
+
+def test_tabulator_accessibility_exports() -> None:
+    """Tabulator accessibility tools expose canonical names only."""
+    quilt_mcp = importlib.import_module("quilt_mcp")
+
+    assert "tabular_accessibility_get" in quilt_mcp.__all__
+    assert callable(quilt_mcp.tabular_accessibility_get)
+
+    assert "tabular_accessibility_set" in quilt_mcp.__all__
+    assert callable(quilt_mcp.tabular_accessibility_set)
+
+    removed = [
+        "tabulator_open_query_status",
+        "tabulator_open_query_toggle",
+        "admin_tabulator_open_query_get",
+        "admin_tabulator_open_query_set",
+    ]
+    for legacy in removed:
+        assert legacy not in quilt_mcp.__all__, legacy
+        with pytest.raises(AttributeError):
+            getattr(quilt_mcp, legacy)

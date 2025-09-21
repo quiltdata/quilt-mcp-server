@@ -724,13 +724,8 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
 # Enhanced Tabulator Administration Functions
 
 
-async def admin_tabulator_open_query_get() -> Dict[str, Any]:
-    """
-    Get the current tabulator open query status.
-
-    Returns:
-        Dict containing open query status
-    """
+async def tabular_accessibility_get() -> Dict[str, Any]:
+    """Fetch the current tabulator accessibility status."""
     try:
         service = GovernanceService()
         error_check = service._check_admin_available()
@@ -743,24 +738,16 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         return {
             "success": True,
             "open_query_enabled": open_query_enabled,
-            "message": f"Open query is {'enabled' if open_query_enabled else 'disabled'}",
+            "message": f"Tabular accessibility is {'enabled' if open_query_enabled else 'disabled'}",
         }
 
     except Exception as e:
         service = GovernanceService()
-        return service._handle_admin_error(e, "get tabulator open query status")
+        return service._handle_admin_error(e, "retrieve tabular accessibility status")
 
 
-async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
-    """
-    Set the tabulator open query status.
-
-    Args:
-        enabled: Whether to enable open query
-
-    Returns:
-        Dict containing update result
-    """
+async def tabular_accessibility_set(enabled: bool) -> Dict[str, Any]:
+    """Update the tabulator accessibility status."""
     try:
         service = GovernanceService()
         error_check = service._check_admin_available()
@@ -773,9 +760,9 @@ async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
         return {
             "success": True,
             "open_query_enabled": enabled,
-            "message": f"Successfully {'enabled' if enabled else 'disabled'} tabulator open query",
+            "message": f"Successfully {'enabled' if enabled else 'disabled'} tabular accessibility",
         }
 
     except Exception as e:
         service = GovernanceService()
-        return service._handle_admin_error(e, "set tabulator open query status")
+        return service._handle_admin_error(e, "update tabular accessibility status")

@@ -26,8 +26,8 @@ governance,admin_roles_list,"admin_roles_list() -> Dict[str, Any]",List all avai
 governance,admin_sso_config_get,"admin_sso_config_get() -> Dict[str, Any]",Get the current SSO configuration.,True,quilt_mcp.tools.governance
 governance,admin_sso_config_remove,"admin_sso_config_remove() -> Dict[str, Any]",Remove the SSO configuration.,True,quilt_mcp.tools.governance
 governance,admin_sso_config_set,"admin_sso_config_set(config: str) -> Dict[str, Any]",Set the SSO configuration.,True,quilt_mcp.tools.governance
-governance,admin_tabulator_open_query_get,"admin_tabulator_open_query_get() -> Dict[str, Any]",Get the current tabulator open query status.,True,quilt_mcp.tools.governance
-governance,admin_tabulator_open_query_set,"admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]",Set the tabulator open query status.,True,quilt_mcp.tools.governance
+governance,tabular_accessibility_get,"tabular_accessibility_get() -> Dict[str, Any]",Get the current tabular accessibility status.,True,quilt_mcp.tools.governance
+governance,tabular_accessibility_set,"tabular_accessibility_set(enabled: bool) -> Dict[str, Any]",Update the tabular accessibility status.,True,quilt_mcp.tools.governance
 governance,admin_user_add_roles,"admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]",Add roles to a user.,True,quilt_mcp.tools.governance
 governance,admin_user_create,"admin_user_create(name: str, email: str, role: str, extra_roles: Optional[List[str]] = None) -> Dict[str, Any]",Create a new user in the registry.,True,quilt_mcp.tools.governance
 governance,admin_user_delete,"admin_user_delete(name: str) -> Dict[str, Any]",Delete a user from the registry.,True,quilt_mcp.tools.governance
@@ -68,8 +68,6 @@ search,search_explain,"search_explain(query: str, scope: str = 'global', target:
 search,search_suggest,"search_suggest(partial_query: str, context: str = '', suggestion_types: Optional[List[str]] = None, limit: int = 10) -> Dict[str, Any]",Get intelligent search suggestions based on partial queries and context.,False,quilt_mcp.tools.search
 search,unified_search,"unified_search(query: str, scope: str = 'global', target: str = '', backends: Optional[List[str]] = None, limit: int = 50, include_metadata: bool = True, include_content_preview: bool = False, explain_query: bool = False, filters: Optional[Dict[str, Any]] = None, count_only: bool = False) -> Dict[str, Any]","Intelligent unified search across Quilt catalogs, packages, and S3 buckets.",False,quilt_mcp.tools.search
 tabulator,get_tabulator_service,get_tabulator_service() -> quilt_mcp.tools.tabulator.TabulatorService,Get or create the tabulator service instance.,False,quilt_mcp.tools.tabulator
-tabulator,tabulator_open_query_status,"tabulator_open_query_status() -> Dict[str, Any]",Get the current status of tabulator open query feature.,True,quilt_mcp.tools.tabulator
-tabulator,tabulator_open_query_toggle,"tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]",Enable or disable tabulator open query feature.,True,quilt_mcp.tools.tabulator
 tabulator,tabulator_table_create,"tabulator_table_create(bucket_name: str, table_name: str, schema: List[Dict[str, str]], package_pattern: str, logical_key_pattern: str, parser_format: str = 'csv', parser_delimiter: str = None, parser_header: bool = True, parser_skip_rows: int = 0, description: str = None) -> Dict[str, Any]",Create a new tabulator table configuration.,True,quilt_mcp.tools.tabulator
 tabulator,tabulator_table_delete,"tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str, Any]",Delete a tabulator table configuration.,True,quilt_mcp.tools.tabulator
 tabulator,tabulator_table_rename,"tabulator_table_rename(bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]",Rename a tabulator table.,True,quilt_mcp.tools.tabulator
