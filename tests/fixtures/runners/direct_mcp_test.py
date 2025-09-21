@@ -17,7 +17,7 @@ import traceback
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
 
-from quilt_mcp.utils import create_mcp_server, register_tools
+from quilt_mcp.utils import create_configured_server
 
 
 class DirectMCPTester:
@@ -26,19 +26,17 @@ class DirectMCPTester:
     def __init__(self):
         self.server = None
         self.tools = {}
-        self.setup_server()
 
-    def setup_server(self):
+    async def setup_server(self):
         """Set up the MCP server and extract tools"""
         print("🚀 Setting up MCP server...")
         try:
-            self.server = create_mcp_server()
-            tool_count = register_tools(self.server, verbose=False)
+            self.server = create_configured_server(verbose=False)
 
             # Extract tools from the server
-            self.tools = self.server.get_tools()
+            self.tools = await self.server.get_tools()
 
-            print(f"✅ MCP server ready with {tool_count} tools")
+            print(f"✅ MCP server ready with {len(self.tools)} tools")
             print(f"✅ Extracted {len(self.tools)} callable tools")
         except Exception as e:
             print(f"❌ Server setup failed: {e}")
@@ -344,6 +342,7 @@ async def main():
 
     try:
         tester = DirectMCPTester()
+        await tester.setup_server()
         results = await tester.run_comprehensive_test()
 
         print("\n" + "=" * 70)
