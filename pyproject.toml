@@ -1,17 +1,17 @@
 [project]
-name = "quilt-mcp-server"
-version = "0.6.9"
+name = "quilt-mcp"
+version = "0.6.10"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "Apache-2.0"}
+license = {file = "LICENSE.txt"}
 authors = [
     {name = "Quilt Data", email = "support@quilt.bio"}
 ]
 maintainers = [
     {name = "Quilt Data", email = "support@quilt.bio"}
 ]
-keywords = ["mcp", "quilt", "data", "server", "jwt", "authentication"]
+keywords = ["mcp", "model-context-protocol", "claude", "quilt", "data", "analytics", "science", "server", "aws", "s3", "authentication"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
