@@ -470,7 +470,7 @@ def filesystem_status() -> dict[str, Any]:
                 "catalog_uri",
                 "filesystem_status",
                 "packages_list",
-                "packages_search",
+                "catalog_search",
                 "package_browse",
                 "package_contents_search",
                 "package_create",

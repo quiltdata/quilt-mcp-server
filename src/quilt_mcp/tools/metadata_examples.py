@@ -5,7 +5,7 @@ with Quilt packages, addressing common user confusion and validation issues.
 """
 
 from typing import Dict, Any, List
-from .metadata_templates import get_metadata_template, list_metadata_templates
+from .metadata_templates import metadata_template_get, list_metadata_templates
 
 
 def show_metadata_examples() -> Dict[str, Any]:
@@ -33,12 +33,12 @@ def show_metadata_examples() -> Dict[str, Any]:
                 "template_based": {
                     "description": "Use metadata templates (recommended)",
                     "example": "Uses pre-configured templates for common domains",
-                    "usage": 'create_package_enhanced("genomics/study", ["s3://bucket/data.vcf"], metadata_template="genomics")',
+                    "usage": 'package_create("genomics/study", ["s3://bucket/data.vcf"], metadata_template="genomics")',
                 },
                 "template_with_custom": {
                     "description": "Combine templates with custom fields",
                     "example": "Template provides structure, custom fields add specifics",
-                    "usage": 'create_package_enhanced("ml/training", files, metadata_template="ml", metadata={"model_type": "regression"})',
+                    "usage": 'package_create("ml/training", files, metadata_template="ml", metadata={"model_type": "regression"})',
                 },
             },
             "common_patterns": {
@@ -50,7 +50,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "duration_months": 12,
                         "primary_endpoint": "efficacy",
                     },
-                    "usage": 'create_package_enhanced("research/trial-2024", files, metadata_template="research", metadata={"study_type": "clinical_trial"})',
+                    "usage": 'package_create("research/trial-2024", files, metadata_template="research", metadata={"study_type": "clinical_trial"})',
                 },
                 "genomics_data": {
                     "template": "genomics",
@@ -61,7 +61,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "read_length": 150,
                         "coverage": "30x",
                     },
-                    "usage": 'create_package_enhanced("genomics/wgs-study", files, metadata_template="genomics", metadata={"organism": "human"})',
+                    "usage": 'package_create("genomics/wgs-study", files, metadata_template="genomics", metadata={"organism": "human"})',
                 },
                 "ml_dataset": {
                     "template": "ml",
@@ -72,7 +72,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "model_ready": True,
                         "split_ratios": {"train": 0.7, "val": 0.15, "test": 0.15},
                     },
-                    "usage": 'create_package_enhanced("ml/housing-prices", files, metadata_template="ml", metadata={"target_variable": "price"})',
+                    "usage": 'package_create("ml/housing-prices", files, metadata_template="ml", metadata={"target_variable": "price"})',
                 },
                 "business_analytics": {
                     "template": "analytics",
@@ -82,7 +82,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "metrics_included": ["revenue", "conversion", "retention"],
                         "dashboard_ready": True,
                     },
-                    "usage": 'create_package_enhanced("analytics/q1-sales", files, metadata_template="analytics", metadata={"analysis_period": "Q1-2024"})',
+                    "usage": 'package_create("analytics/q1-sales", files, metadata_template="analytics", metadata={"analysis_period": "Q1-2024"})',
                 },
             },
         },
@@ -149,7 +149,7 @@ def show_metadata_examples() -> Dict[str, Any]:
     }
 
 
-def create_metadata_from_template(
+def metadata_template_create(
     template_name: str = "standard",
     description: str = "",
     custom_fields: Dict[str, Any] = None,
@@ -167,14 +167,14 @@ def create_metadata_from_template(
 
     Examples:
         Basic usage:
-        metadata = create_metadata_from_template("genomics", "Human genome study", {"organism": "human"})
+        metadata = metadata_template_create("genomics", "Human genome study", {"organism": "human"})
 
         Then use in package creation:
         package_create("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
     """
     try:
         # Get base template
-        metadata = get_metadata_template(template_name, custom_fields or {})
+        metadata = metadata_template_get(template_name, custom_fields or {})
 
         # Add description if provided
         if description:
@@ -185,7 +185,7 @@ def create_metadata_from_template(
             "metadata": metadata,
             "template_used": template_name,
             "field_count": len(metadata),
-            "usage_tip": "Use this metadata in package_create() or create_package_enhanced()",
+            "usage_tip": "Use this metadata in package_create() or package_create()",
             "example_usage": f'package_create("team/package", ["s3://bucket/file.csv"], metadata={str(metadata)})',
         }
 
@@ -268,7 +268,7 @@ def fix_metadata_validation_issues() -> Dict[str, Any]:
             "Use validate_metadata_structure() to check format before creation",
         ],
         "recommended_workflow": [
-            "1. Use create_package_enhanced() as primary tool (best error handling)",
+            "1. Use package_create() as primary tool (best error handling)",
             "2. Start with metadata templates: metadata_template='standard'",
             "3. Add custom fields via metadata parameter",
             "4. Use dry_run=True to preview before creation",

@@ -32,55 +32,66 @@ from .tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
 )
-from .tools.package_ops import package_create, package_delete, package_update
-from .tools.s3_package import package_create_from_s3
+from .tools.package_ops import package_delete, package_update
 from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
     bucket_recommendations_get,
 )
 from .tools.unified_package import (
-    create_package,
     list_available_resources,
     quick_start,
 )
 from .tools.metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     list_metadata_templates,
     validate_metadata_structure,
 )
 from .tools.package_management import (
-    create_package_enhanced,
+    package_create,
     package_update_metadata,
     package_validate,
-    list_package_tools,
+    package_tools_list,
 )
 from .tools.metadata_examples import (
     show_metadata_examples,
-    create_metadata_from_template,
+    metadata_template_create,
     fix_metadata_validation_issues,
+)
+from .tools.governance import (
+    tabular_accessibility_get,
+    tabular_accessibility_set,
 )
 from .tools.quilt_summary import (
     create_quilt_summary_files,
     generate_quilt_summarize_json,
     generate_package_visualizations,
 )
+from .tools.search import (
+    catalog_search,
+    search_explain,
+    search_suggest,
+)
 from .tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
     packages_list,
-    packages_search,
 )
 from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
-    tabulator_open_query_status,
-    tabulator_open_query_toggle,
+)
+from .tools.workflow_orchestration import (
+    workflow_create,
+    workflow_step_add,
+    workflow_step_update,
+    workflow_status_get,
+    workflow_list,
+    workflow_template_apply,
 )
 
 __version__ = "0.5.6"
@@ -92,62 +103,59 @@ __all__ = [
     "KNOWN_TEST_PACKAGE",
     "KNOWN_TEST_ENTRY",
     "KNOWN_TEST_S3_OBJECT",
-    # Auth tools
+    # Public tools (alphabetical)
     "auth_status",
-    "catalog_info",
-    "catalog_name",
-    "catalog_url",
-    "catalog_uri",
-    "configure_catalog",
-    "filesystem_status",
-    "switch_catalog",
-    # Bucket tools
+    "aws_permissions_discover",
+    "bucket_access_check",
+    "bucket_object_fetch",
     "bucket_object_info",
+    "bucket_object_link",
     "bucket_object_text",
     "bucket_objects_list",
     "bucket_objects_put",
-    "bucket_object_fetch",
-    "bucket_object_link",
-    "bucket_objects_search",
-    # Package tools
+    "bucket_recommendations_get",
+    "catalog_info",
+    "catalog_name",
+    "catalog_search",
+    "catalog_uri",
+    "catalog_url",
+    "configure_catalog",
+    "create_quilt_summary_files",
+    "filesystem_status",
+    "fix_metadata_validation_issues",
+    "generate_package_visualizations",
+    "generate_quilt_summarize_json",
+    "list_available_resources",
+    "list_metadata_templates",
+    "metadata_template_create",
+    "metadata_template_get",
     "package_browse",
     "package_contents_search",
     "package_create",
-    "package_create_from_s3",
     "package_delete",
     "package_diff",
+    "package_tools_list",
     "package_update",
-    "packages_list",
-    "packages_search",
-    # Permission tools
-    "aws_permissions_discover",
-    "bucket_access_check",
-    "bucket_recommendations_get",
-    # Unified tools
-    "create_package",
-    "list_available_resources",
-    "quick_start",
-    # Enhanced package management
-    "create_package_enhanced",
-    "get_metadata_template",
-    "list_metadata_templates",
-    "list_package_tools",
     "package_update_metadata",
     "package_validate",
-    "validate_metadata_structure",
-    # Metadata examples and guidance
+    "packages_list",
+    "quick_start",
+    "search_explain",
+    "search_suggest",
     "show_metadata_examples",
-    "create_metadata_from_template",
-    "fix_metadata_validation_issues",
-    # Quilt summary and visualization tools
-    "create_quilt_summary_files",
-    "generate_quilt_summarize_json",
-    "generate_package_visualizations",
-    # Tabulator tools
-    "tabulator_tables_list",
+    "switch_catalog",
     "tabulator_table_create",
     "tabulator_table_delete",
     "tabulator_table_rename",
-    "tabulator_open_query_status",
-    "tabulator_open_query_toggle",
+    "tabulator_tables_list",
+    "validate_metadata_structure",
+    "workflow_create",
+    "workflow_list",
+    "workflow_status_get",
+    "workflow_step_add",
+    "workflow_step_update",
+    "workflow_template_apply",
+    # Admin tools (must remain last)
+    "tabular_accessibility_get",
+    "tabular_accessibility_set",
 ]
