@@ -1,16 +1,9 @@
 name: 'Create Release'
-description: 'Build DXT package and create GitHub release with bundle'
+description: 'Build Python package, DXT package, and create GitHub release'
 inputs:
   tag-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
-  pypi-token:
-    description: 'API token used for publishing via PyPA action'
-    required: true
-  pypi-repository-url:
-    description: 'Repository endpoint for PyPA publish'
-    required: false
-    default: 'https://upload.pypi.org/legacy/'
 
 outputs:
   release-url:
@@ -60,12 +53,3 @@ runs:
         name: dxt-package
         path: dist/*.dxt
         retention-days: 90
-
-    - name: Upload Python distributions
-      uses: actions/upload-artifact@v4
-      with:
-        name: python-dist
-        path: |
-          dist/*.whl
-          dist/*.tar.gz
-        retention-days: 14
