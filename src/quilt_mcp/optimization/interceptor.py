@@ -251,10 +251,6 @@ class ToolCallInterceptor:
 
         # Tool alternatives mapping
         alternatives = {
-            "package_create": {
-                "condition": lambda args: len(args.get("s3_uris", [])) > 10,
-                "alternative": "package_create_from_s3",
-            },
             "bucket_objects_list": {
                 "condition": lambda args: args.get("max_keys", 100) < 10,
                 "alternative": "bucket_object_info",

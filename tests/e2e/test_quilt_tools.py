@@ -8,7 +8,7 @@ from quilt_mcp.tools.auth import (
     catalog_uri,
     catalog_url,
 )
-from quilt_mcp.tools.buckets import bucket_objects_search
+# bucket_objects_search replaced with catalog_search
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
@@ -317,8 +317,8 @@ class TestQuiltTools:
             assert "package=user/package:v1.0" in result["quilt_plus_uri"]
             assert result["tag"] == "v1.0"
 
-    def test_bucket_objects_search_success(self):
-        """Test bucket_objects_search with successful results."""
+    def test_catalog_search_success(self):
+        """Test catalog_search with successful results."""
         mock_results = [
             {"_source": {"key": "data/file1.csv", "size": 1024}},
             {"_source": {"key": "data/file2.json", "size": 512}},
@@ -327,7 +327,7 @@ class TestQuiltTools:
         mock_bucket.search.return_value = mock_results
 
         with patch("quilt3.Bucket", return_value=mock_bucket):
-            result = bucket_objects_search("test-bucket", "data", limit=10)
+            result = catalog_search("data", bucket="test-bucket", limit=10)
 
             assert isinstance(result, dict)
             assert result["bucket"] == "test-bucket"
@@ -336,15 +336,15 @@ class TestQuiltTools:
             assert result["results"] == mock_results
             mock_bucket.search.assert_called_once_with("data", limit=10)
 
-    def test_bucket_objects_search_with_dict_query(self):
-        """Test bucket_objects_search with dictionary DSL query."""
+    def test_catalog_search_with_dict_query(self):
+        """Test catalog_search with dictionary DSL query."""
         query_dsl = {"query": {"match": {"key": "test"}}}
         mock_results = [{"_source": {"key": "test.txt", "size": 256}}]
         mock_bucket = Mock()
         mock_bucket.search.return_value = mock_results
 
         with patch("quilt3.Bucket", return_value=mock_bucket):
-            result = bucket_objects_search("test-bucket", query_dsl, limit=5)
+            result = catalog_search(query_dsl, bucket="test-bucket", limit=5)
 
             assert isinstance(result, dict)
             assert result["bucket"] == "test-bucket"
@@ -353,22 +353,22 @@ class TestQuiltTools:
             assert result["results"] == mock_results
             mock_bucket.search.assert_called_once_with(query_dsl, limit=5)
 
-    def test_bucket_objects_search_s3_uri_normalization(self):
-        """Test bucket_objects_search normalizes s3:// URI to bucket name."""
+    def test_catalog_search_s3_uri_normalization(self):
+        """Test catalog_search normalizes s3:// URI to bucket name."""
         mock_results = []
         mock_bucket = Mock()
         mock_bucket.search.return_value = mock_results
 
         with patch("quilt3.Bucket", return_value=mock_bucket) as mock_bucket_class:
-            result = bucket_objects_search("s3://test-bucket", "query")
+            result = catalog_search("query", bucket="s3://test-bucket")
 
             assert result["bucket"] == "test-bucket"
             mock_bucket_class.assert_called_once_with("s3://test-bucket")
 
-    def test_bucket_objects_search_error(self):
-        """Test bucket_objects_search with search error."""
+    def test_catalog_search_error(self):
+        """Test catalog_search with search error."""
         with patch("quilt3.Bucket", side_effect=Exception("Search endpoint not configured")):
-            result = bucket_objects_search("test-bucket", "query")
+            result = catalog_search("query", bucket="test-bucket")
 
             assert isinstance(result, dict)
             assert "error" in result

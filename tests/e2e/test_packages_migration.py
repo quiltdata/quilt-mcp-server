@@ -14,8 +14,8 @@ from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_search,
 )
+from quilt_mcp.tools.search import catalog_search
 
 
 class TestPackagesMigrationValidation:
@@ -103,12 +103,12 @@ class TestPackagesMigrationValidation:
         assert result['package1'] == 'user/package1'
         assert result['package2'] == 'user/package2'
 
-    @patch('quilt_mcp.tools.packages.catalog_search')
-    def test_packages_search_delegates_to_catalog_search(self, mock_catalog_search):
-        """Shimmed packages_search should delegate to catalog_search."""
+    @patch('quilt_mcp.tools.search.catalog_search')
+    def test_catalog_search_replaces_packages_search(self, mock_catalog_search):
+        """Test direct usage of catalog_search instead of deprecated packages_search."""
         mock_catalog_search.return_value = {"success": True, "results": []}
 
-        result = packages_search('test query', 's3://test-bucket', limit=7, from_=3)
+        result = catalog_search('test query', bucket='s3://test-bucket', limit=7, from_=3)
 
         mock_catalog_search.assert_called_once_with(
             query='test query',
