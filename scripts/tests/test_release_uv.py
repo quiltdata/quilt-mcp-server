@@ -118,6 +118,7 @@ def test_python_publish_dry_run_with_token(tmp_path):
 @pytest.mark.usefixtures("monkeypatch")
 def test_make_python_publish_delegates(tmp_path):
     env = os.environ.copy()
+    env["UV_PUBLISH_TOKEN"] = ""
     env["UV_PUBLISH_USERNAME"] = "user"
     env["UV_PUBLISH_PASSWORD"] = "pass"
     env["DRY_RUN"] = "1"
@@ -138,6 +139,5 @@ def test_make_python_publish_delegates(tmp_path):
 
     assert proc.returncode == 0
     assert "python-publish" in proc.stdout
-    assert "--password ****" in proc.stdout
-    password_segment = proc.stdout.split("--password ", 1)[1]
-    assert "pass" not in password_segment
+    assert "uv publish" in proc.stdout
+    assert "pass" not in proc.stdout

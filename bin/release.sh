@@ -69,7 +69,7 @@ python_publish() {
         return 1
     fi
 
-    local publish_url="${PYPI_PUBLISH_URL:-https://test.pypi.org/legacy/}"
+    local publish_url="${PYPI_PUBLISH_URL:-${PYPI_REPOSITORY_URL:-https://test.pypi.org/legacy/}}"
     local -a artifacts
     while IFS= read -r artifact; do
         artifacts+=("$artifact")
@@ -404,7 +404,8 @@ case "${1:-}" in
         echo "Environment Variables:"
         echo "  DRY_RUN=1        - Enable dry-run mode"
         echo "  DIST_DIR         - Override packaging output directory (default: dist)"
-        echo "  PYPI_REPOSITORY_URL - Repository endpoint (default: https://test.pypi.org/legacy/)"
+        echo "  PYPI_PUBLISH_URL    - Override publish endpoint (default: https://test.pypi.org/legacy/)"
+        echo "  PYPI_REPOSITORY_URL - Deprecated alias for PYPI_PUBLISH_URL"
         echo "  UV_PUBLISH_TOKEN or UV_PUBLISH_USERNAME/UV_PUBLISH_PASSWORD"
         echo "                    - Credentials required before running python-publish"
         echo ""

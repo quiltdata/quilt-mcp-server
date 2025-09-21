@@ -53,6 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [test]
+    permissions:
+      contents: write
+      id-token: write
     # Only run for production tags (v* but not v*-dev-*) and only after tests pass
     if: startsWith(github.ref, 'refs/tags/v') && (!contains(github.ref, '-dev-')) && contains(needs.test.result, 'success')
 
@@ -77,3 +80,4 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         tag-version: ${{ steps.version.outputs.tag_version }}
+        pypi-token: ${{ secrets.PYPI_TOKEN }}
