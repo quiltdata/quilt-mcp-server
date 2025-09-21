@@ -108,13 +108,9 @@ class TestPackagesMigrationValidation:
         """Test direct usage of catalog_search instead of deprecated packages_search."""
         mock_catalog_search.return_value = {"success": True, "results": []}
 
-        result = catalog_search('test query', bucket='s3://test-bucket', limit=7, from_=3)
+        result = catalog_search('test query', scope='bucket', target='s3://test-bucket', limit=7)
 
         mock_catalog_search.assert_called_once_with(
-            query='test query',
-            scope='catalog',
-            target='s3://test-bucket',
-            limit=7,
-            filters={'registry': 's3://test-bucket', 'offset': 3},
+            'test query', scope='bucket', target='s3://test-bucket', limit=7
         )
         assert result == mock_catalog_search.return_value

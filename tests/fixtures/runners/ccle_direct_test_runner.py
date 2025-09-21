@@ -131,7 +131,7 @@ class CCLEDirectTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = search.catalog_search(query="CCLE expression RNA-seq", limit=5)
+            search_result = search.catalog_search("CCLE expression RNA-seq", limit=5)
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
                 result["tools_used"].append("catalog_search")
@@ -212,7 +212,7 @@ class CCLEDirectTester:
 
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = search.catalog_search(query="CCLE FASTQ RNA-seq raw", limit=3)
+            fastq_search = search.catalog_search("CCLE FASTQ RNA-seq raw", limit=3)
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
@@ -282,7 +282,7 @@ class CCLEDirectTester:
         # Step 4: Search for Salmon quantification results
         try:
             salmon_search = search.catalog_search(
-                query="salmon quant.sf TPM", bucket="s3://quilt-sandbox-bucket", limit=5
+                "salmon quant.sf TPM", scope="bucket", target="s3://quilt-sandbox-bucket", limit=5
             )
 
             if salmon_search.get("success"):
@@ -305,7 +305,7 @@ class CCLEDirectTester:
 
         # Step 1: Search for BAM files
         try:
-            bam_search = search.catalog_search(query="CCLE BAM alignment RNA-seq", limit=3)
+            bam_search = search.catalog_search("CCLE BAM alignment RNA-seq", limit=3)
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
@@ -369,7 +369,7 @@ class CCLEDirectTester:
 
         for data_type in data_types:
             try:
-                search_result = search.catalog_search(query=f"CCLE {data_type}", limit=2)
+                search_result = search.catalog_search(f"CCLE {data_type}", limit=2)
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")

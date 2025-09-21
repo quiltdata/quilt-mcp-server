@@ -156,7 +156,7 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
             ),
             TestStep(
                 tool_name="catalog_search",
-                args={"query": "*.json", "bucket": "s3://quilt-sandbox-bucket"},
+                args={"query": "*.json", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search for JSON files",
             ),
             TestStep(
@@ -499,7 +499,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
             ),
             TestStep(
                 tool_name="catalog_search",
-                args={"query": "genomics", "bucket": "s3://quilt-sandbox-bucket"},
+                args={"query": "genomics", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search bucket for genomics files",
             ),
             TestStep(
