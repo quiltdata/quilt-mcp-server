@@ -4,6 +4,10 @@ inputs:
   tag-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
+  pypi-repository-url:
+    description: 'PyPI repository URL (empty for PyPI, https://test.pypi.org/legacy/ for TestPyPI)'
+    required: false
+    default: ''
 
 outputs:
   release-url:
@@ -20,7 +24,6 @@ runs:
     - name: Publish to PyPI/TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ inputs.pypi-token }}
         repository-url: ${{ inputs.pypi-repository-url }}
         packages-dir: dist/
 
@@ -46,7 +49,7 @@ runs:
         draft: false
         prerelease: ${{ contains(inputs.tag-version, '-') }}
         generate_release_notes: true
-        
+
     - name: Upload DXT artifacts
       uses: actions/upload-artifact@v4
       with:

@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [test]
+    # TODO: Add environment specification after manual setup: environment: pypi
     permissions:
       contents: write
       id-token: write
@@ -80,3 +81,4 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         tag-version: ${{ steps.version.outputs.tag_version }}
+        # pypi-repository-url defaults to '' for PyPI
