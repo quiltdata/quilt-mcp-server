@@ -19,7 +19,7 @@ python_dist() {
     local dist_dir="${DIST_DIR:-dist}"
     mkdir -p "$dist_dir"
 
-    local build_cmd=(uv build --wheel --sdist --out-dir "$dist_dir")
+    local build_cmd=(python -m build --wheel --sdist --outdir "$dist_dir")
 
     if [ "$DRY_RUN" = "1" ]; then
         echo "🔍 DRY RUN: Would run: ${build_cmd[*]}"
