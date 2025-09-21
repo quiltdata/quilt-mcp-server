@@ -145,9 +145,9 @@ Based on recent commits and test coverage:
 
 For each test type (unit, integration, e2e):
 
-- Run `make test-"type"`
-- Document the failures in spec/17-tool-audit
-- Document whether to fix the test, the mocks, the code, or the environment
+- Run `make -B test-"type"`
+- Document the failures in spec/17-tool-audit/09-"type"-status.md
+- save and commit, then annotate whether to fix the test, the mocks, the code, or the environment
 - Implement, and ensure tests pass
 - Commit, and push
 - Go to next type
