@@ -225,9 +225,10 @@ async def main():
 
     # Generate outputs
     output_dir = Path(__file__).parent.parent
+    tests_fixtures_dir = output_dir / "tests" / "fixtures"
 
     print("📝 Generating CSV output...")
-    generate_csv_output(tools, str(output_dir / "quilt_mcp_tools_canonical.csv"))
+    generate_csv_output(tools, str(tests_fixtures_dir / "mcp-list.csv"))
 
     print("📋 Generating JSON metadata...")
     generate_json_output(tools, str(output_dir / "build" / "tools_metadata.json"))
@@ -246,7 +247,7 @@ async def main():
 
     print("✅ Canonical tool listings generated!")
     print("📂 Files created:")
-    print("   - quilt_mcp_tools_canonical.csv")
+    print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
     print("   - build/consolidation_report.json")
 
