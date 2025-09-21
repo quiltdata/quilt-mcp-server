@@ -33,6 +33,7 @@ help:
 	@echo "  make dxt              - Create DXT package"
 	@echo "  make python-dist      - Build wheel + sdist into dist/ using uv (no publish)"
 	@echo "  make python-publish   - Publish dist/ artifacts via uv (requires credentials)"
+	@echo "  make release-artifacts - Build + publish DXT and Python artifacts"
 	@echo "  make dxt-validate     - Validate DXT package"
 	@echo "  make release-zip      - Create release bundle with documentation"
 	@echo "  make release          - Create and push release tag"

@@ -408,7 +408,9 @@ The following permissions are granted for this repository:
 
 ### 2025-09-20 uv packaging notes
 - DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `bin/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
-- `python-dist` builds local artifacts without credentials. `bin/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
+- `python-dist` builds local artifacts without credentials. `bin/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
+- `bin/release.sh release-artifacts` (surfaced via `make release-artifacts`) runs the full release orchestration: `make dxt`, `make dxt-validate`, `python-dist`, and `python-publish` in sequence. Use `DRY_RUN=1` to preview commands without executing them.
+- GitHub Actions' release jobs export `UV_PUBLISH_TOKEN` from `secrets.PYPI_TOKEN` and elevate to `contents` + `id-token` permissions so Trusted Publishing (or fallback token auth) can succeed for `uv publish`.
 
 ## important-instruction-reminders
 

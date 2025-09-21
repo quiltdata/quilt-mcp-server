@@ -26,7 +26,7 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build dxt dxt-validate python-dist python-publish release-zip deploy-clean check-tools
+.PHONY: deploy-build dxt dxt-validate python-dist python-publish release-artifacts release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
@@ -92,6 +92,9 @@ python-dist:
 
 python-publish:
 	@./bin/release.sh python-publish
+
+release-artifacts:
+	@./bin/release.sh release-artifacts
 
 # DXT Package Validation
 dxt-validate: check-tools dxt
