@@ -45,7 +45,7 @@ SERVER_PID=$!
 
 # 4. Verify that it works
 sleep 8
-bin/mcp-test.py http://127.0.0.1:8000/mcp/
+scripts/mcp-test.py http://127.0.0.1:8000/mcp/
 kill $SERVER_PID
 ```
 

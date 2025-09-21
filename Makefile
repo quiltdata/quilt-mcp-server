@@ -95,13 +95,13 @@ config-claude:
 
 # Version Management Targets
 bump-patch:
-	@bin/release.sh bump patch
+	@scripts/release.sh bump patch
 
 bump-minor:
-	@bin/release.sh bump minor
+	@scripts/release.sh bump minor
 
 bump-major:
-	@bin/release.sh bump major
+	@scripts/release.sh bump major
 
 # Combined Release Targets (bump + commit + tag)
 release-patch: bump-patch
@@ -111,7 +111,7 @@ release-patch: bump-patch
 	git commit -m "bump: patch version to $$VERSION"; \
 	echo "✅ Committed version bump to $$VERSION"
 	@echo "🏷️  Creating release tag..."
-	@bin/release.sh release
+	@scripts/release.sh release
 
 release-minor: bump-minor
 	@echo "🔍 Committing minor version bump..."
@@ -120,7 +120,7 @@ release-minor: bump-minor
 	git commit -m "bump: minor version to $$VERSION"; \
 	echo "✅ Committed version bump to $$VERSION"
 	@echo "🏷️  Creating release tag..."
-	@bin/release.sh release
+	@scripts/release.sh release
 
 release-major: bump-major
 	@echo "🔍 Committing major version bump..."
@@ -129,4 +129,4 @@ release-major: bump-major
 	git commit -m "bump: major version to $$VERSION"; \
 	echo "✅ Committed version bump to $$VERSION"
 	@echo "🏷️  Creating release tag..."
-	@bin/release.sh release
+	@scripts/release.sh release
