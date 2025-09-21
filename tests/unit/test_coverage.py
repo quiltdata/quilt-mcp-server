@@ -9,6 +9,7 @@ class TestCoverageInfrastructure:
     def test_basic_import(self):
         """Test that basic Python functionality works."""
         import os
+
         assert os is not None
         # This ensures our basic imports work and provides coverage
 
