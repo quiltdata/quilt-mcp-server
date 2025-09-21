@@ -43,7 +43,7 @@ def test_python_dist_logs_dry_run_command(tmp_path):
         env=env,
     )
 
-    assert "Would run: uv build" in proc.stdout
+    assert "Would run: python -m build" in proc.stdout
 
 
 @pytest.mark.usefixtures("monkeypatch")

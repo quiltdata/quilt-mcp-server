@@ -21,6 +21,10 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install build dependencies
+      shell: bash
+      run: uv sync --group dev
+
     - name: Build python distributions
       shell: bash
       run: ./bin/release.sh python-dist
