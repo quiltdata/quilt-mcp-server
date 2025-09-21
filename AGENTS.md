@@ -406,6 +406,11 @@ The following permissions are granted for this repository:
 - `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
+### 2025-09-20 uv packaging notes
+- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `bin/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
+- `python-dist` builds local artifacts without credentials. `bin/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
+- GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make dxt`, `make dxt-validate`, and `make release-zip` to keep DXT parity. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

@@ -1,9 +1,17 @@
 name: 'Create Release'
-description: 'Build DXT package and create GitHub release with bundle'
+description: 'Build Python package, DXT package, and create GitHub release'
 inputs:
-  tag-version:
+  package-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
     required: true
+  pypi-repository-url:
+    description: 'PyPI repository URL (empty for PyPI, https://test.pypi.org/legacy/ for TestPyPI)'
+    required: false
+    default: ''
+  skip-existing:
+    description: 'Skip existing packages during upload'
+    required: false
+    default: 'false'
 
 outputs:
   release-url:
@@ -13,10 +21,26 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install build dependencies
+      shell: bash
+      run: uv sync --group dev
+
+    - name: Build python distributions
+      shell: bash
+      run: make python-dist
+
+    - name: Publish to PyPI/TestPyPI
+      uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0
+      with:
+        repository-url: ${{ inputs.pypi-repository-url }}
+        packages-dir: dist/
+        skip-existing: ${{ inputs.skip-existing }}
+        verbose: true
+
     - name: Build DXT package
-      shell: bash  
+      shell: bash
       run: make dxt
-      
+
     - name: Validate DXT package
       shell: bash
       run: make dxt-validate
@@ -29,13 +53,13 @@ runs:
       id: create-release
       uses: softprops/action-gh-release@v2
       with:
-        name: "Quilt MCP DXT v${{ inputs.tag-version }}"
+        name: "Quilt MCP DXT v${{ inputs.package-version }}"
         files: |
           dist/*-release.zip
         draft: false
-        prerelease: ${{ contains(inputs.tag-version, '-') }}
+        prerelease: ${{ contains(inputs.package-version, '-') }}
         generate_release_notes: true
-        
+
     - name: Upload DXT artifacts
       uses: actions/upload-artifact@v4
       with:

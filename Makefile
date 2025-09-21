@@ -31,6 +31,8 @@ help:
 	@echo "📦 Production Workflow (make.deploy):"
 	@echo "  make deploy-build     - Prepare production build environment"
 	@echo "  make dxt              - Create DXT package"
+	@echo "  make python-dist      - Build wheel + sdist into dist/ using uv (no publish)"
+	@echo "  make python-publish   - Publish dist/ artifacts via uv (requires credentials)"
 	@echo "  make dxt-validate     - Validate DXT package"
 	@echo "  make release-zip      - Create release bundle with documentation"
 	@echo "  make release          - Create and push release tag"

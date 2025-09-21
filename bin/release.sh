@@ -8,6 +8,117 @@ set -e
 REPO_URL=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
 DRY_RUN=${DRY_RUN:-0}
 
+
+ensure_publish_env() {
+    if [ -n "$UV_PUBLISH_TOKEN" ]; then
+        PUBLISH_AUTH_MODE="token"
+        return 0
+    fi
+
+    if [ -n "$UV_PUBLISH_USERNAME" ] && [ -n "$UV_PUBLISH_PASSWORD" ]; then
+        PUBLISH_AUTH_MODE="userpass"
+        return 0
+    fi
+
+    echo "❌ Missing publish credentials. Set UV_PUBLISH_TOKEN or UV_PUBLISH_USERNAME and UV_PUBLISH_PASSWORD."
+    return 1
+}
+
+python_publish() {
+    echo "🚀 Starting python-publish workflow"
+
+    ensure_publish_env || return 1
+
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "❌ uv not found - install uv package manager"
+        return 1
+    fi
+
+    local dist_dir="${DIST_DIR:-dist}"
+    if [ ! -d "$dist_dir" ]; then
+        echo "❌ Distribution directory '$dist_dir' does not exist. Run 'make python-dist' to build artifacts first."
+        return 1
+    fi
+
+    local artifact_count
+    artifact_count=$(find "$dist_dir" -maxdepth 1 -type f \( -name "*.whl" -o -name "*.tar.gz" \) | wc -l | tr -d ' ')
+    if [ "$artifact_count" = "0" ]; then
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' to build artifacts before publishing."
+        return 1
+    fi
+
+    local publish_url="${PYPI_PUBLISH_URL:-${PYPI_REPOSITORY_URL:-https://test.pypi.org/legacy/}}"
+    local -a artifacts
+    while IFS= read -r artifact; do
+        artifacts+=("$artifact")
+    done < <(find "$dist_dir" -maxdepth 1 -type f \( -name "*.whl" -o -name "*.tar.gz" \) | sort)
+
+    local log_cmd="uv publish"
+    local -a publish_cmd
+    publish_cmd=(uv publish)
+
+    if [ -n "$publish_url" ]; then
+        log_cmd="$log_cmd --publish-url $publish_url"
+        publish_cmd+=(--publish-url "$publish_url")
+    fi
+
+    if [ ${#artifacts[@]} -eq 0 ]; then
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' to build artifacts before publishing."
+        return 1
+    fi
+
+    for artifact in "${artifacts[@]}"; do
+        log_cmd="$log_cmd $artifact"
+        publish_cmd+=("$artifact")
+    done
+
+    if [ "$PUBLISH_AUTH_MODE" = "token" ]; then
+        log_cmd="$log_cmd --token ****"
+        publish_cmd+=(--token "$UV_PUBLISH_TOKEN")
+    else
+        log_cmd="$log_cmd --username $UV_PUBLISH_USERNAME --password ****"
+        publish_cmd+=(--username "$UV_PUBLISH_USERNAME" --password "$UV_PUBLISH_PASSWORD")
+    fi
+
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "🔍 DRY RUN: Would run: $log_cmd"
+        return 0
+    fi
+
+    echo "📦 Publishing artifacts from $dist_dir to ${publish_url:-https://test.pypi.org/legacy/}"
+    "${publish_cmd[@]}"
+    echo "✅ python-publish completed"
+
+    local package_name
+    package_name=$(python3 - <<'PY'
+import tomllib
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+print(data["project"]["name"])
+PY
+)
+
+    local package_version
+    package_version=$(python3 - <<'PY'
+import tomllib
+with open('pyproject.toml', 'rb') as f:
+    data = tomllib.load(f)
+print(data["project"]["version"])
+PY
+)
+
+    local project_url=""
+    if [[ "${publish_url:-https://test.pypi.org/legacy/}" == *"test.pypi.org"* ]]; then
+        project_url="https://test.pypi.org/project/${package_name}/${package_version}/"
+    elif [[ "${publish_url}" == *"pypi.org"* ]]; then
+        project_url="https://pypi.org/project/${package_name}/${package_version}/"
+    fi
+
+    if [ -n "$project_url" ]; then
+        echo "🔗 View package at $project_url"
+    fi
+}
+
 check_clean_repo() {
     echo "🔍 Checking repository state..."
     if [ -n "$(git status --porcelain)" ]; then
@@ -232,6 +343,12 @@ case "${1:-}" in
         fi
         tag_release
         ;;
+    "python-publish")
+        if [ "${2:-}" = "--dry-run" ]; then
+            DRY_RUN=1
+        fi
+        python_publish
+        ;;
     "bump")
         if [ "${3:-}" = "--dry-run" ]; then
             DRY_RUN=1
@@ -239,11 +356,12 @@ case "${1:-}" in
         bump_version "${2:-}"
         ;;
     *)
-        echo "Usage: $0 {dev|release|bump} [options]"
+        echo "Usage: $0 {dev|release|python-publish|bump} [options]"
         echo ""
         echo "Commands:"
         echo "  dev              - Create development tag with timestamp"
-        echo "  release          - Create release tag from pyproject.toml version"  
+        echo "  release          - Create release tag from pyproject.toml version"
+        echo "  python-publish   - Publish artifacts to PyPI/TestPyPI via uv"
         echo "  bump {type}      - Bump version in pyproject.toml"
         echo ""
         echo "Bump types:"
@@ -256,6 +374,11 @@ case "${1:-}" in
         echo ""
         echo "Environment Variables:"
         echo "  DRY_RUN=1        - Enable dry-run mode"
+        echo "  DIST_DIR         - Override packaging output directory (default: dist)"
+        echo "  PYPI_PUBLISH_URL    - Override publish endpoint (default: https://test.pypi.org/legacy/)"
+        echo "  PYPI_REPOSITORY_URL - Deprecated alias for PYPI_PUBLISH_URL"
+        echo "  UV_PUBLISH_TOKEN or UV_PUBLISH_USERNAME/UV_PUBLISH_PASSWORD"
+        echo "                    - Credentials required before running python-publish"
         echo ""
         echo "Examples:"
         echo "  $0 bump patch           # Bump patch version"
