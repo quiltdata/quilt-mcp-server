@@ -36,14 +36,14 @@ python_publish() {
 
     local dist_dir="${DIST_DIR:-dist}"
     if [ ! -d "$dist_dir" ]; then
-        echo "❌ Distribution directory '$dist_dir' does not exist. Run 'make python-dist' first."
+        echo "❌ Distribution directory '$dist_dir' does not exist. Run 'make python-dist' to build artifacts first."
         return 1
     fi
 
     local artifact_count
     artifact_count=$(find "$dist_dir" -maxdepth 1 -type f \( -name "*.whl" -o -name "*.tar.gz" \) | wc -l | tr -d ' ')
     if [ "$artifact_count" = "0" ]; then
-        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' before publishing."
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' to build artifacts before publishing."
         return 1
     fi
 
@@ -63,7 +63,7 @@ python_publish() {
     fi
 
     if [ ${#artifacts[@]} -eq 0 ]; then
-        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' before publishing."
+        echo "❌ No artifacts found in '$dist_dir'. Run 'make python-dist' to build artifacts before publishing."
         return 1
     fi
 
