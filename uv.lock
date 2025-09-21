@@ -1922,8 +1922,8 @@ wheels = [
 ]
 
 [[package]]
-name = "quilt-mcp-server"
-version = "0.6.9"
+name = "quilt-mcp"
+version = "0.6.10"
 source = { editable = "." }
 dependencies = [
     { name = "altair" },

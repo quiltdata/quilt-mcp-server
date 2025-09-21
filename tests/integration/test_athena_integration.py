@@ -330,6 +330,7 @@ class TestAthenaPerformance:
             if not result["success"]:
                 assert "error" in result
 
+
 @pytest.mark.error_handling
 class TestAthenaErrorHandling:
     """Test error handling scenarios."""
