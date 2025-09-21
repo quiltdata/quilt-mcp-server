@@ -5,6 +5,7 @@ This script inspects the actual MCP server implementation to generate
 authoritative tool listings, eliminating manual maintenance and drift.
 """
 
+import argparse
 import csv
 import inspect
 import json
@@ -82,174 +83,136 @@ def generate_csv_output(tools: List[Dict[str, Any]], output_file: str):
                 tool["full_module_path"]
             ])
 
-def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
+def generate_json_output(tools: List[Dict[str, Any]], output_file: str | None = None):
     """Generate structured JSON output for tooling."""
     output = {
         "metadata": {
-            "generated_by": "scripts/generate_canonical_tools.py",
+            "generated_by": "scripts/mcp-list.py",
             "tool_count": len(tools),
             "modules": list(set(tool["module"] for tool in tools))
         },
         "tools": tools
     }
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+    if output_file:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(output, f, indent=2, ensure_ascii=False)
+    else:
+        print(json.dumps(output, indent=2, ensure_ascii=False))
 
-def identify_overlapping_tools(_tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
-    """Identify tools with overlapping functionality that should be consolidated."""
-    overlaps = {}
+def generate_html_output(tools: List[Dict[str, Any]]):
+    """Generate HTML table output."""
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>MCP Tools List</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        table {{ border-collapse: collapse; width: 100%; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #f2f2f2; }}
+        .signature {{ font-family: monospace; font-size: 0.9em; }}
+    </style>
+</head>
+<body>
+    <h1>MCP Tools List</h1>
+    <p>Total tools: {len(tools)}</p>
+    <table>
+        <tr>
+            <th>Module</th>
+            <th>Function Name</th>
+            <th>Signature</th>
+            <th>Description</th>
+            <th>Async</th>
+        </tr>
+"""
 
-    # Package creation tools - MAJOR OVERLAP
-    package_creation = [
-        "package_create",           # package_ops module - basic creation
-        "create_package",          # unified_package module - unified interface
-        "create_package_enhanced", # package_management module - enhanced with templates
-        "package_create_from_s3"   # s3_package module - from S3 sources
-    ]
-    overlaps["Package Creation"] = package_creation
+    for tool in tools:
+        html += f"""        <tr>
+            <td>{tool['module']}</td>
+            <td>{tool['name']}</td>
+            <td class="signature">{tool['signature']}</td>
+            <td>{tool['description']}</td>
+            <td>{'Yes' if tool['is_async'] else 'No'}</td>
+        </tr>
+"""
 
-    # Catalog/URL generation tools - REDUNDANT
-    catalog_tools = [
-        "catalog_url",  # auth module
-        "catalog_uri"   # auth module
-    ]
-    overlaps["Catalog URLs"] = catalog_tools
+    html += """    </table>
+</body>
+</html>"""
 
-    # Metadata template tools - PARTIAL OVERLAP
-    metadata_tools = [
-        "get_metadata_template",        # metadata_templates module
-        "create_metadata_from_template" # metadata_examples module
-    ]
-    overlaps["Metadata Templates"] = metadata_tools
+    print(html)
 
-    # Search tools - CONSOLIDATION NEEDED
-    search_tools = [
-        "packages_search",           # packages module - package-specific
-        "bucket_objects_search",     # buckets module - S3-specific
-        "unified_search"            # search module - unified interface
-    ]
-    overlaps["Search Functions"] = search_tools
+def generate_table_output(tools: List[Dict[str, Any]]):
+    """Generate formatted table output to stdout."""
+    if not tools:
+        print("No tools found.")
+        return
 
-    # Tabulator admin overlap - DUPLICATE FUNCTIONALITY
-    tabulator_admin = [
-        "tabulator_open_query_status",    # tabulator module
-        "tabulator_open_query_toggle",    # tabulator module
-        "admin_tabulator_open_query_get", # governance module
-        "admin_tabulator_open_query_set"  # governance module
-    ]
-    overlaps["Tabulator Admin"] = tabulator_admin
-
-    return overlaps
-
-def generate_consolidation_report(_tools: List[Dict[str, Any]], output_file: str):
-    """Generate detailed consolidation recommendations."""
-
-    report = {
-        "breaking_changes_required": True,
-        "backward_compatibility": "DEPRECATED - Will break existing clients",
-        "consolidation_plan": {}
+    # Calculate column widths
+    widths = {
+        'module': max(len('Module'), max(len(tool['module']) for tool in tools)),
+        'name': max(len('Name'), max(len(tool['name']) for tool in tools)),
+        'description': max(len('Description'), max(len(tool['description']) for tool in tools))
     }
 
-    # Package Creation Consolidation
-    report["consolidation_plan"]["package_creation"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "create_package_enhanced",
-        "deprecate": ["package_create", "create_package", "package_create_from_s3"],
-        "rationale": "create_package_enhanced provides all functionality with templates and validation",
-        "migration": {
-            "package_create": "Replace with create_package_enhanced(copy_mode='all')",
-            "create_package": "Replace with create_package_enhanced(auto_organize=True)",
-            "package_create_from_s3": "Replace with create_package_enhanced(files=[bucket_prefix])"
-        }
-    }
+    # Limit description width for readability
+    widths['description'] = min(widths['description'], 60)
 
-    # Search Consolidation
-    report["consolidation_plan"]["search"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "unified_search",
-        "deprecate": ["packages_search", "bucket_objects_search"],
-        "rationale": "unified_search handles all search scenarios with backend selection",
-        "migration": {
-            "packages_search": "Replace with unified_search(scope='catalog')",
-            "bucket_objects_search": "Replace with unified_search(scope='bucket', target=bucket)"
-        }
-    }
+    # Header
+    header = f"{'Module':<{widths['module']}} {'Name':<{widths['name']}} {'Description':<{widths['description']}} Async"
+    print(header)
+    print('-' * len(header))
 
-    # URL Generation Consolidation
-    report["consolidation_plan"]["url_generation"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "catalog_url",
-        "deprecate": ["catalog_uri"],
-        "rationale": "catalog_url covers all URL generation needs",
-        "migration": {
-            "catalog_uri": "Replace with catalog_url() - URIs are legacy"
-        }
-    }
+    # Rows
+    for tool in tools:
+        desc = tool['description']
+        if len(desc) > widths['description']:
+            desc = desc[:widths['description']-3] + '...'
 
-    # Tabulator Admin Consolidation
-    report["consolidation_plan"]["tabulator_admin"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": ["admin_tabulator_open_query_get", "admin_tabulator_open_query_set"],
-        "deprecate": ["tabulator_open_query_status", "tabulator_open_query_toggle"],
-        "rationale": "Admin tools provide proper permissions model",
-        "migration": {
-            "tabulator_open_query_status": "Replace with admin_tabulator_open_query_get",
-            "tabulator_open_query_toggle": "Replace with admin_tabulator_open_query_set"
-        }
-    }
-
-    # Documentation Cleanup
-    report["documentation_cleanup"] = {
-        "action": "REGENERATE_FROM_CODE",
-        "current_issues": [
-            "docs/api/TOOLS.md manually maintained - causes drift",
-            "CSV file manually updated - inconsistent with code",
-            "Tool descriptions in docs don't match actual docstrings"
-        ],
-        "solution": "Auto-generate all documentation from server introspection"
-    }
-
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
+        async_str = 'Yes' if tool['is_async'] else 'No'
+        print(f"{tool['module']:<{widths['module']}} {tool['name']:<{widths['name']}} {desc:<{widths['description']}} {async_str}")
 
 async def main():
-    """Generate all canonical tool listings."""
-    print("🔍 Extracting tools from MCP server...")
+    """Generate tool listings with configurable output formats."""
+    parser = argparse.ArgumentParser(
+        description="Generate canonical tool listings from MCP server code"
+    )
+    parser.add_argument(
+        '--json', action='store_true',
+        help='Output as JSON to stdout'
+    )
+    parser.add_argument(
+        '--html', action='store_true',
+        help='Output as HTML table to stdout'
+    )
+    parser.add_argument(
+        '--table', action='store_true',
+        help='Output as formatted table to stdout'
+    )
+
+    args = parser.parse_args()
 
     # Create server instance to introspect tools
     server = create_configured_server(verbose=False)
     tools = await extract_tool_metadata(server)
 
-    print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
+    # Handle output format options
+    if args.json:
+        generate_json_output(tools)
+    elif args.html:
+        generate_html_output(tools)
+    elif args.table:
+        generate_table_output(tools)
+    else:
+        # Default behavior: count to stdout + CSV to tests/fixtures/mcp-list.csv
+        print(f"{len(tools)}")
 
-    # Generate outputs
-    output_dir = Path(__file__).parent.parent
-    tests_fixtures_dir = output_dir / "tests" / "fixtures"
-
-    print("📝 Generating CSV output...")
-    generate_csv_output(tools, str(tests_fixtures_dir / "mcp-list.csv"))
-
-    print("📋 Generating JSON metadata...")
-    generate_json_output(tools, str(output_dir / "build" / "tools_metadata.json"))
-
-    print("⚠️  Generating consolidation report...")
-    generate_consolidation_report(tools, str(output_dir / "build" / "consolidation_report.json"))
-
-    # Print summary
-    overlaps = identify_overlapping_tools(tools)
-    print("\n🚨 OVERLAPPING TOOLS IDENTIFIED:")
-    for category, tool_list in overlaps.items():
-        print(f"   {category}: {len(tool_list)} tools")
-        for tool in tool_list:
-            print(f"     - {tool}")
-        print()
-
-    print("✅ Canonical tool listings generated!")
-    print("📂 Files created:")
-    print("   - tests/fixtures/mcp-list.csv")
-    print("   - build/tools_metadata.json")
-    print("   - build/consolidation_report.json")
+        # Write CSV to tests/fixtures/mcp-list.csv
+        output_dir = Path(__file__).parent.parent
+        tests_fixtures_dir = output_dir / "tests" / "fixtures"
+        tests_fixtures_dir.mkdir(parents=True, exist_ok=True)
+        generate_csv_output(tools, str(tests_fixtures_dir / "mcp-list.csv"))
 
 if __name__ == "__main__":
     import asyncio
