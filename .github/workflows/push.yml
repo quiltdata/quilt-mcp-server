@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [test]
+    environment: pypi
     permissions:
       contents: write
       id-token: write
@@ -79,5 +80,5 @@ jobs:
     - name: Create production release
       uses: ./.github/actions/create-release
       with:
-        tag-version: ${{ steps.version.outputs.tag_version }}
-        pypi-token: ${{ secrets.PYPI_TOKEN }}
+        package-version: ${{ steps.version.outputs.tag_version }}
+        # pypi-repository-url defaults to '' for PyPI
