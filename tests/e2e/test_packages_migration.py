@@ -103,7 +103,7 @@ class TestPackagesMigrationValidation:
         assert result['package1'] == 'user/package1'
         assert result['package2'] == 'user/package2'
 
-    @patch('quilt_mcp.tools.search.catalog_search')
+    @patch('quilt_mcp.tools.packages.catalog_search')
     def test_packages_search_delegates_to_catalog_search(self, mock_catalog_search):
         """Shimmed packages_search should delegate to catalog_search."""
         mock_catalog_search.return_value = {"success": True, "results": []}
@@ -113,6 +113,7 @@ class TestPackagesMigrationValidation:
         mock_catalog_search.assert_called_once_with(
             query='test query',
             scope='catalog',
+            target='s3://test-bucket',
             limit=7,
             filters={'registry': 's3://test-bucket', 'offset': 3},
         )

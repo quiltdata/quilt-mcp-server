@@ -153,7 +153,7 @@ class TestQuiltTools:
     def test_catalog_search_error_scenarios(self, error_message, test_description):
         """Test catalog_search error propagation."""
         with patch(
-            "quilt_mcp.tools.search.catalog_search",
+            "tests.e2e.test_quilt_tools.catalog_search",
             side_effect=Exception(error_message),
         ):
             with pytest.raises(Exception) as exc_info:
@@ -172,7 +172,7 @@ class TestQuiltTools:
         }
 
         with patch(
-            "quilt_mcp.tools.search.catalog_search",
+            "tests.e2e.test_quilt_tools.catalog_search",
             return_value=mock_search_results,
         ):
             result = catalog_search("test query", limit=2)
