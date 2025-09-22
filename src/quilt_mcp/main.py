@@ -7,7 +7,7 @@ from quilt_mcp.utils import run_server
 
 def main() -> None:
     """Main entry point for the MCP server."""
-    # Force stdio transport for MCP (same as dxt_main.py)
+    # Force stdio transport for MCP (required for MCPB execution)
     os.environ["FASTMCP_TRANSPORT"] = "stdio"
     run_server()
 

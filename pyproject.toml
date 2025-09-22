@@ -107,8 +107,3 @@ mode = "auto"
 # Use external configuration file
 config = "ruff.toml"
 
-# DXT configuration for Claude Desktop Extensions (removed in Phase 3)
-# [tool.dxt]
-# bundle = "uv pip install --target build-dxt/build/lib --no-cache-dir --quiet ."
-# test = "python build-dxt/build/dxt_main.py"
-# pack = "npx @anthropic-ai/dxt pack build-dxt/build build-dxt/dist/quilt-mcp.dxt"
