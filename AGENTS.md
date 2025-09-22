@@ -412,6 +412,14 @@ The following permissions are granted for this repository:
 - `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
 - GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make mcpb`, `make mcpb-validate`, and `make release-zip` for complete packaging. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
 
+### Docker container + release notes (2025-09-22)
+
+- `src/quilt_mcp/main.py` now honours a pre-set `FASTMCP_TRANSPORT`; container entrypoints should export `FASTMCP_TRANSPORT=http` and `FASTMCP_HOST=0.0.0.0` before invoking `quilt-mcp`.
+- The Dockerfile uses the `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` base. Native deps (`build-essential`, `libcurl4(-openssl-dev)`, `zlib1g(-dev)`) are required for `pybigwig`; keep them in sync if the dependency list changes.
+- `make docker-build`, `make docker-run`, and `make docker-test` wrap common local workflows. `make docker-test` executes `tests/integration/test_docker_container.py`, which builds the image and probes `http://localhost:*/mcp` for a 30–60s readiness window.
+- Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
+- When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.
