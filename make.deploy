@@ -15,13 +15,13 @@ MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null |
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
 PACKAGE_ID := $(DIST_DIR)/$(PACKAGE_NAME)-$(PACKAGE_VERSION)
 MCPB_PACKAGE := $(PACKAGE_ID).mcpb
-DXT_PACKAGE := $(PACKAGE_ID).dxt
+# DXT_PACKAGE := $(PACKAGE_ID).dxt  # Commented for Phase 3 - DXT-only
 RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 
-# Marker files for incremental builds
-ASSETS_MARKER := $(BUILD_DIR)/.assets-copied
-APP_MARKER := $(BUILD_DIR)/.app-copied
-DEPS_MARKER := $(BUILD_DIR)/.deps-installed
+# Legacy marker files for incremental builds (DXT only - commented for Phase 3)
+# ASSETS_MARKER := $(BUILD_DIR)/.assets-copied
+# APP_MARKER := $(BUILD_DIR)/.app-copied
+# DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 
 # Source file dependencies
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
@@ -42,12 +42,12 @@ deploy-build: check-tools
 	@$(MAKE) -f make.deploy mcpb-build-contents
 	@echo "✅ Build environment ready"
 
-# Legacy DXT Build Environment Preparation
-deploy-build-dxt: check-tools
-	@echo "Preparing DXT production build environment..."
-	@$(MAKE) -f make.deploy build-contents
-	@$(MAKE) -f make.deploy build-test
-	@echo "✅ DXT Build environment ready"
+# Legacy DXT Build Environment Preparation (commented for Phase 3 - DXT-only)
+# deploy-build-dxt: check-tools
+# 	@echo "Preparing DXT production build environment..."
+# 	@$(MAKE) -f make.deploy build-contents
+# 	@$(MAKE) -f make.deploy build-test
+# 	@echo "✅ DXT Build environment ready"
 
 # Intermediate targets for incremental builds
 # MCPB assets (only manifest, icon, README needed)
@@ -61,52 +61,52 @@ mcpb-assets: $(ASSET_FILES)
 	@cp $(ASSETS_DIR)/README.md $(BUILD_DIR)/mcpb/
 	@echo "✅ MCPB assets prepared"
 
-# Original DXT assets marker (preserved for backward compatibility)
-$(ASSETS_MARKER): $(ASSET_FILES)
-	@echo "Copying DXT assets..."
-	@mkdir -p $(BUILD_DIR)
-	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
-	@if [ -f "$(BUILD_DIR)/check-dxt.sh" ]; then chmod +x $(BUILD_DIR)/check-dxt.sh; fi
-	@echo "Generating manifest.json from template..."
-	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
-	@rm $(BUILD_DIR)/manifest.json.j2
-	@touch $@
+# Original DXT assets marker (commented for Phase 3 - DXT-only)
+# $(ASSETS_MARKER): $(ASSET_FILES)
+# 	@echo "Copying DXT assets..."
+# 	@mkdir -p $(BUILD_DIR)
+# 	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
+# 	@if [ -f "$(BUILD_DIR)/check-dxt.sh" ]; then chmod +x $(BUILD_DIR)/check-dxt.sh; fi
+# 	@echo "Generating manifest.json from template..."
+# 	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
+# 	@rm $(BUILD_DIR)/manifest.json.j2
+# 	@touch $@
 
-$(APP_MARKER): $(APP_FILES)
-	@echo "Copying app source code..."
-	@for file in $(APP_FILES); do \
-		rel_path=$${file#src/}; \
-		mkdir -p "$$(dirname "$(BUILD_DIR)/$$rel_path")"; \
-		cp $$file $(BUILD_DIR)/$$rel_path; \
-	done
-	@touch $@
+# $(APP_MARKER): $(APP_FILES)
+# 	@echo "Copying app source code..."
+# 	@for file in $(APP_FILES); do \
+# 		rel_path=$${file#src/}; \
+# 		mkdir -p "$$(dirname "$(BUILD_DIR)/$$rel_path")"; \
+# 		cp $$file $(BUILD_DIR)/$$rel_path; \
+# 	done
+# 	@touch $@
 
-$(DEPS_MARKER): pyproject.toml
-	@echo "Installing Python dependencies..."
-	@mkdir -p $(BUILD_PKGS_DIR)
-	@uv pip install --target $(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
-	@touch $@
+# $(DEPS_MARKER): pyproject.toml
+# 	@echo "Installing Python dependencies..."
+# 	@mkdir -p $(BUILD_PKGS_DIR)
+# 	@uv pip install --target $(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
+# 	@touch $@
 
 # MCPB simplified build (no source code copying needed)
 mcpb-build-contents: mcpb-assets
 	@echo "✅ MCPB build contents prepared"
 
-# Original DXT build contents (preserved for backward compatibility)
-build-contents: $(ASSETS_MARKER) $(APP_MARKER)
-	@echo "✅ Build contents prepared"
+# Original DXT build contents (commented for Phase 3 - DXT-only)
+# build-contents: $(ASSETS_MARKER) $(APP_MARKER)
+# 	@echo "✅ Build contents prepared"
 
-build-test: build-contents
-	@echo "Testing bootstrap script in build directory..."
-	@echo "Verifying bootstrap.py can import dependencies..."
-	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')"
-	@echo "✅ Bootstrap test passed"
+# build-test: build-contents
+# 	@echo "Testing bootstrap script in build directory..."
+# 	@echo "Verifying bootstrap.py can import dependencies..."
+# 	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')"
+# 	@echo "✅ Bootstrap test passed"
 
-# DXT Package Creation
-$(DXT_PACKAGE): build-contents
-	@echo "Packing with official DXT CLI..."
-	@mkdir -p $(DIST_DIR)
-	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(DXT_PACKAGE)
-	@echo "✅ Built $(DXT_PACKAGE)"
+# DXT Package Creation (commented for Phase 3 - DXT-only)
+# $(DXT_PACKAGE): build-contents
+# 	@echo "Packing with official DXT CLI..."
+# 	@mkdir -p $(DIST_DIR)
+# 	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(DXT_PACKAGE)
+# 	@echo "✅ Built $(DXT_PACKAGE)"
 
 # MCPB Package Creation
 $(MCPB_PACKAGE): mcpb-build-contents
@@ -118,9 +118,9 @@ $(MCPB_PACKAGE): mcpb-build-contents
 mcpb: $(MCPB_PACKAGE)
 	@echo "✅ MCPB package created: $(MCPB_PACKAGE)"
 
-# DXT Package Creation (preserved for backward compatibility)
-dxt: $(DXT_PACKAGE)
-	@echo "✅ DXT package created: $(DXT_PACKAGE)"
+# DXT Package Creation (commented for Phase 3 - DXT-only)
+# dxt: $(DXT_PACKAGE)
+# 	@echo "✅ DXT package created: $(DXT_PACKAGE)"
 
 # Python Package Distribution
 python-dist: check-tools
@@ -142,14 +142,14 @@ mcpb-validate: check-tools mcpb
 	@mcpb validate $(BUILD_DIR)/mcpb/manifest.json
 	@echo "✅ MCPB package validation passed"
 
-# DXT Package Validation (preserved for backward compatibility)
-dxt-validate: check-tools dxt
-	@echo "Validating DXT package..."
-	@echo "Validating with official DXT CLI..."
-	@npx @anthropic-ai/dxt info $(DXT_PACKAGE)
-	@echo "Validating generated manifest.json..."
-	@npx @anthropic-ai/dxt validate $(BUILD_DIR)/manifest.json
-	@echo "✅ DXT package validation passed"
+# DXT Package Validation (commented for Phase 3 - DXT-only)
+# dxt-validate: check-tools dxt
+# 	@echo "Validating DXT package..."
+# 	@echo "Validating with official DXT CLI..."
+# 	@npx @anthropic-ai/dxt info $(DXT_PACKAGE)
+# 	@echo "Validating generated manifest.json..."
+# 	@npx @anthropic-ai/dxt validate $(BUILD_DIR)/manifest.json
+# 	@echo "✅ DXT package validation passed"
 
 # Release Bundle Creation
 $(RELEASE_ZIP): mcpb-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-mcpb.sh
@@ -188,4 +188,5 @@ release-dev-tag:
 deploy-clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR) $(DIST_DIR)
+	@rm -f *.mcpb *.dxt  # Clean MCPB and DXT packages from root
 	@echo "✅ Deploy cleanup completed"

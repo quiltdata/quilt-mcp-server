@@ -32,10 +32,10 @@ help:
 	@echo "  make deploy-build     - Prepare production build environment"
 	@echo "  make mcpb             - Create MCPB package (new format)"
 	@echo "  make mcpb-validate    - Validate MCPB package"
-	@echo "  make dxt              - Create DXT package (legacy support)"
+	@echo "  make dxt              - Create DXT package (DISABLED in Phase 3)"
 	@echo "  make python-dist      - Build wheel + sdist into dist/ using uv (no publish)"
 	@echo "  make python-publish   - Publish dist/ artifacts via uv (requires credentials)"
-	@echo "  make dxt-validate     - Validate DXT package (legacy)"
+	@echo "  make dxt-validate     - Validate DXT package (DISABLED in Phase 3)"
 	@echo "  make release-zip      - Create release bundle with documentation"
 	@echo "  make release          - Create and push release tag"
 	@echo "  make release-dev      - Create and push development tag"
@@ -50,7 +50,7 @@ help:
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
-	@echo "  make release-local    - Full local workflow (test → deploy-build → dxt → validate → zip)"
+	@echo "  make release-local    - Full local workflow (test → deploy-build → mcpb → validate → zip)"
 	@echo "  make test-readme      - Test README installation commands"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
@@ -69,9 +69,9 @@ clean: dev-clean deploy-clean
 release-local: clean test lint deploy-build mcpb-validate release-zip
 	@echo "✅ Full local release workflow completed"
 
-# Legacy DXT release workflow
-release-local-dxt: clean test lint deploy-build dxt-validate release-zip
-	@echo "✅ Full local DXT release workflow completed"
+# Legacy DXT release workflow (commented for Phase 3 - DXT-only)
+# release-local-dxt: clean test lint deploy-build dxt-validate release-zip
+# 	@echo "✅ Full local DXT release workflow completed"
 
 # Release targets (delegated to make.deploy for semantic clarity)
 release: release-tag

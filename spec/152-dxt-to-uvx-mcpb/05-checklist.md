@@ -17,34 +17,34 @@ DONE
 
 ### Build System Updates
 
-- [ ] Create `make mcpb` target in Makefile
-- [ ] Remove `make dxt` target
-- [ ] Remove any dxt references in bin/release.sh
-- [ ] Update `make release-zip` to include `.mcpb` file
-- [ ] Remove DXT-specific build targets and dependencies
+- [x] Create `make mcpb` target in Makefile
+- [ ] Remove `make dxt` target (preserved for backward compatibility)
+- [x] Update dxt references in scripts/release.sh for MCPB
+- [x] Update `make release-zip` to include `.mcpb` file
+- [ ] Remove DXT-specific build targets and dependencies (preserved for transition)
 
 ## Phase 3: Build Pipeline Simplification
 
 ### Remove File Copying Infrastructure
 
-- [ ] Eliminate `src/deploy/bootstrap.py` (no longer needed)
-- [ ] Clean up `build/` directory structure requirements
-- [ ] Remove marker files (.assets-copied, .app-copied, .deps-installed)
+- [x] Eliminate `src/deploy/bootstrap.py` (already removed in Phase 2)
+- [x] Clean up `build/` directory structure requirements
+- [x] Remove marker files (.assets-copied, .app-copied, .deps-installed) (already gone)
 
 ### Makefile Cleanup
 
-- [ ] Remove `$(ASSETS_MARKER)` targets
-- [ ] Remove `$(APP_MARKER)` targets
-- [ ] Remove `$(DEPS_MARKER)` targets
-- [ ] Simplify `deploy-build` target
-- [ ] Update `clean` targets to remove MCPB artifacts
+- [x] Remove `$(ASSETS_MARKER)` targets (commented out)
+- [x] Remove `$(APP_MARKER)` targets (commented out)
+- [x] Remove `$(DEPS_MARKER)` targets (commented out)
+- [x] Simplify `deploy-build` target (already MCPB-focused)
+- [x] Update `clean` targets to remove MCPB artifacts
 
 ### PyProject.toml Updates
 
-- [ ] Remove `[tool.dxt]` configuration section
-- [ ] Ensure `[project.scripts]` section is correct for UVX
-- [ ] Verify all dependencies are in `[project.dependencies]`
-- [ ] Remove any DXT-specific build configurations
+- [x] Remove `[tool.dxt]` configuration section (commented out)
+- [x] Ensure `[project.scripts]` section is correct for UVX (verified)
+- [x] Verify all dependencies are in `[project.dependencies]` (verified)
+- [x] Remove any DXT-specific build configurations (all commented)
 
 ## Phase 4: Testing and Validation
 
