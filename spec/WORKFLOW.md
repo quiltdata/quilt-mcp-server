@@ -196,7 +196,7 @@ Validate implementation strategy and phase breakdown
 
 ### Step 5: Implementation Phases
 
-For each implementation phase (repeat as needed):
+For each implementation phase (repeat as needed), do this on a new branch (with a PR against this branch):
 
 #### Step 5a: Create Design Document
 
@@ -226,7 +226,7 @@ Approve technical architecture and implementation strategy
 - Validate design decisions
 - Confirm integration approach
 - Approve technology choices
-- Commit design document, then create a NEW child branch and PR for implementation
+- Commit design document
 
 #### Step 5b: Create Episodes Document
 
@@ -261,11 +261,7 @@ Approve atomic change breakdown and sequencing
 
 ##### 🤖 Checklist Prompt (to Agent)
 
-> Create, in order to implement the above design:
->
-> 1. a new branch `{branch_name}/phase{k}-tagline`
-> 2. a`spec/{branch_name}/{n+2}-phase{k}-checklist.md`  Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 5c of @spec/WORKFLOW.md (then commit + push)
-> 3. a PR for the new branch against the original branch
+Create, in order to implement the above design a`spec/{branch_name}/{n+2}-phase{k}-checklist.md` Checklist Document using a project manager agent with the relevant skills, following the Checklist Instructions in Step 5c of @spec/WORKFLOW.md (then commit + push)
 
 ##### 📝 Checklist Instructions (for Agent)
 
