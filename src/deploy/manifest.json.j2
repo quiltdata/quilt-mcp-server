@@ -1,5 +1,5 @@
 {
-  "dxt_version": "0.1",
+  "mcpb_version": "1.0",
   "name": "quilt-mcp",
   "version": "{{ version }}",
   "description": "Access Quilt data packages through Claude Desktop",
@@ -10,17 +10,18 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ernest/fast-mcp-server"
+    "url": "https://github.com/quiltdata/quilt-mcp-server"
   },
   "icon": "icon.png",
   "server": {
-    "type": "python",
-    "entry_point": "bootstrap.py",
+    "type": "uvx",
+    "package": "quilt-mcp",
     "mcp_config": {
-      "command": "python3",
-      "args": ["${__dirname}/bootstrap.py"],
+      "command": "uvx",
+      "args": ["quilt-mcp"],
       "env": {
-        "PYTHONNOUSERSITE": "1"
+        "PYTHONNOUSERSITE": "1",
+        "FASTMCP_TRANSPORT": "stdio"
       }
     }
   },

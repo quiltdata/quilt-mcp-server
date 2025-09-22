@@ -1,25 +1,25 @@
-# Quilt MCP DXT (Desktop Extension)
+# Quilt MCP Bundle (MCPB)
 
-Access your Quilt data packages directly from Claude Desktop with this Model Context Protocol (MCP) extension.
+Access your Quilt data packages directly from Claude Desktop with this Model Context Protocol (MCP) bundle.
 
 ## Prerequisites Check
 
 Before installing, run the prerequisites check script to verify your system is ready:
 
 ```bash
-./check-dxt.sh
+./check-mcpb.sh
 ```
 
 This script verifies you have:
 
-- **Python 3.11+** (required for the MCP server)
+- **UVX** (required for running the MCP server package)
 - **AWS credentials** (for accessing your Quilt data)
-- **Claude Desktop** (for running the extension)
+- **Claude Desktop** (for running the bundle)
 
 ## Installation
 
-1. **Run prerequisites check**: `./check-dxt.sh`
-2. **Double-click** the `quilt-mcp-<version>.dxt` file to install in Claude Desktop
+1. **Run prerequisites check**: `./check-mcpb.sh`
+2. **Double-click** the `quilt-mcp-<version>.mcpb` file to install in Claude Desktop
 3. **Enter your catalog domain** when prompted (see Configuration below)
 4. **Restart** Claude Desktop if needed
 
@@ -60,15 +60,17 @@ Once configured, you can ask Claude to:
 
 If you encounter issues:
 
-1. **Run the prerequisites check**: `./check-dxt.sh`
-2. **Verify AWS credentials**: Run `aws sts get-caller-identity` to confirm your AWS access
-3. **Check catalog domain**: Ensure your catalog domain is correct (without https://)
-4. **Restart Claude Desktop**: After any configuration changes
-5. **Email [support](mailto:support@quilt.bio)**: If this doesn't work with your OS or MCP Client.
+1. **Run the prerequisites check**: `./check-mcpb.sh`
+2. **Verify UVX installation**: Run `uvx --version` to confirm UVX is installed
+3. **Verify AWS credentials**: Run `aws sts get-caller-identity` to confirm your AWS access
+4. **Check catalog domain**: Ensure your catalog domain is correct (without https://)
+5. **Restart Claude Desktop**: After any configuration changes
+6. **Email [support](mailto:support@quilt.bio)**: If this doesn't work with your OS or MCP Client.
 
 ### Common Issues
 
 - **Extension not loading**: Restart Claude Desktop and verify you have the latest version
+- **UVX not found**: Install UVX with `pip install uvx` or install UV from [astral.sh](https://astral.sh)
 - **No packages found**: Check your catalog domain and AWS permissions
 - **AWS access denied**: Confirm your AWS credentials have access to your Quilt S3 buckets
 
