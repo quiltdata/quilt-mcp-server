@@ -1,5 +1,5 @@
 name: 'Create Release'
-description: 'Build Python package, DXT package, and create GitHub release'
+description: 'Build Python package, MCPB package, and create GitHub release'
 inputs:
   package-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
@@ -37,13 +37,13 @@ runs:
         skip-existing: ${{ inputs.skip-existing }}
         verbose: true
 
-    - name: Build DXT package
+    - name: Build MCPB package
       shell: bash
-      run: make dxt
+      run: make mcpb
 
-    - name: Validate DXT package
+    - name: Validate MCPB package
       shell: bash
-      run: make dxt-validate
+      run: make mcpb-validate
 
     - name: Create release bundle
       shell: bash
@@ -53,16 +53,16 @@ runs:
       id: create-release
       uses: softprops/action-gh-release@v2
       with:
-        name: "Quilt MCP DXT v${{ inputs.package-version }}"
+        name: "Quilt MCP MCPB v${{ inputs.package-version }}"
         files: |
           dist/*-release.zip
         draft: false
         prerelease: ${{ contains(inputs.package-version, '-') }}
         generate_release_notes: true
 
-    - name: Upload DXT artifacts
+    - name: Upload MCPB artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: dxt-package
-        path: dist/*.dxt
+        name: mcpb-package
+        path: dist/*.mcpb
         retention-days: 90

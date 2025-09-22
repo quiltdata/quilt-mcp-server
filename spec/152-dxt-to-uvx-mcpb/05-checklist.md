@@ -78,23 +78,23 @@ DONE
 
 - [x] Update `src/deploy/README.md` for MCPB
 - [x] Update `src/deploy/check-mcpb.sh` script
-- [ ] Update main `README.md` installation instructions
-- [ ] Create migration guide from DXT to MCPB
-- [ ] Update troubleshooting documentation
+- [x] Update main `README.md` installation instructions
+- [x] Create migration guide from DXT to MCPB
+- [x] Update troubleshooting documentation (updated installation docs)
 
 ### User Communication
 
-- [ ] Create release notes for MCPB transition
-- [ ] Document breaking changes
-- [ ] Provide upgrade instructions
-- [ ] Create FAQ for common migration issues
+- [x] Create release notes for MCPB transition
+- [x] Document breaking changes (in release notes and migration guide)
+- [x] Provide upgrade instructions (in migration guide)
+- [x] Create FAQ for common migration issues
 
 ### CI/CD Updates
 
-- [ ] Update GitHub Actions workflows for MCPB
-- [ ] Remove DXT build steps
-- [ ] Add MCPB validation to CI pipeline
-- [ ] Update release workflow for MCPB artifacts
+- [x] Update GitHub Actions workflows for MCPB
+- [x] Remove DXT build steps (updated create-release action)
+- [x] Add MCPB validation to CI pipeline (create-release action now uses mcpb commands)
+- [x] Update release workflow for MCPB artifacts
 
 ## Phase 6: Cleanup and Deprecation
 

@@ -8,8 +8,8 @@ This guide provides detailed installation instructions for the Quilt MCP Server 
 
 The fastest way to get started:
 
-1. **Download Extension**: Get the latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
-2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
+1. **Download Extension**: Get the latest `.mcpb` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+2. **Install**: Double-click the `.mcpb` file or use Claude Desktop → Settings → Extensions → Install from File
 3. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
 4. **Test**: Open Tools panel in a new chat and confirm Quilt MCP tools are available
 
@@ -423,9 +423,9 @@ make app
 
 ### Updating Claude Desktop Extension
 
-1. Download latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+1. Download latest `.mcpb` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
 2. Remove old extension: Claude Desktop → Settings → Extensions → Remove
-3. Install new extension: Install from File → Select new `.dxt`
+3. Install new extension: Install from File → Select new `.mcpb`
 4. Restart Claude Desktop
 
 ### Health Monitoring
@@ -464,8 +464,8 @@ kubectl apply -f k8s/
 # Build custom Docker image
 docker build -t my-quilt-mcp:latest .
 
-# Build DXT extension
-cd build-dxt && make build
+# Build MCPB extension
+make mcpb
 
 # Build with custom configuration
 make build CUSTOM_CONFIG=production

@@ -16,10 +16,10 @@ for package management, S3 operations, analytics, and system utilities.
 
 The easiest way to get started:
 
-1. **Download**: Get the latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+1. **Download**: Get the latest `.mcpb` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
 1. **Authenticate**: Run `quilt3 login` so you can access your catalog
     1. May require first setting `quilt3 config your-quilt-catalog.yourcompany.com`
-1. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
+1. **Install**: Double-click the `.mcpb` file or use Claude Desktop → Settings → Extensions → Install from File
 1. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
 1. **Verify**: Open Tools panel in a new chat and confirm Quilt MCP is available
 
@@ -444,7 +444,7 @@ This automatically:
 
 - Reads version from `pyproject.toml`
 - Creates a timestamped dev tag (e.g., `v0.6.4-dev-20250910212915`)
-- Triggers GitHub Actions to build DXT package
+- Triggers GitHub Actions to build MCPB package
 - Creates GitHub pre-release with assets
 
 #### Production Releases
@@ -461,7 +461,7 @@ This automatically:
 - Reads version from `pyproject.toml`
 - Creates a stable tag (e.g., `v0.6.4`)
 - Triggers GitHub Actions for full release
-- Creates GitHub release with DXT package and documentation
+- Creates GitHub release with MCPB package and documentation
 
 #### Version Bumping
 
@@ -494,15 +494,15 @@ All releases undergo automated validation:
 make release-local
 
 # Individual release targets for testing
-make dxt           # Build DXT package
-make dxt-validate  # Validate DXT integrity
+make mcpb          # Build MCPB package
+make mcpb-validate # Validate MCPB integrity
 make release-zip   # Create release bundle
 ```
 
 **GitHub Actions** automatically:
 
 1. Runs full test suite (Python 3.11, 3.12, 3.13)
-2. Builds and validates DXT package
+2. Builds and validates MCPB package
 3. Creates release bundle with documentation
 4. Publishes to GitHub Releases
 
@@ -510,7 +510,7 @@ make release-zip   # Create release bundle
 
 Each release includes:
 
-- **`.dxt` file**: Claude Desktop Extension package
+- **`.mcpb` file**: Claude Desktop Extension package
 - **`-release.zip`**: Complete release bundle with installation scripts
 - **Release notes**: Auto-generated from commit history
 
