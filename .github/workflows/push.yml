@@ -77,12 +77,6 @@ jobs:
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
         echo "Production Tag Version: $TAG_VERSION"
 
-    - name: Create production release
-      uses: ./.github/actions/create-release
-      with:
-        package-version: ${{ steps.version.outputs.tag_version }}
-        # pypi-repository-url defaults to '' for PyPI
-
     - name: Configure AWS credentials for ECR
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -93,36 +87,15 @@ jobs:
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build and publish Docker image
+    - name: Create production release
+      uses: ./.github/actions/create-release
+      with:
+        package-version: ${{ steps.version.outputs.tag_version }}
+        build-docker: 'true'
+        # pypi-repository-url defaults to '' for PyPI
       env:
-        VERSION: ${{ steps.version.outputs.tag_version }}
-        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        # Docker registry configuration - these secrets are optional
+        # If ECR_REGISTRY is not set, falls back to constructing from AWS_ACCOUNT_ID
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '' }}
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID || '' }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        registry="$ECR_REGISTRY"
-        if [ -z "$registry" ]; then
-          if [ -z "$AWS_ACCOUNT_ID" ]; then
-            echo "ECR registry not configured" >&2
-            exit 1
-          fi
-          registry="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_DEFAULT_REGION:-us-east-1}.amazonaws.com"
-        fi
-
-        image_tags=$(uv run python scripts/docker_image.py --registry "$registry" --version "$VERSION")
-
-        first_tag=$(echo "$image_tags" | head -n 1)
-        docker build --file Dockerfile --tag "$first_tag" .
-
-        echo "$image_tags" | tail -n +2 | while read -r tag; do
-          [ -z "$tag" ] && continue
-          docker tag "$first_tag" "$tag"
-        done
-
-        echo "$image_tags" | while read -r tag; do
-          [ -z "$tag" ] && continue
-          docker push "$tag"
-        done

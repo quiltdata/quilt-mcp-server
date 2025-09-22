@@ -1,5 +1,5 @@
 name: 'Create Release'
-description: 'Build Python package, MCPB package, and create GitHub release'
+description: 'Build Python package, MCPB package, Docker image, and create GitHub release'
 inputs:
   package-version:
     description: 'Version from git tag (e.g., 0.5.9-dev-20250904075318)'
@@ -12,6 +12,10 @@ inputs:
     description: 'Skip existing packages during upload'
     required: false
     default: 'false'
+  build-docker:
+    description: 'Build and push Docker image (true/false)'
+    required: false
+    default: 'true'
 
 outputs:
   release-url:
@@ -48,6 +52,19 @@ runs:
     - name: Create release bundle
       shell: bash
       run: make release-zip
+
+    - name: Build and push Docker image
+      if: ${{ inputs.build-docker == 'true' }}
+      shell: bash
+      env:
+        VERSION: ${{ inputs.package-version }}
+        ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+        AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+        AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
+      run: |
+        echo "🐳 Building and pushing Docker image with scripts/docker.sh"
+        chmod +x scripts/docker.sh
+        ./scripts/docker.sh push --version "$VERSION"
 
     - name: Create GitHub Release
       id: create-release

@@ -6,6 +6,7 @@ on:
     branches: ['**']
   push:
     tags: ['v*-dev-*']
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -41,6 +42,13 @@ jobs:
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
 
+    - name: Test Docker build (no push)
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "🐳 Testing Docker build for PR (no push)..."
+        chmod +x scripts/docker.sh
+        ./scripts/docker.sh build
+
     - name: Debug GitHub context for dev-release
       run: |
         echo "=== GitHub Context Debug ==="
@@ -75,6 +83,7 @@ jobs:
       with:
         python-version: '3.11'
         include-nodejs: 'true'
+
     - name: Debug dev-release context
       run: |
         echo "=== Dev-Release Context Debug ==="
@@ -94,9 +103,11 @@ jobs:
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
         echo "Dev Tag Version: $TAG_VERSION"
+
     - name: Create dev release
       uses: ./.github/actions/create-release
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
         pypi-repository-url: https://test.pypi.org/legacy/
         skip-existing: true
+        build-docker: 'false'  # Skip Docker for development releases

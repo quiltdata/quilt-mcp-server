@@ -1,5 +1,5 @@
 # Quilt MCP Server - Consolidated Build System
-# 
+#
 # This Makefile consolidates all build workflows into organized includes.
 # Development targets are in make.dev, production targets are in make.deploy.
 
@@ -37,6 +37,11 @@ help:
 	@echo "  make release-zip      - Create release bundle with documentation"
 	@echo "  make release          - Create and push release tag"
 	@echo "  make release-dev      - Create and push development tag"
+	@echo ""
+	@echo "🐳 Docker Operations (make.deploy):"
+	@echo "  make docker-build     - Build Docker image locally"
+	@echo "  make docker-push      - Build and push Docker image to ECR (requires VERSION)"
+	@echo "  make docker-push-dev  - Build and push development Docker image"
 	@echo ""
 	@echo "🔢 Version Management:"
 	@echo "  make bump-patch       - Bump patch version (1.2.3 → 1.2.4)"
