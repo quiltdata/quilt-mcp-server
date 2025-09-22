@@ -314,7 +314,7 @@ def run_server() -> None:
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
         # For HTTP transport, add CORS middleware
-        if transport in ["http", "streamable-http"]:
+        if transport in ["http", "streamable-http", "sse"]:
             try:
                 from starlette.middleware.cors import CORSMiddleware
                 
@@ -326,8 +326,9 @@ def run_server() -> None:
                     CORSMiddleware,
                     allow_origins=["*"],  # Allow all origins for now
                     allow_methods=["*"],  # Allow all methods
-                    allow_headers=["*"],  # Allow all headers
+                    allow_headers=["*"],  # Allow all headers including mcp-session-id
                     allow_credentials=True,
+                    expose_headers=["mcp-session-id"],  # Expose session ID header for SSE
                 )
                 
                 # Run the ASGI app
