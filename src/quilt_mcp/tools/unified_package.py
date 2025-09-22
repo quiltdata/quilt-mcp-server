@@ -348,7 +348,10 @@ def quick_start() -> Dict[str, Any]:
 
 
 def list_available_resources() -> Dict[str, Any]:
-    """Auto-detect user's available buckets and registries.
+    """
+    TODO: Delete obsolete tool - replaced by MCP resource s3://buckets
+
+    Auto-detect user's available buckets and registries.
 
     Returns:
         Dict with writable buckets, readable buckets, and configured registries.

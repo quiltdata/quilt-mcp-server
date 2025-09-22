@@ -86,6 +86,8 @@ class GovernanceService:
 
 async def admin_users_list() -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource admin://users
+
     List all users in the registry with detailed information.
 
     Returns:
@@ -563,6 +565,8 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
 
 async def admin_roles_list() -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource admin://roles
+
     List all available roles in the registry.
 
     Returns:

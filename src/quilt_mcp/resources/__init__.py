@@ -1,0 +1,70 @@
+"""MCP Resources Package.
+
+This package provides the MCP resource framework for consolidating list-type functions
+into standardized MCP resources with backward compatibility.
+"""
+
+from .base import MCPResource, ResourceResponse, ResourceRegistry
+from .admin import AdminUsersResource, AdminRolesResource
+from .s3 import S3BucketsResource
+from .athena import AthenaDatabasesResource, AthenaWorkgroupsResource
+from .metadata import MetadataTemplatesResource
+from .workflow import WorkflowResource
+from .package import PackageToolsResource
+from .tabulator import TabulatorTablesResource
+
+__all__ = [
+    # Base framework
+    "MCPResource",
+    "ResourceResponse",
+    "ResourceRegistry",
+
+    # Admin resources
+    "AdminUsersResource",
+    "AdminRolesResource",
+
+    # S3 resources
+    "S3BucketsResource",
+
+    # Athena resources
+    "AthenaDatabasesResource",
+    "AthenaWorkgroupsResource",
+
+    # Metadata resources
+    "MetadataTemplatesResource",
+
+    # Workflow resources
+    "WorkflowResource",
+
+    # Package resources
+    "PackageToolsResource",
+
+    # Tabulator resources
+    "TabulatorTablesResource"
+]
+
+
+def create_default_registry() -> ResourceRegistry:
+    """Create a default resource registry with all standard resources.
+
+    Returns:
+        ResourceRegistry with all MCP resources registered
+    """
+    registry = ResourceRegistry()
+
+    # Register all resources
+    registry.register("admin://users", AdminUsersResource())
+    registry.register("admin://roles", AdminRolesResource())
+    registry.register("s3://buckets", S3BucketsResource())
+    registry.register("athena://databases", AthenaDatabasesResource())
+    registry.register("athena://workgroups", AthenaWorkgroupsResource())
+    registry.register("metadata://templates", MetadataTemplatesResource())
+    registry.register("workflow://workflows", WorkflowResource())
+    registry.register("package://tools", PackageToolsResource())
+    registry.register("tabulator://{bucket}/tables", TabulatorTablesResource())
+
+    return registry
+
+
+# Global default registry instance
+default_registry = create_default_registry()

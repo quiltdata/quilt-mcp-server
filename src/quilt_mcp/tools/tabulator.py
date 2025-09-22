@@ -397,6 +397,8 @@ def get_tabulator_service() -> TabulatorService:
 
 async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource tabulator://{bucket}/tables
+
     List all tabulator tables configured for a bucket.
 
     Tabulator tables enable SQL querying across multiple Quilt packages,
