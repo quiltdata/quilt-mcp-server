@@ -5,7 +5,6 @@ from typing import Any
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url
-from .search import catalog_search
 
 # Helpers
 
@@ -53,36 +52,6 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
         pkgs = pkgs[:limit]
 
     return {"packages": pkgs}
-
-
-def packages_search(
-    query: str,
-    registry: str = DEFAULT_REGISTRY,
-    limit: int = 10,
-    from_: int = 0,
-) -> dict[str, Any]:
-    """Shim to retain backwards compatibility while delegating to catalog_search."""
-
-    normalized_registry = _normalize_registry(registry)
-    filters: dict[str, Any] = {"registry": normalized_registry, "offset": from_}
-
-    if limit == 0:
-        return catalog_search(
-            query=query,
-            scope="catalog",
-            target=normalized_registry,
-            filters=filters,
-            count_only=True,
-        )
-
-    effective_limit = limit if limit > 0 else 10
-    return catalog_search(
-        query=query,
-        scope="catalog",
-        target=normalized_registry,
-        limit=effective_limit,
-        filters=filters,
-    )
 
 
 def package_browse(
@@ -150,7 +119,7 @@ def package_browse(
             ],
             "suggested_actions": [
                 f"Try: packages_list(registry='{registry}') to see available packages",
-                f"Try: packages_search('{package_name.split('/')[-1]}') to find similar packages",
+                f"Try: catalog_search('{package_name.split('/')[-1]}') to find similar packages",
             ],
         }
 
