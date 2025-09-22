@@ -33,7 +33,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="List available files",
             ),
             TestStep(
-                tool_name="package_create",
+                tool_name="create_package",
                 args={
                     "name": "test/basic-package",
                     "files": ["s3://quilt-sandbox-bucket/sample.csv"],
@@ -47,7 +47,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="Validate created package",
             ),
         ],
-        success_criteria=["package_created", "validation_passed"],
+        success_criteria=["create_packaged", "validation_passed"],
         tags=["basic", "package_creation", "validation"],
     )
     scenarios.append(basic_scenario)
@@ -80,7 +80,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="Verify permissions for bulk operation",
             ),
             TestStep(
-                tool_name="package_create",
+                tool_name="create_package",
                 args={
                     "name": "test/bulk-package",
                     "files": ["s3://quilt-sandbox-bucket/data/"],
@@ -94,7 +94,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="Browse created package structure",
             ),
         ],
-        success_criteria=["package_created", "files_organized", "structure_valid"],
+        success_criteria=["create_packaged", "files_organized", "structure_valid"],
         tags=["bulk", "s3_import", "organization"],
     )
     scenarios.append(bulk_scenario)
@@ -446,7 +446,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Top-level browse (faster)",
             ),
             TestStep(
-                tool_name="package_create",
+                tool_name="create_package",
                 args={
                     "name": "test/optimized-package",
                     "files": ["s3://quilt-sandbox-bucket/data/sample.csv"],
@@ -465,7 +465,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Check auth again (redundant call 3)",
             ),
         ],
-        success_criteria=["package_created", "optimization_opportunities_identified"],
+        success_criteria=["create_packaged", "optimization_opportunities_identified"],
         tags=["optimization", "challenge", "inefficient", "redundant"],
     )
     scenarios.append(inefficient_scenario)
@@ -521,7 +521,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Query without LIMIT (inefficient)",
             ),
             TestStep(
-                tool_name="package_create",
+                tool_name="create_package",
                 args={
                     "name": "genomics/analysis-results",
                     "files": ["s3://quilt-sandbox-bucket/genomics/results.vcf"],
@@ -531,7 +531,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Create genomics package",
             ),
         ],
-        success_criteria=["data_discovered", "package_created", "queries_executed"],
+        success_criteria=["data_discovered", "create_packaged", "queries_executed"],
         tags=["complex", "multi_step", "genomics", "optimization"],
     )
     scenarios.append(complex_scenario)

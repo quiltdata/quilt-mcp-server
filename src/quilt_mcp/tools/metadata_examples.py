@@ -23,22 +23,22 @@ def show_metadata_examples() -> Dict[str, Any]:
                 "basic_dict": {
                     "description": "Pass metadata as a Python dictionary",
                     "example": '{"description": "My dataset", "version": "1.0", "tags": ["research"]}',
-                    "usage": 'package_create("team/data", ["s3://bucket/file.csv"], metadata={"description": "My dataset"})',
+                    "usage": 'create_package("team/data", ["s3://bucket/file.csv"], metadata={"description": "My dataset"})',
                 },
                 "json_string": {
                     "description": "Pass metadata as a JSON string (automatically parsed)",
                     "example": '\'{"description": "My dataset", "version": "1.0", "tags": ["research"]}\'',
-                    "usage": 'package_create("team/data", ["s3://bucket/file.csv"], metadata=\'{"description": "My dataset"}\')',
+                    "usage": 'create_package("team/data", ["s3://bucket/file.csv"], metadata=\'{"description": "My dataset"}\')',
                 },
                 "template_based": {
                     "description": "Use metadata templates (recommended)",
                     "example": "Uses pre-configured templates for common domains",
-                    "usage": 'package_create("genomics/study", ["s3://bucket/data.vcf"], metadata_template="genomics")',
+                    "usage": 'create_package("genomics/study", ["s3://bucket/data.vcf"], metadata_template="genomics")',
                 },
                 "template_with_custom": {
                     "description": "Combine templates with custom fields",
                     "example": "Template provides structure, custom fields add specifics",
-                    "usage": 'package_create("ml/training", files, metadata_template="ml", metadata={"model_type": "regression"})',
+                    "usage": 'create_package("ml/training", files, metadata_template="ml", metadata={"model_type": "regression"})',
                 },
             },
             "common_patterns": {
@@ -50,7 +50,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "duration_months": 12,
                         "primary_endpoint": "efficacy",
                     },
-                    "usage": 'package_create("research/trial-2024", files, metadata_template="research", metadata={"study_type": "clinical_trial"})',
+                    "usage": 'create_package("research/trial-2024", files, metadata_template="research", metadata={"study_type": "clinical_trial"})',
                 },
                 "genomics_data": {
                     "template": "genomics",
@@ -61,7 +61,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "read_length": 150,
                         "coverage": "30x",
                     },
-                    "usage": 'package_create("genomics/wgs-study", files, metadata_template="genomics", metadata={"organism": "human"})',
+                    "usage": 'create_package("genomics/wgs-study", files, metadata_template="genomics", metadata={"organism": "human"})',
                 },
                 "ml_dataset": {
                     "template": "ml",
@@ -72,7 +72,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "model_ready": True,
                         "split_ratios": {"train": 0.7, "val": 0.15, "test": 0.15},
                     },
-                    "usage": 'package_create("ml/housing-prices", files, metadata_template="ml", metadata={"target_variable": "price"})',
+                    "usage": 'create_package("ml/housing-prices", files, metadata_template="ml", metadata={"target_variable": "price"})',
                 },
                 "business_analytics": {
                     "template": "analytics",
@@ -82,7 +82,7 @@ def show_metadata_examples() -> Dict[str, Any]:
                         "metrics_included": ["revenue", "conversion", "retention"],
                         "dashboard_ready": True,
                     },
-                    "usage": 'package_create("analytics/q1-sales", files, metadata_template="analytics", metadata={"analysis_period": "Q1-2024"})',
+                    "usage": 'create_package("analytics/q1-sales", files, metadata_template="analytics", metadata={"analysis_period": "Q1-2024"})',
                 },
             },
         },
@@ -170,7 +170,7 @@ def metadata_template_create(
         metadata = metadata_template_create("genomics", "Human genome study", {"organism": "human"})
 
         Then use in package creation:
-        package_create("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
+        create_package("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
     """
     try:
         # Get base template
@@ -185,8 +185,8 @@ def metadata_template_create(
             "metadata": metadata,
             "template_used": template_name,
             "field_count": len(metadata),
-            "usage_tip": "Use this metadata in package_create() or package_create()",
-            "example_usage": f'package_create("team/package", ["s3://bucket/file.csv"], metadata={str(metadata)})',
+            "usage_tip": "Use this metadata in create_package() or create_package()",
+            "example_usage": f'create_package("team/package", ["s3://bucket/file.csv"], metadata={str(metadata)})',
         }
 
     except Exception as e:
@@ -262,13 +262,13 @@ def fix_metadata_validation_issues() -> Dict[str, Any]:
         ],
         "testing_approach": [
             "Start simple: metadata={'description': 'test package'}",
-            "Verify it works with package_create()",
+            "Verify it works with create_package()",
             "Add one field at a time to identify problematic fields",
             "Use dry_run=True to test without creating actual packages",
             "Use validate_metadata_structure() to check format before creation",
         ],
         "recommended_workflow": [
-            "1. Use package_create() as primary tool (best error handling)",
+            "1. Use create_package() as primary tool (best error handling)",
             "2. Start with metadata templates: metadata_template='standard'",
             "3. Add custom fields via metadata parameter",
             "4. Use dry_run=True to preview before creation",

@@ -8,6 +8,7 @@ from quilt_mcp.tools.auth import (
     catalog_uri,
     catalog_url,
 )
+
 # bucket_objects_search replaced with catalog_search
 from quilt_mcp.tools.packages import (
     package_browse,
@@ -328,8 +329,9 @@ class TestQuiltTools:
             ],
             "query": "data",
             "scope": "bucket",
-            "target": "test-bucket"
+            "target": "test-bucket",
         }
+
         # Create an async function that returns our mock results
         async def mock_async_search(*args, **kwargs):
             return mock_results
@@ -354,8 +356,9 @@ class TestQuiltTools:
             "results": [{"_source": {"key": "test.txt", "size": 256}}],
             "query": str(query_dsl),
             "scope": "bucket",
-            "target": "test-bucket"
+            "target": "test-bucket",
         }
+
         # Create an async function that returns our mock results
         async def mock_async_search(*args, **kwargs):
             return mock_results
@@ -378,8 +381,9 @@ class TestQuiltTools:
             "results": [],
             "query": "query",
             "scope": "bucket",
-            "target": "s3://test-bucket"
+            "target": "s3://test-bucket",
         }
+
         # Create an async function that returns our mock results
         async def mock_async_search(*args, **kwargs):
             return mock_results
@@ -399,7 +403,7 @@ class TestQuiltTools:
             "error": "Search endpoint not configured",
             "query": "query",
             "scope": "bucket",
-            "target": "test-bucket"
+            "target": "test-bucket",
         }
 
         # Create an async function that returns our mock results

@@ -413,21 +413,25 @@ result = await mcp_client.call_tool(\"package_contents_search\", {
 }
 ```
 
-#### `package_update_metadata`
+#### Creating New Package Versions for Metadata Updates
 
-Update package metadata without recreating the entire package.
+Instead of modifying package metadata in-place (which breaks immutability), create new package versions:
 
 ```python
-result = await mcp_client.call_tool(\"package_update_metadata\", {
-    \"package_name\": \"genomics/study-001\",
+# Create a new version with updated metadata
+result = await mcp_client.call_tool(\"package_create\", {
+    \"name\": \"genomics/study-001\",
+    \"files\": [\"s3://bucket/existing/files.csv\"],  # Same files
     \"metadata\": {
         \"analysis_complete\": true,
         \"results_published\": \"2024-08-27\",
         \"doi\": \"10.1234/example.2024\"
     },
-    \"merge_with_existing\": true
+    \"description\": \"Updated with analysis results\"
 })
 ```
+
+This preserves version history and maintains Quilt's immutability principles.
 
 ## 🗄️ S3 Operations
 

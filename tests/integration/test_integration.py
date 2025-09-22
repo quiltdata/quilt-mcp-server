@@ -29,9 +29,8 @@ from quilt_mcp.tools.buckets import (
 )
 from quilt_mcp.tools.package_ops import (
     package_delete,
-    package_update,
 )
-from quilt_mcp.tools.package_management import package_create
+from quilt_mcp.tools.unified_package import create_package
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
@@ -526,7 +525,6 @@ class TestQuiltAPI:
                     print(f"Test file uploaded successfully: {item['key']}")
         except Exception:
             pass  # Cleanup is best-effort
-
 
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""

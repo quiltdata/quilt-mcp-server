@@ -347,7 +347,7 @@ def auth_status() -> dict[str, Any]:
                 "Try listing packages with: packages_list()",
                 "Test bucket permissions with: bucket_access_check(bucket_name)",
                 "Discover your writable buckets with: aws_permissions_discover()",
-                "Create your first package with: package_create_from_s3()",
+                "Create your first package with: create_package()",
             ]
 
             return {
@@ -362,7 +362,7 @@ def auth_status() -> dict[str, Any]:
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
-                    "package_creation": "Try: package_create_from_s3() to create your first package",
+                    "package_creation": "Try: create_package() to create your first package",
                     "exploration": "Try: packages_list() to browse existing packages",
                 },
             }
@@ -473,8 +473,7 @@ def filesystem_status() -> dict[str, Any]:
                 "catalog_search",
                 "package_browse",
                 "package_contents_search",
-                "package_create",
-                "package_update",
+                "create_package",
                 "bucket_objects_list",
                 "bucket_object_info",
                 "bucket_object_text",

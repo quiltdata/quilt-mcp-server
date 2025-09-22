@@ -341,6 +341,9 @@ def package_create_from_s3(
     """
     Create a well-organized Quilt package from S3 bucket contents with smart organization.
 
+    This is a specialized tool for bulk processing of S3 bucket contents into packages.
+    For simple package creation with specific files, use create_package() instead.
+
     Args:
         source_bucket: S3 bucket containing source data
         package_name: Name for the new package (namespace/name format)

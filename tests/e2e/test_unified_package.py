@@ -351,8 +351,19 @@ class TestUtilityFunctions:
                 call_args = mock_s3_create.call_args
                 passed_metadata = call_args[1]["metadata"]
 
-                # Verify metadata was passed unchanged
-                assert passed_metadata == test_metadata
+                # Verify metadata includes original fields plus template enhancements
+                # (Our consolidation now always applies metadata templates for better consistency)
+                for key, value in test_metadata.items():
+                    assert passed_metadata[key] == value, f"Original metadata field {key} should be preserved"
+
+                # Should also include standard template fields
+                assert "created_by" in passed_metadata, "Should include template field: created_by"
+                assert "package_type" in passed_metadata, "Should include template field: package_type"
+                assert passed_metadata["created_by"] == "quilt-mcp-server"
+
+
+# NOTE: The comprehensive metadata template tests are in tests/tools/test_unified_package.py
+# These tests focus on integration scenarios
 
 
 class TestUnifiedPackageMigration:

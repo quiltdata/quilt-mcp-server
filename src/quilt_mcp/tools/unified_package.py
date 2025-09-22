@@ -15,9 +15,17 @@ import asyncio
 import logging
 from pathlib import Path
 
+# Constants for dry-run preview generation
+PLACEHOLDER_FILE_SIZE = 1024  # Default file size in bytes for preview
+DEFAULT_PREVIEW_SIZE_LIMIT = 500  # Character limit for README preview
+
 from ..utils import validate_package_name, format_error_response
 from .permissions import bucket_recommendations_get, bucket_access_check
 from .s3_package import package_create_from_s3
+from .metadata_templates import (
+    metadata_template_get,
+    validate_metadata_structure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +38,15 @@ def create_package(
     dry_run: bool = False,
     target_registry: Optional[str] = None,
     metadata: dict[str, Any] | None = None,
+    metadata_template: str = "standard",
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
-    Unified package creation tool that handles everything automatically.
+    Primary package creation interface - handles all package creation scenarios.
 
-    This is the main package creation interface that provides intelligent
-    defaults, automatic validation, permissions checking, and helpful guidance.
+    This is the main package creation tool that provides intelligent defaults,
+    automatic validation, permissions checking, and helpful guidance. Use this
+    for most package creation needs. For bulk S3 processing, see package_create_from_s3().
 
     Args:
         name: Package name in namespace/packagename format
@@ -46,6 +56,7 @@ def create_package(
         dry_run: Preview without creating package (default: False)
         target_registry: Target registry (auto-detected if not provided)
         metadata: Additional package metadata
+        metadata_template: Template to use ('standard', 'genomics', 'ml', 'research', 'analytics')
 
     Returns:
         Comprehensive package creation result with guidance and next steps
@@ -71,53 +82,90 @@ def create_package(
                 tip="Provide at least one file to include in the package",
             )
 
-        # Handle metadata parameter - support both dict and JSON string for user convenience
-        processed_metadata = {}
-        readme_content = None
+        # Prepare metadata using template
+        try:
+            template_metadata = metadata_template_get(metadata_template)
 
-        if metadata is not None:
-            if isinstance(metadata, str):
-                try:
-                    import json
+            # Add description to metadata
+            if description:
+                template_metadata["description"] = description
 
-                    processed_metadata = json.loads(metadata)
-                except json.JSONDecodeError as e:
+            # Handle user-provided metadata - support both dict and JSON string for user convenience
+            if metadata is not None:
+                if isinstance(metadata, str):
+                    try:
+                        import json
+
+                        user_metadata = json.loads(metadata)
+                    except json.JSONDecodeError as e:
+                        return {
+                            "success": False,
+                            "error": "Invalid metadata JSON format",
+                            "provided": metadata,
+                            "json_error": str(e),
+                            "examples": [
+                                '{"description": "My dataset", "type": "research"}',
+                                '{"tags": ["analysis", "2024"], "author": "scientist"}',
+                            ],
+                            "tip": "Use proper JSON format with quotes around keys and string values",
+                        }
+                elif isinstance(metadata, dict):
+                    user_metadata = metadata.copy()
+                else:
                     return {
                         "success": False,
-                        "error": "Invalid metadata JSON format",
-                        "provided": metadata,
-                        "json_error": str(e),
+                        "error": "Invalid metadata type",
+                        "provided_type": type(metadata).__name__,
+                        "expected": "Dictionary object or JSON string",
                         "examples": [
-                            '{"description": "My dataset", "type": "research"}',
-                            '{"tags": ["analysis", "2024"], "author": "scientist"}',
+                            '{"description": "My dataset", "version": "1.0"}',
+                            '{"tags": ["research", "2024"], "author": "scientist"}',
                         ],
-                        "tip": "Use proper JSON format with quotes around keys and string values",
+                        "tip": "Pass metadata as a dictionary object or JSON string",
                     }
-            elif isinstance(metadata, dict):
-                processed_metadata = metadata.copy()
-            else:
+
+                # Extract README content from user metadata before merging
+                # readme_content takes priority if both fields exist
+                readme_content = None
+                if "readme_content" in user_metadata:
+                    readme_content = user_metadata.pop("readme_content")
+                elif "readme" in user_metadata:
+                    readme_content = user_metadata.pop("readme")
+
+                # Remove any remaining README fields to avoid duplication
+                if "readme" in user_metadata:
+                    user_metadata.pop("readme")
+
+                # Merge user metadata with template
+                template_metadata.update(user_metadata)
+
+                # Store README content for later addition as package file
+                if readme_content:
+                    template_metadata["_extracted_readme"] = readme_content
+
+            # Validate final metadata
+            validation_result = validate_metadata_structure(template_metadata, metadata_template)
+            if not validation_result["valid"]:
                 return {
                     "success": False,
-                    "error": "Invalid metadata type",
-                    "provided_type": type(metadata).__name__,
-                    "expected": "Dictionary object or JSON string",
-                    "examples": [
-                        '{"description": "My dataset", "version": "1.0"}',
-                        '{"tags": ["research", "2024"], "author": "scientist"}',
-                    ],
-                    "tip": "Pass metadata as a dictionary object or JSON string",
+                    "error": "Metadata validation failed",
+                    "validation_result": validation_result,
+                    "suggested_fixes": validation_result.get("suggestions", []),
                 }
 
-            # Extract README content from metadata and store for later addition as package file
-            # readme_content takes priority if both fields exist
-            if "readme_content" in processed_metadata:
-                readme_content = processed_metadata.pop("readme_content")
-            elif "readme" in processed_metadata:
-                readme_content = processed_metadata.pop("readme")
+            processed_metadata = template_metadata
 
-            # Remove any remaining README fields to avoid duplication
-            if "readme" in processed_metadata:
-                processed_metadata.pop("readme")
+        except Exception as e:
+            return {
+                "success": False,
+                "error": "Failed to prepare metadata",
+                "cause": str(e),
+                "template_used": metadata_template,
+                "suggested_actions": [
+                    "Try: list_metadata_templates() to see available templates",
+                    "Use 'standard' template for basic packages",
+                ],
+            }
 
         # Analyze file sources
         file_analysis = _analyze_file_sources(files)
@@ -140,6 +188,7 @@ def create_package(
                 dry_run=dry_run,
                 target_registry=target_registry,
                 metadata=processed_metadata,
+                metadata_template=metadata_template,
                 copy_mode=copy_mode,
             )
         elif file_analysis["source_type"] == "local_only":
@@ -457,6 +506,7 @@ def _create_package_from_s3_sources(
     dry_run: bool,
     target_registry: Optional[str],
     metadata: Optional[Dict[str, Any]],
+    metadata_template: str,
     copy_mode: str,
 ) -> Dict[str, Any]:
     """Create package from S3 sources using enhanced S3-to-package tool."""
@@ -493,6 +543,7 @@ def _create_package_from_s3_sources(
             result.update(
                 {
                     "creation_method": "s3_sources",
+                    "metadata_template_used": metadata_template,
                     "source_analysis": {
                         "source_bucket": source_bucket,
                         "source_prefix": source_prefix,
@@ -501,6 +552,10 @@ def _create_package_from_s3_sources(
                     "user_guidance": _generate_success_guidance(result, "s3"),
                 }
             )
+
+            # For dry-run, ensure comprehensive preview fields are present
+            if dry_run and result.get("action") == "preview":
+                result = _ensure_comprehensive_dry_run_preview(result, metadata, metadata_template, s3_files)
 
         return result
 
@@ -601,3 +656,153 @@ def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> 
         guidance.append("📝 README.md generated with usage examples")
 
     return guidance
+
+
+def _ensure_comprehensive_dry_run_preview(
+    result: Dict[str, Any],
+    metadata: Dict[str, Any],
+    metadata_template: str,
+    s3_files: List[str],
+) -> Dict[str, Any]:
+    """Ensure dry-run result has comprehensive preview fields."""
+    try:
+        # Ensure structure_preview is present
+        if "structure_preview" not in result:
+            result["structure_preview"] = _generate_basic_structure_preview(s3_files)
+
+        # Ensure metadata_preview is present with template information
+        if "metadata_preview" not in result:
+            result["metadata_preview"] = _generate_metadata_preview(metadata, metadata_template)
+
+        # Ensure readme_preview is present
+        if "readme_preview" not in result:
+            result["readme_preview"] = _generate_readme_preview(metadata, result.get("package_name", "Package"))
+
+        # Ensure summary_files_preview is present
+        if "summary_files_preview" not in result:
+            result["summary_files_preview"] = _generate_summary_files_preview(
+                result.get("package_name", "package"), metadata, metadata_template
+            )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error ensuring comprehensive dry-run preview: {e}")
+        # Return original result if enhancement fails
+        return result
+
+
+def _generate_basic_structure_preview(s3_files: List[str]) -> Dict[str, Any]:
+    """Generate a basic structure preview from S3 files."""
+    organized_structure: Dict[str, List[Dict[str, Any]]] = {}
+    total_files = len(s3_files)
+
+    # Group files by extension or put in general data folder
+    for s3_file in s3_files:
+        file_name = Path(s3_file).name
+        folder = _determine_file_folder(file_name)
+
+        if folder not in organized_structure:
+            organized_structure[folder] = []
+
+        organized_structure[folder].append(
+            {
+                "name": file_name,
+                "size": PLACEHOLDER_FILE_SIZE,
+                "s3_uri": s3_file,
+            }
+        )
+
+    total_size_mb = round(total_files * PLACEHOLDER_FILE_SIZE / (1024 * 1024), 3)
+
+    return {
+        "organized_structure": organized_structure,
+        "total_files": total_files,
+        "total_size_mb": total_size_mb,
+        "organization_applied": True,
+        "preview_note": "This is a basic preview. Actual package creation may differ.",
+    }
+
+
+def _determine_file_folder(file_name: str) -> str:
+    """Determine the appropriate folder for a file based on its extension."""
+    if "." in file_name:
+        ext = file_name.split(".")[-1].lower()
+        return f"{ext}_files/" if ext else "data/"
+    return "data/"
+
+
+def _generate_metadata_preview(metadata: Optional[Dict[str, Any]], metadata_template: str) -> Dict[str, Any]:
+    """Generate metadata preview with template information."""
+    # Start with the provided metadata
+    preview = metadata.copy() if metadata else {}
+
+    # Add template information if not already present
+    _add_missing_template_fields(preview, metadata_template)
+
+    return preview
+
+
+def _add_missing_template_fields(preview: Dict[str, Any], metadata_template: str) -> None:
+    """Add missing template fields to metadata preview."""
+    # Template to package type mapping
+    TEMPLATE_PACKAGE_TYPES = {
+        "standard": "data",
+        "genomics": "genomics",
+        "ml": "ml_dataset",
+        "research": "research",
+        "analytics": "analytics",
+    }
+
+    # Add package type if missing
+    if "package_type" not in preview:
+        preview["package_type"] = TEMPLATE_PACKAGE_TYPES.get(metadata_template, "data")
+
+    # Add creator information if missing
+    if "created_by" not in preview:
+        preview["created_by"] = "quilt-mcp-server"
+
+    # Add data type for non-standard templates
+    if "data_type" not in preview and metadata_template != "standard":
+        preview["data_type"] = metadata_template
+
+
+def _generate_readme_preview(metadata: Optional[Dict[str, Any]], package_name: str) -> str:
+    """Generate a basic README preview."""
+    # Check for extracted README content
+    extracted_readme = metadata.get("_extracted_readme") if metadata else None
+    if extracted_readme:
+        return _truncate_content(extracted_readme, DEFAULT_PREVIEW_SIZE_LIMIT)
+
+    # Generate basic README from metadata
+    description = metadata.get("description", "Data package") if metadata else "Data package"
+    return f"# {package_name}\n\n{description}\n\nThis package was created using quilt-mcp-server."
+
+
+def _truncate_content(content: str, limit: int) -> str:
+    """Truncate content to specified limit with ellipsis."""
+    return content[:limit] + ("..." if len(content) > limit else "")
+
+
+def _generate_summary_files_preview(
+    package_name: str, metadata: Optional[Dict[str, Any]], metadata_template: str
+) -> Dict[str, Any]:
+    """Generate a basic summary files preview."""
+    package_type = metadata.get("package_type", "data") if metadata else "data"
+
+    return {
+        "quilt_summarize.json": {
+            "version": "1.0",
+            "name": package_name,
+            "metadata_template": metadata_template,
+            "package_type": package_type,
+            "created_by": "quilt-mcp-server",
+        },
+        "visualizations": {
+            "file_distribution": {"preview": "File distribution chart would be generated"},
+        },
+        "files_generated": {
+            "quilt_summarize.json": True,
+            "README.md": True,
+        },
+    }

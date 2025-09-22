@@ -33,15 +33,19 @@ from .tools.buckets import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from .tools.package_ops import package_delete, package_update
+from .tools.package_ops import package_delete
 from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
     bucket_recommendations_get,
 )
 from .tools.unified_package import (
+    create_package,
     list_available_resources,
     quick_start,
+)
+from .tools.s3_package import (
+    package_create_from_s3,
 )
 from .tools.metadata_templates import (
     metadata_template_get,
@@ -49,8 +53,6 @@ from .tools.metadata_templates import (
     validate_metadata_structure,
 )
 from .tools.package_management import (
-    package_create,
-    package_update_metadata,
     package_validate,
     package_tools_list,
 )
@@ -120,6 +122,7 @@ __all__ = [
     "catalog_uri",
     "catalog_url",
     "configure_catalog",
+    "create_package",
     "create_quilt_summary_files",
     "filesystem_status",
     "fix_metadata_validation_issues",
@@ -131,12 +134,10 @@ __all__ = [
     "metadata_template_get",
     "package_browse",
     "package_contents_search",
-    "package_create",
+    "package_create_from_s3",
     "package_delete",
     "package_diff",
     "package_tools_list",
-    "package_update",
-    "package_update_metadata",
     "package_validate",
     "packages_list",
     "quick_start",
