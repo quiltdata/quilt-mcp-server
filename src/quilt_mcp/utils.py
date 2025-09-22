@@ -8,11 +8,12 @@ import re
 import sys
 import io
 import contextlib
-from typing import Any, Dict, Literal, Callable
+from typing import Any, Dict, Literal, Callable, Iterable
 from urllib.parse import urlparse, parse_qs, unquote
 
 import boto3
 from fastmcp import FastMCP
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 
@@ -297,6 +298,52 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     return mcp
 
 
+class _EnsureExposeHeadersMiddleware(BaseHTTPMiddleware):
+    """Middleware that guarantees Access-Control-Expose-Headers includes values."""
+
+    def __init__(self, app, headers: Iterable[str]) -> None:  # type: ignore[override]
+        super().__init__(app)
+        self._headers = {header.lower(): header for header in headers}
+
+    async def dispatch(self, request, call_next):  # type: ignore[override]
+        response = await call_next(request)
+        existing = response.headers.get("Access-Control-Expose-Headers", "")
+        existing_tokens = {
+            token.strip().lower(): token.strip()
+            for token in existing.split(",")
+            if token.strip()
+        }
+        for key, original in self._headers.items():
+            existing_tokens.setdefault(key, original)
+        if existing_tokens:
+            response.headers["Access-Control-Expose-Headers"] = ", ".join(
+                sorted(existing_tokens.values())
+            )
+        return response
+
+
+def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
+    """Return an ASGI app for HTTP transports with CORS/expose headers configured."""
+    app = mcp.http_app(transport=transport)
+
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+            allow_credentials=True,
+            expose_headers=["mcp-session-id"],
+        )
+    except ImportError as exc:  # pragma: no cover
+        print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
+
+    app.add_middleware(_EnsureExposeHeadersMiddleware, headers=["mcp-session-id"])
+    return app
+
+
 def run_server() -> None:
     """Run the MCP server with proper error handling."""
     try:
@@ -315,33 +362,14 @@ def run_server() -> None:
 
         # For HTTP transport, add CORS middleware
         if transport in ["http", "streamable-http", "sse"]:
-            try:
-                from starlette.middleware.cors import CORSMiddleware
-                
-                # Create the ASGI app first
-                app = mcp.http_app()
-                
-                # Add CORS middleware to the existing app
-                app.add_middleware(
-                    CORSMiddleware,
-                    allow_origins=["*"],  # Allow all origins for now
-                    allow_methods=["*"],  # Allow all methods
-                    allow_headers=["*"],  # Allow all headers including mcp-session-id
-                    allow_credentials=True,
-                    expose_headers=["mcp-session-id"],  # Expose session ID header for CORS
-                )
-                
-                # Run the ASGI app
-                import uvicorn
-                host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
-                port = int(os.environ.get("FASTMCP_PORT", "8000"))
-                uvicorn.run(app, host=host, port=port, log_level="info")
-                return
-                
-            except ImportError as e:
-                print(f"Warning: Could not import CORS middleware: {e}", file=sys.stderr)
-            except Exception as e:
-                print(f"Warning: Could not configure CORS middleware: {e}", file=sys.stderr)
+            app = build_http_app(mcp, transport=transport)
+
+            import uvicorn
+
+            host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+            port = int(os.environ.get("FASTMCP_PORT", "8000"))
+            uvicorn.run(app, host=host, port=port, log_level="info")
+            return
 
         # Run the server with standard transport
         mcp.run(transport=transport)
