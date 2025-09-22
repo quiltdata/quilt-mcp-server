@@ -346,137 +346,6 @@ def package_create(
         return format_error_response(f"Package creation failed: {str(e)}")
 
 
-def package_update_metadata(
-    package_name: str,
-    metadata: Any,
-    registry: str = None,
-    merge_with_existing: bool = True,
-) -> Dict[str, Any]:
-    """
-    Update or replace metadata for an existing package.
-
-    Args:
-        package_name: Name of the package to update
-        metadata: New metadata to set (dict or JSON string)
-        registry: Registry containing the package
-        merge_with_existing: Whether to merge with existing metadata (default: True)
-
-    Returns:
-        Update result with status and guidance
-    """
-    try:
-        # Handle metadata as string
-        if isinstance(metadata, str):
-            try:
-                import json
-
-                metadata = json.loads(metadata)
-            except json.JSONDecodeError as e:
-                return {
-                    "success": False,
-                    "error": "Invalid metadata JSON format",
-                    "provided": metadata,
-                    "json_error": str(e),
-                    "examples": [
-                        '{"description": "Updated description", "version": "2.0"}',
-                        '{"tags": ["updated", "v2"], "quality": "validated"}',
-                    ],
-                    "tip": "Use proper JSON format with quotes around keys and string values",
-                }
-
-        # Validate metadata structure
-        validation_result = validate_metadata_structure(metadata)
-        if not validation_result["valid"]:
-            return {
-                "success": False,
-                "error": "Metadata validation failed",
-                "validation_result": validation_result,
-            }
-
-        # Implementation: Update package metadata
-        try:
-            from ..constants import DEFAULT_REGISTRY
-
-            # Use default registry if none provided
-            if not registry:
-                registry = DEFAULT_REGISTRY
-
-            # Browse existing package to get current structure
-            # Suppress stdout during browse to avoid JSON-RPC interference
-            from ..utils import suppress_stdout
-
-            quilt_service = QuiltService()
-            with suppress_stdout():
-                pkg = quilt_service.browse_package(package_name, registry=registry)
-
-            # Get current metadata
-            current_metadata = {}
-            try:
-                current_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else {}
-            except Exception:
-                current_metadata = {}
-
-            # Merge or replace metadata based on user preference
-            if merge_with_existing:
-                final_metadata = current_metadata.copy()
-                final_metadata.update(metadata)
-            else:
-                final_metadata = metadata.copy()
-
-            # Set the new metadata
-            pkg.set_meta(final_metadata)
-
-            # Push the updated package
-            commit_message = f"Updated metadata for {package_name}"
-
-            # Suppress stdout during push to avoid JSON-RPC interference
-            from ..utils import suppress_stdout
-
-            with suppress_stdout():
-                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
-
-            return {
-                "success": True,
-                "action": "metadata_updated",
-                "package_name": package_name,
-                "registry": registry,
-                "top_hash": str(top_hash),
-                "previous_metadata": current_metadata,
-                "new_metadata": final_metadata,
-                "merge_applied": merge_with_existing,
-                "message": "Metadata updated successfully",
-                "next_steps": [
-                    f"Browse updated package: package_browse('{package_name}')",
-                    f"Validate package: package_validate('{package_name}')",
-                    f"View online: catalog_url('{registry}', '{package_name}')",
-                ],
-            }
-
-        except Exception as e:
-            return {
-                "success": False,
-                "error": "Failed to update package metadata",
-                "cause": str(e),
-                "error_type": type(e).__name__,
-                "possible_fixes": [
-                    "Verify the package exists in the specified registry",
-                    "Check that you have write permissions for the registry",
-                    "Ensure your metadata is a valid dictionary",
-                ],
-                "suggested_actions": [
-                    f"Try: package_browse('{package_name}') to verify package exists",
-                    "Try: test_permissions() to check bucket access",
-                    "Try: validate_metadata_structure() to check metadata format",
-                ],
-                "debug_info": {
-                    "error_type": type(e).__name__,
-                    "operation": "metadata_update",
-                },
-            }
-
-    except Exception as e:
-        return format_error_response(f"Metadata update failed: {str(e)}")
-
 
 def _validate_package_alternative(package_name: str, registry: str, browse_error: Dict[str, Any]) -> Dict[str, Any]:
     """Alternative validation approach when package browsing fails."""
@@ -655,10 +524,11 @@ def package_tools_list() -> Dict[str, Any]:
                 "use_when": "Creating packages from entire S3 buckets/prefixes",
                 "example": 'package_create_from_s3("bucket-name", "team/dataset")',
             },
-            "package_update_metadata": {
-                "description": "Update package metadata (planned feature)",
-                "use_when": "Updating metadata without recreating package",
-                "status": "Coming soon",
+            "package_create_new_version": {
+                "description": "Create new package version with updated metadata",
+                "use_when": "Need to update metadata while preserving version history",
+                "example": 'package_create("team/dataset", files, metadata=new_metadata)',
+                "note": "Creating new versions preserves immutability and version history",
             },
         },
         "utility_tools": {

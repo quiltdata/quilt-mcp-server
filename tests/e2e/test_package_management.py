@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 
 from quilt_mcp.tools.package_management import (
     package_create,
-    package_update_metadata,
     package_validate,
     package_tools_list,
 )
@@ -370,5 +369,19 @@ class TestToolDocumentation:
         assert "package_create" in result["primary_tools"]
         assert "package_browse" in result["primary_tools"]
         assert "package_validate" in result["primary_tools"]
+
+
+class TestFunctionRemoval:
+    """Test cases for verifying removed functions cannot be imported."""
+
+    def test_package_update_metadata_removed(self):
+        """Test that package_update_metadata function has been removed and cannot be imported."""
+        # Test that the function cannot be imported from the module
+        with pytest.raises(ImportError, match="cannot import name 'package_update_metadata'"):
+            from quilt_mcp.tools.package_management import package_update_metadata
+
+        # Test that the function is not in the main package exports
+        with pytest.raises(ImportError, match="cannot import name 'package_update_metadata'"):
+            from quilt_mcp import package_update_metadata
 
 

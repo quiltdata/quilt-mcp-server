@@ -50,7 +50,6 @@ from .tools.metadata_templates import (
 )
 from .tools.package_management import (
     package_create,
-    package_update_metadata,
     package_validate,
     package_tools_list,
 )
@@ -135,7 +134,6 @@ __all__ = [
     "package_delete",
     "package_diff",
     "package_tools_list",
-    "package_update_metadata",
     "package_validate",
     "packages_list",
     "quick_start",
