@@ -42,10 +42,11 @@ def create_package(
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
-    Unified package creation tool that handles everything automatically.
+    Primary package creation interface - handles all package creation scenarios.
 
-    This is the main package creation interface that provides intelligent
-    defaults, automatic validation, permissions checking, and helpful guidance.
+    This is the main package creation tool that provides intelligent defaults,
+    automatic validation, permissions checking, and helpful guidance. Use this
+    for most package creation needs. For bulk S3 processing, see package_create_from_s3().
 
     Args:
         name: Package name in namespace/packagename format

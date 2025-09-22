@@ -47,7 +47,7 @@ def _base_package_create(
     s3_uris: list[str],
     registry: str = DEFAULT_REGISTRY,
     metadata: dict[str, Any] | None = None,
-    message: str = "Created via package_create tool",
+    message: str = "Created via create_package tool",
     flatten: bool = True,
     copy_mode: str = "all",
 ) -> dict[str, Any]:
@@ -58,7 +58,7 @@ def _base_package_create(
         s3_uris: List of S3 URIs to include in the package
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         metadata: Optional metadata dict to attach to the package (JSON object, not string)
-        message: Commit message for package creation (default: "Created via package_create tool")
+        message: Commit message for package creation (default: "Created via create_package tool")
         flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
 
     Returns:
