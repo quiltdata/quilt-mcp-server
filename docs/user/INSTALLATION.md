@@ -22,6 +22,68 @@ The fastest way to get started:
 - **AWS CLI** configured with credentials
 - **Git** for cloning the repository
 
+### Docker Support
+
+If you prefer a containerized workflow, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) or another Docker runtime. The official Quilt MCP Server image exposes the MCP HTTP interface on port `8000` using the `/mcp/` path.
+
+## 🐳 Docker Usage
+
+### Pull from Quilt ECR
+
+Releases publish an image to the Quilt AWS ECR registry. Use the provided registry URI (or derive it from your AWS account) to authenticate and pull:
+
+```bash
+AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+ECR_REGISTRY=$(aws ecr describe-repositories \
+  --query "repositories[?repositoryName=='quilt-mcp-server'].repositoryUri" \
+  --output text)
+
+aws ecr get-login-password --region "$AWS_REGION" | \
+  docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+docker pull "$ECR_REGISTRY"/quilt-mcp-server:latest
+```
+
+### Run the Container
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e FASTMCP_TRANSPORT=http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  "$ECR_REGISTRY"/quilt-mcp-server:latest
+
+# The MCP HTTP endpoint is now available at http://localhost:8000/mcp/
+```
+
+Provide additional environment variables (AWS credentials, Quilt endpoints, etc.) as needed for your workload:
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e FASTMCP_TRANSPORT=http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  -e AWS_ACCESS_KEY_ID=your-access-key \
+  -e AWS_SECRET_ACCESS_KEY=your-secret \
+  -e QUILT_CATALOG_URL=https://demo.quiltdata.com \
+  "$ECR_REGISTRY"/quilt-mcp-server:latest
+```
+
+### Build Locally
+
+Use the provided Make targets to build and test the Docker image without publishing:
+
+```bash
+# Build image tagged as quilt-mcp:dev
+make docker-build
+
+# Run the container locally
+make docker-run
+
+# Execute Docker smoke tests
+make docker-test
+```
+
 ### Verify Prerequisites
 
 ```bash
