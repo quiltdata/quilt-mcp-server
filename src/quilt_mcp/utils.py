@@ -313,7 +313,36 @@ def run_server() -> None:
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
-        # Run the server
+        # For HTTP transport, add CORS middleware
+        if transport in ["http", "streamable-http"]:
+            try:
+                from starlette.middleware.cors import CORSMiddleware
+                
+                # Create the ASGI app first
+                app = mcp.http_app()
+                
+                # Add CORS middleware to the existing app
+                app.add_middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],  # Allow all origins for now
+                    allow_methods=["*"],  # Allow all methods
+                    allow_headers=["*"],  # Allow all headers
+                    allow_credentials=True,
+                )
+                
+                # Run the ASGI app
+                import uvicorn
+                host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+                port = int(os.environ.get("FASTMCP_PORT", "8000"))
+                uvicorn.run(app, host=host, port=port, log_level="info")
+                return
+                
+            except ImportError as e:
+                print(f"Warning: Could not import CORS middleware: {e}", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: Could not configure CORS middleware: {e}", file=sys.stderr)
+
+        # Run the server with standard transport
         mcp.run(transport=transport)
 
     except Exception as e:
