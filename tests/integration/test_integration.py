@@ -37,7 +37,6 @@ from quilt_mcp.tools.packages import (
     package_contents_search,
     package_diff,
     packages_list,
-    packages_search,
 )
 
 # Test configuration - using constants
@@ -129,43 +128,6 @@ class TestQuiltAPI:
         assert KNOWN_PACKAGE in package_names, (
             f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
         )
-
-    @pytest.mark.search
-    @pytest.mark.skipif(
-        os.getenv("GITHUB_ACTIONS") == "true",
-        reason="Skip search integration test in CI - requires indexed content and can timeout",
-    )
-    def test_packages_search_finds_data(self):
-        """Test that searching finds actual data (search returns S3 objects, not packages)."""
-        # Use a very simple search to avoid timeout
-        try:
-            # Test with explicit registry parameter (our fix ensures registry-specific search)
-            # Use limit=1 and a simple query to minimize time
-            result = packages_search("*", registry=TEST_REGISTRY, limit=1)
-            assert isinstance(result, dict)
-            assert "results" in result
-            assert "registry" in result  # Verify our fix adds registry info
-            assert "bucket" in result  # Verify our fix adds bucket info
-
-            # If we get results, verify the structure
-            if len(result["results"]) > 0:
-                for item in result["results"]:
-                    if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
-            else:
-                # No results is fine - the search functionality is working
-                import warnings
-
-                warnings.warn(
-                    f"No search results found in registry {TEST_REGISTRY}. "
-                    "This may be expected in CI environments without indexed content. "
-                    "The search functionality is working correctly - it's properly scoped to the specified registry."
-                )
-        except Exception as e:
-            # If search fails completely, that's also acceptable in CI
-            import warnings
-
-            warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
 
     def test_package_browse_known_package(self, known_package_browse_result):
         """Test browsing the known test package."""
@@ -411,15 +373,6 @@ class TestQuiltAPI:
             assert f"package=raw/salmon-rnaseq@{test_hash}" in result["quilt_plus_uri"]
 
     # FAILURE CASES - These should fail gracefully
-
-    @pytest.mark.search
-    def test_packages_search_no_results(self):
-        """Test that non-existent search returns empty results, not error."""
-        result = packages_search("xyznonexistentpackage123456789")
-
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) == 0, "Non-existent search should return empty results"
 
     def test_packages_list_invalid_registry_fails(self):
         """Test that invalid registry fails gracefully with proper error."""
