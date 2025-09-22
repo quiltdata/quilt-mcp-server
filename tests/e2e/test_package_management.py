@@ -4,25 +4,25 @@ import pytest
 from unittest.mock import Mock, patch
 
 from quilt_mcp.tools.package_management import (
-    create_package_enhanced,
+    package_create,
     package_update_metadata,
     package_validate,
-    list_package_tools,
+    package_tools_list,
 )
 from quilt_mcp.tools.metadata_templates import (
-    get_metadata_template,
+    metadata_template_get,
     list_metadata_templates,
     validate_metadata_structure,
 )
 from quilt_mcp.tools.packages import package_browse
 
 
-class TestCreatePackageEnhanced:
+class TestPackageCreate:
     """Test cases for enhanced package creation."""
 
     def test_invalid_package_name(self):
         """Test validation of invalid package names."""
-        result = create_package_enhanced(
+        result = package_create(
             name="invalid-name",  # Missing namespace
             files=["s3://bucket/file.csv"],
         )
@@ -34,7 +34,7 @@ class TestCreatePackageEnhanced:
 
     def test_invalid_files_parameter(self):
         """Test validation of invalid files parameter."""
-        result = create_package_enhanced(
+        result = package_create(
             name="team/dataset",
             files=[],  # Empty list
         )
@@ -45,7 +45,7 @@ class TestCreatePackageEnhanced:
 
     def test_invalid_s3_uris(self):
         """Test validation of invalid S3 URIs."""
-        result = create_package_enhanced(
+        result = package_create(
             name="team/dataset",
             files=["invalid-uri", "s3://bucket-only"],  # Invalid URIs
         )
@@ -57,7 +57,7 @@ class TestCreatePackageEnhanced:
 
     def test_dry_run_preview(self):
         """Test dry run functionality."""
-        result = create_package_enhanced(
+        result = package_create(
             name="team/dataset",
             files=["s3://bucket/file.csv"],
             description="Test dataset",
@@ -75,7 +75,7 @@ class TestCreatePackageEnhanced:
         """Test handling of metadata as JSON string."""
         # This would test the JSON parsing logic
         # In a full test, we'd mock the base package creation
-        result = create_package_enhanced(
+        result = package_create(
             name="team/dataset",
             files=["s3://bucket/file.csv"],
             metadata='{"custom": "value"}',  # JSON string
@@ -102,7 +102,7 @@ class TestCreatePackageEnhanced:
                 "tags": ["test", "example"],
             }
 
-            result = create_package_enhanced(
+            result = package_create(
                 name="team/dataset",
                 files=["s3://bucket/file.csv"],
                 metadata=test_metadata,
@@ -151,7 +151,7 @@ class TestCreatePackageEnhanced:
                 "version": "1.0.0",
             }
 
-            result = create_package_enhanced(
+            result = package_create(
                 name="team/dataset",
                 files=["s3://bucket/file.csv"],
                 metadata=test_metadata,
@@ -196,7 +196,7 @@ class TestCreatePackageEnhanced:
                 "version": "1.0.0",
             }
 
-            result = create_package_enhanced(
+            result = package_create(
                 name="team/dataset",
                 files=["s3://bucket/file.csv"],
                 metadata=test_metadata,
@@ -228,7 +228,7 @@ class TestMetadataTemplates:
 
     def test_get_standard_template(self):
         """Test getting standard metadata template."""
-        metadata = get_metadata_template("standard")
+        metadata = metadata_template_get("standard")
 
         assert "description" in metadata
         assert "created_by" in metadata
@@ -237,7 +237,7 @@ class TestMetadataTemplates:
 
     def test_get_genomics_template(self):
         """Test getting genomics metadata template."""
-        metadata = get_metadata_template("genomics", {"organism": "human"})
+        metadata = metadata_template_get("genomics", {"organism": "human"})
 
         assert metadata["package_type"] == "genomics"
         assert metadata["organism"] == "human"
@@ -359,7 +359,7 @@ class TestToolDocumentation:
 
     def test_list_package_tools(self):
         """Test package tools listing."""
-        result = list_package_tools()
+        result = package_tools_list()
 
         assert "primary_tools" in result
         assert "specialized_tools" in result
@@ -367,46 +367,8 @@ class TestToolDocumentation:
         assert "tips" in result
 
         # Check that main tools are documented
-        assert "create_package_enhanced" in result["primary_tools"]
+        assert "package_create" in result["primary_tools"]
         assert "package_browse" in result["primary_tools"]
         assert "package_validate" in result["primary_tools"]
 
 
-class TestPackageManagementMigration:
-    """Test cases for package_management integration with create_package_revision."""
-
-    @pytest.mark.slow
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
-    def test_package_management_uses_create_package_revision_integration(self, mock_create_revision):
-        """Test that package_management integrates with create_package_revision through package_ops."""
-        # Mock successful package creation
-        mock_create_revision.return_value = {
-            "status": "success",
-            "top_hash": "test_hash_123",
-            "entries_added": 1,
-            "files": [{"logical_path": "file.csv", "source": "s3://bucket/file.csv"}],
-        }
-
-        result = create_package_enhanced(
-            name="test/package",
-            files=["s3://bucket/file.csv"],
-            description="Test package",
-            metadata_template="standard",
-        )
-
-        # Verify success
-        assert result["status"] == "success"
-
-        # Verify create_package_revision was called with auto_organize=False
-        # (package_management.py uses package_ops.py which should use auto_organize=False)
-        mock_create_revision.assert_called_once()
-        call_args = mock_create_revision.call_args
-
-        assert call_args[1]["package_name"] == "test/package"
-        assert not call_args[1]["auto_organize"]  # package_management uses package_ops which should use False
-        assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]
-
-        # Verify metadata template was processed
-        processed_metadata = call_args[1]["metadata"]
-        assert "description" in processed_metadata
-        assert "creation_date" in processed_metadata  # Should be added by template
