@@ -44,10 +44,11 @@ jobs:
 
     - name: Test Docker build (no push)
       if: github.event_name == 'pull_request'
+      env:
+        VERSION: test-${{ github.sha }}
       run: |
         echo "🐳 Testing Docker build for PR (no push)..."
-        chmod +x scripts/docker.sh
-        ./scripts/docker.sh build
+        uv run python scripts/docker.py build --version "$VERSION"
 
     - name: Debug GitHub context for dev-release
       run: |

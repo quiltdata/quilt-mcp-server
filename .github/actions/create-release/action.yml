@@ -62,9 +62,8 @@ runs:
         AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
         AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
       run: |
-        echo "🐳 Building and pushing Docker image with scripts/docker.sh"
-        chmod +x scripts/docker.sh
-        ./scripts/docker.sh push --version "$VERSION"
+        echo "🐳 Building and pushing Docker image with scripts/docker.py"
+        uv run python scripts/docker.py push --version "$VERSION"
 
     - name: Create GitHub Release
       id: create-release
