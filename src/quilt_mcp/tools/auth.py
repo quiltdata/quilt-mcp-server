@@ -473,7 +473,7 @@ def filesystem_status() -> dict[str, Any]:
                 "catalog_search",
                 "package_browse",
                 "package_contents_search",
-                "package_create",
+                "create_package",
                 "bucket_objects_list",
                 "bucket_object_info",
                 "bucket_object_text",
