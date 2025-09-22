@@ -255,7 +255,7 @@ tag_dev() {
         echo "  git pull origin $(git rev-parse --abbrev-ref HEAD)"
         echo "  git tag -a \"v$DEV_VERSION\" -m \"Development build v$DEV_VERSION\""
         echo "  git push origin \"v$DEV_VERSION\""
-        echo "🚀 Would trigger GitHub Actions to build and publish DXT package as prerelease"
+        echo "🚀 Would trigger GitHub Actions to build and publish MCPB package as prerelease"
         echo "📦 Release would be available at: https://github.com/$REPO_URL/releases/tag/v$DEV_VERSION"
         return
     fi
@@ -265,7 +265,7 @@ tag_dev() {
     git tag -a "v$DEV_VERSION" -m "Development build v$DEV_VERSION"
     git push origin "v$DEV_VERSION"
     echo "✅ Development tag v$DEV_VERSION created and pushed"
-    echo "🚀 GitHub Actions will now build and publish the DXT package as a prerelease"
+    echo "🚀 GitHub Actions will now build and publish the MCPB package as a prerelease"
     echo "📦 Release will be available at: https://github.com/$REPO_URL/releases/tag/v$DEV_VERSION"
 }
 
@@ -316,7 +316,7 @@ tag_release() {
         echo "  git pull origin main"
         echo "  git tag -a \"v$MANIFEST_VERSION\" -m \"$TAG_TYPE v$MANIFEST_VERSION\""
         echo "  git push origin \"v$MANIFEST_VERSION\""
-        echo "🚀 Would trigger GitHub Actions to build and publish DXT package"
+        echo "🚀 Would trigger GitHub Actions to build and publish MCPB package"
         echo "📦 Release would be available at: https://github.com/$REPO_URL/releases/tag/v$MANIFEST_VERSION"
         return
     fi
@@ -325,7 +325,7 @@ tag_release() {
     git tag -a "v$MANIFEST_VERSION" -m "$TAG_TYPE v$MANIFEST_VERSION"
     git push origin "v$MANIFEST_VERSION"
     echo "✅ Tag v$MANIFEST_VERSION created and pushed"
-    echo "🚀 GitHub Actions will now build and publish the DXT package"
+    echo "🚀 GitHub Actions will now build and publish the MCPB package"
     echo "📦 Release will be available at: https://github.com/$REPO_URL/releases/tag/v$MANIFEST_VERSION"
 }
 

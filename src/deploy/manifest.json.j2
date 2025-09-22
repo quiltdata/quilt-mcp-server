@@ -1,5 +1,5 @@
 {
-  "mcpb_version": "1.0",
+  "manifest_version": "0.1",
   "name": "quilt-mcp",
   "version": "{{ version }}",
   "description": "Access Quilt data packages through Claude Desktop",
@@ -14,8 +14,8 @@
   },
   "icon": "icon.png",
   "server": {
-    "type": "uvx",
-    "package": "quilt-mcp",
+    "type": "binary",
+    "entry_point": "uvx",
     "mcp_config": {
       "command": "uvx",
       "args": ["quilt-mcp"],

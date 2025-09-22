@@ -9,11 +9,12 @@ BUILD_PKGS_DIR := $(BUILD_DIR)/lib
 DIST_DIR := dist
 
 # Variables
-DXT_NAME := quilt-mcp
+PACKAGE_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
-PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
+PACKAGE_ID := $(DIST_DIR)/$(PACKAGE_NAME)-$(PACKAGE_VERSION)
+MCPB_PACKAGE := $(PACKAGE_ID).mcpb
 DXT_PACKAGE := $(PACKAGE_ID).dxt
 RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 
@@ -26,22 +27,41 @@ DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build dxt dxt-validate python-dist python-publish release-zip deploy-clean check-tools
+.PHONY: deploy-build mcpb mcpb-validate dxt dxt-validate python-dist python-publish release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
 	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found - install Node.js"; exit 1; }
 	@command -v uv >/dev/null 2>&1 || { echo "❌ uv not found - install uv package manager"; exit 1; }
+	@command -v mcpb >/dev/null 2>&1 || { echo "❌ mcpb not found - run: npm install -g @anthropic-ai/mcpb"; exit 1; }
 	@echo "✅ All required tools found"
 
 # Build Environment Preparation
 deploy-build: check-tools
 	@echo "Preparing production build environment..."
-	@$(MAKE) -f make.deploy build-contents
-	@$(MAKE) -f make.deploy build-test
+	@$(MAKE) -f make.deploy mcpb-build-contents
 	@echo "✅ Build environment ready"
 
+# Legacy DXT Build Environment Preparation
+deploy-build-dxt: check-tools
+	@echo "Preparing DXT production build environment..."
+	@$(MAKE) -f make.deploy build-contents
+	@$(MAKE) -f make.deploy build-test
+	@echo "✅ DXT Build environment ready"
+
 # Intermediate targets for incremental builds
+# MCPB assets (only manifest, icon, README needed)
+mcpb-assets: $(ASSET_FILES)
+	@echo "Preparing MCPB assets..."
+	@mkdir -p $(BUILD_DIR)/mcpb
+	@echo "Generating manifest.json from template..."
+	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(ASSETS_DIR)/manifest.json.j2 > $(BUILD_DIR)/mcpb/manifest.json
+	@echo "Copying icon and documentation..."
+	@cp $(ASSETS_DIR)/icon.png $(BUILD_DIR)/mcpb/
+	@cp $(ASSETS_DIR)/README.md $(BUILD_DIR)/mcpb/
+	@echo "✅ MCPB assets prepared"
+
+# Original DXT assets marker (preserved for backward compatibility)
 $(ASSETS_MARKER): $(ASSET_FILES)
 	@echo "Copying DXT assets..."
 	@mkdir -p $(BUILD_DIR)
@@ -67,6 +87,11 @@ $(DEPS_MARKER): pyproject.toml
 	@uv pip install --target $(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
 	@touch $@
 
+# MCPB simplified build (no source code copying needed)
+mcpb-build-contents: mcpb-assets
+	@echo "✅ MCPB build contents prepared"
+
+# Original DXT build contents (preserved for backward compatibility)
 build-contents: $(ASSETS_MARKER) $(APP_MARKER)
 	@echo "✅ Build contents prepared"
 
@@ -83,6 +108,17 @@ $(DXT_PACKAGE): build-contents
 	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(DXT_PACKAGE)
 	@echo "✅ Built $(DXT_PACKAGE)"
 
+# MCPB Package Creation
+$(MCPB_PACKAGE): mcpb-build-contents
+	@echo "Packing with MCPB CLI..."
+	@mkdir -p $(DIST_DIR)
+	@mcpb pack $(BUILD_DIR)/mcpb $(MCPB_PACKAGE)
+	@echo "✅ Built $(MCPB_PACKAGE)"
+
+mcpb: $(MCPB_PACKAGE)
+	@echo "✅ MCPB package created: $(MCPB_PACKAGE)"
+
+# DXT Package Creation (preserved for backward compatibility)
 dxt: $(DXT_PACKAGE)
 	@echo "✅ DXT package created: $(DXT_PACKAGE)"
 
@@ -97,7 +133,16 @@ python-dist: check-tools
 python-publish:
 	@./scripts/release.sh python-publish
 
-# DXT Package Validation
+# MCPB Package Validation
+mcpb-validate: check-tools mcpb
+	@echo "Validating MCPB package..."
+	@echo "Validating with MCPB CLI..."
+	@mcpb info $(MCPB_PACKAGE)
+	@echo "Validating generated manifest.json..."
+	@mcpb validate $(BUILD_DIR)/mcpb/manifest.json
+	@echo "✅ MCPB package validation passed"
+
+# DXT Package Validation (preserved for backward compatibility)
 dxt-validate: check-tools dxt
 	@echo "Validating DXT package..."
 	@echo "Validating with official DXT CLI..."
@@ -107,13 +152,13 @@ dxt-validate: check-tools dxt
 	@echo "✅ DXT package validation passed"
 
 # Release Bundle Creation
-$(RELEASE_ZIP): dxt-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
+$(RELEASE_ZIP): mcpb-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-mcpb.sh
 	@echo "Creating release bundle..."
 	@mkdir -p $(DIST_DIR)/release
-	@cp $(DXT_PACKAGE) $(DIST_DIR)/release/
+	@cp $(MCPB_PACKAGE) $(DIST_DIR)/release/
 	@cp $(ASSETS_DIR)/README.md $(DIST_DIR)/release/
-	@cp $(ASSETS_DIR)/check-dxt.sh $(DIST_DIR)/release/
-	@cd $(DIST_DIR)/release && zip -r ../$(DXT_NAME)-$(PACKAGE_VERSION)-release.zip .
+	@cp $(ASSETS_DIR)/check-mcpb.sh $(DIST_DIR)/release/
+	@cd $(DIST_DIR)/release && zip -r ../$(PACKAGE_NAME)-$(PACKAGE_VERSION)-release.zip .
 	@rm -rf $(DIST_DIR)/release
 	@echo "✅ Built $(RELEASE_ZIP)"
 
