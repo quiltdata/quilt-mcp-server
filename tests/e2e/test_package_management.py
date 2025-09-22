@@ -384,4 +384,14 @@ class TestFunctionRemoval:
         with pytest.raises(ImportError, match="cannot import name 'package_update_metadata'"):
             from quilt_mcp import package_update_metadata
 
+    def test_package_create_removed(self):
+        """Test that package_create function has been removed and cannot be imported."""
+        # Test that the function cannot be imported from the module
+        with pytest.raises(ImportError, match="cannot import name 'package_create'"):
+            from quilt_mcp.tools.package_management import package_create
+
+        # Test that the function is not in the main package exports
+        with pytest.raises(ImportError, match="cannot import name 'package_create'"):
+            from quilt_mcp import package_create
+
 
