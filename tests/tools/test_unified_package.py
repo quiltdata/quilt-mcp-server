@@ -717,3 +717,556 @@ class TestEnhancedDryRunCapabilities:
             metadata = result["metadata_preview"]
             assert "package_type" in metadata, "Should show package type from template"
             assert "created_by" in metadata, "Should show creator information"
+
+
+class TestPackageCreateEquivalence:
+    """Integration tests to verify create_package provides comprehensive package creation functionality."""
+
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    def test_create_package_comprehensive_functionality_standard_template(self, mock_create_from_s3):
+        """Test that create_package with standard template provides comprehensive functionality."""
+        # Mock successful package creation response
+        expected_result = {
+            "success": True,
+            "package_name": "test/dataset",
+            "registry": "s3://test-bucket",
+            "created_at": "2024-01-01T12:00:00Z",
+            "files_processed": 2,
+        }
+
+        mock_create_from_s3.return_value = expected_result.copy()
+
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file1.csv", "s3://bucket/file2.csv"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            # Call create_package with standard template
+            result = create_package(
+                name="test/dataset",
+                files=["s3://bucket/file1.csv", "s3://bucket/file2.csv"],
+                description="Test dataset",
+                metadata_template="standard",
+            )
+
+            # Verify comprehensive functionality
+            assert result["success"] is True
+            assert result["package_name"] == "test/dataset"
+            assert result["metadata_template_used"] == "standard"
+            assert result["creation_method"] == "s3_sources"
+
+            # Verify underlying function was called with proper metadata template
+            mock_create_from_s3.assert_called_once()
+            call_args = mock_create_from_s3.call_args
+            passed_metadata = call_args[1]["metadata"]
+
+            # Verify standard template fields were applied
+            assert passed_metadata["package_type"] == "data"
+            assert passed_metadata["created_by"] == "quilt-mcp-server"
+            assert "creation_date" in passed_metadata
+            assert passed_metadata["description"] == "Test dataset"
+
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    def test_create_package_supports_all_metadata_templates(self, mock_create_from_s3):
+        """Test that create_package works with all available metadata templates."""
+        templates_to_test = ["standard", "genomics", "ml", "research", "analytics"]
+
+        for template in templates_to_test:
+            # Reset mock for each template
+            mock_create_from_s3.reset_mock()
+
+            expected_result = {
+                "success": True,
+                "package_name": f"{template}/dataset",
+                "registry": "s3://test-bucket",
+                "metadata_template": template,
+            }
+
+            mock_create_from_s3.return_value = expected_result.copy()
+
+            with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+                mock_analyze.return_value = {
+                    "source_type": "s3_only",
+                    "s3_files": ["s3://bucket/data.csv"],
+                    "local_files": [],
+                    "has_errors": False,
+                }
+
+                # Call create_package with each template
+                result = create_package(
+                    name=f"{template}/dataset",
+                    files=["s3://bucket/data.csv"],
+                    metadata_template=template,
+                )
+
+                # Verify success for this template
+                assert result["success"] is True, f"create_package failed for {template} template"
+                assert result["metadata_template_used"] == template
+
+                # Verify template-specific metadata was applied
+                mock_create_from_s3.assert_called_once()
+                call_args = mock_create_from_s3.call_args
+                passed_metadata = call_args[1]["metadata"]
+
+                # Verify appropriate package_type based on template
+                if template == "genomics":
+                    assert passed_metadata["package_type"] == "genomics"
+                    assert passed_metadata["data_type"] == "genomics"
+                elif template == "ml":
+                    assert passed_metadata["package_type"] == "ml_dataset"
+                    assert passed_metadata["data_type"] == "machine_learning"
+                elif template == "research":
+                    assert passed_metadata["package_type"] == "research"
+                    assert passed_metadata["data_type"] == "research"
+                elif template == "analytics":
+                    assert passed_metadata["package_type"] == "analytics"
+                    assert passed_metadata["data_type"] == "business_analytics"
+                else:  # standard
+                    assert passed_metadata["package_type"] == "data"
+
+    def test_create_package_comprehensive_error_handling(self):
+        """Test that create_package handles various error scenarios with high-quality error messages."""
+        # Test specific error scenarios by directly calling with problematic inputs
+
+        # Test 1: Invalid package name (no mocking needed - this is validation)
+        result = create_package(
+            name="invalid-package-name",  # Missing namespace/name format
+            files=["s3://bucket/file.csv"],
+        )
+
+        # Should fail with validation error
+        is_error = (result.get("success") is False) or (result.get("status") == "error")
+        assert is_error, "Should fail for invalid package name format"
+        assert "error" in result, "Should provide error message"
+
+        # Test 2: Empty files list
+        result = create_package(
+            name="test/package",
+            files=[],  # Empty files list
+        )
+
+        # Should fail with validation error
+        is_error = (result.get("success") is False) or (result.get("status") == "error")
+        assert is_error, "Should fail for empty files list"
+        assert "error" in result, "Should provide error message"
+
+        # Test 3: Test with proper mocking for file analysis errors
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "error",
+                "s3_files": [],
+                "local_files": [],
+                "has_errors": True,
+                "errors": ["Invalid S3 URI format"],
+            }
+
+            result = create_package(
+                name="test/package",
+                files=["s3://bucket/file.csv"],
+            )
+
+            # Should fail with file analysis error
+            is_error = (result.get("success") is False) or (result.get("status") == "error")
+            assert is_error, "Should fail for file analysis errors"
+            assert "error" in result, "Should provide error message"
+
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    def test_create_package_comprehensive_dry_run_preview(self, mock_create_from_s3):
+        """Test that create_package dry_run provides comprehensive preview capabilities."""
+        # Mock comprehensive dry-run response
+        enhanced_dry_run = {
+            "success": True,
+            "action": "preview",
+            "package_name": "test/preview",
+            "registry": "s3://test-bucket",
+            "structure_preview": {
+                "organized_structure": {"data/": [{"name": "file.csv", "size": 1024}]},
+                "total_files": 1,
+                "total_size_mb": 0.001,
+                "organization_applied": True,
+            },
+            "metadata_preview": {
+                "package_type": "data",
+                "created_by": "quilt-mcp-server",
+                "description": "Test preview",
+            },
+            "readme_preview": "# Test Preview\n\nThis is a preview package...",
+            "summary_files_preview": {
+                "quilt_summarize.json": {"version": "1.0", "name": "test/preview"},
+                "files_generated": {"quilt_summarize.json": True, "README.md": True},
+            },
+            "message": "Preview generated",
+        }
+
+        mock_create_from_s3.return_value = enhanced_dry_run
+
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            # Call create_package with dry_run=True
+            result = create_package(
+                name="test/preview",
+                files=["s3://bucket/file.csv"],
+                description="Test preview",
+                dry_run=True,
+            )
+
+            # Verify comprehensive dry-run preview
+            assert result["success"] is True
+            assert result["action"] == "preview"
+            assert result["package_name"] == "test/preview"
+
+            # Verify comprehensive preview features
+            assert "structure_preview" in result, "create_package should provide enhanced structure preview"
+            assert "metadata_preview" in result, "create_package should provide metadata preview"
+            assert "summary_files_preview" in result, "create_package should provide summary files preview"
+            assert "readme_preview" in result, "create_package should provide README preview"
+
+            # Verify enhancement metadata
+            assert result["metadata_template_used"] == "standard"
+            assert result["creation_method"] == "s3_sources"
+
+            # Verify structure preview details
+            structure = result["structure_preview"]
+            assert "organized_structure" in structure
+            assert "total_files" in structure
+            assert "total_size_mb" in structure
+
+            # Verify metadata preview includes template fields
+            metadata = result["metadata_preview"]
+            assert metadata["package_type"] == "data"
+            assert metadata["created_by"] == "quilt-mcp-server"
+
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    def test_create_package_comprehensive_json_metadata_handling(self, mock_create_from_s3):
+        """Test that create_package handles JSON string metadata comprehensively."""
+        json_metadata = '{"custom_field": "value", "tags": ["tag1", "tag2"], "priority": 1}'
+
+        expected_result = {
+            "success": True,
+            "package_name": "test/json-metadata",
+            "registry": "s3://test-bucket",
+        }
+
+        mock_create_from_s3.return_value = expected_result.copy()
+
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            # Call create_package with JSON string metadata
+            result = create_package(
+                name="test/json-metadata",
+                files=["s3://bucket/file.csv"],
+                metadata=json_metadata,
+            )
+
+            # Verify successful JSON metadata handling
+            assert result["success"] is True
+            assert result["metadata_template_used"] == "standard"
+
+            # Verify the underlying function was called with parsed metadata
+            mock_create_from_s3.assert_called_once()
+            call_args = mock_create_from_s3.call_args
+            passed_metadata = call_args[1]["metadata"]
+
+            # Verify JSON fields were parsed and merged with template
+            assert "custom_field" in passed_metadata
+            assert passed_metadata["custom_field"] == "value"
+            assert "tags" in passed_metadata
+            assert passed_metadata["tags"] == ["tag1", "tag2"]
+            assert "priority" in passed_metadata
+            assert passed_metadata["priority"] == 1
+
+            # Verify template fields are also present
+            assert passed_metadata["package_type"] == "data"
+            assert passed_metadata["created_by"] == "quilt-mcp-server"
+
+    def test_create_package_invalid_json_error_quality(self):
+        """Test that create_package provides high-quality error messages for invalid JSON."""
+        invalid_json_cases = [
+            '{"invalid": json}',  # Invalid syntax
+            '{"unclosed": "string}',  # Unclosed string
+            '{invalid_key: "value"}',  # Unquoted key
+            '{"trailing": "comma",}',  # Trailing comma
+        ]
+
+        for invalid_json in invalid_json_cases:
+            with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+                mock_analyze.return_value = {
+                    "source_type": "s3_only",
+                    "s3_files": ["s3://bucket/file.csv"],
+                    "local_files": [],
+                    "has_errors": False,
+                }
+
+                result = create_package(
+                    name="test/invalid-json",
+                    files=["s3://bucket/file.csv"],
+                    metadata=invalid_json,
+                )
+
+                # Verify error handling
+                assert result["success"] is False
+                assert "Invalid metadata JSON format" in result["error"]
+
+                # Verify helpful error context is provided
+                assert "json_error" in result, "Should provide specific JSON parsing error"
+                assert "examples" in result, "Should provide JSON examples for guidance"
+
+                # Verify error message quality
+                error_msg = result["error"]
+                assert any(word in error_msg.lower() for word in ["json", "format", "parse"]), \
+                    "Error message should clearly indicate JSON parsing issue"
+
+    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    def test_create_package_performance_characteristics(self, mock_create_from_s3):
+        """Test that create_package has reasonable performance characteristics."""
+        # Mock fast response
+        mock_create_from_s3.return_value = {
+            "success": True,
+            "package_name": "test/performance",
+            "registry": "s3://test-bucket",
+        }
+
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/file.csv"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            import time
+
+            # Time the function call
+            start_time = time.time()
+            result = create_package(
+                name="test/performance",
+                files=["s3://bucket/file.csv"],
+                metadata_template="standard",
+            )
+            execution_time = time.time() - start_time
+
+            # Verify success
+            assert result["success"] is True
+            assert result["metadata_template_used"] == "standard"
+
+            # Verify reasonable performance (should complete in under 1 second for mocked operations)
+            assert execution_time < 1.0, f"create_package took {execution_time:.3f}s, which seems too slow for mocked operations"
+
+            # Verify template processing doesn't add excessive overhead
+            # Multiple calls should have consistent performance
+            times = []
+            for i in range(3):
+                mock_create_from_s3.reset_mock()
+                start = time.time()
+                create_package(
+                    name=f"test/perf-{i}",
+                    files=["s3://bucket/file.csv"],
+                    metadata_template="genomics",
+                )
+                times.append(time.time() - start)
+
+            # Performance should be consistent (no significant degradation)
+            avg_time = sum(times) / len(times)
+            assert all(t < avg_time * 2 for t in times), "Performance should be consistent across calls"
+
+    @patch("quilt_mcp.tools.unified_package.validate_metadata_structure")
+    def test_create_package_metadata_validation_comprehensive(self, mock_validate):
+        """Test that create_package provides comprehensive metadata validation."""
+        validation_scenarios = [
+            {
+                "template": "genomics",
+                "metadata": {"organism": "human"},
+                "validation_result": {
+                    "valid": True,
+                    "errors": [],
+                    "warnings": ["Consider adding genome_build field"],
+                    "suggestions": ["Add sample_count for better documentation"],
+                },
+                "should_succeed": True,
+            },
+            {
+                "template": "ml",
+                "metadata": {"incomplete": "data"},
+                "validation_result": {
+                    "valid": False,
+                    "errors": ["Missing required field: features_count"],
+                    "warnings": ["Model metadata incomplete"],
+                    "suggestions": ["Add target_variable and model_type fields"],
+                },
+                "should_succeed": False,
+            },
+        ]
+
+        for scenario in validation_scenarios:
+            mock_validate.return_value = scenario["validation_result"]
+
+            with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
+                 patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create:
+
+                # Mock successful file analysis
+                mock_analyze.return_value = {
+                    "source_type": "s3_only",
+                    "s3_files": ["s3://test-bucket/file.csv"],
+                    "local_files": [],
+                    "has_errors": False,
+                }
+
+                # Mock package creation response for successful validation
+                if scenario["should_succeed"]:
+                    mock_create.return_value = {
+                        "success": True,
+                        "action": "preview",
+                        "package_name": f"{scenario['template']}/validation-test",
+                        "registry": "s3://test-bucket",
+                        "validation_result": scenario["validation_result"],
+                    }
+                else:
+                    # Don't call mock_create for failing validation
+                    pass
+
+                result = create_package(
+                    name=f"{scenario['template']}/validation-test",
+                    files=["s3://test-bucket/file.csv"],
+                    metadata_template=scenario["template"],
+                    metadata=scenario["metadata"],
+                    dry_run=True,  # Use dry_run to test validation without creation
+                )
+
+                if scenario["should_succeed"]:
+                    # Should succeed but may have validation warnings
+                    assert result["success"] is True, f"Should succeed for valid {scenario['template']} metadata"
+                    if "validation_result" in result:
+                        validation = result["validation_result"]
+                        assert validation["valid"] == scenario["validation_result"]["valid"]
+                else:
+                    # Should fail validation
+                    assert result["success"] is False, f"Should fail for invalid {scenario['template']} metadata"
+                    assert "validation" in result["error"].lower(), "Error should mention validation failure"
+                    assert "validation_result" in result, "Should provide validation details"
+                    validation = result["validation_result"]
+                    assert validation["valid"] is False, "Validation result should indicate failure"
+                    assert len(validation["errors"]) > 0, "Should provide specific validation errors"
+
+    def test_create_package_comprehensive_parameter_support(self):
+        """Test that create_package supports comprehensive parameter set for package creation."""
+        import inspect
+
+        # Get parameter names from create_package
+        unified_params = set(inspect.signature(create_package).parameters.keys())
+
+        # Verify create_package has all essential package creation parameters
+        essential_params = {
+            "name",           # Package name
+            "files",          # Files to include
+            "description",    # Package description
+            "metadata",       # Custom metadata
+            "dry_run",        # Preview mode
+            "auto_organize",  # File organization
+            "target_registry", # Target registry
+        }
+
+        missing_essential = essential_params - unified_params
+        assert len(missing_essential) == 0, \
+            f"create_package missing essential parameters: {missing_essential}"
+
+        # Verify create_package has enhancement parameters
+        enhancement_params = {"metadata_template"}  # Template system enhancement
+        present_enhancements = enhancement_params & unified_params
+        assert len(present_enhancements) > 0, \
+            f"create_package should have enhancement parameters like: {enhancement_params}"
+
+        # Verify the function signature is reasonable (not too many parameters)
+        assert len(unified_params) < 15, \
+            f"create_package has {len(unified_params)} parameters, which might be too many"
+
+        # Verify key enhancement parameters exist
+        assert "metadata_template" in unified_params, "Should support metadata template system"
+
+    def test_create_package_integration_with_all_supported_features(self):
+        """Integration test that create_package works with all its supported features together."""
+        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
+             patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create, \
+             patch("quilt_mcp.tools.unified_package.validate_metadata_structure") as mock_validate:
+
+            # Mock successful analysis
+            mock_analyze.return_value = {
+                "source_type": "s3_only",
+                "s3_files": ["s3://bucket/data.csv", "s3://bucket/readme.md"],
+                "local_files": [],
+                "has_errors": False,
+            }
+
+            # Mock successful validation
+            mock_validate.return_value = {
+                "valid": True,
+                "errors": [],
+                "warnings": ["Consider adding more metadata fields"],
+                "suggestions": ["Add data_source field for better documentation"],
+            }
+
+            # Mock successful package creation
+            mock_create.return_value = {
+                "success": True,
+                "package_name": "integration/full-test",
+                "registry": "s3://test-bucket",
+                "files_processed": 2,
+                "created_at": "2024-01-01T12:00:00Z",
+            }
+
+            # Test create_package with all supported features
+            result = create_package(
+                name="integration/full-test",
+                files=["s3://bucket/data.csv", "s3://bucket/readme.md"],
+                description="Integration test with all features",
+                metadata_template="research",
+                metadata={
+                    "study_type": "observational",
+                    "data_source": "clinical_trial",
+                    "readme_content": "# Custom README\n\nThis is a test.",
+                },
+                auto_organize=True,
+                target_registry="s3://test-bucket",
+                dry_run=False,
+            )
+
+            # Verify comprehensive integration
+            assert result["success"] is True
+            assert result["package_name"] == "integration/full-test"
+            assert result["metadata_template_used"] == "research"
+            assert result["creation_method"] == "s3_sources"
+
+            # Verify all subsystems were called
+            mock_analyze.assert_called_once()
+            mock_validate.assert_called_once()
+            mock_create.assert_called_once()
+
+            # Verify metadata template integration
+            call_args = mock_create.call_args
+            passed_metadata = call_args[1]["metadata"]
+
+            # Should have template fields
+            assert passed_metadata["package_type"] == "research"
+            assert passed_metadata["data_type"] == "research"
+
+            # Should have user fields
+            assert passed_metadata["study_type"] == "observational"
+            assert passed_metadata["data_source"] == "clinical_trial"
+
+            # Should have extracted README
+            assert "_extracted_readme" in passed_metadata
+            assert passed_metadata["_extracted_readme"] == "# Custom README\n\nThis is a test."
