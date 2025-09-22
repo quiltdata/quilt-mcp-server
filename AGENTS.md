@@ -375,7 +375,7 @@ The following permissions are granted for this repository:
 - **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
 - **NEVER update historical specs** - Spec files in `./spec/` are historical documentation of what was done at the time. Only update current operational files like README.md, Makefiles, and source code when fixing references
 
-**Release System
+**Release System:**
 
 - ✅ `make dxt` - Creates DXT package (.dxt file)
 - ✅ `make dxt-validate` - Validates DXT package integrity
@@ -410,6 +410,15 @@ The following permissions are granted for this repository:
 - DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `scripts/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
 - `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
 - GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make dxt`, `make dxt-validate`, and `make release-zip` to keep DXT parity. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
+
+### 2025-09-21 Search Function Consolidation
+- **Legacy function removal**: Successfully consolidated 4 search functions down to 1 canonical `catalog_search` interface by removing 3 legacy functions (`packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`)
+- **TDD approach for removal**: Use failing tests to validate removal - create tests that expect ImportError after function removal, then remove functions to make tests pass
+- **Internal API consolidation**: Legacy functions were internal-only (not in main `__init__.py` exports), making removal safe with no external API impact
+- **Function replacement patterns**: Direct shims (like `packages_search`) can be removed immediately; wrapper functions need replacement with equivalent `catalog_search` calls using appropriate scope/backend parameters
+- **Import cleanup**: Remove unused imports after function removal (e.g., `QuiltService` no longer needed in `buckets.py` after removing search functions)
+- **Error message updates**: Update any error messages or suggestions to reference the consolidated function instead of removed ones
+- **Achievement**: 75% reduction in search API surface area while preserving 100% of functionality with enhanced capabilities
 
 ## important-instruction-reminders
 
