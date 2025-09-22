@@ -342,6 +342,8 @@ def workflow_status_get(workflow_id: str) -> Dict[str, Any]:
 
 def workflow_list() -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource workflow://workflows
+
     List all workflows with their current status.
 
     Returns:
