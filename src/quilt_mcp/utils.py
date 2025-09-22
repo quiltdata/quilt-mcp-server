@@ -317,8 +317,6 @@ def run_server() -> None:
         if transport in ["http", "streamable-http", "sse"]:
             try:
                 from starlette.middleware.cors import CORSMiddleware
-                from starlette.middleware.base import BaseHTTPMiddleware
-                from starlette.responses import Response
                 
                 # Create the ASGI app first
                 app = mcp.http_app()
@@ -330,18 +328,8 @@ def run_server() -> None:
                     allow_methods=["*"],  # Allow all methods
                     allow_headers=["*"],  # Allow all headers including mcp-session-id
                     allow_credentials=True,
-                    expose_headers=["mcp-session-id"],  # Expose session ID header for SSE
+                    expose_headers=["mcp-session-id"],  # Expose session ID header for CORS
                 )
-                
-                # Add custom middleware to ensure mcp-session-id is exposed
-                class SessionIDExposeMiddleware(BaseHTTPMiddleware):
-                    async def dispatch(self, request, call_next):
-                        response = await call_next(request)
-                        # Ensure mcp-session-id header is exposed for CORS
-                        response.headers["Access-Control-Expose-Headers"] = "mcp-session-id"
-                        return response
-                
-                app.add_middleware(SessionIDExposeMiddleware)
                 
                 # Run the ASGI app
                 import uvicorn
