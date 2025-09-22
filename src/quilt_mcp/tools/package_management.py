@@ -163,6 +163,8 @@ def package_validate(
 
 def package_tools_list() -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource package://tools
+
     List all package management tools with usage guidance.
 
     Returns:

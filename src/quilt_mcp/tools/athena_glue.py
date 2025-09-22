@@ -48,6 +48,8 @@ def athena_databases_list(
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource athena://databases
+
     List available databases in AWS Glue Data Catalog.
 
     Args:
@@ -119,6 +121,8 @@ def athena_workgroups_list(
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource athena://workgroups
+
     List available Athena workgroups that the user can access.
 
     Args:

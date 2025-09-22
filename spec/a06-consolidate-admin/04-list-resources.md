@@ -3,7 +3,7 @@
 
 ## Executive Summary
 
-Analysis of MCP tools identifies 12 functions that provide listing functionality across different resource types. These can be reorganized as standardized MCP resources to provide consistent discovery patterns.
+Analysis of MCP tools identifies 10 functions that provide listing functionality across different resource types. These can be reorganized as standardized MCP resources to provide consistent discovery patterns.
 
 **Data Source**: `tests/fixtures/mcp-list.csv` - live server introspection
 
@@ -57,24 +57,21 @@ Parameters: none
 Async: true
 ```
 
-### 3. S3 Bucket Resources (1 function - buckets module)
+### 3. S3 Bucket Resources (1 function - unified_package module)
 
-**S3 Object Listing:**
+**S3 Bucket Discovery:**
 
-- `bucket_objects_list` - List objects in an S3 bucket with optional prefix filtering
+- `list_available_resources` - Auto-detect user's available buckets and registries (unified_package module)
 
 **Conversion to MCP Resources:**
 
 ```yaml
-Resource URI: s3://{bucket}/objects
-Description: S3 bucket objects with prefix filtering
-Parameters:
-  - bucket: str = ''
-  - prefix: str = ''
-  - max_keys: int = 100
-  - continuation_token: str = ''
-  - include_signed_urls: bool = True
+Resource URI: s3://buckets
+Description: List available S3 buckets accessible to user
+Parameters: none
 ```
+
+**Note:** `bucket_objects_list` is not included as a resource since S3 buckets can contain millions of objects, making it impractical as an MCP resource. This remains as a tool for targeted object queries.
 
 ### 4. Metadata Resources (1 function - metadata_templates module)
 
@@ -120,19 +117,9 @@ Parameters:
 Async: true
 ```
 
-### 7. Unified Package Resources (1 function - unified_package module)
+### 7. Unified Package Resources (0 functions)
 
-**Resource Discovery:**
-
-- `list_available_resources` - Auto-detect user's available buckets and registries
-
-**Conversion to MCP Resources:**
-
-```yaml
-Resource URI: unified://resources
-Description: Auto-detected buckets and registries available to user
-Parameters: none
-```
+**Note:** The `list_available_resources` function from unified_package module has been categorized under S3 Bucket Resources as it primarily discovers available S3 buckets.
 
 ### 8. Workflow Resources (1 function - workflow_orchestration module)
 
@@ -164,11 +151,10 @@ Parameters: none
 - `athena://user/workgroups` - User's Athena workgroups
 - `admin://registry/users` - Registry users
 - `admin://registry/roles` - Registry roles
-- `s3://{bucket}/objects` - S3 bucket objects
+- `s3://buckets` - List available S3 buckets
 - `metadata://registry/templates` - Metadata templates
 - `package://tools/management` - Package management tools
 - `tabulator://{bucket}/tables` - Tabulator tables
-- `unified://user/resources` - User's available resources
 - `workflow://registry/workflows` - All workflows
 
 ### Standardized Resource Response Format
@@ -201,10 +187,10 @@ Parameters: none
    - Clear resource boundaries
    - Already async-compatible
 
-2. **S3 Resources** (`s3://{bucket}/objects`)
-   - Well-defined parameters
-   - Existing pagination support
-   - High usage patterns
+2. **S3 Resources** (`s3://buckets`)
+   - Bucket discovery and permissions
+   - Registry detection
+   - Permission-aware listing
 
 #### Phase 2: Specialized Resources
 
@@ -222,9 +208,9 @@ Parameters: none
    - Management interfaces
    - Status tracking integration
 
-2. **Unified Resources** (`unified://resources`)
-   - Auto-discovery capabilities
-   - Permission-aware listing
+2. **Tabulator Resources** (`tabulator://{bucket}/tables`)
+   - Table configuration management
+   - Bucket-specific resources
 
 ### Benefits of Resource Conversion
 
@@ -283,7 +269,7 @@ Parameters: none
 ### Week 3-4: Phase 1 Resources
 
 - Admin users and roles resources
-- S3 bucket objects resource
+- S3 buckets discovery resource
 - Backward compatibility shims
 
 ### Week 5-6: Phase 2 Resources
@@ -294,7 +280,7 @@ Parameters: none
 
 ### Week 7-8: Phase 3 Resources
 
-- Workflow and unified resources
+- Workflow and tabulator resources
 - Performance optimization
 - Documentation and migration guides
 
@@ -303,8 +289,8 @@ Parameters: none
 ### API Simplification
 
 - **Target**: 50% reduction in list-type tools
-- **Current**: 12 list functions across 8 modules
-- **Goal**: 8 standardized resources with unified interface
+- **Current**: 10 list functions across 7 modules
+- **Goal**: 7 standardized resources with unified interface
 
 ### Client Integration
 

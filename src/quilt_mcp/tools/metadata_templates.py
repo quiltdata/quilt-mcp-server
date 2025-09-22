@@ -94,6 +94,8 @@ def metadata_template_get(template_name: str, custom_fields: Dict[str, Any] = No
 
 def list_metadata_templates() -> Dict[str, Any]:
     """
+    TODO: Delete obsolete tool - replaced by MCP resource metadata://templates
+
     List available metadata templates with descriptions.
 
     Returns:
