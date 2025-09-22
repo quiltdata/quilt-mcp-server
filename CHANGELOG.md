@@ -6,6 +6,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11] - 2025-09-21
+
+### Changed
+
+- **MCPB Package Format Migration**: Complete transition from DXT to MCPB format (#152)
+  - Replaced `.dxt` package format with `.mcpb` for Claude Desktop integration
+  - Simplified build pipeline by eliminating file copying infrastructure
+  - Direct UVX execution of `quilt-mcp` package from PyPI
+  - Removed obsolete bootstrap scripts and build markers
+  - Updated all build targets and workflows for MCPB packaging
+
+### Added
+
+- **MCPB Build System**: New packaging infrastructure for Claude Desktop
+  - `make mcpb` - Build MCPB package with embedded manifest
+  - `make mcpb-validate` - Validate MCPB package structure
+  - Updated release workflow to generate MCPB artifacts
+  - Comprehensive migration documentation and guides
+
+### Documentation
+
+- **Migration Resources**: Complete user guidance for DXT to MCPB transition
+  - Comprehensive migration guide with step-by-step instructions
+  - FAQ for common migration issues
+  - Updated installation documentation for MCPB format
+  - Release notes explaining breaking changes
+
 ## [0.6.10] - 2025-09-21
 
 ### Changed
