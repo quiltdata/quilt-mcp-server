@@ -419,6 +419,7 @@ The following permissions are granted for this repository:
 - `make docker-build`, `make docker-run`, and `make docker-test` wrap common local workflows. `make docker-test` executes `tests/integration/test_docker_container.py`, which builds the image and probes `http://localhost:*/mcp` for a 30–60s readiness window.
 - Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
 - When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
+- Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
 
 ## important-instruction-reminders
 

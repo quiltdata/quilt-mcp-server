@@ -84,6 +84,33 @@ make docker-run
 make docker-test
 ```
 
+### Claude Desktop HTTP Proxy
+
+Claude Desktop currently expects stdio-based MCP servers. To connect it to the Docker container (which serves HTTP + SSE at `/mcp/`), run it through a FastMCP proxy. Add the following entry to `~/Library/Application Support/Claude/claude_desktop_config.json` (adjust the project path if your checkout lives elsewhere):
+
+```jsonc
+{
+  "mcpServers": {
+    "quilt-http": {
+      "command": "uv",
+      "args": [
+        "--project",
+        "/Users/simonkohnstamm/Documents/Quilt/quilt-mcp-server",
+        "run",
+        "python",
+        "-c",
+        "from fastmcp.server.server import FastMCP; FastMCP.as_proxy('http://127.0.0.1:8000/mcp/').run(transport='stdio')"
+      ],
+      "metadata": {
+        "description": "Quilt MCP Server (HTTP via FastMCP proxy)"
+      }
+    }
+  }
+}
+```
+
+The proxy keeps a streaming HTTP session with the container via `FastMCP.as_proxy` and exposes a stdio transport to Claude, preventing the `406 Not Acceptable` errors that arise when using plain `curl`. After saving the file, restart Claude Desktop so it picks up the new configuration. When deploying the server remotely (for example on AWS Fargate), update the proxy URL to point at the externally accessible `https://.../mcp/` endpoint.
+
 ### Verify Prerequisites
 
 ```bash
