@@ -146,6 +146,16 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "packages_list",  # Prefer catalog_search
         "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal service instance, not a tool
+        # Obsoleted by MCP resources (use ListMcpResourcesTool/ReadMcpResourceTool instead)
+        "admin_users_list",  # Use MCP resource admin://users
+        "admin_roles_list",  # Use MCP resource admin://roles
+        "list_available_resources",  # Use MCP resource s3://buckets
+        "athena_databases_list",  # Use MCP resource athena://databases
+        "athena_workgroups_list",  # Use MCP resource athena://workgroups
+        "list_metadata_templates",  # Use MCP resource metadata://templates
+        "workflow_list",  # Use MCP resource workflow://workflows
+        "package_tools_list",  # Use MCP resource package://tools
+        "tabulator_tables_list",  # Use MCP resource tabulator://{bucket}/tables
     }
 
     tools_registered = 0

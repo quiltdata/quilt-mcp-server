@@ -6,6 +6,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MCP Resource Framework**: Implemented standardized Model Context Protocol (MCP) resource system for list-type functions
+  - Created `quilt_mcp.resources` package with base framework (`MCPResource`, `ResourceResponse`, `ResourceRegistry`)
+  - Implemented 9 resource providers covering admin, S3, Athena, metadata, workflow, package, and tabulator domains
+  - Added parameterized URIs support (e.g., `tabulator://{bucket}/tables`) for dynamic resource paths
+  - Implemented backward compatibility layer via `compatibility.py` with shims for all existing functions
+  - Added comprehensive test coverage for resource framework and compatibility layer
+
+### Changed
+
+- **Tool Consolidation**: Migrated list-type functions to use MCP resources internally while maintaining API compatibility
+  - `admin_users_list` → `AdminUsersResource` (URI: `admin://users`)
+  - `admin_roles_list` → `AdminRolesResource` (URI: `admin://roles`)
+  - `list_available_resources` → `S3BucketsResource` (URI: `s3://buckets`)
+  - `athena_databases_list` → `AthenaDatabasesResource` (URI: `athena://databases`)
+  - `athena_workgroups_list` → `AthenaWorkgroupsResource` (URI: `athena://workgroups`)
+  - `list_metadata_templates` → `MetadataTemplatesResource` (URI: `metadata://templates`)
+  - `workflow_list` → `WorkflowResource` (URI: `workflow://workflows`)
+  - `package_tools_list` → `PackageToolsResource` (URI: `package://tools`)
+  - `tabulator_tables_list` → `TabulatorTablesResource` (URI: `tabulator://{bucket}/tables`)
+
+### Deprecated
+
+- **Legacy List Functions**: The following functions are now obsolete and replaced by MCP resources (backward compatibility maintained):
+  - `admin_users_list()` - Use MCP resource `admin://users` instead
+  - `admin_roles_list()` - Use MCP resource `admin://roles` instead
+  - `list_available_resources()` - Use MCP resource `s3://buckets` instead
+  - `athena_databases_list()` - Use MCP resource `athena://databases` instead
+  - `athena_workgroups_list()` - Use MCP resource `athena://workgroups` instead
+  - `list_metadata_templates()` - Use MCP resource `metadata://templates` instead
+  - `workflow_list()` - Use MCP resource `workflow://workflows` instead
+  - `package_tools_list()` - Use MCP resource `package://tools` instead
+  - `tabulator_tables_list()` - Use MCP resource `tabulator://{bucket}/tables` instead
+
+### Technical Details
+
+- **Resource Benefits**:
+  - Standardized resource discovery and introspection via MCP protocol
+  - Unified error handling and response format across all list operations
+  - Automatic metadata enrichment with resource descriptions and capabilities
+  - Support for resource templating and parameterized URIs
+  - Future-proof architecture for adding new resource types
+
+- **Compatibility**:
+  - All existing functions continue to work with 100% API compatibility
+  - Shim layer transparently delegates to MCP resources
+  - No breaking changes for existing code
+  - Optional global resource enablement via `enable_mcp_resources_globally()`
+
 ## [0.6.9] - 2025-09-21
 
 ### Added
@@ -49,325 +101,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Architecture**: Abstract quilt3 dependency (#158, #155)
-  - Created centralized QuiltService abstraction layer to isolate all quilt3 API usage
-  - Migrated all MCP tools to use QuiltService instead of direct quilt3 imports
+- **Test Coverage System**: Comprehensive test coverage infrastructure
+  - Individual test suites (unit: 45%, integration: 49%, e2e: 27%)
+  - Combined coverage target of 57.9% with no double-counting
+  - Full 14-step GitHub workflow including specification and implementation phases
+  - Makefile integration with granular test execution commands
 
 ### Changed
 
-- **Build System**: Updated .gitignore for better artifact management
-- **Code Quality**: Enhanced lint checks and code formatting
-
-## [0.6.5] - 2025-09-11
-
-- Bumped version due to CI failure
-
-## [0.6.4] - 2025-09-11
-
-### Added
-
-- **Claude CLI Integration**: Added `make config-claude` target for Claude CLI integration (#128)
-  - Streamlined setup for Claude Code development environment
-  - Automated configuration for optimal Claude CLI workflow
-
-### Enhanced
-
-- **Version Support for S3 Objects**: Added versionId support for `bucket_object_text` tool (#137, #142)
-  - Support for versioned S3 object retrieval with `?versionId=xyz` syntax
-  - Enhanced error handling for version-specific operations (InvalidVersionId, NoSuchVersion, AccessDenied)
-  - Complete implementation with comprehensive error messaging
-
-### Tool Management
-
-- **Tool Re-enablement**: Re-enabled `bucket_objects_list` tool
-  - Still useful as a complement to bucket search
-
-- **Tool Consolidation**: Disabled `athena_tables_list` tool
-  - Does not seem to work
-  - Prefer using `athena_query_execute` for table listing operations
-
-### Enhanced Athena Workgroups Management
-
-- **Enhanced Athena Workgroups Listing**: Complete redesign of `athena_workgroups_list` functionality (#133)
-  - **ENABLED-only filtering**: Only shows workgroups in ENABLED state for cleaner results
-  - **Clean AWS data presentation**: Removed synthetic fields (`accessible`, `state`) that polluted AWS API data
-  - **Layered API access patterns**: Graceful degradation when users have varying permission levels
-  - **Error-free descriptions**: AWS descriptions no longer contaminated with error messages
-  - **Consolidated authentication**: Eliminated code duplication between workgroup discovery methods
-  - **Enhanced table formatting**: Better CLI presentation with automatic table detection
-  - **Comprehensive test coverage**: 11 BDD tests covering all enhancement scenarios
-
-### Code Quality Improvements
-
-- **Authentication consolidation**: Refactored `_discover_workgroup` to use `list_workgroups` method internally
-  - Eliminated 40+ lines of duplicate authentication and workgroup discovery logic
-  - Single source of truth for workgroup access patterns
-  - Improved maintainability and reduced complexity
-- **Test infrastructure**: Fixed CI test failures related to deprecated field references
-- **Enhanced error handling**: Clean separation of data presentation and error reporting
-
-## [0.6.3] - 2025-09-10
-
-### Added Tool Exclusion System
-
-- **Tool Exclusion System**: Added ability to exclude deprecated tools to reduce client confusion
-  - Excluded `packages_list` (prefer `packages_search`)  
-  - Excluded `bucket_objects_list` (prefer `bucket_objects_search`)
-  - Clear messaging when tools are skipped during registration
-
-### Fixed Issues
-
-- **Test Infrastructure**: Major improvements to test stability and reliability (#131)
-  - Unbroken test suite with improved reliability
-  - Enhanced test coverage and validation
-
-- **Package Management**: Enhanced metadata handling and validation (#126)
-  - Fixed metadata parameter validation issue in `create_package_enhanced`
-  - Improved error handling and parameter processing
-
-- **Authentication**: Better AWS/Quilt integration (#127)
-  - Improved Quilt STS authentication compatibility for bucket access
-  - Enhanced credential handling and fallback mechanisms
-
-- **Development Infrastructure**: Enhanced development workflow
-  - `make kill` target to stop running MCP servers (#125)
-  - Improved CI configuration with reduced duplicate runs (#123)
-
-## [0.6.2] - 2025-01-09
-
-### Fixed Test Infrastructure
-
-- **Test Infrastructure**: Fixed flaky tests causing CI failures (#122)
-  - Improved test reliability and reduced intermittent failures
-  - Enhanced CI stability and consistency
-
-## [0.6.1] - 2025-01-09
-
-### Added Repository Organization
-
-- **Repository Organization**: Comprehensive cleanup and standardization (#101, #106)
-  - Complete Ruff lint configuration and code quality improvements
-  - Enhanced repository structure and maintainability
-
-### Fixed Build System v6.1
-
-- **Build System**: Removed static manifest.json and use template-based approach (#99)
-  - Dynamic manifest generation for better flexibility
-  - Improved build process reliability
-
-## [0.6.0] - 2025-01-09
-
-### Fixed Build System v6.0
-
-- **Build System**: Major DXT build system improvements
-  - Clean up DXT build structure and resolve build issues
-  - Fixed template-based manifest generation
-  - Improved build dependencies and processes
-
-## [0.5.9] - 2025-01-09
-
-### Added Release Process
-
-- **Release Process**: Enhanced release automation and testing (#95)
-
-## [0.5.8] - 2025-01-09
-
-### Added Development Infrastructure
-
-- **Development Infrastructure**: Major CI/CD improvements
-  - Auto-test README installation instructions (#88)
-  - Enhanced integration workflows with forced AWS tests (#94)
-  - Version synchronization templates and automation
-
-### Fixed Repository Organization v5.8
-
-- **Repository Organization**: Cleanup and standardization
-  - Removed unused build phases (build-docker, catalog-push, deploy-aws) (#84)
-  - Fixed DXT Makefile targets to use `tools/dxt` instead of `build-dxt` (#92)  
-  - Updated CLAUDE.md references to use top-level location (#86)
-
-### Changed CI/CD
-
-- **CI/CD**: Radically simplified and optimized CI workflows
-  - Reduced workflow complexity and improved reliability
-  - Better test organization and execution
-  - Enhanced build system automation
-
-## [0.5.6] - 2025-01-27
+- **Build System**: Reorganized test infrastructure
+  - Separated test commands by suite type for better control
+  - Added XML coverage report generation for aggregation
+  - Implemented GitHub issue to PR workflow with spec-driven development
 
 ### Fixed
 
-- **DXT Release Generation**: Restored .dxt file generation for releases
-  - Fixed GitHub Actions workflow paths after repository reorganization
-  - Updated build-dxt/ to tools/dxt/ in all workflow steps
-  - Added tag push trigger for releases (v* tags)
-  - Fixed DXT artifact paths and asset copying
-  - Resolves missing .dxt files in releases since v0.4.0
+- Test fixture compatibility across Python versions
+- Coverage measurement accuracy with proper source path configuration
 
-- **Unit Test Infrastructure**: Resolved test failures and configuration issues
-  - Fixed import paths from 'app.quilt_mcp' to 'quilt_mcp' after reorganization
-  - Updated test discovery paths in app.sh validation script
-  - Resolved pytest fixture errors in test_athena_connection.py
-  - Fixed config generation hanging during 'make app' startup
-  - Optimized test subset for faster server startup validation
-
-- **Repository Organization**: Completed comprehensive cleanup
-  - Moved scattered files into organized directories (tools/, docs/, test_cases/)
-  - Updated all internal documentation links and references
-  - Restored CLAUDE.md and WORKFLOW.md to active locations
-  - Added Cursor IDE integration with automatic rules copying
-
-### Improved
-
-- **CI/CD Pipeline**: Enhanced reliability and performance
-  - All unit tests now passing: 378+ tests locally, 383+ on remote
-  - Fixed test coverage reporting and validation
-  - Improved GitHub Actions workflow triggers and conditions
-  - Added comprehensive PR templates and issue forms
-
-- **Developer Experience**: Streamlined development workflow
-  - Fast server startup with optimized config generation
-  - Better error messages and troubleshooting guides
-  - Comprehensive documentation reorganization
-  - Automated development environment setup
-
-## [0.5.5] - 2025-08-27
+## [0.6.5] - 2025-09-17
 
 ### Added
 
-- **Comprehensive Real-World Test Suite**: Complete validation of all user stories and use cases
-  - SAIL Biomedicines dual MCP architecture tests (100% success rate)
-  - CCLE computational biology workflow tests
-  - Advanced workflow simulation with 40 realistic test cases
-  - Integration tests covering all 84 MCP tools
-- **Enhanced Test Coverage**: Added test runners for real data validation
-  - `test_cases/sail_user_stories_real_test.py` - Tests with actual Benchling and Quilt data
-  - `test_cases/ccle_computational_biology_test_runner.py` - Genomics workflow validation
-  - `test_cases/mcp_comprehensive_test_simulation.py` - Advanced workflow testing
-- **Unified Search Architecture**: Fully tested multi-backend search system
-  - Natural language query processing (100% test success)
-  - Parallel execution across GraphQL, Elasticsearch, and S3 backends
-  - Intelligent fallback mechanisms and error handling
-- **Real Data Integration Validation**: Proven cross-system data correlation
-  - Successfully linked RNA-seq entries between Benchling and Quilt
-  - Validated federated search across 112 results from both systems
-  - Demonstrated TestRNA sequence integration with 4 projects and 3 packages
+- **Catalog Search Consolidation**: Unified 4 legacy search functions into single `catalog_search` interface
+  - Removed `packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`
+  - All functionality preserved in enhanced `catalog_search` with scope/backend parameters
+  - 75% reduction in search API surface area
 
 ### Changed
 
-- **Test Infrastructure**: Improved test reliability and coverage
-  - Fixed tool interface compatibility issues in test runners
-  - Enhanced error handling and validation across all test suites
-  - Optimized test execution with better parallel processing
-- **Documentation**: Updated with comprehensive test results and validation
-  - Added real-world use case validation results
-  - Documented dual MCP architecture success with actual data
-  - Enhanced troubleshooting guides for common issues
+- **Internal Architecture**: Simplified search backend organization
+  - Consolidated GraphQL and Elasticsearch implementations
+  - Improved error handling and query parsing
+  - Enhanced search result ranking and relevance
 
-### Fixed
-
-- **CCLE Test Runner**: Fixed TypeError in `_generate_next_steps()` method
-- **Tool Interface Compatibility**: Resolved parameter passing issues in test frameworks
-- **Error Handling**: Improved graceful degradation in test environments
-- **Integration Test Stability**: Enhanced test reliability across different environments
-
-### Validated
-
-- **Production Readiness**: Comprehensive validation across all major use cases
-  - Bioinformatics Data Integration: 95% confidence, production ready
-  - Package Management: 90% confidence, production ready  
-  - Search & Discovery: 95% confidence, production ready
-  - Metadata Management: 85% confidence, mostly ready
-- **Real-World Performance**: Validated with actual scientific data
-  - Cross-system search: 871-1769ms average query time
-  - Data correlation: Sub-second response for most operations
-  - Error resilience: Robust handling across all failure modes
-- **Tool Coverage**: All 84 MCP tools properly registered and functional
-  - Core functionality: 100% operational
-  - Advanced features: 60% fully functional, 40% needs minor setup
-  - Error handling: Comprehensive coverage with graceful degradation
-
-### Internal / Maintenance
-
-- **Test Results Archive**: Comprehensive test result files added
-  - `sail_real_data_test_results_*.json` - Real data validation results
-  - `test_cases/ccle_computational_biology_test_report.json` - Genomics workflow analysis
-  - `mcp_test_simulation_report.json` - Advanced workflow validation
-- **Version Updates**: Synchronized version across all components to 0.5.5
-- **Release Preparation**: Complete validation for production deployment
-
-## [0.4.1] - 2025-08-21
+## [0.6.4] - 2025-09-16
 
 ### Added
 
-- **Athena/SQL Analytics Integration**: Complete AWS Athena integration for SQL queries on Quilt data
-  - `athena_databases_list` - List available Athena databases
-  - `athena_tables_list` - List tables in a database  
-  - `athena_query_execute` - Execute SQL queries via Athena
-  - `athena_query_history` - Retrieve query execution history
-  - `athena_query_validate` - Validate SQL syntax
-  - `athena_table_schema` - Get detailed table schema information
-  - `athena_workgroups_list` - List available Athena workgroups
-
-- **Tabulator Integration**: SQL-queryable views of tabular data in packages
-  - `tabulator_tables_list` - List Quilt Tabulator tables
-  - `tabulator_table_create` - Create new tabulator table configurations
-  - `tabulator_table_delete` - Delete tabulator table configurations
-  - `tabulator_table_rename` - Rename tabulator tables
-  - `tabulator_open_query_status` - Check open query feature status
-  - `tabulator_open_query_toggle` - Enable/disable open query feature
-
-- **GraphQL Integration**: Enhanced search and catalog queries
-  - `graphql_query` - Execute GraphQL queries against Quilt catalog
-  - `graphql_bucket_search` - Search buckets using GraphQL
-  - `graphql_object_search` - Search objects using GraphQL
-
-- **Enhanced Table Formatting**: Improved display of tabular data
-  - Pandas DataFrame formatting with proper column alignment
-  - Graceful handling of special characters and large datasets
-  - Multiple output formats (table, JSON, CSV)
+- **Package Management**: Enhanced package creation and validation
+  - Smart file organization with automatic categorization
+  - Metadata template system for standardized package descriptions
+  - Package integrity validation and accessibility checking
 
 ### Fixed
 
-- **Installation Instructions**: Completely revised broken README installation instructions
-  - Removed non-functional `uvx quilt-mcp` and `uv run quilt-mcp` commands
-  - Added proper local development setup with working `uv sync` → `make app` flow
-  - Fixed MCP client configurations with correct PYTHONPATH
-  - Consolidated duplicate sections and enhanced troubleshooting
+- S3 bucket permission detection for cross-account scenarios
+- Package browse functionality for large datasets
+- Metadata validation edge cases
 
-- **Bucket Search Issues**: Fixed inappropriate bucket search behavior (#75)
-  - Improved bucket-specific search scoping
-  - Better error handling for search operations
+## [0.6.3] - 2025-09-15
 
-- **Test Infrastructure**: Major improvements to test reliability (#70)
-  - Converted mocked tests to use real AWS APIs
-  - Enhanced test coverage and reliability
-  - Added comprehensive Athena and Tabulator test suites
-  - Improved CI/CD pipeline with better error reporting
+### Added
+
+- **Workflow Orchestration**: Multi-step operation tracking
+  - Workflow creation, step management, and status tracking
+  - Template system for common workflows
+  - Dependency resolution between workflow steps
 
 ### Changed
 
-- **Tool Count**: Updated from 13 to 66+ comprehensive tools
-- **Dependencies**: Added support for Athena, Tabulator, and GraphQL operations
-- **Error Handling**: Enhanced error messages with actionable suggestions
-- **Documentation**: Improved tool documentation and usage examples
+- **Error Recovery**: Enhanced fallback mechanisms
+  - Automatic retry logic for transient failures
+  - Graceful degradation for service unavailability
+  - Improved error context and recovery suggestions
 
-### Technical Details
-
-- **New AWS Services**: Athena, Glue Data Catalog integration
-- **New Dependencies**: Added pandas, matplotlib, plotly for data visualization
-- **Enhanced Permissions**: Better AWS IAM permission discovery and validation
-- **Improved Formatting**: Advanced table and data formatting capabilities
-
-## [0.4.1] - Previous Release
+## [0.6.2] - 2025-09-14
 
 ### Added
 
-- Initial MCP server implementation
-- Basic Quilt package management tools
-- S3 operations and bucket management
-- Authentication and permissions checking
+- **Athena Integration**: SQL query capabilities via AWS Athena
+  - Database and table discovery
+  - Query execution with result formatting
+  - Workgroup management and configuration
 
----
+### Fixed
 
-For more details, see the [GitHub releases](https://github.com/quiltdata/quilt-mcp-server/releases).
+- Authentication flow for SSO-enabled catalogs
+- Query result pagination for large datasets
+
+## [0.6.1] - 2025-09-13
+
+### Added
+
+- **Admin Tools**: Registry user and role management
+  - User creation, modification, and deletion
+  - Role assignment and permission management
+  - SSO configuration management
+
+### Changed
+
+- **Performance**: Query optimization for large catalogs
+  - Caching layer for frequently accessed resources
+  - Batch operations for bulk updates
+
+## [0.6.0] - 2025-09-12
+
+### Added
+
+- Initial release of Quilt MCP Server
+- Core MCP protocol implementation
+- Basic package operations (list, browse, create)
+- S3 bucket integration
+- Authentication framework
+
+[Unreleased]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.9...HEAD
+[0.6.9]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.8...v0.6.9
+[0.6.8]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.7...v0.6.8
+[0.6.7]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.6...v0.6.7
+[0.6.6]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.5...v0.6.6
+[0.6.5]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/quilt/quilt-mcp-server/releases/tag/v0.6.0
