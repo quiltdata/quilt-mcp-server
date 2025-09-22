@@ -39,7 +39,7 @@ The MCPB package shall contain:
 
 #### 1.3 Execution Command Specification
 
-The MCPB manifest shall specify:
+The MCPB manifest shall specify, e.g.:
 
 ```json
 {
@@ -50,6 +50,8 @@ The MCPB manifest shall specify:
   }
 }
 ```
+
+See also: ./src/deploy/manifest.json.j2
 
 ### 2. Build System Architecture Goals
 

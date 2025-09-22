@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Migration Guide: DXT to MCPB Format
 
 ## Overview
@@ -7,18 +8,21 @@ The Quilt MCP Server has transitioned from DXT (Claude Desktop Extension) format
 ## What Changed and Why
 
 ### Before: DXT Format
+
 - **File extension**: `.dxt`
 - **Package size**: ~42MB (includes full Python dependencies)
 - **Build complexity**: Multi-stage file copying and dependency bundling
 - **Compatibility**: Claude Desktop only
 
 ### After: MCPB Format
+
 - **File extension**: `.mcpb`
 - **Package size**: ~1MB (97.8% size reduction)
 - **Build complexity**: Simplified packaging with UVX runtime dependency management
 - **Compatibility**: Claude Desktop with improved performance
 
 ### Key Benefits
+
 - **97.8% smaller packages** (42MB → 1MB)
 - **Faster downloads** and installations
 - **Improved build reliability** with simplified packaging
@@ -118,6 +122,7 @@ Search your documentation for DXT references and update them:
 **Symptoms**: Claude Desktop doesn't recognize the `.mcpb` file
 
 **Solutions**:
+
 1. Ensure you downloaded the `.mcpb` file (not `.dxt`)
 2. Check that Claude Desktop is updated to support MCPB format
 3. Try restarting Claude Desktop after installation
@@ -127,15 +132,20 @@ Search your documentation for DXT references and update them:
 **Symptoms**: MCP tools fail to execute or show errors
 
 **Solutions**:
+
 1. Verify Python 3.11+ is installed and accessible:
+
    ```bash
    python3 --version  # Should show 3.11+
    which python3      # Should be in PATH
    ```
+
 2. Check that UVX is available:
+
    ```bash
    uvx --version
    ```
+
 3. Restart Claude Desktop completely
 
 ### Issue: "Configuration lost during migration"
@@ -143,6 +153,7 @@ Search your documentation for DXT references and update them:
 **Symptoms**: Extension settings are empty after migration
 
 **Solutions**:
+
 1. Manually re-enter your configuration in Claude Desktop → Settings → Extensions
 2. Check that environment variables are properly set
 3. Verify AWS credentials are still valid
@@ -152,6 +163,7 @@ Search your documentation for DXT references and update them:
 **Symptoms**: Slower tool execution or timeouts
 
 **Solutions**:
+
 1. MCPB should be faster, not slower. If you experience issues:
 2. Check your internet connection (UVX may need to download dependencies on first run)
 3. Verify no antivirus software is interfering with UVX
@@ -199,6 +211,7 @@ If you encounter issues during migration:
 ### Q: Why did you switch from DXT to MCPB?
 
 A: MCPB provides significant advantages:
+
 - 97.8% smaller package size (42MB → 1MB)
 - Faster builds and installations
 - More reliable dependency management
@@ -207,6 +220,7 @@ A: MCPB provides significant advantages:
 ### Q: Will DXT packages continue to work?
 
 A: Existing DXT installations will continue to function, but:
+
 - No new DXT packages will be released
 - Updates and bug fixes will only be available in MCPB format
 - We recommend migrating to MCPB for continued support
@@ -214,6 +228,7 @@ A: Existing DXT installations will continue to function, but:
 ### Q: What if I have automation that depends on DXT files?
 
 A: Update your automation to use MCPB format:
+
 - Change file extension checks from `.dxt` to `.mcpb`
 - Update download URLs to fetch MCPB packages
 - Modify installation scripts for MCPB format
@@ -221,6 +236,7 @@ A: Update your automation to use MCPB format:
 ### Q: Is there any functional difference between DXT and MCPB?
 
 A: No functional differences in MCP tools or capabilities. MCPB provides the same functionality with:
+
 - Smaller package size
 - Faster installation
 - More reliable execution

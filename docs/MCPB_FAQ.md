@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # MCPB Migration FAQ
 
 ## Frequently Asked Questions

@@ -260,6 +260,7 @@ python test_cases/sail_user_stories_real_test.py
 #### Python Version Problems
 
 **Issue**: \"Python 3.11+ required\"
+
 ```bash
 # Check current version
 python3 --version
@@ -278,6 +279,7 @@ export PATH=\"/usr/local/bin:$PATH\"
 #### AWS Credential Issues
 
 **Issue**: \"Unable to locate credentials\"
+
 ```bash
 # Check AWS configuration
 aws configure list
@@ -293,6 +295,7 @@ aws s3 ls s3://your-bucket
 #### Module Import Errors
 
 **Issue**: \"ModuleNotFoundError: No module named 'quilt_mcp'\"
+
 ```bash
 # Ensure PYTHONPATH is set correctly
 export PYTHONPATH=/path/to/quilt-mcp-server/app
@@ -305,6 +308,7 @@ export PYTHONPATH=/path/to/quilt-mcp-server/app
 #### Permission Errors
 
 **Issue**: \"Permission denied\" when creating packages
+
 ```bash
 # Check bucket permissions
 aws s3 ls s3://your-bucket
@@ -323,6 +327,7 @@ print(result)
 #### Claude Desktop Issues
 
 **Issue**: Tools not appearing in Claude Desktop
+
 ```bash
 # Check Python accessibility in login shell
 which python3

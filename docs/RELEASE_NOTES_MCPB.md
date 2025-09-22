@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Release Notes: MCPB Transition
 
 ## 🚀 Major Update: DXT → MCPB Migration
@@ -123,12 +124,14 @@ graph TD
 ### Build Process Simplification
 
 **Before (DXT)**:
+
 ```bash
 # Complex multi-stage build
 deploy-build → file-copying → dependency-bundling → dxt-creation
 ```
 
 **After (MCPB)**:
+
 ```bash
 # Simple single-stage build
 source-validation → metadata-generation → mcpb-assembly
