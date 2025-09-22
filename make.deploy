@@ -1,5 +1,5 @@
 # Production/packaging targets
-# Updated for Phase 4 clean release system transformation
+# MCPB packaging system
 
 # Paths
 APP_DIR := src
@@ -9,82 +9,64 @@ BUILD_PKGS_DIR := $(BUILD_DIR)/lib
 DIST_DIR := dist
 
 # Variables
-DXT_NAME := quilt-mcp
+PACKAGE_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
-PACKAGE_ID := $(DIST_DIR)/$(DXT_NAME)-$(PACKAGE_VERSION)
-DXT_PACKAGE := $(PACKAGE_ID).dxt
+PACKAGE_ID := $(DIST_DIR)/$(PACKAGE_NAME)-$(PACKAGE_VERSION)
+MCPB_PACKAGE := $(PACKAGE_ID).mcpb
 RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 
-# Marker files for incremental builds
-ASSETS_MARKER := $(BUILD_DIR)/.assets-copied
-APP_MARKER := $(BUILD_DIR)/.app-copied
-DEPS_MARKER := $(BUILD_DIR)/.deps-installed
 
 # Source file dependencies
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build dxt dxt-validate python-dist python-publish release-zip deploy-clean check-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools
 
 # Check for required tools
 check-tools:
 	@command -v npx >/dev/null 2>&1 || { echo "❌ npx not found - install Node.js"; exit 1; }
 	@command -v uv >/dev/null 2>&1 || { echo "❌ uv not found - install uv package manager"; exit 1; }
+	@command -v mcpb >/dev/null 2>&1 || { echo "❌ mcpb not found - run: npm install -g @anthropic-ai/mcpb"; exit 1; }
 	@echo "✅ All required tools found"
 
 # Build Environment Preparation
 deploy-build: check-tools
 	@echo "Preparing production build environment..."
-	@$(MAKE) -f make.deploy build-contents
-	@$(MAKE) -f make.deploy build-test
+	@$(MAKE) -f make.deploy mcpb-build-contents
 	@echo "✅ Build environment ready"
 
+
 # Intermediate targets for incremental builds
-$(ASSETS_MARKER): $(ASSET_FILES)
-	@echo "Copying DXT assets..."
-	@mkdir -p $(BUILD_DIR)
-	@cp -r $(ASSETS_DIR)/* $(BUILD_DIR)/
-	@if [ -f "$(BUILD_DIR)/check-dxt.sh" ]; then chmod +x $(BUILD_DIR)/check-dxt.sh; fi
+# MCPB assets (only manifest, icon, README needed)
+mcpb-assets: $(ASSET_FILES)
+	@echo "Preparing MCPB assets..."
+	@mkdir -p $(BUILD_DIR)/mcpb
 	@echo "Generating manifest.json from template..."
-	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(BUILD_DIR)/manifest.json.j2 > $(BUILD_DIR)/manifest.json
-	@rm $(BUILD_DIR)/manifest.json.j2
-	@touch $@
+	@sed 's/{{ version }}/$(PACKAGE_VERSION)/g' $(ASSETS_DIR)/manifest.json.j2 > $(BUILD_DIR)/mcpb/manifest.json
+	@echo "Copying icon and documentation..."
+	@cp $(ASSETS_DIR)/icon.png $(BUILD_DIR)/mcpb/
+	@cp $(ASSETS_DIR)/README.md $(BUILD_DIR)/mcpb/
+	@echo "✅ MCPB assets prepared"
 
-$(APP_MARKER): $(APP_FILES)
-	@echo "Copying app source code..."
-	@for file in $(APP_FILES); do \
-		rel_path=$${file#src/}; \
-		mkdir -p "$$(dirname "$(BUILD_DIR)/$$rel_path")"; \
-		cp $$file $(BUILD_DIR)/$$rel_path; \
-	done
-	@touch $@
 
-$(DEPS_MARKER): pyproject.toml
-	@echo "Installing Python dependencies..."
-	@mkdir -p $(BUILD_PKGS_DIR)
-	@uv pip install --target $(BUILD_PKGS_DIR) --no-cache-dir --quiet --no-binary=pydantic-core .
-	@touch $@
+# MCPB simplified build (no source code copying needed)
+mcpb-build-contents: mcpb-assets
+	@echo "✅ MCPB build contents prepared"
 
-build-contents: $(ASSETS_MARKER) $(APP_MARKER)
-	@echo "✅ Build contents prepared"
 
-build-test: build-contents
-	@echo "Testing bootstrap script in build directory..."
-	@echo "Verifying bootstrap.py can import dependencies..."
-	@cd $(BUILD_DIR) && python -c "import bootstrap; print('Bootstrap module imported successfully')"
-	@echo "✅ Bootstrap test passed"
 
-# DXT Package Creation
-$(DXT_PACKAGE): build-contents
-	@echo "Packing with official DXT CLI..."
+# MCPB Package Creation
+$(MCPB_PACKAGE): mcpb-build-contents
+	@echo "Packing with MCPB CLI..."
 	@mkdir -p $(DIST_DIR)
-	@npx @anthropic-ai/dxt pack $(BUILD_DIR) $(DXT_PACKAGE)
-	@echo "✅ Built $(DXT_PACKAGE)"
+	@mcpb pack $(BUILD_DIR)/mcpb $(MCPB_PACKAGE)
+	@echo "✅ Built $(MCPB_PACKAGE)"
 
-dxt: $(DXT_PACKAGE)
-	@echo "✅ DXT package created: $(DXT_PACKAGE)"
+mcpb: $(MCPB_PACKAGE)
+	@echo "✅ MCPB package created: $(MCPB_PACKAGE)"
+
 
 # Python Package Distribution
 python-dist: check-tools
@@ -97,23 +79,41 @@ python-dist: check-tools
 python-publish:
 	@./scripts/release.sh python-publish
 
-# DXT Package Validation
-dxt-validate: check-tools dxt
-	@echo "Validating DXT package..."
-	@echo "Validating with official DXT CLI..."
-	@npx @anthropic-ai/dxt info $(DXT_PACKAGE)
-	@echo "Validating generated manifest.json..."
-	@npx @anthropic-ai/dxt validate $(BUILD_DIR)/manifest.json
-	@echo "✅ DXT package validation passed"
+# MCPB Package Validation
+mcpb-validate: check-tools mcpb
+	@echo "🔍 Comprehensive MCPB package validation..."
+	@echo "\n1. Validating with MCPB CLI..."
+	@mcpb info $(MCPB_PACKAGE)
+	@echo "\n2. Validating generated manifest.json..."
+	@mcpb validate $(BUILD_DIR)/mcpb/manifest.json
+	@echo "\n3. Validating package structure..."
+	@test -f $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ manifest.json missing"; exit 1; }
+	@test -f $(BUILD_DIR)/mcpb/icon.png || { echo "❌ icon.png missing"; exit 1; }
+	@test -f $(BUILD_DIR)/mcpb/README.md || { echo "❌ README.md missing"; exit 1; }
+	@echo "✅ Package structure validation passed"
+	@echo "\n4. Validating manifest content..."
+	@grep -q '"name": "quilt-mcp"' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid name in manifest"; exit 1; }
+	@grep -q '"version": "$(PACKAGE_VERSION)"' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid version in manifest"; exit 1; }
+	@grep -q '"entry_point": "uvx"' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid entry_point in manifest"; exit 1; }
+	@grep -q '"args": \["quilt-mcp"\]' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid args in manifest"; exit 1; }
+	@echo "✅ Manifest content validation passed"
+	@echo "\n5. Testing UVX execution compatibility..."
+	@uvx --from . quilt-mcp --help >/dev/null 2>&1 || { echo "❌ UVX execution test failed"; exit 1; }
+	@echo "✅ UVX execution test passed"
+	@echo "\n6. Running prerequisites validation..."
+	@bash $(ASSETS_DIR)/check-mcpb.sh >/dev/null 2>&1 || { echo "❌ Prerequisites validation failed"; exit 1; }
+	@echo "✅ Prerequisites validation passed"
+	@echo "\n✅ Comprehensive MCPB package validation passed"
+
 
 # Release Bundle Creation
-$(RELEASE_ZIP): dxt-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-dxt.sh
+$(RELEASE_ZIP): mcpb-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-mcpb.sh
 	@echo "Creating release bundle..."
 	@mkdir -p $(DIST_DIR)/release
-	@cp $(DXT_PACKAGE) $(DIST_DIR)/release/
+	@cp $(MCPB_PACKAGE) $(DIST_DIR)/release/
 	@cp $(ASSETS_DIR)/README.md $(DIST_DIR)/release/
-	@cp $(ASSETS_DIR)/check-dxt.sh $(DIST_DIR)/release/
-	@cd $(DIST_DIR)/release && zip -r ../$(DXT_NAME)-$(PACKAGE_VERSION)-release.zip .
+	@cp $(ASSETS_DIR)/check-mcpb.sh $(DIST_DIR)/release/
+	@cd $(DIST_DIR)/release && zip -r ../$(PACKAGE_NAME)-$(PACKAGE_VERSION)-release.zip .
 	@rm -rf $(DIST_DIR)/release
 	@echo "✅ Built $(RELEASE_ZIP)"
 
@@ -143,4 +143,5 @@ release-dev-tag:
 deploy-clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR) $(DIST_DIR)
+	@rm -f *.mcpb  # Clean MCPB packages from root
 	@echo "✅ Deploy cleanup completed"

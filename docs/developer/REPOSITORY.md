@@ -39,11 +39,12 @@ The core implementation of the MCP server:
 ```text
 src/
 ├── 📄 main.py                 # MCP server entry point
-├── 📁 deploy/                 # DXT deployment assets
+├── 📁 deploy/                 # MCPB deployment assets
 │   ├── 📄 README.md          # End-user installation guide
-│   ├── 📄 check-dxt.sh       # Prerequisites validation for end users
-│   ├── 📄 bootstrap.py       # DXT package bootstrap script
-│   └── 📄 manifest.json.j2   # DXT manifest template
+│   ├── 📄 check-mcpb.sh      # Prerequisites validation for end users
+│   ├── 📄 icon.png           # MCPB package icon
+│   ├── 📄 LICENSE.txt        # License file for package
+│   └── 📄 manifest.json.j2   # MCPB manifest template
 └── 📁 quilt_mcp/             # Main MCP server package
     ├── 📄 __init__.py        # Package initialization with version
     ├── 📄 constants.py       # Global constants and configuration
@@ -125,7 +126,7 @@ spec/
 
 - **`Makefile`**: Main coordination hub that delegates to specialized makefiles
 - **`make.dev`**: Development workflow (testing, linting, local server)
-- **`make.deploy`**: Production packaging and DXT creation
+- **`make.deploy`**: Production packaging and MCPB creation
 
 ### Key Build Targets
 
@@ -139,7 +140,7 @@ spec/
 **Production:**
 
 - `make build` - Prepare production build
-- `make package` - Create DXT package
+- `make mcpb` - Create MCPB package
 - `make release` - Full release workflow
 
 ## 🔧 Configuration Files
@@ -217,7 +218,7 @@ spec/
 1. **Clone and setup**: `git clone` → `uv sync` → `cp env.example .env`
 2. **Development**: `make run` (server) → `make test` (verify)
 3. **Testing**: `bin/mcp-test.py http://localhost:8000/mcp/`
-4. **Building**: `make package` (DXT) → `make release` (distribution)
+4. **Building**: `make mcpb` (MCPB) → `make release` (distribution)
 
 ---
 

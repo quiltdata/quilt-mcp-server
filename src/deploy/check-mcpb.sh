@@ -1,42 +1,36 @@
 #!/bin/bash
 
-# DXT prerequisites validation script for Quilt MCP DXT
-# Checks Python and Claude Desktop requirements for end users
-# (DXT = Desktop Extension)
+# MCPB prerequisites validation script for Quilt MCP Bundle
+# Checks UVX and Claude Desktop requirements for end users
+# (MCPB = MCP Bundle)
 
 set -e
 
-echo "🔍 Checking Quilt MCP DXT Prerequisites..."
+echo "🔍 Checking Quilt MCP Bundle Prerequisites..."
 echo
 
-# Check Python version
-check_python() {
-    echo "Checking Python installation..."
-    
-    # Check user's default Python (what Claude Desktop will use)  
-    # Simulate Claude Desktop's environment - clean login shell without project paths
-    cd "$HOME"
-    clean_path=$(echo $PATH | tr ":" "\n" | grep -v "$(pwd)" | grep -v "\.venv" | tr "\n" ":")
-    python_cmd=$(bash -l -c "export PATH='$clean_path'; command -v python3" 2>/dev/null)
-    
-    if [ -n "$python_cmd" ]; then
-        python_version=$(bash -l -c "export PATH='$clean_path'; $python_cmd --version" 2>&1 | awk '{print $2}')
-        major=$(echo $python_version | cut -d. -f1)
-        minor=$(echo $python_version | cut -d. -f2)
-        
-        if [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; then
-            echo "✅ User default Python $python_version found at $python_cmd (required: 3.11+)"
-            echo "   This is the Python that Claude Desktop will use"
+# Check UVX installation
+check_uvx() {
+    echo "Checking UVX installation..."
+
+    # Check if uvx is available
+    if command -v uvx >/dev/null 2>&1; then
+        uvx_version=$(uvx --version 2>&1 | head -n1)
+        echo "✅ UVX found: $uvx_version"
+        echo "   This will be used by Claude Desktop to run the MCP server"
+
+        # Check if quilt-mcp package is available
+        if uvx list 2>/dev/null | grep -q "quilt-mcp" || pip show quilt-mcp >/dev/null 2>&1; then
+            echo "✅ quilt-mcp package is available"
         else
-            echo "❌ User default Python $python_version found at $python_cmd, but 3.11+ is required"
-            echo "   Claude Desktop requires Python 3.11+ in the user's login environment"
-            echo "   Note: If you have pyenv installed, ensure it's properly initialized in your shell profile"
-            return 1
+            echo "⚠️  quilt-mcp package not found"
+            echo "   It will be automatically installed when the MCPB is loaded"
         fi
     else
-        echo "❌ User default Python 3 not found in login environment"
-        echo "   Claude Desktop requires Python 3.11+ accessible from user's login shell"
-        echo "   Try adding Python to your shell profile (.bashrc, .zshrc, etc.)"
+        echo "❌ UVX not found"
+        echo "   Claude Desktop requires UVX to run MCPB packages"
+        echo "   Install with: pip install uvx"
+        echo "   Or install UV: curl -LsSf https://astral.sh/uv/install.sh | sh"
         return 1
     fi
 }
@@ -99,13 +93,13 @@ check_claude_desktop() {
 # Summary function
 show_summary() {
     echo
-    echo "📋 DXT Prerequisites Summary:"
-    echo "   Python 3.11+: Required for running the MCP server"
+    echo "📋 MCPB Prerequisites Summary:"
+    echo "   UVX: Required for running the MCP server package"
     echo "   AWS Credentials: Required for accessing Quilt data"
-    echo "   Claude Desktop: Required for using the DXT extension"
+    echo "   Claude Desktop: Required for using the MCPB bundle"
     echo
     echo "💡 Next Steps:"
-    echo "   1. Double-click the Quilt MCP DXT to install in Claude Desktop"
+    echo "   1. Double-click the Quilt MCP Bundle (.mcpb) to install in Claude Desktop"
     echo "   2. Enter catalog domain when prompted"
     echo "   3. Enable the extension"
     echo
@@ -113,15 +107,15 @@ show_summary() {
 
 # Main execution
 main() {
-    check_python
+    check_uvx
     echo
-    check_aws  
+    check_aws
     echo
     check_claude_desktop
     echo
     show_summary
-    
-    echo "✅ DXT prerequisites check complete!"
+
+    echo "✅ MCPB prerequisites check complete!"
 }
 
 # Run if executed directly

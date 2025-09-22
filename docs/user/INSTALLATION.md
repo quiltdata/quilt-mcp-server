@@ -8,8 +8,8 @@ This guide provides detailed installation instructions for the Quilt MCP Server 
 
 The fastest way to get started:
 
-1. **Download Extension**: Get the latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
-2. **Install**: Double-click the `.dxt` file or use Claude Desktop → Settings → Extensions → Install from File
+1. **Download Extension**: Get the latest `.mcpb` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+2. **Install**: Double-click the `.mcpb` file or use Claude Desktop → Settings → Extensions → Install from File
 3. **Configure**: Set your Quilt catalog domain in Claude Desktop → Settings → Extensions → Quilt MCP
 4. **Test**: Open Tools panel in a new chat and confirm Quilt MCP tools are available
 
@@ -260,6 +260,7 @@ python test_cases/sail_user_stories_real_test.py
 #### Python Version Problems
 
 **Issue**: \"Python 3.11+ required\"
+
 ```bash
 # Check current version
 python3 --version
@@ -278,6 +279,7 @@ export PATH=\"/usr/local/bin:$PATH\"
 #### AWS Credential Issues
 
 **Issue**: \"Unable to locate credentials\"
+
 ```bash
 # Check AWS configuration
 aws configure list
@@ -293,6 +295,7 @@ aws s3 ls s3://your-bucket
 #### Module Import Errors
 
 **Issue**: \"ModuleNotFoundError: No module named 'quilt_mcp'\"
+
 ```bash
 # Ensure PYTHONPATH is set correctly
 export PYTHONPATH=/path/to/quilt-mcp-server/app
@@ -305,6 +308,7 @@ export PYTHONPATH=/path/to/quilt-mcp-server/app
 #### Permission Errors
 
 **Issue**: \"Permission denied\" when creating packages
+
 ```bash
 # Check bucket permissions
 aws s3 ls s3://your-bucket
@@ -323,6 +327,7 @@ print(result)
 #### Claude Desktop Issues
 
 **Issue**: Tools not appearing in Claude Desktop
+
 ```bash
 # Check Python accessibility in login shell
 which python3
@@ -423,9 +428,9 @@ make app
 
 ### Updating Claude Desktop Extension
 
-1. Download latest `.dxt` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
+1. Download latest `.mcpb` from [releases](https://github.com/quiltdata/quilt-mcp-server/releases)
 2. Remove old extension: Claude Desktop → Settings → Extensions → Remove
-3. Install new extension: Install from File → Select new `.dxt`
+3. Install new extension: Install from File → Select new `.mcpb`
 4. Restart Claude Desktop
 
 ### Health Monitoring
@@ -464,8 +469,8 @@ kubectl apply -f k8s/
 # Build custom Docker image
 docker build -t my-quilt-mcp:latest .
 
-# Build DXT extension
-cd build-dxt && make build
+# Build MCPB extension
+make mcpb
 
 # Build with custom configuration
 make build CUSTOM_CONFIG=production

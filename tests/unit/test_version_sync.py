@@ -112,7 +112,7 @@ class TestTemplateProcessing:
         """Should substitute {{ version }} placeholder with actual version."""
         template_content = """
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.1",
   "name": "test-extension",
   "version": "{{ version }}",
   "description": "Test extension",
@@ -141,7 +141,7 @@ class TestTemplateProcessing:
 
                         assert manifest["version"] == "1.2.3"
                         assert manifest["name"] == "test-extension"
-                        assert manifest["dxt_version"] == "0.1"
+                        assert manifest["manifest_version"] == "0.1"
                         assert manifest["author"]["name"] == "Test Author"
                     finally:
                         Path(output_file.name).unlink(missing_ok=True)
@@ -152,7 +152,7 @@ class TestTemplateProcessing:
         """Should preserve complex nested structures and all fields except version."""
         template_content = """
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.1",
   "name": "complex-extension",
   "version": "{{ version }}",
   "description": "Complex test extension",
@@ -161,13 +161,14 @@ class TestTemplateProcessing:
     "email": "test@example.com"
   },
   "server": {
-    "type": "python",
-    "entry_point": "bootstrap.py",
+    "type": "binary",
+    "entry_point": "uvx",
     "mcp_config": {
-      "command": "python3",
-      "args": ["${__dirname}/bootstrap.py"],
+      "command": "uvx",
+      "args": ["quilt-mcp"],
       "env": {
-        "PYTHONNOUSERSITE": "1"
+        "PYTHONNOUSERSITE": "1",
+        "FASTMCP_TRANSPORT": "stdio"
       }
     }
   },
@@ -357,7 +358,7 @@ description = "Integration test project"
 
         template_content = """
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.1",
   "name": "integration-extension",
   "version": "{{ version }}",
   "description": "Integration test extension"
@@ -389,7 +390,7 @@ description = "Integration test project"
 
             assert manifest["version"] == "3.0.0-beta.1"
             assert manifest["name"] == "integration-extension"
-            assert manifest["dxt_version"] == "0.1"
+            assert manifest["manifest_version"] == "0.1"
 
     def test_sync_versions_with_real_manifest_template_structure(self):
         """Should handle the actual manifest.json structure from the project."""
@@ -403,7 +404,7 @@ description = "Secure MCP server for accessing Quilt data with JWT authenticatio
         # Based on the actual manifest.json structure
         template_content = """
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.1",
   "name": "quilt-mcp",
   "version": "{{ version }}",
   "description": "Access Quilt data packages through Claude Desktop",
@@ -414,17 +415,18 @@ description = "Secure MCP server for accessing Quilt data with JWT authenticatio
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ernest/fast-mcp-server"
+    "url": "https://github.com/quiltdata/quilt-mcp-server"
   },
   "icon": "icon.png",
   "server": {
-    "type": "python",
-    "entry_point": "bootstrap.py",
+    "type": "binary",
+    "entry_point": "uvx",
     "mcp_config": {
-      "command": "python3",
-      "args": ["${__dirname}/bootstrap.py"],
+      "command": "uvx",
+      "args": ["quilt-mcp"],
       "env": {
-        "PYTHONNOUSERSITE": "1"
+        "PYTHONNOUSERSITE": "1",
+        "FASTMCP_TRANSPORT": "stdio"
       }
     }
   },
