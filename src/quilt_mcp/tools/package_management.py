@@ -20,8 +20,6 @@ from .packages import package_browse
 logger = logging.getLogger(__name__)
 
 
-
-
 def _validate_package_alternative(package_name: str, registry: str, browse_error: Dict[str, Any]) -> Dict[str, Any]:
     """Alternative validation approach when package browsing fails."""
     try:

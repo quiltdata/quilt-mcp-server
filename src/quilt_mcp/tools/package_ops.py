@@ -40,8 +40,6 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     return f"s3://{bucket_or_uri}"
 
 
-
-
 def _base_package_create(
     package_name: str,
     s3_uris: list[str],
@@ -181,7 +179,6 @@ def _base_package_create(
         "message": str(message),
     }
     return result_data
-
 
 
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:

@@ -526,7 +526,6 @@ class TestQuiltAPI:
         except Exception:
             pass  # Cleanup is best-effort
 
-
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""
         result = package_diff(KNOWN_PACKAGE, KNOWN_PACKAGE, registry=TEST_REGISTRY)

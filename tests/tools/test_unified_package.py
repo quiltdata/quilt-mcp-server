@@ -569,9 +569,10 @@ class TestEnhancedDryRunCapabilities:
 
     def test_create_package_dry_run_with_metadata_validation_failure(self):
         """Test that dry-run handles metadata validation failures gracefully."""
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
-             patch("quilt_mcp.tools.unified_package.validate_metadata_structure") as mock_validate:
-
+        with (
+            patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
+            patch("quilt_mcp.tools.unified_package.validate_metadata_structure") as mock_validate,
+        ):
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -671,9 +672,10 @@ class TestEnhancedDryRunCapabilities:
 
     def test_create_package_dry_run_needs_comprehensive_structure_preview(self):
         """Test that dry-run should provide comprehensive structure preview - this should fail initially."""
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
-             patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_s3_create:
-
+        with (
+            patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
+            patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_s3_create,
+        ):
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -1028,8 +1030,9 @@ class TestPackageCreateEquivalence:
 
                 # Verify error message quality
                 error_msg = result["error"]
-                assert any(word in error_msg.lower() for word in ["json", "format", "parse"]), \
+                assert any(word in error_msg.lower() for word in ["json", "format", "parse"]), (
                     "Error message should clearly indicate JSON parsing issue"
+                )
 
     @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
     def test_create_package_performance_characteristics(self, mock_create_from_s3):
@@ -1065,7 +1068,9 @@ class TestPackageCreateEquivalence:
             assert result["metadata_template_used"] == "standard"
 
             # Verify reasonable performance (should complete in under 1 second for mocked operations)
-            assert execution_time < 1.0, f"create_package took {execution_time:.3f}s, which seems too slow for mocked operations"
+            assert execution_time < 1.0, (
+                f"create_package took {execution_time:.3f}s, which seems too slow for mocked operations"
+            )
 
             # Verify template processing doesn't add excessive overhead
             # Multiple calls should have consistent performance
@@ -1115,9 +1120,10 @@ class TestPackageCreateEquivalence:
         for scenario in validation_scenarios:
             mock_validate.return_value = scenario["validation_result"]
 
-            with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
-                 patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create:
-
+            with (
+                patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
+                patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create,
+            ):
                 # Mock successful file analysis
                 mock_analyze.return_value = {
                     "source_type": "s3_only",
@@ -1171,38 +1177,40 @@ class TestPackageCreateEquivalence:
 
         # Verify create_package has all essential package creation parameters
         essential_params = {
-            "name",           # Package name
-            "files",          # Files to include
-            "description",    # Package description
-            "metadata",       # Custom metadata
-            "dry_run",        # Preview mode
+            "name",  # Package name
+            "files",  # Files to include
+            "description",  # Package description
+            "metadata",  # Custom metadata
+            "dry_run",  # Preview mode
             "auto_organize",  # File organization
-            "target_registry", # Target registry
+            "target_registry",  # Target registry
         }
 
         missing_essential = essential_params - unified_params
-        assert len(missing_essential) == 0, \
-            f"create_package missing essential parameters: {missing_essential}"
+        assert len(missing_essential) == 0, f"create_package missing essential parameters: {missing_essential}"
 
         # Verify create_package has enhancement parameters
         enhancement_params = {"metadata_template"}  # Template system enhancement
         present_enhancements = enhancement_params & unified_params
-        assert len(present_enhancements) > 0, \
+        assert len(present_enhancements) > 0, (
             f"create_package should have enhancement parameters like: {enhancement_params}"
+        )
 
         # Verify the function signature is reasonable (not too many parameters)
-        assert len(unified_params) < 15, \
+        assert len(unified_params) < 15, (
             f"create_package has {len(unified_params)} parameters, which might be too many"
+        )
 
         # Verify key enhancement parameters exist
         assert "metadata_template" in unified_params, "Should support metadata template system"
 
     def test_create_package_integration_with_all_supported_features(self):
         """Integration test that create_package works with all its supported features together."""
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
-             patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create, \
-             patch("quilt_mcp.tools.unified_package.validate_metadata_structure") as mock_validate:
-
+        with (
+            patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
+            patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_create,
+            patch("quilt_mcp.tools.unified_package.validate_metadata_structure") as mock_validate,
+        ):
             # Mock successful analysis
             mock_analyze.return_value = {
                 "source_type": "s3_only",

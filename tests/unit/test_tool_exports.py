@@ -10,8 +10,9 @@ import pytest
 def test_removed_tool_exports_are_absent() -> None:
     """Ensure deprecated tool names are neither exported nor importable."""
     removed_tools = {
-        "create_package",
-        "package_create_from_s3",
+        "package_create",  # Removed - functionality moved to create_package
+        "package_update",  # Removed - anti-pattern
+        "package_update_metadata",  # Removed - anti-pattern
         "packages_search",
         "bucket_objects_search",
         "tabulator_open_query_status",
@@ -26,6 +27,17 @@ def test_removed_tool_exports_are_absent() -> None:
             getattr(quilt_mcp, tool_name)
 
 
+def test_primary_package_creation_functions_are_exported() -> None:
+    """Ensure the two primary package creation functions are properly exported."""
+    quilt_mcp = importlib.import_module("quilt_mcp")
+
+    # The two primary package creation functions after consolidation
+    primary_functions = ["create_package", "package_create_from_s3"]
+
+    for func_name in primary_functions:
+        assert func_name in quilt_mcp.__all__, f"{func_name} should be in __all__"
+        assert hasattr(quilt_mcp, func_name), f"{func_name} should be importable"
+        assert callable(getattr(quilt_mcp, func_name)), f"{func_name} should be callable"
 
 
 def test_catalog_search_replaces_unified_search() -> None:

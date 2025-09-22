@@ -194,5 +194,3 @@ class TestFunctionRemoval:
         # Test that the function is not in the main package exports
         with pytest.raises(ImportError, match="cannot import name 'package_create'"):
             from quilt_mcp import package_create
-
-

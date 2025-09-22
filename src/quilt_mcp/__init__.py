@@ -40,8 +40,12 @@ from .tools.permissions import (
     bucket_recommendations_get,
 )
 from .tools.unified_package import (
+    create_package,
     list_available_resources,
     quick_start,
+)
+from .tools.s3_package import (
+    package_create_from_s3,
 )
 from .tools.metadata_templates import (
     metadata_template_get,
@@ -118,6 +122,7 @@ __all__ = [
     "catalog_uri",
     "catalog_url",
     "configure_catalog",
+    "create_package",
     "create_quilt_summary_files",
     "filesystem_status",
     "fix_metadata_validation_issues",
@@ -129,6 +134,7 @@ __all__ = [
     "metadata_template_get",
     "package_browse",
     "package_contents_search",
+    "package_create_from_s3",
     "package_delete",
     "package_diff",
     "package_tools_list",

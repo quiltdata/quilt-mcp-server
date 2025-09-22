@@ -555,9 +555,7 @@ def _create_package_from_s3_sources(
 
             # For dry-run, ensure comprehensive preview fields are present
             if dry_run and result.get("action") == "preview":
-                result = _ensure_comprehensive_dry_run_preview(
-                    result, metadata, metadata_template, s3_files
-                )
+                result = _ensure_comprehensive_dry_run_preview(result, metadata, metadata_template, s3_files)
 
         return result
 
@@ -707,11 +705,13 @@ def _generate_basic_structure_preview(s3_files: List[str]) -> Dict[str, Any]:
         if folder not in organized_structure:
             organized_structure[folder] = []
 
-        organized_structure[folder].append({
-            "name": file_name,
-            "size": PLACEHOLDER_FILE_SIZE,
-            "s3_uri": s3_file,
-        })
+        organized_structure[folder].append(
+            {
+                "name": file_name,
+                "size": PLACEHOLDER_FILE_SIZE,
+                "s3_uri": s3_file,
+            }
+        )
 
     total_size_mb = round(total_files * PLACEHOLDER_FILE_SIZE / (1024 * 1024), 3)
 

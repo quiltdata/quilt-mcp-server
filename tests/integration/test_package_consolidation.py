@@ -32,7 +32,8 @@ class TestAPIConsolidationAchievement:
 
         # Check unified_package module exports
         unified_functions = [
-            name for name in dir(unified_module)
+            name
+            for name in dir(unified_module)
             if callable(getattr(unified_module, name)) and not name.startswith('_')
         ]
 
@@ -41,8 +42,7 @@ class TestAPIConsolidationAchievement:
 
         # Check s3_package module exports
         s3_functions = [
-            name for name in dir(s3_module)
-            if callable(getattr(s3_module, name)) and not name.startswith('_')
+            name for name in dir(s3_module) if callable(getattr(s3_module, name)) and not name.startswith('_')
         ]
 
         # Should have package_create_from_s3 function
@@ -54,8 +54,9 @@ class TestAPIConsolidationAchievement:
             'package_create_from_s3': s3_module.package_create_from_s3,
         }
 
-        assert len(primary_package_functions) == 2, \
+        assert len(primary_package_functions) == 2, (
             f"Should have exactly 2 package creation functions, found {len(primary_package_functions)}"
+        )
 
     def test_removed_functions_cannot_be_imported(self):
         """Test that removed functions cannot be imported from any module."""
@@ -67,21 +68,25 @@ class TestAPIConsolidationAchievement:
         # Test that these functions are not in the main quilt_mcp module
         try:
             import quilt_mcp
+
             available_functions = dir(quilt_mcp)
 
             for func_name in removed_functions:
-                assert func_name not in available_functions, \
+                assert func_name not in available_functions, (
                     f"Removed function {func_name} should not be available in main module"
+                )
         except ImportError:
             pass  # Module might not be importable in test environment
 
         # Test that these functions are not in tools modules
         import quilt_mcp.tools.unified_package as unified_module
+
         unified_functions = dir(unified_module)
 
         for func_name in removed_functions:
-            assert func_name not in unified_functions, \
+            assert func_name not in unified_functions, (
                 f"Removed function {func_name} should not be in unified_package module"
+            )
 
     def test_create_package_is_primary_interface(self):
         """Test that create_package serves as the primary package creation interface."""
@@ -93,29 +98,29 @@ class TestAPIConsolidationAchievement:
 
         # Should have all essential parameters for comprehensive package creation
         essential_params = {
-            'name',              # Package name
-            'files',             # Files to include
-            'description',       # Package description
-            'metadata',          # Custom metadata
-            'metadata_template', # Template system
-            'dry_run',          # Preview capability
-            'auto_organize',    # File organization
+            'name',  # Package name
+            'files',  # Files to include
+            'description',  # Package description
+            'metadata',  # Custom metadata
+            'metadata_template',  # Template system
+            'dry_run',  # Preview capability
+            'auto_organize',  # File organization
             'target_registry',  # Registry targeting
         }
 
         param_set = set(params)
         missing_params = essential_params - param_set
 
-        assert len(missing_params) == 0, \
-            f"create_package missing essential parameters: {missing_params}"
+        assert len(missing_params) == 0, f"create_package missing essential parameters: {missing_params}"
 
         # Verify function has comprehensive capabilities
         assert callable(create_package), "create_package should be callable"
 
         # Should be documented as primary interface
         docstring = create_package.__doc__ or ""
-        assert any(keyword in docstring.lower() for keyword in ['primary', 'main', 'interface']), \
+        assert any(keyword in docstring.lower() for keyword in ['primary', 'main', 'interface']), (
             "create_package should be documented as primary interface"
+        )
 
     def test_package_create_from_s3_is_specialized_interface(self):
         """Test that package_create_from_s3 serves specialized S3 bulk processing."""
@@ -127,24 +132,26 @@ class TestAPIConsolidationAchievement:
 
         # Should have specialized S3 parameters
         s3_specialized_params = {
-            'source_bucket',       # S3 source bucket
-            'package_name',        # Package name
-            'source_prefix',       # S3 prefix filtering
-            'include_patterns',    # File pattern inclusion
-            'exclude_patterns',    # File pattern exclusion
-            'auto_organize',       # Smart organization
+            'source_bucket',  # S3 source bucket
+            'package_name',  # Package name
+            'source_prefix',  # S3 prefix filtering
+            'include_patterns',  # File pattern inclusion
+            'exclude_patterns',  # File pattern exclusion
+            'auto_organize',  # Smart organization
         }
 
         param_set = set(params)
         present_s3_params = s3_specialized_params & param_set
 
-        assert len(present_s3_params) >= 4, \
+        assert len(present_s3_params) >= 4, (
             f"package_create_from_s3 should have S3-specialized parameters, found {len(present_s3_params)}"
+        )
 
         # Should be documented as specialized for S3
         docstring = package_create_from_s3.__doc__ or ""
-        assert any(keyword in docstring.lower() for keyword in ['s3', 'bulk', 'specialized']), \
+        assert any(keyword in docstring.lower() for keyword in ['s3', 'bulk', 'specialized']), (
             "package_create_from_s3 should be documented as S3-specialized"
+        )
 
 
 class TestCreatePackageComprehensiveFunctionality:
@@ -351,12 +358,14 @@ class TestCreatePackageComprehensiveFunctionality:
 
             # Should provide helpful error message
             error_message = result.get("error", "")
-            assert scenario["expected_error"] in error_message, \
+            assert scenario["expected_error"] in error_message, (
                 f"Error message should contain '{scenario['expected_error']}', got: {error_message}"
+            )
 
             # Should provide user guidance
-            assert any(key in result for key in ["examples", "tip", "alternatives", "user_guidance"]), \
+            assert any(key in result for key in ["examples", "tip", "alternatives", "user_guidance"]), (
                 "Should provide user guidance for errors"
+            )
 
     @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
     def test_create_package_comprehensive_json_metadata_handling(self, mock_s3_create):
@@ -457,24 +466,25 @@ class TestPackageCreateFromS3SpecializedFunctionality:
 
         # Should have specialized S3 bulk processing parameters
         bulk_processing_params = {
-            'source_bucket',      # Source S3 bucket
-            'source_prefix',      # Prefix filtering
-            'include_patterns',   # Pattern inclusion
-            'exclude_patterns',   # Pattern exclusion
-            'auto_organize',      # Smart organization
-            'generate_readme',    # Auto-documentation
+            'source_bucket',  # Source S3 bucket
+            'source_prefix',  # Prefix filtering
+            'include_patterns',  # Pattern inclusion
+            'exclude_patterns',  # Pattern exclusion
+            'auto_organize',  # Smart organization
+            'generate_readme',  # Auto-documentation
             'confirm_structure',  # Structure confirmation
         }
 
         present_bulk_params = bulk_processing_params & params
-        assert len(present_bulk_params) >= 5, \
+        assert len(present_bulk_params) >= 5, (
             f"package_create_from_s3 should have bulk processing params, found {len(present_bulk_params)}"
+        )
 
         # Should be documented for bulk processing
         docstring = package_create_from_s3.__doc__ or ""
-        assert any(keyword in docstring.lower() for keyword in
-                  ['bulk', 's3', 'bucket', 'organize', 'enhanced']), \
+        assert any(keyword in docstring.lower() for keyword in ['bulk', 's3', 'bucket', 'organize', 'enhanced']), (
             "Should be documented as specialized S3 bulk processor"
+        )
 
     @patch("quilt_mcp.tools.s3_package.get_s3_client")
     @patch("quilt_mcp.tools.s3_package.QuiltService")
@@ -493,11 +503,13 @@ class TestPackageCreateFromS3SpecializedFunctionality:
         for i in range(10):  # 10 pages of 100 objects each
             page_objects = []
             for j in range(100):
-                page_objects.append({
-                    'Key': f'data/file_{i:02d}_{j:03d}.csv',
-                    'Size': 1024 * (j + 1),
-                    'LastModified': '2024-01-01T12:00:00Z',
-                })
+                page_objects.append(
+                    {
+                        'Key': f'data/file_{i:02d}_{j:03d}.csv',
+                        'Size': 1024 * (j + 1),
+                        'LastModified': '2024-01-01T12:00:00Z',
+                    }
+                )
             mock_pages.append({'Contents': page_objects})
 
         mock_paginator.paginate.return_value = mock_pages
@@ -547,8 +559,7 @@ class TestPackageCreateFromS3SpecializedFunctionality:
 
         for ext, expected_folder in expected_mappings.items():
             if ext in FOLDER_MAPPING:
-                assert FOLDER_MAPPING[ext] == expected_folder, \
-                    f"File type {ext} should map to {expected_folder}"
+                assert FOLDER_MAPPING[ext] == expected_folder, f"File type {ext} should map to {expected_folder}"
 
 
 class TestAPIUserExperience:
@@ -563,16 +574,16 @@ class TestAPIUserExperience:
             # Try to import from main module - should not be available
             try:
                 import quilt_mcp
-                assert not hasattr(quilt_mcp, func_name), \
-                    f"Removed function {func_name} should not be available"
+
+                assert not hasattr(quilt_mcp, func_name), f"Removed function {func_name} should not be available"
             except (ImportError, AttributeError):
                 pass  # Expected - function should not be available
 
             # Try to import from tools - should not be available
             try:
                 import quilt_mcp.tools.unified_package as unified
-                assert not hasattr(unified, func_name), \
-                    f"Removed function {func_name} should not be in unified module"
+
+                assert not hasattr(unified, func_name), f"Removed function {func_name} should not be in unified module"
             except (ImportError, AttributeError):
                 pass  # Expected - function should not be available
 
@@ -587,8 +598,7 @@ class TestAPIUserExperience:
         # Should provide clear guidance on correct usage
         assert result.get("success") is False or result.get("status") == "error"
         assert "error" in result
-        assert any(key in result for key in ["examples", "tip", "user_guidance"]), \
-            "Should provide user guidance"
+        assert any(key in result for key in ["examples", "tip", "user_guidance"]), "Should provide user guidance"
 
         # Error message should be helpful
         error_msg = result.get("error", "")
@@ -609,8 +619,9 @@ class TestAPIUserExperience:
         # Should have reasonable defaults
         for param_name, param in create_sig.parameters.items():
             if param_name in ["description", "metadata", "target_registry"]:
-                assert param.default is not inspect.Parameter.empty or param.default is None, \
+                assert param.default is not inspect.Parameter.empty or param.default is None, (
                     f"Parameter {param_name} should have sensible default"
+                )
 
         # Test package_create_from_s3 signature
         s3_sig = inspect.signature(package_create_from_s3)
@@ -625,9 +636,10 @@ class TestAPIUserExperience:
         import time
 
         # Test create_package performance with mocked dependencies
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze, \
-             patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_s3_create:
-
+        with (
+            patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
+            patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_s3_create,
+        ):
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -745,8 +757,7 @@ class TestFunctionalityPreservation:
             package_create_from_s3,
         ]
 
-        assert len(consolidated_functions) == 2, \
-            "Should have exactly 2 package creation functions"
+        assert len(consolidated_functions) == 2, "Should have exactly 2 package creation functions"
 
         # This represents 50% reduction from original 4 functions:
         # Original: package_create, package_update, create_package, package_create_from_s3
@@ -755,8 +766,7 @@ class TestFunctionalityPreservation:
         final_count = len(consolidated_functions)
         reduction_percentage = ((original_count - final_count) / original_count) * 100
 
-        assert reduction_percentage == 50.0, \
-            f"Should achieve 50% reduction, got {reduction_percentage}%"
+        assert reduction_percentage == 50.0, f"Should achieve 50% reduction, got {reduction_percentage}%"
 
         # Functionality Coverage Verification
         # Test that create_package covers all primary use cases
@@ -767,39 +777,39 @@ class TestFunctionalityPreservation:
 
         # Should cover all essential package creation functionality
         essential_functionality_params = {
-            "name",              # Package naming
-            "files",             # File inclusion
-            "description",       # Documentation
-            "metadata",          # Custom metadata
-            "metadata_template", # Template system
-            "dry_run",          # Preview capability
-            "auto_organize",    # Organization features
+            "name",  # Package naming
+            "files",  # File inclusion
+            "description",  # Documentation
+            "metadata",  # Custom metadata
+            "metadata_template",  # Template system
+            "dry_run",  # Preview capability
+            "auto_organize",  # Organization features
             "target_registry",  # Registry targeting
         }
 
-        coverage_percentage = (len(essential_functionality_params & create_package_params) /
-                             len(essential_functionality_params)) * 100
+        coverage_percentage = (
+            len(essential_functionality_params & create_package_params) / len(essential_functionality_params)
+        ) * 100
 
-        assert coverage_percentage >= 100.0, \
-            f"Should achieve 100% functionality coverage, got {coverage_percentage}%"
+        assert coverage_percentage >= 100.0, f"Should achieve 100% functionality coverage, got {coverage_percentage}%"
 
         # Test that package_create_from_s3 covers specialized bulk functionality
         s3_signature = inspect.signature(package_create_from_s3)
         s3_params = set(s3_signature.parameters.keys())
 
         specialized_functionality_params = {
-            "source_bucket",      # Bulk S3 processing
-            "source_prefix",      # Prefix filtering
-            "include_patterns",   # Pattern matching
-            "exclude_patterns",   # Pattern exclusion
-            "auto_organize",      # Smart organization
+            "source_bucket",  # Bulk S3 processing
+            "source_prefix",  # Prefix filtering
+            "include_patterns",  # Pattern matching
+            "exclude_patterns",  # Pattern exclusion
+            "auto_organize",  # Smart organization
         }
 
-        s3_coverage = (len(specialized_functionality_params & s3_params) /
-                      len(specialized_functionality_params)) * 100
+        s3_coverage = (len(specialized_functionality_params & s3_params) / len(specialized_functionality_params)) * 100
 
-        assert s3_coverage >= 80.0, \
+        assert s3_coverage >= 80.0, (
             f"package_create_from_s3 should cover bulk processing functionality, got {s3_coverage}%"
+        )
 
     def test_consolidation_success_summary(self):
         """Test that consolidation achieves all success criteria."""
@@ -828,8 +838,7 @@ class TestFunctionalityPreservation:
         }
 
         for criterion, details in success_criteria.items():
-            assert details["achieved"], \
-                f"Success criterion '{criterion}' not achieved: {details['target']}"
+            assert details["achieved"], f"Success criterion '{criterion}' not achieved: {details['target']}"
 
         # Overall consolidation success
         all_achieved = all(details["achieved"] for details in success_criteria.values())
