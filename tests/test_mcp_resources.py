@@ -8,7 +8,7 @@ without requiring AWS credentials.
 import pytest
 from datetime import datetime, timezone
 from typing import Dict, Any, List
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, MagicMock, patch, AsyncMock
 
 
 class TestAdminUsersFunction:
@@ -203,8 +203,8 @@ class TestS3ResourcesFunction:
 
     def test_list_available_resources_success(self, mock_permissions_result, mock_catalog_info):
         """Test successful listing of available S3 resources."""
-        with patch('quilt_mcp.tools.unified_package.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.unified_package.catalog_info') as mock_catalog:
+        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
+            with patch('quilt_mcp.tools.auth.catalog_info') as mock_catalog:
                 mock_discover.return_value = mock_permissions_result
                 mock_catalog.return_value = mock_catalog_info
 
@@ -220,7 +220,7 @@ class TestS3ResourcesFunction:
 
     def test_list_available_resources_permissions_failure(self):
         """Test handling of permissions discovery failure."""
-        with patch('quilt_mcp.tools.unified_package.aws_permissions_discover') as mock_discover:
+        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
             mock_discover.return_value = {
                 "success": False,
                 "error": "AWS credentials not configured"
@@ -236,7 +236,7 @@ class TestS3ResourcesFunction:
 
     def test_list_available_resources_exception_handling(self):
         """Test exception handling in resource listing."""
-        with patch('quilt_mcp.tools.unified_package.aws_permissions_discover') as mock_discover:
+        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
             mock_discover.side_effect = Exception("Network error")
 
             from quilt_mcp.tools.unified_package import list_available_resources
@@ -296,18 +296,23 @@ class TestUserManagementFunctions:
     @pytest.mark.asyncio
     async def test_admin_user_get_success(self):
         """Test successful user retrieval."""
-        mock_user = Mock(
-            name="testuser",
-            email="test@example.com",
-            is_active=True,
-            is_admin=False,
-            is_sso_only=False,
-            is_service=False,
-            date_joined=datetime(2023, 1, 1, tzinfo=timezone.utc),
-            last_login=datetime(2023, 6, 1, tzinfo=timezone.utc),
-            role=Mock(name="user", id=1, arn="arn:test", typename__="standard"),
-            extra_roles=[]
-        )
+        mock_role = MagicMock()
+        mock_role.name = "user"
+        mock_role.id = 1
+        mock_role.arn = "arn:test"
+        mock_role.typename = "standard"
+
+        mock_user = MagicMock()
+        mock_user.name = "testuser"
+        mock_user.email = "test@example.com"
+        mock_user.is_active = True
+        mock_user.is_admin = False
+        mock_user.is_sso_only = False
+        mock_user.is_service = False
+        mock_user.date_joined = datetime(2023, 1, 1, tzinfo=timezone.utc)
+        mock_user.last_login = datetime(2023, 6, 1, tzinfo=timezone.utc)
+        mock_user.role = mock_role
+        mock_user.extra_roles = []
 
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
             mock_admin_users = Mock()
@@ -342,14 +347,16 @@ class TestUserManagementFunctions:
     @pytest.mark.asyncio
     async def test_admin_user_create_success(self):
         """Test successful user creation."""
-        mock_user = Mock(
-            name="newuser",
-            email="new@example.com",
-            is_active=True,
-            is_admin=False,
-            role=Mock(name="user"),
-            extra_roles=[]
-        )
+        mock_role = MagicMock()
+        mock_role.name = "user"
+
+        mock_user = MagicMock()
+        mock_user.name = "newuser"
+        mock_user.email = "new@example.com"
+        mock_user.is_active = True
+        mock_user.is_admin = False
+        mock_user.role = mock_role
+        mock_user.extra_roles = []
 
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
             mock_admin_users = Mock()
@@ -430,8 +437,8 @@ class TestPerformanceAndCaching:
         """Test that resource listing completes in reasonable time."""
         import time
 
-        with patch('quilt_mcp.tools.unified_package.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.unified_package.catalog_info') as mock_catalog:
+        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
+            with patch('quilt_mcp.tools.auth.catalog_info') as mock_catalog:
                 # Mock fast responses
                 mock_discover.return_value = {"success": True, "categorized_buckets": {}}
                 mock_catalog.return_value = {"status": "success"}
