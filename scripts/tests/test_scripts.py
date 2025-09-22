@@ -80,6 +80,9 @@ class TestScriptExecution:
 
     def test_mcp_list_help(self):
         """Test mcp-list.py shows help."""
+        build_dir = (SCRIPTS_DIR.parent / "build")
+        build_dir.mkdir(parents=True, exist_ok=True)
+
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "mcp-list.py"), "--help"],
             capture_output=True,
@@ -88,6 +91,29 @@ class TestScriptExecution:
         # Should exit successfully and show help
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower() or "MCP" in result.stdout
+
+    def test_docker_image_tag_script(self):
+        """Ensure docker_image.py generates expected tags."""
+        script = SCRIPTS_DIR / "docker_image.py"
+        assert script.exists(), "docker_image.py must exist"
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--registry",
+                "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+                "--version",
+                "1.2.3",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        output = result.stdout.strip().splitlines()
+        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
+        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
 
 
 class TestScriptSyntax:

@@ -82,3 +82,47 @@ jobs:
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
         # pypi-repository-url defaults to '' for PyPI
+
+    - name: Configure AWS credentials for ECR
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and publish Docker image
+      env:
+        VERSION: ${{ steps.version.outputs.tag_version }}
+        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        registry="$ECR_REGISTRY"
+        if [ -z "$registry" ]; then
+          if [ -z "$AWS_ACCOUNT_ID" ]; then
+            echo "ECR registry not configured" >&2
+            exit 1
+          fi
+          registry="$AWS_ACCOUNT_ID.dkr.ecr.${AWS_DEFAULT_REGION:-us-east-1}.amazonaws.com"
+        fi
+
+        image_tags=$(uv run python scripts/docker_image.py --registry "$registry" --version "$VERSION")
+
+        first_tag=$(echo "$image_tags" | head -n 1)
+        docker build --file Dockerfile --tag "$first_tag" .
+
+        echo "$image_tags" | tail -n +2 | while read -r tag; do
+          [ -z "$tag" ] && continue
+          docker tag "$first_tag" "$tag"
+        done
+
+        echo "$image_tags" | while read -r tag; do
+          [ -z "$tag" ] && continue
+          docker push "$tag"
+        done
