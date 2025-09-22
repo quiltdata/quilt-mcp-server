@@ -50,7 +50,7 @@ Issues = "https://github.com/quiltdata/quilt-mcp-server/issues"
 Documentation = "https://github.com/quiltdata/quilt-mcp-server/blob/main/README.md"
 
 [project.scripts]
-quilt-mcp = "src.main:main"
+quilt-mcp = "quilt_mcp.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
