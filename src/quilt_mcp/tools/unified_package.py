@@ -18,6 +18,10 @@ from pathlib import Path
 from ..utils import validate_package_name, format_error_response
 from .permissions import bucket_recommendations_get, bucket_access_check
 from .s3_package import package_create_from_s3
+from .metadata_templates import (
+    metadata_template_get,
+    validate_metadata_structure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +34,7 @@ def create_package(
     dry_run: bool = False,
     target_registry: Optional[str] = None,
     metadata: dict[str, Any] | None = None,
+    metadata_template: str = "standard",
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """
@@ -46,6 +51,7 @@ def create_package(
         dry_run: Preview without creating package (default: False)
         target_registry: Target registry (auto-detected if not provided)
         metadata: Additional package metadata
+        metadata_template: Template to use ('standard', 'genomics', 'ml', 'research', 'analytics')
 
     Returns:
         Comprehensive package creation result with guidance and next steps
@@ -71,53 +77,90 @@ def create_package(
                 tip="Provide at least one file to include in the package",
             )
 
-        # Handle metadata parameter - support both dict and JSON string for user convenience
-        processed_metadata = {}
-        readme_content = None
+        # Prepare metadata using template
+        try:
+            template_metadata = metadata_template_get(metadata_template)
 
-        if metadata is not None:
-            if isinstance(metadata, str):
-                try:
-                    import json
+            # Add description to metadata
+            if description:
+                template_metadata["description"] = description
 
-                    processed_metadata = json.loads(metadata)
-                except json.JSONDecodeError as e:
+            # Handle user-provided metadata - support both dict and JSON string for user convenience
+            if metadata is not None:
+                if isinstance(metadata, str):
+                    try:
+                        import json
+
+                        user_metadata = json.loads(metadata)
+                    except json.JSONDecodeError as e:
+                        return {
+                            "success": False,
+                            "error": "Invalid metadata JSON format",
+                            "provided": metadata,
+                            "json_error": str(e),
+                            "examples": [
+                                '{"description": "My dataset", "type": "research"}',
+                                '{"tags": ["analysis", "2024"], "author": "scientist"}',
+                            ],
+                            "tip": "Use proper JSON format with quotes around keys and string values",
+                        }
+                elif isinstance(metadata, dict):
+                    user_metadata = metadata.copy()
+                else:
                     return {
                         "success": False,
-                        "error": "Invalid metadata JSON format",
-                        "provided": metadata,
-                        "json_error": str(e),
+                        "error": "Invalid metadata type",
+                        "provided_type": type(metadata).__name__,
+                        "expected": "Dictionary object or JSON string",
                         "examples": [
-                            '{"description": "My dataset", "type": "research"}',
-                            '{"tags": ["analysis", "2024"], "author": "scientist"}',
+                            '{"description": "My dataset", "version": "1.0"}',
+                            '{"tags": ["research", "2024"], "author": "scientist"}',
                         ],
-                        "tip": "Use proper JSON format with quotes around keys and string values",
+                        "tip": "Pass metadata as a dictionary object or JSON string",
                     }
-            elif isinstance(metadata, dict):
-                processed_metadata = metadata.copy()
-            else:
+
+                # Extract README content from user metadata before merging
+                # readme_content takes priority if both fields exist
+                readme_content = None
+                if "readme_content" in user_metadata:
+                    readme_content = user_metadata.pop("readme_content")
+                elif "readme" in user_metadata:
+                    readme_content = user_metadata.pop("readme")
+
+                # Remove any remaining README fields to avoid duplication
+                if "readme" in user_metadata:
+                    user_metadata.pop("readme")
+
+                # Merge user metadata with template
+                template_metadata.update(user_metadata)
+
+                # Store README content for later addition as package file
+                if readme_content:
+                    template_metadata["_extracted_readme"] = readme_content
+
+            # Validate final metadata
+            validation_result = validate_metadata_structure(template_metadata, metadata_template)
+            if not validation_result["valid"]:
                 return {
                     "success": False,
-                    "error": "Invalid metadata type",
-                    "provided_type": type(metadata).__name__,
-                    "expected": "Dictionary object or JSON string",
-                    "examples": [
-                        '{"description": "My dataset", "version": "1.0"}',
-                        '{"tags": ["research", "2024"], "author": "scientist"}',
-                    ],
-                    "tip": "Pass metadata as a dictionary object or JSON string",
+                    "error": "Metadata validation failed",
+                    "validation_result": validation_result,
+                    "suggested_fixes": validation_result.get("suggestions", []),
                 }
 
-            # Extract README content from metadata and store for later addition as package file
-            # readme_content takes priority if both fields exist
-            if "readme_content" in processed_metadata:
-                readme_content = processed_metadata.pop("readme_content")
-            elif "readme" in processed_metadata:
-                readme_content = processed_metadata.pop("readme")
+            processed_metadata = template_metadata
 
-            # Remove any remaining README fields to avoid duplication
-            if "readme" in processed_metadata:
-                processed_metadata.pop("readme")
+        except Exception as e:
+            return {
+                "success": False,
+                "error": "Failed to prepare metadata",
+                "cause": str(e),
+                "template_used": metadata_template,
+                "suggested_actions": [
+                    "Try: list_metadata_templates() to see available templates",
+                    "Use 'standard' template for basic packages",
+                ],
+            }
 
         # Analyze file sources
         file_analysis = _analyze_file_sources(files)
@@ -140,6 +183,7 @@ def create_package(
                 dry_run=dry_run,
                 target_registry=target_registry,
                 metadata=processed_metadata,
+                metadata_template=metadata_template,
                 copy_mode=copy_mode,
             )
         elif file_analysis["source_type"] == "local_only":
@@ -457,6 +501,7 @@ def _create_package_from_s3_sources(
     dry_run: bool,
     target_registry: Optional[str],
     metadata: Optional[Dict[str, Any]],
+    metadata_template: str,
     copy_mode: str,
 ) -> Dict[str, Any]:
     """Create package from S3 sources using enhanced S3-to-package tool."""
@@ -493,6 +538,7 @@ def _create_package_from_s3_sources(
             result.update(
                 {
                     "creation_method": "s3_sources",
+                    "metadata_template_used": metadata_template,
                     "source_analysis": {
                         "source_bucket": source_bucket,
                         "source_prefix": source_prefix,

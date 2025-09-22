@@ -355,6 +355,10 @@ class TestUtilityFunctions:
                 assert passed_metadata == test_metadata
 
 
+# NOTE: The comprehensive metadata template tests are in tests/tools/test_unified_package.py
+# These tests focus on integration scenarios
+
+
 class TestUnifiedPackageMigration:
     """Test cases for unified package integration with create_package_revision."""
 
