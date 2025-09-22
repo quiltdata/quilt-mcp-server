@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Installation Guide
 
 This guide provides detailed installation instructions for the Quilt MCP Server across different environments and use cases.

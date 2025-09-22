@@ -6,4 +6,3 @@
 - [ ] Entrypoint configures HTTP transport by default
 - [ ] `make` or script targets cover build/run/test flows
 - [ ] Tests and lint pass locally with container assets
-
