@@ -15,6 +15,10 @@ import asyncio
 import logging
 from pathlib import Path
 
+# Constants for dry-run preview generation
+PLACEHOLDER_FILE_SIZE = 1024  # Default file size in bytes for preview
+DEFAULT_PREVIEW_SIZE_LIMIT = 500  # Character limit for README preview
+
 from ..utils import validate_package_name, format_error_response
 from .permissions import bucket_recommendations_get, bucket_access_check
 from .s3_package import package_create_from_s3
@@ -548,6 +552,12 @@ def _create_package_from_s3_sources(
                 }
             )
 
+            # For dry-run, ensure comprehensive preview fields are present
+            if dry_run and result.get("action") == "preview":
+                result = _ensure_comprehensive_dry_run_preview(
+                    result, metadata, metadata_template, s3_files
+                )
+
         return result
 
     except Exception as e:
@@ -647,3 +657,151 @@ def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> 
         guidance.append("📝 README.md generated with usage examples")
 
     return guidance
+
+
+def _ensure_comprehensive_dry_run_preview(
+    result: Dict[str, Any],
+    metadata: Dict[str, Any],
+    metadata_template: str,
+    s3_files: List[str],
+) -> Dict[str, Any]:
+    """Ensure dry-run result has comprehensive preview fields."""
+    try:
+        # Ensure structure_preview is present
+        if "structure_preview" not in result:
+            result["structure_preview"] = _generate_basic_structure_preview(s3_files)
+
+        # Ensure metadata_preview is present with template information
+        if "metadata_preview" not in result:
+            result["metadata_preview"] = _generate_metadata_preview(metadata, metadata_template)
+
+        # Ensure readme_preview is present
+        if "readme_preview" not in result:
+            result["readme_preview"] = _generate_readme_preview(metadata, result.get("package_name", "Package"))
+
+        # Ensure summary_files_preview is present
+        if "summary_files_preview" not in result:
+            result["summary_files_preview"] = _generate_summary_files_preview(
+                result.get("package_name", "package"), metadata, metadata_template
+            )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error ensuring comprehensive dry-run preview: {e}")
+        # Return original result if enhancement fails
+        return result
+
+
+def _generate_basic_structure_preview(s3_files: List[str]) -> Dict[str, Any]:
+    """Generate a basic structure preview from S3 files."""
+    organized_structure: Dict[str, List[Dict[str, Any]]] = {}
+    total_files = len(s3_files)
+
+    # Group files by extension or put in general data folder
+    for s3_file in s3_files:
+        file_name = Path(s3_file).name
+        folder = _determine_file_folder(file_name)
+
+        if folder not in organized_structure:
+            organized_structure[folder] = []
+
+        organized_structure[folder].append({
+            "name": file_name,
+            "size": PLACEHOLDER_FILE_SIZE,
+            "s3_uri": s3_file,
+        })
+
+    total_size_mb = round(total_files * PLACEHOLDER_FILE_SIZE / (1024 * 1024), 3)
+
+    return {
+        "organized_structure": organized_structure,
+        "total_files": total_files,
+        "total_size_mb": total_size_mb,
+        "organization_applied": True,
+        "preview_note": "This is a basic preview. Actual package creation may differ.",
+    }
+
+
+def _determine_file_folder(file_name: str) -> str:
+    """Determine the appropriate folder for a file based on its extension."""
+    if "." in file_name:
+        ext = file_name.split(".")[-1].lower()
+        return f"{ext}_files/" if ext else "data/"
+    return "data/"
+
+
+def _generate_metadata_preview(metadata: Optional[Dict[str, Any]], metadata_template: str) -> Dict[str, Any]:
+    """Generate metadata preview with template information."""
+    # Start with the provided metadata
+    preview = metadata.copy() if metadata else {}
+
+    # Add template information if not already present
+    _add_missing_template_fields(preview, metadata_template)
+
+    return preview
+
+
+def _add_missing_template_fields(preview: Dict[str, Any], metadata_template: str) -> None:
+    """Add missing template fields to metadata preview."""
+    # Template to package type mapping
+    TEMPLATE_PACKAGE_TYPES = {
+        "standard": "data",
+        "genomics": "genomics",
+        "ml": "ml_dataset",
+        "research": "research",
+        "analytics": "analytics",
+    }
+
+    # Add package type if missing
+    if "package_type" not in preview:
+        preview["package_type"] = TEMPLATE_PACKAGE_TYPES.get(metadata_template, "data")
+
+    # Add creator information if missing
+    if "created_by" not in preview:
+        preview["created_by"] = "quilt-mcp-server"
+
+    # Add data type for non-standard templates
+    if "data_type" not in preview and metadata_template != "standard":
+        preview["data_type"] = metadata_template
+
+
+def _generate_readme_preview(metadata: Optional[Dict[str, Any]], package_name: str) -> str:
+    """Generate a basic README preview."""
+    # Check for extracted README content
+    extracted_readme = metadata.get("_extracted_readme") if metadata else None
+    if extracted_readme:
+        return _truncate_content(extracted_readme, DEFAULT_PREVIEW_SIZE_LIMIT)
+
+    # Generate basic README from metadata
+    description = metadata.get("description", "Data package") if metadata else "Data package"
+    return f"# {package_name}\n\n{description}\n\nThis package was created using quilt-mcp-server."
+
+
+def _truncate_content(content: str, limit: int) -> str:
+    """Truncate content to specified limit with ellipsis."""
+    return content[:limit] + ("..." if len(content) > limit else "")
+
+
+def _generate_summary_files_preview(
+    package_name: str, metadata: Optional[Dict[str, Any]], metadata_template: str
+) -> Dict[str, Any]:
+    """Generate a basic summary files preview."""
+    package_type = metadata.get("package_type", "data") if metadata else "data"
+
+    return {
+        "quilt_summarize.json": {
+            "version": "1.0",
+            "name": package_name,
+            "metadata_template": metadata_template,
+            "package_type": package_type,
+            "created_by": "quilt-mcp-server",
+        },
+        "visualizations": {
+            "file_distribution": {"preview": "File distribution chart would be generated"},
+        },
+        "files_generated": {
+            "quilt_summarize.json": True,
+            "README.md": True,
+        },
+    }
