@@ -32,10 +32,10 @@ runs:
       with:
         node-version: ${{ inputs.nodejs-version }}
       
-    - name: Install DXT CLI
+    - name: Install MCPB CLI
       if: inputs.include-nodejs == 'true'
       shell: bash
-      run: npm install -g @anthropic-ai/dxt
+      run: npm install -g @anthropic-ai/mcpb
       
     - name: Cache dependencies
       uses: actions/cache@v4
