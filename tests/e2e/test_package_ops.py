@@ -12,11 +12,11 @@ from quilt_mcp.tools.package_ops import (
     package_delete,
     _normalize_registry,
 )
-from quilt_mcp.tools.package_management import package_create
+from quilt_mcp.tools.unified_package import create_package
 
 
-class TestPackageCreate:
-    """Test cases for the package_create function."""
+class TestCreatePackage:
+    """Test cases for the create_package function."""
 
     @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
     def test_readme_content_extraction_from_metadata(self, mock_create_revision):
@@ -35,11 +35,11 @@ class TestPackageCreate:
             "tags": ["test", "example"],
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -89,11 +89,11 @@ class TestPackageCreate:
             "version": "1.0.0",
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -143,11 +143,11 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -194,11 +194,11 @@ class TestPackageCreate:
         # Test metadata without README content
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with metadata as-is
@@ -247,11 +247,11 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -295,11 +295,11 @@ class TestPackageCreate:
             "entries_added": 1,
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=None,  # No metadata
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with empty metadata
@@ -346,11 +346,11 @@ class TestPackageCreate:
             "custom_field": "custom_value",
         }
 
-        result = package_create(
+        result = create_package(
             name="test/package",
             files=["s3://bucket/test.txt"],
             metadata=test_metadata,
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         # Verify create_package_revision was called with metadata unchanged
@@ -410,27 +410,27 @@ class TestNormalizeRegistry:
 
 
 class TestPackageCreateErrorHandling:
-    """Test error handling in package_create function."""
+    """Test error handling in create_package function."""
 
-    def test_package_create_with_empty_s3_uris(self):
-        """Test package_create with empty S3 URIs list."""
-        result = package_create(name="test/package", files=[], registry="s3://test-bucket")
+    def test_create_package_with_empty_s3_uris(self):
+        """Test create_package with empty S3 URIs list."""
+        result = create_package(name="test/package", files=[], target_registry="s3://test-bucket")
 
         assert result["error"] == "Invalid files parameter"
 
-    def test_package_create_with_empty_package_name(self):
-        """Test package_create with empty package name."""
-        result = package_create(name="", files=["s3://bucket/file.txt"], registry="s3://test-bucket")
+    def test_create_package_with_empty_package_name(self):
+        """Test create_package with empty package name."""
+        result = create_package(name="", files=["s3://bucket/file.txt"], target_registry="s3://test-bucket")
 
         assert result["error"] == "Invalid package name format"
 
-    def test_package_create_with_invalid_json_metadata(self):
-        """Test package_create with invalid JSON string metadata."""
-        result = package_create(
+    def test_create_package_with_invalid_json_metadata(self):
+        """Test create_package with invalid JSON string metadata."""
+        result = create_package(
             name="test/package",
             files=["s3://bucket/file.txt"],
             metadata='{"invalid": json syntax}',  # Invalid JSON
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -438,13 +438,13 @@ class TestPackageCreateErrorHandling:
         assert "json_error" in result
         assert "examples" in result
 
-    def test_package_create_with_non_dict_non_string_metadata(self):
-        """Test package_create with metadata that's not a dict or string."""
-        result = package_create(
+    def test_create_package_with_non_dict_non_string_metadata(self):
+        """Test create_package with metadata that's not a dict or string."""
+        result = create_package(
             name="test/package",
             files=["s3://bucket/file.txt"],
             metadata=123,  # Invalid type
-            registry="s3://test-bucket",
+            target_registry="s3://test-bucket",
         )
 
         assert result["success"] is False
@@ -453,15 +453,15 @@ class TestPackageCreateErrorHandling:
         assert "examples" in result
 
     @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
-    def test_package_create_with_service_error_response(self, mock_create_revision):
-        """Test package_create when service returns error response."""
+    def test_create_package_with_service_error_response(self, mock_create_revision):
+        """Test create_package when service returns error response."""
         mock_create_revision.return_value = {
             "error": "Service failed to create package",
             "details": "Some internal error",
         }
 
-        result = package_create(
-            name="test/package", files=["s3://bucket/file.txt"], registry="s3://test-bucket"
+        result = create_package(
+            name="test/package", files=["s3://bucket/file.txt"], target_registry="s3://test-bucket"
         )
 
         assert result["error"] == "Service failed to create package"
@@ -469,12 +469,12 @@ class TestPackageCreateErrorHandling:
         assert "warnings" in result
 
     @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
-    def test_package_create_with_service_exception(self, mock_create_revision):
-        """Test package_create when service raises exception."""
+    def test_create_package_with_service_exception(self, mock_create_revision):
+        """Test create_package when service raises exception."""
         mock_create_revision.side_effect = Exception("Network error")
 
-        result = package_create(
-            name="test/package", files=["s3://bucket/file.txt"], registry="s3://test-bucket"
+        result = create_package(
+            name="test/package", files=["s3://bucket/file.txt"], target_registry="s3://test-bucket"
         )
 
         assert "Failed to create package: Network error" in result["error"]
@@ -504,7 +504,7 @@ class TestPackageDelete:
 
     def test_package_delete_with_empty_package_name(self):
         """Test package_delete with empty package name."""
-        result = package_delete(package_name="", registry="s3://test-bucket")
+        result = package_delete(package_name="", target_registry="s3://test-bucket")
 
         assert result["error"] == "package_name is required for package deletion"
 
@@ -514,7 +514,7 @@ class TestPackageDelete:
         """Test successful package deletion."""
         mock_delete.return_value = None  # Successful deletion
 
-        result = package_delete(package_name="test/package", registry="s3://test-bucket")
+        result = package_delete(package_name="test/package", target_registry="s3://test-bucket")
 
         assert result["status"] == "success"
         assert result["action"] == "deleted"
@@ -528,7 +528,7 @@ class TestPackageDelete:
         """Test package deletion failure."""
         mock_delete.side_effect = Exception("Deletion failed")
 
-        result = package_delete(package_name="test/package", registry="s3://test-bucket")
+        result = package_delete(package_name="test/package", target_registry="s3://test-bucket")
 
         assert "Failed to delete package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"

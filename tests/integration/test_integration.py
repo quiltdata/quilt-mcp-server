@@ -30,7 +30,7 @@ from quilt_mcp.tools.buckets import (
 from quilt_mcp.tools.package_ops import (
     package_delete,
 )
-from quilt_mcp.tools.package_management import package_create
+from quilt_mcp.tools.unified_package import create_package
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
