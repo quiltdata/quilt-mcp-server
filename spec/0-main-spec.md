@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Quilt MCP Server - Phase-based Build System Specifications
 
 This document provides an overview of the 2-phase build pipeline. Each phase has its own dedicated Makefile

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # DXT Requirements
 
 ## References
