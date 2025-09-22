@@ -127,6 +127,7 @@ spec/
 - **`Makefile`**: Main coordination hub that delegates to specialized makefiles
 - **`make.dev`**: Development workflow (testing, linting, local server)
 - **`make.deploy`**: Production packaging and MCPB creation
+- **`deploy/terraform/modules/mcp_server`**: Reusable Terraform module for ECS/Fargate MCP deployments (created as part of issue #190)
 
 ### Key Build Targets
 

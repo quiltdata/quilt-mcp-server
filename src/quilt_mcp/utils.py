@@ -13,6 +13,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 import boto3
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -283,6 +284,11 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     """
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
+
+    @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
+    async def _health_check(_request):  # type: ignore[reportUnusedFunction]
+        """Basic health endpoint for load balancers and monitoring."""
+        return JSONResponse({"status": "ok"})
 
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout

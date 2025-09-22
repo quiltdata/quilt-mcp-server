@@ -95,7 +95,7 @@ Claude Desktop currently expects stdio-based MCP servers. To connect it to the D
       "command": "uv",
       "args": [
         "--project",
-        "/Users/simonkohnstamm/Documents/Quilt/quilt-mcp-server",
+        "/path/to/quilt-mcp-server",
         "run",
         "python",
         "-c",

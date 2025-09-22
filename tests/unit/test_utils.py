@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
+from starlette.testclient import TestClient
+
 from quilt_mcp.tools import auth, buckets, package_ops, packages
 from quilt_mcp.utils import (
     create_configured_server,
@@ -157,6 +159,17 @@ class TestUtils(unittest.TestCase):
             parse_s3_uri("s3://")
 
         # This should raise ValueError when trying to split an empty string
+
+    def test_http_app_exposes_healthz(self):
+        """HTTP transport should expose /healthz for load balancer checks."""
+        server = create_configured_server()
+        app = server.http_app(transport="http")
+
+        with TestClient(app) as client:
+            response = client.get("/healthz")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
 
     def test_parse_s3_uri_bucket_with_special_chars(self):
         """Test parse_s3_uri with bucket containing allowed special characters."""
