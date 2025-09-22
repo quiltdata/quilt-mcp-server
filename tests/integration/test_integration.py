@@ -29,7 +29,6 @@ from quilt_mcp.tools.buckets import (
 )
 from quilt_mcp.tools.package_ops import (
     package_delete,
-    package_update,
 )
 from quilt_mcp.tools.package_management import package_create
 from quilt_mcp.tools.packages import (
