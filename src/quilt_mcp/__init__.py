@@ -33,7 +33,7 @@ from .tools.buckets import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from .tools.package_ops import package_delete, package_update
+from .tools.package_ops import package_delete
 from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
@@ -135,7 +135,6 @@ __all__ = [
     "package_delete",
     "package_diff",
     "package_tools_list",
-    "package_update",
     "package_update_metadata",
     "package_validate",
     "packages_list",

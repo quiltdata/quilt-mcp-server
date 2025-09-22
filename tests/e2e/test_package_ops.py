@@ -6,13 +6,11 @@ including the automatic README content extraction from metadata.
 
 from unittest.mock import Mock, patch, MagicMock
 import io
+import pytest
 
 from quilt_mcp.tools.package_ops import (
-    package_update,
     package_delete,
-    _collect_objects_into_package,
     _normalize_registry,
-    _build_selector_fn,
 )
 from quilt_mcp.tools.package_management import package_create
 
@@ -388,56 +386,6 @@ class TestPackageCreate:
         assert result["status"] == "success"
 
 
-class TestCollectObjectsIntoPackage:
-    """Test cases for the _collect_objects_into_package function."""
-
-    def test_collect_objects_with_valid_s3_uris(self):
-        """Test collecting objects with valid S3 URIs."""
-        mock_pkg = Mock()
-        # Mock the package to handle the 'in' operator for logical path checking
-        mock_pkg.__contains__ = Mock(return_value=False)
-
-        s3_uris = [
-            "s3://bucket/file1.txt",
-            "s3://bucket/file2.csv",
-            "s3://bucket/subfolder/file3.json",
-        ]
-        warnings = []
-
-        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
-
-        # Verify objects were added
-        assert len(result) == 3
-        assert mock_pkg.set.call_count == 3
-
-        # Verify no warnings
-        assert len(warnings) == 0
-
-    def test_collect_objects_with_invalid_uris(self):
-        """Test collecting objects with invalid URIs."""
-        mock_pkg = Mock()
-        # Mock the package to handle the 'in' operator for logical path checking
-        mock_pkg.__contains__ = Mock(return_value=False)
-
-        s3_uris = [
-            "s3://bucket/file1.txt",  # Valid
-            "invalid-uri",  # Invalid
-            "s3://bucket-only",  # Invalid (no key)
-            "s3://bucket/folder/",  # Invalid (directory)
-        ]
-        warnings = []
-
-        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
-
-        # Verify only valid objects were added
-        assert len(result) == 1
-        assert mock_pkg.set.call_count == 1
-
-        # Verify warnings were generated
-        assert len(warnings) == 3
-        assert any("Skipping non-S3 URI" in w for w in warnings)
-        assert any("Skipping bucket-only URI" in w for w in warnings)
-        assert any("Skipping URI that appears to be a 'directory'" in w for w in warnings)
 
 
 class TestNormalizeRegistry:
@@ -459,152 +407,6 @@ class TestNormalizeRegistry:
         assert result == "s3://my-bucket/path/to/files"
 
 
-class TestBuildSelectorFn:
-    """Test cases for the _build_selector_fn function."""
-
-    def test_build_selector_fn_all(self):
-        """Test selector function with 'all' mode."""
-        selector = _build_selector_fn("all", "s3://target-bucket")
-
-        # Should return True for any entry
-        result = selector("test_key", Mock())
-        assert result is True
-
-    def test_build_selector_fn_none(self):
-        """Test selector function with 'none' mode."""
-        selector = _build_selector_fn("none", "s3://target-bucket")
-
-        # Should return False for any entry
-        result = selector("test_key", Mock())
-        assert result is False
-
-    def test_build_selector_fn_same_bucket_matching(self):
-        """Test selector function with 'same_bucket' mode - matching bucket."""
-        selector = _build_selector_fn("same_bucket", "s3://target-bucket")
-
-        # Mock entry with matching bucket
-        entry = Mock()
-        entry.physical_key = "s3://target-bucket/path/to/file.txt"
-
-        result = selector("test_key", entry)
-        assert result is True
-
-    def test_build_selector_fn_same_bucket_non_matching(self):
-        """Test selector function with 'same_bucket' mode - non-matching bucket."""
-        selector = _build_selector_fn("same_bucket", "s3://target-bucket")
-
-        # Mock entry with different bucket
-        entry = Mock()
-        entry.physical_key = "s3://other-bucket/path/to/file.txt"
-
-        result = selector("test_key", entry)
-        assert result is False
-
-    def test_build_selector_fn_same_bucket_invalid_physical_key(self):
-        """Test selector function with 'same_bucket' mode - invalid physical key."""
-        selector = _build_selector_fn("same_bucket", "s3://target-bucket")
-
-        # Mock entry with invalid physical key
-        entry = Mock()
-        entry.physical_key = "invalid-key"
-
-        result = selector("test_key", entry)
-        assert result is False
-
-    def test_build_selector_fn_same_bucket_exception_on_physical_key(self):
-        """Test selector function with 'same_bucket' mode - exception getting physical key."""
-        selector = _build_selector_fn("same_bucket", "s3://target-bucket")
-
-        # Mock entry that raises exception when accessing physical_key
-        entry = Mock()
-        entry.physical_key = Mock(side_effect=Exception("Access error"))
-
-        result = selector("test_key", entry)
-        assert result is False
-
-    def test_build_selector_fn_same_bucket_malformed_s3_uri(self):
-        """Test selector function with 'same_bucket' mode - malformed S3 URI."""
-        selector = _build_selector_fn("same_bucket", "s3://target-bucket")
-
-        # Mock entry with malformed S3 URI
-        entry = Mock()
-        entry.physical_key = "s3://malformed"  # No bucket separator
-
-        result = selector("test_key", entry)
-        assert result is False
-
-    def test_build_selector_fn_default_mode(self):
-        """Test selector function with unknown mode defaults to 'all'."""
-        selector = _build_selector_fn("unknown_mode", "s3://target-bucket")
-
-        # Should behave like 'all' mode
-        result = selector("test_key", Mock())
-        assert result is True
-
-
-class TestCollectObjectsIntoPackageAdvanced:
-    """Advanced test cases for the _collect_objects_into_package function."""
-
-    def test_collect_objects_with_duplicate_logical_paths(self):
-        """Test collecting objects with duplicate logical paths (filename collisions)."""
-        mock_pkg = Mock()
-
-        # Track what gets added as we go - initially package is empty
-        added_keys = set()
-
-        def contains_side_effect(key):
-            # Return True if the key has already been added to the package
-            return key in added_keys
-
-        def set_side_effect(key, uri):
-            # Track what gets added
-            added_keys.add(key)
-
-        mock_pkg.__contains__ = Mock(side_effect=contains_side_effect)
-        mock_pkg.set = Mock(side_effect=set_side_effect)
-
-        s3_uris = [
-            "s3://bucket/file.txt",
-            "s3://bucket/path/file.txt",  # Same filename, should get counter prefix
-        ]
-        warnings = []
-
-        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
-
-        # Verify objects were added with unique logical paths
-        assert len(result) == 2
-        assert mock_pkg.set.call_count == 2
-
-        # Check the logical paths used
-        logical_paths = [call.args[0] for call in mock_pkg.set.call_args_list]
-        source_uris = [call.args[1] for call in mock_pkg.set.call_args_list]
-
-        # First URI should use original filename (package is initially empty)
-        assert logical_paths[0] == "file.txt"
-        assert source_uris[0] == "s3://bucket/file.txt"
-
-        # Second URI should get counter prefix since "file.txt" is now taken
-        assert logical_paths[1] == "1_file.txt"  # Counter starts at 1
-        assert source_uris[1] == "s3://bucket/path/file.txt"
-
-    def test_collect_objects_with_package_set_exception(self):
-        """Test collecting objects when package.set() raises an exception."""
-        mock_pkg = Mock()
-        mock_pkg.__contains__ = Mock(return_value=False)
-        mock_pkg.set = Mock(side_effect=Exception("Failed to set object"))
-
-        s3_uris = ["s3://bucket/file.txt"]
-        warnings = []
-
-        result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
-
-        # Verify no objects were added due to exception
-        assert len(result) == 0
-        assert mock_pkg.set.call_count == 1
-
-        # Verify warning was generated
-        assert len(warnings) == 1
-        assert "Failed to add s3://bucket/file.txt:" in warnings[0]
 
 
 class TestPackageCreateErrorHandling:
@@ -680,61 +482,21 @@ class TestPackageCreateErrorHandling:
         assert "warnings" in result
 
 
-class TestPackageUpdate:
-    """Test cases for the package_update function."""
 
-    def test_package_update_with_empty_s3_uris(self):
-        """Test package_update with empty S3 URIs list."""
-        result = package_update(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+class TestPackageUpdateRemoval:
+    """Test that package_update function has been removed."""
 
-        assert result["error"] == "No S3 URIs provided"
+    def test_package_update_cannot_be_imported(self):
+        """Test that package_update can no longer be imported after removal."""
+        with pytest.raises(ImportError, match="cannot import name 'package_update'"):
+            from quilt_mcp.tools.package_ops import package_update
 
-    def test_package_update_with_empty_package_name(self):
-        """Test package_update with empty package name."""
-        result = package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
+    def test_package_update_not_in_main_exports(self):
+        """Test that package_update is not in main module exports."""
+        import quilt_mcp
 
-        assert result["error"] == "package_name is required for package_update"
-
-    def test_package_update_with_invalid_json_metadata(self):
-        """Test package_update with invalid JSON string metadata."""
-        result = package_update(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata='{"invalid": json}',  # Invalid JSON
-            registry="s3://test-bucket",
-        )
-
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata format"
-        assert "json_error" in result
-
-    def test_package_update_with_non_dict_metadata(self):
-        """Test package_update with metadata that's not a dict or string."""
-        result = package_update(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata=["invalid", "type"],  # Invalid type
-            registry="s3://test-bucket",
-        )
-
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata type"
-        assert result["provided_type"] == "list"
-
-    @patch("quilt_mcp.tools.package_ops.QuiltService")
-    @patch("quilt_mcp.utils.suppress_stdout")
-    def test_package_update_browse_package_failure(self, mock_suppress, mock_quilt_service_class):
-        """Test package_update when browsing existing package fails."""
-        mock_service = Mock()
-        mock_service.browse_package.side_effect = Exception("Package not found")
-        mock_quilt_service_class.return_value = mock_service
-
-        result = package_update(
-            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-        )
-
-        assert "Failed to browse existing package 'test/package':" in result["error"]
-        assert result["package_name"] == "test/package"
+        # Should not have package_update in the module
+        assert not hasattr(quilt_mcp, 'package_update')
 
 
 class TestPackageDelete:
