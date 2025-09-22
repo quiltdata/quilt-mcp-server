@@ -49,7 +49,6 @@ from .tools.metadata_templates import (
     validate_metadata_structure,
 )
 from .tools.package_management import (
-    package_create,
     package_validate,
     package_tools_list,
 )
@@ -130,7 +129,6 @@ __all__ = [
     "metadata_template_get",
     "package_browse",
     "package_contents_search",
-    "package_create",
     "package_delete",
     "package_diff",
     "package_tools_list",
