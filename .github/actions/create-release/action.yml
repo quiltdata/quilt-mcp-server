@@ -55,6 +55,7 @@ runs:
       with:
         name: "Quilt MCP MCPB v${{ inputs.package-version }}"
         files: |
+          dist/*.mcpb
           dist/*-release.zip
         draft: false
         prerelease: ${{ contains(inputs.package-version, '-') }}
