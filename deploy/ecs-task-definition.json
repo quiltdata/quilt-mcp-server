@@ -1,11 +1,11 @@
 {
-  "family": "mcp-server-sse",
+  "family": "quilt-mcp-server",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "arn:aws:iam::850787717197:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::850787717197:role/sales-prod-mcp-task-test",
+  "taskRoleArn": "arn:aws:iam::850787717197:role/ecsTaskRole",
   "containerDefinitions": [
     {
       "name": "mcp-server",
@@ -14,7 +14,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/mcp-server-sse",
+          "awslogs-group": "/ecs/mcp-server-production",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
@@ -25,7 +25,7 @@
           "value": "us-east-1"
         },
         {
-          "name": "AWS_REGION",
+          "name": "AWS_REGION", 
           "value": "us-east-1"
         },
         {
@@ -54,7 +54,7 @@
         },
         {
           "name": "FASTMCP_TRANSPORT",
-          "value": "sse"
+          "value": "http"
         },
         {
           "name": "FASTMCP_ADDR",
@@ -65,15 +65,15 @@
           "value": "8000"
         }
       ],
-      "portMappings": [
-        {
-          "containerPort": 8000,
-          "hostPort": 8000,
-          "protocol": "tcp"
-        }
-      ],
+            "portMappings": [
+              {
+                "containerPort": 8000,
+                "hostPort": 8000,
+                "protocol": "tcp"
+              }
+            ],
       "healthCheck": {
-        "command": ["CMD-SHELL", "python3 -c \"import urllib.request, urllib.error; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()\" || exit 1"],
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"],
         "interval": 30,
         "timeout": 5,
         "retries": 3,

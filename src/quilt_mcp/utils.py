@@ -287,8 +287,40 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def _health_check(_request):  # type: ignore[reportUnusedFunction]
-        """Basic health endpoint for load balancers and monitoring."""
-        return JSONResponse({"status": "ok"})
+        """Comprehensive health endpoint for load balancers and monitoring."""
+        import time
+        import psutil
+        
+        try:
+            # Basic health indicators
+            health_data = {
+                "status": "ok",
+                "timestamp": time.time(),
+                "uptime_seconds": time.time() - psutil.boot_time(),
+                "memory_usage_percent": psutil.virtual_memory().percent,
+                "cpu_usage_percent": psutil.cpu_percent(interval=1),
+                "mcp_tools_count": len(mcp.tools),
+                "transport": "sse" if hasattr(mcp, '_transport') else "unknown"
+            }
+            
+            # Check if we're under resource pressure
+            if health_data["memory_usage_percent"] > 90:
+                health_data["status"] = "degraded"
+                health_data["warning"] = "High memory usage"
+            elif health_data["cpu_usage_percent"] > 90:
+                health_data["status"] = "degraded" 
+                health_data["warning"] = "High CPU usage"
+                
+            return JSONResponse(health_data)
+            
+        except Exception as e:
+            # Fallback to basic health check if monitoring fails
+            return JSONResponse({
+                "status": "ok",
+                "timestamp": time.time(),
+                "basic_check": True,
+                "note": "Basic health check only"
+            })
 
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
@@ -304,14 +336,17 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     try:
         from starlette.middleware.cors import CORSMiddleware
 
+        # Configure CORS middleware with proper settings
+        # Note: allow_credentials=True requires specific origins, not "*"
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"],
-            allow_methods=["*"],
+            allow_origins=["*"],  # For development - in production, specify actual origins
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allow_headers=["*"],
-            allow_credentials=True,
+            allow_credentials=False,  # Set to False to allow "*" origins
             expose_headers=["mcp-session-id"],
         )
+        
     except ImportError as exc:  # pragma: no cover
         print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
 
@@ -340,7 +375,8 @@ def run_server() -> None:
 
             import uvicorn
 
-            host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+            # Support both FASTMCP_ADDR (production) and FASTMCP_HOST (legacy) for compatibility
+            host = os.environ.get("FASTMCP_ADDR") or os.environ.get("FASTMCP_HOST", "0.0.0.0")
             port = int(os.environ.get("FASTMCP_PORT", "8000"))
             uvicorn.run(app, host=host, port=port, log_level="info")
             return

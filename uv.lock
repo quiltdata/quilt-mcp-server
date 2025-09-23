@@ -1943,6 +1943,7 @@ dependencies = [
     { name = "pysam" },
     { name = "pyyaml" },
     { name = "quilt3" },
+    { name = "requests" },
     { name = "sqlalchemy" },
 ]
 
@@ -1985,6 +1986,7 @@ requires-dist = [
     { name = "pysam", specifier = ">=0.21.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "quilt3", specifier = ">=5.6.0" },
+    { name = "requests", specifier = ">=2.32.4" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
 ]
 

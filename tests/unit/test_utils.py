@@ -173,15 +173,96 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(response.json(), {"status": "ok"})
 
     def test_http_app_exposes_custom_headers(self):
-        """Ensure Access-Control-Expose-Headers includes mcp-session-id."""
+        """Ensure CORS requests expose the mcp-session-id header."""
         server = create_configured_server()
         app = build_http_app(server, transport="http")
 
         with TestClient(app) as client:
-            response = client.get("/healthz")
+            response = client.post(
+                "/mcp/",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test", "version": "1.0"},
+                    },
+                },
+                headers={"Origin": "https://example.com"},
+            )
 
-        assert response.headers.get("Access-Control-Expose-Headers")
-        assert "mcp-session-id" in response.headers["Access-Control-Expose-Headers"]
+        expose_header = response.headers.get("Access-Control-Expose-Headers")
+        self.assertIsNotNone(expose_header)
+        self.assertIn("mcp-session-id", {h.strip().lower() for h in expose_header.split(",")})
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+
+    def test_sse_transport_respects_cors_expose_headers(self):
+        """SSE transport should expose mcp-session-id without protocol errors."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="sse")
+
+        with TestClient(app) as client:
+            # Test CORS headers on a simple endpoint first
+            response = client.get("/healthz", headers={"Origin": "https://example.com"})
+            self.assertEqual(response.status_code, 200)
+            
+            # Check that CORS headers are properly set
+            expose_header = response.headers.get("Access-Control-Expose-Headers")
+            self.assertIsNotNone(expose_header)
+            self.assertIn(
+                "mcp-session-id",
+                {h.strip().lower() for h in expose_header.split(",")},
+            )
+            
+            # Verify CORS origin header
+            self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+
+    def test_cors_preflight_request(self):
+        """Test CORS preflight OPTIONS request works correctly."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="http")
+
+        with TestClient(app) as client:
+            # Test preflight request
+            response = client.options(
+                "/mcp/",
+                headers={
+                    "Origin": "https://example.com",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type"
+                }
+            )
+            
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+            self.assertIn("POST", response.headers.get("Access-Control-Allow-Methods", ""))
+            self.assertIn("content-type", response.headers.get("Access-Control-Allow-Headers", ""))
+
+    def test_cors_headers_consistency_across_transports(self):
+        """Test that CORS headers are consistent across different transports."""
+        server = create_configured_server()
+        
+        transports = ["http", "sse", "streamable-http"]
+        for transport in transports:
+            with self.subTest(transport=transport):
+                app = build_http_app(server, transport=transport)
+                
+                with TestClient(app) as client:
+                    response = client.get("/healthz", headers={"Origin": "https://example.com"})
+                    self.assertEqual(response.status_code, 200)
+                    
+                    # All transports should expose the mcp-session-id header
+                    expose_header = response.headers.get("Access-Control-Expose-Headers")
+                    self.assertIsNotNone(expose_header)
+                    self.assertIn(
+                        "mcp-session-id",
+                        {h.strip().lower() for h in expose_header.split(",")},
+                    )
+                    
+                    # All transports should allow any origin
+                    self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
 
     def test_parse_s3_uri_bucket_with_special_chars(self):
         """Test parse_s3_uri with bucket containing allowed special characters."""

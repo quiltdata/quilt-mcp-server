@@ -41,6 +41,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
+    "requests>=2.32.4",
 ]
 
 [project.urls]
