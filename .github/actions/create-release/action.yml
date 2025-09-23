@@ -18,6 +18,9 @@ inputs:
     default: 'true'
 
 outputs:
+  release-id:
+    description: 'ID of the created release'
+    value: ${{ steps.create-release.outputs.id }}
   release-url:
     description: 'URL of the created release'
     value: ${{ steps.create-release.outputs.url }}
@@ -122,7 +125,7 @@ runs:
         path: dist/*.mcpb
         retention-days: 90
 
-    - name: Post release status to PR
+    - name: Post release status
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
@@ -132,5 +135,6 @@ runs:
           --release-url "${{ steps.create-release.outputs.url }}" \
           --pypi-url "${{ steps.package-urls.outputs.pypi-url }}" \
           --docker-image "${{ steps.docker-info.outputs.image-uri }}" \
+          --release-id "${{ steps.create-release.outputs.id }}" \
           --sha "${{ github.sha }}" \
           --repo "${{ github.repository }}"
