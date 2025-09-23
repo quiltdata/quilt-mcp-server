@@ -8,12 +8,11 @@ import re
 import sys
 import io
 import contextlib
-from typing import Any, Dict, Literal, Callable, Iterable
+from typing import Any, Dict, Literal, Callable
 from urllib.parse import urlparse, parse_qs, unquote
 
 import boto3
 from fastmcp import FastMCP
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 
@@ -298,32 +297,8 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     return mcp
 
 
-class _EnsureExposeHeadersMiddleware(BaseHTTPMiddleware):
-    """Middleware that guarantees Access-Control-Expose-Headers includes values."""
-
-    def __init__(self, app, headers: Iterable[str]) -> None:  # type: ignore[override]
-        super().__init__(app)
-        self._headers = {header.lower(): header for header in headers}
-
-    async def dispatch(self, request, call_next):  # type: ignore[override]
-        response = await call_next(request)
-        existing = response.headers.get("Access-Control-Expose-Headers", "")
-        existing_tokens = {
-            token.strip().lower(): token.strip()
-            for token in existing.split(",")
-            if token.strip()
-        }
-        for key, original in self._headers.items():
-            existing_tokens.setdefault(key, original)
-        if existing_tokens:
-            response.headers["Access-Control-Expose-Headers"] = ", ".join(
-                sorted(existing_tokens.values())
-            )
-        return response
-
-
 def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
-    """Return an ASGI app for HTTP transports with CORS/expose headers configured."""
+    """Return an ASGI app for HTTP transports with CORS configured."""
     app = mcp.http_app(transport=transport)
 
     try:
@@ -340,7 +315,6 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     except ImportError as exc:  # pragma: no cover
         print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
 
-    app.add_middleware(_EnsureExposeHeadersMiddleware, headers=["mcp-session-id"])
     return app
 
 
