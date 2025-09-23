@@ -77,25 +77,8 @@ jobs:
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
         echo "Production Tag Version: $TAG_VERSION"
 
-    - name: Configure AWS credentials for ECR
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
-
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v2
-
     - name: Create production release
       uses: ./.github/actions/create-release
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
-        build-docker: 'true'
         # pypi-repository-url defaults to '' for PyPI
-      env:
-        # Docker registry configuration - these secrets are optional
-        # If ECR_REGISTRY is not set, falls back to constructing from AWS_ACCOUNT_ID
-        ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '' }}
-        AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID || '' }}
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}

@@ -41,14 +41,6 @@ jobs:
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}
 
-    - name: Test Docker build (no push)
-      if: github.event_name == 'pull_request'
-      env:
-        VERSION: test-${{ github.sha }}
-      run: |
-        echo "🐳 Testing Docker build for PR (no push)..."
-        uv run python scripts/docker.py build --version "$VERSION"
-
     - name: Debug GitHub context for dev-release
       run: |
         echo "=== GitHub Context Debug ==="
@@ -108,4 +100,3 @@ jobs:
         package-version: ${{ steps.version.outputs.tag_version }}
         pypi-repository-url: https://test.pypi.org/legacy/
         skip-existing: true
-        build-docker: 'false'  # Skip Docker for development releases
