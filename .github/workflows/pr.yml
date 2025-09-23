@@ -6,7 +6,6 @@ on:
     branches: ['**']
   push:
     tags: ['v*-dev-*']
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -84,7 +83,6 @@ jobs:
       with:
         python-version: '3.11'
         include-nodejs: 'true'
-
     - name: Debug dev-release context
       run: |
         echo "=== Dev-Release Context Debug ==="
@@ -104,7 +102,6 @@ jobs:
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
         echo "tag_version=$TAG_VERSION" >> $GITHUB_OUTPUT
         echo "Dev Tag Version: $TAG_VERSION"
-
     - name: Create dev release
       uses: ./.github/actions/create-release
       with:

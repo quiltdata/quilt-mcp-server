@@ -21,6 +21,12 @@ outputs:
   release-url:
     description: 'URL of the created release'
     value: ${{ steps.create-release.outputs.url }}
+  pypi-url:
+    description: 'URL of the published PyPI package'
+    value: ${{ steps.package-urls.outputs.pypi-url }}
+  docker-image:
+    description: 'Docker image URI if built'
+    value: ${{ steps.docker-info.outputs.image-uri }}
 
 runs:
   using: 'composite'
@@ -40,6 +46,23 @@ runs:
         packages-dir: dist/
         skip-existing: ${{ inputs.skip-existing }}
         verbose: true
+
+    - name: Determine package URLs
+      id: package-urls
+      shell: bash
+      run: |
+        VERSION="${{ inputs.package-version }}"
+        if [ -z "${{ inputs.pypi-repository-url }}" ]; then
+          # Production PyPI
+          PYPI_URL="https://pypi.org/project/quilt-mcp-server/${VERSION}/"
+          echo "pypi-url=${PYPI_URL}" >> $GITHUB_OUTPUT
+          echo "📦 PyPI URL: ${PYPI_URL}"
+        else
+          # TestPyPI
+          PYPI_URL="https://test.pypi.org/project/quilt-mcp-server/${VERSION}/"
+          echo "pypi-url=${PYPI_URL}" >> $GITHUB_OUTPUT
+          echo "🧪 TestPyPI URL: ${PYPI_URL}"
+        fi
 
     - name: Build MCPB package
       shell: bash
@@ -65,6 +88,24 @@ runs:
         echo "🐳 Building and pushing Docker image with scripts/docker.py"
         uv run python scripts/docker.py push --version "$VERSION"
 
+    - name: Capture Docker image info
+      id: docker-info
+      if: ${{ inputs.build-docker == 'true' }}
+      shell: bash
+      run: |
+        # Determine registry
+        if [ -n "${{ env.ECR_REGISTRY }}" ]; then
+          REGISTRY="${{ env.ECR_REGISTRY }}"
+        elif [ -n "${{ env.AWS_ACCOUNT_ID }}" ]; then
+          REGION="${{ env.AWS_DEFAULT_REGION }}"
+          REGISTRY="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${REGION:-us-east-1}.amazonaws.com"
+        else
+          REGISTRY="unknown"
+        fi
+        IMAGE_URI="${REGISTRY}/quilt-mcp-server:${{ inputs.package-version }}"
+        echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+        echo "🐳 Docker Image: ${IMAGE_URI}"
+
     - name: Create GitHub Release
       id: create-release
       uses: softprops/action-gh-release@v2
@@ -83,3 +124,74 @@ runs:
         name: mcpb-package
         path: dist/*.mcpb
         retention-days: 90
+
+    - name: Post release status to PR
+      if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.ref, '-dev-')) }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const version = '${{ inputs.package-version }}';
+          const releaseUrl = '${{ steps.create-release.outputs.url }}';
+          const pypiUrl = '${{ steps.package-urls.outputs.pypi-url }}';
+          const dockerImage = '${{ steps.docker-info.outputs.image-uri }}';
+          const isProd = !version.includes('-dev-');
+
+          let body = `## 🚀 Release Status for v${version}\n\n`;
+          body += `### 📦 Package Locations\n\n`;
+          body += `- **GitHub Release:** [${releaseUrl}](${releaseUrl})\n`;
+          body += `- **PyPI Package:** [${pypiUrl}](${pypiUrl})\n`;
+
+          if (dockerImage && dockerImage !== 'unknown/quilt-mcp-server:' + version) {
+            body += `- **Docker Image:** \`${dockerImage}\`\n`;
+            body += `\n### 🐳 Docker Pull Command\n`;
+            body += `\`\`\`bash\n`;
+            body += `docker pull ${dockerImage}\n`;
+            body += `\`\`\`\n`;
+          }
+
+          body += `\n### 📥 Installation\n`;
+          if (isProd) {
+            body += `\`\`\`bash\n`;
+            body += `# Install from PyPI\n`;
+            body += `pip install quilt-mcp-server==${version}\n`;
+            body += `# or\n`;
+            body += `uv add quilt-mcp-server==${version}\n`;
+            body += `\`\`\`\n`;
+          } else {
+            body += `\`\`\`bash\n`;
+            body += `# Install from TestPyPI\n`;
+            body += `pip install -i https://test.pypi.org/simple/ quilt-mcp-server==${version}\n`;
+            body += `# or\n`;
+            body += `uv add --index https://test.pypi.org/simple/ quilt-mcp-server==${version}\n`;
+            body += `\`\`\`\n`;
+          }
+
+          // Find the PR number
+          let prNumber;
+          if (context.eventName === 'pull_request') {
+            prNumber = context.payload.pull_request.number;
+          } else {
+            // For push events on dev tags, try to find associated PR
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`
+            });
+            if (prs.length > 0) {
+              prNumber = prs[0].number;
+            }
+          }
+
+          if (prNumber) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: body
+            });
+            console.log(`Posted release status to PR #${prNumber}`);
+          } else {
+            console.log('No PR found to comment on');
+            console.log('Release Status:\n' + body);
+          }
