@@ -246,6 +246,64 @@ class TestScriptExecution:
             assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
             assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
 
+    def test_post_release_status_import(self):
+        """Test post_release_status.py can be imported."""
+        import post_release_status
+        assert hasattr(post_release_status, 'generate_release_comment')
+        assert hasattr(post_release_status, 'find_pr_for_tag')
+        assert hasattr(post_release_status, 'post_comment_to_pr')
+        assert hasattr(post_release_status, 'main')
+
+    def test_post_release_status_help(self):
+        """Test post_release_status.py shows help."""
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "post_release_status.py"), "--help"],
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode == 0
+        assert "Post release status to GitHub PRs" in result.stdout
+
+    def test_post_release_status_dry_run(self):
+        """Test post_release_status.py dry run mode."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "post_release_status.py"),
+                "--version", "1.2.3",
+                "--release-url", "https://github.com/owner/repo/releases/v1.2.3",
+                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.2.3/",
+                "--docker-image", "123.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3",
+                "--dry-run"
+            ],
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode == 0
+        assert "DRY RUN - Comment Body" in result.stdout
+        assert "## 🚀 Release Status for v1.2.3" in result.stdout
+        assert "https://github.com/owner/repo/releases/v1.2.3" in result.stdout
+        assert "docker pull 123.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in result.stdout
+        assert "pip install quilt-mcp-server==1.2.3" in result.stdout
+
+    def test_post_release_status_dev_version(self):
+        """Test post_release_status.py with dev version."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "post_release_status.py"),
+                "--version", "1.2.3-dev-20250101120000",
+                "--release-url", "https://github.com/owner/repo/releases/v1.2.3-dev",
+                "--pypi-url", "https://test.pypi.org/project/quilt-mcp-server/1.2.3-dev/",
+                "--dry-run"
+            ],
+            capture_output=True,
+            text=True
+        )
+        assert result.returncode == 0
+        assert "Install from TestPyPI" in result.stdout
+        assert "pip install -i https://test.pypi.org/simple/" in result.stdout
+
 
 class TestScriptSyntax:
     """Test that all Python scripts have valid syntax."""
@@ -255,7 +313,8 @@ class TestScriptSyntax:
         "coverage_analysis.py",
         "mcp-test.py",
         "mcp-list.py",
-        "docker.py"
+        "docker.py",
+        "post_release_status.py"
     ])
     def test_script_syntax(self, script_name):
         """Test script has valid Python syntax."""

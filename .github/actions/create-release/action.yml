@@ -123,72 +123,14 @@ runs:
         retention-days: 90
 
     - name: Post release status to PR
-      if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.ref, '-dev-')) }}
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const version = '${{ inputs.package-version }}';
-          const releaseUrl = '${{ steps.create-release.outputs.url }}';
-          const pypiUrl = '${{ steps.package-urls.outputs.pypi-url }}';
-          const dockerImage = '${{ steps.docker-info.outputs.image-uri }}';
-          const isProd = !version.includes('-dev-');
-
-          let body = `## 🚀 Release Status for v${version}\n\n`;
-          body += `### 📦 Package Locations\n\n`;
-          body += `- **GitHub Release:** [${releaseUrl}](${releaseUrl})\n`;
-          body += `- **PyPI Package:** [${pypiUrl}](${pypiUrl})\n`;
-
-          if (dockerImage && dockerImage !== 'unknown/quilt-mcp-server:' + version) {
-            body += `- **Docker Image:** \`${dockerImage}\`\n`;
-            body += `\n### 🐳 Docker Pull Command\n`;
-            body += `\`\`\`bash\n`;
-            body += `docker pull ${dockerImage}\n`;
-            body += `\`\`\`\n`;
-          }
-
-          body += `\n### 📥 Installation\n`;
-          if (isProd) {
-            body += `\`\`\`bash\n`;
-            body += `# Install from PyPI\n`;
-            body += `pip install quilt-mcp-server==${version}\n`;
-            body += `# or\n`;
-            body += `uv add quilt-mcp-server==${version}\n`;
-            body += `\`\`\`\n`;
-          } else {
-            body += `\`\`\`bash\n`;
-            body += `# Install from TestPyPI\n`;
-            body += `pip install -i https://test.pypi.org/simple/ quilt-mcp-server==${version}\n`;
-            body += `# or\n`;
-            body += `uv add --index https://test.pypi.org/simple/ quilt-mcp-server==${version}\n`;
-            body += `\`\`\`\n`;
-          }
-
-          // Find the PR number
-          let prNumber;
-          if (context.eventName === 'pull_request') {
-            prNumber = context.payload.pull_request.number;
-          } else {
-            // For push events on dev tags, try to find associated PR
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              head: `${context.repo.owner}:${context.ref.replace('refs/heads/', '')}`
-            });
-            if (prs.length > 0) {
-              prNumber = prs[0].number;
-            }
-          }
-
-          if (prNumber) {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: body
-            });
-            console.log(`Posted release status to PR #${prNumber}`);
-          } else {
-            console.log('No PR found to comment on');
-            console.log('Release Status:\n' + body);
-          }
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        uv run python scripts/post_release_status.py \
+          --version "${{ inputs.package-version }}" \
+          --release-url "${{ steps.create-release.outputs.url }}" \
+          --pypi-url "${{ steps.package-urls.outputs.pypi-url }}" \
+          --docker-image "${{ steps.docker-info.outputs.image-uri }}" \
+          --sha "${{ github.sha }}" \
+          --repo "${{ github.repository }}"
