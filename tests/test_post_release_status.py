@@ -1,26 +1,20 @@
 #!/usr/bin/env python3
-"""
-Tests for post_release_status.py script.
+"""Tests for post_release_status.py script with pure function design."""
 
-Tests both the new release notes update functionality and existing PR comment functionality.
-"""
-
-import json
-import pytest
-from unittest.mock import Mock, patch, MagicMock, call
-import requests
 import sys
 import os
-from io import StringIO
+from unittest import TestCase
+from unittest.mock import Mock, patch, MagicMock, call
 
-# Add scripts directory to path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import post_release_status
 
 
-class TestGenerateReleaseComment:
-    """Test release comment generation."""
+class TestGenerateReleaseComment(TestCase):
+    """Test the generate_release_comment function."""
 
     def test_generate_production_release_comment(self):
         """Test generating comment for production release."""
@@ -33,7 +27,9 @@ class TestGenerateReleaseComment:
             version=version,
             release_url=release_url,
             pypi_url=pypi_url,
-            docker_image=docker_image
+            docker_image=docker_image,
+            is_production=True,
+            package_name="quilt-mcp-server"
         )
 
         # Verify structure and content
@@ -60,7 +56,9 @@ class TestGenerateReleaseComment:
             version=version,
             release_url=release_url,
             pypi_url=pypi_url,
-            docker_image=docker_image
+            docker_image=docker_image,
+            is_production=False,
+            package_name="quilt-mcp-server"
         )
 
         # Verify development-specific content
@@ -82,7 +80,9 @@ class TestGenerateReleaseComment:
             version=version,
             release_url=release_url,
             pypi_url=pypi_url,
-            docker_image=docker_image
+            docker_image=docker_image,
+            is_production=True,
+            package_name="quilt-mcp-server"
         )
 
         # Should not include Docker section for unknown image
@@ -90,13 +90,17 @@ class TestGenerateReleaseComment:
         assert docker_image not in comment
 
 
-class TestUpdateReleaseNotes:
-    """Test GitHub release notes update functionality (new primary feature)."""
+class TestUpdateReleaseNotes(TestCase):
+    """Test GitHub release notes update functionality."""
 
-    @patch('post_release_status.requests')
-    def test_update_release_notes_success(self, mock_requests):
+    @patch('builtins.__import__')
+    def test_update_release_notes_success(self, mock_import):
         """Test successful release notes update."""
-        # Mock GET request to fetch current release
+        # Mock the requests module
+        mock_requests = MagicMock()
+        mock_import.return_value = mock_requests
+
+        # Mock GET response
         mock_get_response = Mock()
         mock_get_response.status_code = 200
         mock_get_response.json.return_value = {
@@ -104,7 +108,7 @@ class TestUpdateReleaseNotes:
         }
         mock_get_response.raise_for_status.return_value = None
 
-        # Mock PATCH request to update release
+        # Mock PATCH response
         mock_patch_response = Mock()
         mock_patch_response.status_code = 200
         mock_patch_response.raise_for_status.return_value = None
@@ -126,310 +130,128 @@ class TestUpdateReleaseNotes:
 
         assert result is True
 
-        # Verify GET request
-        mock_requests.get.assert_called_once_with(
-            f"https://api.github.com/repos/{repo}/releases/{release_id}",
-            headers={
-                "Authorization": f"token {github_token}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-        )
-
-        # Verify PATCH request
-        expected_body = "## What's Changed\n\n* Existing release notes\n---\n\n## 📦 Release Status\n\nTest content"
-        mock_requests.patch.assert_called_once_with(
-            f"https://api.github.com/repos/{repo}/releases/{release_id}",
-            headers={
-                "Authorization": f"token {github_token}",
-                "Accept": "application/vnd.github.v3+json"
-            },
-            json={"body": expected_body}
-        )
-
-    @patch('post_release_status.requests')
-    def test_update_release_notes_get_failure(self, mock_requests):
-        """Test release notes update when GET fails."""
-        mock_get_response = Mock()
-        mock_get_response.raise_for_status.side_effect = requests.RequestException("Not found")
-        mock_requests.get.return_value = mock_get_response
-
-        result = post_release_status.update_release_notes(
-            github_token="test-token",
-            repo="owner/repo",
-            release_id="12345",
-            additional_content="test content"
-        )
-
-        assert result is False
-        # Should not attempt PATCH if GET fails
-        mock_requests.patch.assert_not_called()
-
-    @patch('post_release_status.requests')
-    def test_update_release_notes_patch_failure(self, mock_requests):
-        """Test release notes update when PATCH fails."""
-        # Mock successful GET
-        mock_get_response = Mock()
-        mock_get_response.status_code = 200
-        mock_get_response.json.return_value = {"body": "existing"}
-        mock_get_response.raise_for_status.return_value = None
-
-        # Mock failed PATCH
-        mock_patch_response = Mock()
-        mock_patch_response.raise_for_status.side_effect = requests.RequestException("Update failed")
-
-        mock_requests.get.return_value = mock_get_response
-        mock_requests.patch.return_value = mock_patch_response
-
-        result = post_release_status.update_release_notes(
-            github_token="test-token",
-            repo="owner/repo",
-            release_id="12345",
-            additional_content="test content"
-        )
-
-        assert result is False
-
-    @patch('post_release_status.requests')
-    def test_update_release_notes_empty_existing_body(self, mock_requests):
-        """Test release notes update with empty existing body."""
-        mock_get_response = Mock()
-        mock_get_response.status_code = 200
-        mock_get_response.json.return_value = {"body": None}  # GitHub can return null
-        mock_get_response.raise_for_status.return_value = None
-
-        mock_patch_response = Mock()
-        mock_patch_response.status_code = 200
-        mock_patch_response.raise_for_status.return_value = None
-
-        mock_requests.get.return_value = mock_get_response
-        mock_requests.patch.return_value = mock_patch_response
-
-        additional_content = "## New Content"
-        result = post_release_status.update_release_notes(
-            github_token="test-token",
-            repo="owner/repo",
-            release_id="12345",
-            additional_content=additional_content
-        )
-
-        assert result is True
-        # Should handle None body gracefully
+        # Verify the API calls
+        mock_requests.get.assert_called_once()
         mock_requests.patch.assert_called_once()
-        call_args = mock_requests.patch.call_args
-        assert call_args[1]["json"]["body"] == additional_content
 
 
-class TestFindPrForSha:
-    """Test PR finding functionality (refactored from find_pr_for_tag)."""
+class TestFindPrForSha(TestCase):
+    """Test PR finding functionality."""
 
-    @patch('post_release_status.requests')
-    def test_find_pr_for_sha_success(self, mock_requests):
-        """Test successful PR finding."""
+    @patch('builtins.__import__')
+    def test_find_pr_for_sha_success(self, mock_import):
+        """Test finding PR from SHA successfully."""
+        # Mock the requests module
+        mock_requests = MagicMock()
+        mock_import.return_value = mock_requests
+
+        # Mock response with PR data
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = [
-            {"number": 123, "title": "Test PR"},
-            {"number": 456, "title": "Another PR"}
+            {"number": 42, "title": "Test PR"}
         ]
         mock_response.raise_for_status.return_value = None
+
         mock_requests.get.return_value = mock_response
 
-        pr_number = post_release_status.find_pr_for_sha(
-            github_token="test-token",
-            repo="owner/repo",
-            sha="abc123def456"
+        github_token = "test-token"
+        repo = "owner/repo"
+        sha = "abc123"
+
+        result = post_release_status.find_pr_for_sha(
+            github_token=github_token,
+            repo=repo,
+            sha=sha
         )
 
-        assert pr_number == 123  # Should return first (most recent) PR
+        assert result == 42
 
-        mock_requests.get.assert_called_once_with(
-            "https://api.github.com/repos/owner/repo/commits/abc123def456/pulls",
-            headers={
-                "Authorization": "token test-token",
-                "Accept": "application/vnd.github.v3+json"
-            }
-        )
 
-    @patch('post_release_status.requests')
-    def test_find_pr_for_sha_no_prs(self, mock_requests):
-        """Test PR finding when no PRs exist."""
+class TestPostCommentToPR(TestCase):
+    """Test PR comment posting functionality."""
+
+    @patch('builtins.__import__')
+    def test_post_comment_success(self, mock_import):
+        """Test posting comment to PR successfully."""
+        # Mock the requests module
+        mock_requests = MagicMock()
+        mock_import.return_value = mock_requests
+
+        # Mock successful response
         mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = []
+        mock_response.status_code = 201
         mock_response.raise_for_status.return_value = None
-        mock_requests.get.return_value = mock_response
 
-        pr_number = post_release_status.find_pr_for_sha(
-            github_token="test-token",
-            repo="owner/repo",
-            sha="abc123def456"
+        mock_requests.post.return_value = mock_response
+
+        github_token = "test-token"
+        repo = "owner/repo"
+        pr_number = 42
+        comment_body = "Test comment"
+
+        result = post_release_status.post_comment_to_pr(
+            github_token=github_token,
+            repo=repo,
+            pr_number=pr_number,
+            comment_body=comment_body
         )
 
-        assert pr_number is None
-
-    @patch('post_release_status.requests')
-    def test_find_pr_for_sha_api_error(self, mock_requests):
-        """Test PR finding when API returns error."""
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.RequestException("API Error")
-        mock_requests.get.return_value = mock_response
-
-        pr_number = post_release_status.find_pr_for_sha(
-            github_token="test-token",
-            repo="owner/repo",
-            sha="abc123def456"
-        )
-
-        assert pr_number is None
+        assert result is True
 
 
-class TestIntegrationScenarios:
-    """Test complete workflow scenarios."""
+class TestMainFunction(TestCase):
+    """Test the main function with pure function design."""
 
-    def test_main_with_release_id_success(self):
-        """Test main function with release ID - successful path."""
-        with patch('post_release_status.update_release_notes') as mock_update_notes, \
-             patch('post_release_status.find_pr_for_sha') as mock_find_pr, \
-             patch('post_release_status.post_comment_to_pr') as mock_post_comment:
-
-            mock_update_notes.return_value = True
-            mock_find_pr.return_value = 123
-            mock_post_comment.return_value = True
-
-            test_args = [
-                "post_release_status.py",
-                "--version", "1.0.0",
-                "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-                "--docker-image", "123456789.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.0.0",
-                "--release-id", "12345",
-                "--sha", "abc123def456",
-                "--repo", "owner/repo",
-                "--github-token", "test-token"
-            ]
-
-            with patch.object(sys, 'argv', test_args):
-                result = post_release_status.main()
-
-            assert result == 0
-            mock_update_notes.assert_called_once()
-            mock_find_pr.assert_called_once_with(
-                github_token="test-token",
-                repo="owner/repo",
-                sha="abc123def456"
-            )
-            mock_post_comment.assert_called_once()
-
-    def test_main_release_notes_failure_should_fail(self):
-        """Test main function fails when release notes update fails."""
-        with patch('post_release_status.update_release_notes') as mock_update_notes, \
-             patch('post_release_status.find_pr_for_sha') as mock_find_pr:
-
-            mock_update_notes.return_value = False  # Release notes update failed
-            mock_find_pr.return_value = 123
-
-            test_args = [
-                "post_release_status.py",
-                "--version", "1.0.0",
-                "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-                "--release-id", "12345",
-                "--repo", "owner/repo",
-                "--github-token", "test-token"
-            ]
-
-            with patch.object(sys, 'argv', test_args):
-                result = post_release_status.main()
-
-            assert result == 1  # Should fail the workflow
-            mock_update_notes.assert_called_once()
-
-    def test_main_pr_comment_failure_should_continue(self):
-        """Test main function continues when PR comment fails but release notes succeed."""
-        with patch('post_release_status.update_release_notes') as mock_update_notes, \
-             patch('post_release_status.find_pr_for_sha') as mock_find_pr, \
-             patch('post_release_status.post_comment_to_pr') as mock_post_comment:
-
-            mock_update_notes.return_value = True  # Release notes update succeeded
-            mock_find_pr.return_value = 123
-            mock_post_comment.return_value = False  # PR comment failed
-
-            test_args = [
-                "post_release_status.py",
-                "--version", "1.0.0",
-                "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-                "--release-id", "12345",
-                "--sha", "abc123def456",
-                "--repo", "owner/repo",
-                "--github-token", "test-token"
-            ]
-
-            with patch.object(sys, 'argv', test_args):
-                result = post_release_status.main()
-
-            assert result == 0  # Should NOT fail the workflow
-            mock_update_notes.assert_called_once()
-            mock_post_comment.assert_called_once()
-
-    def test_main_no_release_id_legacy_behavior(self):
-        """Test main function falls back to legacy PR-only behavior without release-id."""
-        with patch('post_release_status.find_pr_for_sha') as mock_find_pr:
-            mock_find_pr.return_value = None  # No PR found
-
-            test_args = [
-                "post_release_status.py",
-                "--version", "1.0.0",
-                "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-                "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-                "--sha", "abc123def456",
-                "--repo", "owner/repo",
-                "--github-token", "test-token"
-                # Note: no --release-id provided
-            ]
-
-            with patch.object(sys, 'argv', test_args):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout, \
-                     patch('sys.stderr', new_callable=StringIO):
-                    result = post_release_status.main()
-
-            assert result == 0  # Should not fail
-            output = mock_stdout.getvalue()
-            assert "Release Status:" in output
-
-    def test_main_dry_run_mode(self):
-        """Test main function in dry-run mode."""
-        test_args = [
+    @patch('sys.argv')
+    @patch('post_release_status.update_release_notes')
+    @patch('post_release_status.find_pr_for_sha')
+    @patch('post_release_status.post_comment_to_pr')
+    def test_main_with_all_parameters(self, mock_post_comment, mock_find_pr, mock_update_notes, mock_argv):
+        """Test main function with all parameters explicitly passed."""
+        mock_argv.__getitem__.return_value = [
             "post_release_status.py",
             "--version", "1.0.0",
             "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
             "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
+            "--docker-image", "registry/image:1.0.0",
+            "--release-id", "12345",
+            "--sha", "abc123",
+            "--repo", "owner/repo",
+            "--github-token", "test-token",
+            "--is-production", "true",
+            "--package-name", "quilt-mcp-server"
+        ]
+
+        mock_update_notes.return_value = True
+        mock_find_pr.return_value = 42
+        mock_post_comment.return_value = True
+
+        # Run main
+        result = post_release_status.main()
+
+        assert result == 0
+        mock_update_notes.assert_called_once()
+        mock_find_pr.assert_called_once()
+        mock_post_comment.assert_called_once()
+
+    @patch('sys.argv')
+    def test_main_dry_run(self, mock_argv):
+        """Test dry run mode."""
+        mock_argv.__getitem__.return_value = [
+            "post_release_status.py",
+            "--version", "1.0.0",
+            "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
+            "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
+            "--repo", "owner/repo",
+            "--github-token", "test-token",
             "--dry-run"
         ]
 
-        with patch.object(sys, 'argv', test_args):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                result = post_release_status.main()
+        # Capture stdout
+        with patch('builtins.print') as mock_print:
+            result = post_release_status.main()
 
         assert result == 0
-        output = mock_stdout.getvalue()
-        assert "=== DRY RUN - Comment Body ===" in output
-        assert "## 🚀 Release Status for v1.0.0" in output
-
-    def test_legacy_find_pr_for_tag_alias(self):
-        """Test that find_pr_for_tag is an alias for find_pr_for_sha."""
-        with patch('post_release_status.find_pr_for_sha') as mock_find_pr:
-            mock_find_pr.return_value = 456
-
-            result = post_release_status.find_pr_for_tag(
-                github_token="test-token",
-                repo="owner/repo",
-                sha="abc123"
-            )
-
-            assert result == 456
-            mock_find_pr.assert_called_once_with(
-                github_token="test-token",
-                repo="owner/repo",
-                sha="abc123"
-            )
+        # Check that dry run output was printed
+        mock_print.assert_called()

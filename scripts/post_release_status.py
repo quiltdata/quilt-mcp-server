@@ -22,9 +22,11 @@ def generate_release_comment(
     release_url: str,
     pypi_url: str,
     docker_image: Optional[str] = None,
+    is_production: bool = True,
+    package_name: str = "quilt-mcp-server",
 ) -> str:
     """Generate the release status comment body."""
-    is_prod = "-dev-" not in version
+    # Use the is_production flag passed explicitly
 
     body = f"## 🚀 Release Status for v{version}\n\n"
     body += "### 📦 Package Locations\n\n"
@@ -39,19 +41,19 @@ def generate_release_comment(
         body += "```\n"
 
     body += "\n### 📥 Installation\n"
-    if is_prod:
+    if is_production:
         body += "```bash\n"
         body += "# Install from PyPI\n"
-        body += f"pip install quilt-mcp-server=={version}\n"
+        body += f"pip install {package_name}=={version}\n"
         body += "# or\n"
-        body += f"uv add quilt-mcp-server=={version}\n"
+        body += f"uv add {package_name}=={version}\n"
         body += "```\n"
     else:
         body += "```bash\n"
         body += "# Install from TestPyPI\n"
-        body += f"pip install -i https://test.pypi.org/simple/ quilt-mcp-server=={version}\n"
+        body += f"pip install -i https://test.pypi.org/simple/ {package_name}=={version}\n"
         body += "# or\n"
-        body += f"uv add --index https://test.pypi.org/simple/ quilt-mcp-server=={version}\n"
+        body += f"uv add --index https://test.pypi.org/simple/ {package_name}=={version}\n"
         body += "```\n"
 
     return body
@@ -258,6 +260,8 @@ def main():
         release_url=args.release_url,
         pypi_url=args.pypi_url,
         docker_image=args.docker_image,
+        is_production=args.is_production,
+        package_name=args.package_name,
     )
 
     if args.dry_run:
@@ -267,13 +271,7 @@ def main():
 
     # PRIMARY GOAL: Update release notes if release-id is provided
     if args.release_id:
-        if not args.github_token:
-            print("Error: GitHub token required to update release notes", file=sys.stderr)
-            return 1
-
-        if not args.repo:
-            print("Error: Repository required to update release notes", file=sys.stderr)
-            return 1
+        # All required parameters are already validated by argparse
 
         # Format content for release notes (add separator)
         release_notes_content = f"\n---\n\n{status_content}"
@@ -294,7 +292,7 @@ def main():
     # SECONDARY GOAL: Post PR comment if possible (failure = graceful continue)
     pr_number = args.pr_number
 
-    if not pr_number and args.sha and args.github_token:
+    if not pr_number and args.sha:
         # Try to find PR from SHA
         pr_number = find_pr_for_sha(
             github_token=args.github_token,
@@ -302,7 +300,7 @@ def main():
             sha=args.sha,
         )
 
-    if pr_number and args.github_token and args.repo:
+    if pr_number:
         # Attempt to post PR comment
         pr_success = post_comment_to_pr(
             github_token=args.github_token,

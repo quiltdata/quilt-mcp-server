@@ -127,9 +127,13 @@ runs:
 
     - name: Post release status
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
       run: |
+        # Determine if this is a production release
+        IS_PRODUCTION="true"
+        if [[ "${{ inputs.package-version }}" == *"-dev-"* ]] || [[ "${{ inputs.package-version }}" == *"-dev" ]]; then
+          IS_PRODUCTION="false"
+        fi
+
         uv run python scripts/post_release_status.py \
           --version "${{ inputs.package-version }}" \
           --release-url "${{ steps.create-release.outputs.url }}" \
@@ -137,4 +141,7 @@ runs:
           --docker-image "${{ steps.docker-info.outputs.image-uri }}" \
           --release-id "${{ steps.create-release.outputs.id }}" \
           --sha "${{ github.sha }}" \
-          --repo "${{ github.repository }}"
+          --repo "${{ github.repository }}" \
+          --github-token "${{ github.token }}" \
+          --is-production "${IS_PRODUCTION}" \
+          --package-name "quilt-mcp-server"

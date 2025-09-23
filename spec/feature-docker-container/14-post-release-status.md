@@ -43,6 +43,22 @@ When a development tag (`v*-dev-*`) is pushed:
 3. **Update the release notes** with formatted status information
 4. Attempt to find associated PR and post comment
 
+## Design Philosophy
+
+### Pure Function Approach
+
+The post-release status script follows a pure function design:
+- All parameters are passed explicitly from the GitHub Action
+- No environment variable dependencies (except GITHUB_TOKEN for API calls)
+- No implicit behavior based on tag patterns or environment
+- All decision logic happens in the GitHub Action, not the script
+- Script focuses solely on formatting and posting status
+
+This design ensures:
+- Testability: All behavior can be tested with explicit inputs
+- Predictability: No hidden dependencies or side effects
+- Maintainability: Clear separation between orchestration (action) and execution (script)
+
 ## Implementation Requirements
 
 ### Release Notes Update (Primary)
@@ -128,7 +144,7 @@ The `create-release` action should output:
 
 ### Script Parameters
 
-The `post_release_status.py` script should accept:
+The `post_release_status.py` script should accept ALL parameters explicitly (pure function design):
 
 - `--release-id`: GitHub release ID for updating notes
 - `--version`: Package version
@@ -136,8 +152,10 @@ The `post_release_status.py` script should accept:
 - `--pypi-url`: PyPI package URL
 - `--docker-image`: Docker image URI (optional)
 - `--sha`: Git SHA for PR detection (optional)
-- `--repo`: Repository identifier
+- `--repo`: Repository identifier (owner/repo format)
 - `--github-token`: API token
+- `--is-production`: Boolean flag for production vs development release
+- `--package-name`: Package name for display (e.g., "quilt-mcp-server")
 
 ### Workflow Steps
 
@@ -159,7 +177,10 @@ The `post_release_status.py` script should accept:
       --pypi-url "${{ steps.package-urls.outputs.pypi-url }}" \
       --docker-image "${{ steps.docker-info.outputs.image-uri }}" \
       --sha "${{ github.sha }}" \
-      --repo "${{ github.repository }}"
+      --repo "${{ github.repository }}" \
+      --github-token "${{ github.token }}" \
+      --is-production "${{ inputs.is-production }}" \
+      --package-name "quilt-mcp-server"
 ```
 
 ## Content Format
