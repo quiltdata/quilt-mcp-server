@@ -241,6 +241,13 @@ ENVIRONMENT VARIABLES:
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
 
+    # Info command
+    info_parser = subparsers.add_parser("info", help="Get Docker image URI for a version")
+    info_parser.add_argument("--version", required=True, help="Version tag for the image")
+    info_parser.add_argument("--registry", help="ECR registry URL")
+    info_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
+
     return parser.parse_args(list(argv))
 
 
@@ -293,6 +300,28 @@ def cmd_push(args: argparse.Namespace) -> int:
     return 0 if success else 1
 
 
+def cmd_info(args: argparse.Namespace) -> int:
+    """Get Docker image info for GitHub Actions."""
+    # Allow VERSION env var to override
+    version = os.getenv("VERSION", args.version)
+
+    try:
+        manager = DockerManager(registry=args.registry, image_name=args.image)
+        ref = ImageReference(manager.registry, args.image, version)
+
+        if args.output == "github":
+            # Output for GitHub Actions
+            print(f"image-uri={ref.uri}")
+        else:
+            # Plain text output
+            print(ref.uri)
+
+        return 0
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     """Main entry point."""
     args = parse_args(argv or sys.argv[1:])
@@ -307,6 +336,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return cmd_build(args)
     elif args.command == "push":
         return cmd_push(args)
+    elif args.command == "info":
+        return cmd_info(args)
     else:
         print(f"ERROR: Unknown command: {args.command}", file=sys.stderr)
         return 1

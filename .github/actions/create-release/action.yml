@@ -92,19 +92,16 @@ runs:
       id: docker-info
       if: ${{ inputs.build-docker == 'true' }}
       shell: bash
+      env:
+        VERSION: ${{ inputs.package-version }}
+        ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+        AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
+        AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
       run: |
-        # Determine registry
-        if [ -n "${{ env.ECR_REGISTRY }}" ]; then
-          REGISTRY="${{ env.ECR_REGISTRY }}"
-        elif [ -n "${{ env.AWS_ACCOUNT_ID }}" ]; then
-          REGION="${{ env.AWS_DEFAULT_REGION }}"
-          REGISTRY="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${REGION:-us-east-1}.amazonaws.com"
-        else
-          REGISTRY="unknown"
-        fi
-        IMAGE_URI="${REGISTRY}/quilt-mcp-server:${{ inputs.package-version }}"
-        echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-        echo "🐳 Docker Image: ${IMAGE_URI}"
+        # Use docker.py to get image info for consistency
+        IMAGE_URI=$(uv run python scripts/docker.py info --version "$VERSION" --output github)
+        echo "${IMAGE_URI}" >> $GITHUB_OUTPUT
+        echo "🐳 Docker Image: ${IMAGE_URI#image-uri=}"
 
     - name: Create GitHub Release
       id: create-release

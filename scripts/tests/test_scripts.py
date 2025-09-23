@@ -179,6 +179,50 @@ class TestScriptExecution:
         assert "tags" in result.stdout
         assert "build" in result.stdout
         assert "push" in result.stdout
+        assert "info" in result.stdout
+
+    def test_docker_info_command(self):
+        """Test docker.py info command for getting image URIs."""
+        script = SCRIPTS_DIR / "docker.py"
+        assert script.exists(), "docker.py must exist"
+
+        # Test text output
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "info",
+                "--registry",
+                "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+                "--version",
+                "1.2.3",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        assert result.stdout.strip() == "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3"
+
+        # Test GitHub Actions output format
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "info",
+                "--registry",
+                "test.registry.com",
+                "--version",
+                "2.0.0",
+                "--output",
+                "github",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        assert result.stdout.strip() == "image-uri=test.registry.com/quilt-mcp-server:2.0.0"
 
     def test_docker_image_legacy_compatibility(self):
         """Ensure legacy docker_image.py still works if it exists."""
