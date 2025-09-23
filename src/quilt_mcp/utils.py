@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import io
+import time
 import contextlib
 from typing import Any, Dict, Literal, Callable
 from urllib.parse import urlparse, parse_qs, unquote
@@ -374,7 +375,8 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     except ImportError as exc:  # pragma: no cover
         print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
 
-    # Add OAuth 2.1 authorization endpoints for MCP compliance
+    # Add OAuth 2.1 authorization endpoints BEFORE MCP router
+    # This ensures OAuth endpoints are accessible without MCP protocol interference
     _add_oauth_endpoints(app)
 
     return app
@@ -382,49 +384,171 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
 def _add_oauth_endpoints(app):
     """Add OAuth 2.1 authorization endpoints required by MCP specification."""
-    from fastapi import Request
-    from fastapi.responses import JSONResponse
+    from fastapi import Request, Form, Query, HTTPException
+    from fastapi.responses import JSONResponse, RedirectResponse
     from quilt_mcp.services.oauth_service import get_oauth_service
+    import hashlib
+    import base64
+    import secrets
+    
+    # In-memory storage for authorization codes (in production, use Redis or database)
+    authorization_codes = {}
     
     @app.get("/.well-known/oauth-protected-resource")
-    async def oauth_protected_resource_metadata(request: Request):
+    async def oauth_protected_resource_metadata(_request: Request):
         """OAuth 2.0 Protected Resource Metadata (RFC9728) for MCP authorization discovery."""
         oauth_service = get_oauth_service()
         return JSONResponse(oauth_service.get_protected_resource_metadata())
     
     @app.get("/.well-known/oauth-authorization-server")
-    async def oauth_authorization_server_metadata(request: Request):
+    async def oauth_authorization_server_metadata(_request: Request):
         """OAuth 2.0 Authorization Server Metadata (RFC8414) for MCP authorization."""
         oauth_service = get_oauth_service()
         return JSONResponse(oauth_service.get_authorization_server_metadata())
     
     @app.get("/oauth/authorize")
-    async def oauth_authorize(request: Request):
-        """OAuth 2.1 authorization endpoint."""
-        # For now, return a simple authorization page or redirect
-        # In a full implementation, this would handle the OAuth flow
-        return JSONResponse({
-            "error": "not_implemented",
-            "error_description": "Authorization endpoint not yet implemented. Use IAM role authentication.",
-            "message": "This MCP server uses IAM role authentication instead of OAuth flow."
-        })
+    async def oauth_authorize(
+        _request: Request,
+        response_type: str = Query(..., description="Response type (must be 'code')"),
+        client_id: str = Query(..., description="Client identifier"),
+        redirect_uri: str = Query(..., description="Redirect URI"),
+        scope: str = Query(..., description="Requested scopes"),
+        state: str = Query(..., description="State parameter"),
+        code_challenge: str = Query(..., description="PKCE code challenge"),
+        code_challenge_method: str = Query(default="S256", description="PKCE challenge method")
+    ):
+        """OAuth 2.1 authorization endpoint with PKCE support."""
+        
+        # Validate response type
+        if response_type != "code":
+            raise HTTPException(status_code=400, detail="Unsupported response type")
+        
+        # Validate PKCE challenge method
+        if code_challenge_method != "S256":
+            raise HTTPException(status_code=400, detail="Unsupported code challenge method")
+        
+        # Generate authorization code
+        auth_code = secrets.token_urlsafe(32)
+        
+        # Store authorization code with metadata
+        authorization_codes[auth_code] = {
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
+            "state": state,
+            "expires_at": time.time() + 600  # 10 minutes
+        }
+        
+        # For demo purposes, redirect back to client with authorization code
+        # In production, this would redirect to Quilt's authentication system
+        redirect_url = f"{redirect_uri}?code={auth_code}&state={state}"
+        return RedirectResponse(url=redirect_url)
     
     @app.post("/oauth/token")
-    async def oauth_token(request: Request):
-        """OAuth 2.1 token endpoint."""
-        # For now, return a simple token response
-        # In a full implementation, this would validate authorization codes
-        return JSONResponse({
-            "error": "not_implemented", 
-            "error_description": "Token endpoint not yet implemented. Use IAM role authentication.",
-            "message": "This MCP server uses IAM role authentication instead of OAuth flow."
-        })
+    async def oauth_token(
+        _request: Request,
+        grant_type: str = Form(..., description="Grant type"),
+        code: str = Form(..., description="Authorization code"),
+        redirect_uri: str = Form(..., description="Redirect URI"),
+        client_id: str = Form(..., description="Client identifier"),
+        code_verifier: str = Form(None, description="PKCE code verifier")
+    ):
+        """OAuth 2.1 token endpoint with PKCE validation."""
+        
+        # Validate grant type
+        if grant_type != "authorization_code":
+            raise HTTPException(status_code=400, detail="Unsupported grant type")
+        
+        # Check if authorization code exists and is valid
+        if code not in authorization_codes:
+            raise HTTPException(status_code=400, detail="Invalid authorization code")
+        
+        auth_data = authorization_codes[code]
+        
+        # Check expiration
+        if time.time() > auth_data["expires_at"]:
+            del authorization_codes[code]
+            raise HTTPException(status_code=400, detail="Authorization code expired")
+        
+        # Validate client ID and redirect URI
+        if auth_data["client_id"] != client_id:
+            raise HTTPException(status_code=400, detail="Invalid client")
+        
+        if auth_data["redirect_uri"] != redirect_uri:
+            raise HTTPException(status_code=400, detail="Invalid redirect URI")
+        
+        # Validate PKCE code verifier
+        if auth_data["code_challenge_method"] == "S256" and code_verifier:
+            # Verify PKCE challenge
+            challenge = base64.urlsafe_b64encode(
+                hashlib.sha256(code_verifier.encode()).digest()
+            ).decode().rstrip("=")
+            
+            if challenge != auth_data["code_challenge"]:
+                raise HTTPException(status_code=400, detail="Invalid code verifier")
+        
+        # Generate access token
+        oauth_service = get_oauth_service()
+        scopes = auth_data["scope"].split()
+        token_response = oauth_service.generate_access_token(client_id, scopes)
+        
+        # Clean up authorization code
+        del authorization_codes[code]
+        
+        return JSONResponse(token_response)
+    
+    @app.post("/oauth/refresh", include_in_schema=False)  # Alternative endpoint for refresh token
+    async def oauth_refresh_token(
+        _request: Request,
+        grant_type: str = Form(..., description="Grant type"),
+        refresh_token: str = Form(..., description="Refresh token"),
+        client_id: str = Form(..., description="Client identifier")
+    ):
+        """OAuth 2.1 refresh token endpoint."""
+        
+        if grant_type != "refresh_token":
+            raise HTTPException(status_code=400, detail="Unsupported grant type")
+        
+        # For now, generate a new token (in production, validate refresh token)
+        # TODO: Validate refresh_token parameter
+        _ = refresh_token  # Suppress unused parameter warning
+        
+        oauth_service = get_oauth_service()
+        token_response = oauth_service.generate_access_token(client_id)
+        
+        return JSONResponse(token_response)
     
     @app.get("/oauth/jwks")
-    async def oauth_jwks(request: Request):
+    async def oauth_jwks(_request: Request):
         """OAuth 2.1 JWKS endpoint for token validation."""
         # Return empty JWKS for now since we're using HMAC
         return JSONResponse({"keys": []})
+    
+    @app.get("/oauth/userinfo")
+    async def oauth_userinfo(request: Request):
+        """OAuth 2.1 user info endpoint."""
+        # Extract token from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization required")
+        
+        token = auth_header[7:]
+        oauth_service = get_oauth_service()
+        
+        try:
+            payload = oauth_service.validate_access_token(token)
+            return JSONResponse({
+                "sub": payload["sub"],
+                "scope": payload["scope"],
+                "aud": payload["aud"],
+                "iss": payload["iss"]
+            })
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=401, detail="Invalid token") from e
 
 
 def run_server() -> None:
