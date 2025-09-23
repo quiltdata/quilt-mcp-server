@@ -121,25 +121,6 @@ kill:
 	@lsof -ti :8001 | xargs -r kill 2>/dev/null || echo "No processes on port 8001"
 	@echo "✅ Server kill completed"
 
-# Docker Targets
-docker-build:
-	@echo "Building Docker image..."
-	@docker build --file Dockerfile --tag $${DOCKER_IMAGE_TAG:-quilt-mcp:dev} .
-
-docker-run:
-	@echo "Running Docker container..."
-	@docker run --rm \
-		-p $${DOCKER_PORT:-8000}:8000 \
-		-e FASTMCP_TRANSPORT=$${FASTMCP_TRANSPORT:-http} \
-		-e FASTMCP_HOST=$${FASTMCP_HOST:-0.0.0.0} \
-		$${DOCKER_RUN_ARGS:-} \
-		$${DOCKER_IMAGE_TAG:-quilt-mcp:dev}
-
-docker-test:
-	@echo "Running Docker integration test..."
-	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/integration/test_docker_container.py -v
-
 # Cleanup Targets
 dev-clean:
 	@echo "Cleaning Python cache..."

@@ -453,6 +453,7 @@ The following permissions are granted for this repository:
 **GitHub Secrets Configuration:**
 
 Required secrets for Docker operations:
+
 - `ECR_REGISTRY` - ECR registry URL (preferred)
 - `AWS_ACCOUNT_ID` - AWS account ID (fallback for registry construction)
 - `AWS_DEFAULT_REGION` - AWS region (defaults to us-east-1)
@@ -467,12 +468,6 @@ Required secrets for Docker operations:
 
 ## important-instruction-reminders
 
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
-
-# important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
