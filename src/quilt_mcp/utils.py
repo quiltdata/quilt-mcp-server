@@ -348,6 +348,10 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     
     app = mcp.http_app(transport=transport)
 
+    # Add OAuth 2.1 authorization endpoints BEFORE CORS middleware
+    # This ensures OAuth endpoints are registered with highest priority
+    _add_oauth_endpoints(app)
+
     try:
         from starlette.middleware.cors import CORSMiddleware
 
@@ -374,10 +378,6 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
         
     except ImportError as exc:  # pragma: no cover
         print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
-
-    # Add OAuth 2.1 authorization endpoints BEFORE MCP router
-    # This ensures OAuth endpoints are accessible without MCP protocol interference
-    _add_oauth_endpoints(app)
 
     return app
 
