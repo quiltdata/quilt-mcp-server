@@ -6,4 +6,3 @@
 - [ ] CLAUDE.md updated with containerization insights
 - [ ] Lint/tests covering docs succeed
 - [ ] Review feedback addressed and PR ready for merge
-

@@ -6,6 +6,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.13] - 2025-09-22
+
+### Added
+
+- **Docker Container Support**: Complete HTTP transport implementation for containerized deployment (#195)
+  - New Docker image with FastMCP HTTP transport support (`FASTMCP_TRANSPORT=http`)
+  - Automated Docker image publishing to ECR during releases
+  - Developer tooling: `make docker-build`, `make docker-run`, `make docker-test`
+  - Integration test suite validating container readiness and HTTP endpoints
+  - Support for HTTP proxy configuration in Claude Desktop
+
+### Changed
+
+- **CLI Entrypoint**: Enhanced to respect pre-set `FASTMCP_TRANSPORT` environment variable
+  - Enables flexible transport configuration for container deployments
+  - Maintains backward compatibility with stdio transport for local usage
+
+### Documentation
+
+- **Docker Setup Guide**: Added comprehensive documentation for Docker deployment
+  - HTTP proxy configuration instructions for Claude Desktop
+  - Container usage examples and troubleshooting
+  - Release notes capturing Docker implementation details
+
+## [0.6.12] - 2025-09-22
+
+### Fixed
+
+- **GitHub Releases**: Include MCPB file directly in release assets (#193)
+  - Users can now download the `.mcpb` file directly from GitHub releases
+  - Previously only the release zip bundle was available
+  - Both `*.mcpb` and `*-release.zip` files are now uploaded as release assets
+
 ## [0.6.11] - 2025-09-21
 
 ### Changed

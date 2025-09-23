@@ -312,6 +312,12 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 - `make release` - Create and push release tag
 - `make release-dev` - Create and push development tag
 
+**Docker Operations (make.deploy):**
+
+- `make docker-build` - Build Docker image locally
+- `make docker-push` - Build and push Docker image to ECR (requires VERSION)
+- `make docker-push-dev` - Build and push development Docker image
+
 **Coordination & Utilities:**
 
 - `make help` - Show all available targets organized by category
@@ -423,8 +429,52 @@ The following permissions are granted for this repository:
 - Remote deployments use the Terraform module in `deploy/terraform/modules/mcp_server`; it creates the ECS service, ALB target group, CloudWatch log group, and exposes `/healthz` for load balancer checks.
 - Follow existing Quilt production patterns when deploying remotely: reuse the `sales-prod` cluster and private subnets, publish linux/amd64 images, route traffic through a host/path rule that matches the ALB certificate (e.g., `demo.quiltdata.com/mcp/*`), and ensure security groups allow ALB↔ECS communication on port 8000.
 
+### Docker Build and Deployment Refactoring (2025-09-22)
+
+**Script-based Docker Operations:**
+
+- All Docker operations extracted to `scripts/docker.sh` for reusability and local testing
+- Script supports both `build` (local testing) and `push` (ECR deployment) commands
+- Integrates with existing `scripts/docker_image.py` for consistent tag generation
+- Supports dry-run mode via `--dry-run` for testing workflow changes
+
+**GitHub Actions Integration:**
+
+- Production releases (tags matching `v*` but not `v*-dev-*`) build and push Docker images automatically
+- Development releases skip Docker builds to reduce CI/CD time and resource usage
+- PR builds test Docker image building without pushing (build-only validation)
+- Docker operations moved from `push.yml` workflow into `create-release` action for better encapsulation
+
+**Makefile Integration:**
+
+- `make docker-build` - Build locally for development and testing
+- `make docker-push` - Build and push to ECR (requires VERSION environment variable)
+- `make docker-push-dev` - Build and push with timestamp-based development tags
+- All Docker targets include proper dependency checking for Docker daemon and required tools
+
+**GitHub Secrets Configuration:**
+
+Required secrets for Docker operations:
+- `ECR_REGISTRY` - ECR registry URL (preferred)
+- `AWS_ACCOUNT_ID` - AWS account ID (fallback for registry construction)
+- `AWS_DEFAULT_REGION` - AWS region (defaults to us-east-1)
+- Existing AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for ECR login
+
+**Environment Variable Support:**
+
+- `scripts/docker.sh` respects all environment variables from `env.example`
+- `ECR_REGISTRY`, `AWS_ACCOUNT_ID`, `AWS_DEFAULT_REGION` for registry configuration
+- `VERSION` for overriding image version tags
+- `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
+
 ## important-instruction-reminders
 
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+# important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.

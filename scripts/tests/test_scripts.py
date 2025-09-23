@@ -92,15 +92,17 @@ class TestScriptExecution:
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower() or "MCP" in result.stdout
 
-    def test_docker_image_tag_script(self):
-        """Ensure docker_image.py generates expected tags."""
-        script = SCRIPTS_DIR / "docker_image.py"
-        assert script.exists(), "docker_image.py must exist"
+    def test_docker_unified_script(self):
+        """Ensure docker.py generates expected tags and functions correctly."""
+        script = SCRIPTS_DIR / "docker.py"
+        assert script.exists(), "docker.py must exist"
 
+        # Test tags command (replaces docker_image.py functionality)
         result = subprocess.run(
             [
                 sys.executable,
                 str(script),
+                "tags",
                 "--registry",
                 "123456789012.dkr.ecr.us-east-1.amazonaws.com",
                 "--version",
@@ -115,6 +117,91 @@ class TestScriptExecution:
         assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
         assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
 
+        # Test JSON output format
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "tags",
+                "--registry",
+                "test.registry.com",
+                "--version",
+                "2.0.0",
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        import json
+        data = json.loads(result.stdout)
+        assert data["registry"] == "test.registry.com"
+        assert data["image"] == "quilt-mcp-server"
+        assert "2.0.0" in data["tags"]
+        assert "latest" in data["tags"]
+
+        # Test --no-latest flag
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "tags",
+                "--registry",
+                "test.registry.com",
+                "--version",
+                "3.0.0",
+                "--no-latest",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        output = result.stdout.strip().splitlines()
+        assert "test.registry.com/quilt-mcp-server:3.0.0" in output
+        assert "test.registry.com/quilt-mcp-server:latest" not in output
+
+    def test_docker_script_help(self):
+        """Test docker.py shows help properly."""
+        script = SCRIPTS_DIR / "docker.py"
+        assert script.exists(), "docker.py must exist"
+
+        result = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "Docker build and deployment" in result.stdout
+        assert "tags" in result.stdout
+        assert "build" in result.stdout
+        assert "push" in result.stdout
+
+    def test_docker_image_legacy_compatibility(self):
+        """Ensure legacy docker_image.py still works if it exists."""
+        legacy_script = SCRIPTS_DIR / "docker_image.py"
+        if legacy_script.exists():
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(legacy_script),
+                    "--registry",
+                    "123456789012.dkr.ecr.us-east-1.amazonaws.com",
+                    "--version",
+                    "1.2.3",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            output = result.stdout.strip().splitlines()
+            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
+            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
+
 
 class TestScriptSyntax:
     """Test that all Python scripts have valid syntax."""
@@ -123,7 +210,8 @@ class TestScriptSyntax:
         "version.py",
         "coverage_analysis.py",
         "mcp-test.py",
-        "mcp-list.py"
+        "mcp-list.py",
+        "docker.py"
     ])
     def test_script_syntax(self, script_name):
         """Test script has valid Python syntax."""

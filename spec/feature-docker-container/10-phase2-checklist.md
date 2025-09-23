@@ -6,4 +6,3 @@
 - [ ] Image pushes with version and `latest` tags
 - [ ] Release artifacts log published image digest/URI
 - [ ] Automated tests confirm publishing logic without requiring production access locally
-
