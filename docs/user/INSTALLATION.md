@@ -87,7 +87,7 @@ make docker-test
 
 ### Claude Desktop HTTP Proxy
 
-Claude Desktop currently expects stdio-based MCP servers. To connect it to the Docker container (which serves HTTP + SSE at `/mcp/`), run it through a FastMCP proxy. Add the following entry to `~/Library/Application Support/Claude/claude_desktop_config.json` (adjust the project path if your checkout lives elsewhere):
+Claude Desktop currently expects stdio-based MCP servers. To connect it to the Docker container (which serves HTTP + SSE at `/mcp/`) or to a remote deployment, run it through a FastMCP proxy. Add the following entry to `~/Library/Application Support/Claude/claude_desktop_config.json` (use the absolute path to your checkout):
 
 ```jsonc
 {
@@ -96,7 +96,7 @@ Claude Desktop currently expects stdio-based MCP servers. To connect it to the D
       "command": "uv",
       "args": [
         "--project",
-        "/Users/simonkohnstamm/Documents/Quilt/quilt-mcp-server",
+        "/absolute/path/to/quilt-mcp-server",
         "run",
         "python",
         "-c",
@@ -110,7 +110,7 @@ Claude Desktop currently expects stdio-based MCP servers. To connect it to the D
 }
 ```
 
-The proxy keeps a streaming HTTP session with the container via `FastMCP.as_proxy` and exposes a stdio transport to Claude, preventing the `406 Not Acceptable` errors that arise when using plain `curl`. After saving the file, restart Claude Desktop so it picks up the new configuration. When deploying the server remotely (for example on AWS Fargate), update the proxy URL to point at the externally accessible `https://.../mcp/` endpoint.
+The proxy keeps a streaming HTTP session with the container via `FastMCP.as_proxy` and exposes a stdio transport to Claude, preventing the `406 Not Acceptable` errors that arise when using plain `curl`. After saving the file, restart Claude Desktop so it picks up the new configuration. For remote deployments, update the proxy URL to the certificate-backed hostname you are serving (for example, `https://demo.quiltdata.com/mcp/`) so TLS validation succeeds.
 
 ### Verify Prerequisites
 

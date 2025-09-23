@@ -426,6 +426,8 @@ The following permissions are granted for this repository:
 - Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
 - When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
 - Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
+- Remote deployments use the Terraform module in `deploy/terraform/modules/mcp_server`; it creates the ECS service, ALB target group, CloudWatch log group, and exposes `/healthz` for load balancer checks.
+- Follow existing Quilt production patterns when deploying remotely: reuse the `sales-prod` cluster and private subnets, publish linux/amd64 images, route traffic through a host/path rule that matches the ALB certificate (e.g., `demo.quiltdata.com/mcp/*`), and ensure security groups allow ALB↔ECS communication on port 8000.
 
 ### Docker Build and Deployment Refactoring (2025-09-22)
 

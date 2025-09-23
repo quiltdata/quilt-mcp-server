@@ -13,6 +13,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 import boto3
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -284,11 +285,37 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
 
+    @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
+    async def _health_check(_request):  # type: ignore[reportUnusedFunction]
+        """Basic health endpoint for load balancers and monitoring."""
+        return JSONResponse({"status": "ok"})
+
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
         print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
+
+
+def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
+    """Return an ASGI app for HTTP transports with CORS configured."""
+    app = mcp.http_app(transport=transport)
+
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["*"],
+            allow_headers=["*"],
+            allow_credentials=True,
+            expose_headers=["mcp-session-id"],
+        )
+    except ImportError as exc:  # pragma: no cover
+        print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
+
+    return app
 
 
 def run_server() -> None:
@@ -307,7 +334,18 @@ def run_server() -> None:
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
-        # Run the server
+        # For HTTP transport, add CORS middleware
+        if transport in ["http", "streamable-http", "sse"]:
+            app = build_http_app(mcp, transport=transport)
+
+            import uvicorn
+
+            host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+            port = int(os.environ.get("FASTMCP_PORT", "8000"))
+            uvicorn.run(app, host=host, port=port, log_level="info")
+            return
+
+        # Run the server with standard transport
         mcp.run(transport=transport)
 
     except Exception as e:

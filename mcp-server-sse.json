@@ -1,0 +1,45 @@
+{
+  "family": "mcp-server-sse",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::850787717197:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::850787717197:role/sales-prod-mcp-task-test",
+  "containerDefinitions": [
+    {
+      "name": "mcp-server",
+      "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "FASTMCP_TRANSPORT", "value": "sse" },
+        { "name": "FASTMCP_HOST", "value": "0.0.0.0" },
+        { "name": "FASTMCP_PORT", "value": "8000" },
+        { "name": "AWS_DEFAULT_REGION", "value": "us-east-1" },
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "QUILT_CATALOG_URL", "value": "https://demo.quiltdata.com" },
+        { "name": "QUILT_REGISTRY_URL", "value": "https://demo.quiltdata.com" },
+        { "name": "MCP_SERVER_NAME", "value": "quilt-mcp-server" },
+        { "name": "MCP_SERVER_VERSION", "value": "0.6.5" },
+        { "name": "LOG_LEVEL", "value": "INFO" },
+        { "name": "PYTHONUNBUFFERED", "value": "1" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mcp-server-sse",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://127.0.0.1:8000/healthz || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
