@@ -54,7 +54,7 @@
         },
         {
           "name": "FASTMCP_TRANSPORT",
-          "value": "http"
+          "value": "streamable-http"
         },
         {
           "name": "FASTMCP_ADDR",

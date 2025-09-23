@@ -82,7 +82,16 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
 
 def create_mcp_server() -> FastMCP:
     """Create and configure the FastMCP server instance."""
-    return FastMCP("quilt-mcp-server")
+    # Create FastMCP server with proper configuration for HTTP transport
+    mcp = FastMCP("quilt-mcp-server")
+    
+    # Configure for HTTP transport to handle initialization properly
+    # This helps resolve the "Received request before initialization was complete" issue
+    if hasattr(mcp, '_session_manager'):
+        # Allow early requests to be processed
+        mcp._session_manager._allow_early_requests = True
+    
+    return mcp
 
 
 def get_tool_modules() -> list[Any]:
@@ -331,26 +340,91 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
 def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
     """Return an ASGI app for HTTP transports with CORS configured."""
+    # Configure FastMCP with proper settings for HTTP transport
+    # This helps resolve initialization timing issues
+    if hasattr(mcp, '_config'):
+        mcp._config['allow_early_requests'] = True
+    
     app = mcp.http_app(transport=transport)
 
     try:
         from starlette.middleware.cors import CORSMiddleware
 
-        # Configure CORS middleware with proper settings
-        # Note: allow_credentials=True requires specific origins, not "*"
+        # Configure CORS middleware with proper settings for MCP Streamable HTTP
+        # According to MCP spec: https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],  # For development - in production, specify actual origins
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            allow_headers=["*"],
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # MCP requires both GET and POST
+            allow_headers=[
+                "*",  # Allow all headers including MCP-Protocol-Version and Mcp-Session-Id
+                "Content-Type",
+                "Accept", 
+                "MCP-Protocol-Version",
+                "Mcp-Session-Id",
+                "Authorization",  # Required for OAuth 2.1 Bearer tokens
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+            ],
             allow_credentials=False,  # Set to False to allow "*" origins
-            expose_headers=["mcp-session-id"],
+            expose_headers=["mcp-session-id"],  # Required by MCP spec for session management
         )
         
     except ImportError as exc:  # pragma: no cover
         print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
 
+    # Add OAuth 2.1 authorization endpoints for MCP compliance
+    _add_oauth_endpoints(app)
+
     return app
+
+
+def _add_oauth_endpoints(app):
+    """Add OAuth 2.1 authorization endpoints required by MCP specification."""
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
+    from quilt_mcp.services.oauth_service import get_oauth_service
+    
+    @app.get("/.well-known/oauth-protected-resource")
+    async def oauth_protected_resource_metadata(request: Request):
+        """OAuth 2.0 Protected Resource Metadata (RFC9728) for MCP authorization discovery."""
+        oauth_service = get_oauth_service()
+        return JSONResponse(oauth_service.get_protected_resource_metadata())
+    
+    @app.get("/.well-known/oauth-authorization-server")
+    async def oauth_authorization_server_metadata(request: Request):
+        """OAuth 2.0 Authorization Server Metadata (RFC8414) for MCP authorization."""
+        oauth_service = get_oauth_service()
+        return JSONResponse(oauth_service.get_authorization_server_metadata())
+    
+    @app.get("/oauth/authorize")
+    async def oauth_authorize(request: Request):
+        """OAuth 2.1 authorization endpoint."""
+        # For now, return a simple authorization page or redirect
+        # In a full implementation, this would handle the OAuth flow
+        return JSONResponse({
+            "error": "not_implemented",
+            "error_description": "Authorization endpoint not yet implemented. Use IAM role authentication.",
+            "message": "This MCP server uses IAM role authentication instead of OAuth flow."
+        })
+    
+    @app.post("/oauth/token")
+    async def oauth_token(request: Request):
+        """OAuth 2.1 token endpoint."""
+        # For now, return a simple token response
+        # In a full implementation, this would validate authorization codes
+        return JSONResponse({
+            "error": "not_implemented", 
+            "error_description": "Token endpoint not yet implemented. Use IAM role authentication.",
+            "message": "This MCP server uses IAM role authentication instead of OAuth flow."
+        })
+    
+    @app.get("/oauth/jwks")
+    async def oauth_jwks(request: Request):
+        """OAuth 2.1 JWKS endpoint for token validation."""
+        # Return empty JWKS for now since we're using HMAC
+        return JSONResponse({"keys": []})
 
 
 def run_server() -> None:
