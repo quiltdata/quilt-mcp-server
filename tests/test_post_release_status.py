@@ -203,26 +203,22 @@ class TestPostCommentToPR(TestCase):
 class TestMainFunction(TestCase):
     """Test the main function with pure function design."""
 
-    @patch('sys.argv')
+    @patch('sys.argv', ['post_release_status.py',
+                        '--version', '1.0.0',
+                        '--release-url', 'https://github.com/owner/repo/releases/tag/v1.0.0',
+                        '--pypi-url', 'https://pypi.org/project/quilt-mcp-server/1.0.0/',
+                        '--docker-image', 'registry/image:1.0.0',
+                        '--release-id', '12345',
+                        '--sha', 'abc123',
+                        '--repo', 'owner/repo',
+                        '--github-token', 'test-token',
+                        '--is-production', 'true',
+                        '--package-name', 'quilt-mcp-server'])
     @patch('post_release_status.update_release_notes')
     @patch('post_release_status.find_pr_for_sha')
     @patch('post_release_status.post_comment_to_pr')
-    def test_main_with_all_parameters(self, mock_post_comment, mock_find_pr, mock_update_notes, mock_argv):
+    def test_main_with_all_parameters(self, mock_post_comment, mock_find_pr, mock_update_notes):
         """Test main function with all parameters explicitly passed."""
-        mock_argv.__getitem__.return_value = [
-            "post_release_status.py",
-            "--version", "1.0.0",
-            "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-            "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-            "--docker-image", "registry/image:1.0.0",
-            "--release-id", "12345",
-            "--sha", "abc123",
-            "--repo", "owner/repo",
-            "--github-token", "test-token",
-            "--is-production", "true",
-            "--package-name", "quilt-mcp-server"
-        ]
-
         mock_update_notes.return_value = True
         mock_find_pr.return_value = 42
         mock_post_comment.return_value = True
@@ -235,19 +231,15 @@ class TestMainFunction(TestCase):
         mock_find_pr.assert_called_once()
         mock_post_comment.assert_called_once()
 
-    @patch('sys.argv')
-    def test_main_dry_run(self, mock_argv):
+    @patch('sys.argv', ['post_release_status.py',
+                        '--version', '1.0.0',
+                        '--release-url', 'https://github.com/owner/repo/releases/tag/v1.0.0',
+                        '--pypi-url', 'https://pypi.org/project/quilt-mcp-server/1.0.0/',
+                        '--repo', 'owner/repo',
+                        '--github-token', 'test-token',
+                        '--dry-run'])
+    def test_main_dry_run(self):
         """Test dry run mode."""
-        mock_argv.__getitem__.return_value = [
-            "post_release_status.py",
-            "--version", "1.0.0",
-            "--release-url", "https://github.com/owner/repo/releases/tag/v1.0.0",
-            "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.0.0/",
-            "--repo", "owner/repo",
-            "--github-token", "test-token",
-            "--dry-run"
-        ]
-
         # Capture stdout
         with patch('builtins.print') as mock_print:
             result = post_release_status.main()

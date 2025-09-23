@@ -247,6 +247,17 @@ def main():
         help="GitHub API token",
     )
     parser.add_argument(
+        "--is-production",
+        type=lambda x: x.lower() in ["true", "1", "yes"],
+        default=True,
+        help="Whether this is a production release",
+    )
+    parser.add_argument(
+        "--package-name",
+        default="quilt-mcp-server",
+        help="Package name for display",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print comment without posting",
