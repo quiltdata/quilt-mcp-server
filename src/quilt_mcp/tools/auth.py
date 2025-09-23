@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import quote, urlparse
 
 from ..services.quilt_service import QuiltService
+from ..services.auth_service import get_auth_service
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -315,12 +316,49 @@ def auth_status() -> dict[str, Any]:
         Dict with comprehensive authentication status, catalog info, permissions, and next steps.
     """
     try:
-        # Get comprehensive catalog information
+        # Use the new authentication service for ECS compatibility
+        auth_service = get_auth_service()
+        auth_status_result = auth_service.get_auth_status()
+        
+        # Fall back to QuiltService for local development
         service = QuiltService()
-        catalog_info = service.get_catalog_info()
+        quilt_catalog_info = service.get_catalog_info()
         logged_in_url = service.get_logged_in_url()
 
-        if logged_in_url:
+        # Prioritize authentication service results for ECS deployment
+        if auth_status_result.get("status") == "authenticated":
+            # Use authentication service results
+            auth_method = auth_status_result.get("auth_method", "unknown")
+            auth_catalog_url = auth_status_result.get("catalog_url")
+            aws_credentials = auth_status_result.get("aws_credentials", {})
+            
+            # Generate suggested actions based on authentication method
+            if auth_method == "IAM_ROLE":
+                suggested_actions = [
+                    "You're authenticated via IAM role - try listing packages with: packages_list()",
+                    "Test bucket permissions with: bucket_access_check(bucket_name)",
+                    "Discover your writable buckets with: aws_permissions_discover()",
+                    "Create your first package with: package_create_from_s3()",
+                ]
+            else:
+                suggested_actions = [
+                    "Try listing packages with: packages_list()",
+                    "Test bucket permissions with: bucket_access_check(bucket_name)",
+                    "Discover your writable buckets with: aws_permissions_discover()",
+                    "Create your first package with: package_create_from_s3()",
+                ]
+            
+            return {
+                "status": "authenticated",
+                "auth_method": auth_method,
+                "catalog_url": auth_catalog_url,
+                "catalog_name": auth_status_result.get("catalog_name", "unknown"),
+                "aws_credentials": aws_credentials,
+                "message": f"Successfully authenticated via {auth_method}",
+                "suggested_actions": suggested_actions,
+                "authentication_service": True,
+            }
+        elif logged_in_url:
             # Get registry bucket information
             registry_bucket = None
             try:
@@ -353,12 +391,12 @@ def auth_status() -> dict[str, Any]:
             return {
                 "status": "authenticated",
                 "catalog_url": logged_in_url,
-                "catalog_name": catalog_info.get("catalog_name", "unknown"),
+                "catalog_name": quilt_catalog_info.get("catalog_name", "unknown"),
                 "registry_bucket": registry_bucket,
                 "write_permissions": "unknown",  # Will be determined by permissions discovery
                 "user_info": user_info,
                 "suggested_actions": suggested_actions,
-                "message": f"Successfully authenticated to {catalog_info.get('catalog_name', 'Quilt catalog')}",
+                "message": f"Successfully authenticated to {quilt_catalog_info.get('catalog_name', 'Quilt catalog')}",
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
@@ -377,7 +415,7 @@ def auth_status() -> dict[str, Any]:
 
             return {
                 "status": "not_authenticated",
-                "catalog_name": catalog_info.get("catalog_name", "none"),
+                "catalog_name": quilt_catalog_info.get("catalog_name", "none"),
                 "message": "Not logged in to Quilt catalog",
                 "search_available": False,
                 "setup_instructions": setup_instructions,
@@ -536,9 +574,12 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
                 "example": "https://demo.quiltdata.com",
             }
 
-        # Configure the catalog
+        # Configure the catalog using both services
         service = QuiltService()
         service.set_config(catalog_url)
+        
+        # Note: AuthenticationService doesn't have set_config, so we rely on QuiltService
+        # The authentication service will pick up the configuration on next initialization
 
         # Verify configuration
         config = service.get_config()
