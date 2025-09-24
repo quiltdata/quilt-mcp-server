@@ -52,11 +52,13 @@ def test_docker_image_serves_http():
     try:
         deadline = time.time() + DEFAULT_TIMEOUT
         last_exception = None
-        url = f"http://127.0.0.1:{free_port}/mcp"
+        mcp_url = f"http://127.0.0.1:{free_port}/mcp"
+        health_url = f"http://127.0.0.1:{free_port}/health"
 
+        # Wait for container to be ready
         while time.time() < deadline:
             try:
-                response = requests.get(url, timeout=5)
+                response = requests.get(mcp_url, timeout=5)
                 assert response.status_code in {200, 302, 307, 406}
                 break
             except Exception as exc:
@@ -64,8 +66,19 @@ def test_docker_image_serves_http():
                 time.sleep(2)
         else:
             pytest.fail(f"Container never became ready: {last_exception}")
+
+        # Test the health check endpoint
+        health_response = requests.get(health_url, timeout=5)
+        assert health_response.status_code == 200, f"Health check failed with status {health_response.status_code}"
+
+        # Verify health check response format
+        health_data = health_response.json()
+        assert health_data["status"] == "ok", f"Health status is not ok: {health_data}"
+        assert "timestamp" in health_data, "Health response missing timestamp"
+        assert "server" in health_data, "Health response missing server info"
+        assert health_data["server"]["name"] == "quilt-mcp-server", "Incorrect server name"
+
     finally:
         subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
         if container_id:
             subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
-
