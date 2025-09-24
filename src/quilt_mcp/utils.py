@@ -305,8 +305,14 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 def run_server() -> None:
     """Run the MCP server with proper error handling."""
     try:
+        # Log startup information
+        print(f"[MCP] Starting Quilt MCP server...", file=sys.stderr)
+        print(f"[MCP] Transport: {os.environ.get('FASTMCP_TRANSPORT', 'stdio')}", file=sys.stderr)
+        print(f"[MCP] Host: {os.environ.get('FASTMCP_HOST', 'localhost')}", file=sys.stderr)
+        print(f"[MCP] Port: {os.environ.get('FASTMCP_PORT', '8000')}", file=sys.stderr)
+
         # Create and configure the server
-        mcp = create_configured_server()
+        mcp = create_configured_server(verbose=True)
 
         # Get transport from environment variable (default to stdio for MCP compatibility)
         transport_str = os.environ.get("FASTMCP_TRANSPORT", "stdio")
@@ -314,14 +320,21 @@ def run_server() -> None:
         # Validate transport string and fall back to default if invalid
         valid_transports = ["stdio", "http", "sse", "streamable-http"]
         if transport_str not in valid_transports:
+            print(f"[MCP] Warning: Invalid transport '{transport_str}', falling back to 'stdio'", file=sys.stderr)
             transport_str = "stdio"
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
+
+        # Log server startup
+        print(f"[MCP] Server configured with transport: {transport}", file=sys.stderr)
+        print(f"[MCP] Starting server...", file=sys.stderr)
 
         # Run the server
         mcp.run(transport=transport)
 
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        print(f"Error starting MCP server: {e}", file=sys.stderr)
+        print(f"[MCP] Error starting MCP server: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         raise

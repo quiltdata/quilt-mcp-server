@@ -32,12 +32,17 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
     FASTMCP_TRANSPORT=http \
     FASTMCP_HOST=0.0.0.0 \
-    FASTMCP_PORT=8000
+    FASTMCP_PORT=8000 \
+    PYTHONPATH=/app/src:$PYTHONPATH
 
+# Install runtime dependencies including curl for health checks
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
         libcurl4 \
         zlib1g \
+        curl \
+        procps \
+        net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment and application code
@@ -46,8 +51,71 @@ COPY --from=builder /app/src /app/src
 COPY --from=builder /app/pyproject.toml /app/pyproject.toml
 COPY --from=builder /app/spec/feature-docker-container /app/spec/feature-docker-container
 
+# Add health check script
+COPY <<'EOF' /app/healthcheck.sh
+#!/bin/bash
+set -e
+
+# Log health check attempt
+echo "[HEALTHCHECK] $(date -Iseconds) - Checking health on port ${FASTMCP_PORT:-8000}..." >&2
+
+# Get the actual listening port
+PORT=${FASTMCP_PORT:-8000}
+
+# Check if process is running
+if ! pgrep -f "quilt-mcp" > /dev/null; then
+    echo "[HEALTHCHECK] $(date -Iseconds) - ERROR: quilt-mcp process not running" >&2
+    exit 1
+fi
+
+# Check if port is listening
+if ! netstat -tln | grep -q ":${PORT}"; then
+    echo "[HEALTHCHECK] $(date -Iseconds) - ERROR: Port ${PORT} not listening" >&2
+    netstat -tln >&2
+    exit 1
+fi
+
+# Perform actual health check with verbose curl
+RESPONSE=$(curl -v -f -s -o /dev/null -w "%{http_code}" http://localhost:${PORT}/health 2>&1) || {
+    EXIT_CODE=$?
+    echo "[HEALTHCHECK] $(date -Iseconds) - ERROR: curl failed with exit code ${EXIT_CODE}" >&2
+    echo "[HEALTHCHECK] Full curl output:" >&2
+    curl -v http://localhost:${PORT}/health 2>&1 | sed 's/^/[HEALTHCHECK] /' >&2
+    exit 1
+}
+
+echo "[HEALTHCHECK] $(date -Iseconds) - SUCCESS: Health check passed (HTTP ${RESPONSE})" >&2
+exit 0
+EOF
+
+RUN chmod +x /app/healthcheck.sh
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-CMD ["quilt-mcp"]
+# Add startup wrapper script
+COPY <<'EOF' /app/start.sh
+#!/bin/bash
+set -e
+
+echo "[STARTUP] $(date -Iseconds) - Starting MCP server..." >&2
+echo "[STARTUP] Environment variables:" >&2
+env | grep -E "(FASTMCP|MCP|PORT|HOST)" | sort | sed 's/^/[STARTUP] /' >&2
+
+echo "[STARTUP] Python path: $PYTHONPATH" >&2
+echo "[STARTUP] Working directory: $(pwd)" >&2
+echo "[STARTUP] Python version: $(python --version)" >&2
+
+# Start the server with verbose output
+echo "[STARTUP] Executing: python -u /app/src/main.py" >&2
+exec python -u /app/src/main.py
+EOF
+
+RUN chmod +x /app/start.sh
+
+# Docker health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD /app/healthcheck.sh
+
+CMD ["/app/start.sh"]
