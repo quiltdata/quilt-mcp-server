@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Installation Guide
 
 This guide provides detailed installation instructions for the Quilt MCP Server across different environments and use cases.
@@ -21,6 +22,95 @@ The fastest way to get started:
 - **[uv](https://docs.astral.sh/uv/)** package manager (recommended)
 - **AWS CLI** configured with credentials
 - **Git** for cloning the repository
+
+### Docker Support
+
+If you prefer a containerized workflow, install [Docker Desktop](https://www.docker.com/products/docker-desktop/) or another Docker runtime. The official Quilt MCP Server image exposes the MCP HTTP interface on port `8000` using the `/mcp/` path.
+
+## 🐳 Docker Usage
+
+### Pull from Quilt ECR
+
+Releases publish an image to the Quilt AWS ECR registry. Use the provided registry URI (or derive it from your AWS account) to authenticate and pull:
+
+```bash
+AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+ECR_REGISTRY=$(aws ecr describe-repositories \
+  --query "repositories[?repositoryName=='quilt-mcp-server'].repositoryUri" \
+  --output text)
+
+aws ecr get-login-password --region "$AWS_REGION" | \
+  docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+docker pull "$ECR_REGISTRY"/quilt-mcp-server:latest
+```
+
+### Run the Container
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e FASTMCP_TRANSPORT=http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  "$ECR_REGISTRY"/quilt-mcp-server:latest
+
+# The MCP HTTP endpoint is now available at http://localhost:8000/mcp/
+```
+
+Provide additional environment variables (AWS credentials, Quilt endpoints, etc.) as needed for your workload:
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e FASTMCP_TRANSPORT=http \
+  -e FASTMCP_HOST=0.0.0.0 \
+  -e AWS_ACCESS_KEY_ID=your-access-key \
+  -e AWS_SECRET_ACCESS_KEY=your-secret \
+  -e QUILT_CATALOG_URL=https://demo.quiltdata.com \
+  "$ECR_REGISTRY"/quilt-mcp-server:latest
+```
+
+### Build Locally
+
+Use the provided Make targets to build and test the Docker image without publishing:
+
+```bash
+# Build image tagged as quilt-mcp:dev
+make docker-build
+
+# Run the container locally
+make docker-run
+
+# Execute Docker smoke tests
+make docker-test
+```
+
+### Claude Desktop HTTP Proxy
+
+Claude Desktop currently expects stdio-based MCP servers. To connect it to the Docker container (which serves HTTP + SSE at `/mcp/`), run it through a FastMCP proxy. Add the following entry to `~/Library/Application Support/Claude/claude_desktop_config.json` (adjust the project path if your checkout lives elsewhere):
+
+```jsonc
+{
+  "mcpServers": {
+    "quilt-http": {
+      "command": "uv",
+      "args": [
+        "--project",
+        "/Users/simonkohnstamm/Documents/Quilt/quilt-mcp-server",
+        "run",
+        "python",
+        "-c",
+        "from fastmcp.server.server import FastMCP; FastMCP.as_proxy('http://127.0.0.1:8000/mcp/').run(transport='stdio')"
+      ],
+      "metadata": {
+        "description": "Quilt MCP Server (HTTP via FastMCP proxy)"
+      }
+    }
+  }
+}
+```
+
+The proxy keeps a streaming HTTP session with the container via `FastMCP.as_proxy` and exposes a stdio transport to Claude, preventing the `406 Not Acceptable` errors that arise when using plain `curl`. After saving the file, restart Claude Desktop so it picks up the new configuration. When deploying the server remotely (for example on AWS Fargate), update the proxy URL to point at the externally accessible `https://.../mcp/` endpoint.
 
 ### Verify Prerequisites
 

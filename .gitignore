@@ -69,9 +69,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
-instance/
-.webassets-cache
+.uv-cache
 
 # Scrapy stuff:
 .scrapy

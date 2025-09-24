@@ -7,8 +7,9 @@ from quilt_mcp.utils import run_server
 
 def main() -> None:
     """Main entry point for the MCP server."""
-    # Force stdio transport for MCP (required for MCPB execution)
-    os.environ["FASTMCP_TRANSPORT"] = "stdio"
+    # Default to stdio transport when unset to preserve MCPB compatibility,
+    # but allow callers (e.g., container entrypoints) to override.
+    os.environ.setdefault("FASTMCP_TRANSPORT", "stdio")
     run_server()
 
 
