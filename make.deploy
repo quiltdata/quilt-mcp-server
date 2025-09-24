@@ -141,10 +141,6 @@ docker-build: docker-tools
 
 docker-push: docker-tools
 	@echo "🐳 Building and pushing Docker image..."
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ VERSION is required for docker-push. Use: make docker-push VERSION=1.2.3"; \
-		exit 1; \
-	fi
 	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
 	@echo "✅ Docker push completed"
 
