@@ -9,9 +9,17 @@ from starlette.responses import JSONResponse
 
 def get_server_info() -> dict:
     """Get basic server information for health check response."""
+    try:
+        # Try to get version from package metadata
+        from importlib.metadata import version
+        server_version = version("quilt-mcp")
+    except Exception:
+        # Fallback to hardcoded version if metadata not available
+        server_version = "0.6.14"
+
     return {
         "name": "quilt-mcp-server",
-        "version": "1.0.0",  # TODO: Get from version_sync
+        "version": server_version,
         "transport": os.environ.get("FASTMCP_TRANSPORT", "stdio"),
     }
 

@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.14] - 2025-09-24
+
+### Added
+
+- **Health Check Endpoint**: Basic health monitoring for container orchestration (#197)
+  - New `/health` endpoint returning server status, timestamp, and version info
+  - Transport-aware registration (only enabled for HTTP/SSE/streamable-http transports)
+  - Comprehensive test coverage for health check functionality
+  - Foundation for future enhancements (component health, readiness/liveness probes)
+
+### Changed
+
+- **Docker Integration Tests**: Enhanced to verify health check endpoint availability
+  - Tests now validate both `/mcp` and `/health` endpoints
+  - Ensures health check responses include proper server metadata
+
 ## [0.6.13] - 2025-09-22
 
 ### Added
