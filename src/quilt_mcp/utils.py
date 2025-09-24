@@ -284,6 +284,17 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
 
+    # Register health check endpoint for HTTP transport
+    transport = os.environ.get("FASTMCP_TRANSPORT", "stdio")
+    if transport in ["http", "sse", "streamable-http"]:
+        from quilt_mcp.health import health_check_handler
+
+        # Register health endpoint using FastMCP's custom_route decorator
+        mcp.custom_route("/health", methods=["GET"])(health_check_handler)
+
+        if verbose:
+            print("Registered health check endpoint: /health", file=sys.stderr)
+
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
         print(f"Successfully registered {tools_count} tools", file=sys.stderr)

@@ -29,7 +29,7 @@ class TestGenerateReleaseComment(TestCase):
             pypi_url=pypi_url,
             docker_image=docker_image,
             is_production=True,
-            package_name="quilt-mcp-server"
+            package_name="quilt-mcp-server",
         )
 
         # Verify structure and content
@@ -58,7 +58,7 @@ class TestGenerateReleaseComment(TestCase):
             pypi_url=pypi_url,
             docker_image=docker_image,
             is_production=False,
-            package_name="quilt-mcp-server"
+            package_name="quilt-mcp-server",
         )
 
         # Verify development-specific content
@@ -82,7 +82,7 @@ class TestGenerateReleaseComment(TestCase):
             pypi_url=pypi_url,
             docker_image=docker_image,
             is_production=True,
-            package_name="quilt-mcp-server"
+            package_name="quilt-mcp-server",
         )
 
         # Should not include Docker section for unknown image
@@ -103,9 +103,7 @@ class TestUpdateReleaseNotes(TestCase):
         # Mock GET response
         mock_get_response = Mock()
         mock_get_response.status_code = 200
-        mock_get_response.json.return_value = {
-            "body": "## What's Changed\n\n* Existing release notes"
-        }
+        mock_get_response.json.return_value = {"body": "## What's Changed\n\n* Existing release notes"}
         mock_get_response.raise_for_status.return_value = None
 
         # Mock PATCH response
@@ -122,10 +120,7 @@ class TestUpdateReleaseNotes(TestCase):
         additional_content = "\n---\n\n## 📦 Release Status\n\nTest content"
 
         result = post_release_status.update_release_notes(
-            github_token=github_token,
-            repo=repo,
-            release_id=release_id,
-            additional_content=additional_content
+            github_token=github_token, repo=repo, release_id=release_id, additional_content=additional_content
         )
 
         assert result is True
@@ -148,9 +143,7 @@ class TestFindPrForSha(TestCase):
         # Mock response with PR data
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = [
-            {"number": 42, "title": "Test PR"}
-        ]
+        mock_response.json.return_value = [{"number": 42, "title": "Test PR"}]
         mock_response.raise_for_status.return_value = None
 
         mock_requests.get.return_value = mock_response
@@ -159,11 +152,7 @@ class TestFindPrForSha(TestCase):
         repo = "owner/repo"
         sha = "abc123"
 
-        result = post_release_status.find_pr_for_sha(
-            github_token=github_token,
-            repo=repo,
-            sha=sha
-        )
+        result = post_release_status.find_pr_for_sha(github_token=github_token, repo=repo, sha=sha)
 
         assert result == 42
 
@@ -191,10 +180,7 @@ class TestPostCommentToPR(TestCase):
         comment_body = "Test comment"
 
         result = post_release_status.post_comment_to_pr(
-            github_token=github_token,
-            repo=repo,
-            pr_number=pr_number,
-            comment_body=comment_body
+            github_token=github_token, repo=repo, pr_number=pr_number, comment_body=comment_body
         )
 
         assert result is True
@@ -203,17 +189,32 @@ class TestPostCommentToPR(TestCase):
 class TestMainFunction(TestCase):
     """Test the main function with pure function design."""
 
-    @patch('sys.argv', ['post_release_status.py',
-                        '--version', '1.0.0',
-                        '--release-url', 'https://github.com/owner/repo/releases/tag/v1.0.0',
-                        '--pypi-url', 'https://pypi.org/project/quilt-mcp-server/1.0.0/',
-                        '--docker-image', 'registry/image:1.0.0',
-                        '--release-id', '12345',
-                        '--sha', 'abc123',
-                        '--repo', 'owner/repo',
-                        '--github-token', 'test-token',
-                        '--is-production', 'true',
-                        '--package-name', 'quilt-mcp-server'])
+    @patch(
+        'sys.argv',
+        [
+            'post_release_status.py',
+            '--version',
+            '1.0.0',
+            '--release-url',
+            'https://github.com/owner/repo/releases/tag/v1.0.0',
+            '--pypi-url',
+            'https://pypi.org/project/quilt-mcp-server/1.0.0/',
+            '--docker-image',
+            'registry/image:1.0.0',
+            '--release-id',
+            '12345',
+            '--sha',
+            'abc123',
+            '--repo',
+            'owner/repo',
+            '--github-token',
+            'test-token',
+            '--is-production',
+            'true',
+            '--package-name',
+            'quilt-mcp-server',
+        ],
+    )
     @patch('post_release_status.update_release_notes')
     @patch('post_release_status.find_pr_for_sha')
     @patch('post_release_status.post_comment_to_pr')
@@ -231,13 +232,23 @@ class TestMainFunction(TestCase):
         mock_find_pr.assert_called_once()
         mock_post_comment.assert_called_once()
 
-    @patch('sys.argv', ['post_release_status.py',
-                        '--version', '1.0.0',
-                        '--release-url', 'https://github.com/owner/repo/releases/tag/v1.0.0',
-                        '--pypi-url', 'https://pypi.org/project/quilt-mcp-server/1.0.0/',
-                        '--repo', 'owner/repo',
-                        '--github-token', 'test-token',
-                        '--dry-run'])
+    @patch(
+        'sys.argv',
+        [
+            'post_release_status.py',
+            '--version',
+            '1.0.0',
+            '--release-url',
+            'https://github.com/owner/repo/releases/tag/v1.0.0',
+            '--pypi-url',
+            'https://pypi.org/project/quilt-mcp-server/1.0.0/',
+            '--repo',
+            'owner/repo',
+            '--github-token',
+            'test-token',
+            '--dry-run',
+        ],
+    )
     def test_main_dry_run(self):
         """Test dry run mode."""
         # Capture stdout
