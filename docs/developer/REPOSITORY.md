@@ -127,6 +127,17 @@ spec/
 - **`Makefile`**: Main coordination hub that delegates to specialized makefiles
 - **`make.dev`**: Development workflow (testing, linting, local server)
 - **`make.deploy`**: Production packaging and MCPB creation
+- **`deploy/terraform/modules/mcp_server`**: Reusable Terraform module for ECS/Fargate MCP deployments (created as part of issue #190)
+
+### Remote MCP Deployment Checklist
+
+- Use the existing Quilt production ECS cluster (e.g., `sales-prod`) and its private subnets/security groups—do **not** create ad-hoc infrastructure.
+- Publish Docker images with `--platform linux/amd64` to ensure Fargate can pull the artifact.
+- Configure ALB listener rules with both `host-header` (certificate-backed domain such as `demo.quiltdata.com`) and `path-pattern` conditions pointing to `/mcp/*`.
+- Target group and container health checks must hit `/healthz`; the server now exposes that endpoint by default.
+- Security groups: ALB inbound on 443 from the internet, ALB outbound to the MCP task SG on port 8000, task SG inbound from the ALB SG on port 8000.
+- Claude Desktop (and other stdio clients) should proxy through `FastMCP.as_proxy(...)`, pointing at the public HTTPS URL so the certificate matches.
+- Validation checklist: `curl -v https://<domain>/mcp/` reports a valid certificate, the target group shows healthy instances, and a Streamable HTTP request without SSE headers returns a `406` (expected unless proxied).
 
 ### Key Build Targets
 

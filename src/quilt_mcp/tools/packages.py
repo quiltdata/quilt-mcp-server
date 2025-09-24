@@ -65,12 +65,25 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
     Returns:
         Dict with search results including package names and metadata.
     """
+    effective_limit = limit if limit >= 0 else 10
+    normalized_registry = _normalize_registry(registry)
+    
+    try:
+        # Try bearer token GraphQL search first
+        from quilt_mcp.services.graphql_bearer_service import get_graphql_bearer_service
+        
+        graphql_service = get_graphql_bearer_service()
+        result = graphql_service.search_packages(query, normalized_registry, effective_limit, from_)
+        
+        if result["success"]:
+            return result
+            
+    except Exception as e:
+        logger.warning("Bearer token GraphQL package search failed, falling back to quilt3: %s", e)
+    
+    # Fallback to original quilt3-based search
     # HYBRID APPROACH: Use unified search architecture but scope to specified registry
     # This prevents inappropriate searches across buckets not in user's stack
-    effective_limit = limit if limit >= 0 else 10
-
-    # Extract bucket name from registry for targeted search
-    normalized_registry = _normalize_registry(registry)
     bucket_name = normalized_registry.replace("s3://", "")
 
     # Suppress stdout during search to avoid JSON-RPC interference

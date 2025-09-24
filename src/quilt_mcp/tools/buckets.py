@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import boto3
@@ -7,6 +8,8 @@ import boto3
 from ..constants import DEFAULT_BUCKET
 from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
+
+logger = logging.getLogger(__name__)
 
 # Helpers
 
@@ -446,101 +449,113 @@ def bucket_objects_search_graphql(
     Returns:
         Dict with objects, pagination info, and the effective filter used.
     """
-    import json
-    from urllib.parse import urljoin
-
     bkt = _normalize_bucket(bucket)
-    # Acquire authenticated session and registry from QuiltService
-    quilt_service = QuiltService()
-
-    if not quilt_service.has_session_support():
-        return {
-            "success": False,
-            "error": "quilt3 session not available for GraphQL",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    session = quilt_service.get_session()
-    registry_url = quilt_service.get_registry_url()
-    if not registry_url:
-        return {
-            "success": False,
-            "error": "Registry URL not configured for GraphQL",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-
-    # Provide a minimal, generic query. The exact schema may vary by catalog;
-    # we target a common pattern where objects are searchable with filters
-    # and linked to package versions when present.
-    gql = (
-        "query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {\n"
-        "  objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {\n"
-        "    edges {\n"
-        "      node { key size updated contentType extension package { name topHash tag } }\n"
-        "      cursor\n"
-        "    }\n"
-        "    pageInfo { endCursor hasNextPage }\n"
-        "  }\n"
-        "}"
-    )
-
-    variables = {
-        "bucket": bkt,
-        "filter": object_filter or {},
-        "first": max(1, min(first, 1000)),
-        "after": after or None,
-    }
-
+    
     try:
-        resp = session.post(graphql_url, json={"query": gql, "variables": variables})
-        if resp.status_code != 200:
-            return {
-                "success": False,
-                "error": f"GraphQL error {resp.status_code}: {resp.text}",
-                "bucket": bkt,
-                "objects": [],
-            }
-        data = resp.json()
-        if "errors" in data:
-            return {
-                "success": False,
-                "error": json.dumps(data["errors"]),
-                "bucket": bkt,
-                "objects": [],
-            }
-        conn = data.get("data", {}).get("objects", {})
-        edges = conn.get("edges", []) or []
-        objects = [
-            {
-                "key": edge.get("node", {}).get("key"),
-                "size": edge.get("node", {}).get("size"),
-                "updated": edge.get("node", {}).get("updated"),
-                "content_type": edge.get("node", {}).get("contentType"),
-                "extension": edge.get("node", {}).get("extension"),
-                "package": edge.get("node", {}).get("package"),
-            }
-            for edge in edges
-            if isinstance(edge, dict)
-        ]
-        page_info = conn.get("pageInfo", {}) or {}
-        return {
-            "success": True,
-            "bucket": bkt,
-            "objects": objects,
-            "page_info": {
-                "end_cursor": page_info.get("endCursor"),
-                "has_next_page": page_info.get("hasNextPage", False),
-            },
-            "filter": variables["filter"],
-        }
+        # Use the new bearer token GraphQL service
+        from quilt_mcp.services.graphql_bearer_service import get_graphql_bearer_service
+        
+        graphql_service = get_graphql_bearer_service()
+        return graphql_service.search_objects(bkt, object_filter, first, after)
+        
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"GraphQL request failed: {e}",
+        logger.warning("Bearer token GraphQL search failed, falling back to quilt3: %s", e)
+        
+        # Fallback to old quilt3 method
+        import json
+        from urllib.parse import urljoin
+        
+        # Acquire authenticated session and registry from QuiltService
+        quilt_service = QuiltService()
+
+        if not quilt_service.has_session_support():
+            return {
+                "success": False,
+                "error": "quilt3 session not available for GraphQL",
+                "bucket": bkt,
+                "objects": [],
+            }
+
+        session = quilt_service.get_session()
+        registry_url = quilt_service.get_registry_url()
+        if not registry_url:
+            return {
+                "success": False,
+                "error": "Registry URL not configured for GraphQL",
+                "bucket": bkt,
+                "objects": [],
+            }
+
+        graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
+
+        # Provide a minimal, generic query. The exact schema may vary by catalog;
+        # we target a common pattern where objects are searchable with filters
+        # and linked to package versions when present.
+        gql = (
+            "query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {\n"
+            "  objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {\n"
+            "    edges {\n"
+            "      node { key size updated contentType extension package { name topHash tag } }\n"
+            "      cursor\n"
+            "    }\n"
+            "    pageInfo { endCursor hasNextPage }\n"
+            "  }\n"
+            "}"
+        )
+
+        variables = {
             "bucket": bkt,
-            "objects": [],
+            "filter": object_filter or {},
+            "first": max(1, min(first, 1000)),
+            "after": after or None,
         }
+
+        try:
+            resp = session.post(graphql_url, json={"query": gql, "variables": variables})
+            if resp.status_code != 200:
+                return {
+                    "success": False,
+                    "error": f"GraphQL error {resp.status_code}: {resp.text}",
+                    "bucket": bkt,
+                    "objects": [],
+                }
+            data = resp.json()
+            if "errors" in data:
+                return {
+                    "success": False,
+                    "error": json.dumps(data["errors"]),
+                    "bucket": bkt,
+                    "objects": [],
+                }
+            conn = data.get("data", {}).get("objects", {})
+            edges = conn.get("edges", []) or []
+            objects = [
+                {
+                    "key": edge.get("node", {}).get("key"),
+                    "size": edge.get("node", {}).get("size"),
+                    "updated": edge.get("node", {}).get("updated"),
+                    "content_type": edge.get("node", {}).get("contentType"),
+                    "extension": edge.get("node", {}).get("extension"),
+                    "package": edge.get("node", {}).get("package"),
+                }
+                for edge in edges
+                if isinstance(edge, dict)
+            ]
+            page_info = conn.get("pageInfo", {}) or {}
+            return {
+                "success": True,
+                "bucket": bkt,
+                "objects": objects,
+                "page_info": {
+                    "end_cursor": page_info.get("endCursor"),
+                    "has_next_page": page_info.get("hasNextPage", False),
+                },
+                "filter": variables["filter"],
+            }
+        except Exception as graphql_error:
+            return {
+                "success": False,
+                "error": f"GraphQL request failed: {graphql_error}",
+                "bucket": bkt,
+                "objects": [],
+            }

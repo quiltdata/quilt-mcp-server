@@ -7,12 +7,14 @@ import os
 import re
 import sys
 import io
+import time
 import contextlib
 from typing import Any, Dict, Literal, Callable
 from urllib.parse import urlparse, parse_qs, unquote
 
 import boto3
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -81,13 +83,23 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
 
 def create_mcp_server() -> FastMCP:
     """Create and configure the FastMCP server instance."""
-    return FastMCP("quilt-mcp-server")
+    # Create FastMCP server with proper configuration for HTTP transport
+    mcp = FastMCP("quilt-mcp-server")
+    
+    # Configure for HTTP transport to handle initialization properly
+    # This helps resolve the "Received request before initialization was complete" issue
+    if hasattr(mcp, '_session_manager'):
+        # Allow early requests to be processed
+        mcp._session_manager._allow_early_requests = True
+    
+    return mcp
 
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
     from quilt_mcp.tools import (
         auth,
+        bearer_auth,
         buckets,
         package_ops,
         packages,
@@ -109,6 +121,7 @@ def get_tool_modules() -> list[Any]:
 
     return [
         auth,
+        bearer_auth,
         buckets,
         packages,
         package_ops,
@@ -284,11 +297,175 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
 
+    @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
+    async def _health_check(_request):  # type: ignore[reportUnusedFunction]
+        """Comprehensive health endpoint for load balancers and monitoring."""
+        try:
+            import psutil
+            # Basic health indicators
+            health_data = {
+                "status": "ok",
+                "timestamp": time.time(),
+                "uptime_seconds": time.time() - psutil.boot_time(),
+                "memory_usage_percent": psutil.virtual_memory().percent,
+                "cpu_usage_percent": psutil.cpu_percent(interval=1),
+                "mcp_tools_count": tools_count,
+                "transport": "sse" if hasattr(mcp, '_transport') else "unknown"
+            }
+            
+            # Check if we're under resource pressure
+            if health_data["memory_usage_percent"] > 90:
+                health_data["status"] = "degraded"
+                health_data["warning"] = "High memory usage"
+            elif health_data["cpu_usage_percent"] > 90:
+                health_data["status"] = "degraded" 
+                health_data["warning"] = "High CPU usage"
+                
+            return JSONResponse(health_data)
+            
+        except ImportError:
+            # psutil not available, use basic fallback
+            return JSONResponse({
+                "status": "ok",
+                "timestamp": time.time(),
+                "mcp_tools_count": tools_count,
+                "transport": "sse" if hasattr(mcp, '_transport') else "unknown"
+            })
+        except Exception:
+            # Fallback to basic health check if monitoring fails
+            return JSONResponse({
+                "status": "ok",
+                "timestamp": time.time(),
+                "basic_check": True,
+                "note": "Basic health check only"
+            })
+
     if verbose:
         # Use stderr to avoid interfering with JSON-RPC on stdout
         print(f"Successfully registered {tools_count} tools", file=sys.stderr)
 
     return mcp
+
+
+def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
+    """Return an ASGI app for HTTP transports with CORS configured."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Configure FastMCP with proper settings for HTTP transport
+    # This helps resolve initialization timing issues
+    if hasattr(mcp, '_config'):
+        mcp._config['allow_early_requests'] = True
+    
+    # Get the FastAPI app from FastMCP
+    app = mcp.http_app(transport=transport)
+    
+    # Add Quilt role header middleware to extract role information
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware
+        import json
+        
+        class QuiltAuthMiddleware(BaseHTTPMiddleware):
+            """Middleware to handle Quilt authentication via bearer tokens or role headers."""
+            
+            async def dispatch(self, request, call_next):
+                # Extract authentication information from headers
+                authorization = request.headers.get("authorization")
+                quilt_user_role = request.headers.get("x-quilt-user-role")
+                quilt_user_id = request.headers.get("x-quilt-user-id")
+                
+                # Handle bearer token authentication (preferred method)
+                if authorization and authorization.startswith("Bearer "):
+                    access_token = authorization[7:]  # Remove "Bearer " prefix
+                    logger.info("QuiltAuthMiddleware: Detected Bearer token authentication")
+                    
+                    try:
+                        from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service
+                        bearer_auth_service = get_bearer_auth_service()
+                        
+                        # Validate the bearer token
+                        status, user_info = bearer_auth_service.validate_bearer_token(access_token)
+                        if status.value == "authenticated":
+                            logger.info("QuiltAuthMiddleware: Bearer token authentication successful for user: %s", 
+                                       user_info.get('username', 'unknown') if user_info else 'unknown')
+                            # Set environment variables for downstream services
+                            os.environ["QUILT_ACCESS_TOKEN"] = access_token
+                            if user_info:
+                                os.environ["QUILT_USER_INFO"] = json.dumps(user_info)
+                        else:
+                            logger.warning("QuiltAuthMiddleware: Bearer token authentication failed: %s", status.value)
+                    except Exception as e:
+                        logger.error("QuiltAuthMiddleware: Bearer token authentication error: %s", e)
+                
+                # Handle legacy role header authentication (fallback)
+                elif quilt_user_role:
+                    logger.info("QuiltAuthMiddleware: Detected X-Quilt-User-Role header: %s", quilt_user_role)
+                    logger.info("QuiltAuthMiddleware: Using legacy role assumption authentication")
+                    
+                    # Set environment variables for the authentication service
+                    os.environ["QUILT_USER_ROLE_ARN"] = quilt_user_role
+                    if quilt_user_id:
+                        os.environ["QUILT_USER_ID"] = quilt_user_id
+                        logger.info("QuiltAuthMiddleware: Set QUILT_USER_ID environment variable")
+                    
+                    # Automatically attempt role assumption if role header is present
+                    try:
+                        logger.info("QuiltAuthMiddleware: Attempting to auto-assume role: %s", quilt_user_role)
+                        from quilt_mcp.services.auth_service import get_auth_service
+                        auth_service = get_auth_service()
+                        auth_service.auto_attempt_role_assumption()
+                        logger.info("QuiltAuthMiddleware: Role assumption attempt completed")
+                    except Exception as e:
+                        # Log error but don't fail the request
+                        logger.error("QuiltAuthMiddleware: Failed to auto-assume Quilt role: %s", e)
+                
+                else:
+                    logger.debug("QuiltAuthMiddleware: No authentication headers detected")
+                
+                # Continue to the next middleware/handler
+                response = await call_next(request)
+                return response
+        
+        # Add the Quilt auth middleware
+        app.add_middleware(QuiltAuthMiddleware)
+        
+    except ImportError as exc:
+        logger.error(f"ImportError: Quilt role middleware unavailable: {exc}")
+    except Exception as exc:
+        logger.error(f"Unexpected error adding Quilt role middleware: {exc}")
+
+
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+
+        # Configure CORS middleware with proper settings for MCP Streamable HTTP
+        # According to MCP spec: https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # For development - in production, specify actual origins
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # MCP requires both GET and POST
+            allow_headers=[
+                "*",  # Allow all headers including MCP-Protocol-Version and Mcp-Session-Id
+                "Content-Type",
+                "Accept", 
+                "MCP-Protocol-Version",
+                "Mcp-Session-Id",
+                "Authorization",  # Required for OAuth 2.1 Bearer tokens
+                "X-Quilt-User-Role",  # Quilt role information
+                "X-Quilt-User-Id",    # Quilt user identification
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"
+            ],
+            allow_credentials=False,  # Set to False to allow "*" origins
+            expose_headers=["mcp-session-id"],  # Required by MCP spec for session management
+        )
+        
+    except ImportError as exc:  # pragma: no cover
+        print(f"Warning: CORS middleware unavailable: {exc}", file=sys.stderr)
+
+    return app
+
 
 
 def run_server() -> None:
@@ -307,7 +484,19 @@ def run_server() -> None:
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
-        # Run the server
+        # For HTTP transport, add CORS middleware
+        if transport in ["http", "streamable-http", "sse"]:
+            app = build_http_app(mcp, transport=transport)
+
+            import uvicorn
+
+            # Support both FASTMCP_ADDR (production) and FASTMCP_HOST (legacy) for compatibility
+            host = os.environ.get("FASTMCP_ADDR") or os.environ.get("FASTMCP_HOST", "0.0.0.0")
+            port = int(os.environ.get("FASTMCP_PORT", "8000"))
+            uvicorn.run(app, host=host, port=port, log_level="info")
+            return
+
+        # Run the server with standard transport
         mcp.run(transport=transport)
 
     except Exception as e:

@@ -1,6 +1,6 @@
 # Quilt MCP Server
 
-MCP server for Quilt data catalog - search, analyze, and manage data packages with 84+ tools.
+MCP server for Quilt data catalog - search, analyze, and manage data packages with 84+ tools. Features comprehensive permission management with tool-based access control for secure AWS operations.
 
 [![Tests](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml/badge.svg)](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -57,6 +57,31 @@ Set via environment or MCP config:
 - `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL
 - `QUILT_DEFAULT_BUCKET` - Default S3 bucket
 - `AWS_PROFILE` - AWS credentials profile
+
+## Permission Management
+
+The MCP server features a comprehensive permission system that provides fine-grained access control for AWS operations:
+
+### Key Features
+
+- **Tool-Based Permissions**: Each MCP tool has specific AWS permissions mapped to it
+- **Role-Based Access Control**: Flexible role definitions with tool-based permissions
+- **JWT Token Authentication**: Secure authentication using OAuth2 bearer tokens
+- **Self-Service Debugging**: Tools to validate permissions and discover available operations
+
+### Permission Tools
+
+- `validate_tool_access(tool_name, bucket_name)` - Check if you can use a specific tool
+- `list_available_tools()` - See all available tools and your permissions
+- `get_user_permissions()` - Get your current authorization level
+
+### Supported Roles
+
+- **ReadWriteQuiltV2-sales-prod**: Full access to sales production buckets
+- **ReadOnlyQuilt**: Read-only access to sandbox bucket
+- **AdminQuilt**: Administrative access to all buckets
+
+For detailed information, see [Comprehensive Permission Scheme](./docs/architecture/COMPREHENSIVE_PERMISSION_SCHEME.md).
 
 ## Development
 

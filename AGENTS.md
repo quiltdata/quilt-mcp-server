@@ -312,6 +312,12 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 - `make release` - Create and push release tag
 - `make release-dev` - Create and push development tag
 
+**Docker Operations (make.deploy):**
+
+- `make docker-build` - Build Docker image locally
+- `make docker-push` - Build and push Docker image to ECR (requires VERSION)
+- `make docker-push-dev` - Build and push development Docker image
+
 **Coordination & Utilities:**
 
 - `make help` - Show all available targets organized by category
@@ -412,8 +418,130 @@ The following permissions are granted for this repository:
 - `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
 - GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make mcpb`, `make mcpb-validate`, and `make release-zip` for complete packaging. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
 
+### 2025-09-23 Authentication & Role Assumption Architecture
+
+**Key Learnings from Implementing Automatic Role Assumption:**
+
+#### Middleware Architecture for Request Context
+- **Starlette Middleware Pattern**: Use `BaseHTTPMiddleware` for request-scoped operations
+- **Environment Variable Bridge**: Middleware extracts headers and sets environment variables for services to consume
+- **Order Matters**: Add custom middleware before CORS middleware to ensure proper header processing
+- **Error Handling**: Wrap middleware operations in try-catch to prevent request failures
+
+#### Authentication Service Design
+- **Multi-Method Authentication**: Support multiple auth methods with priority-based fallback
+- **Per-Request Role Assumption**: Enable automatic role assumption on each request when headers present
+- **Session Management**: Maintain assumed role sessions with expiration handling
+- **State Isolation**: Each request can trigger role assumption without affecting global state
+
+#### AWS IAM Role Assumption Patterns
+- **STS AssumeRole**: Use `sts:assume_role` with proper session naming and source identity
+- **Trust Policy Requirements**: Target roles must trust the ECS task role ARN
+- **Session Validation**: Always validate assumed roles with `get_caller_identity`
+- **Credential Management**: Store temporary credentials with proper expiration handling
+
+#### Quilt Integration Architecture
+- **Header-Based Communication**: Use `X-Quilt-User-Role` and `X-Quilt-User-Id` headers
+- **Automatic Role Switching**: No user intervention required - roles switch automatically
+- **Per-User Isolation**: Each user's MCP operations use their specific AWS role
+- **Fallback Mechanisms**: Support both header-based (production) and credential-based (development) auth
+
+#### Implementation Patterns
+```python
+# Middleware extracts headers and sets environment variables
+class QuiltRoleMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        role_arn = request.headers.get("x-quilt-user-role")
+        if role_arn:
+            os.environ["QUILT_USER_ROLE_ARN"] = role_arn
+            auth_service.auto_attempt_role_assumption()
+        return await call_next(request)
+
+# Authentication service automatically assumes roles
+def auto_attempt_role_assumption(self) -> bool:
+    role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+    if role_arn and self._assumed_role_arn != role_arn:
+        return self.assume_quilt_user_role(role_arn)
+    return True
+```
+
+#### Key Architecture Decisions
+1. **Automatic vs Manual**: Role assumption is automatic when headers present, manual tools provided for override
+2. **Request-Scoped**: Each HTTP request can trigger role assumption independently
+3. **Environment Bridge**: Use environment variables to pass request context to services
+4. **Graceful Fallback**: Multiple authentication methods with priority-based selection
+5. **Security First**: Always validate assumed roles and handle credential expiration
+
+#### Deployment and Configuration Learnings
+- **Docker Image Tagging**: Use descriptive tags like `auto-role-assumption` for tracking deployments
+- **ECS Task Definition Updates**: Always update task definition with new image tags before deployment
+- **IAM Trust Policy Management**: Target roles must trust both ECS task role and execution role
+- **Role Name Validation**: Ensure frontend sends correct role names (e.g., `ReadWriteQuiltV2-sales-prod` not `ReadWriteQuiltBucket`)
+- **Platform Compatibility**: Always build Docker images with `--platform linux/amd64` for ECS compatibility
+
+#### Troubleshooting Patterns
+- **CloudWatch Log Analysis**: Monitor for "Automatic role assumption successful/failed" messages
+- **Header Validation**: Verify frontend sends full AWS ARNs, not just role names
+- **IAM Permission Checks**: Use `aws iam get-role` and `aws iam list-roles` to verify role existence and trust policies
+- **Environment Variable Debugging**: Check `QUILT_USER_ROLE_ARN` and `QUILT_USER_ID` in container logs
+
+### Docker container + release notes (2025-09-22)
+
+- `src/quilt_mcp/main.py` now honours a pre-set `FASTMCP_TRANSPORT`; container entrypoints should export `FASTMCP_TRANSPORT=http` and `FASTMCP_HOST=0.0.0.0` before invoking `quilt-mcp`.
+- The Dockerfile uses the `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` base. Native deps (`build-essential`, `libcurl4(-openssl-dev)`, `zlib1g(-dev)`) are required for `pybigwig`; keep them in sync if the dependency list changes.
+- `make docker-build`, `make docker-run`, and `make docker-test` wrap common local workflows. `make docker-test` executes `tests/integration/test_docker_container.py`, which builds the image and probes `http://localhost:*/mcp` for a 30–60s readiness window.
+- Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
+- When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
+- Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
+- Remote deployments use the Terraform module in `deploy/terraform/modules/mcp_server`; it creates the ECS service, ALB target group, CloudWatch log group, and exposes `/healthz` for load balancer checks.
+- Follow existing Quilt production patterns when deploying remotely: reuse the `sales-prod` cluster and private subnets, publish linux/amd64 images, route traffic through a host/path rule that matches the ALB certificate (e.g., `demo.quiltdata.com/mcp/*`), and ensure security groups allow ALB↔ECS communication on port 8000.
+
+### Docker Build and Deployment Refactoring (2025-09-22)
+
+**Script-based Docker Operations:**
+
+- All Docker operations extracted to `scripts/docker.sh` for reusability and local testing
+- Script supports both `build` (local testing) and `push` (ECR deployment) commands
+- Integrates with existing `scripts/docker_image.py` for consistent tag generation
+- Supports dry-run mode via `--dry-run` for testing workflow changes
+
+**GitHub Actions Integration:**
+
+- Production releases (tags matching `v*` but not `v*-dev-*`) build and push Docker images automatically
+- Development releases skip Docker builds to reduce CI/CD time and resource usage
+- PR builds test Docker image building without pushing (build-only validation)
+- Docker operations moved from `push.yml` workflow into `create-release` action for better encapsulation
+
+**Makefile Integration:**
+
+- `make docker-build` - Build locally for development and testing
+- `make docker-push` - Build and push to ECR (requires VERSION environment variable)
+- `make docker-push-dev` - Build and push with timestamp-based development tags
+- All Docker targets include proper dependency checking for Docker daemon and required tools
+
+**GitHub Secrets Configuration:**
+
+Required secrets for Docker operations:
+- `ECR_REGISTRY` - ECR registry URL (preferred)
+- `AWS_ACCOUNT_ID` - AWS account ID (fallback for registry construction)
+- `AWS_DEFAULT_REGION` - AWS region (defaults to us-east-1)
+- Existing AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for ECR login
+
+**Environment Variable Support:**
+
+- `scripts/docker.sh` respects all environment variables from `env.example`
+- `ECR_REGISTRY`, `AWS_ACCOUNT_ID`, `AWS_DEFAULT_REGION` for registry configuration
+- `VERSION` for overriding image version tags
+- `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
+
 ## important-instruction-reminders
 
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+# important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.

@@ -9,32 +9,40 @@ catalog configuration, similar to how bucket discovery uses GraphQL in
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from ..services.quilt_service import QuiltService
 
+logger = logging.getLogger(__name__)
+
 
 def _get_graphql_endpoint():
-    """Return (session, graphql_url) from QuiltService context or (None, None).
-
-    Uses QuiltService to acquire the authenticated requests session and
-    the active registry URL, then constructs the GraphQL endpoint.
+    """Return (session, graphql_url) using bearer token authentication.
+    
+    Uses the new bearer token authentication system instead of quilt3 sessions.
     """
     try:
-        from urllib.parse import urljoin
-
-        quilt_service = QuiltService()
-
-        if not quilt_service.has_session_support():
+        from quilt_mcp.services.graphql_bearer_service import get_graphql_bearer_service
+        
+        graphql_service = get_graphql_bearer_service()
+        return graphql_service.get_graphql_endpoint()
+    except Exception as e:
+        logger.debug("Error getting GraphQL endpoint with bearer auth: %s", e)
+        # Fallback to old quilt3 method if bearer token not available
+        try:
+            from urllib.parse import urljoin
+            quilt_service = QuiltService()
+            if not quilt_service.has_session_support():
+                return None, None
+            session = quilt_service.get_session()
+            registry_url = quilt_service.get_registry_url()
+            if not registry_url:
+                return None, None
+            graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
+            return session, graphql_url
+        except Exception:
             return None, None
-        session = quilt_service.get_session()
-        registry_url = quilt_service.get_registry_url()
-        if not registry_url:
-            return None, None
-        graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-        return session, graphql_url
-    except Exception:
-        return None, None
 
 
 def catalog_graphql_query(query: str, variables: dict | None = None) -> dict[str, Any]:

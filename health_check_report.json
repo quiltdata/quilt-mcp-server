@@ -1,0 +1,200 @@
+{
+  "timestamp": "2025-09-23T02:25:04.491762",
+  "ecs_services": {
+    "production": {
+      "service_name": "sales-prod-mcp-server-production",
+      "status": "ACTIVE",
+      "desired_count": 1,
+      "running_count": 1,
+      "pending_count": 0,
+      "task_definition": "arn:aws:ecs:us-east-1:850787717197:task-definition/quilt-mcp-server:14",
+      "health_check_grace_period": 0,
+      "load_balancers": [
+        {
+          "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:850787717197:targetgroup/sales-prod-mcp-server/fbe20e7706303879",
+          "containerName": "mcp-server",
+          "containerPort": 8000
+        }
+      ],
+      "task_count": 1
+    },
+    "sse": {
+      "service_name": "sales-prod-mcp-server-sse",
+      "status": "ACTIVE",
+      "desired_count": 1,
+      "running_count": 1,
+      "pending_count": 0,
+      "task_definition": "arn:aws:ecs:us-east-1:850787717197:task-definition/mcp-server-sse:1",
+      "health_check_grace_period": 0,
+      "load_balancers": [
+        {
+          "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:850787717197:targetgroup/sales-prod-mcp-sse/dcb274e4f4f93495",
+          "containerName": "mcp-server",
+          "containerPort": 8000
+        }
+      ],
+      "task_count": 1
+    }
+  },
+  "target_groups": {
+    "sales-prod-mcp": {
+      "total_targets": 0,
+      "healthy": 0,
+      "unhealthy": 0,
+      "draining": 0,
+      "targets": []
+    },
+    "sales-prod-mcp-server": {
+      "total_targets": 1,
+      "healthy": 1,
+      "unhealthy": 0,
+      "draining": 0,
+      "targets": [
+        {
+          "id": "10.0.0.31",
+          "port": 8000,
+          "state": "healthy",
+          "reason": "",
+          "description": ""
+        }
+      ]
+    },
+    "sales-prod-mcp-sse": {
+      "total_targets": 2,
+      "healthy": 2,
+      "unhealthy": 0,
+      "draining": 0,
+      "targets": [
+        {
+          "id": "10.0.23.96",
+          "port": 8000,
+          "state": "healthy",
+          "reason": "",
+          "description": ""
+        },
+        {
+          "id": "10.0.177.181",
+          "port": 8000,
+          "state": "healthy",
+          "reason": "",
+          "description": ""
+        }
+      ]
+    },
+    "sales-prod-mcp-test": {
+      "total_targets": 0,
+      "healthy": 0,
+      "unhealthy": 0,
+      "draining": 0,
+      "targets": []
+    },
+    "sales-prod-mcp-test-simple": {
+      "total_targets": 1,
+      "healthy": 1,
+      "unhealthy": 0,
+      "draining": 0,
+      "targets": [
+        {
+          "id": "10.0.30.115",
+          "port": 80,
+          "state": "healthy",
+          "reason": "",
+          "description": ""
+        }
+      ]
+    }
+  },
+  "tasks": {
+    "production": {
+      "tasks": [
+        {
+          "task_id": "1dd22f924c83426488b6c51bf5f01150",
+          "last_status": "RUNNING",
+          "desired_status": "RUNNING",
+          "health_status": "HEALTHY",
+          "created_at": "2025-09-23T01:49:30.086000-05:00",
+          "started_at": "2025-09-23T01:50:03.931000-05:00",
+          "containers": [
+            {
+              "name": "mcp-server",
+              "last_status": "RUNNING",
+              "health_status": "HEALTHY",
+              "exit_code": null,
+              "reason": null
+            }
+          ]
+        }
+      ]
+    },
+    "sse": {
+      "tasks": [
+        {
+          "task_id": "008d18005d8a4bd19f7fab4a162867af",
+          "last_status": "RUNNING",
+          "desired_status": "RUNNING",
+          "health_status": "UNHEALTHY",
+          "created_at": "2025-09-23T02:22:14.342000-05:00",
+          "started_at": "2025-09-23T02:22:58.474000-05:00",
+          "containers": [
+            {
+              "name": "mcp-server",
+              "last_status": "RUNNING",
+              "health_status": "UNHEALTHY",
+              "exit_code": null,
+              "reason": null
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "logs": {
+    "/ecs/mcp-server-production": {
+      "total_events": 50,
+      "error_events": 0,
+      "recent_errors": []
+    },
+    "/ecs/mcp-server-sse": {
+      "total_events": 13,
+      "error_events": 0,
+      "recent_errors": []
+    }
+  },
+  "endpoints": {
+    "https://demo.quiltdata.com/healthz": {
+      "status_code": 404,
+      "headers": {
+        "Server": "awselb/2.0",
+        "Date": "Tue, 23 Sep 2025 07:25:16 GMT",
+        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Length": "20",
+        "Connection": "keep-alive"
+      },
+      "body": "Nothing to see here.",
+      "success": false,
+      "error": null
+    },
+    "https://demo.quiltdata.com/mcp/": {
+      "status_code": 406,
+      "headers": {
+        "Date": "Tue, 23 Sep 2025 07:25:17 GMT",
+        "Content-Type": "application/json",
+        "Content-Length": "126",
+        "Connection": "keep-alive",
+        "server": "uvicorn",
+        "mcp-session-id": "544a9301519741fda151bb7f63b5ebb9",
+        "access-control-expose-headers": "mcp-session-id"
+      },
+      "body": "{\"jsonrpc\":\"2.0\",\"id\":\"server-error\",\"error\":{\"code\":-32600,\"message\":\"Not Acceptable: Client must accept text/event-stream\"}}",
+      "success": false,
+      "error": null
+    },
+    "https://demo.quiltdata.com/sse/": {
+      "status_code": null,
+      "headers": {},
+      "body": "",
+      "success": false,
+      "error": "HTTPSConnectionPool(host='demo.quiltdata.com', port=443): Read timed out."
+    }
+  }
+}

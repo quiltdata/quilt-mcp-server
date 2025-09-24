@@ -22,7 +22,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev check-docker-tools
 
 # Check for required tools
 check-tools:
@@ -30,6 +30,12 @@ check-tools:
 	@command -v uv >/dev/null 2>&1 || { echo "❌ uv not found - install uv package manager"; exit 1; }
 	@command -v mcpb >/dev/null 2>&1 || { echo "❌ mcpb not found - run: npm install -g @anthropic-ai/mcpb"; exit 1; }
 	@echo "✅ All required tools found"
+
+# Check for Docker-specific tools
+check-docker-tools:
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found - install Docker"; exit 1; }
+	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
+	@echo "✅ Docker tools available"
 
 # Build Environment Preparation
 deploy-build: check-tools
@@ -119,6 +125,28 @@ $(RELEASE_ZIP): mcpb-validate $(ASSETS_DIR)/README.md $(ASSETS_DIR)/check-mcpb.s
 
 release-zip: $(RELEASE_ZIP)
 	@echo "✅ Release bundle $(RELEASE_ZIP) ready for distribution"
+
+# Docker Operations
+docker-build: check-docker-tools
+	@echo "🐳 Building Docker image locally..."
+	@uv run python scripts/docker.py build
+	@echo "✅ Docker build completed"
+
+docker-push: check-docker-tools
+	@echo "🐳 Building and pushing Docker image..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION is required for docker-push. Use: make docker-push VERSION=1.2.3"; \
+		exit 1; \
+	fi
+	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
+	@echo "✅ Docker push completed"
+
+docker-push-dev: check-docker-tools
+	@echo "🐳 Building and pushing development Docker image..."
+	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)"
+	@echo "Using development version: $$DEV_VERSION"
+	@VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
+	@echo "✅ Development Docker push completed"
 
 # Release Tagging Targets
 release-tag:

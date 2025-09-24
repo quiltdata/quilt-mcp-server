@@ -6,8 +6,11 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
+from starlette.testclient import TestClient
+
 from quilt_mcp.tools import auth, buckets, package_ops, packages
 from quilt_mcp.utils import (
+    build_http_app,
     create_configured_server,
     create_mcp_server,
     generate_signed_url,
@@ -157,6 +160,109 @@ class TestUtils(unittest.TestCase):
             parse_s3_uri("s3://")
 
         # This should raise ValueError when trying to split an empty string
+
+    def test_http_app_exposes_healthz(self):
+        """HTTP transport should expose /healthz for load balancer checks."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="http")
+
+        with TestClient(app) as client:
+            response = client.get("/healthz")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_http_app_exposes_custom_headers(self):
+        """Ensure CORS requests expose the mcp-session-id header."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="http")
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/mcp/",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "test", "version": "1.0"},
+                    },
+                },
+                headers={"Origin": "https://example.com"},
+            )
+
+        expose_header = response.headers.get("Access-Control-Expose-Headers")
+        self.assertIsNotNone(expose_header)
+        self.assertIn("mcp-session-id", {h.strip().lower() for h in expose_header.split(",")})
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+
+    def test_sse_transport_respects_cors_expose_headers(self):
+        """SSE transport should expose mcp-session-id without protocol errors."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="sse")
+
+        with TestClient(app) as client:
+            # Test CORS headers on a simple endpoint first
+            response = client.get("/healthz", headers={"Origin": "https://example.com"})
+            self.assertEqual(response.status_code, 200)
+            
+            # Check that CORS headers are properly set
+            expose_header = response.headers.get("Access-Control-Expose-Headers")
+            self.assertIsNotNone(expose_header)
+            self.assertIn(
+                "mcp-session-id",
+                {h.strip().lower() for h in expose_header.split(",")},
+            )
+            
+            # Verify CORS origin header
+            self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+
+    def test_cors_preflight_request(self):
+        """Test CORS preflight OPTIONS request works correctly."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="http")
+
+        with TestClient(app) as client:
+            # Test preflight request
+            response = client.options(
+                "/mcp/",
+                headers={
+                    "Origin": "https://example.com",
+                    "Access-Control-Request-Method": "POST",
+                    "Access-Control-Request-Headers": "content-type"
+                }
+            )
+            
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+            self.assertIn("POST", response.headers.get("Access-Control-Allow-Methods", ""))
+            self.assertIn("content-type", response.headers.get("Access-Control-Allow-Headers", ""))
+
+    def test_cors_headers_consistency_across_transports(self):
+        """Test that CORS headers are consistent across different transports."""
+        server = create_configured_server()
+        
+        transports = ["http", "sse", "streamable-http"]
+        for transport in transports:
+            with self.subTest(transport=transport):
+                app = build_http_app(server, transport=transport)
+                
+                with TestClient(app) as client:
+                    response = client.get("/healthz", headers={"Origin": "https://example.com"})
+                    self.assertEqual(response.status_code, 200)
+                    
+                    # All transports should expose the mcp-session-id header
+                    expose_header = response.headers.get("Access-Control-Expose-Headers")
+                    self.assertIsNotNone(expose_header)
+                    self.assertIn(
+                        "mcp-session-id",
+                        {h.strip().lower() for h in expose_header.split(",")},
+                    )
+                    
+                    # All transports should allow any origin
+                    self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
 
     def test_parse_s3_uri_bucket_with_special_chars(self):
         """Test parse_s3_uri with bucket containing allowed special characters."""
@@ -350,19 +456,22 @@ class TestMCPServerConfiguration(unittest.TestCase):
             # Check that print was called for verbose output
             mock_stderr.write.assert_called()
 
+    @patch("uvicorn.run")
+    @patch("quilt_mcp.utils.build_http_app")
     @patch("quilt_mcp.utils.create_configured_server")
-    def test_run_server_success(self, mock_create_server):
-        """Test successful run_server execution."""
+    def test_run_server_success(self, mock_create_server, mock_build_app, mock_uvicorn):
+        """HTTP transport invokes uvicorn with configured app."""
         mock_server = Mock(spec=FastMCP)
         mock_create_server.return_value = mock_server
+        mock_build_app.return_value = Mock()
 
-        # Set environment variable to a valid transport
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
+        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http", "FASTMCP_PORT": "9000"}):
             run_server()
 
-        # Verify server was created and run was called
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="http")
+        mock_build_app.assert_called_once_with(mock_server, transport="http")
+        mock_uvicorn.assert_called_once()
+        mock_server.run.assert_not_called()
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):
@@ -374,7 +483,6 @@ class TestMCPServerConfiguration(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             run_server()
 
-        # Verify default transport is used
         mock_server.run.assert_called_once_with(transport="stdio")
 
     @patch("quilt_mcp.utils.create_configured_server")

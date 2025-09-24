@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import os
 import tempfile
+import logging
 from typing import Any
 from urllib.parse import quote, urlparse
 
 from ..services.quilt_service import QuiltService
+from ..services.auth_service import get_auth_service
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -315,12 +319,49 @@ def auth_status() -> dict[str, Any]:
         Dict with comprehensive authentication status, catalog info, permissions, and next steps.
     """
     try:
-        # Get comprehensive catalog information
+        # Use the new authentication service for ECS compatibility
+        auth_service = get_auth_service()
+        auth_status_result = auth_service.get_auth_status()
+        
+        # Fall back to QuiltService for local development
         service = QuiltService()
-        catalog_info = service.get_catalog_info()
+        quilt_catalog_info = service.get_catalog_info()
         logged_in_url = service.get_logged_in_url()
 
-        if logged_in_url:
+        # Prioritize authentication service results for ECS deployment
+        if auth_status_result.get("status") == "authenticated":
+            # Use authentication service results
+            auth_method = auth_status_result.get("auth_method", "unknown")
+            auth_catalog_url = auth_status_result.get("catalog_url")
+            aws_credentials = auth_status_result.get("aws_credentials", {})
+            
+            # Generate suggested actions based on authentication method
+            if auth_method == "IAM_ROLE":
+                suggested_actions = [
+                    "You're authenticated via IAM role - try listing packages with: packages_list()",
+                    "Test bucket permissions with: bucket_access_check(bucket_name)",
+                    "Discover your writable buckets with: aws_permissions_discover()",
+                    "Create your first package with: package_create_from_s3()",
+                ]
+            else:
+                suggested_actions = [
+                    "Try listing packages with: packages_list()",
+                    "Test bucket permissions with: bucket_access_check(bucket_name)",
+                    "Discover your writable buckets with: aws_permissions_discover()",
+                    "Create your first package with: package_create_from_s3()",
+                ]
+            
+            return {
+                "status": "authenticated",
+                "auth_method": auth_method,
+                "catalog_url": auth_catalog_url,
+                "catalog_name": auth_status_result.get("catalog_name", "unknown"),
+                "aws_credentials": aws_credentials,
+                "message": f"Successfully authenticated via {auth_method}",
+                "suggested_actions": suggested_actions,
+                "authentication_service": True,
+            }
+        elif logged_in_url:
             # Get registry bucket information
             registry_bucket = None
             try:
@@ -353,12 +394,12 @@ def auth_status() -> dict[str, Any]:
             return {
                 "status": "authenticated",
                 "catalog_url": logged_in_url,
-                "catalog_name": catalog_info.get("catalog_name", "unknown"),
+                "catalog_name": quilt_catalog_info.get("catalog_name", "unknown"),
                 "registry_bucket": registry_bucket,
                 "write_permissions": "unknown",  # Will be determined by permissions discovery
                 "user_info": user_info,
                 "suggested_actions": suggested_actions,
-                "message": f"Successfully authenticated to {catalog_info.get('catalog_name', 'Quilt catalog')}",
+                "message": f"Successfully authenticated to {quilt_catalog_info.get('catalog_name', 'Quilt catalog')}",
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
@@ -369,7 +410,7 @@ def auth_status() -> dict[str, Any]:
         else:
             # Not authenticated - provide helpful setup guidance
             setup_instructions = [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                "1. Configure catalog: quilt3 config https://demo.quiltdata.com",
                 "2. Login: quilt3 login",
                 "3. Follow the browser authentication flow",
                 "4. Verify with: auth_status()",
@@ -377,7 +418,7 @@ def auth_status() -> dict[str, Any]:
 
             return {
                 "status": "not_authenticated",
-                "catalog_name": catalog_info.get("catalog_name", "none"),
+                "catalog_name": quilt_catalog_info.get("catalog_name", "none"),
                 "message": "Not logged in to Quilt catalog",
                 "search_available": False,
                 "setup_instructions": setup_instructions,
@@ -387,7 +428,7 @@ def auth_status() -> dict[str, Any]:
                         {
                             "step": 1,
                             "action": "Configure catalog",
-                            "command": "quilt3 config https://open.quiltdata.com",
+                            "command": "quilt3 config https://demo.quiltdata.com",
                         },
                         {"step": 2, "action": "Login", "command": "quilt3 login"},
                         {"step": 3, "action": "Verify", "command": "auth_status()"},
@@ -417,7 +458,7 @@ def auth_status() -> dict[str, Any]:
                 ],
             },
             "setup_instructions": [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
+                "1. Configure catalog: quilt3 config https://demo.quiltdata.com",
                 "2. Login: quilt3 login",
             ],
         }
@@ -536,13 +577,26 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
                 "example": "https://demo.quiltdata.com",
             }
 
-        # Configure the catalog
+        # Configure the catalog for both local and ECS environments
+        # For ECS environment, set environment variable
+        os.environ["QUILT_CATALOG_URL"] = catalog_url
+        
+        # For local environment, try quilt3.config (may fail in ECS)
         service = QuiltService()
-        service.set_config(catalog_url)
-
-        # Verify configuration
-        config = service.get_config()
-        configured_url = config.get("navigator_url") if config else None
+        try:
+            service.set_config(catalog_url)
+            config = service.get_config()
+            configured_url = config.get("navigator_url") if config else None
+        except Exception as config_error:
+            # In ECS environment, quilt3.config may fail due to network restrictions
+            # Use environment variable instead
+            configured_url = catalog_url
+            logger.warning(f"quilt3.config failed (expected in ECS): {config_error}")
+        
+        # Update AuthenticationService to pick up the new catalog URL
+        auth_service = get_auth_service()
+        if hasattr(auth_service, 'update_catalog_url'):
+            auth_service.update_catalog_url(catalog_url)
 
         return {
             "status": "success",
@@ -596,7 +650,7 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "demo": "https://demo.quiltdata.com",
             "sandbox": "https://sandbox.quiltdata.com",
             "open": "https://open.quiltdata.com",
-            "example": "https://open.quiltdata.com",
+            "example": "https://demo.quiltdata.com",
         }
 
         # Determine target URL
@@ -634,4 +688,220 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "catalog_name": catalog_name,
             "available_catalogs": list(catalog_mappings.keys()),
             "help": "Use one of the available catalog names or provide a full URL",
+        }
+
+
+async def assume_quilt_user_role(role_arn: str = None) -> dict[str, Any]:
+    """Assume the Quilt user role for MCP operations.
+    
+    NOTE: Role assumption is now AUTOMATIC when Quilt headers are present.
+    This tool is provided for manual override or testing purposes.
+    
+    The MCP server automatically assumes the user's role when it receives
+    X-Quilt-User-Role headers from the MCP client.
+    
+    Args:
+        role_arn: Optional ARN of the Quilt user role to assume. If not provided,
+                 the role will be automatically detected from Quilt headers.
+    
+    Returns:
+        Dict with role assumption result and status information.
+    """
+    try:
+        # Get the authentication service
+        from quilt_mcp.services.auth_service import get_auth_service
+        auth_service = get_auth_service()
+        
+        # If no role ARN provided, try to get it from environment (set by Quilt headers)
+        if not role_arn:
+            role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+            if not role_arn:
+                return {
+                    "status": "error",
+                    "error": "No Quilt user role ARN available",
+                    "suggestions": [
+                        "Ensure the MCP client is sending X-Quilt-User-Role header",
+                        "Provide role_arn parameter directly",
+                        "Check that Quilt role switching is working properly",
+                    ],
+                    "help": {
+                        "manual_assumption": "assume_quilt_user_role('arn:aws:iam::ACCOUNT:role/ROLE_NAME')",
+                        "header_info": "The MCP client should send X-Quilt-User-Role header with the role ARN",
+                    },
+                }
+        
+        # Validate role ARN format
+        if not role_arn.startswith("arn:aws:iam::"):
+            return {
+                "status": "error",
+                "error": "Invalid role ARN format",
+                "provided": role_arn,
+                "expected": "ARN starting with 'arn:aws:iam::'",
+                "example": "arn:aws:iam::850787717197:role/quilt-user-role",
+            }
+        
+        # Attempt to assume the specified role
+        success = auth_service.assume_quilt_user_role(role_arn)
+        
+        if success:
+            # Get updated authentication status
+            auth_status = auth_service.get_auth_status()
+            
+            return {
+                "status": "success",
+                "role_arn": role_arn,
+                "message": f"Successfully assumed Quilt user role: {role_arn}",
+                "authentication_status": auth_status,
+                "next_steps": [
+                    "MCP operations will now use the assumed role credentials",
+                    "Verify access with: auth_status()",
+                    "Start using MCP tools with the new role context",
+                ],
+                "help": {
+                    "verify_command": "auth_status()",
+                    "documentation": "https://docs.quiltdata.com/",
+                },
+            }
+        else:
+            return {
+                "status": "error",
+                "error": f"Failed to assume role: {role_arn}",
+                "role_arn": role_arn,
+                "troubleshooting": {
+                    "common_issues": [
+                        "Role ARN does not exist",
+                        "Insufficient permissions to assume role",
+                        "Role trust policy does not allow ECS task role",
+                        "Role is in a different AWS account",
+                    ],
+                    "suggested_fixes": [
+                        "Verify the role ARN is correct and exists",
+                        "Check that the ECS task role has sts:AssumeRole permission",
+                        "Ensure the target role's trust policy allows the ECS task role",
+                        "Verify the role is in the same AWS account",
+                    ],
+                },
+            }
+    
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to assume Quilt user role: {e}",
+            "role_arn": role_arn,
+            "troubleshooting": {
+                "common_issues": [
+                    "Invalid role ARN format",
+                    "Network connectivity problems",
+                    "AWS service errors",
+                ],
+                "suggested_fixes": [
+                    "Verify the role ARN format is correct",
+                    "Check network connectivity to AWS",
+                    "Review AWS CloudWatch logs for detailed errors",
+                ],
+            },
+        }
+
+
+async def get_current_quilt_role() -> dict[str, Any]:
+    """Get information about the current Quilt user role.
+    
+    This tool provides information about what role the Quilt user is currently
+    using. Role assumption is now AUTOMATIC when Quilt headers are present.
+    
+    Returns:
+        Dict with current role information and detection status.
+    """
+    try:
+        # Check for role information from Quilt headers (set by middleware)
+        header_role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+        header_user_id = os.environ.get("QUILT_USER_ID")
+        
+        if header_role_arn:
+            return {
+                "status": "success",
+                "current_role_arn": header_role_arn,
+                "user_id": header_user_id,
+                "message": f"Found Quilt user role from headers: {header_role_arn}",
+                "detection_method": "quilt_headers",
+                "source": "X-Quilt-User-Role header from MCP client",
+                "next_steps": [
+                    "Role assumption is AUTOMATIC - no action needed!",
+                    "The MCP server will automatically assume this role on each request",
+                    "All MCP operations will use this role's permissions",
+                ],
+                "integration_status": {
+                    "quilt_headers": "✅ Available",
+                    "automatic_assumption": "✅ Ready",
+                    "role_switching": "✅ Supported",
+                },
+            }
+        
+        # Fallback: Try to get role from Quilt credentials (local development)
+        from quilt_mcp.services.auth_service import get_auth_service
+        auth_service = get_auth_service()
+        
+        # Try to get the current Quilt user role from credentials
+        current_role_arn = auth_service._get_quilt_user_role_arn()
+        
+        if current_role_arn:
+            return {
+                "status": "success",
+                "current_role_arn": current_role_arn,
+                "message": f"Found Quilt user role from credentials: {current_role_arn}",
+                "detection_method": "quilt_credentials",
+                "source": "Local Quilt credentials (~/.quilt/)",
+                "next_steps": [
+                    "Role assumption is AUTOMATIC when headers are present",
+                    f"For manual override: assume_quilt_user_role('{current_role_arn}')",
+                    "The MCP server will operate with the same permissions as the Quilt user",
+                ],
+                "integration_status": {
+                    "quilt_headers": "❌ Not available (local development mode)",
+                    "automatic_assumption": "✅ Ready",
+                    "role_switching": "⚠️ Manual only",
+                },
+            }
+        else:
+            return {
+                "status": "info",
+                "message": "Could not detect Quilt user role",
+                "detection_method": "none",
+                "suggestions": [
+                    "Ensure the MCP client is sending X-Quilt-User-Role header",
+                    "For local development, ensure you are logged in with 'quilt3 login'",
+                    "Check that Quilt credentials are available in ~/.quilt/",
+                    "Manually specify the role ARN using assume_quilt_user_role()",
+                ],
+                "integration_status": {
+                    "quilt_headers": "❌ Not available",
+                    "automatic_assumption": "❌ Not possible",
+                    "role_switching": "❌ Not available",
+                },
+                "help": {
+                    "login_command": "quilt3 login",
+                    "manual_assumption": "assume_quilt_user_role('arn:aws:iam::ACCOUNT:role/ROLE_NAME')",
+                    "header_requirements": "MCP client should send X-Quilt-User-Role header",
+                    "documentation": "https://docs.quiltdata.com/",
+                },
+            }
+    
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to detect Quilt user role: {e}",
+            "troubleshooting": {
+                "common_issues": [
+                    "Quilt not properly authenticated",
+                    "Missing Quilt credentials",
+                    "MCP client not sending required headers",
+                    "Network connectivity problems",
+                ],
+                "suggested_fixes": [
+                    "Run 'quilt3 login' to authenticate (local development)",
+                    "Check ~/.quilt/credentials.json exists and is valid",
+                    "Verify MCP client is sending X-Quilt-User-Role header",
+                    "Verify network connectivity to Quilt services",
+                ],
+            },
         }
