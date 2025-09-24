@@ -305,6 +305,18 @@ def list_available_resources() -> Dict[str, Any]:
         Dict with writable buckets, readable buckets, and configured registries.
     """
     try:
+        # Check authorization first (supports both JWT and traditional auth)
+        from .buckets import _check_authorization
+        auth_result = _check_authorization("list_available_resources", {})
+        if not auth_result["authorized"]:
+            return {
+                "status": "error",
+                "error": auth_result["error"],
+                "writable_buckets": [],
+                "readable_buckets": [],
+                "registries": []
+            }
+        
         # Use the permissions discovery to get comprehensive bucket information
         from .permissions import aws_permissions_discover
 
