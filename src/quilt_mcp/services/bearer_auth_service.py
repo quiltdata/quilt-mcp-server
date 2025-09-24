@@ -17,6 +17,7 @@ import time
 import requests
 import base64
 import json
+import jwt
 from typing import Any, Dict, Optional, Tuple, List
 from enum import Enum
 from urllib.parse import urljoin
@@ -64,6 +65,10 @@ class BearerAuthService:
         self.catalog_url = catalog_url.rstrip('/')
         self.token_cache: Dict[str, Dict[str, Any]] = {}
         self.session_cache: Dict[str, requests.Session] = {}
+        
+        # JWT configuration
+        self.jwt_secret = os.getenv('MCP_ENHANCED_JWT_SECRET', 'development-enhanced-jwt-secret')
+        self.jwt_kid = os.getenv('MCP_ENHANCED_JWT_KID', 'frontend-enhanced')
         
         # Comprehensive tool-based permission mapping
         self.tool_permissions = {
@@ -158,6 +163,44 @@ class BearerAuthService:
             }
         }
     
+    def decode_jwt_token(self, auth_header: str) -> Optional[Dict[str, Any]]:
+        """Decode and validate the JWT token from Authorization header.
+        
+        Args:
+            auth_header: "Bearer <token>" format
+            
+        Returns:
+            Decoded token payload or None if invalid
+        """
+        try:
+            # Extract token from "Bearer <token>" format
+            if not auth_header.startswith('Bearer '):
+                logger.warning("Authorization header does not start with 'Bearer '")
+                return None
+            
+            token = auth_header[7:]  # Remove "Bearer " prefix
+            
+            # Decode and verify the token
+            payload = jwt.decode(
+                token, 
+                self.jwt_secret, 
+                algorithms=['HS256'],
+                options={"verify_exp": True, "verify_aud": False}  # Disable audience verification for flexibility
+            )
+            
+            logger.debug("JWT token decoded successfully for user: %s", payload.get('id', 'unknown'))
+            return payload
+            
+        except jwt.ExpiredSignatureError:
+            logger.warning("JWT token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.warning("Invalid JWT token: %s", e)
+            return None
+        except Exception as e:
+            logger.error("Error decoding JWT token: %s", e)
+            return None
+
     def _parse_jwt_claims(self, access_token: str) -> Optional[Dict[str, Any]]:
         """Parse JWT claims from bearer token without verification.
         
@@ -192,6 +235,189 @@ class BearerAuthService:
         except Exception as e:
             logger.warning("Failed to parse JWT claims: %s", e)
             return None
+
+    def extract_auth_claims(self, token_payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract authorization claims from JWT token payload.
+        
+        Args:
+            token_payload: Decoded JWT token payload
+        
+        Returns:
+            Dictionary with extracted authorization claims
+        """
+        return {
+            'permissions': token_payload.get('permissions', []),
+            'roles': token_payload.get('roles', []),
+            'groups': token_payload.get('groups', []),
+            'scope': token_payload.get('scope', ''),
+            'buckets': token_payload.get('buckets', []),
+            'user_id': token_payload.get('id', ''),
+            'expires_at': token_payload.get('exp', 0)
+        }
+
+    def validate_permission(self, required_permission: str, user_permissions: List[str]) -> bool:
+        """Check if user has required permission.
+        
+        Args:
+            required_permission: Permission needed (e.g., 's3:ListBucket')
+            user_permissions: List of user's permissions
+        
+        Returns:
+            True if user has permission, False otherwise
+        """
+        return required_permission in user_permissions
+
+    def validate_bucket_access(self, bucket_name: str, user_buckets: List[str]) -> bool:
+        """Check if user has access to specific bucket.
+        
+        Args:
+            bucket_name: Name of bucket to check
+            user_buckets: List of buckets user can access
+        
+        Returns:
+            True if user has access, False otherwise
+        """
+        return bucket_name in user_buckets
+
+    def validate_role_access(self, required_roles: List[str], user_roles: List[str]) -> bool:
+        """Check if user has any of the required roles.
+        
+        Args:
+            required_roles: List of roles that can perform action
+            user_roles: List of user's roles
+        
+        Returns:
+            True if user has any required role, False otherwise
+        """
+        return any(role in user_roles for role in required_roles)
+
+    def authorize_mcp_tool(self, tool_name: str, tool_args: Dict[str, Any], auth_claims: Dict[str, Any]) -> bool:
+        """Authorize access to specific MCP tool based on user's permissions.
+        
+        Args:
+            tool_name: Name of MCP tool being called
+            tool_args: Arguments passed to the tool
+            auth_claims: User's authorization claims
+        
+        Returns:
+            True if authorized, False otherwise
+        """
+        permissions = auth_claims.get('permissions', [])
+        buckets = auth_claims.get('buckets', [])
+        
+        # Define tool-specific authorization rules
+        tool_auth_rules = {
+            'list_available_resources': {
+                'required_permissions': ['s3:ListAllMyBuckets'],
+                'description': 'List available S3 resources'
+            },
+            'bucket_objects_list': {
+                'required_permissions': ['s3:ListBucket'],
+                'required_bucket_access': True,
+                'description': 'List objects in specific bucket'
+            },
+            'bucket_objects_put': {
+                'required_permissions': ['s3:PutObject'],
+                'required_bucket_access': True,
+                'description': 'Upload objects to bucket'
+            },
+            'bucket_object_info': {
+                'required_permissions': ['s3:GetObject'],
+                'required_bucket_access': True,
+                'description': 'Get object metadata'
+            },
+            'bucket_object_text': {
+                'required_permissions': ['s3:GetObject'],
+                'required_bucket_access': True,
+                'description': 'Read object content as text'
+            },
+            'bucket_object_fetch': {
+                'required_permissions': ['s3:GetObject'],
+                'required_bucket_access': True,
+                'description': 'Fetch object data'
+            },
+            'bucket_object_link': {
+                'required_permissions': ['s3:GetObject'],
+                'required_bucket_access': True,
+                'description': 'Generate presigned download URL'
+            },
+            'package_create': {
+                'required_permissions': ['s3:PutObject', 's3:ListBucket'],
+                'required_bucket_access': True,
+                'description': 'Create Quilt packages'
+            },
+            'package_update': {
+                'required_permissions': ['s3:GetObject', 's3:PutObject', 's3:ListBucket'],
+                'required_bucket_access': True,
+                'description': 'Update Quilt packages'
+            },
+            'package_delete': {
+                'required_permissions': ['s3:DeleteObject', 's3:ListBucket'],
+                'required_bucket_access': True,
+                'description': 'Delete Quilt packages'
+            },
+            'package_browse': {
+                'required_permissions': ['s3:ListBucket', 's3:GetObject'],
+                'required_bucket_access': True,
+                'description': 'Browse package contents'
+            },
+            'athena_query_execute': {
+                'required_permissions': ['athena:StartQueryExecution', 'athena:GetQueryResults'],
+                'description': 'Execute Athena queries'
+            },
+            'athena_databases_list': {
+                'required_permissions': ['glue:GetDatabases'],
+                'description': 'List Athena databases'
+            },
+            'athena_tables_list': {
+                'required_permissions': ['glue:GetTables', 'glue:GetDatabase'],
+                'description': 'List Athena tables'
+            },
+            'unified_search': {
+                'required_permissions': ['s3:ListBucket'],
+                'description': 'Search across packages and objects'
+            },
+            'packages_search': {
+                'required_permissions': ['s3:ListBucket'],
+                'description': 'Search for packages'
+            },
+            'aws_permissions_discover': {
+                'required_permissions': ['iam:ListAttachedUserPolicies', 'iam:GetPolicy'],
+                'description': 'Discover AWS permissions'
+            },
+            'bucket_access_check': {
+                'required_permissions': ['s3:ListBucket'],
+                'description': 'Check bucket access permissions'
+            }
+        }
+        
+        # Handle tool name variations (remove mcp_quilt-mcp-server_ prefix if present)
+        clean_tool_name = tool_name
+        if tool_name.startswith('mcp_quilt-mcp-server_'):
+            clean_tool_name = tool_name.replace('mcp_quilt-mcp-server_', '')
+        
+        if clean_tool_name not in tool_auth_rules:
+            logger.warning("Unknown tool: %s", clean_tool_name)
+            return False
+        
+        rules = tool_auth_rules[clean_tool_name]
+        
+        # Check required permissions
+        required_perms = rules.get('required_permissions', [])
+        for perm in required_perms:
+            if not self.validate_permission(perm, permissions):
+                logger.warning("Missing permission for tool %s: %s", clean_tool_name, perm)
+                return False
+        
+        # Check bucket access if required
+        if rules.get('required_bucket_access', False):
+            bucket_name = tool_args.get('bucket', '')
+            if bucket_name and not self.validate_bucket_access(bucket_name, buckets):
+                logger.warning("No access to bucket for tool %s: %s", clean_tool_name, bucket_name)
+                return False
+        
+        logger.debug("Authorized for tool: %s", clean_tool_name)
+        return True
     
     def _extract_authorization_claims(self, claims: Dict[str, Any]) -> Dict[str, Any]:
         """Extract authorization-related claims from JWT.
@@ -389,7 +615,7 @@ class BearerAuthService:
             logger.error("Unexpected error during bearer token validation: %s", e)
             return BearerAuthStatus.UNAUTHENTICATED, None
     
-    def validate_bucket_access(self, access_token: str, bucket_name: str, operation: str = "read") -> Tuple[bool, Optional[str]]:
+    def validate_bucket_access_with_token(self, access_token: str, bucket_name: str, operation: str = "read") -> Tuple[bool, Optional[str]]:
         """Validate if the bearer token allows access to a specific bucket and operation.
         
         Args:

@@ -115,6 +115,7 @@ def get_tool_modules() -> list[Any]:
         tabulator,
         workflow_orchestration,
         governance,
+        jwt_auth,
     )
 
     # error_recovery temporarily disabled due to Callable parameter issues
@@ -137,6 +138,7 @@ def get_tool_modules() -> list[Any]:
         tabulator,
         workflow_orchestration,
         governance,
+        jwt_auth,
     ]
 
 
@@ -383,17 +385,40 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                         from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service
                         bearer_auth_service = get_bearer_auth_service()
                         
-                        # Validate the bearer token
-                        status, user_info = bearer_auth_service.validate_bearer_token(access_token)
-                        if status.value == "authenticated":
-                            logger.info("QuiltAuthMiddleware: Bearer token authentication successful for user: %s", 
-                                       user_info.get('username', 'unknown') if user_info else 'unknown')
+                        # Try JWT token decoding first (for enhanced tokens)
+                        token_payload = bearer_auth_service.decode_jwt_token(authorization)
+                        if token_payload:
+                            logger.info("QuiltAuthMiddleware: JWT token decoded successfully for user: %s", 
+                                       token_payload.get('id', 'unknown'))
+                            
+                            # Extract authorization claims
+                            auth_claims = bearer_auth_service.extract_auth_claims(token_payload)
+                            
                             # Set environment variables for downstream services
                             os.environ["QUILT_ACCESS_TOKEN"] = access_token
-                            if user_info:
-                                os.environ["QUILT_USER_INFO"] = json.dumps(user_info)
+                            os.environ["QUILT_USER_INFO"] = json.dumps({
+                                'id': token_payload.get('id'),
+                                'permissions': auth_claims.get('permissions', []),
+                                'roles': auth_claims.get('roles', []),
+                                'groups': auth_claims.get('groups', []),
+                                'buckets': auth_claims.get('buckets', []),
+                                'scope': auth_claims.get('scope', ''),
+                                'enhanced_token': True
+                            })
+                            logger.info("QuiltAuthMiddleware: Enhanced JWT token processed with %d permissions, %d buckets", 
+                                       len(auth_claims.get('permissions', [])), len(auth_claims.get('buckets', [])))
                         else:
-                            logger.warning("QuiltAuthMiddleware: Bearer token authentication failed: %s", status.value)
+                            # Fallback to original bearer token validation
+                            status, user_info = bearer_auth_service.validate_bearer_token(access_token)
+                            if status.value == "authenticated":
+                                logger.info("QuiltAuthMiddleware: Bearer token authentication successful for user: %s", 
+                                           user_info.get('username', 'unknown') if user_info else 'unknown')
+                                # Set environment variables for downstream services
+                                os.environ["QUILT_ACCESS_TOKEN"] = access_token
+                                if user_info:
+                                    os.environ["QUILT_USER_INFO"] = json.dumps(user_info)
+                            else:
+                                logger.warning("QuiltAuthMiddleware: Bearer token authentication failed: %s", status.value)
                     except Exception as e:
                         logger.error("QuiltAuthMiddleware: Bearer token authentication error: %s", e)
                 
