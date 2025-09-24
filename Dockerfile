@@ -62,9 +62,10 @@ echo "[HEALTHCHECK] $(date -Iseconds) - Checking health on port ${FASTMCP_PORT:-
 # Get the actual listening port
 PORT=${FASTMCP_PORT:-8000}
 
-# Check if process is running
-if ! pgrep -f "quilt-mcp" > /dev/null; then
-    echo "[HEALTHCHECK] $(date -Iseconds) - ERROR: quilt-mcp process not running" >&2
+# Check if process is running (look for python or main.py)
+if ! pgrep -f "python.*main.py" > /dev/null && ! pgrep -f "quilt-mcp" > /dev/null; then
+    echo "[HEALTHCHECK] $(date -Iseconds) - ERROR: MCP server process not running" >&2
+    ps aux | grep python | head -5 >&2
     exit 1
 fi
 
