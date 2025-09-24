@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.6
-
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 WORKDIR /app
 
