@@ -45,8 +45,13 @@ def _get_catalog_info() -> dict[str, Any]:
     Returns:
         Dict with catalog name, URLs, and configuration details.
     """
-    service = QuiltService()
-    return service.get_catalog_info()
+    # Use AuthenticationService which respects environment variables
+    auth_service = get_auth_service()
+    
+    # Initialize authentication to get the correct catalog URL
+    auth_service.initialize()
+    
+    return auth_service.get_catalog_info()
 
 
 def _extract_bucket_from_registry(registry: str) -> str:

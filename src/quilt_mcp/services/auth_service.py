@@ -113,16 +113,26 @@ class AuthenticationService:
             if hasattr(quilt3, "logged_in") and quilt3.logged_in():
                 logged_in_url = quilt3.logged_in()
                 if logged_in_url:
+                    # Check if we have a specific catalog URL from environment variables
+                    env_catalog_url = self._get_catalog_url_from_env()
+                    
+                    # If environment variable is set, use it instead of quilt3's logged-in URL
+                    if env_catalog_url:
+                        logger.info("Using catalog URL from environment: %s (overriding quilt3 login: %s)", 
+                                   env_catalog_url, logged_in_url)
+                        self._catalog_url = env_catalog_url
+                    else:
+                        self._catalog_url = logged_in_url
+                    
                     self._auth_method = AuthMethod.QUILT3
                     self._auth_status = AuthStatus.AUTHENTICATED
-                    self._catalog_url = logged_in_url
-                    self._catalog_name = self._extract_catalog_name(logged_in_url)
+                    self._catalog_name = self._extract_catalog_name(self._catalog_url)
                     
                     # Get boto3 session from quilt3
                     if hasattr(quilt3, "get_boto3_session"):
                         self._boto3_session = quilt3.get_boto3_session()
                     
-                    logger.info("Quilt3 authentication successful: %s", logged_in_url)
+                    logger.info("Quilt3 authentication successful: %s", self._catalog_url)
                     return AuthStatus.AUTHENTICATED
         except ImportError:
             logger.debug("Quilt3 not available")
@@ -418,12 +428,13 @@ class AuthenticationService:
         """Get catalog URL from environment variables.
         
         Returns:
-            Catalog URL if found, None otherwise
+            Catalog URL if found, defaults to demo.quiltdata.com otherwise
         """
         return (
             os.environ.get("QUILT_CATALOG_URL") or
             os.environ.get("QUILT_CATALOG") or
-            os.environ.get("QUILT_URL")
+            os.environ.get("QUILT_URL") or
+            "https://demo.quiltdata.com"  # Default fallback for deployed containers
         )
     
     def _extract_catalog_name(self, catalog_url: Optional[str]) -> Optional[str]:

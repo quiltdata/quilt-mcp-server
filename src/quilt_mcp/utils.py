@@ -298,6 +298,15 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     """
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
+    
+    # Initialize authentication service at startup
+    try:
+        from quilt_mcp.services.auth_service import initialize_auth
+        auth_status = initialize_auth()
+        if verbose:
+            print(f"Authentication initialized: {auth_status}")
+    except Exception as e:
+        print(f"Warning: Failed to initialize authentication at startup: {e}", file=sys.stderr)
 
     @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
     async def _health_check(_request):  # type: ignore[reportUnusedFunction]
@@ -371,6 +380,17 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
             """Middleware to handle Quilt authentication via bearer tokens or role headers."""
             
             async def dispatch(self, request, call_next):
+                # Fix Accept header for MCP protocol compliance
+                # MCP requires clients to accept both application/json and text/event-stream
+                accept_header = request.headers.get("accept", "")
+                if "application/json" in accept_header and "text/event-stream" not in accept_header:
+                    # Add text/event-stream to the Accept header
+                    new_accept = f"{accept_header}, text/event-stream"
+                    # Create a new request with the modified header
+                    request._headers = request._headers.copy()
+                    request._headers["accept"] = new_accept
+                    logger.debug("QuiltAuthMiddleware: Fixed Accept header for MCP compliance: %s", new_accept)
+                
                 # Extract authentication information from headers
                 authorization = request.headers.get("authorization")
                 quilt_user_role = request.headers.get("x-quilt-user-role")
