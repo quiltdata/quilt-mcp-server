@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "mcp-server",
-          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:permission-scheme",
+          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:jwt-auth-20250924-090943",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -42,7 +42,7 @@
         },
         {
           "name": "MCP_SERVER_VERSION",
-          "value": "0.6.5"
+          "value": "0.6.13-jwt-auth"
         },
         {
           "name": "LOG_LEVEL",
@@ -63,6 +63,14 @@
         {
           "name": "FASTMCP_PORT",
           "value": "8000"
+        },
+        {
+          "name": "MCP_ENHANCED_JWT_SECRET",
+          "value": "development-enhanced-jwt-secret"
+        },
+        {
+          "name": "MCP_ENHANCED_JWT_KID",
+          "value": "frontend-enhanced"
         }
       ],
             "portMappings": [
