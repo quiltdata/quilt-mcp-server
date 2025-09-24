@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Health Check Endpoints Requirements
 
 **Issue Reference**: GitHub Issue #197 - Add Health Checks to MCP Server
@@ -9,6 +10,7 @@
 The Quilt MCP server currently lacks standardized health check endpoints that are essential for container orchestration, monitoring systems, and production deployments. While internal health check functionality exists in the codebase (via `error_recovery.health_check_with_recovery()`), there is no exposed HTTP endpoint that external systems can use to monitor server health status.
 
 This creates challenges for:
+
 1. Container orchestration platforms (Kubernetes, Docker Compose) that need health probes
 2. Load balancers and reverse proxies requiring health check endpoints
 3. Monitoring and alerting systems that track service availability
@@ -23,6 +25,7 @@ This creates challenges for:
 **So that** the orchestration system can automatically restart unhealthy containers and route traffic only to ready instances
 
 **Acceptance Criteria:**
+
 1. `/health` endpoint returns HTTP 200 with JSON status when server is healthy
 2. `/health` endpoint returns HTTP 503 with error details when server is unhealthy
 3. `/readiness` endpoint indicates when server is ready to accept MCP requests
@@ -38,6 +41,7 @@ This creates challenges for:
 **So that** I can set up accurate alerts and quickly identify the root cause of issues
 
 **Acceptance Criteria:**
+
 1. Health endpoints return structured JSON with overall status and component details
 2. Component-level status includes: authentication, AWS connectivity, Athena, package operations
 3. Response includes timing information for performance monitoring
@@ -52,6 +56,7 @@ This creates challenges for:
 **So that** the load balancer can efficiently route traffic to healthy instances without impacting server performance
 
 **Acceptance Criteria:**
+
 1. `/health/simple` endpoint returns minimal response (HTTP status only) for efficiency
 2. Health checks complete within 1-2 seconds under normal conditions
 3. Health check endpoints have minimal resource overhead
@@ -66,6 +71,7 @@ This creates challenges for:
 **So that** I can quickly identify configuration problems and verify system components
 
 **Acceptance Criteria:**
+
 1. `/health/detailed` endpoint provides comprehensive diagnostic information
 2. Diagnostic data includes: transport mode, tool registration status, AWS configuration
 3. Error details include specific failure messages and suggested fixes
@@ -80,6 +86,7 @@ This creates challenges for:
 **So that** CI/CD pipelines can automatically verify successful deployments before promoting to production
 
 **Acceptance Criteria:**
+
 1. Health endpoints are available immediately after server startup
 2. Health status accurately reflects server readiness for MCP requests
 3. Health checks integrate with existing Docker container health probe configurations

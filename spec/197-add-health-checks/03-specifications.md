@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Health Check Endpoints Specifications
 
 **Issue Reference**: GitHub Issue #197 - Add Health Checks to MCP Server
@@ -80,7 +81,7 @@ The health endpoints SHALL be integrated with FastMCP server using the `custom_r
 
 All health endpoints SHALL return JSON responses conforming to this schema:
 
-```
+```json
 {
   "status": "healthy" | "degraded" | "unhealthy",
   "timestamp": "ISO 8601 timestamp",
@@ -346,6 +347,7 @@ When using streaming transports:
 **Decision**: Use FastMCP custom routes for HTTP health endpoints
 
 **Rationale**:
+
 - Enables zero-authentication access required for external monitoring
 - Provides standard HTTP interface expected by infrastructure tools
 - Maintains separation between health monitoring and MCP protocol
@@ -355,6 +357,7 @@ When using streaming transports:
 **Decision**: Monitor five core components with extensible architecture
 
 **Rationale**:
+
 - Balances comprehensive monitoring with performance overhead
 - Provides sufficient granularity for troubleshooting
 - Enables future addition of custom health checks
@@ -364,6 +367,7 @@ When using streaming transports:
 **Decision**: Single JSON schema across all health endpoints with varying detail levels
 
 **Rationale**:
+
 - Simplifies client integration and parsing
 - Maintains consistency across transport modes
 - Enables progressive disclosure of diagnostic information
@@ -373,6 +377,7 @@ When using streaming transports:
 **Decision**: HTTP endpoints for HTTP transport, MCP tool fallback for other transports
 
 **Rationale**:
+
 - Leverages transport-specific capabilities appropriately
 - Maintains functionality across all deployment scenarios
 - Provides consistent health monitoring regardless of transport
@@ -384,6 +389,7 @@ When using streaming transports:
 **Risk**: FastMCP may not support custom HTTP routes
 
 **Mitigation**:
+
 - Investigate FastMCP source code for extension points
 - Prepare fallback using MCP tool with HTTP wrapper
 - Consider contributing custom route support to FastMCP
@@ -393,6 +399,7 @@ When using streaming transports:
 **Risk**: Health checks may impact MCP tool performance
 
 **Mitigation**:
+
 - Implement caching for expensive health checks
 - Provide lightweight simple endpoint for frequent probing
 - Use async execution where possible
@@ -402,6 +409,7 @@ When using streaming transports:
 **Risk**: Health endpoints may expose sensitive information
 
 **Mitigation**:
+
 - Limit diagnostic details in standard endpoints
 - Require authentication for detailed diagnostics (optional)
 - Sanitize error messages and stack traces
