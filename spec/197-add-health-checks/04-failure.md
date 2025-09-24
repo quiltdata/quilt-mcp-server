@@ -70,7 +70,32 @@ The CloudFormation stack `tf-dev-mcp-server` is hanging during deployment. The s
 - `InitProcessEnabled`: True (for better signal handling)
 - `StopTimeout`: 30 seconds
 
-## Identified Issues
+## ROOT CAUSE IDENTIFIED ⚠️
+
+### Critical Issue: Docker Image Platform Architecture Mismatch
+
+**Error from ECS**:
+```
+CannotPullContainerError: pull image manifest has been retried 7 time(s):
+image Manifest does not contain descriptor matching platform 'linux/amd64'
+```
+
+**Analysis**:
+- The Docker image was built on Apple Silicon (ARM64/M1/M2) without multi-platform support
+- ECS Fargate tasks require `linux/amd64` architecture
+- The image manifest doesn't include the required platform descriptor
+- This causes all tasks to fail immediately with `TaskFailedToStart`
+
+**Solution Required**:
+```bash
+# Build with multi-platform support
+docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t 712023778557.dkr.ecr.us-east-2.amazonaws.com/tf-dev-mcp-server:latest \
+  --push .
+```
+
+## Additional Identified Issues
 
 ### Issue 1: Health Check Configuration
 
