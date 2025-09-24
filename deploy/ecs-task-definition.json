@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "mcp-server",
-          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:jwt-auth-backward-compatible",
+          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:improved-error-handling",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",

@@ -238,6 +238,10 @@ The GraphQL bearer service uses the same environment variables as the main authe
 - `QUILT_USER_INFO`: User information (set by middleware)
 - `QUILT_CATALOG_DOMAIN`: Catalog URL (default: https://demo.quiltdata.com)
 
+> **Runtime Context**
+>
+> The MCP server now exposes the active authentication state through `quilt_mcp.runtime_context`. Middleware populates `RuntimeAuthState` per request (distinguishing desktop/stdio flows from web/JWT flows) and the GraphQL servicemodule reads from that context before falling back to the environment variables above. This keeps concurrent requests isolated while remaining backwards compatible with existing env-var based integrations.
+
 ### Catalog URL Configuration
 
 ```python

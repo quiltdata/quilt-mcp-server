@@ -534,6 +534,24 @@ Required secrets for Docker operations:
 - `VERSION` for overriding image version tags
 - `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
 
+### Authentication fallback defaults
+
+- `AuthenticationService.initialize()` now always backfills `catalog_url` and `catalog_name` from environment defaults (falls back to `https://demo.quiltdata.com`) even when no authentication paths succeed, ensuring tools like `auth.catalog_url` have consistent context during unauthenticated startup.
+- `tests/unit/test_auth_service.py` contains two legacy integration cases invoking a non-existent `authenticate()` helper; leave them untouched—they document the original priority ordering but currently fail if executed wholesale.
+
+### Enhanced bearer-token validation
+
+- Enhanced JWTs now ship both compressed metadata (`b`, `p`, `r`) and expanded arrays (`buckets`, `permissions`, `roles`, `scope`, `level`). `BearerAuthService` trusts the expanded fields first, falling back to compression only when they are missing (`tests/unit/test_jwt_decompression.py#L164`).
+- `BearerAuthService.validate_bearer_token` enforces a 32-entry bucket list and validates that the expanded permission set exactly matches the role-derived AWS actions before authorising (`tests/unit/test_auth_service.py:305`).
+- Authorization logic now fails fast—and logs at error level—if either the bucket or permission lists are empty; no more permissive fallbacks for implicit S3 scopes.
+
+### Runtime environment detection
+
+- `quilt_mcp.runtime_context` isolates per-request environment + auth information via contextvars. `push_runtime_context` wraps HTTP requests while stdio sessions default to `desktop-stdio` (`tests/unit/test_utils.py:240`).
+- `QuiltAuthMiddleware` now sets the runtime environment to `web-jwt`, `web-bearer`, `web-role`, or `web-unauthenticated` based on headers, and restores prior state after each request; env vars remain only for backward compatibility (`tests/unit/test_utils.py:277`).
+- Tools and services (S3 buckets, bearer auth, GraphQL) prefer runtime context over environment variables, so desktop quilt3 flows and web JWT flows can coexist inside the same container without leaking credentials (`tests/unit/test_utils.py:319`).
+- No frontend changes are required—the middleware automatically infers context from the existing Authorization/role headers.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

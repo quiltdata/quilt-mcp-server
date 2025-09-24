@@ -1,6 +1,7 @@
 """Tests for the authentication service."""
 
 import json
+import logging
 import tempfile
 import time
 from pathlib import Path
@@ -16,6 +17,10 @@ from quilt_mcp.services.auth_service import (
     AuthStatus,
     get_auth_service,
     initialize_auth,
+)
+from quilt_mcp.services.bearer_auth_service import (
+    BearerAuthService,
+    BearerAuthStatus,
 )
 
 
@@ -142,6 +147,30 @@ class TestAuthenticationService:
                     assert status == AuthStatus.AUTHENTICATED
                     assert service._auth_method == AuthMethod.QUILT3
 
+    def test_initialize_uses_default_catalog_url_when_authentication_unavailable(self, monkeypatch):
+        """Initialize should still expose default catalog URL when no auth methods succeed."""
+        service = AuthenticationService()
+
+        # Simulate all authentication strategies failing to authenticate
+        for method_name in (
+            "_try_bearer_token_auth",
+            "_try_quilt3_auth",
+            "_try_quilt_registry_auth",
+            "_try_assume_role_auth",
+            "_try_iam_role_auth",
+            "_try_environment_auth",
+        ):
+            monkeypatch.setattr(service, method_name, Mock(return_value=AuthStatus.UNAUTHENTICATED))
+
+        # Ensure no catalog-specific environment variables are set
+        with patch.dict('os.environ', {}, clear=True):
+            status = service.initialize()
+
+        assert status == AuthStatus.UNAUTHENTICATED
+        auth_status = service.get_auth_status()
+        assert auth_status["catalog_url"] == "https://demo.quiltdata.com"
+        assert auth_status["catalog_name"] == "default"
+
     def test_quilt_registry_authentication_expired_credentials(self):
         """Test Quilt registry authentication with expired credentials."""
         service = AuthenticationService()
@@ -250,3 +279,103 @@ class TestAuthenticationIntegration:
             status = service.authenticate()
             assert status == AuthStatus.AUTHENTICATED
             assert service._auth_method == AuthMethod.IAM_ROLE
+
+
+class TestBearerAuthServiceJWTValidation:
+    """Behavioral tests for enhanced JWT validation in BearerAuthService."""
+
+    def _make_bucket_list(self, count: int) -> list[str]:
+        return [f"quilt-bucket-{i:02d}" for i in range(count)]
+
+    def _base_claims(self, *, buckets: list[str], permissions: list[str], roles: list[str]) -> dict[str, object]:
+        return {
+            "scope": "write",
+            "permissions": permissions,
+            "roles": roles,
+            "buckets": buckets,
+            "level": "write",
+            "sub": "user-123",
+            "exp": time.time() + 3600,
+            "preferred_username": "quilt-user",
+            # Compressed metadata should be ignored when explicit fields are present
+            "p": ["g"],
+            "b": {"_type": "groups", "_data": {"quilt": ["demo"]}},
+        }
+
+    def test_validate_bearer_token_rejects_payload_with_missing_buckets(self, monkeypatch, caplog):
+        service = BearerAuthService()
+        expected_permissions = {"s3:GetObject", "s3:PutObject"}
+        claims = self._base_claims(
+            buckets=self._make_bucket_list(31),
+            permissions=list(expected_permissions),
+            roles=["ReadWriteQuiltV2-sales-prod"],
+        )
+
+        monkeypatch.setattr(service, "_parse_jwt_claims", lambda token: claims)
+        monkeypatch.setattr(service, "_expected_permissions_for_roles", lambda roles: expected_permissions)
+
+        caplog.set_level(logging.ERROR)
+        status, info = service.validate_bearer_token("token")
+
+        assert status == BearerAuthStatus.INVALID
+        assert info is None
+        assert "Expected 32 buckets" in caplog.text
+
+    def test_validate_bearer_token_rejects_when_permissions_do_not_match(self, monkeypatch, caplog):
+        service = BearerAuthService()
+        expected_permissions = {"s3:GetObject", "s3:PutObject"}
+        claims = self._base_claims(
+            buckets=self._make_bucket_list(32),
+            permissions=["s3:GetObject"],  # Missing PutObject
+            roles=["ReadWriteQuiltV2-sales-prod"],
+        )
+
+        monkeypatch.setattr(service, "_parse_jwt_claims", lambda token: claims)
+        monkeypatch.setattr(service, "_expected_permissions_for_roles", lambda roles: expected_permissions)
+
+        caplog.set_level(logging.ERROR)
+        status, info = service.validate_bearer_token("token")
+
+        assert status == BearerAuthStatus.INVALID
+        assert info is None
+        assert "permissions mismatch" in caplog.text.lower()
+
+    def test_validate_bearer_token_rejects_when_permissions_list_empty(self, monkeypatch, caplog):
+        service = BearerAuthService()
+        claims = self._base_claims(
+            buckets=self._make_bucket_list(32),
+            permissions=[],
+            roles=["ReadWriteQuiltV2-sales-prod"],
+        )
+
+        monkeypatch.setattr(service, "_parse_jwt_claims", lambda token: claims)
+        monkeypatch.setattr(service, "_expected_permissions_for_roles", lambda roles: {"s3:GetObject"})
+
+        caplog.set_level(logging.ERROR)
+        status, info = service.validate_bearer_token("token")
+
+        assert status == BearerAuthStatus.INVALID
+        assert info is None
+        assert "permissions list empty" in caplog.text.lower()
+
+    def test_validate_bearer_token_accepts_valid_payload_and_uses_explicit_arrays(self, monkeypatch):
+        service = BearerAuthService()
+        expected_permissions = {"s3:GetObject", "s3:PutObject"}
+        expected_buckets = self._make_bucket_list(32)
+        claims = self._base_claims(
+            buckets=expected_buckets,
+            permissions=sorted(expected_permissions),
+            roles=["ReadWriteQuiltV2-sales-prod"],
+        )
+
+        monkeypatch.setattr(service, "_parse_jwt_claims", lambda token: claims)
+        monkeypatch.setattr(service, "_expected_permissions_for_roles", lambda roles: expected_permissions)
+
+        status, info = service.validate_bearer_token("token")
+
+        assert status == BearerAuthStatus.AUTHENTICATED
+        assert info is not None
+        authz = info.get("authorization", {})
+        assert set(authz.get("buckets", [])) == set(expected_buckets)
+        assert set(authz.get("aws_permissions", [])) == expected_permissions
+        assert authz.get("source") == "jwt_claims"

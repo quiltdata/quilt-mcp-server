@@ -27,6 +27,12 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
+from quilt_mcp.runtime_context import (
+    get_runtime_access_token,
+    get_runtime_auth,
+    get_runtime_metadata,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,7 +101,14 @@ class AuthenticationService:
             except Exception as e:
                 logger.debug("Authentication method %s failed: %s", method.__name__, e)
                 continue
-        
+
+        # Ensure we always expose a catalog URL derived from environment defaults
+        if not self._catalog_url:
+            fallback_catalog = self._get_catalog_url_from_env()
+            if fallback_catalog:
+                self._catalog_url = fallback_catalog
+                self._catalog_name = self._extract_catalog_name(fallback_catalog)
+
         logger.warning("No authentication method succeeded, using unauthenticated mode")
         self._auth_status = AuthStatus.UNAUTHENTICATED
         return self._auth_status
@@ -151,20 +164,25 @@ class AuthenticationService:
             AuthStatus indicating success level
         """
         try:
-            # Get the access token from environment variables (set from Authorization header)
-            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+            auth_state = get_runtime_auth()
+            access_token = get_runtime_access_token() or os.environ.get("QUILT_ACCESS_TOKEN")
             if not access_token:
                 logger.debug("No QUILT_ACCESS_TOKEN environment variable set from Authorization header")
                 return AuthStatus.UNAUTHENTICATED
-            
+
             # Import and use the bearer auth service
             from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service
             bearer_auth_service = get_bearer_auth_service()
-            
-            # Validate the bearer token
-            status, user_info = bearer_auth_service.validate_bearer_token(access_token)
-            
-            if status.value == "authenticated":
+
+            if auth_state and auth_state.scheme in {"jwt", "bearer"} and auth_state.extras.get("user_info"):
+                user_info = auth_state.extras.get("user_info")
+                status_value = "authenticated"
+                logger.debug("Using runtime context bearer auth for user: %s", user_info.get("username", "unknown"))
+            else:
+                status, user_info = bearer_auth_service.validate_bearer_token(access_token)
+                status_value = status.value
+
+            if status_value == "authenticated":
                 logger.info("Bearer token authentication successful for user: %s", 
                            user_info.get('username', 'unknown') if user_info else 'unknown')
                 
@@ -181,7 +199,7 @@ class AuthenticationService:
                 
                 return AuthStatus.AUTHENTICATED
             else:
-                logger.debug("Bearer token authentication failed: %s", status.value)
+                logger.debug("Bearer token authentication failed: %s", status_value)
                 return AuthStatus.UNAUTHENTICATED
                 
         except Exception as e:
@@ -315,12 +333,17 @@ class AuthenticationService:
             AuthStatus indicating success level
         """
         try:
-            # Get the role ARN from environment variables (set from Quilt headers)
-            role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+            metadata = get_runtime_metadata()
+            auth_state = get_runtime_auth()
+            role_arn = metadata.get("quilt_user_role")
+            if not role_arn and auth_state and auth_state.extras.get("role_arn"):
+                role_arn = auth_state.extras.get("role_arn")
+            if not role_arn:
+                role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
             if not role_arn:
                 logger.debug("No QUILT_USER_ROLE_ARN environment variable set from Quilt headers")
                 return AuthStatus.UNAUTHENTICATED
-            
+
             # Create a session with the current IAM role (ECS task role)
             base_session = boto3.Session()
             sts_client = base_session.client("sts")
@@ -573,6 +596,17 @@ class AuthenticationService:
             Role ARN if found, None otherwise
         """
         try:
+            metadata = get_runtime_metadata()
+            runtime_role = metadata.get("quilt_user_role")
+            if runtime_role:
+                logger.debug("Found Quilt user role ARN from runtime metadata: %s", runtime_role)
+                return runtime_role
+
+            auth_state = get_runtime_auth()
+            if auth_state and auth_state.extras.get("role_arn"):
+                logger.debug("Found Quilt user role ARN from runtime auth state: %s", auth_state.extras.get("role_arn"))
+                return auth_state.extras.get("role_arn")
+
             # Method 1: Try to get role from Quilt credentials file
             from platformdirs import user_data_dir
             APP_NAME = "Quilt"
@@ -618,7 +652,7 @@ class AuthenticationService:
                 logger.debug("Failed to get role from Quilt session: %s", e)
             
             # Method 3: Try to get role from environment variable (fallback)
-            role_arn = os.environ.get("QUILT_USER_ROLE_ARN") or os.environ.get("MCP_ASSUME_ROLE_ARN")
+            role_arn = metadata.get("quilt_user_role") or os.environ.get("QUILT_USER_ROLE_ARN") or os.environ.get("MCP_ASSUME_ROLE_ARN")
             if role_arn:
                 logger.debug("Found role ARN from environment: %s", role_arn)
                 return role_arn
@@ -703,7 +737,13 @@ class AuthenticationService:
         
         try:
             # Check for role information from Quilt headers
-            header_role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+            metadata = get_runtime_metadata()
+            auth_state = get_runtime_auth()
+            header_role_arn = (
+                metadata.get("quilt_user_role")
+                or (auth_state.extras.get("role_arn") if auth_state and auth_state.extras else None)
+                or os.environ.get("QUILT_USER_ROLE_ARN")
+            )
             if not header_role_arn:
                 logger.debug("No QUILT_USER_ROLE_ARN environment variable set")
                 return False

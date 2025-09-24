@@ -5,7 +5,10 @@ to authenticate with Quilt's APIs using OAuth2 access tokens.
 """
 
 import logging
+import os
 from typing import Dict, Any, Optional
+
+from quilt_mcp.runtime_context import get_runtime_access_token, get_runtime_auth, get_runtime_environment
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,12 @@ def auth_status() -> Dict[str, Any]:
             "authenticated": current_auth_status.value == "authenticated" if current_auth_status else False,
             "method": auth_method.value if auth_method else "none",
             "status": current_auth_status.value if current_auth_status else "unauthenticated",
+            "debug_info": {
+                "runtime_environment": get_runtime_environment(),
+                "runtime_token_available": get_runtime_access_token() is not None,
+                "env_token_available": os.environ.get("QUILT_ACCESS_TOKEN") is not None,
+                "auth_service_initialized": auth_service is not None
+            }
         }
         
         # Add user info if available
@@ -108,6 +117,7 @@ def get_user_info() -> Dict[str, Any]:
         
         auth_service = get_auth_service()
         auth_method = getattr(auth_service, '_auth_method', None)
+        runtime_auth = get_runtime_auth()
         
         if auth_method and auth_method.value == "bearer_token":
             user_info = getattr(auth_service, '_user_info', None)
@@ -123,6 +133,12 @@ def get_user_info() -> Dict[str, Any]:
                     "method": "bearer_token",
                     "error": "No user info available"
                 }
+        if runtime_auth and runtime_auth.extras.get("user_info"):
+            return {
+                "authenticated": True,
+                "method": runtime_auth.scheme,
+                "user_info": runtime_auth.extras.get("user_info")
+            }
         else:
             return {
                 "authenticated": False,
@@ -153,9 +169,9 @@ def validate_bucket_access(bucket_name: str, operation: str = "read") -> Dict[st
         
         bearer_auth_service = get_bearer_auth_service()
         
-        # Get access token from environment
-        import os
-        access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+        access_token = get_runtime_access_token()
+        if not access_token:
+            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
         if not access_token:
             return {
                 "success": False,
@@ -163,7 +179,7 @@ def validate_bucket_access(bucket_name: str, operation: str = "read") -> Dict[st
             }
         
         # Validate bucket access
-        allowed, reason = bearer_auth_service.validate_bucket_access(access_token, bucket_name, operation)
+        allowed, reason = bearer_auth_service.validate_bucket_access_with_token(access_token, bucket_name, operation)
         
         return {
             "success": True,
@@ -192,13 +208,18 @@ def get_user_permissions() -> Dict[str, Any]:
         
         bearer_auth_service = get_bearer_auth_service()
         
-        # Get access token from environment
-        import os
-        access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+        access_token = get_runtime_access_token()
+        if not access_token:
+            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
         if not access_token:
             return {
                 "success": False,
-                "error": "No bearer token available"
+                "error": "No bearer token available. The frontend needs to send an 'Authorization: Bearer <token>' header with the JWT token.",
+                "debug_info": {
+                    "runtime_token_available": get_runtime_access_token() is not None,
+                    "env_token_available": os.environ.get("QUILT_ACCESS_TOKEN") is not None,
+                    "runtime_environment": get_runtime_environment()
+                }
             }
         
         # Get user permissions
@@ -279,8 +300,9 @@ def validate_tool_access(tool_name: str, bucket_name: str = None) -> Dict[str, A
         
         bearer_auth_service = get_bearer_auth_service()
         
-        # Get access token from environment
-        access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+        access_token = get_runtime_access_token()
+        if not access_token:
+            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
         if not access_token:
             return {
                 "success": False,
@@ -318,8 +340,9 @@ def list_available_tools() -> Dict[str, Any]:
         
         bearer_auth_service = get_bearer_auth_service()
         
-        # Get access token from environment
-        access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+        access_token = get_runtime_access_token()
+        if not access_token:
+            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
         if not access_token:
             return {
                 "success": False,

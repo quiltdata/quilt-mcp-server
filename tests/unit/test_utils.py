@@ -6,9 +6,22 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 from starlette.testclient import TestClient
 
 from quilt_mcp.tools import auth, buckets, package_ops, packages
+from quilt_mcp.runtime_context import (
+    RuntimeAuthState,
+    get_runtime_auth,
+    get_runtime_environment,
+    clear_runtime_auth,
+    push_runtime_context,
+    reset_runtime_context,
+    set_default_environment,
+    set_runtime_auth,
+    set_runtime_environment,
+)
+from quilt_mcp.services.bearer_auth_service import BearerAuthStatus
 from quilt_mcp.utils import (
     build_http_app,
     create_configured_server,
@@ -197,6 +210,156 @@ class TestUtils(unittest.TestCase):
         self.assertIsNotNone(expose_header)
         self.assertIn("mcp-session-id", {h.strip().lower() for h in expose_header.split(",")})
         self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+
+
+class TestRuntimeContext(unittest.TestCase):
+    """Tests for runtime context helpers."""
+
+    def tearDown(self) -> None:  # Ensure we always restore default context between tests
+        set_default_environment("desktop")
+        clear_runtime_auth()
+
+    def test_runtime_context_default_environment(self):
+        """Default environment should be desktop."""
+        self.assertEqual(get_runtime_environment(), "desktop")
+
+    def test_runtime_context_push_and_reset(self):
+        """Pushing a new context should update environment and auth until reset."""
+        token = push_runtime_context(environment="web-unauthenticated")
+        try:
+            self.assertEqual(get_runtime_environment(), "web-unauthenticated")
+            set_runtime_environment("web-jwt")
+            set_runtime_auth(RuntimeAuthState(scheme="jwt", access_token="token123"))
+            self.assertEqual(get_runtime_environment(), "web-jwt")
+            auth = get_runtime_auth()
+            self.assertIsNotNone(auth)
+            self.assertEqual(auth.scheme, "jwt")
+            self.assertEqual(auth.access_token, "token123")
+        finally:
+            reset_runtime_context(token)
+
+        self.assertEqual(get_runtime_environment(), "desktop")
+        self.assertIsNone(get_runtime_auth())
+
+
+class TestQuiltAuthMiddlewareRuntimeContext(unittest.TestCase):
+    """Runtime context integration tests for Quilt auth middleware."""
+
+    def tearDown(self) -> None:
+        set_default_environment("desktop")
+        clear_runtime_auth()
+
+    def test_middleware_sets_and_resets_environment(self):
+        """Middleware should set environment per request and reset afterwards."""
+        server = create_configured_server()
+        app = build_http_app(server, transport="http")
+
+        async def runtime_env_endpoint(request):  # noqa: ARG001
+            auth = get_runtime_auth()
+            return JSONResponse(
+                {
+                    "environment": get_runtime_environment(),
+                    "auth_scheme": auth.scheme if auth else None,
+                    "has_token": bool(auth and auth.access_token),
+                }
+            )
+
+        app.router.add_route("/runtime-env", runtime_env_endpoint, methods=["GET"])
+
+        class DummyBearerAuthService:
+            def decode_jwt_token(self, auth_header: str):
+                return {
+                    "id": "user-123",
+                    "permissions": ["s3:GetObject"],
+                    "roles": ["TestRole"],
+                    "buckets": ["bucket" for _ in range(32)],
+                    "scope": "write",
+                }
+
+            def extract_auth_claims(self, payload):
+                return {
+                    "permissions": payload["permissions"],
+                    "roles": payload["roles"],
+                    "groups": [],
+                    "buckets": payload["buckets"],
+                    "scope": payload["scope"],
+                    "user_id": payload.get("id"),
+                }
+
+            def validate_bearer_token(self, access_token: str):
+                return BearerAuthStatus.AUTHENTICATED, {
+                    "username": "user-123",
+                    "authorization": {
+                        "aws_permissions": ["s3:GetObject"],
+                        "buckets": ["bucket" for _ in range(32)],
+                        "matched_roles": ["TestRole"],
+                    },
+                }
+
+        with patch("quilt_mcp.services.bearer_auth_service.get_bearer_auth_service", return_value=DummyBearerAuthService()):
+            with TestClient(app) as client:
+                jwt_response = client.get(
+                    "/runtime-env",
+                    headers={"Authorization": "Bearer test-token", "Accept": "application/json"},
+                )
+                self.assertEqual(jwt_response.status_code, 200)
+                self.assertEqual(jwt_response.json()["environment"], "web-jwt")
+                self.assertEqual(jwt_response.json()["auth_scheme"], "jwt")
+                self.assertTrue(jwt_response.json()["has_token"])
+
+                anon_response = client.get("/runtime-env")
+                self.assertEqual(anon_response.status_code, 200)
+                self.assertEqual(anon_response.json()["environment"], "web-unauthenticated")
+                self.assertIsNone(anon_response.json()["auth_scheme"])
+                self.assertFalse(anon_response.json()["has_token"])
+
+
+class TestBucketAuthorizationRuntimeContext(unittest.TestCase):
+    """Tests ensuring bucket tools respect runtime context."""
+
+    def tearDown(self) -> None:
+        set_default_environment("desktop")
+        clear_runtime_auth()
+
+    def test_bucket_authorization_prefers_runtime_context(self):
+        """Authorization should use runtime context even when env vars are unset."""
+
+        class DummyBearerAuthService:
+            def authorize_mcp_tool(self, tool_name, tool_args, auth_claims):
+                return True
+
+        runtime_auth = RuntimeAuthState(
+            scheme="jwt",
+            access_token="test-token",
+            claims={
+                "permissions": ["s3:ListBucket"],
+                "roles": ["TestRole"],
+                "buckets": ["quilt-bucket"],
+            },
+            extras={
+                "user_info": {
+                    "id": "user-123",
+                    "permissions": ["s3:ListBucket"],
+                    "roles": ["TestRole"],
+                    "buckets": ["quilt-bucket"],
+                    "scope": "read",
+                }
+            },
+        )
+
+        token = push_runtime_context(environment="web-jwt", auth=runtime_auth)
+        try:
+            with patch(
+                "quilt_mcp.services.bearer_auth_service.get_bearer_auth_service",
+                return_value=DummyBearerAuthService(),
+            ):
+                auth_result = buckets._check_authorization(
+                    "bucket_objects_list", {"bucket": "quilt-bucket"}
+                )
+        finally:
+            reset_runtime_context(token)
+
+        self.assertTrue(auth_result["authorized"])
 
     def test_sse_transport_respects_cors_expose_headers(self):
         """SSE transport should expose mcp-session-id without protocol errors."""

@@ -9,6 +9,7 @@ import boto3
 
 from ..constants import DEFAULT_BUCKET
 from ..services.quilt_service import QuiltService
+from ..runtime_context import get_runtime_auth, get_runtime_environment
 from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
 
 logger = logging.getLogger(__name__)
@@ -27,15 +28,19 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         Dictionary with authorization result and user info
     """
     try:
-        # Check if we're running in JWT mode (catalog/frontend)
+        auth_state = get_runtime_auth()
+        runtime_env = get_runtime_environment()
+
+        if auth_state and auth_state.scheme in {"jwt", "bearer"}:
+            logger.info("Using runtime JWT authorization for tool %s", tool_name)
+            return _check_jwt_authorization(tool_name, tool_args, auth_state=auth_state)
+
         user_info_str = os.environ.get("QUILT_USER_INFO")
         if user_info_str:
-            logger.info("Using JWT authorization for tool %s", tool_name)
+            logger.info("Using JWT authorization from environment for tool %s", tool_name)
             return _check_jwt_authorization(tool_name, tool_args)
-        
-        # Check if we're running in traditional mode (desktop/Cursor)
-        # This would be indicated by quilt3 being logged in or other auth methods
-        logger.info("Using traditional authentication for tool %s", tool_name)
+
+        logger.info("Using traditional authentication for tool %s (environment: %s)", tool_name, runtime_env)
         return _check_traditional_authorization(tool_name, tool_args)
             
     except Exception as e:
@@ -43,7 +48,12 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         return {"authorized": False, "error": f"Authorization check failed: {str(e)}"}
 
 
-def _check_jwt_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
+def _check_jwt_authorization(
+    tool_name: str,
+    tool_args: dict[str, Any],
+    *,
+    auth_state = None,
+) -> dict[str, Any]:
     """Check JWT authorization for tool access.
     
     Args:
@@ -54,27 +64,32 @@ def _check_jwt_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[
         Dictionary with authorization result and user info
     """
     try:
-        # Get user info from environment variable set by middleware
-        user_info_str = os.environ.get("QUILT_USER_INFO")
-        if not user_info_str:
-            logger.warning("No JWT user info found in environment variables")
-            return {"authorized": False, "error": "No JWT authentication information available"}
-        
-        user_info = json.loads(user_info_str)
+        if auth_state:
+            user_info = auth_state.extras.get("user_info", {})
+            auth_claims = auth_state.claims or {}
+        else:
+            user_info_str = os.environ.get("QUILT_USER_INFO")
+            if not user_info_str:
+                logger.warning("No JWT user info found in environment variables")
+                return {"authorized": False, "error": "No JWT authentication information available"}
+
+            user_info = json.loads(user_info_str)
+            auth_claims = {
+                'permissions': user_info.get('permissions', []),
+                'roles': user_info.get('roles', []),
+                'buckets': user_info.get('buckets', []),
+                'groups': user_info.get('groups', []),
+                'scope': user_info.get('scope', ''),
+                'user_id': user_info.get('id', ''),
+            }
         
         # Import bearer auth service for authorization check
         from ..services.bearer_auth_service import get_bearer_auth_service
         bearer_auth_service = get_bearer_auth_service()
-        
-        # Extract auth claims
-        auth_claims = {
-            'permissions': user_info.get('permissions', []),
-            'roles': user_info.get('roles', []),
-            'buckets': user_info.get('buckets', []),
-            'groups': user_info.get('groups', []),
-            'scope': user_info.get('scope', ''),
-            'user_id': user_info.get('id', '')
-        }
+
+        if not auth_claims:
+            logger.warning("JWT authorization missing claims for tool %s", tool_name)
+            return {"authorized": False, "error": "JWT authorization missing claims"}
         
         # Check authorization
         authorized = bearer_auth_service.authorize_mcp_tool(tool_name, tool_args, auth_claims)

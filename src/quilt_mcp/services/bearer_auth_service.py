@@ -18,11 +18,18 @@ import requests
 import base64
 import json
 import jwt
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple, List, Set
 from enum import Enum
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
+
+from quilt_mcp.runtime_context import (
+    RuntimeAuthState,
+    clear_runtime_auth,
+    get_runtime_auth,
+    set_runtime_auth,
+)
 
 
 class BearerAuthStatus(Enum):
@@ -77,23 +84,23 @@ class BearerAuthService:
             "bucket_object_info": ["s3:GetObject", "s3:GetObjectVersion"],
             "bucket_object_text": ["s3:GetObject"],
             "bucket_object_fetch": ["s3:GetObject", "s3:GetObjectVersion"],
-            "bucket_objects_put": ["s3:PutObject", "s3:PutObjectAcl"],
+            "bucket_objects_put": ["s3:PutObject", "s3:PutObjectAcl", "s3:AbortMultipartUpload"],
             "bucket_object_link": ["s3:GetObject"],  # For signed URLs
             
             # Package Operations
-            "package_create": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket", "s3:GetObject"],
-            "package_update": ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject"],
+            "package_create": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket", "s3:GetObject", "s3:AbortMultipartUpload"],
+            "package_update": ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject", "s3:AbortMultipartUpload"],
             "package_delete": ["s3:DeleteObject", "s3:ListBucket"],
             "package_browse": ["s3:ListBucket", "s3:GetObject"],
             "package_contents_search": ["s3:ListBucket"],
             "package_diff": ["s3:ListBucket", "s3:GetObject"],
             
             # Unified Package Operations
-            "create_package_enhanced": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket", "s3:GetObject"],
-            "create_package_from_s3": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:PutObjectAcl"],
+            "create_package_enhanced": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket", "s3:GetObject", "s3:AbortMultipartUpload"],
+            "create_package_from_s3": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:PutObjectAcl", "s3:AbortMultipartUpload"],
             
             # S3-to-Package Operations
-            "package_create_from_s3": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:PutObjectAcl"],
+            "package_create_from_s3": ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:PutObjectAcl", "s3:AbortMultipartUpload"],
             
             # Athena/Glue Operations
             "athena_query_execute": ["athena:StartQueryExecution", "athena:GetQueryExecution", "athena:GetQueryResults", "athena:StopQueryExecution"],
@@ -189,7 +196,20 @@ class BearerAuthService:
             )
             
             logger.debug("JWT token decoded successfully for user: %s", payload.get('id', 'unknown'))
-            return payload
+            
+            # Check if this is a compressed JWT token and decompress if needed
+            from ..jwt_utils.jwt_decompression import is_compressed_jwt, safe_decompress_jwt
+            
+            if is_compressed_jwt(payload):
+                logger.info("Detected compressed JWT token, decompressing...")
+                decompressed_payload = safe_decompress_jwt(payload)
+                logger.info("JWT token decompressed successfully: %d permissions, %d buckets", 
+                           len(decompressed_payload.get('permissions', [])), 
+                           len(decompressed_payload.get('buckets', [])))
+                return decompressed_payload
+            else:
+                logger.debug("JWT token is not compressed, using as-is")
+                return payload
             
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token has expired")
@@ -273,10 +293,14 @@ class BearerAuthService:
         Args:
             bucket_name: Name of bucket to check
             user_buckets: List of buckets user can access
-        
+            
         Returns:
             True if user has access, False otherwise
         """
+        if not user_buckets:
+            logger.error("Authorization attempted with empty bucket list for bucket '%s'", bucket_name)
+            return False
+        
         return bucket_name in user_buckets
 
     def validate_role_access(self, required_roles: List[str], user_roles: List[str]) -> bool:
@@ -412,9 +436,10 @@ class BearerAuthService:
         # Check bucket access if required
         if rules.get('required_bucket_access', False):
             bucket_name = tool_args.get('bucket', '')
-            if bucket_name and not self.validate_bucket_access(bucket_name, buckets):
-                logger.warning("No access to bucket for tool %s: %s", clean_tool_name, bucket_name)
-                return False
+            if bucket_name:
+                if not self.validate_bucket_access(bucket_name, buckets):
+                    logger.warning("No access to bucket for tool %s: %s", clean_tool_name, bucket_name)
+                    return False
         
         logger.debug("Authorized for tool: %s", clean_tool_name)
         return True
@@ -433,6 +458,8 @@ class BearerAuthService:
             "permissions": claims.get("permissions", []),
             "roles": claims.get("roles", []),
             "groups": claims.get("groups", []),
+            "buckets": claims.get("buckets", []),
+            "level": claims.get("level"),
             "user_id": claims.get("sub") or claims.get("user_id"),
             "username": claims.get("preferred_username") or claims.get("username"),
             "email": claims.get("email"),
@@ -451,7 +478,7 @@ class BearerAuthService:
             })
         
         return auth_info
-    
+
     def _map_roles_to_permissions(self, roles: List[str]) -> Dict[str, Any]:
         """Map Quilt roles to AWS permissions and bucket access.
         
@@ -495,50 +522,86 @@ class BearerAuthService:
         permissions["aws_permissions"] = list(set(permissions["aws_permissions"]))
         
         return permissions
+
+    def _expected_permissions_for_roles(self, roles: List[str]) -> Set[str]:
+        """Derive the canonical AWS permission set for the supplied roles."""
+        expected: Set[str] = set()
+        unknown_roles: List[str] = []
+
+        for role in roles:
+            role_info = self.role_permissions.get(role)
+            if not role_info:
+                unknown_roles.append(role)
+                continue
+
+            tools = role_info.get("tools", [])
+            if tools == ["*"]:
+                for perms in self.tool_permissions.values():
+                    expected.update(perms)
+                continue
+
+            for tool in tools:
+                tool_perms = self.tool_permissions.get(tool)
+                if not tool_perms:
+                    logger.warning("No permission mapping found for tool '%s' while validating role '%s'", tool, role)
+                    continue
+                expected.update(tool_perms)
+
+        if unknown_roles:
+            logger.error("Unknown roles in JWT payload: %s", ", ".join(sorted(unknown_roles)))
+
+        return expected
     
-    def _create_authorization_from_jwt_claims(self, roles: List[str], permissions: List[str], scopes: List[str]) -> Dict[str, Any]:
-        """Create authorization object from JWT claims (enhanced JWT from frontend).
-        
-        Args:
-            roles: List of user roles from JWT
-            permissions: List of AWS permissions from JWT
-            scopes: List of scopes from JWT
-            
-        Returns:
-            Authorization dictionary with level, buckets, and permissions
-        """
-        # Determine authorization level from scopes
-        auth_level = AuthorizationLevel.NONE
-        if "admin" in scopes:
-            auth_level = AuthorizationLevel.ADMIN
-        elif "write" in scopes:
-            auth_level = AuthorizationLevel.WRITE
-        elif "read" in scopes:
-            auth_level = AuthorizationLevel.READ
-        
-        # Extract buckets from permissions or use default based on roles
-        buckets = []
-        if permissions:
-            # Look for bucket-specific permissions
-            for perm in permissions:
-                if "s3:" in perm and "bucket" in perm.lower():
-                    # Extract bucket name from permission if possible
-                    pass  # For now, we'll use role-based bucket mapping
-        
-        # If no buckets found, use role-based mapping
-        if not buckets:
-            for role in roles:
-                if role in self.role_permissions:
-                    role_info = self.role_permissions[role]
-                    buckets.extend(role_info["buckets"])
-        
-        # Remove duplicates
-        buckets = list(set(buckets))
-        
+    def _create_authorization_from_jwt_claims(
+        self,
+        roles: List[str],
+        permissions: List[str],
+        scopes: List[str],
+        buckets: List[str],
+        level_hint: Optional[str],
+    ) -> Dict[str, Any]:
+        """Create authorization object from JWT claims (enhanced JWT from frontend)."""
+
+        def _level_from_hint(hint: Optional[str]) -> Optional[AuthorizationLevel]:
+            if not hint:
+                return None
+            normalized = hint.lower()
+            if normalized == "admin":
+                return AuthorizationLevel.ADMIN
+            if normalized == "write":
+                return AuthorizationLevel.WRITE
+            if normalized == "read":
+                return AuthorizationLevel.READ
+            return None
+
+        auth_level = _level_from_hint(level_hint)
+        if auth_level is None:
+            auth_level = AuthorizationLevel.NONE
+            if "admin" in scopes:
+                auth_level = AuthorizationLevel.ADMIN
+            elif "write" in scopes:
+                auth_level = AuthorizationLevel.WRITE
+            elif "read" in scopes:
+                auth_level = AuthorizationLevel.READ
+
+        # Normalise bucket names while preserving order
+        normalised_buckets: List[str] = []
+        seen_buckets: Set[str] = set()
+        for bucket in buckets:
+            if not isinstance(bucket, str):
+                logger.warning("Ignoring non-string bucket entry from JWT: %r", bucket)
+                continue
+            if bucket not in seen_buckets:
+                normalised_buckets.append(bucket)
+                seen_buckets.add(bucket)
+
+        # Normalise permissions (preserve original ordering)
+        normalised_permissions = list(dict.fromkeys(perm for perm in permissions if isinstance(perm, str)))
+
         return {
             "level": auth_level,
-            "buckets": buckets,
-            "aws_permissions": permissions,
+            "buckets": normalised_buckets,
+            "aws_permissions": normalised_permissions,
             "matched_roles": roles,
             "scopes": scopes,
             "source": "jwt_claims"
@@ -561,58 +624,100 @@ class BearerAuthService:
             jwt_claims = self._parse_jwt_claims(access_token)
             if not jwt_claims:
                 logger.warning("Could not parse JWT claims from token")
+                clear_runtime_auth()
                 return BearerAuthStatus.INVALID, None
-            
+
             # Extract authorization claims from JWT
             auth_claims = self._extract_authorization_claims(jwt_claims)
             logger.debug("Extracted authorization claims: %s", auth_claims)
-            
+
             # Check if token is expired
             exp = auth_claims.get("exp")
             if exp and exp < time.time():
                 logger.warning("Bearer token has expired")
+                clear_runtime_auth()
                 return BearerAuthStatus.EXPIRED, None
-            
+
+            roles = auth_claims.get("roles", [])
+            permissions = auth_claims.get("permissions", [])
+            scopes = auth_claims.get("scopes", [])
+            buckets = auth_claims.get("buckets", [])
+            level_hint = auth_claims.get("level")
+
+            if not buckets:
+                logger.error("JWT payload missing buckets array")
+                clear_runtime_auth()
+                return BearerAuthStatus.INVALID, None
+
+            if len(buckets) != 32:
+                logger.error("Expected 32 buckets in JWT payload, received %d", len(buckets))
+                clear_runtime_auth()
+                return BearerAuthStatus.INVALID, None
+
+            if not permissions:
+                logger.error("Permissions list empty in JWT payload")
+                clear_runtime_auth()
+                return BearerAuthStatus.INVALID, None
+
+            token_permission_set = {perm for perm in permissions if isinstance(perm, str)}
+            expected_permissions = self._expected_permissions_for_roles(roles)
+
+            if not expected_permissions:
+                logger.error("Unable to derive expected permissions for roles: %s", roles)
+                clear_runtime_auth()
+                return BearerAuthStatus.INVALID, None
+
+            if token_permission_set != expected_permissions:
+                logger.error(
+                    "JWT permissions mismatch for roles %s. expected=%s actual=%s",
+                    roles,
+                    sorted(expected_permissions),
+                    sorted(token_permission_set),
+                )
+                clear_runtime_auth()
+                return BearerAuthStatus.INVALID, None
+
             # Build user info from JWT claims
             user_info = {
                 "id": auth_claims.get("user_id"),
                 "username": auth_claims.get("username"),
                 "email": auth_claims.get("email"),
                 "user_id": auth_claims.get("user_id"),
-                "scope": auth_claims.get("scopes", []),
-                "permissions": auth_claims.get("permissions", []),
-                "roles": auth_claims.get("roles", []),
+                "scope": scopes,
+                "permissions": permissions,
+                "roles": roles,
                 "groups": auth_claims.get("groups", [])
             }
-            
-            # Extract authorization information from JWT
-            roles = auth_claims.get("roles", [])
-            permissions = auth_claims.get("permissions", [])
-            scopes = auth_claims.get("scopes", [])
-            
-            # Create authorization object from JWT claims
-            if roles or permissions or scopes:
-                # Use the authorization information directly from JWT
-                authorization = self._create_authorization_from_jwt_claims(roles, permissions, scopes)
-                user_info["authorization"] = authorization
-                
-                logger.info("Bearer token validation successful for user: %s with auth level: %s", 
-                           user_info.get('username', 'unknown'),
-                           authorization.get("level", "none"))
-            else:
-                logger.warning("No authorization claims found in JWT for user: %s", user_info.get('username', 'unknown'))
-                user_info["authorization"] = {
-                    "level": AuthorizationLevel.NONE,
-                    "buckets": [],
-                    "aws_permissions": [],
-                    "matched_roles": [],
-                    "source": "jwt_claims"
-                }
-            
+
+            authorization = self._create_authorization_from_jwt_claims(
+                roles=roles,
+                permissions=permissions,
+                scopes=scopes,
+                buckets=buckets,
+                level_hint=level_hint,
+            )
+            user_info["authorization"] = authorization
+
+            logger.info(
+                "Bearer token validation successful for user: %s with auth level: %s",
+                user_info.get('username', 'unknown'),
+                authorization.get("level", AuthorizationLevel.NONE),
+            )
+
+            set_runtime_auth(
+                RuntimeAuthState(
+                    scheme="jwt",
+                    access_token=access_token,
+                    claims=auth_claims,
+                    extras={"user_info": user_info, "authorization": authorization},
+                )
+            )
+
             return BearerAuthStatus.AUTHENTICATED, user_info
                 
         except Exception as e:
             logger.error("Unexpected error during bearer token validation: %s", e)
+            clear_runtime_auth()
             return BearerAuthStatus.UNAUTHENTICATED, None
     
     def validate_bucket_access_with_token(self, access_token: str, bucket_name: str, operation: str = "read") -> Tuple[bool, Optional[str]]:

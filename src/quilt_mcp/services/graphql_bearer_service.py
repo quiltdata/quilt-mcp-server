@@ -12,6 +12,8 @@ from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
+from quilt_mcp.runtime_context import get_runtime_access_token
+
 
 class GraphQLBearerService:
     """GraphQL service using bearer token authentication."""
@@ -31,8 +33,10 @@ class GraphQLBearerService:
             Tuple of (authenticated_session, graphql_url) or (None, None)
         """
         try:
-            # Get access token from environment variables (set by middleware)
-            access_token = os.environ.get("QUILT_ACCESS_TOKEN")
+            # Get access token from runtime context or environment (middleware)
+            access_token = get_runtime_access_token()
+            if not access_token:
+                access_token = os.environ.get("QUILT_ACCESS_TOKEN")
             if not access_token:
                 logger.debug("No QUILT_ACCESS_TOKEN environment variable set")
                 return None, None
