@@ -418,6 +418,73 @@ The following permissions are granted for this repository:
 - `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
 - GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make mcpb`, `make mcpb-validate`, and `make release-zip` for complete packaging. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
 
+### 2025-09-23 Authentication & Role Assumption Architecture
+
+**Key Learnings from Implementing Automatic Role Assumption:**
+
+#### Middleware Architecture for Request Context
+- **Starlette Middleware Pattern**: Use `BaseHTTPMiddleware` for request-scoped operations
+- **Environment Variable Bridge**: Middleware extracts headers and sets environment variables for services to consume
+- **Order Matters**: Add custom middleware before CORS middleware to ensure proper header processing
+- **Error Handling**: Wrap middleware operations in try-catch to prevent request failures
+
+#### Authentication Service Design
+- **Multi-Method Authentication**: Support multiple auth methods with priority-based fallback
+- **Per-Request Role Assumption**: Enable automatic role assumption on each request when headers present
+- **Session Management**: Maintain assumed role sessions with expiration handling
+- **State Isolation**: Each request can trigger role assumption without affecting global state
+
+#### AWS IAM Role Assumption Patterns
+- **STS AssumeRole**: Use `sts:assume_role` with proper session naming and source identity
+- **Trust Policy Requirements**: Target roles must trust the ECS task role ARN
+- **Session Validation**: Always validate assumed roles with `get_caller_identity`
+- **Credential Management**: Store temporary credentials with proper expiration handling
+
+#### Quilt Integration Architecture
+- **Header-Based Communication**: Use `X-Quilt-User-Role` and `X-Quilt-User-Id` headers
+- **Automatic Role Switching**: No user intervention required - roles switch automatically
+- **Per-User Isolation**: Each user's MCP operations use their specific AWS role
+- **Fallback Mechanisms**: Support both header-based (production) and credential-based (development) auth
+
+#### Implementation Patterns
+```python
+# Middleware extracts headers and sets environment variables
+class QuiltRoleMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        role_arn = request.headers.get("x-quilt-user-role")
+        if role_arn:
+            os.environ["QUILT_USER_ROLE_ARN"] = role_arn
+            auth_service.auto_attempt_role_assumption()
+        return await call_next(request)
+
+# Authentication service automatically assumes roles
+def auto_attempt_role_assumption(self) -> bool:
+    role_arn = os.environ.get("QUILT_USER_ROLE_ARN")
+    if role_arn and self._assumed_role_arn != role_arn:
+        return self.assume_quilt_user_role(role_arn)
+    return True
+```
+
+#### Key Architecture Decisions
+1. **Automatic vs Manual**: Role assumption is automatic when headers present, manual tools provided for override
+2. **Request-Scoped**: Each HTTP request can trigger role assumption independently
+3. **Environment Bridge**: Use environment variables to pass request context to services
+4. **Graceful Fallback**: Multiple authentication methods with priority-based selection
+5. **Security First**: Always validate assumed roles and handle credential expiration
+
+#### Deployment and Configuration Learnings
+- **Docker Image Tagging**: Use descriptive tags like `auto-role-assumption` for tracking deployments
+- **ECS Task Definition Updates**: Always update task definition with new image tags before deployment
+- **IAM Trust Policy Management**: Target roles must trust both ECS task role and execution role
+- **Role Name Validation**: Ensure frontend sends correct role names (e.g., `ReadWriteQuiltV2-sales-prod` not `ReadWriteQuiltBucket`)
+- **Platform Compatibility**: Always build Docker images with `--platform linux/amd64` for ECS compatibility
+
+#### Troubleshooting Patterns
+- **CloudWatch Log Analysis**: Monitor for "Automatic role assumption successful/failed" messages
+- **Header Validation**: Verify frontend sends full AWS ARNs, not just role names
+- **IAM Permission Checks**: Use `aws iam get-role` and `aws iam list-roles` to verify role existence and trust policies
+- **Environment Variable Debugging**: Check `QUILT_USER_ROLE_ARN` and `QUILT_USER_ID` in container logs
+
 ### Docker container + release notes (2025-09-22)
 
 - `src/quilt_mcp/main.py` now honours a pre-set `FASTMCP_TRANSPORT`; container entrypoints should export `FASTMCP_TRANSPORT=http` and `FASTMCP_HOST=0.0.0.0` before invoking `quilt-mcp`.

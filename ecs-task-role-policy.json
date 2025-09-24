@@ -1,0 +1,28 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowSTSAssumeRole",
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::850787717197:role/*"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceAccount": "850787717197"
+                }
+            }
+        },
+        {
+            "Sid": "AllowSTSGetCallerIdentity",
+            "Effect": "Allow",
+            "Action": [
+                "sts:GetCallerIdentity"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

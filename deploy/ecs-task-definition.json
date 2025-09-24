@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "mcp-server",
-      "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest",
+          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:permission-scheme",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -73,7 +73,7 @@
               }
             ],
       "healthCheck": {
-        "command": ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"],
+        "command": ["CMD-SHELL", "python3 -c \"import urllib.request, urllib.error; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).read()\" || exit 1"],
         "interval": 30,
         "timeout": 5,
         "retries": 3,
