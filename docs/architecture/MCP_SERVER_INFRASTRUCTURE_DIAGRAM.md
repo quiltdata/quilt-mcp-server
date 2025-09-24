@@ -20,18 +20,18 @@ graph TB
     ALB_SG[🛡️ ALB Security Group<br/>Allow HTTPS from Internet]
     
     %% ALB Listener Rules
-    MCP_Rule[📋 ALB Listener Rule<br/>Host: demo.quiltdata.com<br/>Path: /mcp/*<br/>Priority: 100+]
+    MCP_Rule[📋 ALB Listener Rule<br/>Host: demo.quiltdata.com<br/>Path: /mcp/<br/>Priority: 100+]
     
     %% VPC and Networking
-    VPC[🏢 VPC: sales-prod<br/>CIDR: 10.0.0.0/16]
+    VPC[🏢 VPC: sales-prod<br/>CIDR: 10.0.0.0-16]
     
     %% Public Subnets (for ALB)
     PubSub1[🌐 Public Subnet 1<br/>AZ-a]
     PubSub2[🌐 Public Subnet 2<br/>AZ-b]
     
     %% Private Subnets (for ECS)
-    PrivSub1[🔒 Private Subnet 1<br/>AZ-a<br/>10.0.1.0/24]
-    PrivSub2[🔒 Private Subnet 2<br/>AZ-b<br/>10.0.2.0/24]
+    PrivSub1[🔒 Private Subnet 1<br/>AZ-a<br/>10.0.1.0-24]
+    PrivSub2[🔒 Private Subnet 2<br/>AZ-b<br/>10.0.2.0-24]
     
     %% Target Groups
     MCP_TG[🎯 Target Group<br/>sales-prod-mcp-server-tg<br/>Protocol: HTTP<br/>Port: 8000<br/>Health: /healthz]
@@ -41,7 +41,7 @@ graph TB
     
     MCP_Service[🚀 ECS Service<br/>sales-prod-mcp-server-production<br/>Desired Count: 1<br/>Task Definition: quilt-mcp-server]
     
-    MCP_Task[📦 Fargate Task<br/>CPU: 256 (0.25 vCPU)<br/>Memory: 512 MiB<br/>Image: quilt-mcp-server]
+    MCP_Task[📦 Fargate Task<br/>CPU: 256 units<br/>Memory: 512 MiB<br/>Image: quilt-mcp-server]
     
     MCP_SG[🛡️ MCP Security Group<br/>Allow Port 8000 from ALB]
     
@@ -84,7 +84,7 @@ graph TB
     MCP_Task --> MCP_SG
     
     %% Security Group Rules
-    MCP_SG -.->|Port 8000| ALB_SG
+    MCP_SG -.-> ALB_SG
     
     %% IAM Role Assignments
     MCP_Task --> TaskRole
