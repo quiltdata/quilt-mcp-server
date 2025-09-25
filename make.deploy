@@ -25,7 +25,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-check docker-tools
 
 # Check for required tools
 check-tools:
@@ -153,6 +153,48 @@ docker-push-dev: docker-tools
 	echo "Using development version: $$DEV_VERSION" && \
 	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest --platform $(DOCKER_PLATFORM)
 	@echo "✅ Development Docker push completed"
+
+docker-check: docker-tools
+	@echo "🔍 Verifying Docker image architecture in ECR..."
+	@CHECK_VERSION=$${VERSION:-$(PACKAGE_VERSION)}; \
+	echo "Checking image: 712023778557.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:$$CHECK_VERSION"; \
+	echo ""; \
+	echo "📦 Fetching manifest from ECR..."; \
+	MANIFEST=$$(aws ecr batch-get-image \
+		--repository-name quilt-mcp-server \
+		--image-ids imageTag=$$CHECK_VERSION \
+		--region us-east-1 \
+		--query 'images[0].imageManifest' \
+		--output text 2>/dev/null) && \
+	if [ -z "$$MANIFEST" ]; then \
+		echo "❌ Image not found in ECR: quilt-mcp-server:$$CHECK_VERSION"; \
+		echo "   Run 'make docker-push' first to push the image"; \
+		exit 1; \
+	else \
+		echo "✅ Image found in ECR"; \
+		echo ""; \
+		echo "🏗️ Analyzing image architecture..."; \
+		ARCH=$$(echo "$$MANIFEST" | python3 scripts/check_image_arch.py) && \
+		echo "   Architecture(s): $$ARCH"; \
+		echo ""; \
+		if echo "$$ARCH" | grep -q "amd64"; then \
+			echo "✅ Image is built for linux/amd64 (x86_64) - compatible with ECS Fargate"; \
+		else \
+			echo "⚠️  WARNING: Image may not be compatible with ECS Fargate"; \
+			echo "   ECS Fargate requires linux/amd64 architecture"; \
+			echo "   Found: $$ARCH"; \
+			echo "   Run 'make docker-push' to build and push with correct architecture"; \
+		fi; \
+	fi
+	@echo ""
+	@echo "📊 Image details:"
+	@CHECK_VERSION=$${VERSION:-$(PACKAGE_VERSION)}; \
+	aws ecr describe-images \
+		--repository-name quilt-mcp-server \
+		--image-ids imageTag=$$CHECK_VERSION \
+		--region us-east-1 \
+		--query 'imageDetails[0].{Size:imageSizeInBytes,Pushed:imagePushedAt,Digest:imageDigest}' \
+		--output table 2>/dev/null || echo "   Could not fetch image details"
 
 # Release Tagging Targets
 release-tag:
