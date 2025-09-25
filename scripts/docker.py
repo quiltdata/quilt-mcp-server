@@ -148,7 +148,7 @@ class DockerManager:
 
         return tags
 
-    def build(self, tag: str, push: bool = False) -> bool:
+    def build(self, tag: str, push: bool = False, platform_spec: str = None) -> bool:
         """Build Docker image with the specified tag."""
         print(f"INFO: Building Docker image: {tag}", file=sys.stderr)
 
@@ -158,13 +158,26 @@ class DockerManager:
         buildx_check = self._run_command(["docker", "buildx", "version"], check=False)
 
         if buildx_check.returncode == 0:
-            # Use buildx for multi-platform builds
+            # Determine platform to build
+            import platform as platform_module
+
+            if platform_spec:
+                # Use specified platform
+                build_platform = platform_spec
+            else:
+                # Default to local platform
+                current_platform = (
+                    "linux/arm64" if platform_module.machine() == "arm64" else "linux/amd64"
+                )
+                build_platform = current_platform
+
+            # Use buildx for builds
             cmd = [
                 "docker",
                 "buildx",
                 "build",
                 "--platform",
-                "linux/amd64,linux/arm64",
+                build_platform,
                 "--file",
                 "Dockerfile",
                 "--tag",
@@ -172,17 +185,10 @@ class DockerManager:
             ]
 
             if push:
-                # When pushing, we can build multi-platform
+                # When pushing, use the specified platform
                 cmd.append("--push")
             else:
-                # For local builds, we can only load the native platform
-                # But we still specify both platforms to ensure the Dockerfile is compatible
-                import platform
-
-                current_platform = (
-                    "linux/arm64" if platform.machine() == "arm64" else "linux/amd64"
-                )
-                cmd[4] = current_platform  # Override platform for local load (index 4 is the platform value)
+                # For local builds, load the image
                 cmd.append("--load")
 
             cmd.append(".")
@@ -190,15 +196,7 @@ class DockerManager:
 
             if result.returncode == 0:
                 print(f"INFO: Successfully built image: {tag}", file=sys.stderr)
-                if not push:
-                    print(
-                        f"WARNING: Local build only includes {current_platform} platform",
-                        file=sys.stderr,
-                    )
-                    print(
-                        f"WARNING: For ECS deployment, use 'make docker-push' which builds all platforms",
-                        file=sys.stderr,
-                    )
+                print(f"INFO: Built for platform: {build_platform}", file=sys.stderr)
                 return True
         else:
             # Fallback to regular docker build (single platform)
@@ -245,7 +243,9 @@ class DockerManager:
             print(f"ERROR: Failed to push image: {result.stderr}", file=sys.stderr)
             return False
 
-    def build_and_push(self, version: str, include_latest: bool = True) -> bool:
+    def build_and_push(
+        self, version: str, include_latest: bool = True, platform_spec: str = None
+    ) -> bool:
         """Build and push Docker image with all generated tags."""
         if not self._check_docker():
             return False
@@ -265,13 +265,23 @@ class DockerManager:
         buildx_check = self._run_command(["docker", "buildx", "version"], check=False)
 
         if buildx_check.returncode == 0:
-            # Build multi-platform image with all tags
+            # Determine platforms to build
+            if platform_spec:
+                # Use specified platform(s)
+                platforms = platform_spec
+                print(f"INFO: Building for specified platform(s): {platforms}", file=sys.stderr)
+            else:
+                # Default to multi-platform for push operations
+                platforms = "linux/amd64,linux/arm64"
+                print(f"INFO: Building for multiple platforms: {platforms}", file=sys.stderr)
+
+            # Build image with all tags
             cmd = [
                 "docker",
                 "buildx",
                 "build",
                 "--platform",
-                "linux/amd64,linux/arm64",
+                platforms,
                 "--file",
                 "Dockerfile",
             ]
@@ -282,9 +292,17 @@ class DockerManager:
 
             # Push to registry
             cmd.append("--push")
+
+            # Add progress output and timeout settings
+            cmd.extend(["--progress", "plain"])
+
             cmd.append(".")
 
-            print(f"INFO: Building and pushing multi-platform image", file=sys.stderr)
+            print(f"INFO: Building and pushing image", file=sys.stderr)
+            if "," in platforms:  # Multi-platform build
+                print(f"INFO: This may take 10-20 minutes for multi-platform builds", file=sys.stderr)
+                print(f"INFO: ARM64 emulation on x86 machines can be very slow", file=sys.stderr)
+
             result = self._run_command(cmd)
 
             if result.returncode == 0:
@@ -325,7 +343,7 @@ class DockerManager:
         )
         return True
 
-    def build_local(self, version: str = "dev") -> bool:
+    def build_local(self, version: str = "dev", platform_spec: str = None) -> bool:
         """Build Docker image locally without pushing."""
         if not self._check_docker():
             return False
@@ -334,7 +352,7 @@ class DockerManager:
         local_tag = f"{self.registry}/{self.image_name}:{version}"
 
         print(f"INFO: Building Docker image locally", file=sys.stderr)
-        if not self.build(local_tag):
+        if not self.build(local_tag, platform_spec=platform_spec):
             return False
 
         print(f"INFO: Local build completed: {local_tag}", file=sys.stderr)
@@ -365,6 +383,7 @@ ENVIRONMENT VARIABLES:
     AWS_ACCOUNT_ID         AWS account ID (used to construct registry)
     AWS_DEFAULT_REGION     AWS region (default: us-east-1)
     VERSION                Version tag (can override --version)
+    DOCKER_SINGLE_PLATFORM Set to true/1/yes to build single platform only (faster)
         """,
     )
 
@@ -391,6 +410,10 @@ ENVIRONMENT VARIABLES:
     )
     build_parser.add_argument("--registry", help="Registry URL")
     build_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    build_parser.add_argument(
+        "--platform", default=None,
+        help="Platform to build for (default: local platform)"
+    )
 
     # Push command
     push_parser = subparsers.add_parser(
@@ -407,6 +430,10 @@ ENVIRONMENT VARIABLES:
     )
     push_parser.add_argument(
         "--no-latest", action="store_true", help="Don't tag as latest"
+    )
+    push_parser.add_argument(
+        "--platform", default=None,
+        help="Platform to build for (default: linux/amd64,linux/arm64 for push)"
     )
 
     # Info command
@@ -455,9 +482,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     """Build Docker image locally."""
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
+    platform = args.platform  # Use specified platform or None for default
 
     manager = DockerManager(registry=args.registry, image_name=args.image)
-    success = manager.build_local(version)
+    success = manager.build_local(version, platform_spec=platform)
     return 0 if success else 1
 
 
@@ -465,6 +493,7 @@ def cmd_push(args: argparse.Namespace) -> int:
     """Build and push Docker image to registry."""
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
+    platform = args.platform  # Use specified platform
 
     manager = DockerManager(
         registry=args.registry,
@@ -472,7 +501,11 @@ def cmd_push(args: argparse.Namespace) -> int:
         region=args.region,
         dry_run=args.dry_run,
     )
-    success = manager.build_and_push(version, include_latest=not args.no_latest)
+    success = manager.build_and_push(
+        version,
+        include_latest=not args.no_latest,
+        platform_spec=platform
+    )
     return 0 if success else 1
 
 

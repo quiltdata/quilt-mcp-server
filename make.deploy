@@ -8,6 +8,9 @@ BUILD_DIR := build
 BUILD_PKGS_DIR := $(BUILD_DIR)/lib
 DIST_DIR := dist
 
+# Docker platform configuration (for ECS deployment)
+DOCKER_PLATFORM := linux/amd64
+
 # Variables
 PACKAGE_NAME := quilt-mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
@@ -135,20 +138,20 @@ docker-tools:
 	@echo "✅ ECR authentication successful"
 
 docker-build: docker-tools
-	@echo "🐳 Building Docker image locally..."
+	@echo "🐳 Building Docker image locally (default: local platform)..."
 	@uv run python scripts/docker.py build
 	@echo "✅ Docker build completed"
 
 docker-push: docker-tools
-	@echo "🐳 Building and pushing Docker image..."
-	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
+	@echo "🐳 Building and pushing Docker image ($(DOCKER_PLATFORM))..."
+	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --platform $(DOCKER_PLATFORM)
 	@echo "✅ Docker push completed"
 
 docker-push-dev: docker-tools
-	@echo "🐳 Building and pushing development Docker image..."
+	@echo "🐳 Building and pushing development Docker image ($(DOCKER_PLATFORM))..."
 	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
 	echo "Using development version: $$DEV_VERSION" && \
-	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
+	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest --platform $(DOCKER_PLATFORM)
 	@echo "✅ Development Docker push completed"
 
 # Release Tagging Targets
