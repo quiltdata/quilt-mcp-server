@@ -57,7 +57,11 @@ def check_health(
             required_fields = ["status", "timestamp", "server"]
             missing_fields = [f for f in required_fields if f not in data]
             if missing_fields:
-                return False, data, f"Missing required fields: {', '.join(missing_fields)}"
+                return (
+                    False,
+                    data,
+                    f"Missing required fields: {', '.join(missing_fields)}",
+                )
 
             # Validate server info
             server_info = data.get("server", {})
@@ -70,7 +74,9 @@ def check_health(
             if verbose:
                 print(f"✓ Health check passed in {elapsed:.3f}s")
                 print(f"  Status: {status}")
-                print(f"  Server: {server_info.get('name')} v{server_info.get('version', 'unknown')}")
+                print(
+                    f"  Server: {server_info.get('name')} v{server_info.get('version', 'unknown')}"
+                )
                 print(f"  Response time: {elapsed:.3f}s")
 
             return True, data, None

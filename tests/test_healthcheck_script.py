@@ -24,14 +24,16 @@ class TestHealthCheckFunction:
         # Mock successful response
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.read.return_value = json.dumps({
-            "status": "ok",
-            "timestamp": "2025-01-24T12:00:00Z",
-            "server": {
-                "name": "quilt-mcp-server",
-                "version": "1.0.0",
-            },
-        }).encode("utf-8")
+        mock_response.read.return_value = json.dumps(
+            {
+                "status": "ok",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {
+                    "name": "quilt-mcp-server",
+                    "version": "1.0.0",
+                },
+            }
+        ).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
         is_healthy, data, error = check_health()
@@ -47,11 +49,13 @@ class TestHealthCheckFunction:
         """Test health check with unhealthy status."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.read.return_value = json.dumps({
-            "status": "unhealthy",
-            "timestamp": "2025-01-24T12:00:00Z",
-            "server": {"name": "quilt-mcp-server"},
-        }).encode("utf-8")
+        mock_response.read.return_value = json.dumps(
+            {
+                "status": "unhealthy",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {"name": "quilt-mcp-server"},
+            }
+        ).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
         is_healthy, data, error = check_health()
@@ -107,10 +111,12 @@ class TestHealthCheckFunction:
         """Test health check with missing required fields."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.read.return_value = json.dumps({
-            "status": "ok",
-            # Missing timestamp and server
-        }).encode("utf-8")
+        mock_response.read.return_value = json.dumps(
+            {
+                "status": "ok",
+                # Missing timestamp and server
+            }
+        ).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
         is_healthy, data, error = check_health()
@@ -123,11 +129,13 @@ class TestHealthCheckFunction:
         """Test health check with wrong server name."""
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.read.return_value = json.dumps({
-            "status": "ok",
-            "timestamp": "2025-01-24T12:00:00Z",
-            "server": {"name": "wrong-server"},
-        }).encode("utf-8")
+        mock_response.read.return_value = json.dumps(
+            {
+                "status": "ok",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {"name": "wrong-server"},
+            }
+        ).encode("utf-8")
         mock_urlopen.return_value.__enter__.return_value = mock_response
 
         is_healthy, data, error = check_health()
@@ -174,7 +182,11 @@ class TestHealthCheckScript:
         """Test script with successful health check."""
         mock_check.return_value = (
             True,
-            {"status": "ok", "timestamp": "2025-01-24T12:00:00Z", "server": {"name": "quilt-mcp-server"}},
+            {
+                "status": "ok",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {"name": "quilt-mcp-server"},
+            },
             None,
         )
 
@@ -200,7 +212,11 @@ class TestHealthCheckScript:
         """Test script with JSON output."""
         mock_check.return_value = (
             True,
-            {"status": "ok", "timestamp": "2025-01-24T12:00:00Z", "server": {"name": "quilt-mcp-server"}},
+            {
+                "status": "ok",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {"name": "quilt-mcp-server"},
+            },
             None,
         )
 
@@ -222,7 +238,11 @@ class TestHealthCheckScript:
         """Test script with verbose output."""
         mock_check.return_value = (
             True,
-            {"status": "ok", "timestamp": "2025-01-24T12:00:00Z", "server": {"name": "quilt-mcp-server", "version": "1.0.0"}},
+            {
+                "status": "ok",
+                "timestamp": "2025-01-24T12:00:00Z",
+                "server": {"name": "quilt-mcp-server", "version": "1.0.0"},
+            },
             None,
         )
 
@@ -262,9 +282,13 @@ class TestHealthCheckIntegration:
         # Run health check script in container
         result = subprocess.run(
             [
-                "docker", "run", "--rm",
+                "docker",
+                "run",
+                "--rm",
                 image_tag,
-                "python", "/app/scripts/healthcheck.py", "--help",
+                "python",
+                "/app/scripts/healthcheck.py",
+                "--help",
             ],
             capture_output=True,
             text=True,

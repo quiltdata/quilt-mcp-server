@@ -67,7 +67,9 @@ class DockerManager:
         # For local builds, use a default local registry
         return "localhost:5000"
 
-    def _run_command(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    def _run_command(
+        self, cmd: list[str], check: bool = True
+    ) -> subprocess.CompletedProcess:
         """Execute a command with optional dry-run mode."""
         if self.dry_run:
             print(f"DRY RUN: Would execute: {' '.join(cmd)}", file=sys.stderr)
@@ -81,38 +83,140 @@ class DockerManager:
         try:
             result = self._run_command(["docker", "info"], check=False)
             if result.returncode != 0:
-                print("ERROR: Docker daemon is not running or not accessible", file=sys.stderr)
+                print(
+                    "ERROR: Docker daemon is not running or not accessible",
+                    file=sys.stderr,
+                )
                 return False
+
+            # Ensure buildx is available and set up
+            buildx_result = self._run_command(
+                ["docker", "buildx", "version"], check=False
+            )
+            if buildx_result.returncode != 0:
+                print(
+                    "WARNING: Docker buildx not available, trying to create builder",
+                    file=sys.stderr,
+                )
+                # Try to create a buildx builder
+                create_result = self._run_command(
+                    [
+                        "docker",
+                        "buildx",
+                        "create",
+                        "--use",
+                        "--name",
+                        "quilt-mcp-builder",
+                    ],
+                    check=False,
+                )
+                if create_result.returncode != 0:
+                    # Builder might already exist, try to use it
+                    use_result = self._run_command(
+                        ["docker", "buildx", "use", "quilt-mcp-builder"], check=False
+                    )
+                    if use_result.returncode != 0:
+                        print(
+                            "WARNING: Could not set up buildx, falling back to regular build",
+                            file=sys.stderr,
+                        )
+
             return True
         except FileNotFoundError:
             print("ERROR: Docker is not installed or not in PATH", file=sys.stderr)
             return False
 
-    def generate_tags(self, version: str, include_latest: bool = True) -> list[ImageReference]:
+    def generate_tags(
+        self, version: str, include_latest: bool = True
+    ) -> list[ImageReference]:
         """Generate Docker image tags for a given version."""
         if not self.registry:
             raise ValueError("registry is required")
         if not version:
             raise ValueError("version is required")
 
-        tags = [ImageReference(registry=self.registry, image=self.image_name, tag=version)]
+        tags = [
+            ImageReference(registry=self.registry, image=self.image_name, tag=version)
+        ]
 
         if include_latest:
-            tags.append(ImageReference(registry=self.registry, image=self.image_name, tag=LATEST_TAG))
+            tags.append(
+                ImageReference(
+                    registry=self.registry, image=self.image_name, tag=LATEST_TAG
+                )
+            )
 
         return tags
 
-    def build(self, tag: str) -> bool:
+    def build(self, tag: str, push: bool = False) -> bool:
         """Build Docker image with the specified tag."""
         print(f"INFO: Building Docker image: {tag}", file=sys.stderr)
 
         os.chdir(self.project_root)
-        result = self._run_command(["docker", "build", "--file", "Dockerfile", "--tag", tag, "."])
 
-        if result.returncode == 0:
-            print(f"INFO: Successfully built: {tag}", file=sys.stderr)
-            return True
+        # Check if we can use buildx for multi-platform builds
+        buildx_check = self._run_command(["docker", "buildx", "version"], check=False)
+
+        if buildx_check.returncode == 0:
+            # Use buildx for multi-platform builds
+            cmd = [
+                "docker",
+                "buildx",
+                "build",
+                "--platform",
+                "linux/amd64,linux/arm64",
+                "--file",
+                "Dockerfile",
+                "--tag",
+                tag,
+            ]
+
+            if push:
+                # When pushing, we can build multi-platform
+                cmd.append("--push")
+            else:
+                # For local builds, we can only load the native platform
+                # But we still specify both platforms to ensure the Dockerfile is compatible
+                import platform
+
+                current_platform = (
+                    "linux/arm64" if platform.machine() == "arm64" else "linux/amd64"
+                )
+                cmd[3] = current_platform  # Override platform for local load
+                cmd.append("--load")
+
+            cmd.append(".")
+            result = self._run_command(cmd)
+
+            if result.returncode == 0:
+                print(f"INFO: Successfully built image: {tag}", file=sys.stderr)
+                if not push:
+                    print(
+                        f"WARNING: Local build only includes {current_platform} platform",
+                        file=sys.stderr,
+                    )
+                    print(
+                        f"WARNING: For ECS deployment, use 'make docker-push' which builds all platforms",
+                        file=sys.stderr,
+                    )
+                return True
         else:
+            # Fallback to regular docker build (single platform)
+            print(
+                "WARNING: Docker buildx not available, building single platform image",
+                file=sys.stderr,
+            )
+            result = self._run_command(
+                ["docker", "build", "--file", "Dockerfile", "--tag", tag, "."]
+            )
+
+            if result.returncode == 0:
+                print(
+                    f"INFO: Successfully built single-platform image: {tag}",
+                    file=sys.stderr,
+                )
+                return True
+
             print(f"ERROR: Failed to build image: {result.stderr}", file=sys.stderr)
             return False
 
@@ -154,9 +258,54 @@ class DockerManager:
         for ref in tags:
             print(f"INFO:   - {ref.uri}", file=sys.stderr)
 
+        # Build and push with all tags at once using buildx
+        os.chdir(self.project_root)
+
+        # Check if we can use buildx
+        buildx_check = self._run_command(["docker", "buildx", "version"], check=False)
+
+        if buildx_check.returncode == 0:
+            # Build multi-platform image with all tags
+            cmd = [
+                "docker",
+                "buildx",
+                "build",
+                "--platform",
+                "linux/amd64,linux/arm64",
+                "--file",
+                "Dockerfile",
+            ]
+
+            # Add all tags
+            for ref in tags:
+                cmd.extend(["--tag", ref.uri])
+
+            # Push to registry
+            cmd.append("--push")
+            cmd.append(".")
+
+            print(f"INFO: Building and pushing multi-platform image", file=sys.stderr)
+            result = self._run_command(cmd)
+
+            if result.returncode == 0:
+                print(
+                    f"INFO: Successfully built and pushed multi-platform image",
+                    file=sys.stderr,
+                )
+                return True
+            else:
+                print(f"ERROR: Failed to build/push: {result.stderr}", file=sys.stderr)
+                return False
+
+        # Fallback to old method if buildx not available
+        print(
+            "WARNING: Docker buildx not available, using legacy build method",
+            file=sys.stderr,
+        )
+
         # Build with first tag
         primary_tag = tags[0].uri
-        if not self.build(primary_tag):
+        if not self.build(primary_tag, push=False):
             return False
 
         # Tag with additional tags
@@ -170,7 +319,10 @@ class DockerManager:
                 return False
 
         print(f"INFO: Docker push completed successfully", file=sys.stderr)
-        print(f"INFO: Pushed {len(tags)} tags to registry: {self.registry}", file=sys.stderr)
+        print(
+            f"INFO: Pushed {len(tags)} tags to registry: {self.registry}",
+            file=sys.stderr,
+        )
         return True
 
     def build_local(self, version: str = "dev") -> bool:
@@ -220,33 +372,55 @@ ENVIRONMENT VARIABLES:
 
     # Tags command (replaces docker_image.py functionality)
     tags_parser = subparsers.add_parser("tags", help="Generate Docker image tags")
-    tags_parser.add_argument("--version", required=True, help="Version tag for the image")
+    tags_parser.add_argument(
+        "--version", required=True, help="Version tag for the image"
+    )
     tags_parser.add_argument("--registry", help="ECR registry URL")
     tags_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
-    tags_parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
-    tags_parser.add_argument("--no-latest", action="store_true", help="Don't include latest tag")
+    tags_parser.add_argument(
+        "--output", choices=["text", "json"], default="text", help="Output format"
+    )
+    tags_parser.add_argument(
+        "--no-latest", action="store_true", help="Don't include latest tag"
+    )
 
     # Build command
     build_parser = subparsers.add_parser("build", help="Build Docker image locally")
-    build_parser.add_argument("--version", default="dev", help="Version tag (default: dev)")
+    build_parser.add_argument(
+        "--version", default="dev", help="Version tag (default: dev)"
+    )
     build_parser.add_argument("--registry", help="Registry URL")
     build_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
 
     # Push command
-    push_parser = subparsers.add_parser("push", help="Build and push Docker image to registry")
-    push_parser.add_argument("--version", required=True, help="Version tag for the image")
+    push_parser = subparsers.add_parser(
+        "push", help="Build and push Docker image to registry"
+    )
+    push_parser.add_argument(
+        "--version", required=True, help="Version tag for the image"
+    )
     push_parser.add_argument("--registry", help="ECR registry URL")
     push_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
-    push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
-    push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
+    push_parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done"
+    )
+    push_parser.add_argument(
+        "--no-latest", action="store_true", help="Don't tag as latest"
+    )
 
     # Info command
-    info_parser = subparsers.add_parser("info", help="Get Docker image URI for a version")
-    info_parser.add_argument("--version", required=True, help="Version tag for the image")
+    info_parser = subparsers.add_parser(
+        "info", help="Get Docker image URI for a version"
+    )
+    info_parser.add_argument(
+        "--version", required=True, help="Version tag for the image"
+    )
     info_parser.add_argument("--registry", help="ECR registry URL")
     info_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
-    info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
+    info_parser.add_argument(
+        "--output", choices=["text", "github"], default="text", help="Output format"
+    )
 
     return parser.parse_args(list(argv))
 
@@ -255,7 +429,9 @@ def cmd_tags(args: argparse.Namespace) -> int:
     """Generate and display Docker image tags."""
     try:
         manager = DockerManager(registry=args.registry, image_name=args.image)
-        references = manager.generate_tags(args.version, include_latest=not args.no_latest)
+        references = manager.generate_tags(
+            args.version, include_latest=not args.no_latest
+        )
 
         if args.output == "json":
             payload = {
@@ -327,7 +503,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
 
     if not args.command:
-        print("ERROR: Command is required. Use --help for usage information.", file=sys.stderr)
+        print(
+            "ERROR: Command is required. Use --help for usage information.",
+            file=sys.stderr,
+        )
         return 1
 
     if args.command == "tags":
