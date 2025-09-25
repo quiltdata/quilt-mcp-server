@@ -6,6 +6,13 @@ This document describes the comprehensive authentication system implemented for 
 
 The Quilt MCP Server implements a sophisticated authentication system that automatically assumes the same AWS IAM role that each Quilt user is currently using. This provides per-user isolation while maintaining seamless integration with Quilt's existing role management system.
 
+### 2025 Runtime Context Enhancements
+
+- **Request-scoped context** – `quilt_mcp.runtime_context` tracks the active environment, authentication state, and request metadata via context variables so desktop (stdio) and web (HTTP/SSE) clients remain isolated (`src/quilt_mcp/runtime_context.py:1`).
+- **Transport-aware defaults** – `run_server()` now sets `desktop-stdio` for stdio transports and `web-service` for HTTP-based deployments, preventing quilt3 desktop sessions from inheriting web credentials (`src/quilt_mcp/utils.py:612`).
+- **Context-aware middleware** – `QuiltAuthMiddleware` pushes a fresh context per HTTP request, loads JWT or role information into `RuntimeAuthState`, and restores the original environment after completion (`src/quilt_mcp/utils.py:426`).
+- **Legacy compatibility** – Environment variables (`QUILT_ACCESS_TOKEN`, `QUILT_USER_INFO`, `QUILT_USER_ROLE_ARN`) are still populated while a request is in-flight, but are cleared alongside the context token to avoid cross-request leakage (`src/quilt_mcp/utils.py:585`).
+
 ## Architecture Components
 
 ### 1. Middleware Layer (`src/quilt_mcp/utils.py`)
@@ -449,6 +456,33 @@ aws logs get-log-events \
   --log-group-name /ecs/mcp-server-production \
   --log-stream-name ecs/mcp-server/$(aws ecs list-tasks --cluster sales-prod --service-name sales-prod-mcp-server-production --query 'taskArns[0]' --output text | cut -d'/' -f3)
 ```
+
+## AWS Deployment Footprint & Security Posture
+
+- **Fargate + ALB topology** – The reference Terraform module provisions a CloudWatch log group, ECS task definition, Fargate service, target group, and ALB listener rule so traffic is terminated at the load balancer and forwarded to private tasks (`deploy/terraform/modules/mcp_server/main.tf:16`).
+- **Network isolation** – Tasks run in caller-supplied private subnets without public IPs, and ingress is limited to the ALB security groups (`deploy/terraform/modules/mcp_server/main.tf:43`). Egress currently allows `0.0.0.0/0` to support AWS API calls; lock this down to the required CIDRs in hardened environments (`deploy/terraform/modules/mcp_server/main.tf:69`).
+- **IAM separation** – A unique task role is created so catalog-specific permissions can be attached via inline policy or customer-managed policy JSON (`deploy/terraform/modules/mcp_server/main.tf:20`).
+- **Secrets management** – Sample task definitions still inject JWT secrets via plaintext environment variables; migrate these values to AWS Secrets Manager or SSM Parameter Store before production (`deploy/ecs-task-definition.json:37`).
+- **Runtime isolation** – The runtime context clears JWTs and role ARNs once each request finishes, reducing credential sprawl even when environment variables are used for backward compatibility (`src/quilt_mcp/utils.py:585`).
+
+### Recommended Hardening Steps
+
+1. **Secrets** – Replace `MCP_ENHANCED_JWT_SECRET` and similar values with Secrets Manager references injected through the ECS task definition’s `secrets` block (`deploy/ecs-task-definition.json:64`).
+2. **Outbound control** – Tighten the security-group egress rule to only the organization’s VPC CIDR, required AWS endpoints (STS, S3, Glue, Athena), or a NAT gateway to meet data egress policies (`deploy/terraform/modules/mcp_server/main.tf:69`).
+3. **TLS & WAF** – Ensure the ALB listener uses ACM certificates for the customer domain and consider attaching AWS WAF for layer-7 protection.
+4. **ECS Exec governance** – Disable `enable_execute_command` when not needed or enforce IAM session policies and logging for operator access (`deploy/terraform/modules/mcp_server/variables.tf:100`).
+
+## Customer Deployment Guidance (CDK and CloudFormation)
+
+To ship the MCP server into customer accounts while preserving least-privilege controls:
+
+1. **IaC parity** – Translate the Terraform module into a CDK construct and a CloudFormation template so customers with different tooling preferences can deploy the identical ECS/ALB topology (`deploy/terraform/mcp-server.tf:5`).
+2. **Parameterize inputs** – Expose VPC ID, private subnets, ALB listener ARN, container image tag, and Quilt catalog URL as stack parameters. Default the environment variable map to the minimal set required by the server.
+3. **Bundle IAM policies** – Publish sample task-role policies derived from the permission discovery engine so security teams can scope S3, Glue, Athena, and IAM access to their data domains (`src/quilt_mcp/services/permission_discovery.py:37`).
+4. **Secrets integration** – Document how to reference Secrets Manager ARNs inside CDK/CloudFormation so customers never commit shared secrets to configuration repos.
+5. **Deployment validation** – Provide runbooks that use `scripts/ecs_deploy.py validate` and the `/healthz` endpoint to confirm ALB registration post-deploy (`make.deploy:120`).
+
+These recommendations offer a reproducible, auditable path for customers to host the MCP server inside their own AWS footprint without diluting the security guarantees Quilt uses in production.
 
 ## Future Enhancements
 
