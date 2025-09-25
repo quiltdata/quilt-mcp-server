@@ -75,6 +75,7 @@ def test_docker_image_serves_http():
     assert dockerfile.exists(), "Dockerfile must exist for container build"
 
     # Build the image using the Makefile target exactly as production would
+    # This calls `uv run python scripts/docker.py build` which builds locally
     build_result = subprocess.run(
         ["make", "-C", str(REPO_ROOT), "docker-build"],
         capture_output=True,
@@ -82,50 +83,50 @@ def test_docker_image_serves_http():
         check=True,
     )
 
-    # Extract the image tag from build output
-    image_tag_line = None
-    for line in build_result.stderr.split("\n"):
-        if "Successfully built" in line or "Building Docker image:" in line:
-            # Extract the tag from lines like "INFO: Building Docker image: 712023778557.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:dev"
-            if ":" in line and "/" in line:
-                parts = line.split(":")
-                if len(parts) >= 3:  # Has registry:port/image:tag format
-                    image_tag_line = ":".join(parts[1:]).strip()
-                    if image_tag_line.startswith("//"):
-                        image_tag_line = image_tag_line[2:]
+    # The make docker-build target uses scripts/docker.py which builds with registry/image:version format
+    # For local builds without ECR_REGISTRY or AWS_ACCOUNT_ID, it uses localhost:5000
+    # The version defaults to "dev" for the build command
 
-    # Use the built image tag or fallback
-    if image_tag_line:
-        built_tag = image_tag_line
-    else:
-        # Fallback - try to find the image
-        built_tag = "quilt-mcp-server:dev"
+    # List docker images to find what was actually built
+    list_result = subprocess.run(
+        ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    built_images = list_result.stdout.strip().split("\n")
+
+    # Find the image that was just built - it should contain "quilt-mcp-server"
+    built_tag = None
+    for image in built_images:
+        if "quilt-mcp-server" in image and "dev" in image:
+            built_tag = image
+            break
+
+    # If we can't find it with the full registry path, try simpler patterns
+    if not built_tag:
+        for image in built_images:
+            if "quilt-mcp" in image:
+                built_tag = image
+                break
+
+    assert built_tag, f"Could not find built image. Available images: {built_images}"
 
     # Tag for our test
     tag_cmd = ("docker", "tag", built_tag, IMAGE_TAG)
-    tag_result = subprocess.run(tag_cmd, capture_output=True, text=True)
-    if tag_result.returncode != 0:
-        # Try with the ECR tag format
-        ecr_tag = f"712023778557.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:dev"
-        tag_cmd = ("docker", "tag", ecr_tag, IMAGE_TAG)
-        subprocess.run(tag_cmd, check=True)
+    subprocess.run(tag_cmd, check=True)
 
-    # Note: Local builds can only load one platform at a time with buildx
-    # The warning in the build output indicates this limitation
-    # For production, 'make docker-push' builds and pushes multi-platform images
-    platforms = _get_docker_image_platforms(IMAGE_TAG)
-    if not platforms:
-        # If we can't determine platforms, check if image exists and skip platform check
-        inspect_result = subprocess.run(
-            ["docker", "image", "inspect", IMAGE_TAG],
-            capture_output=True,
-            text=True,
-        )
-        assert inspect_result.returncode == 0, f"Built image {IMAGE_TAG} not found"
-        print(
-            f"WARNING: Cannot verify multi-platform support for local build. "
-            f"Production builds via 'make docker-push' will include linux/amd64 and linux/arm64."
-        )
+    # Verify the image was properly tagged for our test
+    inspect_result = subprocess.run(
+        ["docker", "image", "inspect", IMAGE_TAG],
+        capture_output=True,
+        text=True,
+    )
+    assert inspect_result.returncode == 0, f"Test image {IMAGE_TAG} not found after tagging"
+
+    # Note: Local builds via 'make docker-build' can only load one platform at a time
+    # Production builds via 'make docker-push' will include both linux/amd64 and linux/arm64
 
     free_port = _find_free_port()
     container_name = f"quilt-mcp-test-{uuid.uuid4()}"
@@ -202,11 +203,34 @@ def test_docker_image_ecs_platform_compatibility():
     )
     assert build_result.returncode == 0, f"Docker build failed: {build_result.stderr}"
 
+    # Find the image that was built (same logic as test_docker_image_serves_http)
+    list_result = subprocess.run(
+        ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    built_images = list_result.stdout.strip().split("\n")
+    built_tag = None
+    for image in built_images:
+        if "quilt-mcp-server" in image and "dev" in image:
+            built_tag = image
+            break
+
+    if not built_tag:
+        for image in built_images:
+            if "quilt-mcp" in image:
+                built_tag = image
+                break
+
+    assert built_tag, f"Could not find built image. Available images: {built_images}"
+
     # Tag the built image for our test
     tag_cmd = (
         "docker",
         "tag",
-        "quilt-mcp-server:latest",  # Default tag from scripts/docker.py
+        built_tag,
         f"{IMAGE_TAG}-ecs-test",
     )
     subprocess.run(tag_cmd, check=True)
@@ -276,7 +300,7 @@ def test_docker_image_defaults_to_sse():
     dockerfile = REPO_ROOT / "Dockerfile"
     assert dockerfile.exists(), "Dockerfile must exist for container build"
 
-    # Use existing image if available, otherwise build
+    # Use existing image if available, otherwise build using make docker-build
     image_to_test = IMAGE_TAG
     existing_images = subprocess.run(
         ["docker", "images", "-q", image_to_test],
@@ -285,9 +309,31 @@ def test_docker_image_defaults_to_sse():
     )
 
     if not existing_images.stdout.strip():
-        # Build if image doesn't exist
-        build_cmd = ["docker", "build", "--tag", image_to_test, str(REPO_ROOT)]
-        subprocess.run(build_cmd, check=True)
+        # Build using the same method as other tests
+        build_result = subprocess.run(
+            ["make", "-C", str(REPO_ROOT), "docker-build"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        # Find and tag the built image
+        list_result = subprocess.run(
+            ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        built_images = list_result.stdout.strip().split("\n")
+        built_tag = None
+        for image in built_images:
+            if "quilt-mcp-server" in image and "dev" in image:
+                built_tag = image
+                break
+
+        if built_tag and built_tag != image_to_test:
+            subprocess.run(["docker", "tag", built_tag, image_to_test], check=True)
 
     container_name = f"quilt-mcp-sse-test-{uuid.uuid4()}"
 

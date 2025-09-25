@@ -182,7 +182,7 @@ class DockerManager:
                 current_platform = (
                     "linux/arm64" if platform.machine() == "arm64" else "linux/amd64"
                 )
-                cmd[3] = current_platform  # Override platform for local load
+                cmd[4] = current_platform  # Override platform for local load (index 4 is the platform value)
                 cmd.append("--load")
 
             cmd.append(".")
