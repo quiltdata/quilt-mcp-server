@@ -129,5 +129,20 @@ variable "tags" {
 variable "enable_execute_command" {
   description = "Enable ECS Exec on the service"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "secret_arns" {
+  description = "List of secrets to inject into the MCP container"
+  type = list(object({
+    name = string
+    arn  = string
+  }))
+  default = []
+}
+
+variable "egress_cidr_blocks" {
+  description = "CIDR blocks permitted for outbound traffic from the MCP tasks"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }

@@ -424,7 +424,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
         import json
         
         class QuiltAuthMiddleware(BaseHTTPMiddleware):
-            """Middleware to handle Quilt authentication via bearer tokens or role headers."""
+            """Middleware to handle Quilt authentication via unified authentication service."""
             
             async def dispatch(self, request, call_next):
                 # Fix Accept header for MCP protocol compliance
@@ -452,14 +452,72 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                     authorization = request.headers.get("authorization")
                     quilt_user_role = request.headers.get("x-quilt-user-role")
                     quilt_user_id = request.headers.get("x-quilt-user-id")
-
-                    # Handle bearer token authentication (preferred method)
-                    if authorization and authorization.startswith("Bearer "):
-                        access_token = authorization[7:]
+                    
+                    # Create request context for unified authentication
+                    request_context = {
+                        "headers": {
+                            "authorization": authorization,
+                            "x-quilt-user-role": quilt_user_role,
+                            "x-quilt-user-id": quilt_user_id,
+                        }
+                    }
+                    
+                    # Use unified authentication service
+                    from quilt_mcp.services.unified_auth_service import get_unified_auth_service
+                    auth_service = get_unified_auth_service()
+                    auth_result = auth_service.authenticate_request(request_context)
+                    
+                    if auth_result.success:
                         logger.info(
-                            "QuiltAuthMiddleware: Detected Bearer token authentication (token length: %d)",
-                            len(access_token),
+                            "QuiltAuthMiddleware: Unified authentication successful for %s client (method: %s)",
+                            auth_result.client_type.value,
+                            auth_result.auth_method
                         )
+                        
+                        # Set runtime context based on client type
+                        if auth_result.client_type.value == "web":
+                            set_runtime_environment("web-jwt")
+                        elif auth_result.client_type.value == "desktop":
+                            set_runtime_environment("desktop-stdio")
+                        else:
+                            set_runtime_environment("web-hybrid")
+                        
+                        # Set runtime auth state
+                        from quilt_mcp.runtime_context import RuntimeAuthState
+                        runtime_auth = RuntimeAuthState(
+                            scheme=auth_result.auth_method or "unified",
+                            access_token=auth_result.quilt_api_token,
+                            claims=auth_result.user_info,
+                            extras={"user_info": auth_result.user_info}
+                        )
+                        set_runtime_auth(runtime_auth)
+                        update_runtime_metadata(
+                            auth_source="unified_auth",
+                            client=auth_result.client_type.value,
+                            auth_method=auth_result.auth_method
+                        )
+                        
+                        # Set environment variables for backward compatibility
+                        if auth_result.quilt_api_token:
+                            os.environ["QUILT_ACCESS_TOKEN"] = auth_result.quilt_api_token
+                        if auth_result.user_info:
+                            os.environ["QUILT_USER_INFO"] = json.dumps(auth_result.user_info)
+                        if quilt_user_role:
+                            os.environ["QUILT_USER_ROLE_ARN"] = quilt_user_role
+                        if quilt_user_id:
+                            os.environ["QUILT_USER_ID"] = quilt_user_id
+                    else:
+                        logger.warning(
+                            "QuiltAuthMiddleware: Unified authentication failed: %s",
+                            auth_result.error
+                        )
+                        set_runtime_environment("web-unauthenticated")
+
+                    # Process the request
+                    response = await call_next(request)
+                    return response
+
+                finally:
 
                         try:
                             from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service

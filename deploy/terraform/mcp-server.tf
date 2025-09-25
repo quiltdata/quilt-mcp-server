@@ -20,9 +20,12 @@ module "mcp_server" {
   memory               = var.memory
   desired_count        = var.desired_count
   environment_variables = var.environment_variables
+  log_group_name        = var.log_group_name
   log_retention_in_days = var.log_retention_in_days
   health_check_path     = var.health_check_path
   enable_execute_command = var.enable_execute_command
+  secret_arns           = var.secret_arns
+  egress_cidr_blocks    = var.egress_cidr_blocks
   tags                  = merge({ Environment = var.stack_name }, var.tags)
 }
 

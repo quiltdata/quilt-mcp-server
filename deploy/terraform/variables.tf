@@ -102,6 +102,12 @@ variable "environment_variables" {
   default     = {}
 }
 
+variable "log_group_name" {
+  description = "Optional CloudWatch log group name"
+  type        = string
+  default     = null
+}
+
 variable "log_retention_in_days" {
   description = "Retention period for CloudWatch logs"
   type        = number
@@ -117,7 +123,22 @@ variable "health_check_path" {
 variable "enable_execute_command" {
   description = "Enable ECS Exec"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "secret_arns" {
+  description = "List of secrets to inject into the MCP container"
+  type = list(object({
+    name = string
+    arn  = string
+  }))
+  default = []
+}
+
+variable "egress_cidr_blocks" {
+  description = "CIDR blocks permitted for outbound traffic from the MCP tasks"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 variable "tags" {

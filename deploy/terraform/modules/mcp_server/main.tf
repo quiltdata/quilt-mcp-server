@@ -8,6 +8,12 @@ locals {
     FASTMCP_PORT      = tostring(var.container_port)
   }
   environment = merge(local.default_environment, var.environment_variables)
+  container_secrets = [
+    for secret in var.secret_arns : {
+      name      = secret.name
+      valueFrom = secret.arn
+    }
+  ]
 }
 
 resource "aws_cloudwatch_log_group" "mcp" {
@@ -62,7 +68,7 @@ resource "aws_security_group" "mcp" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.egress_cidr_blocks
   }
 
   tags = local.default_tags
@@ -142,6 +148,8 @@ resource "aws_ecs_task_definition" "mcp" {
           value = value
         }
       ]
+
+      secrets = local.container_secrets
 
       logConfiguration = {
         logDriver = "awslogs"

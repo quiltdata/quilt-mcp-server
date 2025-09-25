@@ -552,6 +552,12 @@ Required secrets for Docker operations:
 - Tools and services (S3 buckets, bearer auth, GraphQL) prefer runtime context over environment variables, so desktop quilt3 flows and web JWT flows can coexist inside the same container without leaking credentials (`tests/unit/test_utils.py:319`).
 - No frontend changes are required—the middleware automatically infers context from the existing Authorization/role headers.
 
+### CDK & CloudFormation parity
+
+- `deploy/cdk/mcp_server/stack.py` provides a self-contained `McpServerStack` that mirrors the Terraform module: it provisions the log group, Fargate task/service, ALB listener rule, target group, and security group while wiring runtime env vars (`FASTMCP_*`) plus optional secrets from `secret_arns`. Instantiation works with minimal inputs during synth because a default VPC/cluster are created on demand.
+- `deploy/cloudformation/mcp_server.yml` is a drop-in template for existing environments; supply VPC/subnets, ALB listener, cluster/task roles, and the two JWT secret ARNs. It hard-codes the same health check and environment defaults so the stack behaves identically to Terraform.
+- `tests/unit/test_cdk_infrastructure.py` exercises both artefacts—failing if secrets/env vars drift or core resources disappear—so extend those tests when adding new infrastructure knobs.
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

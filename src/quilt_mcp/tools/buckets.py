@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 from typing import Any
 
-import boto3
-
 from ..constants import DEFAULT_BUCKET
-from ..services.quilt_service import QuiltService
-from ..runtime_context import get_runtime_auth, get_runtime_environment
 from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
+from .auth_helpers import check_s3_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:
-    """Check authorization for tool access - supports both JWT and traditional auth.
+    """Check authorization for tool access using unified authentication.
     
     Args:
         tool_name: Name of the MCP tool being called
@@ -28,121 +23,14 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         Dictionary with authorization result and user info
     """
     try:
-        auth_state = get_runtime_auth()
-        runtime_env = get_runtime_environment()
-
-        if auth_state and auth_state.scheme in {"jwt", "bearer"}:
-            logger.info("Using runtime JWT authorization for tool %s", tool_name)
-            return _check_jwt_authorization(tool_name, tool_args, auth_state=auth_state)
-
-        user_info_str = os.environ.get("QUILT_USER_INFO")
-        if user_info_str:
-            logger.info("Using JWT authorization from environment for tool %s", tool_name)
-            return _check_jwt_authorization(tool_name, tool_args)
-
-        logger.info("Using traditional authentication for tool %s (environment: %s)", tool_name, runtime_env)
-        return _check_traditional_authorization(tool_name, tool_args)
+        logger.info("Using unified authentication for tool %s", tool_name)
+        return check_s3_authorization(tool_name, tool_args)
             
     except Exception as e:
         logger.error("Error checking authorization: %s", e)
         return {"authorized": False, "error": f"Authorization check failed: {str(e)}"}
 
 
-def _check_jwt_authorization(
-    tool_name: str,
-    tool_args: dict[str, Any],
-    *,
-    auth_state = None,
-) -> dict[str, Any]:
-    """Check JWT authorization for tool access.
-    
-    Args:
-        tool_name: Name of the MCP tool being called
-        tool_args: Arguments passed to the tool
-        
-    Returns:
-        Dictionary with authorization result and user info
-    """
-    try:
-        if auth_state:
-            user_info = auth_state.extras.get("user_info", {})
-            auth_claims = auth_state.claims or {}
-        else:
-            user_info_str = os.environ.get("QUILT_USER_INFO")
-            if not user_info_str:
-                logger.warning("No JWT user info found in environment variables")
-                return {"authorized": False, "error": "No JWT authentication information available"}
-
-            user_info = json.loads(user_info_str)
-            auth_claims = {
-                'permissions': user_info.get('permissions', []),
-                'roles': user_info.get('roles', []),
-                'buckets': user_info.get('buckets', []),
-                'groups': user_info.get('groups', []),
-                'scope': user_info.get('scope', ''),
-                'user_id': user_info.get('id', ''),
-            }
-        
-        # Import bearer auth service for authorization check
-        from ..services.bearer_auth_service import get_bearer_auth_service
-        bearer_auth_service = get_bearer_auth_service()
-
-        if not auth_claims:
-            logger.warning("JWT authorization missing claims for tool %s", tool_name)
-            return {"authorized": False, "error": "JWT authorization missing claims"}
-        
-        # Check authorization
-        authorized = bearer_auth_service.authorize_mcp_tool(tool_name, tool_args, auth_claims)
-        
-        if authorized:
-            logger.info("JWT authorization successful for tool %s", tool_name)
-            return {"authorized": True, "user_info": user_info, "auth_claims": auth_claims}
-        else:
-            logger.warning("JWT authorization failed for tool %s", tool_name)
-            return {"authorized": False, "error": f"Access denied for tool: {tool_name}"}
-            
-    except Exception as e:
-        logger.error("Error checking JWT authorization: %s", e)
-        return {"authorized": False, "error": f"JWT authorization check failed: {str(e)}"}
-
-
-def _check_traditional_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
-    """Check traditional authentication for tool access (desktop/Cursor).
-    
-    Args:
-        tool_name: Name of the MCP tool being called
-        tool_args: Arguments passed to the tool
-        
-    Returns:
-        Dictionary with authorization result
-    """
-    try:
-        # For traditional auth, we rely on the existing AWS credentials
-        # and quilt3 authentication. The tools will use get_s3_client() 
-        # which already handles quilt3 authentication.
-        
-        # Check if quilt3 is logged in
-        import quilt3
-        if hasattr(quilt3, 'logged_in') and quilt3.logged_in():
-            logger.info("Traditional authorization successful for tool %s (quilt3 logged in)", tool_name)
-            return {"authorized": True, "auth_method": "quilt3"}
-        
-        # Check if we have AWS credentials available
-        try:
-            sts = boto3.client('sts')
-            sts.get_caller_identity()
-            logger.info("Traditional authorization successful for tool %s (AWS credentials)", tool_name)
-            return {"authorized": True, "auth_method": "aws_credentials"}
-        except Exception:
-            pass
-        
-        # If no auth method found, deny access
-        logger.warning("No traditional authentication found for tool %s", tool_name)
-        return {"authorized": False, "error": "No authentication credentials available"}
-            
-    except Exception as e:
-        logger.error("Error checking traditional authorization: %s", e)
-        return {"authorized": False, "error": f"Traditional authorization check failed: {str(e)}"}
 
 
 def _normalize_bucket(uri_or_name: str) -> str:
@@ -170,8 +58,8 @@ def bucket_objects_list(
     Returns:
         Dict with bucket info, objects list, and pagination details.
     """
-    # Check authorization first (supports both JWT and traditional auth)
-    tool_args = {"bucket": bucket, "prefix": prefix}
+    # Check authorization using unified authentication
+    tool_args = {"bucket_name": _normalize_bucket(bucket), "prefix": prefix}
     auth_result = _check_authorization("bucket_objects_list", tool_args)
     if not auth_result["authorized"]:
         return {
@@ -184,7 +72,13 @@ def bucket_objects_list(
     
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
-    client = get_s3_client()
+    
+    # Use S3 client from unified authentication
+    client = auth_result.get("s3_client")
+    if not client:
+        # Fallback to original method if unified auth doesn't provide client
+        client = get_s3_client()
+    
     params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
     if prefix:
         params["Prefix"] = prefix
@@ -245,7 +139,22 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     except ValueError as e:
         return {"error": str(e)}
 
-    client = get_s3_client()
+    # Check authorization using unified authentication
+    tool_args = {"bucket_name": bucket, "key": key}
+    auth_result = _check_authorization("bucket_object_info", tool_args)
+    if not auth_result["authorized"]:
+        return {
+            "error": auth_result["error"],
+            "bucket": bucket,
+            "key": key
+        }
+
+    # Use S3 client from unified authentication
+    client = auth_result.get("s3_client")
+    if not client:
+        # Fallback to original method if unified auth doesn't provide client
+        client = get_s3_client()
+    
     try:
         # Build params dict and conditionally add VersionId
         params = {"Bucket": bucket, "Key": key}

@@ -1,0 +1,258 @@
+{
+  "tool_permissions": {
+    "bucket_objects_list": {
+      "aws_permissions": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "quilt_permissions": ["bucket:read"],
+      "required_services": ["s3"],
+      "description": "List objects in S3 bucket"
+    },
+    "bucket_object_info": {
+      "aws_permissions": ["s3:GetObject", "s3:GetObjectVersion"],
+      "quilt_permissions": ["bucket:read"],
+      "required_services": ["s3"],
+      "description": "Get object metadata from S3 bucket"
+    },
+    "bucket_object_text": {
+      "aws_permissions": ["s3:GetObject"],
+      "quilt_permissions": ["bucket:read"],
+      "required_services": ["s3"],
+      "description": "Read object content as text from S3 bucket"
+    },
+    "bucket_object_fetch": {
+      "aws_permissions": ["s3:GetObject"],
+      "quilt_permissions": ["bucket:read"],
+      "required_services": ["s3"],
+      "description": "Fetch object from S3 bucket"
+    },
+    "bucket_objects_put": {
+      "aws_permissions": ["s3:PutObject", "s3:PutObjectAcl"],
+      "quilt_permissions": ["bucket:write"],
+      "required_services": ["s3"],
+      "description": "Upload objects to S3 bucket"
+    },
+    "bucket_object_link": {
+      "aws_permissions": ["s3:GetObject"],
+      "quilt_permissions": ["bucket:read"],
+      "required_services": ["s3"],
+      "description": "Generate signed URL for S3 object"
+    },
+    "package_create": {
+      "aws_permissions": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Create Quilt package"
+    },
+    "package_update": {
+      "aws_permissions": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Update Quilt package"
+    },
+    "package_delete": {
+      "aws_permissions": ["s3:DeleteObject", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Delete Quilt package"
+    },
+    "package_browse": {
+      "aws_permissions": ["s3:ListBucket", "s3:GetObject"],
+      "quilt_permissions": ["package:read"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Browse Quilt package contents"
+    },
+    "package_contents_search": {
+      "aws_permissions": ["s3:ListBucket", "s3:GetObject"],
+      "quilt_permissions": ["package:read"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Search package contents"
+    },
+    "package_diff": {
+      "aws_permissions": ["s3:GetObject", "s3:ListBucket"],
+      "quilt_permissions": ["package:read"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Compare package versions"
+    },
+    "create_package_enhanced": {
+      "aws_permissions": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Create enhanced Quilt package"
+    },
+    "create_package_from_s3": {
+      "aws_permissions": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Create package from S3 objects"
+    },
+    "package_create_from_s3": {
+      "aws_permissions": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+      "quilt_permissions": ["package:write"],
+      "required_services": ["s3", "quilt_api"],
+      "description": "Create package from S3 objects (alias)"
+    },
+    "athena_query_execute": {
+      "aws_permissions": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:StopQueryExecution"
+      ],
+      "quilt_permissions": ["athena:execute"],
+      "required_services": ["athena"],
+      "description": "Execute Athena query"
+    },
+    "athena_databases_list": {
+      "aws_permissions": ["glue:GetDatabases"],
+      "quilt_permissions": ["athena:read"],
+      "required_services": ["glue"],
+      "description": "List Athena databases"
+    },
+    "athena_tables_list": {
+      "aws_permissions": ["glue:GetTables", "glue:GetTable"],
+      "quilt_permissions": ["athena:read"],
+      "required_services": ["glue"],
+      "description": "List Athena tables"
+    },
+    "athena_table_schema": {
+      "aws_permissions": ["glue:GetTable", "glue:GetPartitions"],
+      "quilt_permissions": ["athena:read"],
+      "required_services": ["glue"],
+      "description": "Get Athena table schema"
+    },
+    "athena_workgroups_list": {
+      "aws_permissions": ["athena:ListWorkGroups"],
+      "quilt_permissions": ["athena:read"],
+      "required_services": ["athena"],
+      "description": "List Athena workgroups"
+    },
+    "athena_query_history": {
+      "aws_permissions": ["athena:ListQueryExecutions"],
+      "quilt_permissions": ["athena:read"],
+      "required_services": ["athena"],
+      "description": "Get Athena query history"
+    },
+    "tabulator_tables_list": {
+      "aws_permissions": ["glue:GetTables"],
+      "quilt_permissions": ["tabulator:read"],
+      "required_services": ["glue"],
+      "description": "List tabulator tables"
+    },
+    "tabulator_table_create": {
+      "aws_permissions": ["glue:CreateTable", "glue:UpdateTable"],
+      "quilt_permissions": ["tabulator:write"],
+      "required_services": ["glue"],
+      "description": "Create tabulator table"
+    },
+    "unified_search": {
+      "aws_permissions": [],
+      "quilt_permissions": ["search:execute"],
+      "required_services": ["quilt_api"],
+      "description": "Unified search across packages"
+    },
+    "packages_search": {
+      "aws_permissions": [],
+      "quilt_permissions": ["search:execute"],
+      "required_services": ["quilt_api"],
+      "description": "Search packages"
+    },
+    "aws_permissions_discover": {
+      "aws_permissions": ["iam:GetRole", "iam:ListRoles", "iam:GetUser"],
+      "quilt_permissions": ["permissions:read"],
+      "required_services": ["iam"],
+      "description": "Discover AWS permissions"
+    },
+    "bucket_access_check": {
+      "aws_permissions": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "quilt_permissions": ["permissions:read"],
+      "required_services": ["s3"],
+      "description": "Check bucket access"
+    },
+    "bucket_recommendations_get": {
+      "aws_permissions": ["s3:ListAllMyBuckets"],
+      "quilt_permissions": ["permissions:read"],
+      "required_services": ["s3"],
+      "description": "Get bucket recommendations"
+    }
+  },
+  "role_mappings": {
+    "ReadWriteQuiltV2-sales-prod": {
+      "level": "write",
+      "buckets": ["quilt-sandbox-bucket", "quilt-sales-prod"],
+      "tools": [
+        "bucket_objects_list",
+        "bucket_object_info",
+        "bucket_object_text",
+        "bucket_object_fetch",
+        "bucket_objects_put",
+        "bucket_object_link",
+        "package_create",
+        "package_update",
+        "package_delete",
+        "package_browse",
+        "package_contents_search",
+        "package_diff",
+        "create_package_enhanced",
+        "create_package_from_s3",
+        "package_create_from_s3",
+        "athena_query_execute",
+        "athena_databases_list",
+        "athena_tables_list",
+        "athena_table_schema",
+        "athena_workgroups_list",
+        "athena_query_history",
+        "tabulator_tables_list",
+        "tabulator_table_create",
+        "unified_search",
+        "packages_search",
+        "aws_permissions_discover",
+        "bucket_access_check",
+        "bucket_recommendations_get"
+      ]
+    },
+    "ReadOnlyQuiltV2-sales-prod": {
+      "level": "read",
+      "buckets": ["quilt-sandbox-bucket", "quilt-sales-prod"],
+      "tools": [
+        "bucket_objects_list",
+        "bucket_object_info",
+        "bucket_object_text",
+        "bucket_object_fetch",
+        "bucket_object_link",
+        "package_browse",
+        "package_contents_search",
+        "package_diff",
+        "athena_query_execute",
+        "athena_databases_list",
+        "athena_tables_list",
+        "athena_table_schema",
+        "athena_workgroups_list",
+        "athena_query_history",
+        "tabulator_tables_list",
+        "unified_search",
+        "packages_search",
+        "aws_permissions_discover",
+        "bucket_access_check",
+        "bucket_recommendations_get"
+      ]
+    }
+  },
+  "permission_mapping": {
+    "bucket:read": ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetObject"],
+    "bucket:write": ["s3:PutObject", "s3:PutObjectAcl", "s3:DeleteObject"],
+    "bucket:admin": ["s3:*"],
+    "package:read": ["s3:GetObject", "s3:ListBucket"],
+    "package:write": ["s3:PutObject", "s3:PutObjectAcl", "s3:ListBucket", "s3:DeleteObject"],
+    "package:admin": ["s3:*"],
+    "athena:execute": ["athena:StartQueryExecution", "athena:GetQueryExecution", "athena:GetQueryResults"],
+    "athena:read": ["athena:ListQueryExecutions", "glue:GetDatabases", "glue:GetTables"],
+    "athena:admin": ["athena:*", "glue:*"],
+    "glue:read": ["glue:GetTable", "glue:GetDatabase", "glue:GetPartitions"],
+    "glue:write": ["glue:CreateTable", "glue:UpdateTable", "glue:DeleteTable"],
+    "glue:admin": ["glue:*"],
+    "iam:read": ["iam:GetRole", "iam:ListRoles", "iam:GetUser"],
+    "iam:admin": ["iam:*"],
+    "search:execute": [],
+    "permissions:read": ["iam:GetRole", "iam:ListRoles", "s3:ListAllMyBuckets"],
+    "admin": ["*"]
+  }
+}

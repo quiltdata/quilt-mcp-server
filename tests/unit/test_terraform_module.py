@@ -15,5 +15,9 @@ def test_mcp_terraform_module_includes_health_check():
     vars_content = variables_tf.read_text()
 
     assert "aws_ecs_service" in main_content
+    assert "environment = [" in main_content
+    assert "secrets = local.container_secrets" in main_content
     assert "health_check_path" in main_content
     assert '"/healthz"' in vars_content
+    assert "secret_arns" in vars_content
+    assert "egress_cidr_blocks" in vars_content
