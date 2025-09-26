@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url
+
+logger = logging.getLogger(__name__)
 
 # Helpers
 
@@ -299,23 +302,27 @@ def package_browse(
             # Add enhanced file info if requested
             if include_file_info and physical_key and physical_key.startswith("s3://"):
                 try:
-                    # Try to get additional S3 metadata
-                    import boto3
-
-                    from ..utils import get_s3_client
-
-                    s3_client = get_s3_client()
+                    # Try to get additional S3 metadata using JWT authorization
+                    from .auth_helpers import check_s3_authorization
+                    
                     bucket_name = physical_key.split("/")[2]
                     object_key = "/".join(physical_key.split("/")[3:])
-
-                    obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-                    entry_data.update(
-                        {
-                            "last_modified": str(obj_info.get("LastModified")),
-                            "content_type": obj_info.get("ContentType"),
-                            "storage_class": obj_info.get("StorageClass", "STANDARD"),
-                        }
-                    )
+                    
+                    # Use JWT authorization to get S3 client
+                    auth_result = check_s3_authorization("package_browse", {"bucket_name": bucket_name})
+                    if not auth_result.get("authorized") or not auth_result.get("s3_client"):
+                        # If JWT auth fails, skip enhanced file info
+                        pass
+                    else:
+                        s3_client = auth_result["s3_client"]
+                        obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
+                        entry_data.update(
+                            {
+                                "last_modified": str(obj_info.get("LastModified")),
+                                "content_type": obj_info.get("ContentType"),
+                                "storage_class": obj_info.get("StorageClass", "STANDARD"),
+                            }
+                        )
                 except Exception:
                     # Don't fail if we can't get additional info
                     pass

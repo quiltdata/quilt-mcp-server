@@ -21,7 +21,8 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
-from ..utils import get_s3_client, validate_package_name, format_error_response
+from ..utils import validate_package_name, format_error_response
+from .auth_helpers import check_s3_authorization
 from ..services.quilt_service import QuiltService
 from .permissions import bucket_recommendations_get, bucket_access_check
 
@@ -476,8 +477,31 @@ def package_create_from_s3(
             logger.warning(f"Could not validate target registry permissions: {e}")
             # Continue anyway - the user might have permissions that we can't detect
 
-        # Initialize clients
-        s3_client = get_s3_client()
+        # Initialize clients using JWT authorization
+        auth_result = check_s3_authorization("package_create_from_s3", {"bucket_name": source_bucket})
+        if not auth_result.get("authorized") or not auth_result.get("s3_client"):
+            return {
+                "success": False,
+                "error": "Cannot access source bucket - insufficient permissions",
+                "bucket": source_bucket,
+                "cause": "Missing read permissions for source bucket",
+                "possible_fixes": [
+                    f"Verify you have s3:ListBucket and s3:GetObject permissions for {source_bucket}",
+                    "Check if the bucket name is correct",
+                    "Ensure your AWS credentials are properly configured",
+                    "Try: bucket_access_check() to diagnose specific permission issues",
+                ],
+                "suggested_actions": [
+                    "Try: bucket_recommendations_get() to find buckets you can access",
+                    "Try: aws_permissions_discover() to see all your bucket permissions",
+                ],
+                "debug_info": {
+                    "auth_error": auth_result.get("error", "Unknown authorization error"),
+                    "operation": "source_bucket_access",
+                },
+            }
+        
+        s3_client = auth_result["s3_client"]
 
         # Validate source bucket access
         try:
