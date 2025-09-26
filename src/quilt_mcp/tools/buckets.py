@@ -10,7 +10,8 @@ import boto3
 from ..constants import DEFAULT_BUCKET
 from ..services.quilt_service import QuiltService
 from ..runtime_context import get_runtime_auth, get_runtime_environment
-from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
+from ..utils import generate_signed_url, parse_s3_uri
+from .auth_helpers import check_s3_authorization
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,13 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
     Returns:
         Dictionary with authorization result and user info
     """
+    if tool_name.startswith("bucket_"):
+        jwt_result = check_s3_authorization(tool_name, tool_args)
+        if jwt_result.get("authorized"):
+            return jwt_result
+        if jwt_result.get("error"):
+            return jwt_result
+
     try:
         auth_state = get_runtime_auth()
         runtime_env = get_runtime_environment()
@@ -171,7 +179,7 @@ def bucket_objects_list(
         Dict with bucket info, objects list, and pagination details.
     """
     # Check authorization first (supports both JWT and traditional auth)
-    tool_args = {"bucket": bucket, "prefix": prefix}
+    tool_args = {"bucket_name": bucket, "prefix": prefix}
     auth_result = _check_authorization("bucket_objects_list", tool_args)
     if not auth_result["authorized"]:
         return {
@@ -181,10 +189,18 @@ def bucket_objects_list(
             "objects": [],
             "count": 0
         }
-    
+
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
-    client = get_s3_client()
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {
+            "error": "JWT authorization did not supply S3 client",
+            "success": False,
+            "bucket": bucket,
+            "objects": [],
+            "count": 0,
+        }
     params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
     if prefix:
         params["Prefix"] = prefix
@@ -245,7 +261,16 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
     except ValueError as e:
         return {"error": str(e)}
 
-    client = get_s3_client()
+    auth_result = check_s3_authorization(
+        "bucket_object_info",
+        {"bucket_name": bucket, "key": key, "s3_uri": s3_uri, "version_id": version_id},
+    )
+    if not auth_result.get("authorized"):
+        return {"error": auth_result.get("error", "Authorization failed"), "bucket": bucket, "key": key}
+
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {"error": "JWT authorization did not supply S3 client", "bucket": bucket, "key": key}
     try:
         # Build params dict and conditionally add VersionId
         params = {"Bucket": bucket, "Key": key}
@@ -299,7 +324,16 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
     except ValueError as e:
         return {"error": str(e)}
 
-    client = get_s3_client()
+    auth_result = check_s3_authorization(
+        "bucket_object_text",
+        {"bucket_name": bucket, "key": key, "s3_uri": s3_uri, "version_id": version_id},
+    )
+    if not auth_result.get("authorized"):
+        return {"error": auth_result.get("error", "Authorization failed"), "bucket": bucket, "key": key}
+
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {"error": "JWT authorization did not supply S3 client", "bucket": bucket, "key": key}
     try:
         # Build params dict and conditionally add VersionId
         params = {"Bucket": bucket, "Key": key}
@@ -349,7 +383,29 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     bkt = _normalize_bucket(bucket)
     if not items:
         return {"error": "items list is empty", "bucket": bkt}
-    client = get_s3_client()
+
+    auth_result = check_s3_authorization(
+        "bucket_objects_put",
+        {"bucket_name": bkt, "item_keys": [item.get("key") for item in items]},
+    )
+    if not auth_result.get("authorized"):
+        return {
+            "error": auth_result.get("error", "Authorization failed"),
+            "bucket": bkt,
+            "requested": len(items),
+            "uploaded": 0,
+            "results": [],
+        }
+
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {
+            "error": "JWT authorization did not supply S3 client",
+            "bucket": bkt,
+            "requested": len(items),
+            "uploaded": 0,
+            "results": [],
+        }
     results: list[dict[str, Any]] = []
     for idx, item in enumerate(items):
         key = item.get("key")
@@ -427,7 +483,21 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
     except ValueError as e:
         return {"error": str(e)}
 
-    client = get_s3_client()
+    auth_result = check_s3_authorization(
+        "bucket_object_fetch",
+        {
+            "bucket_name": bucket,
+            "key": key,
+            "s3_uri": s3_uri,
+            "version_id": version_id,
+        },
+    )
+    if not auth_result.get("authorized"):
+        return {"error": auth_result.get("error", "Authorization failed"), "bucket": bucket, "key": key}
+
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {"error": "JWT authorization did not supply S3 client", "bucket": bucket, "key": key}
     try:
         # Build params dict and conditionally add VersionId
         params = {"Bucket": bucket, "Key": key}
@@ -512,7 +582,22 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         return {"error": str(e)}
 
     expiration = max(1, min(expiration, 604800))
-    client = get_s3_client()
+    auth_result = check_s3_authorization(
+        "bucket_object_link",
+        {
+            "bucket_name": bucket,
+            "key": key,
+            "s3_uri": s3_uri,
+            "version_id": version_id,
+            "expiration": expiration,
+        },
+    )
+    if not auth_result.get("authorized"):
+        return {"error": auth_result.get("error", "Authorization failed"), "bucket": bucket, "key": key}
+
+    client = auth_result.get("s3_client")
+    if client is None:
+        return {"error": "JWT authorization did not supply S3 client", "bucket": bucket, "key": key}
     try:
         # Build params dict and conditionally add VersionId
         params = {"Bucket": bucket, "Key": key}

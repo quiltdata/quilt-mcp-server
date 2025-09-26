@@ -9,7 +9,6 @@ import sys
 import io
 import time
 import contextlib
-import json
 from typing import Any, Dict, Literal, Callable
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -18,15 +17,16 @@ from fastmcp import FastMCP
 from starlette.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 
+from quilt_mcp.services.bearer_auth_service import (
+    JwtAuthError,
+    get_bearer_auth_service,
+)
+
 from quilt_mcp.runtime_context import (
     RuntimeAuthState,
-    clear_runtime_auth,
     push_runtime_context,
     reset_runtime_context,
     set_default_environment,
-    set_runtime_auth,
-    set_runtime_environment,
-    update_runtime_metadata,
 )
 
 
@@ -421,176 +421,53 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     # Add Quilt role header middleware to extract role information (AFTER CORS)
     try:
         from starlette.middleware.base import BaseHTTPMiddleware
-        import json
         
         class QuiltAuthMiddleware(BaseHTTPMiddleware):
-            """Middleware to handle Quilt authentication via bearer tokens or role headers."""
-            
+            """Middleware enforcing JWT authentication."""
+
+            HEALTH_PATHS = {"/healthz", "/health"}
+
             async def dispatch(self, request, call_next):
-                # Fix Accept header for MCP protocol compliance
-                # MCP requires clients to accept both application/json and text/event-stream
                 headers = MutableHeaders(scope=request.scope)
                 accept_header = headers.get("accept", "")
                 if "application/json" in accept_header and "text/event-stream" not in accept_header:
-                    # Add text/event-stream to the Accept header
-                    new_accept = f"{accept_header}, text/event-stream"
-                    headers["accept"] = new_accept
-                    logger.debug("QuiltAuthMiddleware: Fixed Accept header for MCP compliance: %s", new_accept)
-                
-                env_keys = (
-                    "QUILT_ACCESS_TOKEN",
-                    "QUILT_USER_INFO",
-                    "QUILT_USER_ROLE_ARN",
-                    "QUILT_USER_ID",
-                )
-                previous_env = {key: os.environ.get(key) for key in env_keys}
-                context_token = push_runtime_context(environment="web-unauthenticated", metadata={"transport": transport})
-                clear_runtime_auth()
+                    headers["accept"] = f"{accept_header}, text/event-stream"
+
+                if request.url.path in self.HEALTH_PATHS:
+                    return await call_next(request)
+
+                authorization = request.headers.get("authorization")
+                if not authorization:
+                    return JSONResponse(
+                        {"error": "missing_authorization", "detail": "Bearer token required on tool endpoints"},
+                        status_code=401,
+                    )
+
+                auth_service = get_bearer_auth_service()
 
                 try:
-                    # Extract authentication information from headers
-                    authorization = request.headers.get("authorization")
-                    quilt_user_role = request.headers.get("x-quilt-user-role")
-                    quilt_user_id = request.headers.get("x-quilt-user-id")
+                    auth_result = auth_service.authenticate_header(authorization)
+                except JwtAuthError as exc:
+                    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
 
-                    # Handle bearer token authentication (preferred method)
-                    if authorization and authorization.startswith("Bearer "):
-                        access_token = authorization[7:]
-                        logger.info(
-                            "QuiltAuthMiddleware: Detected Bearer token authentication (token length: %d)",
-                            len(access_token),
-                        )
+                runtime_auth = RuntimeAuthState(
+                    scheme="jwt",
+                    access_token=auth_result.token,
+                    claims=auth_result.claims,
+                    extras={
+                        "jwt_auth_result": auth_result,
+                        "aws_credentials": auth_result.aws_credentials,
+                        "aws_role_arn": auth_result.aws_role_arn,
+                        "user": {"id": auth_result.user_id, "username": auth_result.username},
+                    },
+                )
+                context_token = push_runtime_context(environment="web-jwt", auth=runtime_auth, metadata={"client": "http"})
 
-                        try:
-                            from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service
-
-                            bearer_auth_service = get_bearer_auth_service()
-                            token_payload = bearer_auth_service.decode_jwt_token(authorization)
-
-                            if token_payload:
-                                logger.info(
-                                    "QuiltAuthMiddleware: JWT token decoded successfully for user: %s",
-                                    token_payload.get("id", "unknown"),
-                                )
-
-                                auth_claims = bearer_auth_service.extract_auth_claims(token_payload)
-                                user_info_payload = {
-                                    "id": token_payload.get("id"),
-                                    "permissions": auth_claims.get("permissions", []),
-                                    "roles": auth_claims.get("roles", []),
-                                    "groups": auth_claims.get("groups", []),
-                                    "buckets": auth_claims.get("buckets", []),
-                                    "scope": auth_claims.get("scope", ""),
-                                    "enhanced_token": True,
-                                }
-                                runtime_auth = RuntimeAuthState(
-                                    scheme="jwt",
-                                    access_token=access_token,
-                                    claims=auth_claims,
-                                    extras={"user_info": user_info_payload},
-                                )
-                                set_runtime_environment("web-jwt")
-                                set_runtime_auth(runtime_auth)
-                                update_runtime_metadata(auth_source="authorization_header", client="http")
-
-                                os.environ["QUILT_ACCESS_TOKEN"] = access_token
-                                os.environ["QUILT_USER_INFO"] = json.dumps(user_info_payload)
-
-                                logger.info(
-                                    "QuiltAuthMiddleware: Enhanced JWT token processed with %d permissions, %d buckets",
-                                    len(auth_claims.get("permissions", [])),
-                                    len(auth_claims.get("buckets", [])),
-                                )
-                            else:
-                                logger.warning(
-                                    "QuiltAuthMiddleware: JWT token decoding failed, falling back to bearer token validation"
-                                )
-                                status, user_info = bearer_auth_service.validate_bearer_token(access_token)
-                                if status.value == "authenticated":
-                                    logger.info(
-                                        "QuiltAuthMiddleware: Bearer token authentication successful for user: %s",
-                                        user_info.get("username", "unknown") if user_info else "unknown",
-                                    )
-                                    set_runtime_environment("web-bearer")
-                                    authorization = (user_info or {}).get("authorization", {})
-                                    derived_claims = {
-                                        "permissions": authorization.get("aws_permissions", []),
-                                        "roles": authorization.get("matched_roles", []),
-                                        "buckets": authorization.get("buckets", []),
-                                        "scope": authorization.get("scopes", []),
-                                    }
-                                    runtime_auth = RuntimeAuthState(
-                                        scheme="bearer",
-                                        access_token=access_token,
-                                        claims=derived_claims,
-                                        extras={"user_info": user_info or {}, "authorization": authorization},
-                                    )
-                                    set_runtime_auth(runtime_auth)
-                                    update_runtime_metadata(auth_source="bearer_validation", client="http")
-                                    os.environ["QUILT_ACCESS_TOKEN"] = access_token
-                                    if user_info:
-                                        os.environ["QUILT_USER_INFO"] = json.dumps(user_info)
-                                else:
-                                    logger.warning(
-                                        "QuiltAuthMiddleware: Bearer token authentication failed: %s", status.value
-                                    )
-                        except Exception as e:  # pragma: no cover - logged for diagnostics
-                            logger.error("QuiltAuthMiddleware: Bearer token authentication error: %s", e)
-
-                    # Handle legacy role header authentication (fallback)
-                    elif quilt_user_role:
-                        logger.info("QuiltAuthMiddleware: Detected X-Quilt-User-Role header: %s", quilt_user_role)
-                        logger.info("QuiltAuthMiddleware: Using legacy role assumption authentication")
-
-                        set_runtime_environment("web-role")
-                        update_runtime_metadata(
-                            auth_source="role-header",
-                            quilt_user_role=quilt_user_role,
-                            quilt_user_id=quilt_user_id,
-                            client="http",
-                        )
-
-                        os.environ["QUILT_USER_ROLE_ARN"] = quilt_user_role
-                        if quilt_user_id:
-                            os.environ["QUILT_USER_ID"] = quilt_user_id
-                            logger.info("QuiltAuthMiddleware: Set QUILT_USER_ID environment variable")
-
-                        set_runtime_auth(
-                            RuntimeAuthState(
-                                scheme="assume-role",
-                                claims={},
-                                extras={"role_arn": quilt_user_role, "user_id": quilt_user_id},
-                            )
-                        )
-
-                        try:
-                            logger.info("QuiltAuthMiddleware: Attempting to auto-assume role: %s", quilt_user_role)
-                            from quilt_mcp.services.auth_service import get_auth_service
-
-                            auth_service = get_auth_service()
-                            auth_service.auto_attempt_role_assumption()
-                            logger.info("QuiltAuthMiddleware: Role assumption attempt completed")
-                        except Exception as e:  # pragma: no cover - ensure graceful failure
-                            logger.error("QuiltAuthMiddleware: Failed to auto-assume Quilt role: %s", e)
-
-                    else:
-                        logger.debug("QuiltAuthMiddleware: No authentication headers detected")
-                        set_runtime_environment("web-unauthenticated")
-                        clear_runtime_auth()
-
-                    response = await call_next(request)
-                    return response
-
+                try:
+                    return await call_next(request)
                 finally:
-                    for key, value in previous_env.items():
-                        if value is None:
-                            os.environ.pop(key, None)
-                        else:
-                            os.environ[key] = value
-                    clear_runtime_auth()
                     reset_runtime_context(context_token)
-        
-        # Add the Quilt auth middleware
+
         app.add_middleware(QuiltAuthMiddleware)
         
     except ImportError as exc:

@@ -1,262 +1,117 @@
-"""
-Unit tests for QuiltRoleMiddleware functionality.
+"""JWT-only middleware behaviour tests."""
 
-These tests verify that the middleware correctly processes headers and triggers
-role assumption without making real AWS calls.
-"""
-import os
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+import jwt
 import pytest
-from unittest.mock import patch, MagicMock
 from fastmcp import FastMCP
 from starlette.testclient import TestClient
+from starlette.responses import JSONResponse
 
 from quilt_mcp.utils import build_http_app
 
 
-class TestQuiltRoleMiddleware:
-    """Test QuiltRoleMiddleware functionality."""
-
-    def setup_method(self):
-        """Set up test environment."""
-        # Clear any existing environment variables
-        if "QUILT_USER_ROLE_ARN" in os.environ:
-            del os.environ["QUILT_USER_ROLE_ARN"]
-        if "QUILT_USER_ID" in os.environ:
-            del os.environ["QUILT_USER_ID"]
-
-    def teardown_method(self):
-        """Clean up after tests."""
-        # Clear environment variables
-        if "QUILT_USER_ROLE_ARN" in os.environ:
-            del os.environ["QUILT_USER_ROLE_ARN"]
-        if "QUILT_USER_ID" in os.environ:
-            del os.environ["QUILT_USER_ID"]
-
-    @patch('quilt_mcp.services.auth_service.get_auth_service')
-    def test_middleware_detects_quilt_headers(self, mock_get_auth_service):
-        """Test that middleware detects X-Quilt-User-Role and X-Quilt-User-Id headers."""
-        # Mock the auth service
-        mock_auth_service = MagicMock()
-        mock_auth_service.auto_attempt_role_assumption.return_value = True
-        mock_get_auth_service.return_value = mock_auth_service
-
-        # Create a minimal MCP server for testing
-        mcp = FastMCP("test-server")
-        
-        # Add a simple tool to test with
-        @mcp.tool()
-        def test_tool() -> str:
-            """Simple test tool."""
-            return "test-response"
-        
-        # Build the HTTP app with middleware
-        app = build_http_app(mcp, transport="http")
-        
-        # Test with headers
-        test_role_arn = "arn:aws:iam::123456789012:role/TestRole"
-        test_user_id = "test-user-123"
-        
-        with TestClient(app) as client:
-            response = client.get(
-                "/healthz",
-                headers={
-                    "X-Quilt-User-Role": test_role_arn,
-                    "X-Quilt-User-Id": test_user_id
-                }
-            )
-            
-            # Verify the request succeeded
-            assert response.status_code == 200
-            
-            # Verify environment variables were set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") == test_role_arn
-            assert os.environ.get("QUILT_USER_ID") == test_user_id
-            
-            # Verify auto_attempt_role_assumption was called
-            mock_auth_service.auto_attempt_role_assumption.assert_called_once()
-
-    @patch('quilt_mcp.services.auth_service.get_auth_service')
-    def test_middleware_ignores_requests_without_headers(self, mock_get_auth_service):
-        """Test that middleware doesn't interfere with requests without Quilt headers."""
-        # Mock the auth service
-        mock_auth_service = MagicMock()
-        mock_get_auth_service.return_value = mock_auth_service
-
-        mcp = FastMCP("test-server")
-        
-        @mcp.tool()
-        def test_tool() -> str:
-            return "test-response"
-        
-        app = build_http_app(mcp, transport="http")
-        
-        with TestClient(app) as client:
-            response = client.get("/healthz")
-            
-            # Verify the request succeeded
-            assert response.status_code == 200
-            
-            # Verify environment variables were not set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") is None
-            assert os.environ.get("QUILT_USER_ID") is None
-            
-            # Verify auto_attempt_role_assumption was not called
-            mock_auth_service.auto_attempt_role_assumption.assert_not_called()
-
-    @patch('quilt_mcp.services.auth_service.get_auth_service')
-    def test_middleware_handles_auth_service_exception(self, mock_get_auth_service):
-        """Test that middleware handles exceptions from auth service gracefully."""
-        # Mock the auth service to raise an exception
-        mock_auth_service = MagicMock()
-        mock_auth_service.auto_attempt_role_assumption.side_effect = Exception("Test exception")
-        mock_get_auth_service.return_value = mock_auth_service
-
-        mcp = FastMCP("test-server")
-        
-        @mcp.tool()
-        def test_tool() -> str:
-            return "test-response"
-        
-        app = build_http_app(mcp, transport="http")
-        
-        with TestClient(app) as client:
-            response = client.get(
-                "/healthz",
-                headers={
-                    "X-Quilt-User-Role": "arn:aws:iam::123456789012:role/TestRole",
-                    "X-Quilt-User-Id": "test-user-123"
-                }
-            )
-            
-            # Verify the request still succeeded despite the exception
-            assert response.status_code == 200
-            
-            # Verify environment variables were still set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") == "arn:aws:iam::123456789012:role/TestRole"
-            assert os.environ.get("QUILT_USER_ID") == "test-user-123"
-
-    @patch('quilt_mcp.services.auth_service.get_auth_service')
-    def test_middleware_handles_partial_headers(self, mock_get_auth_service):
-        """Test that middleware handles partial header information correctly."""
-        # Mock the auth service
-        mock_auth_service = MagicMock()
-        mock_auth_service.auto_attempt_role_assumption.return_value = True
-        mock_get_auth_service.return_value = mock_auth_service
-
-        mcp = FastMCP("test-server")
-        
-        @mcp.tool()
-        def test_tool() -> str:
-            return "test-response"
-        
-        app = build_http_app(mcp, transport="http")
-        
-        # Test with only role header
-        with TestClient(app) as client:
-            response = client.get(
-                "/healthz",
-                headers={
-                    "X-Quilt-User-Role": "arn:aws:iam::123456789012:role/TestRole"
-                }
-            )
-            
-            # Verify the request succeeded
-            assert response.status_code == 200
-            
-            # Verify only role was set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") == "arn:aws:iam::123456789012:role/TestRole"
-            assert os.environ.get("QUILT_USER_ID") is None
-            
-            # Verify auto_attempt_role_assumption was called
-            mock_auth_service.auto_attempt_role_assumption.assert_called_once()
-
-        # Clear environment and test with only user ID header
-        if "QUILT_USER_ROLE_ARN" in os.environ:
-            del os.environ["QUILT_USER_ROLE_ARN"]
-        
-        with TestClient(app) as client:
-            response = client.get(
-                "/healthz",
-                headers={
-                    "X-Quilt-User-Id": "test-user-123"
-                }
-            )
-            
-            # Verify the request succeeded
-            assert response.status_code == 200
-            
-            # Verify only user ID was set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") is None
-            assert os.environ.get("QUILT_USER_ID") == "test-user-123"
-            
-            # Verify auto_attempt_role_assumption was not called (no role header)
-            assert mock_auth_service.auto_attempt_role_assumption.call_count == 1  # Only from previous call
-
-    @patch('quilt_mcp.services.auth_service.get_auth_service')
-    def test_middleware_preserves_request_flow(self, mock_get_auth_service):
-        """Test that middleware doesn't interfere with normal request processing."""
-        # Mock the auth service
-        mock_auth_service = MagicMock()
-        mock_auth_service.auto_attempt_role_assumption.return_value = True
-        mock_get_auth_service.return_value = mock_auth_service
-
-        mcp = FastMCP("test-server")
-        
-        @mcp.tool()
-        def test_tool() -> str:
-            return "test-response"
-        
-        app = build_http_app(mcp, transport="http")
-        
-        with TestClient(app) as client:
-            # Test multiple requests to ensure middleware doesn't interfere
-            for i in range(3):
-                response = client.get(
-                    "/healthz",
-                    headers={
-                        "X-Quilt-User-Role": f"arn:aws:iam::123456789012:role/TestRole{i}",
-                        "X-Quilt-User-Id": f"test-user-{i}"
-                    }
-            )
-            
-            # Verify all requests succeeded
-            assert response.status_code == 200
-            
-            # Verify the latest environment variables
-            assert os.environ.get("QUILT_USER_ROLE_ARN") == "arn:aws:iam::123456789012:role/TestRole2"
-            assert os.environ.get("QUILT_USER_ID") == "test-user-2"
-            
-            # Verify auto_attempt_role_assumption was called for each request
-            assert mock_auth_service.auto_attempt_role_assumption.call_count == i + 1
-
-    def test_middleware_works_without_auth_service(self):
-        """Test that middleware works even if auth service is not available."""
-        # Mock get_auth_service to raise an exception
-        with patch('quilt_mcp.services.auth_service.get_auth_service', side_effect=Exception("Auth service unavailable")):
-            mcp = FastMCP("test-server")
-            
-            @mcp.tool()
-            def test_tool() -> str:
-                return "test-response"
-            
-            app = build_http_app(mcp, transport="http")
-            
-            with TestClient(app) as client:
-                response = client.get(
-                    "/healthz",
-                    headers={
-                        "X-Quilt-User-Role": "arn:aws:iam::123456789012:role/TestRole",
-                        "X-Quilt-User-Id": "test-user-123"
-                    }
-            )
-            
-            # Verify the request still succeeded despite auth service being unavailable
-            assert response.status_code == 200
-            
-            # Verify environment variables were still set
-            assert os.environ.get("QUILT_USER_ROLE_ARN") == "arn:aws:iam::123456789012:role/TestRole"
-            assert os.environ.get("QUILT_USER_ID") == "test-user-123"
+TEST_SECRET = "test-secret"
+TEST_KID = "test-kid"
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+def _make_token(**overrides: Any) -> str:
+    now = datetime.now(tz=timezone.utc)
+    payload = {
+        "sub": "user-123",
+        "username": "test-user",
+        "permissions": ["s3:ListBucket", "s3:GetObject"],
+        "buckets": ["quilt-sandbox"],
+        "roles": ["ReadOnlyQuilt"],
+        "aws_role_arn": "arn:aws:iam::123456789012:role/QuiltReadOnly",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=5)).timestamp()),
+        "scope": "read",
+        "level": "read",
+    }
+    payload.update(overrides)
+    headers = {"kid": TEST_KID, "typ": "JWT", "alg": "HS256"}
+    return jwt.encode(payload, TEST_SECRET, algorithm="HS256", headers=headers)
+
+
+@pytest.fixture(autouse=True)
+def configure_secret(monkeypatch):
+    monkeypatch.setenv("MCP_ENHANCED_JWT_SECRET", TEST_SECRET)
+    monkeypatch.setenv("MCP_ENHANCED_JWT_KID", TEST_KID)
+    # Reset cached auth service so patched secrets take effect
+    import quilt_mcp.services.bearer_auth_service as bas
+    bas._auth_service = None
+    yield
+
+
+@pytest.fixture
+def jwt_app():
+    mcp = FastMCP("test-jwt")
+
+    @mcp.tool()
+    def noop() -> str:
+        """Simple tool to ensure MPC setup"""
+        return "ok"
+
+    app = build_http_app(mcp, transport="http")
+
+    async def secure_endpoint(request):
+        from quilt_mcp.runtime_context import get_runtime_environment, get_runtime_claims
+
+        return JSONResponse(
+            {
+                "environment": get_runtime_environment(),
+                "claims": get_runtime_claims(),
+            }
+        )
+
+    app.router.add_route("/secure", secure_endpoint, methods=["GET"])
+
+    return app
+
+
+def test_missing_authorization_header_returns_401(jwt_app):
+    with TestClient(jwt_app) as client:
+        response = client.get("/secure")
+
+    assert response.status_code == 401
+    body = response.json()
+    assert body["error"] == "missing_authorization"
+    assert body["detail"].startswith("Bearer token required")
+
+
+def test_invalid_token_signature_returns_401(jwt_app):
+    bad_token = _make_token()
+
+    with TestClient(jwt_app) as client:
+        response = client.get(
+            "/secure",
+            headers={"Authorization": f"Bearer {bad_token}wrong"},
+        )
+
+    assert response.status_code == 401
+    body = response.json()
+    assert body["error"] == "invalid_token"
+
+
+def test_valid_token_sets_runtime_context(jwt_app):
+    token = _make_token()
+
+    with TestClient(jwt_app) as client:
+        response = client.get(
+            "/secure",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    body = response.json()
+    assert response.status_code == 200, body
+    payload = response.json()
+    assert payload["environment"] == "web-jwt"
+    claims = payload["claims"]
+    assert claims["permissions"] == ["s3:ListBucket", "s3:GetObject"]
+    assert claims["buckets"] == ["quilt-sandbox"]
+    assert claims["roles"] == ["ReadOnlyQuilt"]
+

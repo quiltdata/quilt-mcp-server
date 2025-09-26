@@ -17,6 +17,7 @@ from typing import Any
 
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
+from .auth_helpers import check_package_authorization
 
 # Initialize service
 quilt_service = QuiltService()
@@ -186,6 +187,16 @@ def package_create(
     if not package_name:
         return {"error": "Package name is required"}
 
+    auth = check_package_authorization(
+        "package_create",
+        {"package_name": package_name, "registry": registry, "s3_uris": s3_uris},
+    )
+    if not auth.get("authorized"):
+        return {
+            "error": auth.get("error", "Authorization failed"),
+            "package_name": package_name,
+        }
+
     # Process metadata to ensure README content is handled correctly
     processed_metadata = metadata.copy() if metadata else {}
 
@@ -315,6 +326,16 @@ def package_update(
     if not package_name:
         return {"error": "package_name is required for package_update"}
     warnings: list[str] = []
+
+    auth = check_package_authorization(
+        "package_update",
+        {"package_name": package_name, "registry": registry, "s3_uris": s3_uris},
+    )
+    if not auth.get("authorized"):
+        return {
+            "error": auth.get("error", "Authorization failed"),
+            "package_name": package_name,
+        }
     normalized_registry = _normalize_registry(registry)
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference

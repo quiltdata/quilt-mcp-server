@@ -1,3 +1,5 @@
+- Routing bucket tools through JWT helpers requires explicit client propagation. If `check_s3_authorization` returns without an `s3_client`, bubble an error rather than silently falling back to `get_s3_client()`.
+- Package tools only need the JWT claims today; when Quilt services demand credentials, extend `check_package_authorization` to hand back service instances instead of resurrecting legacy `_check_authorization`.
 <!-- markdownlint-disable MD013 -->
 # Development Guidelines for Claude
 
@@ -564,3 +566,10 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## 2025-09-25 JWT-only Auth Notes
+- The HTTP middleware now insists on `Authorization: Bearer` headers. `/healthz` remains unauthenticated for load balancers; all other routes return `401` if the header is missing or fails signature validation.
+- `quilt_mcp.services.bearer_auth_service.authenticate_header()` is the single entry point for JWT validation. It returns a normalized `JwtAuthResult`; stash it in `RuntimeAuthState.extras['jwt_auth_result']` to reuse boto3 sessions inside tools.
+- When testing with custom secrets, reset `quilt_mcp.services.bearer_auth_service._auth_service = None` so the singleton picks up new env vars; otherwise signature checks still use the previous secret.
+
+- Revised bucket and package tools now call JWT helpers for S3/quilt operations; only catalog/workflow tools remain on legacy pathways.
