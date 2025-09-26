@@ -427,6 +427,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
             HEALTH_PATHS = {"/healthz", "/health"}
             PUBLIC_PREFIXES = ("/oauth",)
+            MCP_PATHS = {"/mcp", "/mcp/"}  # MCP protocol initialization endpoints
 
             async def dispatch(self, request, call_next):
                 headers = MutableHeaders(scope=request.scope)
@@ -440,6 +441,10 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                 for prefix in self.PUBLIC_PREFIXES:
                     if request.url.path.startswith(prefix):
                         return await call_next(request)
+
+                # Allow MCP protocol initialization without JWT
+                if request.url.path in self.MCP_PATHS:
+                    return await call_next(request)
 
                 authorization = request.headers.get("authorization")
                 if not authorization:
