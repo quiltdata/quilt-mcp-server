@@ -1,0 +1,139 @@
+name: 'Docker Push to Quilt ECR'
+description: 'Build and push multi-platform Docker image to Quilt ECR repository'
+inputs:
+  version:
+    description: 'Version tag for the Docker image'
+    required: true
+  ecr-registry:
+    description: 'ECR registry URL (e.g., 712023778557.dkr.ecr.us-east-1.amazonaws.com)'
+    required: true
+  ecr-repository:
+    description: 'ECR repository name (defaults to quilt-mcp-server)'
+    required: false
+    default: 'quilt-mcp-server'
+  aws-region:
+    description: 'AWS region for ECR'
+    required: false
+    default: 'us-east-1'
+  platforms:
+    description: 'Platforms to build for (defaults to linux/amd64)'
+    required: false
+    default: 'linux/amd64'
+  include-latest:
+    description: 'Also tag as latest (true/false)'
+    required: false
+    default: 'true'
+  dry-run:
+    description: 'Dry run mode - show what would be done without executing'
+    required: false
+    default: 'false'
+
+outputs:
+  image-uri:
+    description: 'Full URI of the pushed Docker image'
+    value: ${{ steps.push.outputs.image-uri }}
+  tags:
+    description: 'All tags that were pushed'
+    value: ${{ steps.push.outputs.tags }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.version }}" ]]; then
+          echo "ERROR: Version is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ inputs.ecr-registry }}" ]]; then
+          echo "ERROR: ECR registry is required"
+          exit 1
+        fi
+
+        echo "✅ Inputs validated"
+        echo "Version: ${{ inputs.version }}"
+        echo "Registry: ${{ inputs.ecr-registry }}"
+        echo "Repository: ${{ inputs.ecr-repository }}"
+        echo "Platforms: ${{ inputs.platforms }}"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: ${{ inputs.platforms }}
+
+    - name: Build and push Docker image
+      id: push
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ECR_REGISTRY: ${{ inputs.ecr-registry }}
+        AWS_DEFAULT_REGION: ${{ inputs.aws-region }}
+        DOCKER_IMAGE_NAME: ${{ inputs.ecr-repository }}
+      run: |
+        echo "🐳 Building and pushing Docker image to Quilt ECR"
+        echo "Registry: ${ECR_REGISTRY}"
+        echo "Repository: ${DOCKER_IMAGE_NAME}"
+        echo "Version: ${VERSION}"
+        echo "Platforms: ${{ inputs.platforms }}"
+
+        # Determine if we should include latest tag
+        LATEST_FLAG=""
+        if [[ "${{ inputs.include-latest }}" != "true" ]]; then
+          LATEST_FLAG="--no-latest"
+        fi
+
+        # Add dry-run flag if requested
+        DRY_RUN_FLAG=""
+        if [[ "${{ inputs.dry-run }}" == "true" ]]; then
+          DRY_RUN_FLAG="--dry-run"
+          echo "⚠️ DRY RUN MODE - No actual push will occur"
+        fi
+
+        # Use the docker.py script with platform specification
+        if uv run python scripts/docker.py push \
+          --version "${VERSION}" \
+          --registry "${ECR_REGISTRY}" \
+          --image "${DOCKER_IMAGE_NAME}" \
+          --platform "${{ inputs.platforms }}" \
+          ${LATEST_FLAG} \
+          ${DRY_RUN_FLAG}; then
+
+          echo "✅ Docker image successfully pushed"
+
+          # Set outputs
+          IMAGE_URI="${ECR_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}"
+          echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+
+          if [[ "${{ inputs.include-latest }}" == "true" ]]; then
+            echo "tags=${VERSION},latest" >> $GITHUB_OUTPUT
+          else
+            echo "tags=${VERSION}" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Docker image URI: ${IMAGE_URI}"
+        else
+          echo "❌ Failed to push Docker image"
+          exit 1
+        fi
+
+    - name: Verify image architecture
+      if: ${{ inputs.dry-run != 'true' }}
+      shell: bash
+      run: |
+        echo "🔍 Verifying pushed image architecture"
+
+        IMAGE_URI="${{ inputs.ecr-registry }}/${{ inputs.ecr-repository }}:${{ inputs.version }}"
+
+        # Pull and inspect the image manifest
+        aws ecr batch-get-image \
+          --repository-name "${{ inputs.ecr-repository }}" \
+          --image-ids imageTag="${{ inputs.version }}" \
+          --region "${{ inputs.aws-region }}" \
+          --output json \
+          --query 'images[0].imageManifest' | \
+        jq -r '.' | \
+        jq '.manifests[] | {platform: .platform, digest: .digest}'
+
+        echo "✅ Image architecture verification complete"

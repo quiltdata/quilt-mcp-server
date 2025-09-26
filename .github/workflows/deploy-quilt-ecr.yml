@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Deploy to Quilt ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag for the Docker image'
+        required: true
+        type: string
+      deploy-environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+        default: development
+      platforms:
+        description: 'Platforms to build for'
+        required: false
+        type: choice
+        options:
+          - linux/amd64
+          - linux/amd64,linux/arm64
+        default: linux/amd64
+      dry-run:
+        description: 'Dry run mode (no actual push)'
+        required: false
+        type: boolean
+        default: false
+
+  # Also trigger on releases for automated deployment
+  release:
+    types: [published]
+
+jobs:
+  determine-config:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.config.outputs.version }}
+      environment: ${{ steps.config.outputs.environment }}
+      ecr-registry: ${{ steps.config.outputs.ecr-registry }}
+      ecr-repository: ${{ steps.config.outputs.ecr-repository }}
+      platforms: ${{ steps.config.outputs.platforms }}
+      dry-run: ${{ steps.config.outputs.dry-run }}
+    steps:
+      - name: Determine deployment configuration
+        id: config
+        run: |
+          # For manual workflow dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            ENVIRONMENT="${{ github.event.inputs.deploy-environment }}"
+            PLATFORMS="${{ github.event.inputs.platforms }}"
+            DRY_RUN="${{ github.event.inputs.dry-run }}"
+          # For release events
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            # Extract version from release tag (remove 'v' prefix)
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+
+            # Determine environment based on release type
+            if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "$VERSION" == *"-dev"* ]]; then
+              ENVIRONMENT="development"
+            else
+              ENVIRONMENT="production"
+            fi
+
+            # Default platforms for automated releases
+            PLATFORMS="linux/amd64"
+            DRY_RUN="false"
+          fi
+
+          # Set ECR configuration based on environment
+          case "$ENVIRONMENT" in
+            production)
+              # Production Quilt ECR (us-east-1)
+              ECR_REGISTRY="712023778557.dkr.ecr.us-east-1.amazonaws.com"
+              ECR_REPOSITORY="quilt-mcp-server"
+              ;;
+            staging)
+              # Staging Quilt ECR (us-east-2)
+              ECR_REGISTRY="712023778557.dkr.ecr.us-east-2.amazonaws.com"
+              ECR_REPOSITORY="tf-dev-mcp-server"
+              ;;
+            development|*)
+              # Development Quilt ECR (us-east-2)
+              ECR_REGISTRY="712023778557.dkr.ecr.us-east-2.amazonaws.com"
+              ECR_REPOSITORY="tf-dev-mcp-server"
+              ;;
+          esac
+
+          # Output configuration
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "ecr-registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
+          echo "ecr-repository=$ECR_REPOSITORY" >> $GITHUB_OUTPUT
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "dry-run=$DRY_RUN" >> $GITHUB_OUTPUT
+
+          # Log configuration
+          echo "📋 Deployment Configuration:"
+          echo "  Version: $VERSION"
+          echo "  Environment: $ENVIRONMENT"
+          echo "  ECR Registry: $ECR_REGISTRY"
+          echo "  ECR Repository: $ECR_REPOSITORY"
+          echo "  Platforms: $PLATFORMS"
+          echo "  Dry Run: $DRY_RUN"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: determine-config
+    environment: ${{ needs.determine-config.outputs.environment }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-env
+        with:
+          python-version: '3.11'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.QUILT_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.QUILT_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ contains(needs.determine-config.outputs.ecr-registry, 'us-east-2') && 'us-east-2' || 'us-east-1' }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push Docker image to Quilt ECR
+        uses: ./.github/actions/docker-push-quilt-ecr
+        with:
+          version: ${{ needs.determine-config.outputs.version }}
+          ecr-registry: ${{ needs.determine-config.outputs.ecr-registry }}
+          ecr-repository: ${{ needs.determine-config.outputs.ecr-repository }}
+          aws-region: ${{ contains(needs.determine-config.outputs.ecr-registry, 'us-east-2') && 'us-east-2' || 'us-east-1' }}
+          platforms: ${{ needs.determine-config.outputs.platforms }}
+          include-latest: ${{ needs.determine-config.outputs.environment == 'production' }}
+          dry-run: ${{ needs.determine-config.outputs.dry-run }}
+
+      - name: Post deployment status
+        if: success() && needs.determine-config.outputs.dry-run != 'true'
+        run: |
+          echo "✅ Successfully deployed Docker image to Quilt ECR"
+          echo "Environment: ${{ needs.determine-config.outputs.environment }}"
+          echo "Version: ${{ needs.determine-config.outputs.version }}"
+          echo "Registry: ${{ needs.determine-config.outputs.ecr-registry }}"
+          echo "Repository: ${{ needs.determine-config.outputs.ecr-repository }}"
+
+          # Create deployment record (if in production)
+          if [[ "${{ needs.determine-config.outputs.environment }}" == "production" ]]; then
+            echo "📝 Recording production deployment"
+            # This could trigger additional production workflows or notifications
+          fi
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          echo "❌ Failed to deploy Docker image to Quilt ECR"
+          echo "Environment: ${{ needs.determine-config.outputs.environment }}"
+          echo "Version: ${{ needs.determine-config.outputs.version }}"
+          # This could trigger alerts or rollback procedures

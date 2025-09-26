@@ -82,3 +82,28 @@ jobs:
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
         # pypi-repository-url defaults to '' for PyPI
+        build-docker: 'false'  # We'll build and push to Quilt ECR separately
+
+    # Deploy to Quilt ECR for production infrastructure
+    - name: Configure AWS credentials for Quilt ECR
+      if: ${{ secrets.QUILT_AWS_ACCESS_KEY_ID != '' }}
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.QUILT_AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.QUILT_AWS_SECRET_ACCESS_KEY }}
+        aws-region: 'us-east-1'
+
+    - name: Login to Quilt Amazon ECR
+      if: ${{ secrets.QUILT_AWS_ACCESS_KEY_ID != '' }}
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Deploy to Quilt Production ECR
+      if: ${{ secrets.QUILT_AWS_ACCESS_KEY_ID != '' }}
+      uses: ./.github/actions/docker-push-quilt-ecr
+      with:
+        version: ${{ steps.version.outputs.tag_version }}
+        ecr-registry: '712023778557.dkr.ecr.us-east-1.amazonaws.com'
+        ecr-repository: 'quilt-mcp-server'
+        aws-region: 'us-east-1'
+        platforms: 'linux/amd64'
+        include-latest: 'true'
