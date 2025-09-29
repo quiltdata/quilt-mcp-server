@@ -11,6 +11,8 @@ from pathlib import Path
 
 import quilt3
 
+from .readme_generator import generate_package_readme, generate_quilt_summarize
+
 
 class QuiltService:
     """Centralized abstraction for all quilt3 operations.
@@ -215,6 +217,9 @@ class QuiltService:
         message: str = "Package created via QuiltService",
         auto_organize: bool = True,
         copy: str = "all",
+        include_readme: bool = True,
+        readme_content: Optional[str] = None,
+        include_quilt_summary: bool = True,
     ) -> Dict[str, Any]:
         """Create and push package in single operation.
 
@@ -231,6 +236,9 @@ class QuiltService:
                           False for simple flattening (package_ops style)
             copy: Copy mode for objects - "all" (copy all), "none" (copy none),
                  or "same_bucket" (copy only objects in same bucket as registry)
+            include_readme: Whether to automatically generate and include README.md (default: True)
+            readme_content: Custom README content (if None, will auto-generate)
+            include_quilt_summary: Whether to automatically generate quilt_summarize.json (default: True)
 
         Returns:
             Dict with package creation results, never quilt3.Package objects
@@ -250,6 +258,41 @@ class QuiltService:
 
         # Populate package with files based on organization strategy
         self._populate_package_files(pkg, s3_uris, auto_organize)
+
+        # Generate and add README.md if requested
+        if include_readme:
+            if readme_content is None:
+                # Auto-generate README
+                organized_structure = None
+                if auto_organize:
+                    organized_structure = self._organize_s3_files_smart(s3_uris)
+
+                readme_content = generate_package_readme(
+                    package_name=package_name,
+                    s3_uris=s3_uris,
+                    metadata=metadata,
+                    registry=normalized_registry,
+                    organized_structure=organized_structure,
+                )
+
+            # Add README.md to package
+            pkg.set("README.md", readme_content)
+
+        # Generate and add quilt_summarize.json if requested
+        if include_quilt_summary:
+            # Use the README content (either provided or generated)
+            final_readme = readme_content if readme_content else ""
+
+            summary_content = generate_quilt_summarize(
+                package_name=package_name,
+                readme_content=final_readme,
+                metadata=metadata,
+                registry=normalized_registry,
+                s3_uris=s3_uris,
+            )
+
+            # Add quilt_summarize.json to package
+            pkg.set("quilt_summarize.json", summary_content)
 
         # Set metadata if provided
         if metadata:
