@@ -492,3 +492,80 @@ def athena_query_validate(query: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to validate query: {e}")
         return format_error_response(f"Query validation failed: {str(e)}")
+
+
+def athena_glue(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    AWS Athena and Glue Data Catalog operations.
+    
+    Available actions:
+    - databases_list: List available databases in AWS Glue Data Catalog
+    - tables_list: List tables in a specific database
+    - table_schema: Get detailed schema information for a specific table
+    - workgroups_list: List available Athena workgroups
+    - query_execute: Execute SQL query against Athena
+    - query_history: Retrieve query execution history from Athena
+    - query_validate: Validate SQL query syntax without executing it
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = athena_glue()
+        
+        # List databases
+        result = athena_glue(action="databases_list")
+        
+        # Execute query
+        result = athena_glue(action="query_execute", query="SELECT * FROM my_table")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "databases_list": athena_databases_list,
+        "tables_list": athena_tables_list,
+        "table_schema": athena_table_schema,
+        "workgroups_list": athena_workgroups_list,
+        "query_execute": athena_query_execute,
+        "query_history": athena_query_history,
+        "query_validate": athena_query_validate,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "athena_glue",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return format_error_response(
+            f"Unknown action '{action}' for module 'athena_glue'. "
+            f"Available actions: {available}"
+        )
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return format_error_response(
+            f"Invalid parameters for action '{action}'. "
+            f"Expected parameters: {expected_params}. Error: {str(e)}"
+        )
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return format_error_response(f"Error executing action '{action}': {str(e)}")
