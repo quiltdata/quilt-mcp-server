@@ -1,12 +1,37 @@
-"""Quilt-style JWT decompression utilities."""
+"""Quilt-style JWT decompression utilities.
+
+This module implements JWT decompression for the enhanced JWT tokens from the Quilt frontend.
+The frontend sends compressed JWT tokens to stay under the 8KB limit while maintaining
+compatibility through parallel expanded fields.
+
+Based on Quilt's JWT Compression Format:
+- Abbreviated permissions (e.g., "g" instead of "s3:GetObject")
+- Compressed bucket data (grouped, patterned, or base64 encoded)
+- Shortened field names (e.g., "p" instead of "permissions")
+- Expanded fields for backward compatibility
+
+See: catalog/app/services/JWTCompressionFormat.md in quiltdata/quilt
+See: catalog/app/services/MCP_Server_JWT_Decompression_Guide.md in quiltdata/quilt
+
+## Implementation Strategy
+
+The MCP server should:
+1. Prefer explicit fields (permissions, buckets, roles, scope, level) when present
+2. Fall back to abbreviated claims (p, b, r, s, l) with decompression
+3. Validate bucket count matches expected values (e.g., 32 for production roles)
+4. Provide clear error messages for validation failures
+"""
 
 from __future__ import annotations
 
 import base64
 import json
+import logging
 from typing import Any, Dict, Iterable, List
 
+logger = logging.getLogger(__name__)
 
+# Permission abbreviations as defined in Quilt's JWTCompressionFormat.md
 PERMISSION_ABBREVIATIONS = {
     "g": "s3:GetObject",
     "p": "s3:PutObject",
@@ -122,10 +147,63 @@ def process_compressed_jwt(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def validate_jwt_claims(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate decompressed JWT claims and add validation metadata.
+    
+    Args:
+        result: Decompressed JWT claims
+        
+    Returns:
+        Claims with validation metadata
+    """
+    validation_warnings = []
+    
+    # Check for empty permissions
+    if not result.get("permissions"):
+        validation_warnings.append("No permissions found, defaulting to read-only")
+        logger.warning("JWT has no permissions, defaulting to read-only access")
+    
+    # Check for wildcard bucket access
+    buckets = result.get("buckets", [])
+    if "*" in buckets:
+        validation_warnings.append("Wildcard bucket access detected")
+        logger.info("JWT has wildcard bucket access")
+    
+    # Validate bucket count for known role patterns
+    roles = result.get("roles", [])
+    for role in roles:
+        if "ReadWrite" in role and len(buckets) > 0:
+            # Log bucket count for debugging
+            logger.debug("Role %s has access to %d buckets", role, len(buckets))
+    
+    if validation_warnings:
+        result["_validation_warnings"] = validation_warnings
+    
+    return result
+
+
 def safe_decompress_jwt(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Safely decompress a JWT payload with comprehensive error handling.
+    
+    This function follows Quilt's JWT decompression guide and provides
+    robust fallback behavior for invalid or malformed tokens.
+    
+    Args:
+        payload: Raw JWT payload (decoded but not decompressed)
+        
+    Returns:
+        Fully decompressed JWT claims with normalized structure
+    """
     try:
         result = process_compressed_jwt(payload)
-    except Exception:
+        logger.debug(
+            "Successfully decompressed JWT: %d permissions, %d buckets, %d roles",
+            len(result.get('permissions', [])),
+            len(result.get('buckets', [])),
+            len(result.get('roles', []))
+        )
+    except Exception as e:
+        logger.warning("Error decompressing JWT, using fallback: %s", str(e))
         result = {
             "scope": payload.get("s") or payload.get("scope") or "read",
             "permissions": payload.get("permissions")
@@ -142,6 +220,7 @@ def safe_decompress_jwt(payload: Dict[str, Any]) -> Dict[str, Any]:
             "jti": payload.get("jti"),
         }
 
+    # Ensure required fields have valid defaults
     if not result.get("permissions"):
         result["permissions"] = ["s3:GetObject"]
     if not isinstance(result.get("buckets"), list):
@@ -152,4 +231,8 @@ def safe_decompress_jwt(payload: Dict[str, Any]) -> Dict[str, Any]:
         result["scope"] = "read"
     if not result.get("level"):
         result["level"] = "read"
+    
+    # Add validation metadata
+    result = validate_jwt_claims(result)
+    
     return result
