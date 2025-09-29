@@ -1,0 +1,116 @@
+==============================================================================
+QUICK FIXES FOR FRONTEND JWT INTEGRATION
+==============================================================================
+
+MCP Server Status: ✅ DEPLOYED & HEALTHY
+Version: 0.6.13-jwt-auth-20250929-184230
+Endpoint: https://demo.quiltdata.com/mcp
+
+==============================================================================
+FIX #1: Bucket Format Error
+==============================================================================
+ERROR: "Cannot use 'in' operator to search for 'name' in cellpainting-gallery"
+
+SEARCH FOR THIS PATTERN:
+  grep -rn "'name' in" catalog/app/services/
+  
+REPLACE THIS:
+  if ('name' in bucket) {
+    bucketName = bucket.name
+  }
+
+WITH THIS:
+  const bucketName = typeof bucket === 'string' ? bucket : bucket?.name
+  if (bucketName) {
+    // ... use bucketName
+  }
+
+==============================================================================
+FIX #2: Token Enhancement Not Working
+==============================================================================
+ERROR: "Enhanced token is identical to original token"
+
+ADD TO catalog/config.json.tmpl:
+  {
+    "mcp": {
+      "enhancedJwt": {
+        "signingSecret": "${MCP_ENHANCED_JWT_SECRET}",
+        "keyId": "frontend-enhanced"
+      }
+    }
+  }
+
+ENSURE ENVIRONMENT VARIABLE IS SET:
+  MCP_ENHANCED_JWT_SECRET=<must-match-mcp-server-secret>
+
+VERIFY IN EnhancedTokenGenerator.js:
+  constructor({ signingSecret, signingKeyId }) {
+    this.signingSecret = signingSecret || 
+                         process.env.MCP_ENHANCED_JWT_SECRET ||
+                         quiltConfig?.mcp?.enhancedJwt?.signingSecret
+    
+    if (!this.signingSecret) {
+      console.warn('⚠️ EnhancedTokenGenerator: Missing signing secret')
+    }
+  }
+
+==============================================================================
+FIX #3: Bucket Discovery Missing Expected Buckets
+==============================================================================
+ERROR: "quilt-sandbox-bucket not found in discovered buckets"
+
+VERIFY AWSBucketDiscoveryService.js INCLUDES ALL BUCKETS:
+  getBucketsForRole(roleName) {
+    const roleBucketMap = {
+      'ReadWriteQuiltV2-sales-prod': [
+        'quilt-sandbox-bucket',      // ✅ Must be here
+        'cellpainting-gallery',
+        'quilt-sales-raw',
+        'quilt-sales-staging',
+        // ... all 32 buckets
+      ]
+    }
+    return roleBucketMap[roleName] || []
+  }
+
+==============================================================================
+VERIFICATION COMMANDS (Run in Browser Console)
+==============================================================================
+
+1. Check if token is enhanced:
+   const token = await quiltConfig.mcpClient.getToken()
+   const payload = JSON.parse(atob(token.split('.')[1]))
+   console.log('Enhanced?', !!payload.buckets && !!payload.permissions)
+
+2. Check bucket discovery:
+   const buckets = await window.__dynamicAuthManager.getCurrentBuckets()
+   console.log('Buckets:', buckets)
+   console.log('Has sandbox:', buckets.includes('quilt-sandbox-bucket'))
+
+3. Check configuration:
+   console.log('JWT Config:', quiltConfig?.mcp?.enhancedJwt)
+
+==============================================================================
+EXPECTED RESULTS AFTER FIXES
+==============================================================================
+✅ Get Current Buckets - Should return array of strings
+✅ Enhanced Token Generator - Token should have compressed + expanded fields
+✅ Permission Validation - quilt-sandbox-bucket should be in bucket list
+✅ Bucket Discovery Validation - All expected buckets present
+✅ Complete Auth Flow - End-to-end authentication works
+
+==============================================================================
+NEED HELP?
+==============================================================================
+Provide these from browser console:
+1. const token = await quiltConfig.mcpClient.getToken()
+   const payload = JSON.parse(atob(token.split('.')[1]))
+   console.log(JSON.stringify(payload, null, 2))
+
+2. const buckets = await window.__dynamicAuthManager.getCurrentBuckets()
+   console.log(JSON.stringify(buckets, null, 2))
+
+3. Screenshot of any console errors
+
+Send to: Simon
+==============================================================================
