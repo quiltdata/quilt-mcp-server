@@ -1,6 +1,6 @@
 # Quilt MCP Server
 
-MCP server for Quilt data catalog - search, analyze, and manage data packages with 84+ tools.
+MCP server for Quilt data catalog - search, analyze, and manage data packages with 16 module-based tools (84 actions).
 
 [![Tests](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml/badge.svg)](https://github.com/quiltdata/quilt-mcp-server/actions/workflows/push.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -75,6 +75,7 @@ make test
 
 ## Documentation
 
+- [Migration Guide](./docs/MIGRATION_GUIDE_MODULE_TOOLS.md) - **NEW**: Guide for updating to module-based tools
 - [MCP Protocol](https://modelcontextprotocol.io)
 - [Quilt Documentation](https://docs.quiltdata.com)
 - [API Reference](./docs/api.md)
