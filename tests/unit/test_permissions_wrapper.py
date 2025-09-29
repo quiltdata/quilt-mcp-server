@@ -93,8 +93,10 @@ class TestPermissionsWrapper:
 
         result = permissions(
             action="discover",
-            check_buckets=["test-bucket"],
-            force_refresh=True,
+            params={
+                "check_buckets": ["test-bucket"],
+                "force_refresh": True,
+            }
         )
         
         assert result["success"] is True
@@ -120,7 +122,7 @@ class TestPermissionsWrapper:
             return_value={"read": True, "write": True, "list": True}
         )
 
-        result = permissions(action="access_check", bucket_name="test-bucket")
+        result = permissions(action="access_check", params={"bucket_name": "test-bucket"})
         
         assert result["success"] is True
         assert result["bucket_name"] == "test-bucket"
@@ -147,7 +149,7 @@ class TestPermissionsWrapper:
 
         result = permissions(
             action="recommendations_get",
-            operation_type="package_creation",
+            params={"operation_type": "package_creation"},
         )
         
         assert result["success"] is True
@@ -165,8 +167,10 @@ class TestPermissionsWrapper:
         """Test error handling for invalid parameters."""
         result = permissions(
             action="access_check",
-            bucket_name="test-bucket",
-            invalid_param="should_be_ignored",  # Extra params should be handled gracefully
+            params={
+                "bucket_name": "test-bucket",
+                "invalid_param": "should_be_ignored",  # Extra params should be handled gracefully
+            }
         )
         
         # Should still work - extra params are ignored
