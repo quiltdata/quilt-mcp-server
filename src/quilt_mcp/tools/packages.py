@@ -536,3 +536,79 @@ def package_diff(
 
     except Exception as e:
         return {"error": f"Failed to diff packages: {e}"}
+
+
+def packages(action: str | None = None, **kwargs) -> dict[str, Any]:
+    """
+    Package browsing, search, and management operations.
+    
+    Available actions:
+    - browse: Browse the contents of a Quilt package with enhanced file information
+    - contents_search: Search within a package's contents by filename or path
+    - diff: Compare two package versions and show differences
+    - list: List all available Quilt packages in a registry
+    - search: Search for Quilt packages by content and metadata
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = packages()
+        
+        # Browse package
+        result = packages(action="browse", package_name="user/dataset")
+        
+        # Search packages
+        result = packages(action="search", query="genomics")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "browse": package_browse,
+        "contents_search": package_contents_search,
+        "diff": package_diff,
+        "list": packages_list,
+        "search": packages_search,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "packages",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'packages'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
