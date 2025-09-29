@@ -561,7 +561,7 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
         return format_error_response(f"Failed to set open query status: {str(e)}")
 
 
-async def tabulator(action: str | None = None, **kwargs) -> Dict[str, Any]:
+async def tabulator(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Quilt tabulator table management for SQL querying across packages.
     
@@ -627,7 +627,8 @@ async def tabulator(action: str | None = None, **kwargs) -> Dict[str, Any]:
         if action == "get_service":
             return {"success": True, "service": func()}
         else:
-            return await func(**kwargs)
+            params = params or {}
+        return await func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

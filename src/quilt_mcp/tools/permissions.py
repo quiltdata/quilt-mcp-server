@@ -346,7 +346,7 @@ def _generate_smart_recommendations(
     }
 
 
-def permissions(action: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     AWS permissions discovery and bucket recommendations.
     
@@ -409,7 +409,8 @@ def permissions(action: Optional[str] = None, **kwargs) -> Dict[str, Any]:
     # Dispatch to action implementation
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         # Extract expected parameters from the function signature
         import inspect

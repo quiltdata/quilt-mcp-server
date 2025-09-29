@@ -850,7 +850,7 @@ async def _create_package_from_objects(
     )
 
 
-def s3_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def s3_package(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Create well-organized Quilt packages from S3 bucket contents.
     
@@ -901,7 +901,8 @@ def s3_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

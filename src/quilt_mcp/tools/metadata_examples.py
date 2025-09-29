@@ -4,6 +4,7 @@ This module provides comprehensive examples and guidance for using metadata
 with Quilt packages, addressing common user confusion and validation issues.
 """
 
+from typing import Optional, Dict, Any
 from typing import Dict, Any, List
 from .metadata_templates import get_metadata_template, list_metadata_templates
 
@@ -277,7 +278,7 @@ def fix_metadata_validation_issues() -> Dict[str, Any]:
     }
 
 
-def metadata_examples(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def metadata_examples(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Metadata usage examples and troubleshooting guidance.
     
@@ -331,7 +332,8 @@ def metadata_examples(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

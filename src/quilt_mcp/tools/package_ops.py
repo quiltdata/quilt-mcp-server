@@ -13,7 +13,7 @@ and converted to package files.
 """
 
 import os
-from typing import Any
+from typing import Any, Dict, Optional
 
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
@@ -416,7 +416,7 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
         }
 
 
-def package_ops(action: str | None = None, **kwargs) -> dict[str, Any]:
+def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Package creation, update, and deletion operations.
     
@@ -470,7 +470,8 @@ def package_ops(action: str | None = None, **kwargs) -> dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

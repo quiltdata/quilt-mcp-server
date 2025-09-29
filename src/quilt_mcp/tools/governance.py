@@ -781,7 +781,7 @@ async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
         return service._handle_admin_error(e, "set tabulator open query status")
 
 
-async def governance(action: str | None = None, **kwargs) -> Dict[str, Any]:
+async def governance(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Quilt catalog governance and user management.
     
@@ -863,7 +863,8 @@ async def governance(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch (all functions are async)
     try:
         func = actions[action]
-        return await func(**kwargs)
+        params = params or {}
+        return await func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

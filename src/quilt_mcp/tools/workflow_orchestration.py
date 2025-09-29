@@ -635,7 +635,7 @@ def _create_validation_template(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def workflow_orchestration(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def workflow_orchestration(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Workflow creation and orchestration for multi-step operations.
     
@@ -695,7 +695,8 @@ def workflow_orchestration(action: str | None = None, **kwargs) -> Dict[str, Any
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

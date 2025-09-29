@@ -4,6 +4,7 @@ This module provides pre-defined metadata templates for common data package
 types, making it easy for users to create properly structured metadata.
 """
 
+from typing import Optional, Dict, Any
 from typing import Dict, Any, List
 from datetime import datetime, timezone
 
@@ -174,7 +175,7 @@ def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = N
     }
 
 
-def metadata_templates(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Metadata templates and validation utilities.
     
@@ -228,7 +229,8 @@ def metadata_templates(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

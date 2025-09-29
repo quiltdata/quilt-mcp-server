@@ -127,53 +127,93 @@ def get_tool_modules() -> list[Any]:
     ]
 
 
+def get_module_wrappers() -> dict[str, Callable]:
+    """Get module wrapper functions to register as MCP tools.
+    
+    Returns a dictionary mapping tool names to their wrapper functions.
+    Each wrapper function provides action-based dispatch to multiple operations.
+    """
+    from quilt_mcp.tools import (
+        auth,
+        buckets,
+        package_ops,
+        packages,
+        s3_package,
+        permissions,
+        unified_package,
+        metadata_templates,
+        package_management,
+        metadata_examples,
+        quilt_summary,
+        search,
+        athena_glue,
+        tabulator,
+        workflow_orchestration,
+        governance,
+    )
+    
+    # Map tool names to their wrapper functions
+    # Each wrapper provides action-based dispatch (e.g., auth(action="status"))
+    return {
+        "auth": auth.auth,
+        "buckets": buckets.buckets,
+        "athena_glue": athena_glue.athena_glue,
+        "governance": governance.governance,
+        "metadata_examples": metadata_examples.metadata_examples,
+        "metadata_templates": metadata_templates.metadata_templates,
+        "package_management": package_management.package_management,
+        "package_ops": package_ops.package_ops,
+        "packages": packages.packages,
+        "permissions": permissions.permissions,
+        "quilt_summary": quilt_summary.quilt_summary,
+        "s3_package": s3_package.s3_package,
+        "search": search.search,
+        "tabulator": tabulator.tabulator,
+        "unified_package": unified_package.unified_package,
+        "workflow_orchestration": workflow_orchestration.workflow_orchestration,
+    }
+
+
 def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:
-    """Register all public functions from tool modules as MCP tools.
+    """Register module wrapper functions as MCP tools.
+    
+    This registers 16 module-based tools (one per module) instead of 84 individual
+    function tools. Each module wrapper provides action-based dispatch.
 
     Args:
         mcp: The FastMCP server instance
-        tool_modules: List of modules to register tools from (defaults to all)
+        tool_modules: Deprecated parameter (kept for compatibility, not used)
         verbose: Whether to print registration messages
 
     Returns:
-        Number of tools registered
+        Number of tools registered (should be 16)
     """
-    if tool_modules is None:
-        tool_modules = get_tool_modules()
-
-    # List of deprecated tools (to reduce client confusion)
-    excluded_tools = {
-        "packages_list",  # Prefer packages_search
-        "athena_tables_list",  # Prefer athena_query_execute
-    }
-
+    wrappers = get_module_wrappers()
     tools_registered = 0
-
-    for module in tool_modules:
-        # Get all public functions (not starting with _)
-        def make_predicate(mod: Any) -> Callable[[Any], bool]:
-            return lambda obj: (
-                inspect.isfunction(obj)
-                and not obj.__name__.startswith("_")
-                and obj.__module__ == mod.__name__  # Only functions defined in this module
-            )
-
-        functions = inspect.getmembers(module, predicate=make_predicate(module))
-
-        for name, func in functions:
-            # Skip deprecated tools to reduce client confusion
-            if name in excluded_tools:
-                if verbose:
-                    print(f"Skipped _list tool: {module.__name__}.{name} (prefer search instead)", file=sys.stderr)
-                continue
-
-            # Register each function as an MCP tool
-            mcp.tool(func)
-            tools_registered += 1
-            if verbose:
-                # Use stderr to avoid interfering with JSON-RPC on stdout
-                print(f"Registered tool: {module.__name__}.{name}", file=sys.stderr)
-
+    
+    for tool_name, wrapper_func in sorted(wrappers.items()):
+        # Register the wrapper function as an MCP tool
+        mcp.tool(wrapper_func)
+        tools_registered += 1
+        
+        if verbose:
+            # Get action count by calling wrapper with action=None
+            try:
+                if inspect.iscoroutinefunction(wrapper_func):
+                    # For async wrappers, we can't easily call them here
+                    # Just log that it's registered
+                    print(f"Registered tool: {tool_name} (async wrapper)", file=sys.stderr)
+                else:
+                    result = wrapper_func(action=None)
+                    action_count = len(result.get("actions", []))
+                    print(f"Registered tool: {tool_name} ({action_count} actions)", file=sys.stderr)
+            except Exception:
+                # Fallback if discovery fails
+                print(f"Registered tool: {tool_name}", file=sys.stderr)
+    
+    if verbose:
+        print(f"\n✅ Registered {tools_registered} module-based tools (reduced from 84 individual tools)", file=sys.stderr)
+    
     return tools_registered
 
 

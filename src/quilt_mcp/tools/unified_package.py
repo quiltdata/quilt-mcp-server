@@ -603,7 +603,7 @@ def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> 
     return guidance
 
 
-def unified_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Unified package creation tool that handles everything automatically.
     
@@ -657,7 +657,8 @@ def unified_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

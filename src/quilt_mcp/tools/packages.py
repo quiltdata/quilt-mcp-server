@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, Optional
 
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
@@ -538,7 +538,7 @@ def package_diff(
         return {"error": f"Failed to diff packages: {e}"}
 
 
-def packages(action: str | None = None, **kwargs) -> dict[str, Any]:
+def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Package browsing, search, and management operations.
     
@@ -596,7 +596,8 @@ def packages(action: str | None = None, **kwargs) -> dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

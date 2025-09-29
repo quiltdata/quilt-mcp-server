@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any
+from typing import Any, Dict, Optional
 from urllib.parse import quote, urlparse
 
 from ..services.quilt_service import QuiltService
@@ -637,7 +637,7 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
         }
 
 
-def auth(action: str | None = None, **kwargs) -> dict[str, Any]:
+def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Authentication and catalog configuration operations.
     

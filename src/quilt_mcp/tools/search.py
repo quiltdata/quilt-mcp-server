@@ -176,7 +176,7 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
         }
 
 
-def search(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Intelligent search operations across Quilt catalogs, packages, and S3 buckets.
     
@@ -230,7 +230,8 @@ def search(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)

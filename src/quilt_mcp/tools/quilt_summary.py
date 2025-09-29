@@ -4,6 +4,7 @@ This module automatically generates quilt_summarize.json files and visualization
 for all Quilt packages, following the official Quilt documentation standards.
 """
 
+from typing import Optional, Dict, Any
 from typing import Dict, List, Any, Optional, Tuple
 import json
 import logging
@@ -568,7 +569,7 @@ def create_quilt_summary_files(
         }
 
 
-def quilt_summary(action: str | None = None, **kwargs) -> Dict[str, Any]:
+def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Quilt package summary and visualization generation.
     
@@ -626,7 +627,8 @@ def quilt_summary(action: str | None = None, **kwargs) -> Dict[str, Any]:
     # Dispatch
     try:
         func = actions[action]
-        return func(**kwargs)
+        params = params or {}
+        return func(**params)
     except TypeError as e:
         import inspect
         sig = inspect.signature(func)
