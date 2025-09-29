@@ -559,3 +559,84 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error in tabulator_open_query_toggle: {e}")
         return format_error_response(f"Failed to set open query status: {str(e)}")
+
+
+async def tabulator(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Quilt tabulator table management for SQL querying across packages.
+    
+    Available actions:
+    - open_query_status: Get the current status of tabulator open query feature
+    - open_query_toggle: Enable or disable tabulator open query feature
+    - table_create: Create a new tabulator table configuration
+    - table_delete: Delete a tabulator table configuration
+    - table_rename: Rename a tabulator table
+    - tables_list: List all tabulator tables configured for a bucket
+    - get_service: Get or create the tabulator service instance
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = await tabulator()
+        
+        # List tables
+        result = await tabulator(action="tables_list", bucket_name="my-bucket")
+        
+        # Create table
+        result = await tabulator(action="table_create", bucket_name="my-bucket", table_name="my-table", schema=[...])
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "open_query_status": tabulator_open_query_status,
+        "open_query_toggle": tabulator_open_query_toggle,
+        "table_create": tabulator_table_create,
+        "table_delete": tabulator_table_delete,
+        "table_rename": tabulator_table_rename,
+        "tables_list": tabulator_tables_list,
+        "get_service": get_tabulator_service,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "tabulator",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return format_error_response(
+            f"Unknown action '{action}' for module 'tabulator'. "
+            f"Available actions: {available}"
+        )
+    
+    # Dispatch (handle both sync and async functions)
+    try:
+        func = actions[action]
+        # get_service is sync, others are async
+        if action == "get_service":
+            return {"success": True, "service": func()}
+        else:
+            return await func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return format_error_response(
+            f"Invalid parameters for action '{action}'. "
+            f"Expected parameters: {expected_params}. Error: {str(e)}"
+        )
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return format_error_response(f"Error executing action '{action}': {str(e)}")

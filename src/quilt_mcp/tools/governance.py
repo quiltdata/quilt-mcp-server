@@ -779,3 +779,103 @@ async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
     except Exception as e:
         service = GovernanceService()
         return service._handle_admin_error(e, "set tabulator open query status")
+
+
+async def governance(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Quilt catalog governance and user management.
+    
+    Available actions:
+    - roles_list: List all available roles in the registry
+    - users_list: List all users with detailed information
+    - user_get: Get detailed information about a specific user
+    - user_create: Create a new user in the registry
+    - user_delete: Delete a user from the registry
+    - user_set_email: Update a user's email address
+    - user_set_role: Set user's primary and extra roles
+    - user_set_admin: Set user's admin status
+    - user_set_active: Set user's active status
+    - user_add_roles: Add roles to a user
+    - user_remove_roles: Remove roles from a user
+    - user_reset_password: Reset a user's password
+    - sso_config_get: Get the current SSO configuration
+    - sso_config_set: Set the SSO configuration
+    - sso_config_remove: Remove the SSO configuration
+    - tabulator_open_query_get: Get current tabulator open query status
+    - tabulator_open_query_set: Set tabulator open query status
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = await governance()
+        
+        # List users
+        result = await governance(action="users_list")
+        
+        # Create user
+        result = await governance(action="user_create", name="newuser", email="user@example.com", role="user")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "roles_list": admin_roles_list,
+        "users_list": admin_users_list,
+        "user_get": admin_user_get,
+        "user_create": admin_user_create,
+        "user_delete": admin_user_delete,
+        "user_set_email": admin_user_set_email,
+        "user_set_role": admin_user_set_role,
+        "user_set_admin": admin_user_set_admin,
+        "user_set_active": admin_user_set_active,
+        "user_add_roles": admin_user_add_roles,
+        "user_remove_roles": admin_user_remove_roles,
+        "user_reset_password": admin_user_reset_password,
+        "sso_config_get": admin_sso_config_get,
+        "sso_config_set": admin_sso_config_set,
+        "sso_config_remove": admin_sso_config_remove,
+        "tabulator_open_query_get": admin_tabulator_open_query_get,
+        "tabulator_open_query_set": admin_tabulator_open_query_set,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "governance",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'governance'. Available actions: {available}",
+        }
+    
+    # Dispatch (all functions are async)
+    try:
+        func = actions[action]
+        return await func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
