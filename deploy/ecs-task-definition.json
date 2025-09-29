@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "mcp-server",
-          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:improved-error-handling",
+          "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:package-browse-fix-amd64",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -42,7 +42,7 @@
         },
         {
           "name": "MCP_SERVER_VERSION",
-          "value": "0.6.13-jwt-auth"
+            "value": "0.6.13-package-browse-fix-amd64"
         },
         {
           "name": "LOG_LEVEL",
