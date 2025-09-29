@@ -566,3 +566,79 @@ def create_quilt_summary_files(
             "summary_package": {},
             "files_generated": {},
         }
+
+
+def quilt_summary(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Quilt package summary and visualization generation.
+    
+    Available actions:
+    - create_files: Create all Quilt summary files for a package
+    - generate_viz: Generate comprehensive visualizations for the package
+    - generate_json: Generate a comprehensive quilt_summarize.json file
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = quilt_summary()
+        
+        # Create summary files
+        result = quilt_summary(
+            action="create_files",
+            package_name="user/dataset",
+            package_metadata={},
+            organized_structure={},
+            readme_content="",
+            source_info={}
+        )
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "create_files": create_quilt_summary_files,
+        "generate_viz": generate_package_visualizations,
+        "generate_json": generate_quilt_summarize_json,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "quilt_summary",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'quilt_summary'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }

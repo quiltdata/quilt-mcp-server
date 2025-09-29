@@ -172,3 +172,75 @@ def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = N
         "field_count": len(metadata),
         "recommended_additions": missing_recommended if missing_recommended else None,
     }
+
+
+def metadata_templates(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Metadata templates and validation utilities.
+    
+    Available actions:
+    - get_template: Get a metadata template with optional custom fields
+    - list_templates: List available metadata templates with descriptions
+    - validate: Validate metadata structure and provide suggestions
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = metadata_templates()
+        
+        # Get template
+        result = metadata_templates(action="get_template", template_name="standard")
+        
+        # Validate metadata
+        result = metadata_templates(action="validate", metadata={"description": "test"})
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "get_template": get_metadata_template,
+        "list_templates": list_metadata_templates,
+        "validate": validate_metadata_structure,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "metadata_templates",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'metadata_templates'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
