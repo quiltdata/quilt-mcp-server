@@ -174,3 +174,75 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
             "error": f"Search explanation failed: {e}",
             "query": query,
         }
+
+
+def search(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Intelligent search operations across Quilt catalogs, packages, and S3 buckets.
+    
+    Available actions:
+    - unified_search: Intelligent unified search with automatic backend selection
+    - suggest: Get intelligent search suggestions based on partial queries
+    - explain: Explain how a search query would be processed
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = search()
+        
+        # Unified search
+        result = search(action="unified_search", query="CSV files")
+        
+        # Get suggestions
+        result = search(action="suggest", partial_query="genom")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "unified_search": unified_search,
+        "suggest": search_suggest,
+        "explain": search_explain,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "search",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'search'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }

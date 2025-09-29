@@ -635,3 +635,89 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "available_catalogs": list(catalog_mappings.keys()),
             "help": "Use one of the available catalog names or provide a full URL",
         }
+
+
+def auth(action: str | None = None, **kwargs) -> dict[str, Any]:
+    """
+    Authentication and catalog configuration operations.
+    
+    Available actions:
+    - status: Check Quilt authentication status with rich information
+    - catalog_info: Get information about current catalog configuration
+    - catalog_name: Get the name of the current catalog
+    - catalog_uri: Generate a Quilt+ URI for referencing packages/objects
+    - catalog_url: Generate a catalog URL for viewing packages/objects
+    - configure_catalog: Configure Quilt catalog URL
+    - filesystem_status: Check filesystem permissions and capabilities
+    - switch_catalog: Switch to a different Quilt catalog
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = auth()
+        
+        # Check status
+        result = auth(action="status")
+        
+        # Configure catalog
+        result = auth(action="configure_catalog", catalog_url="https://example.com")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "status": auth_status,
+        "catalog_info": catalog_info,
+        "catalog_name": catalog_name,
+        "catalog_uri": catalog_uri,
+        "catalog_url": catalog_url,
+        "configure_catalog": configure_catalog,
+        "filesystem_status": filesystem_status,
+        "switch_catalog": switch_catalog,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "auth",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "status": "error",
+            "error": f"Unknown action '{action}' for module 'auth'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        result = func(**kwargs)
+        # Normalize status/success fields for consistency
+        if "status" in result and "success" not in result:
+            result["success"] = result["status"] == "success"
+        return result
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "status": "error",
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict):
+            return e
+        return {
+            "status": "error",
+            "error": f"Error executing action '{action}': {str(e)}",
+        }

@@ -544,3 +544,85 @@ def bucket_objects_search_graphql(
             "bucket": bkt,
             "objects": [],
         }
+
+
+def buckets(action: str | None = None, **kwargs) -> dict[str, Any]:
+    """
+    S3 bucket operations and object management.
+    
+    Available actions:
+    - object_fetch: Fetch binary or text data from an S3 object
+    - object_info: Get metadata information for an S3 object
+    - object_link: Generate presigned URL for an S3 object
+    - object_text: Read text content from an S3 object
+    - objects_list: List objects in an S3 bucket with filtering
+    - objects_put: Upload multiple objects to an S3 bucket
+    - objects_search: Search objects using Elasticsearch
+    - objects_search_graphql: Search objects via GraphQL
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = buckets()
+        
+        # List objects
+        result = buckets(action="objects_list", bucket="my-bucket")
+        
+        # Fetch object
+        result = buckets(action="object_fetch", s3_uri="s3://bucket/key")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "object_fetch": bucket_object_fetch,
+        "object_info": bucket_object_info,
+        "object_link": bucket_object_link,
+        "object_text": bucket_object_text,
+        "objects_list": bucket_objects_list,
+        "objects_put": bucket_objects_put,
+        "objects_search": bucket_objects_search,
+        "objects_search_graphql": bucket_objects_search_graphql,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "buckets",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'buckets'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
