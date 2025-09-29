@@ -601,3 +601,75 @@ def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> 
         guidance.append("📝 README.md generated with usage examples")
 
     return guidance
+
+
+def unified_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Unified package creation tool that handles everything automatically.
+    
+    Available actions:
+    - create: Unified package creation with automatic handling
+    - list_available_resources: Auto-detect user's available buckets and registries
+    - quick_start: Provide guided onboarding and setup assistance
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = unified_package()
+        
+        # Create package
+        result = unified_package(action="create", name="user/dataset", files=["s3://bucket/file.csv"])
+        
+        # List resources
+        result = unified_package(action="list_available_resources")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "create": create_package,
+        "list_available_resources": list_available_resources,
+        "quick_start": quick_start,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "unified_package",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'unified_package'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }

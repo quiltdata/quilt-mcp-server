@@ -848,3 +848,72 @@ async def _create_package_from_objects(
         readme_content=None,
         summary_files=None,
     )
+
+
+def s3_package(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Create well-organized Quilt packages from S3 bucket contents.
+    
+    Available actions:
+    - create_from_s3: Create a well-organized Quilt package from S3 bucket contents with smart organization
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = s3_package()
+        
+        # Create from S3
+        result = s3_package(
+            action="create_from_s3",
+            source_bucket="s3://my-bucket",
+            package_name="user/dataset"
+        )
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "create_from_s3": package_create_from_s3,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "s3_package",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 's3_package'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }

@@ -700,3 +700,77 @@ def list_package_tools() -> Dict[str, Any]:
             "All tools support both dict and JSON string metadata formats",
         ],
     }
+
+
+def package_management(action: str | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Enhanced package management with better error handling and metadata templates.
+    
+    Available actions:
+    - create_enhanced: Enhanced package creation with metadata templates and validation
+    - list_tools: List all package management tools with usage guidance
+    - update_metadata: Update or replace metadata for an existing package
+    - validate: Validate package integrity and accessibility
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = package_management()
+        
+        # Create enhanced package
+        result = package_management(action="create_enhanced", name="user/dataset", files=["s3://bucket/file.csv"])
+        
+        # Validate package
+        result = package_management(action="validate", package_name="user/dataset")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "create_enhanced": create_package_enhanced,
+        "list_tools": list_package_tools,
+        "update_metadata": package_update_metadata,
+        "validate": package_validate,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "package_management",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'package_management'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        return func(**kwargs)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
