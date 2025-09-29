@@ -81,7 +81,10 @@ def _decompress_compressed(data: str) -> List[str]:
         decoded = base64.b64decode(data).decode("utf-8")
         parsed = json.loads(decoded)
         return parsed if isinstance(parsed, list) else []
-    except Exception:
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        # ValueError covers base64 decode errors
+        # UnicodeDecodeError covers UTF-8 decode errors
+        # JSONDecodeError covers JSON parse errors
         return []
 
 
@@ -202,7 +205,11 @@ def safe_decompress_jwt(payload: Dict[str, Any]) -> Dict[str, Any]:
             len(result.get('buckets', [])),
             len(result.get('roles', []))
         )
-    except Exception as e:
+    except (TypeError, AttributeError, KeyError, ValueError) as e:
+        # TypeError: Invalid payload types
+        # AttributeError: Missing expected attributes
+        # KeyError: Missing required keys
+        # ValueError: Invalid values during decompression
         logger.warning("Error decompressing JWT, using fallback: %s", str(e))
         result = {
             "scope": payload.get("s") or payload.get("scope") or "read",
