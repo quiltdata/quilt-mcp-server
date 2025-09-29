@@ -279,49 +279,31 @@ class TestMCPServerConfiguration(unittest.TestCase):
         self.assertGreater(tools_count, 0)
         self.assertEqual(mock_server.tool.call_count, tools_count)
 
-    def test_register_tools_only_public_functions(self):
-        """Test that only public functions are registered as tools."""
+    def test_register_tools_registers_module_wrappers(self):
+        """Test that module wrapper functions are registered as tools."""
         mock_server = Mock(spec=FastMCP)
 
-        # Create a mock module with both public and private functions
-        mock_module = Mock()
-        mock_module.__name__ = "test_module"
+        # Register tools (now uses wrapper functions, not individual functions)
+        tools_count = register_tools(mock_server, verbose=False)
 
-        def public_func():
-            pass
-
-        def _private_func():
-            pass
-
-        public_func.__name__ = "public_func"
-        public_func.__module__ = "test_module"
-        _private_func.__name__ = "_private_func"
-        _private_func.__module__ = "test_module"
-
-        # Mock inspect.getmembers to return our test functions
-        # but also mock the predicate function to properly filter
-        with patch("quilt_mcp.utils.inspect.getmembers") as mock_getmembers:
-            # The predicate should only return the public function
-            def mock_predicate(obj):
-                return (
-                    inspect.isfunction(obj)
-                    and not obj.__name__.startswith("_")
-                    and obj.__module__ == mock_module.__name__
-                )
-
-            # Filter the functions according to our predicate
-            all_functions = [
-                ("public_func", public_func),
-                ("_private_func", _private_func),
-            ]
-            filtered_functions = [(name, func) for name, func in all_functions if mock_predicate(func)]
-            mock_getmembers.return_value = filtered_functions
-
-            tools_count = register_tools(mock_server, tool_modules=[mock_module], verbose=False)
-
-            # Only public function should be registered
-            self.assertEqual(tools_count, 1)
-            mock_server.tool.assert_called_once_with(public_func)
+        # Should register 16 module wrappers (one per module)
+        self.assertEqual(tools_count, 16)
+        
+        # Verify mock_server.tool was called 16 times
+        self.assertEqual(mock_server.tool.call_count, 16)
+        
+        # Verify some expected wrapper names were registered
+        registered_funcs = [call[0][0] for call in mock_server.tool.call_args_list]
+        registered_names = [func.__name__ for func in registered_funcs]
+        
+        # Check that we have the expected wrapper functions
+        expected_wrappers = [
+            "auth", "buckets", "permissions", "packages", "search",
+            "athena_glue", "governance", "tabulator"
+        ]
+        for wrapper_name in expected_wrappers:
+            self.assertIn(wrapper_name, registered_names,
+                f"Expected wrapper '{wrapper_name}' not found in registered tools")
 
     def test_register_tools_verbose_output(self):
         """Test that verbose mode produces output."""
