@@ -466,6 +466,45 @@ Required secrets for Docker operations:
 - `VERSION` for overriding image version tags
 - `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
 
+## Module-Based Tools Architecture (2025-09-29)
+
+The MCP server was refactored from 84 individual tools to 16 module-based tools using action-based dispatch. This reduced client overhead by 81% while maintaining all functionality.
+
+**Key Learnings:**
+
+1. **FastMCP Constraint**: FastMCP does NOT support `**kwargs` in tool functions. Error: "Functions with **kwargs are not supported as tools"
+   - **Solution**: Use `params: Optional[Dict[str, Any]] = None` instead of `**kwargs`
+   - Pattern: `func(action="name", params={"param1": "value"})`
+
+2. **Wrapper Pattern**: Each module has a wrapper function that:
+   - Accepts `action: Optional[str]` and `params: Optional[Dict[str, Any]]`
+   - Returns available actions when `action=None` (discovery mode)
+   - Dispatches to implementation functions using `func(**params)`
+   - Provides clear error messages for unknown actions and invalid parameters
+
+3. **Async Wrappers**: Modules with async tools (governance, tabulator) need `async def` wrappers
+   - All functions dispatched must be async
+   - Use `return await func(**params)`
+
+4. **pytest-asyncio Config**: Use `asyncio_mode = "auto"` at top level in `pyproject.toml`, not nested under `[tool.pytest.ini_options.asyncio]`
+
+5. **Typing Imports**: All wrapper modules need: `from typing import Optional, Dict, Any`
+
+6. **Individual Functions Still Work**: The refactoring only changes the MCP tool registration layer. Individual functions remain unchanged and can still be imported/called directly for Python code and tests.
+
+7. **Registration**: `utils.py` now uses `get_module_wrappers()` which returns 16 wrapper functions instead of scanning modules with `inspect.getmembers()`.
+
+**Tool Organization:**
+- 16 modules total: 14 sync, 2 async (governance, tabulator)
+- Each wrapper lists all actions in its docstring
+- Discovery mode (`action=None`) returns available actions programmatically
+- Action names derived by removing module prefix from function names
+
+**Testing Strategy:**
+- Individual function tests unchanged (test implementation directly)
+- Wrapper tests verify action dispatch and error handling
+- Integration/E2E tests can use either pattern (functions or wrappers)
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.
