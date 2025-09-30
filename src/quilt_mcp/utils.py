@@ -129,6 +129,7 @@ def get_tool_modules() -> list[Any]:
         workflow_orchestration,
         governance,
         jwt_auth,
+        jwt_diagnostics,
     )
 
     # error_recovery temporarily disabled due to Callable parameter issues
@@ -152,6 +153,7 @@ def get_tool_modules() -> list[Any]:
         workflow_orchestration,
         governance,
         jwt_auth,
+        jwt_diagnostics,
     ]
 
 
