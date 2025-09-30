@@ -287,7 +287,6 @@ Use `quilt-mcp` as the package name.
 - S3 bucket integration
 - Authentication framework
 
-[Unreleased]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.9...HEAD
 [0.6.9]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.8...v0.6.9
 [0.6.8]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/quilt/quilt-mcp-server/compare/v0.6.6...v0.6.7
