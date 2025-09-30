@@ -329,3 +329,31 @@ class TestSessionAuthManager:
             cached = manager.get_session("session-1")
             # Note: This might fail because is_expired checks from created_at, not last_used
             # This is actually a limitation we should document
+
+    def test_bearer_service_fetches_secret_from_ssm_when_env_missing(self, monkeypatch):
+        """BearerAuthService should resolve secrets from SSM when env var is absent."""
+        import quilt_mcp.services.bearer_auth_service as bas
+
+        bas._auth_service = None
+
+        monkeypatch.delenv("MCP_ENHANCED_JWT_SECRET", raising=False)
+        monkeypatch.setenv("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER", "/quilt/mcp-server/jwt-secret")
+        monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "ssm-secret-value"}}
+
+        def fake_boto3_client(service_name, *, region_name=None):
+            assert service_name == "ssm"
+            assert region_name == "us-east-1"
+            return mock_ssm_client
+
+        monkeypatch.setattr("quilt_mcp.services.bearer_auth_service.boto3.client", fake_boto3_client)
+
+        service = bas.BearerAuthService()
+
+        assert service.jwt_secret == "ssm-secret-value"
+        mock_ssm_client.get_parameter.assert_called_once_with(
+            Name="/quilt/mcp-server/jwt-secret",
+            WithDecryption=True,
+        )

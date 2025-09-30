@@ -43,19 +43,29 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         )
         
         if jwt_result.get("authorized"):
+            if "s3_client" not in jwt_result or jwt_result.get("s3_client") is None:
+                logger.error(
+                    "JWT authorization for %s succeeded without providing an S3 client; refusing to fallback",
+                    tool_name,
+                )
+                return {
+                    "authorized": False,
+                    "error": "JWT authorization did not provide an S3 client",
+                }
+
             logger.info("✅ USING JWT-BASED S3 CLIENT for %s", tool_name)
             logger.info("=" * 80)
             return jwt_result
-        
-        # JWT auth failed - log why and fall through
+
+        # JWT auth failed - surface the error so callers can show actionable feedback
         logger.error("❌ JWT authorization FAILED for %s: %s", tool_name, jwt_result.get("error"))
-        logger.error("Falling back to traditional auth...")
-        # DONT return the failure - fall through to traditional auth
+        logger.error("Returning JWT authorization failure to caller; no legacy fallback will be attempted")
+        return jwt_result
 
     try:
         auth_state = get_runtime_auth()
         runtime_env = get_runtime_environment()
-        
+
         logger.info(
             "Traditional auth check for %s: runtime_env=%s, has_auth_state=%s, auth_scheme=%s",
             tool_name,

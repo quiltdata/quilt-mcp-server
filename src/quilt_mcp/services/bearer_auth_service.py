@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 import jwt
@@ -14,6 +14,9 @@ import jwt
 from quilt_mcp.services.jwt_decoder import safe_decompress_jwt
 
 logger = logging.getLogger(__name__)
+
+
+_SECRET_CACHE: Dict[Tuple[str, str], str] = {}
 
 
 class JwtAuthError(Exception):
@@ -55,14 +58,91 @@ class BearerAuthService:
     """Authenticate enhanced Quilt JWTs and authorize tool access."""
 
     def __init__(self) -> None:
-        self.jwt_secret = os.getenv("MCP_ENHANCED_JWT_SECRET", "development-enhanced-jwt-secret")
+        self.jwt_secret, self._jwt_secret_source = self._resolve_jwt_secret()
         self.jwt_kid = os.getenv("MCP_ENHANCED_JWT_KID", "frontend-enhanced")
         self.tool_permissions: Dict[str, List[str]] = self._build_tool_permissions()
         self._session_cache: Dict[str, Dict[str, boto3.Session]] = {}
+        logger.info(
+            "BearerAuthService initialized (secret_source=%s, secret_length=%d, kid=%s)",
+            self._jwt_secret_source,
+            len(self.jwt_secret) if self.jwt_secret else 0,
+            self.jwt_kid,
+        )
 
     # ------------------------------------------------------------------
     # JWT processing
     # ------------------------------------------------------------------
+
+    def _resolve_jwt_secret(self) -> Tuple[str, str]:
+        """Resolve the JWT signing secret from env vars or SSM."""
+
+        env_secret = os.getenv("MCP_ENHANCED_JWT_SECRET")
+        if env_secret:
+            logger.debug("Loaded JWT secret from environment variable MCP_ENHANCED_JWT_SECRET")
+            return env_secret, "env:MCP_ENHANCED_JWT_SECRET"
+
+        parameter_name = (
+            os.getenv("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER")
+            or os.getenv("MCP_ENHANCED_JWT_SECRET_PARAM")
+        )
+        region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+
+        if parameter_name and not region:
+            logger.error(
+                "MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER is set but AWS region is missing; "
+                "unable to retrieve JWT secret from SSM"
+            )
+
+        if parameter_name and region:
+            secret = self._get_secret_from_ssm(parameter_name, region)
+            if secret:
+                logger.info(
+                    "Loaded JWT secret from SSM parameter %s (region=%s, length=%d)",
+                    parameter_name,
+                    region,
+                    len(secret),
+                )
+                return secret, f"ssm:{parameter_name}:{region}"
+
+        if not parameter_name and region and self._running_in_aws():
+            default_parameter = "/quilt/mcp-server/jwt-secret"
+            secret = self._get_secret_from_ssm(default_parameter, region)
+            if secret:
+                logger.info(
+                    "Loaded JWT secret from default SSM parameter %s (region=%s, length=%d)",
+                    default_parameter,
+                    region,
+                    len(secret),
+                )
+                return secret, f"ssm:{default_parameter}:{region}"
+
+        logger.warning(
+            "Falling back to development JWT secret; configure MCP_ENHANCED_JWT_SECRET or "
+            "MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER to avoid signature mismatches."
+        )
+        return "development-enhanced-jwt-secret", "fallback:development"
+
+    def _get_secret_from_ssm(self, parameter_name: str, region: str) -> Optional[str]:
+        cache_key = (parameter_name, region)
+        if cache_key in _SECRET_CACHE:
+            logger.debug("Using cached JWT secret for SSM parameter %s", parameter_name)
+            return _SECRET_CACHE[cache_key]
+
+        try:
+            client = boto3.client("ssm", region_name=region)
+            response = client.get_parameter(Name=parameter_name, WithDecryption=True)
+            value = response.get("Parameter", {}).get("Value")
+            if value:
+                _SECRET_CACHE[cache_key] = value
+                return value
+            logger.error("SSM parameter %s did not return a value", parameter_name)
+        except Exception as exc:  # pragma: no cover - logged for troubleshooting
+            logger.error("Error retrieving JWT secret from SSM parameter %s: %s", parameter_name, exc)
+        return None
+
+    @staticmethod
+    def _running_in_aws() -> bool:
+        return bool(os.getenv("AWS_EXECUTION_ENV") or os.getenv("ECS_CONTAINER_METADATA_URI_V4"))
 
     def authenticate_header(self, header_value: str | None) -> JwtAuthResult:
         if not header_value or not header_value.startswith("Bearer "):
@@ -74,10 +154,9 @@ class BearerAuthService:
 
         try:
             # Log JWT secret info for debugging (first/last chars only)
-            secret_debug = f"{self.jwt_secret[:8]}...{self.jwt_secret[-8:]}" if len(self.jwt_secret) > 16 else "***"
             logger.debug(
-                "Validating JWT: secret=%s kid=%s token_length=%d",
-                secret_debug,
+                "Validating JWT: secret_source=%s kid=%s token_length=%d",
+                self._jwt_secret_source,
                 self.jwt_kid,
                 len(token)
             )

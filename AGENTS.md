@@ -573,3 +573,6 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - When testing with custom secrets, reset `quilt_mcp.services.bearer_auth_service._auth_service = None` so the singleton picks up new env vars; otherwise signature checks still use the previous secret.
 
 - Revised bucket and package tools now call JWT helpers for S3/quilt operations; only catalog/workflow tools remain on legacy pathways.
+- `BearerAuthService` now prefers `MCP_ENHANCED_JWT_SECRET`, then `MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER` (with `AWS_REGION`/`AWS_DEFAULT_REGION`), caching SSM resolves per `(parameter, region)` and logging the source so mismatched secrets surface quickly.
+- `AuthenticationService._try_bearer_token_auth` trusts the runtime context's `jwt_auth_result` + `boto3_session` when available, avoiding extra signature checks and preventing IAM fallback between MCP tool invocations.
+- Bucket tools treat a missing `s3_client` from `check_s3_authorization` as a hard error—no more automatic fallback to `get_s3_client()`—so JWT plumbing must supply an explicit client for every bucket operation.

@@ -4,6 +4,7 @@ import json
 import logging
 import tempfile
 import time
+from enum import Enum
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -20,8 +21,17 @@ from quilt_mcp.services.auth_service import (
 )
 from quilt_mcp.services.bearer_auth_service import (
     BearerAuthService,
-    BearerAuthStatus,
+    JwtAuthResult,
 )
+from quilt_mcp.runtime_context import RuntimeAuthState, push_runtime_context, reset_runtime_context
+
+
+try:  # pragma: no cover - compatibility shim for older service API
+    from quilt_mcp.services.bearer_auth_service import BearerAuthStatus
+except ImportError:  # pragma: no cover
+    class BearerAuthStatus(Enum):
+        VALID = "valid"
+        INVALID = "invalid"
 
 
 class TestAuthenticationService:
@@ -33,6 +43,58 @@ class TestAuthenticationService:
         assert service._auth_status == AuthStatus.UNAUTHENTICATED
         assert service._auth_method is None
         assert service._boto3_session is None
+
+    def test_bearer_token_auth_reuses_runtime_context(self, monkeypatch):
+        """Bearer auth should reuse runtime context results without revalidation."""
+        service = AuthenticationService()
+
+        jwt_result = JwtAuthResult(
+            token="runtime-token",
+            claims={
+                "permissions": ["s3:GetObject"],
+                "buckets": ["quilt-sample"],
+                "roles": ["ReadOnly"],
+            },
+            permissions=["s3:GetObject"],
+            buckets=["quilt-sample"],
+            roles=["ReadOnly"],
+            user_id="user-123",
+            username="alice",
+        )
+
+        boto3_session = Mock(name="runtime_boto3_session")
+
+        runtime_auth = RuntimeAuthState(
+            scheme="jwt",
+            access_token="runtime-token",
+            claims=jwt_result.claims,
+            extras={
+                "jwt_auth_result": jwt_result,
+                "aws_credentials": {"account_id": "123456789012"},
+                "aws_role_arn": None,
+                "user": {"id": "user-123", "username": "alice"},
+                "boto3_session": boto3_session,
+            },
+        )
+
+        token = push_runtime_context(environment="web-jwt", auth=runtime_auth)
+
+        mock_bearer_service = Mock()
+        monkeypatch.setattr(
+            "quilt_mcp.services.bearer_auth_service.get_bearer_auth_service",
+            lambda: mock_bearer_service,
+        )
+
+        try:
+            status = service._try_bearer_token_auth()
+        finally:
+            reset_runtime_context(token)
+
+        assert status == AuthStatus.AUTHENTICATED
+        assert service._auth_method == AuthMethod.BEARER_TOKEN
+        assert service._boto3_session is boto3_session
+        assert service._auth_status == AuthStatus.AUTHENTICATED
+        mock_bearer_service.validate_bearer_token.assert_not_called()
 
     def test_iam_role_authentication_success(self):
         """Test successful IAM role authentication."""

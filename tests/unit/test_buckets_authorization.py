@@ -148,6 +148,32 @@ def test_bucket_object_text_uses_jwt_authorization(monkeypatch):
     assert result["text"] == "hello world"
 
 
+def test_bucket_authorization_without_client_returns_error(monkeypatch):
+    def fake_check(tool_name, tool_args):
+        return {"authorized": True}
+
+    monkeypatch.setattr("quilt_mcp.tools.buckets.check_s3_authorization", fake_check, raising=False)
+    monkeypatch.setattr("quilt_mcp.tools.buckets.get_s3_client", _boom, raising=False)
+
+    result = buckets.bucket_objects_list("quilt-sandbox", include_signed_urls=False)
+
+    assert result["success"] is False
+    assert "S3 client" in result["error"]
+
+
+def test_bucket_authorization_failure_does_not_fallback(monkeypatch):
+    def fake_check(tool_name, tool_args):
+        return {"authorized": False, "error": "missing jwt"}
+
+    monkeypatch.setattr("quilt_mcp.tools.buckets.check_s3_authorization", fake_check, raising=False)
+    monkeypatch.setattr("quilt_mcp.tools.buckets._check_traditional_authorization", _boom, raising=False)
+
+    result = buckets.bucket_objects_list("quilt-sandbox", include_signed_urls=False)
+
+    assert result["success"] is False
+    assert "missing jwt" in result["error"]
+
+
 def test_bucket_object_fetch_uses_jwt_authorization(monkeypatch):
     payload = b"abc123"
     fake_client = _FakeGetClient(payload)
@@ -210,4 +236,3 @@ def test_bucket_objects_put_uses_jwt_authorization(monkeypatch):
     assert captured["args"]["bucket_name"] == "quilt-sandbox"
     assert fake_client.calls
     assert result["uploaded"] == 1
-

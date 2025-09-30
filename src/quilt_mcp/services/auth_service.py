@@ -71,6 +71,9 @@ class AuthenticationService:
         self._assumed_role_arn: Optional[str] = None
         self._assumed_session: Optional[boto3.Session] = None
         self._auto_role_assumption_enabled: bool = True
+        self._authenticated_session = None
+        self._user_info: Optional[Dict[str, Any]] = None
+        self._latest_jwt_result = None
         
     def initialize(self) -> AuthStatus:
         """Initialize authentication and determine the best available method.
@@ -156,7 +159,7 @@ class AuthenticationService:
     
     def _try_bearer_token_auth(self) -> AuthStatus:
         """Try to authenticate using a bearer token from environment variables.
-        
+
         This method looks for a bearer token set by the MCP server middleware
         and validates it with Quilt's authentication system.
         
@@ -164,47 +167,121 @@ class AuthenticationService:
             AuthStatus indicating success level
         """
         try:
+            from quilt_mcp.services.bearer_auth_service import (
+                JwtAuthError,
+                get_bearer_auth_service,
+            )
+
             auth_state = get_runtime_auth()
             access_token = get_runtime_access_token() or os.environ.get("QUILT_ACCESS_TOKEN")
-            if not access_token:
-                logger.debug("No QUILT_ACCESS_TOKEN environment variable set from Authorization header")
-                return AuthStatus.UNAUTHENTICATED
-
-            # Import and use the bearer auth service
-            from quilt_mcp.services.bearer_auth_service import get_bearer_auth_service
             bearer_auth_service = get_bearer_auth_service()
 
-            if auth_state and auth_state.scheme in {"jwt", "bearer"} and auth_state.extras.get("user_info"):
-                user_info = auth_state.extras.get("user_info")
-                status_value = "authenticated"
-                logger.debug("Using runtime context bearer auth for user: %s", user_info.get("username", "unknown"))
-            else:
-                status, user_info = bearer_auth_service.validate_bearer_token(access_token)
-                status_value = status.value
+            runtime_jwt = None
+            runtime_user_info = None
+            runtime_boto_session = None
 
-            if status_value == "authenticated":
-                logger.info("Bearer token authentication successful for user: %s", 
-                           user_info.get('username', 'unknown') if user_info else 'unknown')
-                
-                # Store the authenticated session
-                self._auth_method = AuthMethod.BEARER_TOKEN
-                self._auth_status = AuthStatus.AUTHENTICATED
-                
-                # Create a requests session for authenticated API calls
-                self._authenticated_session = bearer_auth_service.get_authenticated_session(access_token)
-                
-                # Store user info
-                if user_info:
-                    self._user_info = user_info
-                
-                return AuthStatus.AUTHENTICATED
-            else:
-                logger.debug("Bearer token authentication failed: %s", status_value)
+            if auth_state and auth_state.scheme in {"jwt", "bearer"}:
+                extras = auth_state.extras or {}
+                runtime_jwt = extras.get("jwt_auth_result")
+                runtime_user_info = extras.get("user") or extras.get("user_info")
+                runtime_boto_session = extras.get("boto3_session")
+                if not access_token and runtime_jwt and runtime_jwt.token:
+                    access_token = runtime_jwt.token
+
+            if runtime_jwt:
+                logger.debug(
+                    "Using cached runtime JWT result for bearer auth (user=%s)",
+                    runtime_jwt.username or runtime_jwt.user_id or "unknown",
+                )
+                return self._finalize_bearer_token_auth(
+                    runtime_jwt,
+                    runtime_user_info,
+                    runtime_boto_session,
+                    access_token,
+                    bearer_auth_service,
+                )
+
+            if not access_token:
+                logger.debug("Bearer token auth skipped: no runtime token or Authorization header available")
                 return AuthStatus.UNAUTHENTICATED
-                
-        except Exception as e:
-            logger.debug("Bearer token authentication error: %s", e)
+
+            logger.debug("Validating bearer token via BearerAuthService (runtime cache miss)")
+            try:
+                auth_result = bearer_auth_service.authenticate_header(f"Bearer {access_token}")
+            except JwtAuthError as exc:
+                logger.error(
+                    "Bearer token validation failed (%s): %s", exc.code, exc.detail
+                )
+                return AuthStatus.UNAUTHENTICATED
+
+            runtime_user_info = {
+                "id": auth_result.user_id,
+                "username": auth_result.username,
+            }
+            return self._finalize_bearer_token_auth(
+                auth_result,
+                runtime_user_info,
+                None,
+                access_token,
+                bearer_auth_service,
+            )
+
+        except Exception as exc:  # pragma: no cover - unexpected errors are logged
+            logger.exception("Bearer token authentication error: %s", exc)
             return AuthStatus.UNAUTHENTICATED
+
+    def _finalize_bearer_token_auth(
+        self,
+        auth_result,
+        runtime_user_info,
+        runtime_boto_session,
+        access_token,
+        bearer_auth_service,
+    ) -> AuthStatus:
+        """Finalize successful bearer-token authentication."""
+
+        self._auth_method = AuthMethod.BEARER_TOKEN
+        self._auth_status = AuthStatus.AUTHENTICATED
+
+        boto_session = runtime_boto_session
+        if boto_session is None:
+            try:
+                boto_session = bearer_auth_service.build_boto3_session(auth_result)
+            except Exception as exc:  # pragma: no cover - diagnostic logging only
+                logger.error("Failed to construct boto3 session from JWT: %s", exc)
+                boto_session = None
+
+        self._boto3_session = boto_session
+        self._assumed_session = boto_session
+        self._aws_credentials = auth_result.aws_credentials or {}
+        self._assumed_role_arn = auth_result.aws_role_arn
+
+        if runtime_user_info:
+            self._user_info = runtime_user_info
+        else:
+            self._user_info = {
+                "id": auth_result.user_id,
+                "username": auth_result.username,
+            }
+
+        self._authenticated_session = None
+        if hasattr(bearer_auth_service, "get_authenticated_session") and access_token:
+            try:
+                self._authenticated_session = bearer_auth_service.get_authenticated_session(access_token)
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Unable to build authenticated HTTP session: %s", exc)
+
+        logger.info(
+            "Bearer token authentication successful (user=%s, buckets=%d, permissions=%d, role=%s)",
+            (self._user_info or {}).get("username") or (self._user_info or {}).get("id") or "unknown",
+            len(auth_result.buckets or []),
+            len(auth_result.permissions or []),
+            auth_result.aws_role_arn,
+        )
+
+        self._latest_jwt_result = auth_result
+
+        return AuthStatus.AUTHENTICATED
     
     def _try_quilt_registry_auth(self) -> AuthStatus:
         """Try to authenticate using Quilt registry credentials (like quilt3 does).
