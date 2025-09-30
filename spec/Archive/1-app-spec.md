@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD024 -->
 # Phase 1: App (Local MCP Server) Specification
 
 ## Overview

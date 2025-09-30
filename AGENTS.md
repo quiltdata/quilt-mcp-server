@@ -295,7 +295,7 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 **Development Workflow (make.dev):**
 
 - `make run` - Start local MCP server
-- `make test` - Run all tests (includes DXT package validation)
+- `make test` - Run all tests (includes MCPB package validation)
 - `make test-unit` - Run unit tests only (fast)
 - `make test-integration` - Run integration tests (with AWS)
 - `make test-ci` - Run CI-optimized tests
@@ -306,17 +306,23 @@ For this repository's specific commands and permissions, see this CLAUDE.md file
 **Production Workflow (make.deploy):**
 
 - `make build` - Prepare production build environment
-- `make dxt` - Create DXT package
-- `make dxt-validate` - Validate DXT package
+- `make mcpb` - Create MCPB package
+- `make mcpb-validate` - Validate MCPB package
 - `make release-zip` - Create release bundle with documentation
 - `make release` - Create and push release tag
 - `make release-dev` - Create and push development tag
+
+**Docker Operations (make.deploy):**
+
+- `make docker-build` - Build Docker image locally
+- `make docker-push` - Build and push Docker image to ECR (requires VERSION)
+- `make docker-push-dev` - Build and push development Docker image
 
 **Coordination & Utilities:**
 
 - `make help` - Show all available targets organized by category
 - `make clean` - Clean all artifacts (dev + deploy)
-- `make release-local` - Full local workflow (test → build → dxt → validate → zip)
+- `make release-local` - Full local workflow (test → build → mcpb → validate → zip)
 - `make test-readme` - Test README installation commands
 - `make update-cursor-rules` - Update Cursor IDE rules from CLAUDE.md
 
@@ -377,8 +383,8 @@ The following permissions are granted for this repository:
 
 **Release System:**
 
-- ✅ `make dxt` - Creates DXT package (.dxt file)
-- ✅ `make dxt-validate` - Validates DXT package integrity
+- ✅ `make mcpb` - Creates MCPB package (.mcpb file)
+- ✅ `make mcpb-validate` - Validates MCPB package integrity
 - ✅ `make release-zip` - Creates release bundle (.zip with docs)
 - ✅ `make release` - Creates and pushes release tags
 - ✅ `make release-local` - Complete local workflow (no push)
@@ -386,13 +392,13 @@ The following permissions are granted for this repository:
 
 **File Organization:**
 
-- `build/` - Build staging (replaces `tools/dxt/build/`)
-- `dist/` - Final packages (replaces `tools/dxt/dist/`)
+- `build/` - Build staging
+- `dist/` - Final packages
 - Artifacts now use top-level directories for clarity
 
-**DXT Testing Integration:**
+**MCPB Testing Integration:**
 
-- `make test` now includes DXT package validation
+- `make test` now includes MCPB package validation
 - Complete build pipeline tested as part of standard workflow
 - Ensures deliverable packages are always validated
 
@@ -407,9 +413,58 @@ The following permissions are granted for this repository:
 - Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
 
 ### 2025-09-20 uv packaging notes
-- DXT packaging currently runs through `make.deploy` using `uv pip install`; the UV PyPI build flow lives in `scripts/release.sh python-dist` with `make python-dist`, mirroring how `make dxt` exposes DXT packaging.
+
+- MCPB packaging runs through `make.deploy` using `mcpb build`; the UV PyPI build flow lives in `scripts/release.sh python-dist` with `make python-dist`, mirroring how `make mcpb` exposes MCPB packaging.
 - `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
-- GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make dxt`, `make dxt-validate`, and `make release-zip` to keep DXT parity. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
+- GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make mcpb`, `make mcpb-validate`, and `make release-zip` for complete packaging. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
+
+### Docker container + release notes (2025-09-22)
+
+- `src/quilt_mcp/main.py` now honours a pre-set `FASTMCP_TRANSPORT`; container entrypoints should export `FASTMCP_TRANSPORT=http` and `FASTMCP_HOST=0.0.0.0` before invoking `quilt-mcp`.
+- The Dockerfile uses the `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` base. Native deps (`build-essential`, `libcurl4(-openssl-dev)`, `zlib1g(-dev)`) are required for `pybigwig`; keep them in sync if the dependency list changes.
+- `make docker-build`, `make docker-run`, and `make docker-test` wrap common local workflows. `make docker-test` executes `tests/integration/test_docker_container.py`, which builds the image and probes `http://localhost:*/mcp` for a 30–60s readiness window.
+- Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
+- When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
+- Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
+
+### Docker Build and Deployment Refactoring (2025-09-22)
+
+**Script-based Docker Operations:**
+
+- All Docker operations extracted to `scripts/docker.sh` for reusability and local testing
+- Script supports both `build` (local testing) and `push` (ECR deployment) commands
+- Integrates with existing `scripts/docker_image.py` for consistent tag generation
+- Supports dry-run mode via `--dry-run` for testing workflow changes
+
+**GitHub Actions Integration:**
+
+- Production releases (tags matching `v*` but not `v*-dev-*`) build and push Docker images automatically
+- Development releases skip Docker builds to reduce CI/CD time and resource usage
+- PR builds test Docker image building without pushing (build-only validation)
+- Docker operations moved from `push.yml` workflow into `create-release` action for better encapsulation
+
+**Makefile Integration:**
+
+- `make docker-build` - Build locally for development and testing
+- `make docker-push` - Build and push to ECR (requires VERSION environment variable)
+- `make docker-push-dev` - Build and push with timestamp-based development tags
+- All Docker targets include proper dependency checking for Docker daemon and required tools
+
+**GitHub Secrets Configuration:**
+
+Required secrets for Docker operations:
+
+- `ECR_REGISTRY` - ECR registry URL (preferred)
+- `AWS_ACCOUNT_ID` - AWS account ID (fallback for registry construction)
+- `AWS_DEFAULT_REGION` - AWS region (defaults to us-east-1)
+- Existing AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for ECR login
+
+**Environment Variable Support:**
+
+- `scripts/docker.sh` respects all environment variables from `env.example`
+- `ECR_REGISTRY`, `AWS_ACCOUNT_ID`, `AWS_DEFAULT_REGION` for registry configuration
+- `VERSION` for overriding image version tags
+- `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
 
 ### 2025-09-21 Search Function Consolidation
 - **Legacy function removal**: Successfully consolidated 4 search functions down to 1 canonical `catalog_search` interface by removing 3 legacy functions (`packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`)

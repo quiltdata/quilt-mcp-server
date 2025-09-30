@@ -58,6 +58,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No breaking changes for existing code
   - Optional global resource enablement via `enable_mcp_resources_globally()`
 
+## [0.6.14] - 2025-09-24
+
+### Added
+
+- **Health Check Endpoint**: Basic health monitoring for container orchestration (#197)
+  - New `/health` endpoint returning server status, timestamp, and version info
+  - Transport-aware registration (only enabled for HTTP/SSE/streamable-http transports)
+  - Comprehensive test coverage for health check functionality
+  - Foundation for future enhancements (component health, readiness/liveness probes)
+
+### Changed
+
+- **Docker Integration Tests**: Enhanced to verify health check endpoint availability
+  - Tests now validate both `/mcp` and `/health` endpoints
+  - Ensures health check responses include proper server metadata
+
+## [0.6.13] - 2025-09-22
+
+### Added
+
+- **Docker Container Support**: Complete HTTP transport implementation for containerized deployment (#195)
+  - New Docker image with FastMCP HTTP transport support (`FASTMCP_TRANSPORT=http`)
+  - Automated Docker image publishing to ECR during releases
+  - Developer tooling: `make docker-build`, `make docker-run`, `make docker-test`
+  - Integration test suite validating container readiness and HTTP endpoints
+  - Support for HTTP proxy configuration in Claude Desktop
+
+### Changed
+
+- **CLI Entrypoint**: Enhanced to respect pre-set `FASTMCP_TRANSPORT` environment variable
+  - Enables flexible transport configuration for container deployments
+  - Maintains backward compatibility with stdio transport for local usage
+
+### Documentation
+
+- **Docker Setup Guide**: Added comprehensive documentation for Docker deployment
+  - HTTP proxy configuration instructions for Claude Desktop
+  - Container usage examples and troubleshooting
+  - Release notes capturing Docker implementation details
+
+## [0.6.12] - 2025-09-22
+
+### Fixed
+
+- **GitHub Releases**: Include MCPB file directly in release assets (#193)
+  - Users can now download the `.mcpb` file directly from GitHub releases
+  - Previously only the release zip bundle was available
+  - Both `*.mcpb` and `*-release.zip` files are now uploaded as release assets
+
+## [0.6.11] - 2025-09-21
+
+### Changed
+
+- **MCPB Package Format Migration**: Complete transition from DXT to MCPB format (#152)
+  - Replaced `.dxt` package format with `.mcpb` for Claude Desktop integration
+  - Simplified build pipeline by eliminating file copying infrastructure
+  - Direct UVX execution of `quilt-mcp` package from PyPI
+  - Removed obsolete bootstrap scripts and build markers
+  - Updated all build targets and workflows for MCPB packaging
+
+### Added
+
+- **MCPB Build System**: New packaging infrastructure for Claude Desktop
+  - `make mcpb` - Build MCPB package with embedded manifest
+  - `make mcpb-validate` - Validate MCPB package structure
+  - Updated release workflow to generate MCPB artifacts
+  - Comprehensive migration documentation and guides
+
+### Documentation
+
+- **Migration Resources**: Complete user guidance for DXT to MCPB transition
+  - Comprehensive migration guide with step-by-step instructions
+  - FAQ for common migration issues
+  - Updated installation documentation for MCPB format
+  - Release notes explaining breaking changes
+
+## [0.6.10] - 2025-09-21
+
+### Changed
+
+Use `quilt-mcp` as the package name.
+
 ## [0.6.9] - 2025-09-21
 
 ### Added

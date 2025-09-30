@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -22,7 +22,7 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: dxt-validate test-scripts test-readme | $(RESULTS_DIR)
+test-all: mcpb-validate test-scripts test-readme | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing

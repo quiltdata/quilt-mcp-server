@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.6.10"
+version = "0.6.14"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,7 +50,7 @@ Issues = "https://github.com/quiltdata/quilt-mcp-server/issues"
 Documentation = "https://github.com/quiltdata/quilt-mcp-server/blob/main/README.md"
 
 [project.scripts]
-quilt-mcp = "src.main:main"
+quilt-mcp = "quilt_mcp.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -107,8 +107,3 @@ mode = "auto"
 # Use external configuration file
 config = "ruff.toml"
 
-# DXT configuration for Claude Desktop Extensions
-[tool.dxt]
-bundle = "uv pip install --target build-dxt/build/lib --no-cache-dir --quiet ."
-test = "python build-dxt/build/dxt_main.py"
-pack = "npx @anthropic-ai/dxt pack build-dxt/build build-dxt/dist/quilt-mcp.dxt"
