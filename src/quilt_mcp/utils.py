@@ -427,7 +427,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
             HEALTH_PATHS = {"/healthz", "/health"}
             PUBLIC_PREFIXES = ("/oauth",)
-            MCP_PATHS = {"/mcp", "/mcp/"}  # MCP protocol initialization endpoints
+            MCP_INIT_METHODS = {"initialize", "ping", "list_tools", "get_prompt"}  # MCP protocol initialization
 
             async def dispatch(self, request, call_next):
                 headers = MutableHeaders(scope=request.scope)
@@ -442,8 +442,36 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                     if request.url.path.startswith(prefix):
                         return await call_next(request)
 
-                # All non-public paths require JWT authentication
+                # Check if this is an MCP initialization request
                 authorization = request.headers.get("authorization")
+                is_mcp_path = request.url.path.startswith("/mcp")
+                
+                # Log all MCP requests for debugging
+                if is_mcp_path:
+                    logger.info(
+                        "MCP request: method=%s path=%s has_auth=%s",
+                        request.method,
+                        request.url.path,
+                        bool(authorization)
+                    )
+                
+                # Allow MCP initialization without auth, but warn
+                if is_mcp_path and not authorization:
+                    logger.warning(
+                        "MCP request without Authorization header - allowing for protocol initialization"
+                    )
+                    # Set unauthenticated context
+                    context_token = push_runtime_context(
+                        environment="web-unauthenticated",
+                        auth=None,
+                        metadata={"client": "mcp-init"}
+                    )
+                    try:
+                        return await call_next(request)
+                    finally:
+                        reset_runtime_context(context_token)
+
+                # For all other paths (including MCP with auth), validate JWT
                 if not authorization:
                     logger.warning("Missing Authorization header for path: %s", request.url.path)
                     return JSONResponse(
@@ -456,17 +484,18 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                 try:
                     auth_result = auth_service.authenticate_header(authorization)
                     logger.info(
-                        "JWT authentication successful for user %s (buckets=%d, permissions=%d)",
+                        "JWT authentication successful for user %s (buckets=%d, permissions=%d, roles=%s)",
                         auth_result.username or auth_result.user_id,
                         len(auth_result.buckets),
-                        len(auth_result.permissions)
+                        len(auth_result.permissions),
+                        ','.join(auth_result.roles)
                     )
                 except JwtAuthError as exc:
                     logger.error("JWT authentication failed: %s - %s", exc.code, exc.detail)
                     return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
 
                 # Determine environment based on request path
-                environment = "web-jwt" if request.url.path.startswith("/mcp") else "web-jwt"
+                environment = "web-jwt"
                 
                 runtime_auth = RuntimeAuthState(
                     scheme="jwt",
