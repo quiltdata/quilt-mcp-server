@@ -73,15 +73,32 @@ class BearerAuthService:
             raise JwtAuthError("missing_authorization", "Bearer token required on tool endpoints")
 
         try:
+            # Log JWT secret info for debugging (first/last chars only)
+            secret_debug = f"{self.jwt_secret[:8]}...{self.jwt_secret[-8:]}" if len(self.jwt_secret) > 16 else "***"
+            logger.debug(
+                "Validating JWT: secret=%s kid=%s token_length=%d",
+                secret_debug,
+                self.jwt_kid,
+                len(token)
+            )
+            
             payload = jwt.decode(
                 token,
                 self.jwt_secret,
                 algorithms=["HS256"],
                 options={"verify_aud": False},
             )
+            logger.debug("JWT decode successful, payload keys: %s", list(payload.keys()))
         except jwt.ExpiredSignatureError as exc:  # pragma: no cover
+            logger.error("JWT token expired: %s", exc)
             raise JwtAuthError("token_expired", "JWT token expired") from exc
         except jwt.InvalidTokenError as exc:
+            logger.error(
+                "JWT validation failed: %s (secret_length=%d, kid=%s)",
+                str(exc),
+                len(self.jwt_secret),
+                self.jwt_kid
+            )
             raise JwtAuthError("invalid_token", "JWT token could not be verified") from exc
 
         normalized = safe_decompress_jwt(payload)
