@@ -14,8 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Created `quilt_mcp.resources` package with base framework (`MCPResource`, `ResourceResponse`, `ResourceRegistry`)
   - Implemented 9 resource providers covering admin, S3, Athena, metadata, workflow, package, and tabulator domains
   - Added parameterized URIs support (e.g., `tabulator://{bucket}/tables`) for dynamic resource paths
-  - Implemented backward compatibility layer via `compatibility.py` with shims for all existing functions
-  - Added comprehensive test coverage for resource framework and compatibility layer
+  - Added comprehensive test coverage for resource framework
 
 ### Changed
 
@@ -30,18 +29,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `package_tools_list` → `PackageToolsResource` (URI: `package://tools`)
   - `tabulator_tables_list` → `TabulatorTablesResource` (URI: `tabulator://{bucket}/tables`)
 
-### Deprecated
+### Removed
 
-- **Legacy List Functions**: The following functions are now obsolete and replaced by MCP resources (backward compatibility maintained):
-  - `admin_users_list()` - Use MCP resource `admin://users` instead
-  - `admin_roles_list()` - Use MCP resource `admin://roles` instead
-  - `list_available_resources()` - Use MCP resource `s3://buckets` instead
-  - `athena_databases_list()` - Use MCP resource `athena://databases` instead
-  - `athena_workgroups_list()` - Use MCP resource `athena://workgroups` instead
-  - `list_metadata_templates()` - Use MCP resource `metadata://templates` instead
-  - `workflow_list()` - Use MCP resource `workflow://workflows` instead
-  - `package_tools_list()` - Use MCP resource `package://tools` instead
-  - `tabulator_tables_list()` - Use MCP resource `tabulator://{bucket}/tables` instead
+- **Legacy List Functions**: The following functions have been removed and replaced by MCP resources:
+  - `admin_users_list()` - Replaced by MCP resource `admin://users`
+  - `admin_roles_list()` - Replaced by MCP resource `admin://roles`
+  - `list_available_resources()` - Replaced by MCP resource `s3://buckets`
+  - `athena_databases_list()` - Replaced by MCP resource `athena://databases`
+  - `athena_workgroups_list()` - Replaced by MCP resource `athena://workgroups`
+  - `list_metadata_templates()` - Replaced by MCP resource `metadata://templates`
+  - `workflow_list()` - Replaced by MCP resource `workflow://workflows`
+  - `package_tools_list()` - Replaced by MCP resource `package://tools`
+  - `tabulator_tables_list()` - Replaced by MCP resource `tabulator://{bucket}/tables`
 
 ### Technical Details
 
@@ -52,11 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for resource templating and parameterized URIs
   - Future-proof architecture for adding new resource types
 
-- **Compatibility**:
-  - All existing functions continue to work with 100% API compatibility
-  - Shim layer transparently delegates to MCP resources
-  - No breaking changes for existing code
-  - Optional global resource enablement via `enable_mcp_resources_globally()`
+- **Breaking Changes**:
+  - This is a clean break - no backward compatibility layer
+  - All list-type functions have been removed
+  - Code using removed functions must migrate to MCP resources
+  - See migration guide for details on updating existing code
 
 ## [0.6.14] - 2025-09-24
 
