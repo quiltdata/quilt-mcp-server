@@ -442,41 +442,12 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                     if request.url.path.startswith(prefix):
                         return await call_next(request)
 
-                # Handle MCP protocol with JWT authentication
-                if request.url.path in self.MCP_PATHS:
-                    # Check for JWT token in Authorization header first
-                    authorization = request.headers.get("authorization")
-                    if authorization and authorization.startswith("Bearer "):
-                        auth_service = get_bearer_auth_service()
-                        try:
-                            auth_result = auth_service.authenticate_header(authorization)
-                            runtime_auth = RuntimeAuthState(
-                                scheme="jwt",
-                                access_token=auth_result.token,
-                                claims=auth_result.claims,
-                                extras={
-                                    "jwt_auth_result": auth_result,
-                                    "aws_credentials": auth_result.aws_credentials,
-                                    "aws_role_arn": auth_result.aws_role_arn,
-                                    "user": {"id": auth_result.user_id, "username": auth_result.username},
-                                },
-                            )
-                            context_token = push_runtime_context(environment="web-jwt", auth=runtime_auth, metadata={"client": "mcp"})
-                            
-                            try:
-                                return await call_next(request)
-                            finally:
-                                reset_runtime_context(context_token)
-                        except JwtAuthError as exc:
-                            return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
-                    
-                    # Allow MCP protocol initialization without JWT for initial handshake
-                    return await call_next(request)
-
+                # All non-public paths require JWT authentication
                 authorization = request.headers.get("authorization")
                 if not authorization:
+                    logger.warning("Missing Authorization header for path: %s", request.url.path)
                     return JSONResponse(
-                        {"error": "missing_authorization", "detail": "Bearer token required on tool endpoints"},
+                        {"error": "missing_authorization", "detail": "Bearer token required for MCP operations"},
                         status_code=401,
                     )
 
@@ -484,9 +455,19 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
                 try:
                     auth_result = auth_service.authenticate_header(authorization)
+                    logger.info(
+                        "JWT authentication successful for user %s (buckets=%d, permissions=%d)",
+                        auth_result.username or auth_result.user_id,
+                        len(auth_result.buckets),
+                        len(auth_result.permissions)
+                    )
                 except JwtAuthError as exc:
+                    logger.error("JWT authentication failed: %s - %s", exc.code, exc.detail)
                     return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
 
+                # Determine environment based on request path
+                environment = "web-jwt" if request.url.path.startswith("/mcp") else "web-jwt"
+                
                 runtime_auth = RuntimeAuthState(
                     scheme="jwt",
                     access_token=auth_result.token,
@@ -498,7 +479,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                         "user": {"id": auth_result.user_id, "username": auth_result.username},
                     },
                 )
-                context_token = push_runtime_context(environment="web-jwt", auth=runtime_auth, metadata={"client": "http"})
+                context_token = push_runtime_context(environment=environment, auth=runtime_auth, metadata={"client": "mcp"})
 
                 try:
                     return await call_next(request)
@@ -508,9 +489,9 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
         app.add_middleware(QuiltAuthMiddleware)
         
     except ImportError as exc:
-        logger.error(f"ImportError: Quilt role middleware unavailable: {exc}")
+        logger.error("ImportError: Quilt role middleware unavailable: %s", exc)
     except Exception as exc:
-        logger.error(f"Unexpected error adding Quilt role middleware: {exc}")
+        logger.error("Unexpected error adding Quilt role middleware: %s", exc)
 
     # CORS middleware already added above (before QuiltAuthMiddleware)
     return app
