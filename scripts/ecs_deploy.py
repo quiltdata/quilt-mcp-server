@@ -202,6 +202,34 @@ class ECSDeploymentManager:
                             env_var["value"] = self.config.version
                             print(f"📝 Updated MCP_SERVER_VERSION: {old_version} → {self.config.version}", file=sys.stderr)
                             break
+                    
+                    # Ensure JWT secret uses SSM Parameter Store reference
+                    # Remove inline JWT secret if present
+                    container["environment"] = [
+                        env for env in container.get("environment", [])
+                        if env.get("name") != "MCP_ENHANCED_JWT_SECRET"
+                    ]
+                    
+                    # Add or update secrets section to use SSM
+                    if "secrets" not in container:
+                        container["secrets"] = []
+                    
+                    # Remove existing JWT secret reference if present
+                    container["secrets"] = [
+                        secret for secret in container.get("secrets", [])
+                        if secret.get("name") != "MCP_ENHANCED_JWT_SECRET"
+                    ]
+                    
+                    # Add SSM reference for JWT secret
+                    ssm_arn = f"arn:aws:ssm:{self.config.region}:850787717197:parameter/quilt/mcp-server/jwt-secret"
+                    container["secrets"].append({
+                        "name": "MCP_ENHANCED_JWT_SECRET",
+                        "valueFrom": ssm_arn
+                    })
+                    
+                    print("📝 Updated MCP_ENHANCED_JWT_SECRET to use SSM Parameter Store", file=sys.stderr)
+                    print(f"📝 SSM Parameter: {ssm_arn}", file=sys.stderr)
+                    
                     break
             
             if not updated:
