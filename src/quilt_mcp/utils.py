@@ -499,6 +499,7 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                     if not authorization:
                         # Allow initialization without auth
                         logger.warning("MCP session %s: No auth header, allowing for initialization", session_id)
+                        logger.warning("⚠️  Setting runtime context to UNAUTHENTICATED - tools will NOT have JWT!")
                         context_token = push_runtime_context(
                             environment="web-unauthenticated",
                             auth=None,

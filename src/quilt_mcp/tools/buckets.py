@@ -28,28 +28,36 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
     Returns:
         Dictionary with authorization result and user info
     """
+    # CRITICAL: For bucket tools, use the JWT helper first
     if tool_name.startswith("bucket_"):
+        logger.info("=" * 80)
+        logger.info("AUTHORIZATION CHECK for %s", tool_name)
+        logger.info("=" * 80)
+        
         jwt_result = check_s3_authorization(tool_name, tool_args)
         logger.info(
-            "Bucket tool %s: JWT auth check result: authorized=%s, has_client=%s, error=%s",
-            tool_name,
+            "JWT auth check result: authorized=%s, has_client=%s, error=%s",
             jwt_result.get("authorized"),
             "s3_client" in jwt_result,
             jwt_result.get("error")
         )
+        
         if jwt_result.get("authorized"):
-            logger.info("✅ Using JWT-based S3 client for %s", tool_name)
+            logger.info("✅ USING JWT-BASED S3 CLIENT for %s", tool_name)
+            logger.info("=" * 80)
             return jwt_result
-        if jwt_result.get("error"):
-            logger.warning("JWT authorization failed for %s: %s", tool_name, jwt_result.get("error"))
-            return jwt_result
+        
+        # JWT auth failed - log why and fall through
+        logger.error("❌ JWT authorization FAILED for %s: %s", tool_name, jwt_result.get("error"))
+        logger.error("Falling back to traditional auth...")
+        # DONT return the failure - fall through to traditional auth
 
     try:
         auth_state = get_runtime_auth()
         runtime_env = get_runtime_environment()
         
         logger.info(
-            "Authorization check for %s: runtime_env=%s, has_auth_state=%s, auth_scheme=%s",
+            "Traditional auth check for %s: runtime_env=%s, has_auth_state=%s, auth_scheme=%s",
             tool_name,
             runtime_env,
             bool(auth_state),
@@ -57,15 +65,16 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
         )
 
         if auth_state and auth_state.scheme in {"jwt", "bearer"}:
-            logger.info("Using runtime JWT authorization for tool %s", tool_name)
+            logger.info("✅ Using runtime JWT authorization for tool %s", tool_name)
             return _check_jwt_authorization(tool_name, tool_args, auth_state=auth_state)
 
         user_info_str = os.environ.get("QUILT_USER_INFO")
         if user_info_str:
-            logger.info("Using JWT authorization from environment for tool %s", tool_name)
+            logger.info("✅ Using JWT authorization from environment for tool %s", tool_name)
             return _check_jwt_authorization(tool_name, tool_args)
 
-        logger.info("Using traditional authentication for tool %s (environment: %s)", tool_name, runtime_env)
+        logger.warning("⚠️  FALLING BACK to traditional authentication for %s (environment: %s)", tool_name, runtime_env)
+        logger.warning("This means NO JWT was found in runtime context!")
         return _check_traditional_authorization(tool_name, tool_args)
             
     except Exception as e:

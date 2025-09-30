@@ -10,17 +10,32 @@ from quilt_mcp.services.bearer_auth_service import JwtAuthResult, get_bearer_aut
 
 
 def _runtime_jwt_result() -> Optional[JwtAuthResult]:
+    import logging
+    logger = logging.getLogger(__name__)
+    
     auth_state = get_runtime_auth()
+    
+    logger.info("🔍 _runtime_jwt_result: Checking for JWT in runtime context")
+    logger.info("  - Has auth_state: %s", bool(auth_state))
+    logger.info("  - Auth scheme: %s", auth_state.scheme if auth_state else None)
+    
     if not auth_state or auth_state.scheme not in {"jwt", "bearer"}:
+        logger.warning("❌ No JWT in runtime context (scheme=%s)", auth_state.scheme if auth_state else None)
         return None
 
     extras = auth_state.extras or {}
     stored = extras.get("jwt_auth_result")
+    
     if isinstance(stored, JwtAuthResult):
+        logger.info("✅ Found cached JWT result in runtime context")
+        logger.info("  - User: %s", stored.username or stored.user_id)
+        logger.info("  - Buckets: %d", len(stored.buckets))
+        logger.info("  - Permissions: %d", len(stored.permissions))
         return stored
 
+    logger.info("⚠️  Building JWT result from runtime claims")
     claims = auth_state.claims or {}
-    return JwtAuthResult(
+    result = JwtAuthResult(
         token=auth_state.access_token or "runtime-token",
         claims=claims,
         permissions=claims.get("permissions", []),
@@ -32,6 +47,8 @@ def _runtime_jwt_result() -> Optional[JwtAuthResult]:
         username=claims.get("username"),
         raw_payload=claims,
     )
+    logger.info("  - Built result with %d buckets, %d permissions", len(result.buckets), len(result.permissions))
+    return result
 
 
 def _authorization_failure(reason: str) -> Dict[str, Any]:
