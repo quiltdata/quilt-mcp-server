@@ -442,61 +442,127 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                     if request.url.path.startswith(prefix):
                         return await call_next(request)
 
-                # Check if this is an MCP initialization request
-                authorization = request.headers.get("authorization")
+                # Session-based JWT authentication for MCP requests
                 is_mcp_path = request.url.path.startswith("/mcp")
                 
-                # Log all MCP requests for debugging
                 if is_mcp_path:
+                    # Get session ID from MCP protocol headers
+                    session_id = request.headers.get("mcp-session-id") or "default-session"
+                    authorization = request.headers.get("authorization")
+                    
                     logger.info(
-                        "MCP request: method=%s path=%s has_auth=%s",
+                        "MCP request: method=%s path=%s session=%s has_auth=%s",
                         request.method,
                         request.url.path,
+                        session_id,
                         bool(authorization)
                     )
-                
-                # Allow MCP initialization without auth, but warn
-                if is_mcp_path and not authorization:
-                    logger.warning(
-                        "MCP request without Authorization header - allowing for protocol initialization"
+                    
+                    # Use session-based authentication
+                    from quilt_mcp.services.session_auth import get_session_auth_manager
+                    session_manager = get_session_auth_manager()
+                    
+                    # Try to get cached session first
+                    session_auth = session_manager.get_session(session_id)
+                    
+                    if session_auth:
+                        # Reuse cached authentication
+                        logger.info("Using cached JWT auth for session %s", session_id)
+                        runtime_auth = RuntimeAuthState(
+                            scheme="jwt",
+                            access_token=session_auth.jwt_result.token,
+                            claims=session_auth.jwt_result.claims,
+                            extras={
+                                "jwt_auth_result": session_auth.jwt_result,
+                                "aws_credentials": session_auth.jwt_result.aws_credentials,
+                                "aws_role_arn": session_auth.jwt_result.aws_role_arn,
+                                "user": {
+                                    "id": session_auth.jwt_result.user_id,
+                                    "username": session_auth.jwt_result.username
+                                },
+                                "boto3_session": session_auth.boto3_session,
+                            },
+                        )
+                        context_token = push_runtime_context(
+                            environment="web-jwt",
+                            auth=runtime_auth,
+                            metadata={"client": "mcp", "session_id": session_id}
+                        )
+                        try:
+                            return await call_next(request)
+                        finally:
+                            reset_runtime_context(context_token)
+                    
+                    # No cached session - authenticate now
+                    if not authorization:
+                        # Allow initialization without auth
+                        logger.warning("MCP session %s: No auth header, allowing for initialization", session_id)
+                        context_token = push_runtime_context(
+                            environment="web-unauthenticated",
+                            auth=None,
+                            metadata={"client": "mcp-init", "session_id": session_id}
+                        )
+                        try:
+                            return await call_next(request)
+                        finally:
+                            reset_runtime_context(context_token)
+                    
+                    # Authenticate and cache the session
+                    session_auth, error = session_manager.authenticate_session(session_id, authorization)
+                    if error:
+                        logger.error("Session %s authentication failed: %s", session_id, error)
+                        return JSONResponse(
+                            {"error": "authentication_failed", "detail": error},
+                            status_code=401
+                        )
+                    
+                    # Set runtime context with authenticated session
+                    runtime_auth = RuntimeAuthState(
+                        scheme="jwt",
+                        access_token=session_auth.jwt_result.token,
+                        claims=session_auth.jwt_result.claims,
+                        extras={
+                            "jwt_auth_result": session_auth.jwt_result,
+                            "aws_credentials": session_auth.jwt_result.aws_credentials,
+                            "aws_role_arn": session_auth.jwt_result.aws_role_arn,
+                            "user": {
+                                "id": session_auth.jwt_result.user_id,
+                                "username": session_auth.jwt_result.username
+                            },
+                            "boto3_session": session_auth.boto3_session,
+                        },
                     )
-                    # Set unauthenticated context
                     context_token = push_runtime_context(
-                        environment="web-unauthenticated",
-                        auth=None,
-                        metadata={"client": "mcp-init"}
+                        environment="web-jwt",
+                        auth=runtime_auth,
+                        metadata={"client": "mcp", "session_id": session_id}
                     )
                     try:
                         return await call_next(request)
                     finally:
                         reset_runtime_context(context_token)
-
-                # For all other paths (including MCP with auth), validate JWT
+                
+                # For non-MCP paths, require JWT authentication
+                authorization = request.headers.get("authorization")
                 if not authorization:
                     logger.warning("Missing Authorization header for path: %s", request.url.path)
                     return JSONResponse(
-                        {"error": "missing_authorization", "detail": "Bearer token required for MCP operations"},
+                        {"error": "missing_authorization", "detail": "Bearer token required"},
                         status_code=401,
                     )
 
+                # Validate JWT for non-MCP authenticated paths
                 auth_service = get_bearer_auth_service()
-
                 try:
                     auth_result = auth_service.authenticate_header(authorization)
                     logger.info(
-                        "JWT authentication successful for user %s (buckets=%d, permissions=%d, roles=%s)",
-                        auth_result.username or auth_result.user_id,
-                        len(auth_result.buckets),
-                        len(auth_result.permissions),
-                        ','.join(auth_result.roles)
+                        "JWT authentication successful for user %s",
+                        auth_result.username or auth_result.user_id
                     )
                 except JwtAuthError as exc:
                     logger.error("JWT authentication failed: %s - %s", exc.code, exc.detail)
                     return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
 
-                # Determine environment based on request path
-                environment = "web-jwt"
-                
                 runtime_auth = RuntimeAuthState(
                     scheme="jwt",
                     access_token=auth_result.token,
@@ -508,7 +574,11 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
                         "user": {"id": auth_result.user_id, "username": auth_result.username},
                     },
                 )
-                context_token = push_runtime_context(environment=environment, auth=runtime_auth, metadata={"client": "mcp"})
+                context_token = push_runtime_context(
+                    environment="web-jwt",
+                    auth=runtime_auth,
+                    metadata={"client": "http"}
+                )
 
                 try:
                     return await call_next(request)

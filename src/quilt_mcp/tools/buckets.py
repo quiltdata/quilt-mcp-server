@@ -30,14 +30,31 @@ def _check_authorization(tool_name: str, tool_args: dict[str, Any]) -> dict[str,
     """
     if tool_name.startswith("bucket_"):
         jwt_result = check_s3_authorization(tool_name, tool_args)
+        logger.info(
+            "Bucket tool %s: JWT auth check result: authorized=%s, has_client=%s, error=%s",
+            tool_name,
+            jwt_result.get("authorized"),
+            "s3_client" in jwt_result,
+            jwt_result.get("error")
+        )
         if jwt_result.get("authorized"):
+            logger.info("✅ Using JWT-based S3 client for %s", tool_name)
             return jwt_result
         if jwt_result.get("error"):
+            logger.warning("JWT authorization failed for %s: %s", tool_name, jwt_result.get("error"))
             return jwt_result
 
     try:
         auth_state = get_runtime_auth()
         runtime_env = get_runtime_environment()
+        
+        logger.info(
+            "Authorization check for %s: runtime_env=%s, has_auth_state=%s, auth_scheme=%s",
+            tool_name,
+            runtime_env,
+            bool(auth_state),
+            auth_state.scheme if auth_state else None
+        )
 
         if auth_state and auth_state.scheme in {"jwt", "bearer"}:
             logger.info("Using runtime JWT authorization for tool %s", tool_name)
