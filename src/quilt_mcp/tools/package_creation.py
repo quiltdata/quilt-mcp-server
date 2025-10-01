@@ -205,10 +205,9 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
     try:
         normalized_registry = _normalize_registry(registry)
         quilt_service = QuiltService()
-        quilt3 = quilt_service.get_quilt3_module()
 
         with suppress_stdout():
-            quilt3.delete_package(package_name, registry=normalized_registry)
+            quilt_service.delete_package(package_name, normalized_registry)
 
         return {
             "status": "success",
