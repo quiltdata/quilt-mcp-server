@@ -103,8 +103,7 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.get(name)
+        user = quilt_service.get_user(name)
 
         if user is None:
             return format_error_response(f"User '{name}' not found")
@@ -187,8 +186,7 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
+        user = quilt_service.create_user(name=name, email=email, role=role, extra_roles=extra_roles or [])
 
         user_data = {
             "name": user.name,
@@ -229,8 +227,7 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        admin_users.delete(name)
+        quilt_service.delete_user(name)
 
         return {"success": True, "message": f"Successfully deleted user '{name}'"}
 
@@ -265,8 +262,7 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_email(name, email)
+        user = quilt_service.set_user_email(name, email)
 
         return {
             "success": True,
@@ -299,8 +295,7 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_admin(name, admin)
+        user = quilt_service.set_user_admin(name, admin)
 
         return {
             "success": True,
@@ -333,8 +328,7 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_active(name, active)
+        user = quilt_service.set_user_active(name, active)
 
         return {
             "success": True,
@@ -366,8 +360,7 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        admin_users.reset_password(name)
+        quilt_service.reset_user_password(name)
 
         return {
             "success": True,
@@ -405,8 +398,7 @@ async def admin_user_set_role(
         if not role:
             return format_error_response("Role cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
+        user = quilt_service.set_user_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
 
         return {
             "success": True,
@@ -445,8 +437,7 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.add_roles(name, roles)
+        user = quilt_service.add_user_roles(name, roles)
 
         return {
             "success": True,
@@ -486,8 +477,7 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.remove_roles(name, roles, fallback)
+        user = quilt_service.remove_user_roles(name, roles, fallback)
 
         return {
             "success": True,
