@@ -11,7 +11,13 @@ from pathlib import Path
 
 import quilt3
 
-from .exceptions import AdminNotAvailableError, UserNotFoundError, UserAlreadyExistsError
+from .exceptions import (
+    AdminNotAvailableError,
+    UserNotFoundError,
+    UserAlreadyExistsError,
+    RoleNotFoundError,
+    RoleAlreadyExistsError,
+)
 
 
 class QuiltService:
@@ -753,6 +759,131 @@ class QuiltService:
             return users_admin.reset_password(name)
         except Exception as e:
             self._handle_user_operation_error(e, name)
+
+    # Role Management Methods (Phase 3.1)
+
+    def _get_roles_admin_module(self) -> Any:
+        """Get the roles admin module.
+
+        Returns:
+            quilt3.admin.roles module
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        self._require_admin(context="Role management operations require admin access.")
+        import quilt3.admin.roles
+
+        return quilt3.admin.roles
+
+    def _handle_role_operation_error(self, error: Exception, rolename: str) -> None:
+        """Handle errors from role management operations.
+
+        This helper centralizes the error handling pattern used across
+        role management methods that reference a specific role name.
+
+        Args:
+            error: The exception caught from quilt3.admin.roles operation
+            rolename: The role name that was being operated on
+
+        Raises:
+            RoleNotFoundError: If the error indicates role not found
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        # Check if this is a Quilt3AdminError indicating role not found
+        if quilt3_admin_error and isinstance(error, quilt3_admin_error):
+            error_msg = str(error).lower()
+            if "not found" in error_msg or "does not exist" in error_msg:
+                raise RoleNotFoundError(f"Role '{rolename}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
+    def list_roles(self) -> list[dict[str, Any]]:
+        """List all roles in the catalog.
+
+        Returns:
+            List of role dictionaries with role information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        roles_admin = self._get_roles_admin_module()
+        return roles_admin.list()
+
+    def get_role(self, name: str) -> dict[str, Any]:
+        """Get detailed information about a specific role.
+
+        Args:
+            name: Role name to retrieve
+
+        Returns:
+            Role dictionary with detailed information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            RoleNotFoundError: If role does not exist
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        try:
+            return roles_admin.get(name)
+        except Exception as e:
+            self._handle_role_operation_error(e, name)
+
+    def create_role(
+        self,
+        name: str,
+        permissions: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create a new role in the catalog.
+
+        Args:
+            name: Role name for the new role
+            permissions: Permissions dictionary for the role
+
+        Returns:
+            Role dictionary with created role information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            RoleAlreadyExistsError: If role already exists
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        try:
+            return roles_admin.create(name, permissions)
+        except Exception as e:
+            # Check if this is a Quilt3AdminError indicating role already exists
+            if quilt3_admin_error and isinstance(e, quilt3_admin_error):
+                if "already exists" in str(e):
+                    raise RoleAlreadyExistsError(f"Role '{name}' already exists") from e
+            # Re-raise any other exceptions
+            raise
+
+    def delete_role(self, name: str) -> None:
+        """Delete a role from the catalog.
+
+        Args:
+            name: Role name to delete
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            RoleNotFoundError: If role does not exist
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        try:
+            roles_admin.delete(name)
+        except Exception as e:
+            self._handle_role_operation_error(e, name)
 
     # Helper methods for create_package_revision
 
