@@ -18,6 +18,7 @@ from .exceptions import (
     RoleNotFoundError,
     RoleAlreadyExistsError,
     BucketNotFoundError,
+    PackageNotFoundError,
 )
 
 
@@ -313,6 +314,29 @@ class QuiltService:
             Iterator of package names
         """
         return quilt3.list_packages(registry=registry)
+
+    def delete_package(self, name: str, registry: str | None = None) -> None:
+        """Delete a package from the registry.
+
+        Args:
+            name: Package name in format "namespace/package"
+            registry: Registry URL (optional, uses quilt3 default if not provided)
+
+        Raises:
+            PackageNotFoundError: If package doesn't exist
+        """
+        try:
+            # Normalize registry if provided
+            normalized_registry = self._normalize_registry(registry) if registry else None
+
+            # Call quilt3.delete_package with appropriate arguments
+            if normalized_registry:
+                quilt3.delete_package(name, registry=normalized_registry)
+            else:
+                quilt3.delete_package(name)
+        except Exception as e:
+            # Wrap any exception as PackageNotFoundError
+            raise PackageNotFoundError(f"Package '{name}' not found") from e
 
     # Bucket Operations Methods
     # Based on usage analysis: 4 calls in packages.py and buckets.py

@@ -652,15 +652,15 @@ class TestQuiltServiceDeletePackage:
                 service.delete_package('user/package', 's3://test-bucket')
 
     def test_delete_package_normalizes_registry(self):
-        """Test delete_package normalizes registry format."""
+        """Test delete_package normalizes registry format with bucket path."""
         service = QuiltService()
 
         with patch('quilt3.delete_package') as mock_delete:
-            # Pass bucket name without s3:// prefix
-            service.delete_package('user/package', 'test-bucket')
+            # Pass bucket path without s3:// prefix (with /)
+            service.delete_package('user/package', 'test-bucket/path')
 
             # Should normalize to s3:// format
-            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket')
+            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket/path')
 
 
 class TestQuiltServiceAbstractionCompleteness:
