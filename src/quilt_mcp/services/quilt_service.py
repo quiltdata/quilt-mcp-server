@@ -11,7 +11,7 @@ from pathlib import Path
 
 import quilt3
 
-from .exceptions import AdminNotAvailableError, UserNotFoundError
+from .exceptions import AdminNotAvailableError, UserNotFoundError, UserAlreadyExistsError
 
 
 class QuiltService:
@@ -511,6 +511,74 @@ class QuiltService:
 
         try:
             return users_admin.get(name)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def create_user(
+        self,
+        name: str,
+        email: str,
+        role: str,
+        extra_roles: Optional[list[str]]
+    ) -> dict[str, Any]:
+        """Create a new user in the catalog.
+
+        Args:
+            name: Username for the new user
+            email: Email address for the new user
+            role: Primary role for the user
+            extra_roles: Additional roles to assign to the user (optional)
+
+        Returns:
+            User dictionary with created user information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserAlreadyExistsError: If user already exists
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        try:
+            return users_admin.create(
+                name=name,
+                email=email,
+                role=role,
+                extra_roles=extra_roles,
+            )
+        except Exception as e:
+            # Check if this is a Quilt3AdminError indicating user already exists
+            if quilt3_admin_error and isinstance(e, quilt3_admin_error):
+                if "already exists" in str(e):
+                    raise UserAlreadyExistsError(f"User '{name}' already exists") from e
+            # Re-raise any other exceptions
+            raise
+
+    def delete_user(self, name: str) -> None:
+        """Delete a user from the catalog.
+
+        Args:
+            name: Username to delete
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            users_admin.delete(name)
         except Exception as e:
             # Check if this is a UserNotFoundError from quilt3.admin
             if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
