@@ -7,7 +7,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 from quilt_mcp.tools.tabulator import (
-    tabulator_tables_list,
+    # tabulator_tables_list removed - replaced by TabulatorTablesResource
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,

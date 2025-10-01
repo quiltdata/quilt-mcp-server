@@ -8,10 +8,10 @@ from quilt_mcp.tools.athena_glue import (
     athena_query_execute,
 )
 
-# athena_workgroups_list and athena_databases_list replaced by MCP resources:
+# athena_workgroups_list, athena_databases_list, and tabulator_tables_list replaced by MCP resources:
 # - athena://workgroups (AthenaWorkgroupsResource)
 # - athena://databases (AthenaDatabasesResource)
-from quilt_mcp.tools.tabulator import tabulator_tables_list
+# - tabulator://{bucket}/tables (TabulatorTablesResource)
 
 
 class TestAthenaTableFormatIntegration:
