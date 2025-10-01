@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Generate canonical tool listings from MCP server code.
+"""Generate canonical tool and resource listings from MCP server code.
 
 This script inspects the actual MCP server implementation to generate
-authoritative tool listings, eliminating manual maintenance and drift.
+authoritative tool and resource listings, eliminating manual maintenance and drift.
+Resources are distinguished from tools with a 'type' column in the CSV output.
 """
 
 import csv
@@ -22,6 +23,7 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from quilt_mcp.utils import create_configured_server
+from quilt_mcp.resources import create_default_registry
 
 async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered tools."""
@@ -50,6 +52,7 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
         signature_str = f"{tool_name}{sig}"
 
         tools.append({
+            "type": "tool",
             "name": tool_name,
             "module": short_module,
             "signature": signature_str,
@@ -63,34 +66,84 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     tools.sort(key=lambda x: (x["module"], x["name"]))
     return tools
 
-def generate_csv_output(tools: List[Dict[str, Any]], output_file: str):
-    """Generate CSV output matching current format."""
+async def extract_resource_metadata() -> List[Dict[str, Any]]:
+    """Extract comprehensive metadata from all registered resources."""
+    resources = []
+
+    registry = create_default_registry()
+    for uri_pattern in registry.list_resources():
+        resource = registry.get_resource(uri_pattern)
+
+        # Get resource class information
+        resource_class = resource.__class__
+        module = inspect.getmodule(resource_class)
+        module_name = module.__name__ if module else "unknown"
+
+        # Extract module short name (last component)
+        if module_name.startswith("quilt_mcp.resources."):
+            short_module = module_name.replace("quilt_mcp.resources.", "")
+        else:
+            short_module = module_name
+
+        # Get class docstring
+        doc = inspect.getdoc(resource_class) or "No description available"
+
+        # Build signature string showing the URI pattern
+        signature_str = f"{resource_class.__name__}(uri='{uri_pattern}')"
+
+        # Check if list_items method is async
+        is_async = inspect.iscoroutinefunction(resource.list_items)
+
+        resources.append({
+            "type": "resource",
+            "name": uri_pattern,
+            "module": short_module,
+            "signature": signature_str,
+            "description": doc.split('\n')[0],  # First line only
+            "is_async": is_async,
+            "full_module_path": module_name,
+            "handler_class": resource_class.__name__
+        })
+
+    # Sort by URI pattern for consistent ordering
+    resources.sort(key=lambda x: x["name"])
+    return resources
+
+def generate_csv_output(items: List[Dict[str, Any]], output_file: str):
+    """Generate CSV output for tools and resources with type column."""
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([
-            "module", "function_name", "signature", "description",
+            "type", "module", "function_name", "signature", "description",
             "is_async", "full_module_path"
         ])
 
-        for tool in tools:
+        for item in items:
             writer.writerow([
-                tool["module"],
-                tool["name"],
-                tool["signature"],
-                tool["description"],
-                str(tool["is_async"]),
-                tool["full_module_path"]
+                item["type"],
+                item["module"],
+                item["name"],
+                item["signature"],
+                item["description"],
+                str(item["is_async"]),
+                item["full_module_path"]
             ])
 
-def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
+def generate_json_output(items: List[Dict[str, Any]], output_file: str):
     """Generate structured JSON output for tooling."""
+    tools = [item for item in items if item["type"] == "tool"]
+    resources = [item for item in items if item["type"] == "resource"]
+
     output = {
         "metadata": {
-            "generated_by": "scripts/generate_canonical_tools.py",
+            "generated_by": "scripts/mcp-list.py",
             "tool_count": len(tools),
-            "modules": list(set(tool["module"] for tool in tools))
+            "resource_count": len(resources),
+            "total_count": len(items),
+            "modules": list(set(item["module"] for item in items))
         },
-        "tools": tools
+        "tools": tools,
+        "resources": resources
     }
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -98,7 +151,7 @@ def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
 
 
 async def main():
-    """Generate all canonical tool listings."""
+    """Generate all canonical tool and resource listings."""
     print("🔍 Extracting tools from MCP server...")
 
     # Create server instance to introspect tools
@@ -107,20 +160,32 @@ async def main():
 
     print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
 
+    print("🔍 Extracting resources from MCP registry...")
+    resources = await extract_resource_metadata()
+
+    print(f"📊 Found {len(resources)} resources across {len(set(resource['module'] for resource in resources))} modules")
+
+    # Combine tools and resources
+    all_items = tools + resources
+
     # Generate outputs
     output_dir = Path(__file__).parent.parent
     tests_fixtures_dir = output_dir / "tests" / "fixtures"
 
     print("📝 Generating CSV output...")
-    generate_csv_output(tools, str(tests_fixtures_dir / "mcp-list.csv"))
+    generate_csv_output(all_items, str(tests_fixtures_dir / "mcp-list.csv"))
 
     print("📋 Generating JSON metadata...")
-    generate_json_output(tools, str(output_dir / "build" / "tools_metadata.json"))
+    generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
-    print("✅ Canonical tool listings generated!")
+    print("✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")
     print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
+    print(f"📈 Summary:")
+    print(f"   - {len(tools)} tools")
+    print(f"   - {len(resources)} resources")
+    print(f"   - {len(all_items)} total items")
 
 if __name__ == "__main__":
     import asyncio
