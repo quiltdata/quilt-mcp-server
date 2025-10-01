@@ -607,6 +607,62 @@ class TestQuiltServiceAdmin:
             pass
 
 
+class TestQuiltServiceDeletePackage:
+    """Test delete_package method - Phase 5.4."""
+
+    def test_delete_package_success(self):
+        """Test delete_package successfully deletes a package."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            service.delete_package('user/package', 's3://test-bucket')
+
+            # Verify quilt3.delete_package was called with correct args
+            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket')
+
+    def test_delete_package_with_default_registry(self):
+        """Test delete_package uses default registry when None provided."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            service.delete_package('user/package', None)
+
+            # Should be called with no registry argument (quilt3 uses default)
+            mock_delete.assert_called_once_with('user/package')
+
+    def test_delete_package_not_found(self):
+        """Test delete_package raises PackageNotFoundError when package doesn't exist."""
+        from quilt_mcp.services.exceptions import PackageNotFoundError
+
+        service = QuiltService()
+
+        with patch('quilt3.delete_package', side_effect=Exception("Package not found")):
+            with pytest.raises(PackageNotFoundError, match="Package 'user/package' not found"):
+                service.delete_package('user/package', 's3://test-bucket')
+
+    def test_delete_package_handles_quilt3_errors(self):
+        """Test delete_package properly handles quilt3 exceptions."""
+        from quilt_mcp.services.exceptions import PackageNotFoundError
+
+        service = QuiltService()
+
+        # Simulate quilt3 raising an exception
+        with patch('quilt3.delete_package', side_effect=Exception("NoSuchKey")):
+            with pytest.raises(PackageNotFoundError):
+                service.delete_package('user/package', 's3://test-bucket')
+
+    def test_delete_package_normalizes_registry(self):
+        """Test delete_package normalizes registry format."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            # Pass bucket name without s3:// prefix
+            service.delete_package('user/package', 'test-bucket')
+
+            # Should normalize to s3:// format
+            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket')
+
+
 class TestQuiltServiceAbstractionCompleteness:
     """Test that QuiltService abstraction is complete and doesn't leak quilt3 objects."""
 
