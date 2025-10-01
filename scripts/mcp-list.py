@@ -96,119 +96,6 @@ def generate_json_output(tools: List[Dict[str, Any]], output_file: str):
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
 
-def identify_overlapping_tools(_tools: List[Dict[str, Any]]) -> Dict[str, List[str]]:
-    """Identify tools with overlapping functionality that should be consolidated."""
-    overlaps = {}
-
-    # Package creation tools - NOW CONSOLIDATED
-    package_creation = [
-        "create_package",          # unified_package module - primary interface
-        "package_create_from_s3"   # s3_package module - specialized S3 bulk processing
-    ]
-    overlaps["Package Creation"] = package_creation
-
-    # Catalog/URL generation tools - REDUNDANT
-    catalog_tools = [
-        "catalog_url",  # auth module
-        "catalog_uri"   # auth module
-    ]
-    overlaps["Catalog URLs"] = catalog_tools
-
-    # Metadata template tools - PARTIAL OVERLAP
-    metadata_tools = [
-        "get_metadata_template",        # metadata_templates module
-        "create_metadata_from_template" # metadata_examples module
-    ]
-    overlaps["Metadata Templates"] = metadata_tools
-
-    # Search tools - CONSOLIDATION NEEDED
-    search_tools = [
-        "packages_search",           # packages module - package-specific
-        "bucket_objects_search",     # buckets module - S3-specific
-        "unified_search"            # search module - unified interface
-    ]
-    overlaps["Search Functions"] = search_tools
-
-    # Tabulator admin overlap - DUPLICATE FUNCTIONALITY
-    tabulator_admin = [
-        "tabulator_open_query_status",    # tabulator module
-        "tabulator_open_query_toggle",    # tabulator module
-        "admin_tabulator_open_query_get", # governance module
-        "admin_tabulator_open_query_set"  # governance module
-    ]
-    overlaps["Tabulator Admin"] = tabulator_admin
-
-    return overlaps
-
-def generate_consolidation_report(_tools: List[Dict[str, Any]], output_file: str):
-    """Generate detailed consolidation recommendations."""
-
-    report = {
-        "breaking_changes_required": True,
-        "backward_compatibility": "DEPRECATED - Will break existing clients",
-        "consolidation_plan": {}
-    }
-
-    # Package Creation Consolidation - COMPLETED
-    report["consolidation_plan"]["package_creation"] = {
-        "action": "COMPLETED",
-        "keep": ["create_package", "package_create_from_s3"],
-        "removed": ["package_create", "package_update", "package_update_metadata"],
-        "rationale": "create_package is now the unified primary interface with all functionality",
-        "current_api": {
-            "create_package": "Primary interface - handles all package creation scenarios",
-            "package_create_from_s3": "Specialized tool for S3 bulk processing with organization"
-        }
-    }
-
-    # Search Consolidation
-    report["consolidation_plan"]["search"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "unified_search",
-        "deprecate": ["packages_search", "bucket_objects_search"],
-        "rationale": "unified_search handles all search scenarios with backend selection",
-        "migration": {
-            "packages_search": "Replace with unified_search(scope='catalog')",
-            "bucket_objects_search": "Replace with unified_search(scope='bucket', target=bucket)"
-        }
-    }
-
-    # URL Generation Consolidation
-    report["consolidation_plan"]["url_generation"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "catalog_url",
-        "deprecate": ["catalog_uri"],
-        "rationale": "catalog_url covers all URL generation needs",
-        "migration": {
-            "catalog_uri": "Replace with catalog_url() - URIs are legacy"
-        }
-    }
-
-    # Tabulator Admin Consolidation
-    report["consolidation_plan"]["tabulator_admin"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": ["admin_tabulator_open_query_get", "admin_tabulator_open_query_set"],
-        "deprecate": ["tabulator_open_query_status", "tabulator_open_query_toggle"],
-        "rationale": "Admin tools provide proper permissions model",
-        "migration": {
-            "tabulator_open_query_status": "Replace with admin_tabulator_open_query_get",
-            "tabulator_open_query_toggle": "Replace with admin_tabulator_open_query_set"
-        }
-    }
-
-    # Documentation Cleanup
-    report["documentation_cleanup"] = {
-        "action": "REGENERATE_FROM_CODE",
-        "current_issues": [
-            "docs/api/TOOLS.md manually maintained - causes drift",
-            "CSV file manually updated - inconsistent with code",
-            "Tool descriptions in docs don't match actual docstrings"
-        ],
-        "solution": "Auto-generate all documentation from server introspection"
-    }
-
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
 
 async def main():
     """Generate all canonical tool listings."""
@@ -230,23 +117,10 @@ async def main():
     print("📋 Generating JSON metadata...")
     generate_json_output(tools, str(output_dir / "build" / "tools_metadata.json"))
 
-    print("⚠️  Generating consolidation report...")
-    generate_consolidation_report(tools, str(output_dir / "build" / "consolidation_report.json"))
-
-    # Print summary
-    overlaps = identify_overlapping_tools(tools)
-    print("\n🚨 OVERLAPPING TOOLS IDENTIFIED:")
-    for category, tool_list in overlaps.items():
-        print(f"   {category}: {len(tool_list)} tools")
-        for tool in tool_list:
-            print(f"     - {tool}")
-        print()
-
     print("✅ Canonical tool listings generated!")
     print("📂 Files created:")
     print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
-    print("   - build/consolidation_report.json")
 
 if __name__ == "__main__":
     import asyncio
