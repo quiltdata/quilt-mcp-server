@@ -19,30 +19,14 @@ logger = logging.getLogger(__name__)
 # QuiltService provides admin module access
 from ..services.quilt_service import QuiltService
 
-# Initialize service and check availability
+# Initialize service
 quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
-
-if not ADMIN_AVAILABLE:
-    logger.warning("quilt3.admin not available - governance functionality disabled")
-
-# Export module-level admin objects for backward compatibility with tests
-admin_users = quilt_service.get_users_admin() if ADMIN_AVAILABLE else None
-admin_roles = quilt_service.get_roles_admin() if ADMIN_AVAILABLE else None
-admin_sso_config = quilt_service.get_sso_config_admin() if ADMIN_AVAILABLE else None
-admin_tabulator = quilt_service.get_tabulator_admin() if ADMIN_AVAILABLE else None
 
 # Export exception classes for backward compatibility with tests
-if ADMIN_AVAILABLE:
-    admin_exceptions = quilt_service.get_admin_exceptions()
-    UserNotFoundError = admin_exceptions.get('UserNotFoundError', Exception)
-    BucketNotFoundError = admin_exceptions.get('BucketNotFoundError', Exception)
-    Quilt3AdminError = admin_exceptions.get('Quilt3AdminError', Exception)
-else:
-    # Fallback exception classes when admin is not available
-    UserNotFoundError = Exception
-    BucketNotFoundError = Exception
-    Quilt3AdminError = Exception
+admin_exceptions = quilt_service.get_admin_exceptions()
+UserNotFoundError = admin_exceptions.get('UserNotFoundError', Exception)
+BucketNotFoundError = admin_exceptions.get('BucketNotFoundError', Exception)
+Quilt3AdminError = admin_exceptions.get('Quilt3AdminError', Exception)
 
 
 class GovernanceService:
@@ -50,15 +34,6 @@ class GovernanceService:
 
     def __init__(self, use_quilt_auth: bool = True):
         self.use_quilt_auth = use_quilt_auth
-        self.admin_available = ADMIN_AVAILABLE and use_quilt_auth
-
-    def _check_admin_available(self) -> Optional[Dict[str, Any]]:
-        """Check if admin functionality is available."""
-        if not self.admin_available:
-            return format_error_response(
-                "Admin functionality not available - check Quilt authentication and admin privileges"
-            )
-        return None
 
     def _handle_admin_error(self, e: Exception, operation: str) -> Dict[str, Any]:
         """Handle admin operation errors with appropriate messaging."""
@@ -96,15 +71,11 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.get(name)
+        user = quilt_service.get_user(name)
 
         if user is None:
             return format_error_response(f"User '{name}' not found")
@@ -171,9 +142,6 @@ async def admin_user_create(
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         # Validate inputs
         if not name:
@@ -187,8 +155,7 @@ async def admin_user_create(
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.create(name=name, email=email, role=role, extra_roles=extra_roles or [])
+        user = quilt_service.create_user(name=name, email=email, role=role, extra_roles=extra_roles or [])
 
         user_data = {
             "name": user.name,
@@ -222,15 +189,11 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        admin_users.delete(name)
+        quilt_service.delete_user(name)
 
         return {"success": True, "message": f"Successfully deleted user '{name}'"}
 
@@ -252,9 +215,6 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
@@ -265,8 +225,7 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
         if "@" not in email or "." not in email:
             return format_error_response("Invalid email format")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_email(name, email)
+        user = quilt_service.set_user_email(name, email)
 
         return {
             "success": True,
@@ -292,15 +251,11 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_admin(name, admin)
+        user = quilt_service.set_user_admin(name, admin)
 
         return {
             "success": True,
@@ -326,15 +281,11 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_active(name, active)
+        user = quilt_service.set_user_active(name, active)
 
         return {
             "success": True,
@@ -359,15 +310,11 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        admin_users.reset_password(name)
+        quilt_service.reset_user_password(name)
 
         return {
             "success": True,
@@ -396,17 +343,13 @@ async def admin_user_set_role(
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
         if not role:
             return format_error_response("Role cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.set_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
+        user = quilt_service.set_user_role(name=name, role=role, extra_roles=extra_roles or [], append=append)
 
         return {
             "success": True,
@@ -436,17 +379,13 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.add_roles(name, roles)
+        user = quilt_service.add_user_roles(name, roles)
 
         return {
             "success": True,
@@ -477,17 +416,13 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not name:
             return format_error_response("Username cannot be empty")
         if not roles:
             return format_error_response("Roles list cannot be empty")
 
-        admin_users = quilt_service.get_users_admin()
-        user = admin_users.remove_roles(name, roles, fallback)
+        user = quilt_service.remove_user_roles(name, roles, fallback)
 
         return {
             "success": True,
@@ -520,12 +455,8 @@ async def admin_sso_config_get() -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        sso_config = admin_sso_config.get()
+        sso_config = quilt_service.get_sso_config()
 
         if sso_config is None:
             return {
@@ -565,15 +496,12 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        sso_config = admin_sso_config.set(config)
+        # set_sso_config returns the SSO config object (despite type annotation saying dict)
+        sso_config = quilt_service.set_sso_config(config)
 
         if sso_config is None:
             return format_error_response("Failed to set SSO configuration")
@@ -606,12 +534,8 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
     """
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        admin_sso_config.set(None)
+        quilt_service.remove_sso_config()
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
 
@@ -627,12 +551,8 @@ async def admin_tabulator_access_get() -> Dict[str, Any]:
     """Fetch the current tabulator accessibility status."""
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
-        open_query_enabled = admin_tabulator.get_open_query()
+        open_query_enabled = quilt_service.get_tabulator_access()
 
         return {
             "success": True,
@@ -649,12 +569,8 @@ async def admin_tabulator_access_set(enabled: bool) -> Dict[str, Any]:
     """Update the tabulator accessibility status."""
     try:
         service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
-        admin_tabulator.set_open_query(enabled)
+        quilt_service.set_tabulator_access(enabled)
 
         return {
             "success": True,

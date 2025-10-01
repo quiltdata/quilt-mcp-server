@@ -46,14 +46,28 @@ __all__ = [
 def create_default_registry() -> ResourceRegistry:
     """Create a default resource registry with all standard resources.
 
+    Admin resources (admin://*) are only registered if the user has admin credentials.
+
     Returns:
         ResourceRegistry with all MCP resources registered
     """
+    from quilt_mcp.services.quilt_service import QuiltService
+
     registry = ResourceRegistry()
 
-    # Register all resources
-    registry.register("admin://users", AdminUsersResource())
-    registry.register("admin://roles", AdminRolesResource())
+    # Check if user has admin credentials
+    service = QuiltService()
+    has_admin = service.has_admin_credentials()
+
+    # Register admin resources only if user has credentials
+    # NOTE: Admin resources follow URI convention of 'admin://*' scheme.
+    # This is enforced by code review and documented in CLAUDE.md.
+    # Future: Consider resource-level metadata (@requires_admin) for more flexibility.
+    if has_admin:
+        registry.register("admin://users", AdminUsersResource())
+        registry.register("admin://roles", AdminRolesResource())
+
+    # Register all non-admin resources
     registry.register("s3://buckets", S3BucketsResource())
     registry.register("athena://databases", AthenaDatabasesResource())
     registry.register("athena://workgroups", AthenaWorkgroupsResource())

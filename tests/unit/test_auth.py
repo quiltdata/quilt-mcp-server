@@ -89,7 +89,7 @@ class TestGetCatalogHostFromConfig:
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {"navigator_url": "https://nightly.quilttest.com"}
+            mock_service.get_navigator_url.return_value = "https://nightly.quilttest.com"
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
@@ -100,18 +100,18 @@ class TestGetCatalogHostFromConfig:
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {}
+            mock_service.get_navigator_url.return_value = None
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
             assert result is None
 
     def test_get_catalog_host_with_none_config(self):
-        """Test when get_config returns None - covers lines 79-80."""
+        """Test when get_navigator_url returns None - covers lines 79-80."""
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = None
+            mock_service.get_navigator_url.return_value = None
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
@@ -122,7 +122,7 @@ class TestGetCatalogHostFromConfig:
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
-            mock_service.get_config.return_value = {"navigator_url": ""}
+            mock_service.get_navigator_url.return_value = ""
             mock_service_class.return_value = mock_service
 
             result = _get_catalog_host_from_config()
@@ -380,7 +380,7 @@ class TestAuthStatus:
             mock_service = Mock()
             mock_service.get_catalog_info.return_value = mock_catalog_info
             mock_service.get_logged_in_url.return_value = "https://demo.quiltdata.com"
-            mock_service.get_config.side_effect = Exception("Config error")
+            mock_service.get_registry_url.side_effect = Exception("Config error")
             mock_service_class.return_value = mock_service
 
             result = catalog_status()
@@ -466,7 +466,7 @@ class TestSwitchCatalog:
         """Test switching to catalog with full URL."""
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
-            mock_service.get_config.return_value = {"navigator_url": "https://custom.quiltdata.com"}
+            mock_service.get_navigator_url.return_value = "https://custom.quiltdata.com"
             mock_service_class.return_value = mock_service
 
             result = catalog_set("https://custom.quiltdata.com")
@@ -479,7 +479,7 @@ class TestSwitchCatalog:
         """Test switching with known catalog name (demo)."""
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
-            mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
+            mock_service.get_navigator_url.return_value = "https://demo.quiltdata.com"
             mock_service_class.return_value = mock_service
 
             result = catalog_set("demo")
@@ -493,7 +493,7 @@ class TestSwitchCatalog:
         """Test switching with unknown catalog name."""
         with patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class:
             mock_service = Mock()
-            mock_service.get_config.return_value = {"navigator_url": "https://custom"}
+            mock_service.get_navigator_url.return_value = "https://custom"
             mock_service_class.return_value = mock_service
 
             result = catalog_set("custom")

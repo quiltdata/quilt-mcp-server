@@ -19,19 +19,15 @@ from quilt_mcp.tools.tabulator import (
 class TestTabulatorService:
     """Test TabulatorService class."""
 
-    def test_service_initialization_without_admin(self):
-        """Test service initialization when admin client is not available."""
-        with patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", False):
-            service = TabulatorService(use_quilt_auth=True)
-            assert service.admin_available is False
-            assert service.use_quilt_auth is True
-
-    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
-    def test_service_initialization_with_admin(self):
-        """Test service initialization with admin client."""
+    def test_service_initialization_with_quilt_auth(self):
+        """Test service initialization with quilt auth enabled."""
         service = TabulatorService(use_quilt_auth=True)
-        assert service.admin_available is True
         assert service.use_quilt_auth is True
+
+    def test_service_initialization_without_quilt_auth(self):
+        """Test service initialization with quilt auth disabled."""
+        service = TabulatorService(use_quilt_auth=False)
+        assert service.use_quilt_auth is False
 
     def test_validate_schema_valid(self):
         """Test schema validation with valid schema."""
@@ -194,40 +190,10 @@ class TestTabulatorService:
         assert "parser:" in config_yaml
         assert "quilt-packages" in config_yaml
 
-    # Add tests for service methods without mocking AWS responses
-    def test_service_methods_no_admin_available(self):
-        """Test all service methods when admin not available."""
-        service = TabulatorService(use_quilt_auth=False)
-
-        # Test all methods return appropriate error when admin not available
-        result = service.list_tables("test-bucket")
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.create_table("bucket", "table", [], "pattern", "pattern", {})
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.delete_table("bucket", "table")
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.rename_table("bucket", "old", "new")
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.get_open_query_status()
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-        result = service.set_open_query(True)
-        assert result["success"] is False
-        assert "Admin functionality not available" in result["error"]
-
-    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
+    # Add tests for service methods
     def test_create_table_validation_errors(self):
         """Test TabulatorService.create_table with validation errors."""
-        service = TabulatorService(use_quilt_auth=True)
+        service = TabulatorService(use_quilt_auth=False)
 
         # Empty inputs should trigger validation errors
         result = service.create_table("", "", [], "", "", {})

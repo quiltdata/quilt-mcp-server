@@ -135,8 +135,10 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     if tool_modules is None:
         tool_modules = get_tool_modules()
 
-    # List of deprecated tools (to reduce client confusion)
-    excluded_tools = {}
+    # Check if user has admin credentials
+    from .services.quilt_service import QuiltService
+    service = QuiltService()
+    has_admin = service.has_admin_credentials()
 
     tools_registered = 0
 
@@ -152,10 +154,13 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         functions = inspect.getmembers(module, predicate=make_predicate(module))
 
         for name, func in functions:
-            # Skip deprecated tools to reduce client confusion
-            if name in excluded_tools:
+            # Skip admin tools if user lacks admin credentials
+            # NOTE: Admin tools follow naming convention of 'admin_*' prefix.
+            # This is enforced by code review and documented in CLAUDE.md.
+            # Future: Consider decorator-based approach (@admin_required) for more robustness.
+            if name.startswith('admin_') and not has_admin:
                 if verbose:
-                    print(f"Skipped _list tool: {module.__name__}.{name} (prefer search instead)", file=sys.stderr)
+                    print(f"Skipped admin tool: {module.__name__}.{name} (no admin credentials)", file=sys.stderr)
                 continue
 
             # Register each function as an MCP tool

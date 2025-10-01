@@ -36,20 +36,6 @@ class TestQuiltServiceAuthentication:
             result = service.get_logged_in_url()
             assert result == 'https://example.quiltdata.com'
 
-    def test_is_authenticated_when_not_logged_in(self):
-        """Test is_authenticated returns False when not logged in."""
-        service = QuiltService()
-        with patch('quilt3.logged_in', return_value=None):
-            result = service.is_authenticated()
-            assert result is False
-
-    def test_is_authenticated_when_logged_in(self):
-        """Test is_authenticated returns True when logged in."""
-        service = QuiltService()
-        with patch('quilt3.logged_in', return_value='https://example.quiltdata.com'):
-            result = service.is_authenticated()
-            assert result is True
-
     def test_get_config_returns_none_when_no_config(self):
         """Test get_config returns None when no configuration available."""
         service = QuiltService()
@@ -64,6 +50,28 @@ class TestQuiltServiceAuthentication:
         with patch('quilt3.config', return_value=expected_config):
             result = service.get_config()
             assert result == expected_config
+
+    def test_get_navigator_url_returns_none_when_no_config(self):
+        """Test get_navigator_url returns None when no configuration available."""
+        service = QuiltService()
+        with patch.object(service, 'get_config', return_value=None):
+            result = service.get_navigator_url()
+            assert result is None
+
+    def test_get_navigator_url_returns_none_when_key_missing(self):
+        """Test get_navigator_url returns None when navigator_url key is missing."""
+        service = QuiltService()
+        with patch.object(service, 'get_config', return_value={'registryUrl': 's3://example-bucket'}):
+            result = service.get_navigator_url()
+            assert result is None
+
+    def test_get_navigator_url_returns_url_when_available(self):
+        """Test get_navigator_url returns URL when available in config."""
+        service = QuiltService()
+        expected_url = 'https://example.quiltdata.com'
+        with patch.object(service, 'get_config', return_value={'navigator_url': expected_url}):
+            result = service.get_navigator_url()
+            assert result == expected_url
 
 
 class TestQuiltServicePackageOperations:
@@ -127,14 +135,6 @@ class TestQuiltServicePackageOperations:
             result = service.create_bucket('s3://test-bucket')
             assert result == mock_bucket
             mock_bucket_class.assert_called_once_with('s3://test-bucket')
-
-    def test_get_search_api_returns_search_module(self):
-        """Test get_search_api returns the search_util.search_api module."""
-        service = QuiltService()
-        mock_search_api = Mock()
-        with patch('quilt3.search_util.search_api', mock_search_api):
-            result = service.get_search_api()
-            assert result == mock_search_api
 
     def test_has_session_support_when_available(self):
         """Test has_session_support returns True when session is available."""
@@ -470,100 +470,7 @@ class TestQuiltServiceCreatePackageRevision:
 class TestQuiltServiceAdmin:
     """Test admin module access methods."""
 
-    def test_is_admin_available_when_modules_present(self):
-        """Test is_admin_available returns True when admin modules are available."""
-        service = QuiltService()
-        # Mock admin modules being available
-        mock_users = Mock()
-        mock_roles = Mock()
-        mock_sso = Mock()
-        mock_tabulator = Mock()
 
-        with patch.dict(
-            'sys.modules',
-            {
-                'quilt3.admin.users': mock_users,
-                'quilt3.admin.roles': mock_roles,
-                'quilt3.admin.sso_config': mock_sso,
-                'quilt3.admin.tabulator': mock_tabulator,
-            },
-        ):
-            result = service.is_admin_available()
-            assert result is True
-
-    def test_is_admin_available_when_modules_missing(self):
-        """Test is_admin_available returns False when admin modules are missing."""
-        service = QuiltService()
-        # For this test, we'll mock the method behavior directly
-        with patch.object(service, 'is_admin_available', return_value=False):
-            result = service.is_admin_available()
-            assert result is False
-
-    def test_get_users_admin_when_available(self):
-        """Test get_users_admin returns users admin module when available."""
-        service = QuiltService()
-        # Test that the method returns the actual admin module
-        result = service.get_users_admin()
-        # Check that it has the expected attributes of admin.users
-        assert hasattr(result, 'list') or hasattr(result, '__name__')
-
-    def test_get_users_admin_when_not_available(self):
-        """Test get_users_admin behavior - implementation can raise ImportError."""
-        service = QuiltService()
-        # This test verifies the method exists and can be called
-        # The actual ImportError behavior depends on the environment
-        try:
-            result = service.get_users_admin()
-            # If no error, the module was available
-            assert result is not None
-        except ImportError:
-            # If ImportError, that's also acceptable behavior
-            pass
-
-    def test_get_roles_admin_when_available(self):
-        """Test get_roles_admin returns roles admin module when available."""
-        service = QuiltService()
-        result = service.get_roles_admin()
-        assert hasattr(result, 'list') or hasattr(result, '__name__')
-
-    def test_get_roles_admin_when_not_available(self):
-        """Test get_roles_admin behavior when not available."""
-        service = QuiltService()
-        try:
-            result = service.get_roles_admin()
-            assert result is not None
-        except ImportError:
-            pass
-
-    def test_get_sso_config_admin_when_available(self):
-        """Test get_sso_config_admin returns SSO config admin module when available."""
-        service = QuiltService()
-        result = service.get_sso_config_admin()
-        assert hasattr(result, 'get') or hasattr(result, '__name__')
-
-    def test_get_sso_config_admin_when_not_available(self):
-        """Test get_sso_config_admin behavior when not available."""
-        service = QuiltService()
-        try:
-            result = service.get_sso_config_admin()
-            assert result is not None
-        except ImportError:
-            pass
-
-    def test_get_tabulator_admin_when_available(self):
-        """Test get_tabulator_admin returns tabulator admin module when available."""
-        service = QuiltService()
-        result = service.get_tabulator_admin()
-        assert hasattr(result, 'get_service') or hasattr(result, '__name__')
-
-    def test_get_tabulator_admin_when_not_available(self):
-        """Test get_tabulator_admin behavior when not available."""
-        service = QuiltService()
-        try:
-            result = service.get_tabulator_admin()
-            assert result is not None
-        except ImportError:
-            pass
 
     def test_get_admin_exceptions_when_available(self):
         """Test get_admin_exceptions returns exception classes when available."""
@@ -583,6 +490,62 @@ class TestQuiltServiceAdmin:
             assert isinstance(result, dict)
         except ImportError:
             pass
+
+
+class TestQuiltServiceDeletePackage:
+    """Test delete_package method - Phase 5.4."""
+
+    def test_delete_package_success(self):
+        """Test delete_package successfully deletes a package."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            service.delete_package('user/package', 's3://test-bucket')
+
+            # Verify quilt3.delete_package was called with correct args
+            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket')
+
+    def test_delete_package_with_default_registry(self):
+        """Test delete_package uses default registry when None provided."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            service.delete_package('user/package', None)
+
+            # Should be called with no registry argument (quilt3 uses default)
+            mock_delete.assert_called_once_with('user/package')
+
+    def test_delete_package_not_found(self):
+        """Test delete_package raises PackageNotFoundError when package doesn't exist."""
+        from quilt_mcp.services.exceptions import PackageNotFoundError
+
+        service = QuiltService()
+
+        with patch('quilt3.delete_package', side_effect=Exception("Package not found")):
+            with pytest.raises(PackageNotFoundError, match="Package 'user/package' not found"):
+                service.delete_package('user/package', 's3://test-bucket')
+
+    def test_delete_package_handles_quilt3_errors(self):
+        """Test delete_package properly handles quilt3 exceptions."""
+        from quilt_mcp.services.exceptions import PackageNotFoundError
+
+        service = QuiltService()
+
+        # Simulate quilt3 raising an exception
+        with patch('quilt3.delete_package', side_effect=Exception("NoSuchKey")):
+            with pytest.raises(PackageNotFoundError):
+                service.delete_package('user/package', 's3://test-bucket')
+
+    def test_delete_package_normalizes_registry(self):
+        """Test delete_package normalizes registry format with bucket path."""
+        service = QuiltService()
+
+        with patch('quilt3.delete_package') as mock_delete:
+            # Pass bucket path without s3:// prefix (with /)
+            service.delete_package('user/package', 'test-bucket/path')
+
+            # Should normalize to s3:// format
+            mock_delete.assert_called_once_with('user/package', registry='s3://test-bucket/path')
 
 
 class TestQuiltServiceAbstractionCompleteness:

@@ -8,17 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] **Unreleased**
 
+### QuiltService Refactoring - Major Architectural Overhaul (Issue #155)
+
+This release completes a comprehensive refactoring of the `QuiltService` layer to align with the original architectural specification. The service now provides operational abstractions instead of exposing raw quilt3 modules, enabling backend swapping and proper separation of concerns.
+
+**Specification Reference**: See [spec/Archive/155-isolate-quilt3/a1-requirements.md](./spec/Archive/155-isolate-quilt3/a1-requirements.md) for complete details.
+
 ### Added
 
-- **MCP Resource Framework**: Implemented standardized Model Context Protocol (MCP) resource system for list-type functions
+- **27 New Operational Methods in QuiltService**: Replaced module getter methods with typed operational abstractions
+  - **User Management** (10 methods): `list_users()`, `get_user()`, `create_user()`, `delete_user()`, `set_user_email()`, `set_user_role()`, `set_user_active()`, `set_user_admin()`, `add_user_roles()`, `remove_user_roles()`, `reset_user_password()`
+  - **Role Management** (4 methods): `list_roles()`, `get_role()`, `create_role()`, `delete_role()`
+  - **SSO Configuration** (3 methods): `get_sso_config()`, `set_sso_config()`, `remove_sso_config()`
+  - **Tabulator Administration** (6 methods): `get_tabulator_access()`, `set_tabulator_access()`, `list_tabulator_tables()`, `create_tabulator_table()`, `delete_tabulator_table()`, `rename_tabulator_table()`
+  - **Config & Package** (2 methods): `get_navigator_url()`, `delete_package()`
+  - All methods return proper types (`dict[str, Any]`, `list[dict[str, Any]]`, etc.) instead of raw modules or `Any`
+
+- **Dynamic Admin Credential Checking**: Implemented `has_admin_credentials()` method that tests actual admin permissions
+  - Replaces incorrect module availability checking with real credential verification via `quilt3.admin.roles.list()`
+  - Admin tools and resources now filtered at registration time based on user permissions
+  - Non-admin users see clean interface without admin clutter
+
+- **MCP Resource Framework**: Implemented standardized Model Context Protocol (MCP) resource system
   - Created `quilt_mcp.resources` package with base framework (`MCPResource`, `ResourceResponse`, `ResourceRegistry`)
   - Implemented 9 resource providers covering admin, S3, Athena, metadata, workflow, package, and tabulator domains
-  - Added parameterized URIs support (e.g., `tabulator://{bucket}/tables`) for dynamic resource paths
-  - Added comprehensive test coverage for resource framework
+  - Added parameterized URIs support (e.g., `tabulator://{bucket}/tables`)
 
 ### Changed
 
-- **Tool Consolidation**: Migrated list-type functions to use MCP resources internally while maintaining API compatibility
+- **QuiltService API**: Complete refactoring from module getters to operational abstractions (35+ call sites updated)
+  - **Tools Updated**: `governance.py` (~25 functions), `tabulator.py` (~8 functions), `catalog.py`, `package_creation.py`
+  - **Resources Updated**: `admin.py` (2 resources)
+  - All callers now use typed operational methods instead of raw quilt3 module access
+  - Backend-agnostic interface enables future backend swapping
+
+- **Tool Consolidation**: Migrated list-type functions to use MCP resources internally
   - `admin_users_list` → `AdminUsersResource` (URI: `admin://users`)
   - `admin_roles_list` → `AdminRolesResource` (URI: `admin://roles`)
   - `list_available_resources` → `S3BucketsResource` (URI: `s3://buckets`)
@@ -31,16 +55,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Legacy List Functions**: The following functions have been removed and replaced by MCP resources:
-  - `admin_users_list()` - Replaced by MCP resource `admin://users`
-  - `admin_roles_list()` - Replaced by MCP resource `admin://roles`
-  - `list_available_resources()` - Replaced by MCP resource `s3://buckets`
-  - `athena_databases_list()` - Replaced by MCP resource `athena://databases`
-  - `athena_workgroups_list()` - Replaced by MCP resource `athena://workgroups`
-  - `list_metadata_templates()` - Replaced by MCP resource `metadata://templates`
-  - `workflow_list()` - Replaced by MCP resource `workflow://workflows`
-  - `package_tools_list()` - Replaced by MCP resource `package://tools`
-  - `tabulator_tables_list()` - Replaced by MCP resource `tabulator://{bucket}/tables`
+- **Module Getter Anti-Patterns**: Deleted 5 methods that exposed raw quilt3 modules
+  - `get_users_admin()`, `get_roles_admin()`, `get_sso_config_admin()`, `get_tabulator_admin()`, `get_search_api()`
+  - These violated the service layer's purpose by leaking implementation details
+
+- **Obsolete Admin Checking**: Removed incorrect module availability checking system
+  - Deleted `is_admin_available()` (checked module existence instead of permissions)
+  - Deleted `_require_admin()` (blocked operations unnecessarily)
+  - Deleted `AdminNotAvailableError` (operations now fail naturally via quilt3)
+  - Removed module-level `ADMIN_AVAILABLE` constants
+  - Deleted 625 lines of obsolete test code
+
+- **Legacy List Functions**: Removed and replaced by MCP resources
+  - `admin_users_list()`, `admin_roles_list()`, `list_available_resources()`
+  - `athena_databases_list()`, `athena_workgroups_list()`
+  - `list_metadata_templates()`, `workflow_list()`, `package_tools_list()`, `tabulator_tables_list()`
 
 ### Technical Details
 
