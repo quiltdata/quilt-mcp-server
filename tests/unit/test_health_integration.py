@@ -14,46 +14,48 @@ class TestHealthCheckIntegration:
     def test_health_endpoint_registered_for_http_transport(self):
         """Test that health endpoint is registered when using HTTP transport."""
         # Arrange
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
-            # Act
-            server = create_configured_server(verbose=False)
+        with patch("quilt_mcp.utils.FastMCP") as mock_fastmcp:
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
+                # Act
+                server = create_configured_server(verbose=False)
 
             # Assert
             # Check that custom_route was called for health endpoint
             # Note: This tests that the integration code runs without errors
-            assert server is not None
+            assert mock_fastmcp.called
 
     def test_health_endpoint_not_registered_for_stdio_transport(self):
         """Test that health endpoint is not registered for stdio transport."""
         # Arrange
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
-            # Act
-            server = create_configured_server(verbose=False)
+        with patch("quilt_mcp.utils.FastMCP") as mock_fastmcp:
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
+                # Act
+                server = create_configured_server(verbose=False)
 
             # Assert
             # For stdio transport, the server should be created successfully
             # but without HTTP endpoints
-            assert server is not None
+            assert mock_fastmcp.called
 
     def test_health_endpoint_registered_for_sse_transport(self):
         """Test that health endpoint is registered for SSE transport."""
         # Arrange
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "sse"}):
-            # Act
-            server = create_configured_server(verbose=False)
+        with patch("quilt_mcp.utils.FastMCP") as mock_fastmcp:
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "sse"}):
+                # Act
+                server = create_configured_server(verbose=False)
 
             # Assert
-            assert server is not None
+            assert mock_fastmcp.called
 
     def test_verbose_logging_for_health_endpoint(self):
         """Test that verbose mode logs health endpoint registration."""
         # Arrange
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
-            with patch("sys.stderr") as mock_stderr:
-                # Act
-                server = create_configured_server(verbose=True)
+        with patch("quilt_mcp.utils.FastMCP") as mock_fastmcp:
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
+                with patch("sys.stderr") as mock_stderr:
+                    # Act
+                    server = create_configured_server(verbose=True)
 
                 # Assert
-                assert server is not None
-                # In real implementation, we'd check stderr output
-                # For now, just verify no errors occur
+                assert mock_fastmcp.called

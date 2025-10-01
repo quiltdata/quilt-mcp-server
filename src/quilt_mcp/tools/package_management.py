@@ -16,7 +16,6 @@ from pathlib import Path
 
 from ..constants import DEFAULT_REGISTRY
 from ..clients import catalog as catalog_client
-from ..constants import DEFAULT_REGISTRY
 from ..runtime import get_active_token
 from ..utils import validate_package_name, format_error_response, resolve_catalog_url
 from .metadata_templates import (
@@ -399,7 +398,7 @@ def package_update_metadata(
         if not token:
             return format_error_response("Authorization token required to update metadata")
 
-        catalog_url = resolve_catalog_url()
+        catalog_url = resolve_catalog_url(registry)
         if not catalog_url:
             return format_error_response("Catalog URL not configured")
 
@@ -414,11 +413,7 @@ def package_update_metadata(
         try:
             package_data = catalog_client.catalog_graphql_query(
                 registry_url=normalized_registry,
-                query=(
-                    "query($name: String!) {\n"
-                    "  package(name: $name) { metadata }\n"
-                    "}\n"
-                ),
+                query=("query($name: String!) {\n  package(name: $name) { metadata }\n}\n"),
                 variables={"name": package_name},
                 auth_token=token,
             )
@@ -715,30 +710,30 @@ def list_package_tools() -> Dict[str, Any]:
 def package_management(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Enhanced package management with better error handling and metadata templates.
-    
+
     Available actions:
     - create_enhanced: Enhanced package creation with metadata templates and validation
     - list_tools: List all package management tools with usage guidance
     - update_metadata: Update or replace metadata for an existing package
     - validate: Validate package integrity and accessibility
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = package_management()
-        
+
         # Create enhanced package
         result = package_management(action="create_enhanced", name="user/dataset", files=["s3://bucket/file.csv"])
-        
+
         # Validate package
         result = package_management(action="validate", package_name="user/dataset")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -747,7 +742,7 @@ def package_management(action: str | None = None, params: Optional[Dict[str, Any
         "update_metadata": package_update_metadata,
         "validate": package_validate,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -756,7 +751,7 @@ def package_management(action: str | None = None, params: Optional[Dict[str, Any
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -764,7 +759,7 @@ def package_management(action: str | None = None, params: Optional[Dict[str, Any
             "success": False,
             "error": f"Unknown action '{action}' for module 'package_management'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -772,6 +767,7 @@ def package_management(action: str | None = None, params: Optional[Dict[str, Any
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

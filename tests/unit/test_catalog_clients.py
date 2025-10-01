@@ -77,5 +77,3 @@ def test_rest_request_forwards_token(mock_request):
     headers = kwargs["headers"]
     assert headers["Authorization"] == "Bearer token-456"
     assert headers["Content-Type"] == "application/json"
-
-

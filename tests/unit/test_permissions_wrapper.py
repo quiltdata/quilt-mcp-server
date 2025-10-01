@@ -22,7 +22,7 @@ class TestPermissionsWrapper:
     def test_permissions_discovery_mode_returns_actions(self):
         """Test that calling with action=None returns available actions."""
         result = permissions(action=None)
-        
+
         assert result["success"] is True
         assert "module" in result
         assert result["module"] == "permissions"
@@ -35,7 +35,7 @@ class TestPermissionsWrapper:
     def test_permissions_unknown_action(self):
         """Test error handling for unknown action."""
         result = permissions(action="invalid_action")
-        
+
         assert result["success"] is False
         assert "error" in result
         assert "Unknown action" in result["error"]
@@ -60,7 +60,7 @@ class TestPermissionsWrapper:
         mock_discovery.get_cache_stats = Mock(return_value={})
 
         result = permissions(action="discover")
-        
+
         assert result["success"] is True
         assert "user_identity" in result
         assert result["user_identity"]["user_name"] == "test-user"
@@ -78,7 +78,7 @@ class TestPermissionsWrapper:
             user_type="user",
         )
         mock_discovery.discover_user_identity = Mock(return_value=mock_identity)
-        
+
         mock_bucket = BucketInfo(
             name="test-bucket",
             region="us-east-1",
@@ -96,9 +96,9 @@ class TestPermissionsWrapper:
             params={
                 "check_buckets": ["test-bucket"],
                 "force_refresh": True,
-            }
+            },
         )
-        
+
         assert result["success"] is True
         mock_discovery.clear_cache.assert_called_once()
 
@@ -118,12 +118,10 @@ class TestPermissionsWrapper:
             last_checked=datetime.now(timezone.utc),
         )
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
-        mock_discovery.test_bucket_operations = Mock(
-            return_value={"read": True, "write": True, "list": True}
-        )
+        mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": True, "list": True})
 
         result = permissions(action="access_check", params={"bucket_name": "test-bucket"})
-        
+
         assert result["success"] is True
         assert result["bucket_name"] == "test-bucket"
         assert result["permission_level"] == "full_access"
@@ -151,7 +149,7 @@ class TestPermissionsWrapper:
             action="recommendations_get",
             params={"operation_type": "package_creation"},
         )
-        
+
         assert result["success"] is True
         assert result["operation_type"] == "package_creation"
         assert "recommendations" in result
@@ -159,7 +157,7 @@ class TestPermissionsWrapper:
     def test_permissions_missing_required_parameter(self):
         """Test error handling for missing required parameters."""
         result = permissions(action="access_check")  # Missing bucket_name
-        
+
         assert result["success"] is False
         assert "parameter" in result["error"].lower()
 
@@ -170,8 +168,8 @@ class TestPermissionsWrapper:
             params={
                 "bucket_name": "test-bucket",
                 "invalid_param": "should_be_ignored",  # Extra params should be handled gracefully
-            }
+            },
         )
-        
+
         # Should still work - extra params are ignored
         assert result["success"] in [True, False]  # May fail for other reasons but not param validation

@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, Optional
 
 
 _active_token: ContextVar[Optional[str]] = ContextVar("quilt_mcp_active_token", default=None)
-_request_metadata: ContextVar[Dict[str, Any]] = ContextVar("quilt_mcp_request_metadata", default={})
+_request_metadata: ContextVar[Optional[Dict[str, Any]]] = ContextVar("quilt_mcp_request_metadata", default=None)
 
 
 def get_active_token() -> Optional[str]:
@@ -29,11 +29,9 @@ def request_context(token: Optional[str], metadata: Optional[Dict[str, Any]] = N
     """Context manager that sets the active token and metadata for a request."""
 
     token_token = _active_token.set(token)
-    metadata_token = _request_metadata.set(dict(metadata or {}))
+    metadata_token = _request_metadata.set(dict(metadata or {}) if metadata else None)
     try:
         yield
     finally:
         _active_token.reset(token_token)
         _request_metadata.reset(metadata_token)
-
-

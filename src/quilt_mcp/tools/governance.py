@@ -10,10 +10,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from ..runtime import get_active_token
+from ..runtime import get_active_token, request_context
 from ..utils import format_error_response, resolve_catalog_url
 
 logger = logging.getLogger(__name__)
+
+ADMIN_AVAILABLE = False
 
 
 def _admin_unavailable(message: Optional[str] = None) -> Dict[str, Any]:
@@ -144,3 +146,78 @@ async def admin_tabulator_delete(bucket_name: str, table_name: str) -> Dict[str,
     if not table_name:
         return format_error_response("Table name cannot be empty")
     return _admin_unavailable()
+
+
+async def admin_tabulator_open_query_get() -> Dict[str, Any]:
+    return _admin_unavailable()
+
+
+async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
+    if not isinstance(enabled, bool):
+        return format_error_response("enabled must be a boolean value")
+    return _admin_unavailable()
+
+
+def governance(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    if action is None:
+        return {
+            "module": "governance",
+            "actions": [
+                "users_list",
+                "user_get",
+                "user_create",
+                "user_delete",
+                "user_set_email",
+                "user_set_admin",
+                "user_set_active",
+                "roles_list",
+                "role_get",
+                "role_create",
+                "role_delete",
+                "sso_config_get",
+                "sso_config_set",
+                "tabulator_list",
+                "tabulator_create",
+                "tabulator_delete",
+                "tabulator_open_query_get",
+                "tabulator_open_query_set",
+            ],
+        }
+
+    params = params or {}
+    dispatch_map = {
+        "users_list": admin_users_list,
+        "user_get": admin_user_get,
+        "user_create": admin_user_create,
+        "user_delete": admin_user_delete,
+        "user_set_email": admin_user_set_email,
+        "user_set_admin": admin_user_set_admin,
+        "user_set_active": admin_user_set_active,
+        "roles_list": admin_roles_list,
+        "role_get": admin_role_get,
+        "role_create": admin_role_create,
+        "role_delete": admin_role_delete,
+        "sso_config_get": admin_sso_config_get,
+        "sso_config_set": admin_sso_config_set,
+        "tabulator_list": admin_tabulator_list,
+        "tabulator_create": admin_tabulator_create,
+        "tabulator_delete": admin_tabulator_delete,
+        "tabulator_open_query_get": admin_tabulator_open_query_get,
+        "tabulator_open_query_set": admin_tabulator_open_query_set,
+    }
+
+    func = dispatch_map.get(action)
+    if func is None:
+        return format_error_response(f"Unknown governance action: {action}")
+
+    try:
+        if callable(func):
+            if getattr(func, "__code__", None) and func.__code__.co_flags & 0x80:
+                import asyncio
+
+                return asyncio.get_event_loop().run_until_complete(func(**params))
+            return func(**params)
+        return format_error_response(f"Governance action not callable: {action}")
+    except Exception as exc:
+        logger.exception("Governance action %s failed", action)
+        return format_error_response(f"Governance action failed: {exc}")

@@ -29,7 +29,8 @@ async def test_tabulator_list_requires_token():
 
 
 @pytest.mark.asyncio
-async def test_tabulator_list_requires_catalog_url():
+async def test_tabulator_list_requires_catalog_url(monkeypatch):
+    monkeypatch.delenv("QUILT_CATALOG_URL", raising=False)
     with runtime_token("token"):
         result = await tabulator.tabulator_tables_list("bucket")
     assert result["success"] is False
@@ -96,9 +97,7 @@ async def test_tabulator_table_create_calls_catalog(monkeypatch):
         captured.update(kwargs)
         return {
             "name": "bucket",
-            "tabulatorTables": [
-                {"name": "table", "config": "config: value"}
-            ],
+            "tabulatorTables": [{"name": "table", "config": "config: value"}],
         }
 
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
@@ -133,13 +132,11 @@ async def test_tabulator_table_create_propagates_errors(monkeypatch):
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
     monkeypatch.setattr(
         "quilt_mcp.clients.catalog.catalog_tabulator_table_set",
-    _raise_runtime_error,
+        _raise_runtime_error,
     )
 
     with runtime_token("token"):
-        result = await tabulator.tabulator_table_create(
-            "bucket", "table", "config: value"
-        )
+        result = await tabulator.tabulator_table_create("bucket", "table", "config: value")
 
     assert result["success"] is False
     assert "Failed to create" in result["error"]
@@ -175,9 +172,7 @@ async def test_tabulator_table_rename_calls_catalog(monkeypatch):
         captured.update(kwargs)
         return {
             "name": "bucket",
-            "tabulatorTables": [
-                {"name": "new-name", "config": "config: value"}
-            ],
+            "tabulatorTables": [{"name": "new-name", "config": "config: value"}],
         }
 
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
@@ -187,9 +182,7 @@ async def test_tabulator_table_rename_calls_catalog(monkeypatch):
     )
 
     with runtime_token("token"):
-        result = await tabulator.tabulator_table_rename(
-            "bucket", "old-name", "new-name"
-        )
+        result = await tabulator.tabulator_table_rename("bucket", "old-name", "new-name")
 
     assert captured["table_name"] == "old-name"
     assert captured["new_table_name"] == "new-name"
@@ -204,9 +197,7 @@ async def test_tabulator_table_get_returns_specific_table(monkeypatch):
     def fake_list(**kwargs):
         return {
             "name": "bucket",
-            "tabulatorTables": [
-                {"name": "table", "config": "config: value"}
-            ],
+            "tabulatorTables": [{"name": "table", "config": "config: value"}],
         }
 
     monkeypatch.setattr(

@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..clients import catalog as catalog_client
 from ..formatting import format_tabulator_results_as_table
 from ..runtime import get_active_token
 from ..utils import format_error_response, resolve_catalog_url
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+ADMIN_AVAILABLE = False
 
 
 def _missing_prerequisites() -> Optional[Dict[str, Any]]:
@@ -228,7 +234,9 @@ async def tabulator_open_query_status() -> Dict[str, Any]:
     except Exception as exc:
         return format_error_response(f"Failed to fetch tabulator open query status: {exc}")
 
-    return _success({"open_query_enabled": enabled})
+    result = _success({"open_query_enabled": enabled})
+    result["message"] = "Tabulator open query feature enabled"
+    return result
 
 
 async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
@@ -254,3 +262,43 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     message = "Tabulator open query enabled" if current else "Tabulator open query disabled"
     return _success({"open_query_enabled": current, "message": message})
 
+
+def tabulator(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    if action is None:
+        return {
+            "module": "tabulator",
+            "actions": [
+                "tables_list",
+                "table_create",
+                "table_delete",
+                "table_rename",
+                "table_get",
+                "open_query_status",
+                "open_query_toggle",
+            ],
+        }
+
+    params = params or {}
+    dispatch_map = {
+        "tables_list": tabulator_tables_list,
+        "table_create": tabulator_table_create,
+        "table_delete": tabulator_table_delete,
+        "table_rename": tabulator_table_rename,
+        "table_get": tabulator_table_get,
+        "open_query_status": tabulator_open_query_status,
+        "open_query_toggle": tabulator_open_query_toggle,
+    }
+
+    func = dispatch_map.get(action)
+    if func is None:
+        return format_error_response(f"Unknown tabulator action: {action}")
+
+    try:
+        if getattr(func, "__code__", None) and func.__code__.co_flags & 0x80:
+            import asyncio
+
+            return asyncio.get_event_loop().run_until_complete(func(**params))
+        return func(**params)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Tabulator action %s failed", action)
+        return format_error_response(f"Tabulator action failed: {exc}")

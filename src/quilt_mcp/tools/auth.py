@@ -533,7 +533,7 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
 def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Authentication and catalog configuration operations.
-    
+
     Available actions:
     - status: Check Quilt authentication status with rich information
     - catalog_info: Get information about current catalog configuration
@@ -543,24 +543,24 @@ def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> 
     - configure_catalog: Configure Quilt catalog URL
     - filesystem_status: Check filesystem permissions and capabilities
     - switch_catalog: Switch to a different Quilt catalog
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = auth()
-        
+
         # Check status
         result = auth(action="status")
-        
+
         # Configure catalog
         result = auth(action="configure_catalog", catalog_url="https://example.com")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -573,7 +573,7 @@ def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> 
         "filesystem_status": filesystem_status,
         "switch_catalog": switch_catalog,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -582,7 +582,7 @@ def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> 
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -590,10 +590,11 @@ def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> 
             "status": "error",
             "error": f"Unknown action '{action}' for module 'auth'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
+        kwargs = params or {}
         result = func(**kwargs)
         # Normalize status/success fields for consistency
         if "status" in result and "success" not in result:
@@ -601,6 +602,7 @@ def auth(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> 
         return result
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

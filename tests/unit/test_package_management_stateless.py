@@ -29,6 +29,7 @@ async def test_metadata_update_requires_token(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_metadata_update_requires_catalog(monkeypatch):
+    monkeypatch.delenv("QUILT_CATALOG_URL", raising=False)
     with runtime_token("token"):
         result = package_management.package_update_metadata("user/pkg", {"key": "value"})
     assert result["success"] is False
@@ -40,12 +41,11 @@ async def test_metadata_update_merges_existing(monkeypatch):
     captured = {}
 
     def fake_query(**kwargs):
-        captured.update(kwargs)
+        captured.update({"query": kwargs})
         return {
             "package": {
                 "name": "user/pkg",
                 "hash": "hash",
-                "entries": {"edges": []},
                 "metadata": {"existing": True},
             }
         }
@@ -55,14 +55,8 @@ async def test_metadata_update_merges_existing(monkeypatch):
         return {"top_hash": "updated"}
 
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
-    monkeypatch.setattr(
-        "quilt_mcp.clients.catalog.catalog_graphql_query",
-        fake_query,
-    )
-    monkeypatch.setattr(
-        "quilt_mcp.clients.catalog.catalog_package_update",
-        fake_update,
-    )
+    monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_graphql_query", fake_query)
+    monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_package_update", fake_update)
 
     with runtime_token("token"):
         result = package_management.package_update_metadata(
@@ -72,7 +66,7 @@ async def test_metadata_update_merges_existing(monkeypatch):
             merge_with_existing=True,
         )
 
-    assert captured["registry_url"] == "https://catalog.example.com"
+    assert captured["query"]["registry_url"] == "https://catalog.example.com"
     update_call = captured["update"]
     assert update_call["package_name"] == "user/pkg"
     assert update_call["metadata"]["existing"] is True
@@ -84,7 +78,7 @@ async def test_metadata_update_merges_existing(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_metadata_update_replace(monkeypatch):
-    def fake_query(**_kwargs):
+    def fake_query(**kwargs):
         return {
             "package": {
                 "name": "user/pkg",
@@ -132,4 +126,4 @@ async def test_metadata_update_handles_errors(monkeypatch):
 
     assert result["success"] is False
     assert "Failed to update package metadata" in result["error"]
-    assert "boom" in result.get("cause", "")
+    assert result.get("cause") == "boom"

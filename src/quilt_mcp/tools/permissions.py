@@ -349,34 +349,34 @@ def _generate_smart_recommendations(
 def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     AWS permissions discovery and bucket recommendations.
-    
+
     Available actions:
     - discover: Discover AWS permissions for current user/role
     - access_check: Check specific access permissions for a bucket
     - recommendations_get: Get smart bucket recommendations based on permissions
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters (see individual action documentation)
-    
+
     Returns:
         Action-specific response dictionary with at minimum:
         - success: bool - Whether the operation succeeded
         - [action-specific fields]
-    
+
     Examples:
         # Discovery mode - list available actions
         result = permissions()
-        
+
         # Discover permissions
         result = permissions(action="discover", check_buckets=["my-bucket"])
-        
+
         # Check bucket access
         result = permissions(action="access_check", bucket_name="my-bucket")
-        
+
         # Get recommendations
         result = permissions(action="recommendations_get", operation_type="package_creation")
-    
+
     For detailed parameter documentation, see the individual action functions:
     - discover -> aws_permissions_discover()
     - access_check -> bucket_access_check()
@@ -388,7 +388,7 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
         "access_check": bucket_access_check,
         "recommendations_get": bucket_recommendations_get,
     }
-    
+
     # Discovery mode - return available actions
     if action is None:
         return {
@@ -397,15 +397,14 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
         return format_error_response(
-            f"Unknown action '{action}' for module 'permissions'. "
-            f"Available actions: {available}"
+            f"Unknown action '{action}' for module 'permissions'. Available actions: {available}"
         )
-    
+
     # Dispatch to action implementation
     try:
         func = actions[action]
@@ -414,12 +413,11 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
     except TypeError as e:
         # Extract expected parameters from the function signature
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return format_error_response(
-            f"Invalid parameters for action '{action}'. "
-            f"Expected parameters: {expected_params}. "
-            f"Error: {str(e)}"
+            f"Invalid parameters for action '{action}'. Expected parameters: {expected_params}. Error: {str(e)}"
         )
     except Exception as e:
         # Pass through business logic errors

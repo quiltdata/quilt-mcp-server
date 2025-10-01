@@ -5,7 +5,7 @@ for all Quilt packages, following the official Quilt documentation standards.
 """
 
 from typing import Optional, Dict, Any
-from typing import Dict, List, Any, Optional, Tuple
+from typing import List, Tuple
 import json
 import logging
 import io
@@ -572,23 +572,23 @@ def create_quilt_summary_files(
 def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Quilt package summary and visualization generation.
-    
+
     Available actions:
     - create_files: Create all Quilt summary files for a package
     - generate_viz: Generate comprehensive visualizations for the package
     - generate_json: Generate a comprehensive quilt_summarize.json file
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = quilt_summary()
-        
+
         # Create summary files
         result = quilt_summary(
             action="create_files",
@@ -598,7 +598,7 @@ def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = 
             readme_content="",
             source_info={}
         )
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -606,7 +606,7 @@ def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = 
         "generate_viz": generate_package_visualizations,
         "generate_json": generate_quilt_summarize_json,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -615,7 +615,7 @@ def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = 
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -623,7 +623,7 @@ def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = 
             "success": False,
             "error": f"Unknown action '{action}' for module 'quilt_summary'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -631,6 +631,7 @@ def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = 
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

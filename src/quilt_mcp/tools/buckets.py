@@ -541,7 +541,7 @@ def bucket_objects_search_graphql(
 def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     S3 bucket operations and object management.
-    
+
     Available actions:
     - object_fetch: Fetch binary or text data from an S3 object
     - object_info: Get metadata information for an S3 object
@@ -551,24 +551,24 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
     - objects_put: Upload multiple objects to an S3 bucket
     - objects_search: Search objects using Elasticsearch
     - objects_search_graphql: Search objects via GraphQL
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = buckets()
-        
+
         # List objects
         result = buckets(action="objects_list", bucket="my-bucket")
-        
+
         # Fetch object
         result = buckets(action="object_fetch", s3_uri="s3://bucket/key")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -581,7 +581,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         "objects_search": bucket_objects_search,
         "objects_search_graphql": bucket_objects_search_graphql,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -590,7 +590,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -598,7 +598,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
             "success": False,
             "error": f"Unknown action '{action}' for module 'buckets'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -606,6 +606,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

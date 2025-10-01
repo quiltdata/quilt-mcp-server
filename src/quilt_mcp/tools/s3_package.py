@@ -821,34 +821,34 @@ async def _create_package_from_objects(
 def s3_package(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Create well-organized Quilt packages from S3 bucket contents.
-    
+
     Available actions:
     - create_from_s3: Create a well-organized Quilt package from S3 bucket contents with smart organization
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = s3_package()
-        
+
         # Create from S3
         result = s3_package(
             action="create_from_s3",
             source_bucket="s3://my-bucket",
             package_name="user/dataset"
         )
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
         "create_from_s3": package_create_from_s3,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -857,7 +857,7 @@ def s3_package(action: str | None = None, params: Optional[Dict[str, Any]] = Non
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -865,7 +865,7 @@ def s3_package(action: str | None = None, params: Optional[Dict[str, Any]] = Non
             "success": False,
             "error": f"Unknown action '{action}' for module 's3_package'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -873,6 +873,7 @@ def s3_package(action: str | None = None, params: Optional[Dict[str, Any]] = Non
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

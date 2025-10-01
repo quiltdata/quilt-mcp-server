@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 
+from quilt_mcp.runtime import request_context
 from quilt_mcp.tools.package_ops import package_create
 from quilt_mcp.tools.s3_package import package_create_from_s3
 
@@ -53,21 +54,29 @@ class MockEntry:
         self.physical_key = source
 
 
+def _with_token():
+    return request_context("token", metadata={"session": "selector-tests"})
+
+
 @patch("quilt3.Package")
-def test_package_ops_copy_mode_none(mock_package_class):
+@patch(
+    "quilt_mcp.clients.catalog.catalog_package_create", return_value={"top_hash": "test_top_hash", "entries_added": 2}
+)
+def test_package_ops_copy_mode_none(mock_catalog_create, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
-    result = package_create(
-        package_name="team/pkg",
-        s3_uris=[
-            "s3://bucket-a/dir/file1.csv",
-            "s3://bucket-b/file2.json",
-        ],
-        registry="s3://target-bucket",
-        copy_mode="none",
-        flatten=True,
-    )
+    with _with_token():
+        result = package_create(
+            package_name="team/pkg",
+            s3_uris=[
+                "s3://bucket-a/dir/file1.csv",
+                "s3://bucket-b/file2.json",
+            ],
+            registry="s3://target-bucket",
+            copy_mode="none",
+            flatten=True,
+        )
 
     # The function should succeed and return status
     assert result.get("status") == "success"
@@ -75,20 +84,24 @@ def test_package_ops_copy_mode_none(mock_package_class):
 
 
 @patch("quilt3.Package")
-def test_package_ops_copy_mode_same_bucket(mock_package_class):
+@patch(
+    "quilt_mcp.clients.catalog.catalog_package_create", return_value={"top_hash": "test_top_hash", "entries_added": 2}
+)
+def test_package_ops_copy_mode_same_bucket(mock_catalog_create, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
-    result = package_create(
-        package_name="team/pkg",
-        s3_uris=[
-            "s3://target-bucket/path/file1.csv",
-            "s3://other-bucket/file2.json",
-        ],
-        registry="s3://target-bucket",
-        copy_mode="same_bucket",
-        flatten=True,
-    )
+    with _with_token():
+        result = package_create(
+            package_name="team/pkg",
+            s3_uris=[
+                "s3://target-bucket/path/file1.csv",
+                "s3://other-bucket/file2.json",
+            ],
+            registry="s3://target-bucket",
+            copy_mode="same_bucket",
+            flatten=True,
+        )
 
     # The function should succeed and return status
     assert result.get("status") == "success"

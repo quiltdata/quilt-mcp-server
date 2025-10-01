@@ -34,6 +34,7 @@ async def test_package_create_from_s3_requires_token(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_package_create_from_s3_requires_catalog(monkeypatch):
+    monkeypatch.delenv("QUILT_CATALOG_URL", raising=False)
     with runtime_token("token"):
         result = s3_package.package_create_from_s3("bucket", "user/pkg")
     assert result["success"] is False

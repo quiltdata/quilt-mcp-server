@@ -12,5 +12,3 @@ def extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
         return None
     token = authorization[7:].strip()
     return token or None
-
-

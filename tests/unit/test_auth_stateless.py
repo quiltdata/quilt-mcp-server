@@ -56,4 +56,3 @@ def test_auth_status_authenticated(monkeypatch):
     assert result["status"] == "authenticated"
     assert result["catalog_url"] == "https://catalog.example.com"
     assert result["search_available"] is True
-

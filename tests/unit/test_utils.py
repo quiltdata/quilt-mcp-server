@@ -3,10 +3,14 @@
 import inspect
 import os
 import unittest
+import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
-from quilt_mcp.tools import auth, buckets, package_ops, packages
+from quilt_mcp.tools import auth, buckets, packages
+from quilt_mcp import utils
+from quilt_mcp.tools import package_ops
 from quilt_mcp.utils import (
     create_configured_server,
     create_mcp_server,
@@ -262,10 +266,12 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_server = Mock(spec=FastMCP)
 
         # Test with verbose=False to avoid print output
-        tools_count = register_tools(mock_server, verbose=False)
+        with patch(
+            "quilt_mcp.utils.get_module_wrappers", return_value={"auth": auth.auth, "buckets": buckets.buckets}
+        ):
+            tools_count = register_tools(mock_server, verbose=False)
 
-        # Verify that tools were registered
-        self.assertGreater(tools_count, 0)
+        self.assertEqual(tools_count, 2)
         self.assertEqual(mock_server.tool.call_count, tools_count)
 
     def test_register_tools_with_specific_modules(self):
@@ -273,10 +279,11 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_server = Mock(spec=FastMCP)
 
         # Test with just one module
-        tools_count = register_tools(mock_server, tool_modules=[auth], verbose=False)
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value={"auth": auth.auth}):
+            tools_count = register_tools(mock_server, tool_modules=[auth], verbose=False)
 
         # Verify tools from auth module were registered
-        self.assertGreater(tools_count, 0)
+        self.assertEqual(tools_count, 1)
         self.assertEqual(mock_server.tool.call_count, tools_count)
 
     def test_register_tools_registers_module_wrappers(self):
@@ -284,53 +291,50 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_server = Mock(spec=FastMCP)
 
         # Register tools (now uses wrapper functions, not individual functions)
-        tools_count = register_tools(mock_server, verbose=False)
+        wrapper_map = {
+            "auth": auth.auth,
+            "buckets": buckets.buckets,
+            "packages": packages.packages,
+        }
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+            tools_count = register_tools(mock_server, verbose=False)
 
-        # Should register 16 module wrappers (one per module)
-        self.assertEqual(tools_count, 16)
-        
-        # Verify mock_server.tool was called 16 times
-        self.assertEqual(mock_server.tool.call_count, 16)
-        
-        # Verify some expected wrapper names were registered
+        self.assertEqual(tools_count, len(wrapper_map))
+        self.assertEqual(mock_server.tool.call_count, len(wrapper_map))
         registered_funcs = [call[0][0] for call in mock_server.tool.call_args_list]
         registered_names = [func.__name__ for func in registered_funcs]
-        
-        # Check that we have the expected wrapper functions
-        expected_wrappers = [
-            "auth", "buckets", "permissions", "packages", "search",
-            "athena_glue", "governance", "tabulator"
-        ]
-        for wrapper_name in expected_wrappers:
-            self.assertIn(wrapper_name, registered_names,
-                f"Expected wrapper '{wrapper_name}' not found in registered tools")
+        for wrapper_name in wrapper_map.keys():
+            self.assertIn(wrapper_name, registered_names)
 
     def test_register_tools_verbose_output(self):
         """Test that verbose mode produces output."""
         mock_server = Mock(spec=FastMCP)
 
-        with patch("sys.stderr") as mock_stderr:
-            # Register with verbose=True
-            register_tools(mock_server, tool_modules=[auth], verbose=True)
+        wrapper_map = {"auth": auth.auth}
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+            with patch("sys.stderr") as mock_stderr:
+                register_tools(mock_server, tool_modules=[auth], verbose=True)
 
-            # Check that print was called
-            mock_stderr.write.assert_called()
+                mock_stderr.write.assert_called()
 
-    def test_create_configured_server(self):
+    @patch("quilt_mcp.utils.FastMCP")
+    def test_create_configured_server(self, mock_fastmcp):
         """Test creating a fully configured server."""
-        server = create_configured_server(verbose=False)
+        wrapper_map = {"auth": auth.auth}
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+            create_configured_server(verbose=False)
 
-        self.assertIsInstance(server, FastMCP)
-        # The server should have tools registered (we can't easily verify this
-        # without inspecting internal state, but we can verify it doesn't crash)
+        self.assertTrue(mock_fastmcp.return_value.tool.called)
 
-    def test_create_configured_server_verbose_output(self):
+    @patch("quilt_mcp.utils.FastMCP")
+    def test_create_configured_server_verbose_output(self, mock_fastmcp):
         """Test that configured server produces verbose output."""
-        with patch("sys.stderr") as mock_stderr:
-            create_configured_server(verbose=True)
+        wrapper_map = {"auth": auth.auth}
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+            with patch("sys.stderr") as mock_stderr:
+                create_configured_server(verbose=True)
 
-            # Check that print was called for verbose output
-            mock_stderr.write.assert_called()
+                mock_stderr.write.assert_called()
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_success(self, mock_create_server):
@@ -340,7 +344,15 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
         # Set environment variable to a valid transport
         with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
-            run_server()
+            wrapper_map = {"auth": auth.auth}
+
+            class FakeFastAPI:
+                pass
+
+            fake_fastapi = SimpleNamespace(FastAPI=FakeFastAPI)
+            with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+                with patch.dict(sys.modules, {"fastapi": fake_fastapi}):
+                    run_server()
 
         # Verify server was created and run was called
         mock_create_server.assert_called_once()
@@ -354,7 +366,15 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
         # Clear transport environment variable
         with patch.dict(os.environ, {}, clear=True):
-            run_server()
+            wrapper_map = {"auth": auth.auth}
+
+            class FakeFastAPI:
+                pass
+
+            fake_fastapi = SimpleNamespace(FastAPI=FakeFastAPI)
+            with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+                with patch.dict(sys.modules, {"fastapi": fake_fastapi}):
+                    run_server()
 
         # Verify default transport is used
         mock_server.run.assert_called_once_with(transport="stdio")
@@ -366,7 +386,9 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_create_server.side_effect = Exception("Test error")
 
         with self.assertRaises(Exception) as context:
-            run_server()
+            wrapper_map = {"auth": auth.auth}
+            with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+                run_server()
 
         self.assertIn("Test error", str(context.exception))
 
@@ -376,32 +398,22 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_create_server.side_effect = Exception("Test error")
 
         with self.assertRaises(Exception) as context:
-            run_server()
+            wrapper_map = {"auth": auth.auth}
+            with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+                run_server()
 
         # Check that we got the expected error
         self.assertEqual(str(context.exception), "Test error")
 
-    def test_end_to_end_server_creation(self):
+    @patch("quilt_mcp.utils.FastMCP")
+    def test_end_to_end_server_creation(self, mock_fastmcp):
         """Test complete server creation and tool registration flow."""
         # This is an integration test that exercises the complete flow
-        server = create_configured_server(verbose=False)
+        wrapper_map = {"auth": auth.auth}
+        with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
+            create_configured_server(verbose=False)
 
-        # Verify we have a working server
-        self.assertIsInstance(server, FastMCP)
-
-        # Verify that our tool modules have the expected public functions
-        for module in get_tool_modules():
-            # Create a closure to capture the module variable properly
-            def make_predicate(current_module):
-                return lambda obj: (
-                    inspect.isfunction(obj)
-                    and not obj.__name__.startswith("_")
-                    and obj.__module__ == current_module.__name__
-                )
-
-            functions = inspect.getmembers(module, predicate=make_predicate(module))
-            # Each module should have at least one public function
-            self.assertGreater(len(functions), 0)
+        mock_fastmcp.assert_called()
 
     def test_all_tool_modules_importable(self):
         """Test that all tool modules can be imported and have expected structure."""

@@ -638,7 +638,7 @@ def _create_validation_template(params: Dict[str, Any]) -> Dict[str, Any]:
 def workflow_orchestration(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Workflow creation and orchestration for multi-step operations.
-    
+
     Available actions:
     - create: Create a new workflow for tracking multi-step operations
     - add_step: Add a step to an existing workflow
@@ -646,24 +646,24 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
     - get_status: Get the current status of a workflow
     - list_all: List all workflows with their current status
     - template_apply: Apply a pre-defined workflow template
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = workflow_orchestration()
-        
+
         # Create workflow
         result = workflow_orchestration(action="create", workflow_id="pkg-creation", name="Package Creation")
-        
+
         # Add step
         result = workflow_orchestration(action="add_step", workflow_id="pkg-creation", step_id="validate")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -674,7 +674,7 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
         "list_all": workflow_list_all,
         "template_apply": workflow_template_apply,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -683,7 +683,7 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -691,7 +691,7 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
             "success": False,
             "error": f"Unknown action '{action}' for module 'workflow_orchestration'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -699,6 +699,7 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

@@ -606,29 +606,29 @@ def _generate_success_guidance(result: Dict[str, Any], creation_method: str) -> 
 def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Unified package creation tool that handles everything automatically.
-    
+
     Available actions:
     - create: Unified package creation with automatic handling
     - list_available_resources: Auto-detect user's available buckets and registries
     - quick_start: Provide guided onboarding and setup assistance
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = unified_package()
-        
+
         # Create package
         result = unified_package(action="create", name="user/dataset", files=["s3://bucket/file.csv"])
-        
+
         # List resources
         result = unified_package(action="list_available_resources")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -636,7 +636,7 @@ def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] 
         "list_available_resources": list_available_resources,
         "quick_start": quick_start,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -645,7 +645,7 @@ def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] 
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -653,7 +653,7 @@ def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] 
             "success": False,
             "error": f"Unknown action '{action}' for module 'unified_package'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -661,6 +661,7 @@ def unified_package(action: str | None = None, params: Optional[Dict[str, Any]] 
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

@@ -81,9 +81,8 @@ class BearerAuthService:
             logger.debug("Loaded JWT secret from environment variable MCP_ENHANCED_JWT_SECRET")
             return env_secret, "env:MCP_ENHANCED_JWT_SECRET"
 
-        parameter_name = (
-            os.getenv("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER")
-            or os.getenv("MCP_ENHANCED_JWT_SECRET_PARAM")
+        parameter_name = os.getenv("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER") or os.getenv(
+            "MCP_ENHANCED_JWT_SECRET_PARAM"
         )
         region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
 
@@ -158,9 +157,9 @@ class BearerAuthService:
                 "Validating JWT: secret_source=%s kid=%s token_length=%d",
                 self._jwt_secret_source,
                 self.jwt_kid,
-                len(token)
+                len(token),
             )
-            
+
             payload = jwt.decode(
                 token,
                 self.jwt_secret,
@@ -173,10 +172,7 @@ class BearerAuthService:
             raise JwtAuthError("token_expired", "JWT token expired") from exc
         except jwt.InvalidTokenError as exc:
             logger.error(
-                "JWT validation failed: %s (secret_length=%d, kid=%s)",
-                str(exc),
-                len(self.jwt_secret),
-                self.jwt_kid
+                "JWT validation failed: %s (secret_length=%d, kid=%s)", str(exc), len(self.jwt_secret), self.jwt_kid
             )
             raise JwtAuthError("invalid_token", "JWT token could not be verified") from exc
 
@@ -211,7 +207,9 @@ class BearerAuthService:
     # Authorization helpers
     # ------------------------------------------------------------------
 
-    def authorize_tool(self, result: JwtAuthResult, tool_name: str, tool_args: Dict[str, Any]) -> AuthorizationDecision:
+    def authorize_tool(
+        self, result: JwtAuthResult, tool_name: str, tool_args: Dict[str, Any]
+    ) -> AuthorizationDecision:
         required_permissions = self.tool_permissions.get(tool_name, [])
 
         missing_perms = [perm for perm in required_permissions if perm not in result.permissions]

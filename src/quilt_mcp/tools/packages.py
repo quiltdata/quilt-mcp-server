@@ -463,31 +463,31 @@ def package_diff(
 def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Package browsing, search, and management operations.
-    
+
     Available actions:
     - browse: Browse the contents of a Quilt package with enhanced file information
     - contents_search: Search within a package's contents by filename or path
     - diff: Compare two package versions and show differences
     - list: List all available Quilt packages in a registry
     - search: Search for Quilt packages by content and metadata
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = packages()
-        
+
         # Browse package
         result = packages(action="browse", package_name="user/dataset")
-        
+
         # Search packages
         result = packages(action="search", query="genomics")
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -497,7 +497,7 @@ def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None)
         "list": packages_list,
         "search": packages_search,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -506,7 +506,7 @@ def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None)
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -514,7 +514,7 @@ def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None)
             "success": False,
             "error": f"Unknown action '{action}' for module 'packages'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -522,6 +522,7 @@ def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None)
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

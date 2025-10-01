@@ -2,6 +2,7 @@
 - Package ops now delegate to catalog client helpers and enforce runtime tokens; update dependent tools/tests to mock catalog_package_create/update/delete.
 - Bucket search stack now depends on catalog client helpers; ensure env exposes QUILT_CATALOG_URL or domain when running tests.
 - Auth module now resolves catalog context from environment + runtime tokens; configure tests by setting QUILT_CATALOG_URL and using request_context.
+- Pending follow-up: athena_service and governance/admin flows still depend on QuiltService; they're intentionally omitted from the current stateless migration and must remain off the happy path until refactored.
 <!-- markdownlint-disable MD013 -->
 # Development Guidelines for Claude
 

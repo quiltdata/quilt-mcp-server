@@ -132,7 +132,7 @@ def get_tool_modules() -> list[Any]:
 
 def get_module_wrappers() -> dict[str, Callable]:
     """Get module wrapper functions to register as MCP tools.
-    
+
     Returns a dictionary mapping tool names to their wrapper functions.
     Each wrapper function provides action-based dispatch to multiple operations.
     """
@@ -154,7 +154,7 @@ def get_module_wrappers() -> dict[str, Callable]:
         workflow_orchestration,
         governance,
     )
-    
+
     # Map tool names to their wrapper functions
     # Each wrapper provides action-based dispatch (e.g., auth(action="status"))
     return {
@@ -199,7 +199,7 @@ def resolve_catalog_url(explicit: Optional[str] = None) -> Optional[str]:
 
 def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:
     """Register module wrapper functions as MCP tools.
-    
+
     This registers 16 module-based tools (one per module) instead of 84 individual
     function tools. Each module wrapper provides action-based dispatch.
 
@@ -213,12 +213,12 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     """
     wrappers = get_module_wrappers()
     tools_registered = 0
-    
+
     for tool_name, wrapper_func in sorted(wrappers.items()):
         # Register the wrapper function as an MCP tool
         mcp.tool(wrapper_func)
         tools_registered += 1
-        
+
         if verbose:
             # Get action count by calling wrapper with action=None
             try:
@@ -233,10 +233,13 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
             except Exception:
                 # Fallback if discovery fails
                 print(f"Registered tool: {tool_name}", file=sys.stderr)
-    
+
     if verbose:
-        print(f"\n✅ Registered {tools_registered} module-based tools (reduced from 84 individual tools)", file=sys.stderr)
-    
+        print(
+            f"\n✅ Registered {tools_registered} module-based tools (reduced from 84 individual tools)",
+            file=sys.stderr,
+        )
+
     return tools_registered
 
 
@@ -356,10 +359,15 @@ def run_server() -> None:
         if transport in {"http", "streamable-http"}:
             app = _wrap_http_app(mcp)
             from fastapi import FastAPI
+
             if isinstance(app, FastAPI):
                 import uvicorn
 
-                uvicorn.run(app, host=os.environ.get("FASTMCP_ADDR", "0.0.0.0"), port=int(os.environ.get("FASTMCP_PORT", "8000")))
+                uvicorn.run(
+                    app,
+                    host=os.environ.get("FASTMCP_ADDR", "127.0.0.1"),
+                    port=int(os.environ.get("FASTMCP_PORT", "8000")),
+                )
                 return
 
         mcp.run(transport=transport)

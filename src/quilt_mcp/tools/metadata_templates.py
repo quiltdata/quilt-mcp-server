@@ -5,7 +5,7 @@ types, making it easy for users to create properly structured metadata.
 """
 
 from typing import Optional, Dict, Any
-from typing import Dict, Any, List
+from typing import List
 from datetime import datetime, timezone
 
 
@@ -178,29 +178,29 @@ def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = N
 def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Metadata templates and validation utilities.
-    
+
     Available actions:
     - get_template: Get a metadata template with optional custom fields
     - list_templates: List available metadata templates with descriptions
     - validate: Validate metadata structure and provide suggestions
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = metadata_templates()
-        
+
         # Get template
         result = metadata_templates(action="get_template", template_name="standard")
-        
+
         # Validate metadata
         result = metadata_templates(action="validate", metadata={"description": "test"})
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -208,7 +208,7 @@ def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any
         "list_templates": list_metadata_templates,
         "validate": validate_metadata_structure,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -217,7 +217,7 @@ def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -225,7 +225,7 @@ def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any
             "success": False,
             "error": f"Unknown action '{action}' for module 'metadata_templates'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -233,6 +233,7 @@ def metadata_templates(action: str | None = None, params: Optional[Dict[str, Any
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

@@ -64,6 +64,7 @@ def _prepare_metadata(
 
     return metadata_dict, None
 
+
 def package_create(
     package_name: str,
     s3_uris: list[str],
@@ -287,29 +288,29 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
 def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
     """
     Package creation, update, and deletion operations.
-    
+
     Available actions:
     - create: Create a new Quilt package from S3 objects
     - update: Update an existing Quilt package by adding new S3 objects
     - delete: Delete a Quilt package from the registry
-    
+
     Args:
         action: The operation to perform. If None, returns available actions.
         **kwargs: Action-specific parameters
-    
+
     Returns:
         Action-specific response dictionary
-    
+
     Examples:
         # Discovery mode
         result = package_ops()
-        
+
         # Create package
         result = package_ops(action="create", package_name="user/dataset", s3_uris=["s3://bucket/file.csv"])
-        
+
         # Update package
         result = package_ops(action="update", package_name="user/dataset", s3_uris=["s3://bucket/newfile.csv"])
-    
+
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
@@ -317,7 +318,7 @@ def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = No
         "delete": package_delete,
         "update": package_update,
     }
-    
+
     # Discovery mode
     if action is None:
         return {
@@ -326,7 +327,7 @@ def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = No
             "actions": list(actions.keys()),
             "usage": "Call with action='<action_name>' to execute",
         }
-    
+
     # Validate action
     if action not in actions:
         available = ", ".join(sorted(actions.keys()))
@@ -334,7 +335,7 @@ def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = No
             "success": False,
             "error": f"Unknown action '{action}' for module 'package_ops'. Available actions: {available}",
         }
-    
+
     # Dispatch
     try:
         func = actions[action]
@@ -342,6 +343,7 @@ def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = No
         return func(**params)
     except TypeError as e:
         import inspect
+
         sig = inspect.signature(func)
         expected_params = list(sig.parameters.keys())
         return {

@@ -143,10 +143,13 @@ class TestQuiltTools:
         """Test bucket_objects_search with successful results."""
         mock_payload = {"results": ["hit1", "hit2"]}
 
-        with patch(
-            "quilt_mcp.clients.catalog.catalog_bucket_search",
-            return_value=mock_payload,
-        ) as mock_search, runtime_token("token"):
+        with (
+            patch(
+                "quilt_mcp.clients.catalog.catalog_bucket_search",
+                return_value=mock_payload,
+            ) as mock_search,
+            runtime_token("token"),
+        ):
             result = bucket_objects_search("test-bucket", "data", limit=10, registry_url="https://catalog")
 
         mock_search.assert_called_once_with(
@@ -168,10 +171,13 @@ class TestQuiltTools:
         query_dsl = {"query": {"match": {"key": "test"}}}
         mock_payload = {"results": ["hit"]}
 
-        with patch(
-            "quilt_mcp.clients.catalog.catalog_bucket_search",
-            return_value=mock_payload,
-        ) as mock_search, runtime_token("token"):
+        with (
+            patch(
+                "quilt_mcp.clients.catalog.catalog_bucket_search",
+                return_value=mock_payload,
+            ) as mock_search,
+            runtime_token("token"),
+        ):
             result = bucket_objects_search("test-bucket", query_dsl, limit=5, registry_url="https://catalog")
 
         mock_search.assert_called_once()
@@ -185,20 +191,26 @@ class TestQuiltTools:
         """Test bucket_objects_search normalizes s3:// URI to bucket name."""
         mock_payload = {"results": []}
 
-        with patch(
-            "quilt_mcp.clients.catalog.catalog_bucket_search",
-            return_value=mock_payload,
-        ), runtime_token("token"):
+        with (
+            patch(
+                "quilt_mcp.clients.catalog.catalog_bucket_search",
+                return_value=mock_payload,
+            ),
+            runtime_token("token"),
+        ):
             result = bucket_objects_search("s3://test-bucket", "query", registry_url="https://catalog")
 
         assert result["bucket"] == "test-bucket"
 
     def test_bucket_objects_search_error(self):
         """Test bucket_objects_search with search error."""
-        with patch(
-            "quilt_mcp.clients.catalog.catalog_bucket_search",
-            side_effect=RuntimeError("Search endpoint not configured"),
-        ), runtime_token("token"):
+        with (
+            patch(
+                "quilt_mcp.clients.catalog.catalog_bucket_search",
+                side_effect=RuntimeError("Search endpoint not configured"),
+            ),
+            runtime_token("token"),
+        ):
             result = bucket_objects_search("test-bucket", "query", registry_url="https://catalog")
 
         assert isinstance(result, dict)
