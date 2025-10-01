@@ -885,6 +885,74 @@ class QuiltService:
         except Exception as e:
             self._handle_role_operation_error(e, name)
 
+    # SSO Configuration Methods
+    # Phase 3.2: SSO configuration operations
+
+    def _get_sso_admin_module(self) -> Any:
+        """Get the SSO configuration admin module.
+
+        Returns:
+            quilt3.admin.sso_config module
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        self._require_admin(context="SSO configuration operations require admin access.")
+        import quilt3.admin.sso_config
+
+        return quilt3.admin.sso_config
+
+    def get_sso_config(self) -> str | None:
+        """Get current SSO configuration.
+
+        Returns:
+            SSO configuration string if configured, None otherwise
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        sso_admin = self._get_sso_admin_module()
+        return sso_admin.get()
+
+    def set_sso_config(self, config: str) -> dict[str, Any]:
+        """Set SSO configuration.
+
+        Args:
+            config: SSO configuration string (typically YAML format)
+
+        Returns:
+            Dict with operation status and configuration details
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        sso_admin = self._get_sso_admin_module()
+        result = sso_admin.set(config)
+
+        # Ensure we return a dict with expected structure
+        if isinstance(result, dict):
+            return result
+        # If the module doesn't return a dict, construct one
+        return {"status": "success", "config": config}
+
+    def remove_sso_config(self) -> dict[str, Any]:
+        """Remove SSO configuration.
+
+        Returns:
+            Dict with operation status
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        sso_admin = self._get_sso_admin_module()
+        result = sso_admin.remove()
+
+        # Ensure we return a dict with expected structure
+        if isinstance(result, dict):
+            return result
+        # If the module doesn't return a dict, construct one
+        return {"status": "success", "message": "SSO configuration removed"}
+
     # Helper methods for create_package_revision
 
     def _validate_package_inputs(self, package_name: str, s3_uris: List[str]) -> None:
