@@ -21,9 +21,8 @@ class DummyTabulatorAdmin:
 
 @pytest.fixture(autouse=True)
 def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(tabulator, "ADMIN_AVAILABLE", True)
+    monkeypatch.setattr(tabulator.quilt_service, "has_admin_credentials", lambda: True)
     service = tabulator.TabulatorService()
-    service.admin_available = True
 
     # Create a mock QuiltService with all required methods
     mock_service = SimpleNamespace(
@@ -40,7 +39,6 @@ def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
 
 def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
     service = tabulator.TabulatorService()
-    service.admin_available = True
 
     # Mock QuiltService.create_tabulator_table method
     def mock_create_table(bucket, name, config):
@@ -71,7 +69,6 @@ def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
 
 def test_create_table_returns_validation_errors(monkeypatch: pytest.MonkeyPatch):
     service = tabulator.TabulatorService()
-    service.admin_available = True
 
     result = service.create_table(
         bucket_name="",

@@ -8,7 +8,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.services.exceptions import AdminNotAvailableError
 
 
 class TestGetSSOConfig:
@@ -45,17 +44,6 @@ class TestGetSSOConfig:
             assert config is None
             mock_sso_module.get.assert_called_once()
 
-    def test_get_sso_config_raises_admin_not_available(self):
-        """Test that get_sso_config() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.get_sso_config()
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
 
 class TestSetSSOConfig:
@@ -79,19 +67,6 @@ class TestSetSSOConfig:
             assert "status" in result or "success" in result or "config" in result
             mock_sso_module.set.assert_called_once_with(config_text)
 
-    def test_set_sso_config_raises_admin_not_available(self):
-        """Test that set_sso_config() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        config_text = "saml:\n  provider: okta"
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.set_sso_config(config_text)
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_set_sso_config_with_empty_string(self):
         """Test that set_sso_config() handles empty string config."""
@@ -145,17 +120,6 @@ class TestRemoveSSOConfig:
             # Result can be dict or object, depending on what module returns
             assert result is not None
 
-    def test_remove_sso_config_raises_admin_not_available(self):
-        """Test that remove_sso_config() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.remove_sso_config()
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_remove_sso_config_when_not_configured(self):
         """Test that remove_sso_config() handles case when SSO not configured."""
@@ -191,37 +155,5 @@ class TestRemoveSSOConfig:
 class TestGetSSOAdminModuleHelper:
     """Test _get_sso_admin_module() helper method."""
 
-    def test_get_sso_admin_module_returns_module_when_available(self):
-        """Test that _get_sso_admin_module() returns module when admin is available."""
-        service = QuiltService()
 
-        # Mock is_admin_available to return True
-        with patch.object(service, 'is_admin_available', return_value=True):
-            # Mock the quilt3.admin.sso_config module
-            with patch('quilt3.admin.sso_config') as mock_sso:
-                result = service._get_sso_admin_module()
 
-                # Verify we got the mocked module
-                assert result == mock_sso
-
-    def test_get_sso_admin_module_raises_when_unavailable(self):
-        """Test that _get_sso_admin_module() raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service._get_sso_admin_module()
-
-    def test_get_sso_admin_module_includes_context_in_error(self):
-        """Test that _get_sso_admin_module() includes SSO context in error message."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service._get_sso_admin_module()
-
-            # Error message should mention SSO operations
-            error_msg = str(exc_info.value)
-            assert "SSO" in error_msg or "sso" in error_msg or "Admin" in error_msg

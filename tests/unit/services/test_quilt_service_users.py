@@ -9,7 +9,6 @@ import pytest
 
 from quilt_mcp.services.quilt_service import QuiltService
 from quilt_mcp.services.exceptions import (
-    AdminNotAvailableError,
     UserNotFoundError,
     UserAlreadyExistsError,
 )
@@ -40,38 +39,7 @@ class TestUserListing:
                 assert "name" in user
                 assert "email" in user
 
-    def test_list_users_raises_admin_not_available(self):
-        """Test that list_users() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
 
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.list_users()
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
-
-    def test_list_users_with_admin_available_calls_admin_module(self):
-        """Test that list_users() properly calls the admin users module."""
-        service = QuiltService()
-
-        # Mock the admin module's list function
-        mock_users_module = Mock()
-        mock_users_module.list.return_value = [
-            {"name": "alice", "email": "alice@example.com", "role": "user"},
-            {"name": "bob", "email": "bob@example.com", "role": "admin"},
-        ]
-
-        with patch.object(service, '_get_users_admin_module', return_value=mock_users_module):
-            users = service.list_users()
-
-            # Verify the admin module was called
-            mock_users_module.list.assert_called_once()
-            # Verify we got the expected results
-            assert len(users) == 2
-            assert users[0]["name"] == "alice"
-            assert users[1]["name"] == "bob"
 
 
 class TestUserRetrieval:
@@ -98,17 +66,6 @@ class TestUserRetrieval:
             assert user["name"] == "alice"
             assert "email" in user
 
-    def test_get_user_raises_admin_not_available(self):
-        """Test that get_user() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.get_user("alice")
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_get_user_raises_user_not_found(self):
         """Test that get_user() raises UserNotFoundError when user doesn't exist."""
@@ -136,58 +93,12 @@ class TestUserRetrieval:
                 # Verify error message includes the username
                 assert "nonexistent" in str(exc_info.value)
 
-    def test_get_user_with_admin_available_calls_admin_module(self):
-        """Test that get_user() properly calls the admin users module."""
-        service = QuiltService()
-
-        # Mock the admin module's get function
-        mock_users_module = Mock()
-        mock_users_module.get.return_value = {
-            "name": "alice",
-            "email": "alice@example.com",
-            "role": "user",
-            "active": True,
-        }
-
-        with patch.object(service, '_get_users_admin_module', return_value=mock_users_module):
-            user = service.get_user("alice")
-
-            # Verify the admin module was called with correct username
-            mock_users_module.get.assert_called_once_with("alice")
-            # Verify we got the expected result
-            assert user["name"] == "alice"
-            assert user["email"] == "alice@example.com"
-            assert user["active"] is True
 
 
 class TestUsersAdminModuleHelper:
     """Test _get_users_admin_module() helper method."""
 
-    def test_get_users_admin_module_returns_module_when_available(self):
-        """Test that _get_users_admin_module() returns the module when available."""
-        service = QuiltService()
 
-        # Mock admin availability
-        with patch.object(service, 'is_admin_available', return_value=True):
-            # Mock the actual import
-            mock_users_module = Mock()
-            with patch('quilt3.admin.users', mock_users_module):
-                result = service._get_users_admin_module()
-
-                # Verify we got the mocked module
-                assert result is mock_users_module
-
-    def test_get_users_admin_module_raises_when_unavailable(self):
-        """Test that _get_users_admin_module() raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        # Mock admin availability
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service._get_users_admin_module()
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
 
 class TestUserCreation:
@@ -258,22 +169,6 @@ class TestUserCreation:
             assert user["name"] == "adminuser"
             assert user["extra_roles"] == ["viewer", "editor"]
 
-    def test_create_user_raises_admin_not_available(self):
-        """Test that create_user() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.create_user(
-                    name="newuser",
-                    email="newuser@example.com",
-                    role="user",
-                    extra_roles=None,
-                )
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_create_user_raises_user_already_exists(self):
         """Test that create_user() raises UserAlreadyExistsError for duplicate users."""
@@ -327,17 +222,6 @@ class TestUserDeletion:
             # Verify function returns None (no return value)
             assert result is None
 
-    def test_delete_user_raises_admin_not_available(self):
-        """Test that delete_user() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.delete_user("someuser")
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_delete_user_raises_user_not_found(self):
         """Test that delete_user() raises UserNotFoundError when user doesn't exist."""
@@ -391,17 +275,6 @@ class TestSetUserEmail:
             assert user["name"] == "alice"
             assert user["email"] == "newemail@example.com"
 
-    def test_set_user_email_raises_admin_not_available(self):
-        """Test that set_user_email() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        # Mock is_admin_available to return False
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.set_user_email("alice", "newemail@example.com")
-
-            # Verify error message is descriptive
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_set_user_email_raises_user_not_found(self):
         """Test that set_user_email() raises UserNotFoundError when user doesn't exist."""
@@ -475,15 +348,6 @@ class TestSetUserRole:
             mock_users_module.set_role.assert_called_once_with("alice", "user", ["editor"], True)
             assert user["extra_roles"] == ["viewer", "editor"]
 
-    def test_set_user_role_raises_admin_not_available(self):
-        """Test that set_user_role() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.set_user_role("alice", "admin", None, False)
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_set_user_role_raises_user_not_found(self):
         """Test that set_user_role() raises UserNotFoundError when user doesn't exist."""
@@ -553,15 +417,6 @@ class TestSetUserActive:
             assert user["name"] == "bob"
             assert user["active"] is False
 
-    def test_set_user_active_raises_admin_not_available(self):
-        """Test that set_user_active() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.set_user_active("alice", True)
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_set_user_active_raises_user_not_found(self):
         """Test that set_user_active() raises UserNotFoundError when user doesn't exist."""
@@ -633,15 +488,6 @@ class TestSetUserAdmin:
             assert user["name"] == "bob"
             assert user["admin"] is False
 
-    def test_set_user_admin_raises_admin_not_available(self):
-        """Test that set_user_admin() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.set_user_admin("alice", True)
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_set_user_admin_raises_user_not_found(self):
         """Test that set_user_admin() raises UserNotFoundError when user doesn't exist."""
@@ -711,15 +557,6 @@ class TestAddUserRoles:
             mock_users_module.add_roles.assert_called_once_with("bob", ["viewer"])
             assert "viewer" in user["extra_roles"]
 
-    def test_add_user_roles_raises_admin_not_available(self):
-        """Test that add_user_roles() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.add_user_roles("alice", ["viewer"])
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_add_user_roles_raises_user_not_found(self):
         """Test that add_user_roles() raises UserNotFoundError when user doesn't exist."""
@@ -790,15 +627,6 @@ class TestRemoveUserRoles:
             mock_users_module.remove_roles.assert_called_once_with("bob", ["admin"], "viewer")
             assert user["role"] == "viewer"
 
-    def test_remove_user_roles_raises_admin_not_available(self):
-        """Test that remove_user_roles() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.remove_user_roles("alice", ["viewer"], None)
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_remove_user_roles_raises_user_not_found(self):
         """Test that remove_user_roles() raises UserNotFoundError when user doesn't exist."""
@@ -847,15 +675,6 @@ class TestResetUserPassword:
             assert result["name"] == "alice"
             assert result["status"] == "password_reset_sent"
 
-    def test_reset_user_password_raises_admin_not_available(self):
-        """Test that reset_user_password() raises AdminNotAvailableError when admin unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.reset_user_password("alice")
-
-            assert "Admin operations not available" in str(exc_info.value)
 
     def test_reset_user_password_raises_user_not_found(self):
         """Test that reset_user_password() raises UserNotFoundError when user doesn't exist."""

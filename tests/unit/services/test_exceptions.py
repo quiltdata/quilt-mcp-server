@@ -12,19 +12,6 @@ class TestExceptionHierarchy:
 
         assert issubclass(QuiltServiceError, Exception)
 
-    def test_admin_not_available_error(self):
-        """Test AdminNotAvailableError exception."""
-        from quilt_mcp.services.exceptions import (
-            AdminNotAvailableError,
-            QuiltServiceError,
-        )
-
-        assert issubclass(AdminNotAvailableError, QuiltServiceError)
-
-        # Test instantiation and message
-        error = AdminNotAvailableError("Admin not available")
-        assert str(error) == "Admin not available"
-
     def test_user_not_found_error(self):
         """Test UserNotFoundError exception."""
         from quilt_mcp.services.exceptions import (
@@ -104,7 +91,6 @@ class TestExceptionMessages:
     def test_exceptions_preserve_messages(self):
         """Test that all exceptions preserve their message strings."""
         from quilt_mcp.services.exceptions import (
-            AdminNotAvailableError,
             BucketNotFoundError,
             PackageNotFoundError,
             QuiltServiceError,
@@ -118,7 +104,6 @@ class TestExceptionMessages:
 
         exceptions = [
             QuiltServiceError,
-            AdminNotAvailableError,
             UserNotFoundError,
             UserAlreadyExistsError,
             RoleNotFoundError,
@@ -153,10 +138,4 @@ class TestExceptionUsage:
         with pytest.raises(UserNotFoundError):
             raise UserNotFoundError("User not found")
 
-    def test_exception_attributes(self):
-        """Test that exceptions have standard Exception attributes."""
-        from quilt_mcp.services.exceptions import AdminNotAvailableError
 
-        error = AdminNotAvailableError("Admin unavailable")
-        assert hasattr(error, "args")
-        assert error.args == ("Admin unavailable",)

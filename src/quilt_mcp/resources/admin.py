@@ -13,7 +13,6 @@ from ..utils import format_error_response
 
 # Initialize service
 quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
 
 
 class AdminUsersResource(MCPResource):

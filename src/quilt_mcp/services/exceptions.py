@@ -16,16 +16,6 @@ class QuiltServiceError(Exception):
     pass
 
 
-class AdminNotAvailableError(QuiltServiceError):
-    """Admin operations are not available.
-
-    Raised when attempting admin operations but quilt3.admin modules
-    are not installed or available in the current environment.
-    """
-
-    pass
-
-
 class UserNotFoundError(QuiltServiceError):
     """User does not exist.
 

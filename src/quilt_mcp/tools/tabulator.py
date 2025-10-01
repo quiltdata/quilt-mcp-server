@@ -18,12 +18,8 @@ logger = logging.getLogger(__name__)
 # QuiltService provides admin module access
 from ..services.quilt_service import QuiltService
 
-# Initialize service and check availability
+# Initialize service
 quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
-
-if not ADMIN_AVAILABLE:
-    logger.warning("quilt3.admin not available - tabulator functionality disabled")
 
 
 class TabulatorService:
@@ -31,7 +27,6 @@ class TabulatorService:
 
     def __init__(self, use_quilt_auth: bool = True):
         self.use_quilt_auth = use_quilt_auth
-        self.admin_available = ADMIN_AVAILABLE and use_quilt_auth
 
     def _build_tabulator_config(
         self,
@@ -140,8 +135,6 @@ class TabulatorService:
     def list_tables(self, bucket_name: str) -> Dict[str, Any]:
         """List all tabulator tables for a bucket."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             # Use QuiltService to list tabulator tables
             tables = quilt_service.list_tabulator_tables(bucket_name)
@@ -197,8 +190,6 @@ class TabulatorService:
     ) -> Dict[str, Any]:
         """Create a new tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             # Validate inputs
             validation_errors = []
@@ -247,8 +238,6 @@ class TabulatorService:
     def delete_table(self, bucket_name: str, table_name: str) -> Dict[str, Any]:
         """Delete a tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
@@ -272,8 +261,6 @@ class TabulatorService:
     def rename_table(self, bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
         """Rename a tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
@@ -306,8 +293,6 @@ class TabulatorService:
     def get_open_query_status(self) -> Dict[str, Any]:
         """Get tabulator open query status."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             # Use QuiltService to get tabulator access status
             enabled = quilt_service.get_tabulator_access()
@@ -324,8 +309,6 @@ class TabulatorService:
     def set_open_query(self, enabled: bool) -> Dict[str, Any]:
         """Set tabulator open query status."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
 
             # Use QuiltService to set tabulator access status
             result = quilt_service.set_tabulator_access(enabled=enabled)

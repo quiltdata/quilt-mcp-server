@@ -12,7 +12,6 @@ from pathlib import Path
 import quilt3
 
 from .exceptions import (
-    AdminNotAvailableError,
     UserNotFoundError,
     UserAlreadyExistsError,
     RoleNotFoundError,
@@ -352,59 +351,41 @@ class QuiltService:
     # Search Operations Methods
     # Based on usage analysis: 1 call in packages.py
 
-    # Admin Operations Methods (Conditional)
-    # Based on usage analysis: 11 calls in tabulator.py and governance.py
+    # Admin Operations Methods
+    # quilt3.admin is always available as a required dependency
 
-    def is_admin_available(self) -> bool:
-        """Check if quilt3.admin modules are available.
+    def has_admin_credentials(self) -> bool:
+        """Check if current user has admin credentials in the catalog.
+
+        This performs a lightweight admin operation to test if the user
+        has admin privileges. Used for filtering admin tools in MCP.
 
         Returns:
-            True if admin functionality is available, False otherwise
+            True if user has admin credentials, False otherwise
         """
         try:
-            import quilt3.admin.users
             import quilt3.admin.roles
-            import quilt3.admin.sso_config
-            import quilt3.admin.tabulator
-
+            # Try to list roles - minimal operation that requires admin
+            quilt3.admin.roles.list()
             return True
-        except ImportError:
+        except Exception:
+            # Any error (auth, permissions, network) means no admin access
             return False
 
-    def _require_admin(self, context: str | None = None) -> None:
-        """Ensure admin functionality is available, raise if not.
-
-        Args:
-            context: Optional context message to include in error
-
-        Raises:
-            AdminNotAvailableError: If admin modules are not available
-        """
-        if not self.is_admin_available():
-            message = "Admin operations not available. quilt3.admin module not installed."
-            if context:
-                message = f"{message} {context}"
-            raise AdminNotAvailableError(message)
 
     def _get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes from quilt3.admin.
 
         Returns:
             Dict mapping exception names to exception classes
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
         """
-        try:
-            import quilt3.admin.exceptions
+        import quilt3.admin.exceptions
 
-            return {
-                'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
-                'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
-                'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
-            }
-        except ImportError as e:
-            raise AdminNotAvailableError(f"Admin operations not available. quilt3.admin module not installed: {e}")
+        return {
+            'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
+            'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
+            'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
+        }
 
     def get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes.
@@ -415,7 +396,6 @@ class QuiltService:
             Dict mapping exception names to exception classes
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         return self._get_admin_exceptions()
 
@@ -426,11 +406,7 @@ class QuiltService:
 
         Returns:
             quilt3.admin.users module
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
         """
-        self._require_admin(context="User management operations require admin access.")
         import quilt3.admin.users
 
         return quilt3.admin.users
@@ -466,7 +442,6 @@ class QuiltService:
             List of user dictionaries with user information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         users_admin = self._get_users_admin_module()
         return users_admin.list()
@@ -481,7 +456,6 @@ class QuiltService:
             User dictionary with detailed information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -504,7 +478,6 @@ class QuiltService:
             User dictionary with created user information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserAlreadyExistsError: If user already exists
         """
         users_admin = self._get_users_admin_module()
@@ -535,7 +508,6 @@ class QuiltService:
             name: Username to delete
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -556,7 +528,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -579,7 +550,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -600,7 +570,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -621,7 +590,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -642,7 +610,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -664,7 +631,6 @@ class QuiltService:
             User dictionary with updated information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -684,7 +650,6 @@ class QuiltService:
             Dictionary with password reset status information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             UserNotFoundError: If user does not exist
         """
         users_admin = self._get_users_admin_module()
@@ -702,10 +667,7 @@ class QuiltService:
         Returns:
             quilt3.admin.roles module
 
-        Raises:
-            AdminNotAvailableError: If admin modules not available
         """
-        self._require_admin(context="Role management operations require admin access.")
         import quilt3.admin.roles
 
         return quilt3.admin.roles
@@ -743,7 +705,6 @@ class QuiltService:
             List of role dictionaries with role information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         roles_admin = self._get_roles_admin_module()
         return roles_admin.list()
@@ -758,7 +719,6 @@ class QuiltService:
             Role dictionary with detailed information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             RoleNotFoundError: If role does not exist
         """
         roles_admin = self._get_roles_admin_module()
@@ -779,7 +739,6 @@ class QuiltService:
             Role dictionary with created role information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             RoleAlreadyExistsError: If role already exists
         """
         roles_admin = self._get_roles_admin_module()
@@ -805,7 +764,6 @@ class QuiltService:
             name: Role name to delete
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             RoleNotFoundError: If role does not exist
         """
         roles_admin = self._get_roles_admin_module()
@@ -825,9 +783,7 @@ class QuiltService:
             quilt3.admin.sso_config module
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
-        self._require_admin(context="SSO configuration operations require admin access.")
         import quilt3.admin.sso_config
 
         return quilt3.admin.sso_config
@@ -839,7 +795,6 @@ class QuiltService:
             SSO configuration string if configured, None otherwise
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         sso_admin = self._get_sso_admin_module()
         return sso_admin.get()
@@ -854,7 +809,6 @@ class QuiltService:
             SSO config object (despite type annotation saying dict - matches pattern of user methods)
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         sso_admin = self._get_sso_admin_module()
         # Return the config object directly, matching the pattern used by user management methods
@@ -868,7 +822,6 @@ class QuiltService:
             Result of remove operation (type annotation is dict but may vary)
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         sso_admin = self._get_sso_admin_module()
         # The module's remove() method may call set(None), so just pass through the result
@@ -884,9 +837,7 @@ class QuiltService:
             quilt3.admin.tabulator module
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
-        self._require_admin(context="Tabulator administration operations require admin access.")
         import quilt3.admin.tabulator
 
         return quilt3.admin.tabulator
@@ -922,7 +873,6 @@ class QuiltService:
             True if tabulator access is enabled, False otherwise
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         tabulator_admin = self._get_tabulator_admin_module()
         return tabulator_admin.get_open_query()
@@ -937,7 +887,6 @@ class QuiltService:
             Dict with operation status and enabled state
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
         """
         tabulator_admin = self._get_tabulator_admin_module()
         tabulator_admin.set_open_query(enabled)
@@ -958,7 +907,6 @@ class QuiltService:
             List of table dictionaries with table information
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             BucketNotFoundError: If bucket does not exist
         """
         tabulator_admin = self._get_tabulator_admin_module()
@@ -991,7 +939,6 @@ class QuiltService:
             Dict with table creation status and details
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             BucketNotFoundError: If bucket does not exist
         """
         tabulator_admin = self._get_tabulator_admin_module()
@@ -1024,7 +971,6 @@ class QuiltService:
             name: Name of the table to delete
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             BucketNotFoundError: If bucket does not exist
         """
         tabulator_admin = self._get_tabulator_admin_module()
@@ -1047,7 +993,6 @@ class QuiltService:
             Dict with rename status and details
 
         Raises:
-            AdminNotAvailableError: If admin modules not available
             BucketNotFoundError: If bucket does not exist
         """
         tabulator_admin = self._get_tabulator_admin_module()

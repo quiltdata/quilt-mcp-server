@@ -9,55 +9,9 @@ from unittest.mock import Mock, patch
 
 from quilt_mcp.services.quilt_service import QuiltService
 from quilt_mcp.services.exceptions import (
-    AdminNotAvailableError,
     RoleNotFoundError,
     RoleAlreadyExistsError,
 )
-
-
-class TestRoleManagementAvailability:
-    """Tests for role management availability checking."""
-
-    def test_list_roles_requires_admin_available(self):
-        """list_roles() raises AdminNotAvailableError when admin not available."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.list_roles()
-
-            assert "Admin operations not available" in str(exc_info.value)
-            assert "quilt3.admin module not installed" in str(exc_info.value)
-
-    def test_get_role_requires_admin_available(self):
-        """get_role() raises AdminNotAvailableError when admin not available."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.get_role("test_role")
-
-            assert "Admin operations not available" in str(exc_info.value)
-
-    def test_create_role_requires_admin_available(self):
-        """create_role() raises AdminNotAvailableError when admin not available."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.create_role("test_role", {"read": True})
-
-            assert "Admin operations not available" in str(exc_info.value)
-
-    def test_delete_role_requires_admin_available(self):
-        """delete_role() raises AdminNotAvailableError when admin not available."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service.delete_role("test_role")
-
-            assert "Admin operations not available" in str(exc_info.value)
 
 
 class TestListRoles:
@@ -206,24 +160,3 @@ class TestDeleteRole:
 class TestGetRolesAdminModuleHelper:
     """Tests for _get_roles_admin_module() helper."""
 
-    def test_get_roles_admin_module_returns_module_when_available(self):
-        """_get_roles_admin_module() returns the roles admin module when available."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=True):
-            # Just verify the method can be called and returns something
-            module = service._get_roles_admin_module()
-
-            # Verify it has expected module attributes
-            assert hasattr(module, 'list') or hasattr(module, 'get') or hasattr(module, '__name__')
-
-    def test_get_roles_admin_module_raises_when_unavailable(self):
-        """_get_roles_admin_module() raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError) as exc_info:
-                service._get_roles_admin_module()
-
-            assert "Admin operations not available" in str(exc_info.value)
-            assert "Role management operations require admin access" in str(exc_info.value)

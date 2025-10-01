@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 from typing import Any
 
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.services.exceptions import AdminNotAvailableError, BucketNotFoundError
+from quilt_mcp.services.exceptions import BucketNotFoundError
 
 
 class TestTabulatorAccessMethods:
@@ -40,13 +40,6 @@ class TestTabulatorAccessMethods:
             assert isinstance(result, bool)
             assert result is False
 
-    def test_get_tabulator_access_raises_admin_not_available(self):
-        """Test get_tabulator_access raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.get_tabulator_access()
 
     def test_set_tabulator_access_enables(self):
         """Test set_tabulator_access enables tabulator access."""
@@ -76,13 +69,6 @@ class TestTabulatorAccessMethods:
             assert result["enabled"] is False
             mock_admin.return_value.set_open_query.assert_called_once_with(False)
 
-    def test_set_tabulator_access_raises_admin_not_available(self):
-        """Test set_tabulator_access raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.set_tabulator_access(True)
 
 
 class TestTabulatorTableListing:
@@ -120,13 +106,6 @@ class TestTabulatorTableListing:
             assert isinstance(result, list)
             assert len(result) == 0
 
-    def test_list_tabulator_tables_raises_admin_not_available(self):
-        """Test list_tabulator_tables raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.list_tabulator_tables("test-bucket")
 
     def test_list_tabulator_tables_raises_bucket_not_found(self):
         """Test list_tabulator_tables raises BucketNotFoundError when bucket doesn't exist."""
@@ -198,13 +177,6 @@ parser:
             assert result["status"] == "success"
             assert result["table_name"] == "new_table"
 
-    def test_create_tabulator_table_raises_admin_not_available(self):
-        """Test create_tabulator_table raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.create_tabulator_table("test-bucket", "table", {})
 
     def test_create_tabulator_table_raises_bucket_not_found(self):
         """Test create_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
@@ -246,13 +218,6 @@ class TestTabulatorTableDeletion:
                 bucket_name="test-bucket", table_name="old_table", config=None
             )
 
-    def test_delete_tabulator_table_raises_admin_not_available(self):
-        """Test delete_tabulator_table raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.delete_tabulator_table("test-bucket", "table")
 
     def test_delete_tabulator_table_raises_bucket_not_found(self):
         """Test delete_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
@@ -298,13 +263,6 @@ class TestTabulatorTableRename:
                 bucket_name="test-bucket", table_name="old_name", new_table_name="new_name"
             )
 
-    def test_rename_tabulator_table_raises_admin_not_available(self):
-        """Test rename_tabulator_table raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError):
-                service.rename_tabulator_table("test-bucket", "old", "new")
 
     def test_rename_tabulator_table_raises_bucket_not_found(self):
         """Test rename_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
@@ -332,22 +290,4 @@ class TestTabulatorTableRename:
 class TestTabulatorAdminModule:
     """Test _get_tabulator_admin_module helper."""
 
-    def test_get_tabulator_admin_module_returns_module(self):
-        """Test _get_tabulator_admin_module returns the admin module."""
-        service = QuiltService()
 
-        with patch.object(service, 'is_admin_available', return_value=True):
-            with patch('quilt3.admin.tabulator') as mock_tabulator:
-                result = service._get_tabulator_admin_module()
-
-                assert result == mock_tabulator
-
-    def test_get_tabulator_admin_module_raises_when_unavailable(self):
-        """Test _get_tabulator_admin_module raises AdminNotAvailableError when unavailable."""
-        service = QuiltService()
-
-        with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(
-                AdminNotAvailableError, match="Tabulator administration operations require admin access"
-            ):
-                service._get_tabulator_admin_module()

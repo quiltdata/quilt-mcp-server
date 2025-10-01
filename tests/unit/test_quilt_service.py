@@ -470,34 +470,7 @@ class TestQuiltServiceCreatePackageRevision:
 class TestQuiltServiceAdmin:
     """Test admin module access methods."""
 
-    def test_is_admin_available_when_modules_present(self):
-        """Test is_admin_available returns True when admin modules are available."""
-        service = QuiltService()
-        # Mock admin modules being available
-        mock_users = Mock()
-        mock_roles = Mock()
-        mock_sso = Mock()
-        mock_tabulator = Mock()
 
-        with patch.dict(
-            'sys.modules',
-            {
-                'quilt3.admin.users': mock_users,
-                'quilt3.admin.roles': mock_roles,
-                'quilt3.admin.sso_config': mock_sso,
-                'quilt3.admin.tabulator': mock_tabulator,
-            },
-        ):
-            result = service.is_admin_available()
-            assert result is True
-
-    def test_is_admin_available_when_modules_missing(self):
-        """Test is_admin_available returns False when admin modules are missing."""
-        service = QuiltService()
-        # For this test, we'll mock the method behavior directly
-        with patch.object(service, 'is_admin_available', return_value=False):
-            result = service.is_admin_available()
-            assert result is False
 
     def test_get_admin_exceptions_when_available(self):
         """Test get_admin_exceptions returns exception classes when available."""
