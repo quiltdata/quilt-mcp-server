@@ -159,4 +159,3 @@ class TestDeleteRole:
 
 class TestGetRolesAdminModuleHelper:
     """Tests for _get_roles_admin_module() helper."""
-

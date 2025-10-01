@@ -40,8 +40,6 @@ class TestUserListing:
                 assert "email" in user
 
 
-
-
 class TestUserRetrieval:
     """Test get_user() method."""
 
@@ -65,7 +63,6 @@ class TestUserRetrieval:
             assert "name" in user
             assert user["name"] == "alice"
             assert "email" in user
-
 
     def test_get_user_raises_user_not_found(self):
         """Test that get_user() raises UserNotFoundError when user doesn't exist."""
@@ -94,11 +91,8 @@ class TestUserRetrieval:
                 assert "nonexistent" in str(exc_info.value)
 
 
-
 class TestUsersAdminModuleHelper:
     """Test _get_users_admin_module() helper method."""
-
-
 
 
 class TestUserCreation:
@@ -169,7 +163,6 @@ class TestUserCreation:
             assert user["name"] == "adminuser"
             assert user["extra_roles"] == ["viewer", "editor"]
 
-
     def test_create_user_raises_user_already_exists(self):
         """Test that create_user() raises UserAlreadyExistsError for duplicate users."""
         service = QuiltService()
@@ -222,7 +215,6 @@ class TestUserDeletion:
             # Verify function returns None (no return value)
             assert result is None
 
-
     def test_delete_user_raises_user_not_found(self):
         """Test that delete_user() raises UserNotFoundError when user doesn't exist."""
         service = QuiltService()
@@ -274,7 +266,6 @@ class TestSetUserEmail:
             # Verify we got the expected result
             assert user["name"] == "alice"
             assert user["email"] == "newemail@example.com"
-
 
     def test_set_user_email_raises_user_not_found(self):
         """Test that set_user_email() raises UserNotFoundError when user doesn't exist."""
@@ -348,7 +339,6 @@ class TestSetUserRole:
             mock_users_module.set_role.assert_called_once_with("alice", "user", ["editor"], True)
             assert user["extra_roles"] == ["viewer", "editor"]
 
-
     def test_set_user_role_raises_user_not_found(self):
         """Test that set_user_role() raises UserNotFoundError when user doesn't exist."""
         service = QuiltService()
@@ -416,7 +406,6 @@ class TestSetUserActive:
             mock_users_module.set_active.assert_called_once_with("bob", False)
             assert user["name"] == "bob"
             assert user["active"] is False
-
 
     def test_set_user_active_raises_user_not_found(self):
         """Test that set_user_active() raises UserNotFoundError when user doesn't exist."""
@@ -488,7 +477,6 @@ class TestSetUserAdmin:
             assert user["name"] == "bob"
             assert user["admin"] is False
 
-
     def test_set_user_admin_raises_user_not_found(self):
         """Test that set_user_admin() raises UserNotFoundError when user doesn't exist."""
         service = QuiltService()
@@ -556,7 +544,6 @@ class TestAddUserRoles:
 
             mock_users_module.add_roles.assert_called_once_with("bob", ["viewer"])
             assert "viewer" in user["extra_roles"]
-
 
     def test_add_user_roles_raises_user_not_found(self):
         """Test that add_user_roles() raises UserNotFoundError when user doesn't exist."""
@@ -627,7 +614,6 @@ class TestRemoveUserRoles:
             mock_users_module.remove_roles.assert_called_once_with("bob", ["admin"], "viewer")
             assert user["role"] == "viewer"
 
-
     def test_remove_user_roles_raises_user_not_found(self):
         """Test that remove_user_roles() raises UserNotFoundError when user doesn't exist."""
         service = QuiltService()
@@ -674,7 +660,6 @@ class TestResetUserPassword:
             # Verify we got the expected result
             assert result["name"] == "alice"
             assert result["status"] == "password_reset_sent"
-
 
     def test_reset_user_password_raises_user_not_found(self):
         """Test that reset_user_password() raises UserNotFoundError when user doesn't exist."""

@@ -92,8 +92,6 @@ def metadata_template_get(template_name: str, custom_fields: Dict[str, Any] = No
     return metadata
 
 
-
-
 def metadata_validate_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
     """
     Validate metadata structure and provide suggestions.

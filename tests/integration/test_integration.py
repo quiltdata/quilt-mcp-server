@@ -78,9 +78,7 @@ class TestQuiltAPI:
         return result
 
     @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
-
-
-        # def test_packages_list_returns_data(self):
+    # def test_packages_list_returns_data(self):
     #         """Test that packages_list returns actual packages from configured registry."""
     #         try:
     #             result = packages_list(registry=TEST_REGISTRY)
@@ -103,8 +101,7 @@ class TestQuiltAPI:
 
     @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
 
-
-        # def test_packages_list_prefix(self):
+    # def test_packages_list_prefix(self):
     #         """Test that prefix filtering works and finds the configured test package."""
     #         # Extract prefix from known test package
     #         test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
@@ -359,8 +356,7 @@ class TestQuiltAPI:
 
     @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
 
-
-        # def test_packages_list_invalid_registry_fails(self):
+    # def test_packages_list_invalid_registry_fails(self):
     #         """Test that invalid registry fails gracefully with proper error."""
     #         with pytest.raises(Exception) as exc_info:
     #             packages_list(registry="s3://definitely-nonexistent-bucket-xyz")
@@ -535,7 +531,7 @@ class TestQuiltAPI:
             assert len(diff.get("added", [])) == 0 or len(diff.get("deleted", [])) == 0
 
     @pytest.mark.slow
-        # def test_package_diff_different_packages(self):
+    # def test_package_diff_different_packages(self):
     #         """Test package_diff comparing two different packages."""
     #         # Get available packages first
     #         try:

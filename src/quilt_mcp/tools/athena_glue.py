@@ -11,6 +11,9 @@ import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
+
+import boto3
+
 from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
 
@@ -232,9 +235,6 @@ def athena_query_history(
         List of historical query executions
     """
     try:
-        import boto3
-        from datetime import datetime, timedelta
-
         # Create Athena client
         service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
         athena_client = boto3.client("athena")

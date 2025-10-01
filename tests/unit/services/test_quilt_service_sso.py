@@ -45,7 +45,6 @@ class TestGetSSOConfig:
             mock_sso_module.get.assert_called_once()
 
 
-
 class TestSetSSOConfig:
     """Test set_sso_config() method."""
 
@@ -66,7 +65,6 @@ class TestSetSSOConfig:
             assert isinstance(result, dict)
             assert "status" in result or "success" in result or "config" in result
             mock_sso_module.set.assert_called_once_with(config_text)
-
 
     def test_set_sso_config_with_empty_string(self):
         """Test that set_sso_config() handles empty string config."""
@@ -120,7 +118,6 @@ class TestRemoveSSOConfig:
             # Result can be dict or object, depending on what module returns
             assert result is not None
 
-
     def test_remove_sso_config_when_not_configured(self):
         """Test that remove_sso_config() handles case when SSO not configured."""
         service = QuiltService()
@@ -154,6 +151,3 @@ class TestRemoveSSOConfig:
 
 class TestGetSSOAdminModuleHelper:
     """Test _get_sso_admin_module() helper method."""
-
-
-

@@ -117,10 +117,6 @@ class TestGovernanceService:
     """Test the GovernanceService class."""
 
 
-
-
-
-
 class TestSSOConfiguration:
     """Test SSO configuration functions."""
 

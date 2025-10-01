@@ -412,9 +412,7 @@ def filesystem_status() -> dict[str, Any]:
 
     # Test temp directory write access
     try:
-        import tempfile as _tf
-
-        with _tf.NamedTemporaryFile(delete=True) as f:
+        with tempfile.NamedTemporaryFile(delete=True) as f:
             f.write(b"test")
         result["temp_writable"] = True
     except Exception as e:
@@ -678,5 +676,3 @@ def quick_start() -> dict[str, Any]:
                 "Visit: https://docs.quiltdata.com/ for detailed setup instructions",
             ],
         }
-
-

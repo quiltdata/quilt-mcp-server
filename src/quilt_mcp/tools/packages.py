@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import boto3
+
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url
@@ -134,8 +136,6 @@ def package_browse(
             if include_file_info and physical_key and physical_key.startswith("s3://"):
                 try:
                     # Try to get additional S3 metadata
-                    import boto3
-
                     from ..utils import get_s3_client
 
                     s3_client = get_s3_client()

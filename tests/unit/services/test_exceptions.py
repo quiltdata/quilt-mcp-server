@@ -137,5 +137,3 @@ class TestExceptionUsage:
 
         with pytest.raises(UserNotFoundError):
             raise UserNotFoundError("User not found")
-
-

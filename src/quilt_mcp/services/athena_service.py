@@ -444,8 +444,6 @@ class AthenaQueryService:
     def list_workgroups(self) -> List[Dict[str, Any]]:
         """List available Athena workgroups using the service's authentication patterns."""
         try:
-            import boto3
-
             # Use the same auth pattern as other service methods
             if self.use_quilt_auth:
                 # Use QuiltService for complete abstraction

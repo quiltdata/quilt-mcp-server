@@ -137,6 +137,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     # Check if user has admin credentials
     from .services.quilt_service import QuiltService
+
     service = QuiltService()
     has_admin = service.has_admin_credentials()
 
