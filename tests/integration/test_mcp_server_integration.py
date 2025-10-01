@@ -6,10 +6,10 @@ Smoke tests for Quilt MCP server tool functions (no external Quilt module).
 import pytest
 from quilt_mcp.tools.catalog import catalog_status
 from quilt_mcp.tools.packages import (
-    packages_list,
     package_browse,
     package_contents_search,
 )
+from quilt_mcp.tools.search import catalog_search
 
 
 @pytest.mark.aws
@@ -18,14 +18,14 @@ def test_quilt_tools():
     result = catalog_status()
     assert isinstance(result, dict)
 
-    # Basic listing call should return dict (mocked in unit runs)
+    # Basic catalog search should return dict (replaces packages_list)
     try:
-        pkgs = packages_list()
+        pkgs = catalog_search(query="*", scope="catalog", limit=10)
         assert isinstance(pkgs, dict)
     except Exception as e:
         if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
             # Expected in environments without proper AWS permissions
-            pkgs = {"packages": [], "error": "Access denied"}
+            pkgs = {"results": [], "error": "Access denied"}
         else:
             raise
 

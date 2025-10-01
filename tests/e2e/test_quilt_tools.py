@@ -8,12 +8,11 @@ from quilt_mcp.tools.catalog import (
     catalog_url,
 )
 
-# bucket_objects_search replaced with catalog_search
+# bucket_objects_search and packages_list replaced with catalog_search
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_list,
 )
 from quilt_mcp.tools.search import catalog_search
 
@@ -50,55 +49,7 @@ class TestQuiltTools:
             assert "setup_instructions" in result
             assert result["search_available"] is False
 
-    def test_packages_list_success(self):
-        """Test packages_list with successful response."""
-        mock_packages = ["user/package1", "user/package2"]
-        mock_package = Mock()
-        mock_package.meta = {"description": "Test package"}
-
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            result = packages_list()
-
-            # Result now has packages structure
-            assert isinstance(result, dict)
-            assert "packages" in result
-
-            packages = result["packages"]
-            assert len(packages) == 2
-            assert packages[0] == "user/package1"
-            assert packages[1] == "user/package2"
-
-    def test_packages_list_with_prefix(self):
-        """Test packages_list with prefix filter."""
-        mock_packages = ["user/package1", "user/package2", "other/package3"]
-        mock_package = Mock()
-        mock_package.meta = {}
-
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            result = packages_list(prefix="user/")
-
-            # Result now has packages structure
-            assert isinstance(result, dict)
-            assert "packages" in result
-
-            packages = result["packages"]
-            assert len(packages) == 2
-            assert all(pkg.startswith("user/") for pkg in packages)
-
-    def test_packages_list_error(self):
-        """Test packages_list with error."""
-        with patch("quilt3.list_packages", side_effect=Exception("Test error")):
-            try:
-                packages_list()
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "Test error" in str(e)
+    # packages_list tests removed - function replaced by catalog_search
 
     def test_package_browse_success(self):
         """Test package_browse with successful response."""

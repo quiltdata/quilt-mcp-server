@@ -6,7 +6,8 @@ Test script for the Quilt MCP server
 import asyncio
 import pytest
 from quilt_mcp.tools import catalog as auth_tools
-from quilt_mcp.tools.packages import packages_list, package_browse
+from quilt_mcp.tools.packages import package_browse
+from quilt_mcp.tools.search import catalog_search
 
 
 @pytest.mark.asyncio
@@ -21,15 +22,15 @@ async def test_quilt_tools():
     result = auth_tools.catalog_status()
     assert isinstance(result, dict)
 
-    # Test packages_list signature (dry call with default registry)
-    print("\n2. Testing packages_list (dry):")
+    # Test catalog_search (replaces packages_list)
+    print("\n2. Testing catalog_search (dry):")
     try:
-        response = packages_list()
+        response = catalog_search(query="*", scope="catalog", limit=10)
         assert isinstance(response, dict)
     except Exception as e:
         if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-            print(f"Skipped packages_list due to access denied: {e}")
-            response = {"packages": [], "error": "Access denied"}
+            print(f"Skipped catalog_search due to access denied: {e}")
+            response = {"results": [], "error": "Access denied"}
         else:
             raise
 
