@@ -5,7 +5,7 @@ Test script for the Quilt MCP server
 
 import asyncio
 import pytest
-from quilt_mcp.tools import auth as auth_tools
+from quilt_mcp.tools import catalog as auth_tools
 from quilt_mcp.tools.packages import packages_list, package_browse
 
 
@@ -16,9 +16,9 @@ async def test_quilt_tools():
     print("Testing Quilt MCP Server Tools...")
     print("=" * 50)
 
-    # Test auth_status tool
-    print("\n1. Testing auth_status:")
-    result = auth_tools.auth_status()
+    # Test catalog_status tool
+    print("\n1. Testing catalog_status:")
+    result = auth_tools.catalog_status()
     assert isinstance(result, dict)
 
     # Test packages_list signature (dry call with default registry)

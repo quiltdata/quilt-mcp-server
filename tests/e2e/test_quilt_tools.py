@@ -1,10 +1,9 @@
 from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
-from quilt_mcp.tools.auth import (
-    auth_status,
+from quilt_mcp.tools.catalog import (
+    catalog_status as auth_status,
     catalog_info,
-    catalog_name,
     catalog_uri,
     catalog_url,
 )
@@ -217,37 +216,6 @@ class TestQuiltTools:
             assert result["catalog_name"] == "test.catalog.com"
             assert result["is_authenticated"] is False
 
-    def test_catalog_name_from_authentication(self):
-        """Test catalog_name when detected from authentication."""
-        with (
-            patch("quilt3.logged_in", return_value="https://test.catalog.com"),
-            patch("quilt3.config", return_value={}),
-        ):
-            result = catalog_name()
-
-            assert isinstance(result, dict)
-            assert result["status"] == "success"
-            assert result["catalog_name"] == "test.catalog.com"
-            assert result["detection_method"] == "authentication"
-            assert result["is_authenticated"] is True
-
-    def test_catalog_name_from_config(self):
-        """Test catalog_name when detected from config."""
-        with (
-            patch("quilt3.logged_in", return_value=None),
-            patch(
-                "quilt3.config",
-                return_value={"navigator_url": "https://config.catalog.com"},
-            ),
-        ):
-            result = catalog_name()
-
-            assert isinstance(result, dict)
-            assert result["status"] == "success"
-            assert result["catalog_name"] == "config.catalog.com"
-            assert result["detection_method"] == "navigator_config"
-            assert result["is_authenticated"] is False
-
     def test_catalog_url_package_view(self):
         """Test catalog_url for package view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
@@ -319,8 +287,8 @@ class TestQuiltTools:
             assert result["tag"] == "v1.0"
 
     @patch('quilt_mcp.tools.search._catalog_search_backend')
-    def test_catalog_search_success(self, mock_catalog_search_backend):
-        """Test catalog_search with successful results."""
+    def test_catalog_search_backend_integration(self, mock_catalog_search_backend):
+        """Test catalog_search with backend integration."""
         mock_results = {
             "success": True,
             "results": [

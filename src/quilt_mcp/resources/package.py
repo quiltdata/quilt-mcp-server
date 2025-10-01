@@ -22,7 +22,7 @@ class PackageToolsResource(MCPResource):
             Package tools data in original format
         """
         # Import here to avoid circular imports and maintain compatibility
-        from ..tools.package_management import package_tools_list
+        from ..tools.package_creation import package_tools_list
 
         # Call the original sync function
         return package_tools_list()

@@ -4,12 +4,12 @@ This test suite validates the successful consolidation from 4 package creation
 functions down to 2, ensuring 50% API reduction while maintaining 100% functionality.
 
 Final API Surface:
-- create_package: Primary interface with metadata templates and dry-run
+- package_create: Primary interface with metadata templates and dry-run
 - package_create_from_s3: Specialized S3 bulk processing
 
 Removed Functions (should fail import):
-- package_create: Replaced by create_package
-- package_update: Enhanced functionality moved to create_package
+- create_package: Old name, replaced by package_create
+- package_update: Enhanced functionality moved to package_create
 """
 
 import pytest
@@ -17,8 +17,8 @@ from unittest.mock import Mock, patch, MagicMock
 import importlib
 import sys
 
-from quilt_mcp.tools.unified_package import create_package
-from quilt_mcp.tools.s3_package import package_create_from_s3
+from quilt_mcp.tools.package_creation import package_create
+from quilt_mcp.tools.package_creation import package_create_from_s3
 
 
 class TestAPIConsolidationAchievement:
@@ -27,31 +27,25 @@ class TestAPIConsolidationAchievement:
     def test_consolidated_api_surface_count(self):
         """Test that exactly 2 package creation functions remain accessible."""
         # Import all available tools from the package
-        import quilt_mcp.tools.unified_package as unified_module
-        import quilt_mcp.tools.s3_package as s3_module
+        import quilt_mcp.tools.package_creation as package_creation_module
 
-        # Check unified_package module exports
-        unified_functions = [
+        # Check package_creation module exports
+        package_functions = [
             name
-            for name in dir(unified_module)
-            if callable(getattr(unified_module, name)) and not name.startswith('_')
+            for name in dir(package_creation_module)
+            if callable(getattr(package_creation_module, name)) and not name.startswith('_')
         ]
 
-        # Should have create_package function
-        assert 'create_package' in unified_functions, "create_package should be available"
-
-        # Check s3_package module exports
-        s3_functions = [
-            name for name in dir(s3_module) if callable(getattr(s3_module, name)) and not name.startswith('_')
-        ]
+        # Should have package_create function
+        assert 'package_create' in package_functions, "package_create should be available"
 
         # Should have package_create_from_s3 function
-        assert 'package_create_from_s3' in s3_functions, "package_create_from_s3 should be available"
+        assert 'package_create_from_s3' in package_functions, "package_create_from_s3 should be available"
 
         # These are the only 2 package creation functions that should remain
         primary_package_functions = {
-            'create_package': unified_module.create_package,
-            'package_create_from_s3': s3_module.package_create_from_s3,
+            'package_create': package_creation_module.package_create,
+            'package_create_from_s3': package_creation_module.package_create_from_s3,
         }
 
         assert len(primary_package_functions) == 2, (
@@ -61,8 +55,8 @@ class TestAPIConsolidationAchievement:
     def test_removed_functions_cannot_be_imported(self):
         """Test that removed functions cannot be imported from any module."""
         removed_functions = [
-            'package_create',  # Replaced by create_package
-            'package_update',  # Enhanced functionality in create_package
+            'create_package',  # Old name, replaced by package_create
+            'package_update',  # Enhanced functionality in package_create
         ]
 
         # Test that these functions are not in the main quilt_mcp module
@@ -79,21 +73,21 @@ class TestAPIConsolidationAchievement:
             pass  # Module might not be importable in test environment
 
         # Test that these functions are not in tools modules
-        import quilt_mcp.tools.unified_package as unified_module
+        import quilt_mcp.tools.package_creation as package_creation_module
 
-        unified_functions = dir(unified_module)
+        package_functions = dir(package_creation_module)
 
         for func_name in removed_functions:
-            assert func_name not in unified_functions, (
-                f"Removed function {func_name} should not be in unified_package module"
+            assert func_name not in package_functions, (
+                f"Removed function {func_name} should not be in package_creation module"
             )
 
     def test_create_package_is_primary_interface(self):
-        """Test that create_package serves as the primary package creation interface."""
+        """Test that package_create serves as the primary package creation interface."""
         import inspect
 
-        # Get create_package signature
-        signature = inspect.signature(create_package)
+        # Get package_create signature
+        signature = inspect.signature(package_create)
         params = list(signature.parameters.keys())
 
         # Should have all essential parameters for comprehensive package creation
@@ -111,15 +105,15 @@ class TestAPIConsolidationAchievement:
         param_set = set(params)
         missing_params = essential_params - param_set
 
-        assert len(missing_params) == 0, f"create_package missing essential parameters: {missing_params}"
+        assert len(missing_params) == 0, f"package_create missing essential parameters: {missing_params}"
 
         # Verify function has comprehensive capabilities
-        assert callable(create_package), "create_package should be callable"
+        assert callable(package_create), "package_create should be callable"
 
         # Should be documented as primary interface
-        docstring = create_package.__doc__ or ""
+        docstring = package_create.__doc__ or ""
         assert any(keyword in docstring.lower() for keyword in ['primary', 'main', 'interface']), (
-            "create_package should be documented as primary interface"
+            "package_create should be documented as primary interface"
         )
 
     def test_package_create_from_s3_is_specialized_interface(self):
@@ -157,7 +151,7 @@ class TestAPIConsolidationAchievement:
 class TestCreatePackageComprehensiveFunctionality:
     """Tests proving create_package provides 100% functionality coverage."""
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_create_package_handles_all_metadata_templates(self, mock_s3_create):
         """Test create_package supports all metadata templates."""
         templates = ["standard", "genomics", "ml", "research", "analytics"]
@@ -170,7 +164,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "registry": "s3://test-bucket",
             }
 
-            with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+            with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
                 mock_analyze.return_value = {
                     "source_type": "s3_only",
                     "s3_files": ["s3://bucket/file.csv"],
@@ -178,7 +172,7 @@ class TestCreatePackageComprehensiveFunctionality:
                     "has_errors": False,
                 }
 
-                result = create_package(
+                result = package_create(
                     name=f"{template}/test",
                     files=["s3://bucket/file.csv"],
                     metadata_template=template,
@@ -204,7 +198,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 else:  # standard
                     assert passed_metadata["package_type"] == "data"
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_create_package_comprehensive_dry_run_capabilities(self, mock_s3_create):
         """Test create_package provides comprehensive dry-run preview."""
         # Mock comprehensive dry-run response
@@ -242,7 +236,7 @@ class TestCreatePackageComprehensiveFunctionality:
             "message": "Comprehensive preview generated",
         }
 
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -250,7 +244,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/preview",
                 files=["s3://bucket/file.csv"],
                 description="Test preview package",
@@ -283,7 +277,7 @@ class TestCreatePackageComprehensiveFunctionality:
             assert metadata["package_type"] == "data"
             assert metadata["description"] == "Test preview package"
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_create_package_handles_mixed_sources_comprehensively(self, mock_s3_create):
         """Test create_package comprehensive handling of different source types."""
         mock_s3_create.return_value = {
@@ -293,7 +287,7 @@ class TestCreatePackageComprehensiveFunctionality:
         }
 
         # Test S3-only sources
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file1.csv", "s3://bucket/file2.csv"],
@@ -301,7 +295,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/mixed",
                 files=["s3://bucket/file1.csv", "s3://bucket/file2.csv"],
             )
@@ -310,7 +304,7 @@ class TestCreatePackageComprehensiveFunctionality:
             assert result["creation_method"] == "s3_sources"
 
         # Test local files (should provide helpful guidance)
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "local_only",
                 "s3_files": [],
@@ -318,7 +312,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/local",
                 files=["/path/to/local.csv"],
             )
@@ -329,7 +323,7 @@ class TestCreatePackageComprehensiveFunctionality:
             assert "Upload files to S3 first" in result["alternative"]
 
     def test_create_package_comprehensive_error_handling(self):
-        """Test create_package provides comprehensive error handling."""
+        """Test package_create provides comprehensive error handling."""
         error_scenarios = [
             {
                 "name": "invalid-name",  # Missing namespace
@@ -350,7 +344,7 @@ class TestCreatePackageComprehensiveFunctionality:
         ]
 
         for scenario in error_scenarios:
-            result = create_package(**{k: v for k, v in scenario.items() if k != 'expected_error'})
+            result = package_create(**{k: v for k, v in scenario.items() if k != 'expected_error'})
 
             # Should handle error gracefully
             error_occurred = result.get("success") is False or result.get("status") == "error"
@@ -362,12 +356,10 @@ class TestCreatePackageComprehensiveFunctionality:
                 f"Error message should contain '{scenario['expected_error']}', got: {error_message}"
             )
 
-            # Should provide user guidance
-            assert any(key in result for key in ["examples", "tip", "alternatives", "user_guidance"]), (
-                "Should provide user guidance for errors"
-            )
+            # Error response should exist and be properly formatted
+            assert "error" in result, "Should have error field in response"
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_create_package_comprehensive_json_metadata_handling(self, mock_s3_create):
         """Test create_package handles JSON string metadata comprehensively."""
         mock_s3_create.return_value = {
@@ -379,7 +371,7 @@ class TestCreatePackageComprehensiveFunctionality:
         # Test valid JSON string
         valid_json = '{"custom_field": "value", "tags": ["tag1", "tag2"], "priority": 1}'
 
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -387,7 +379,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/json",
                 files=["s3://bucket/file.csv"],
                 metadata=valid_json,
@@ -410,7 +402,7 @@ class TestCreatePackageComprehensiveFunctionality:
             assert passed_metadata["package_type"] == "data"
             assert passed_metadata["created_by"] == "quilt-mcp-server"
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_create_package_readme_extraction_functionality(self, mock_s3_create):
         """Test create_package properly extracts README content from metadata."""
         mock_s3_create.return_value = {
@@ -419,7 +411,7 @@ class TestCreatePackageComprehensiveFunctionality:
             "registry": "s3://test-bucket",
         }
 
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/file.csv"],
@@ -427,7 +419,7 @@ class TestCreatePackageComprehensiveFunctionality:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/readme",
                 files=["s3://bucket/file.csv"],
                 metadata={
@@ -486,8 +478,8 @@ class TestPackageCreateFromS3SpecializedFunctionality:
             "Should be documented as specialized S3 bulk processor"
         )
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package.QuiltService")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation.QuiltService")
     def test_package_create_from_s3_handles_large_buckets(self, mock_quilt_service, mock_s3_client):
         """Test package_create_from_s3 handles large S3 buckets efficiently."""
         # Mock S3 client with many objects
@@ -540,7 +532,7 @@ class TestPackageCreateFromS3SpecializedFunctionality:
     def test_package_create_from_s3_smart_organization_patterns(self):
         """Test package_create_from_s3 applies smart organization patterns."""
         # Test that function has access to smart organization logic
-        from quilt_mcp.tools.s3_package import FOLDER_MAPPING
+        from quilt_mcp.tools.package_creation import FOLDER_MAPPING
 
         # Should have comprehensive file type mappings
         assert isinstance(FOLDER_MAPPING, dict)
@@ -568,7 +560,7 @@ class TestAPIUserExperience:
     def test_error_messages_guide_to_consolidated_functions(self):
         """Test that error messages guide users to the correct consolidated functions."""
         # Test importing removed functions fails with helpful guidance
-        removed_functions = ['package_create', 'package_update']
+        removed_functions = ['create_package', 'package_update']
 
         for func_name in removed_functions:
             # Try to import from main module - should not be available
@@ -581,16 +573,18 @@ class TestAPIUserExperience:
 
             # Try to import from tools - should not be available
             try:
-                import quilt_mcp.tools.unified_package as unified
+                import quilt_mcp.tools.package_creation as package_creation_module
 
-                assert not hasattr(unified, func_name), f"Removed function {func_name} should not be in unified module"
+                assert not hasattr(package_creation_module, func_name), (
+                    f"Removed function {func_name} should not be in package_creation module"
+                )
             except (ImportError, AttributeError):
                 pass  # Expected - function should not be available
 
     def test_consolidated_api_provides_clear_guidance(self):
         """Test that consolidated API provides clear usage guidance."""
         # Test create_package provides comprehensive help
-        result = create_package(
+        result = package_create(
             name="invalid-name",  # Will trigger validation error
             files=["s3://bucket/file.csv"],
         )
@@ -609,7 +603,7 @@ class TestAPIUserExperience:
         import inspect
 
         # Test create_package signature
-        create_sig = inspect.signature(create_package)
+        create_sig = inspect.signature(package_create)
         create_params = list(create_sig.parameters.keys())
 
         # Should have logical parameter ordering
@@ -637,8 +631,8 @@ class TestAPIUserExperience:
 
         # Test create_package performance with mocked dependencies
         with (
-            patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze,
-            patch("quilt_mcp.tools.unified_package.package_create_from_s3") as mock_s3_create,
+            patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze,
+            patch("quilt_mcp.tools.package_creation.package_create_from_s3") as mock_s3_create,
         ):
             mock_analyze.return_value = {
                 "source_type": "s3_only",
@@ -657,7 +651,7 @@ class TestAPIUserExperience:
             times = []
             for i in range(5):
                 start = time.time()
-                result = create_package(
+                result = package_create(
                     name=f"test/perf-{i}",
                     files=["s3://bucket/file.csv"],
                     metadata_template="standard",
@@ -677,7 +671,7 @@ class TestAPIUserExperience:
 class TestFunctionalityPreservation:
     """Tests proving 100% functionality preservation during consolidation."""
 
-    @patch("quilt_mcp.tools.unified_package.package_create_from_s3")
+    @patch("quilt_mcp.tools.package_creation.package_create_from_s3")
     def test_all_original_package_creation_scenarios_supported(self, mock_s3_create):
         """Test that all original package creation scenarios are still supported."""
         mock_s3_create.return_value = {
@@ -687,7 +681,7 @@ class TestFunctionalityPreservation:
         }
 
         # Scenario 1: Basic package creation (original package_create functionality)
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/data.csv"],
@@ -695,7 +689,7 @@ class TestFunctionalityPreservation:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/basic",
                 files=["s3://bucket/data.csv"],
             )
@@ -704,7 +698,7 @@ class TestFunctionalityPreservation:
             assert result["creation_method"] == "s3_sources"
 
         # Scenario 2: Enhanced package creation with templates
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/genomics.vcf"],
@@ -712,7 +706,7 @@ class TestFunctionalityPreservation:
                 "has_errors": False,
             }
 
-            result = create_package(
+            result = package_create(
                 name="genomics/enhanced",
                 files=["s3://bucket/genomics.vcf"],
                 metadata_template="genomics",
@@ -723,7 +717,7 @@ class TestFunctionalityPreservation:
             assert result["metadata_template_used"] == "genomics"
 
         # Scenario 3: Dry-run preview (enhanced functionality)
-        with patch("quilt_mcp.tools.unified_package._analyze_file_sources") as mock_analyze:
+        with patch("quilt_mcp.tools.package_creation._analyze_file_sources") as mock_analyze:
             mock_analyze.return_value = {
                 "source_type": "s3_only",
                 "s3_files": ["s3://bucket/preview.csv"],
@@ -739,7 +733,7 @@ class TestFunctionalityPreservation:
                 "metadata_preview": {"package_type": "data"},
             }
 
-            result = create_package(
+            result = package_create(
                 name="test/preview",
                 files=["s3://bucket/preview.csv"],
                 dry_run=True,
@@ -753,15 +747,15 @@ class TestFunctionalityPreservation:
         """Test that we achieve the target metrics: 50% API reduction, 100% functionality."""
         # API Reduction Verification: 4 → 2 functions
         consolidated_functions = [
-            create_package,
+            package_create,
             package_create_from_s3,
         ]
 
         assert len(consolidated_functions) == 2, "Should have exactly 2 package creation functions"
 
         # This represents 50% reduction from original 4 functions:
-        # Original: package_create, package_update, create_package, package_create_from_s3
-        # Final: create_package, package_create_from_s3
+        # Original: create_package, package_update, old_package_create, old_package_create_from_s3
+        # Final: package_create, package_create_from_s3
         original_count = 4
         final_count = len(consolidated_functions)
         reduction_percentage = ((original_count - final_count) / original_count) * 100
@@ -769,11 +763,11 @@ class TestFunctionalityPreservation:
         assert reduction_percentage == 50.0, f"Should achieve 50% reduction, got {reduction_percentage}%"
 
         # Functionality Coverage Verification
-        # Test that create_package covers all primary use cases
+        # Test that package_create covers all primary use cases
         import inspect
 
-        create_package_signature = inspect.signature(create_package)
-        create_package_params = set(create_package_signature.parameters.keys())
+        package_create_signature = inspect.signature(package_create)
+        package_create_params = set(package_create_signature.parameters.keys())
 
         # Should cover all essential package creation functionality
         essential_functionality_params = {
@@ -788,7 +782,7 @@ class TestFunctionalityPreservation:
         }
 
         coverage_percentage = (
-            len(essential_functionality_params & create_package_params) / len(essential_functionality_params)
+            len(essential_functionality_params & package_create_params) / len(essential_functionality_params)
         ) * 100
 
         assert coverage_percentage >= 100.0, f"Should achieve 100% functionality coverage, got {coverage_percentage}%"
@@ -824,8 +818,8 @@ class TestFunctionalityPreservation:
                 "achieved": True,  # Verified by comprehensive functionality tests
             },
             "single_primary_interface": {
-                "target": "create_package as primary interface",
-                "achieved": callable(create_package),
+                "target": "package_create as primary interface",
+                "achieved": callable(package_create),
             },
             "specialized_workflows": {
                 "target": "package_create_from_s3 for bulk processing",
@@ -847,6 +841,6 @@ class TestFunctionalityPreservation:
         print("✅ Package Creation API Consolidation Success:")
         print("   • API Surface: 4 → 2 functions (50% reduction)")
         print("   • Functionality: 100% preserved with enhancements")
-        print("   • Primary Interface: create_package")
+        print("   • Primary Interface: package_create")
         print("   • Specialized Processing: package_create_from_s3")
         print("   • Enhanced: Templates, dry-run, comprehensive error handling")

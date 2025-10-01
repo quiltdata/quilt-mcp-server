@@ -20,7 +20,7 @@
   - Promote `create_package_enhanced` to `package_create` (update function name, import/export wiring, docstrings, tests).
   - Rename `list_package_tools` to `package_tools_list` everywhere it appears.
 - **Search Consolidation**: Rename `unified_search` implementation and export to `catalog_search`; remove competing search APIs and update call sites/fixtures.
-- **Tabulator Admin Alignment**: Rename `admin_tabulator_open_query_get`/`set` to `tabular_accessibility_get`/`set` and adjust tests plus JSON fixtures.
+- **Tabulator Admin Alignment**: Rename `admin_tabulator_open_query_get`/`set` to `admin_tabulator_access_get`/`set` and adjust tests plus JSON fixtures.
 - **Metadata Prefixing**: Rename metadata helpers to the `metadata_` namespace (`metadata_template_get` → `metadata_template_get`, `metadata_template_create` → `metadata_template_create`, plus any derivatives) and update references across code and docs.
 - **Workflow Re-clustering**: Rename `workflow_list_all` → `workflow_list`, `workflow_add_step` → `workflow_step_add`, `workflow_update_step` → `workflow_step_update`, and `workflow_get_status` → `workflow_status_get`, syncing imports, tests, and documentation.
 - **Export Ordering**: Reorder `__all__` alphabetically for public tools with admin-only tools grouped at the end; maintain consistent module import ordering.

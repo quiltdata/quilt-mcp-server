@@ -87,15 +87,12 @@ def create_mcp_server() -> FastMCP:
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
     from quilt_mcp.tools import (
-        auth,
+        catalog,
         buckets,
-        package_ops,
+        package_creation,
         packages,
-        s3_package,
         permissions,
-        unified_package,
         metadata_templates,
-        package_management,
         metadata_examples,
         quilt_summary,
         search,
@@ -108,15 +105,12 @@ def get_tool_modules() -> list[Any]:
     # error_recovery temporarily disabled due to Callable parameter issues
 
     return [
-        auth,
+        catalog,
         buckets,
         packages,
-        package_ops,
-        s3_package,
+        package_creation,
         permissions,
-        unified_package,
         metadata_templates,
-        package_management,
         metadata_examples,
         quilt_summary,
         search,
@@ -142,21 +136,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         tool_modules = get_tool_modules()
 
     # List of deprecated tools (to reduce client confusion)
-    excluded_tools = {
-        "packages_list",  # Prefer catalog_search
-        "athena_tables_list",  # Prefer athena_query_execute
-        "get_tabulator_service",  # Internal service instance, not a tool
-        # Obsoleted by MCP resources (use ListMcpResourcesTool/ReadMcpResourceTool instead)
-        "admin_users_list",  # Use MCP resource admin://users
-        "admin_roles_list",  # Use MCP resource admin://roles
-        "list_available_resources",  # Use MCP resource s3://buckets
-        "athena_databases_list",  # Use MCP resource athena://databases
-        "athena_workgroups_list",  # Use MCP resource athena://workgroups
-        "list_metadata_templates",  # Use MCP resource metadata://templates
-        "workflow_list",  # Use MCP resource workflow://workflows
-        "package_tools_list",  # Use MCP resource package://tools
-        "tabulator_tables_list",  # Use MCP resource tabulator://{bucket}/tables
-    }
+    excluded_tools = {}
 
     tools_registered = 0
 

@@ -73,8 +73,8 @@
 | `unified_search` | `catalog_search` |
 | `packages_search` | `catalog_search` |
 | `bucket_objects_search` | `catalog_search` |
-| `admin_tabulator_open_query_get` | `tabular_accessibility_get` |
-| `admin_tabulator_open_query_set` | `tabular_accessibility_set` |
+| `admin_tabulator_open_query_get` | `admin_tabulator_access_get` |
+| `admin_tabulator_open_query_set` | `admin_tabulator_access_set` |
 | `get_metadata_template` | `metadata_template_get` |
 | `create_metadata_from_template` | `metadata_template_create` |
 | `workflow_list_all` | `workflow_list` |

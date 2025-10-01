@@ -12,27 +12,42 @@ from typing import Dict, Any, List
 class ResourceResponse:
     """Standardized response format for MCP resources."""
 
-    def __init__(self, resource_uri: str, items: List[Any], metadata: Dict[str, Any] = None):
+    def __init__(
+        self, resource_uri: str, items: List[Any], metadata: Dict[str, Any] = None, mime_type: str = "application/json"
+    ):
         """Initialize ResourceResponse.
 
         Args:
             resource_uri: URI identifying the resource
             items: List of items returned by the resource
             metadata: Optional additional metadata
+            mime_type: MIME type of the resource content
         """
+        self.uri = resource_uri  # Alias for MCP compatibility
         self.resource_uri = resource_uri
         self.resource_type = "list"
+        self.mime_type = mime_type
         self.items = items
         self.metadata = metadata or {}
         self.capabilities = self._get_default_capabilities()
 
+    @property
+    def content(self) -> Dict[str, Any]:
+        """Get content as a dictionary for MCP resource protocol."""
+        return {
+            "items": self.items,
+            "metadata": {
+                "total_count": len(self.items),
+                "has_more": False,
+                "continuation_token": None,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+                **self.metadata,
+            },
+        }
+
     def _get_default_capabilities(self) -> Dict[str, Any]:
         """Get default capabilities for resources."""
-        return {
-            "filterable": False,
-            "sortable": False,
-            "paginatable": False
-        }
+        return {"filterable": False, "sortable": False, "paginatable": False}
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format suitable for MCP responses."""
@@ -45,9 +60,9 @@ class ResourceResponse:
                 "has_more": False,
                 "continuation_token": None,
                 "last_updated": datetime.now(timezone.utc).isoformat(),
-                **self.metadata
+                **self.metadata,
             },
-            "capabilities": self.capabilities
+            "capabilities": self.capabilities,
         }
 
 
@@ -80,11 +95,26 @@ class MCPResource(ABC):
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get capabilities for this resource."""
-        return {
-            "filterable": False,
-            "sortable": False,
-            "paginatable": False
-        }
+        return {"filterable": False, "sortable": False, "paginatable": False}
+
+    async def get(self, **params) -> ResourceResponse:
+        """Get the resource as a ResourceResponse object.
+
+        Args:
+            **params: Resource-specific parameters
+
+        Returns:
+            ResourceResponse object with URI, content, and metadata
+        """
+        # Get raw resource data
+        raw_data = await self.list_items(**params)
+
+        # Extract items and metadata
+        items = self._extract_items(raw_data)
+        metadata = self._extract_metadata(raw_data)
+
+        # Create and return response
+        return ResourceResponse(self.uri, items, metadata)
 
     async def to_mcp_response(self, **params) -> Dict[str, Any]:
         """Convert resource data to standardized MCP response format.
@@ -95,14 +125,7 @@ class MCPResource(ABC):
         Returns:
             Standardized MCP resource response
         """
-        # Get raw resource data
-        raw_data = await self.list_items(**params)
-
-        # Extract items from the raw data based on resource type
-        items = self._extract_items(raw_data)
-
-        # Create standardized response
-        response = ResourceResponse(self.uri, items, self._extract_metadata(raw_data))
+        response = await self.get(**params)
         return response.to_dict()
 
     def _extract_items(self, raw_data: Dict[str, Any]) -> List[Any]:

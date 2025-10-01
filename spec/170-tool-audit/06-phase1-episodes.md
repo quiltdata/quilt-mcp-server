@@ -29,7 +29,7 @@
 
 ## Episode 4 – Tabulator Accessibility Alignment
 
-- **Goal**: Rename admin tabulator tools to `tabular_accessibility_get`/`tabular_accessibility_set` and remove open query variants.
+- **Goal**: Rename admin tabulator tools to `admin_tabulator_access_get`/`admin_tabulator_access_set` and remove open query variants.
 - **Red Step**: Add behavior tests ensuring the new names exist and old ones raise `AttributeError`, plus verifying responses still match expectations.
 - **Green Step**: Rename functions, update exports, adjust fixtures (`tests/fixtures/tabulator/*.json`), and update documentation references.
 - **Refactor Step**: Remove any now-unused helper constants; ensure admin tooling list is coherent.

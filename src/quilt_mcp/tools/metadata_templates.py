@@ -123,7 +123,7 @@ def list_metadata_templates() -> Dict[str, Any]:
     }
 
 
-def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
+def metadata_validate_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
     """
     Validate metadata structure and provide suggestions.
 

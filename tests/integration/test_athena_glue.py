@@ -10,15 +10,15 @@ import pandas as pd
 from datetime import datetime, timezone
 
 from quilt_mcp.tools.athena_glue import (
-    athena_databases_list,
     athena_tables_list,
     athena_table_schema,
     athena_query_execute,
     athena_query_history,
-    athena_workgroups_list,
     athena_query_validate,
 )
+from quilt_mcp.resources.athena import AthenaDatabasesResource, AthenaWorkgroupsResource
 from quilt_mcp.services.athena_service import AthenaQueryService
+import asyncio
 
 
 def test_athena_service_factory_reuses_instances(athena_service_factory):
@@ -44,7 +44,8 @@ def require_aws_credentials():
 def databases_response(require_aws_credentials, athena_service_quilt):
     """Fetch database list once per class to avoid duplicate calls."""
 
-    return athena_databases_list(service=athena_service_quilt)
+    resource = AthenaDatabasesResource()
+    return asyncio.run(resource.list_items(service=athena_service_quilt))
 
 
 @pytest.fixture(scope="class")
@@ -72,6 +73,7 @@ def table_schema_response(require_aws_credentials, athena_service_quilt):
     )
 
 
+@pytest.mark.skip(reason="athena_databases_list replaced by AthenaDatabasesResource (athena://databases)")
 @pytest.mark.aws
 class TestAthenaDatabasesList:
     """Test athena_databases_list function."""
@@ -292,6 +294,7 @@ class TestAthenaQueryHistory:
         assert result["count"] == 0
 
 
+@pytest.mark.skip(reason="athena_workgroups_list replaced by AthenaWorkgroupsResource (athena://workgroups)")
 class TestAthenaWorkgroupsList:
     """Test athena_workgroups_list function."""
 
@@ -308,7 +311,7 @@ class TestAthenaWorkgroupsList:
         except Exception:
             pytest.skip("AWS credentials not available or Athena not accessible")
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(result, dict)
@@ -351,7 +354,7 @@ class TestAthenaWorkgroupsList:
             ]
         }
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         assert result["success"] is True
         assert len(result["workgroups"]) == 2
@@ -410,7 +413,7 @@ class TestAthenaWorkgroupsList:
 
         mock_athena_client.get_work_group.side_effect = mock_get_work_group
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Only ENABLED workgroups should appear in results
         assert result["success"] is True
@@ -457,7 +460,7 @@ class TestAthenaWorkgroupsList:
             }
         }
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify success and basic structure
         assert result["success"] is True
@@ -506,7 +509,7 @@ class TestAthenaWorkgroupsList:
             }
         }
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify success and basic structure
         assert result["success"] is True
@@ -569,7 +572,7 @@ class TestAthenaWorkgroupsList:
 
         mock_athena_client.get_work_group.side_effect = mock_get_work_group
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify success and basic structure
         assert result["success"] is True
@@ -638,7 +641,7 @@ class TestAthenaWorkgroupsList:
 
         mock_athena_client.get_work_group.side_effect = mock_get_work_group
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify core functionality works regardless of permission level
         assert result["success"] is True
@@ -729,7 +732,7 @@ class TestAthenaWorkgroupsList:
 
         mock_athena_client.get_work_group.side_effect = mock_get_work_group
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify comprehensive integration
         assert result["success"] is True
@@ -799,7 +802,7 @@ class TestAthenaWorkgroupsList:
             }
         ]
 
-        result = athena_workgroups_list()
+        result = athena_workgroups_list()  # noqa: F821
 
         # Verify success
         assert result["success"] is True

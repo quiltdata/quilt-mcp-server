@@ -4,7 +4,7 @@ Smoke tests for Quilt MCP server tool functions (no external Quilt module).
 """
 
 import pytest
-from quilt_mcp.tools.auth import auth_status
+from quilt_mcp.tools.catalog import catalog_status
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
@@ -14,8 +14,8 @@ from quilt_mcp.tools.packages import (
 
 @pytest.mark.aws
 def test_quilt_tools():
-    # Auth tool returns a structured dict
-    result = auth_status()
+    # Catalog status tool returns a structured dict
+    result = catalog_status()
     assert isinstance(result, dict)
 
     # Basic listing call should return dict (mocked in unit runs)

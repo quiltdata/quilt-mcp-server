@@ -70,8 +70,8 @@ This specification **DELETES REDUNDANT TOOLS IMMEDIATELY** with zero deprecation
 
 **SURVIVORS:**
 
-- `admin_tabulator_open_query_get` - Proper admin tool (renamed to `tabular_accessibility_get`)
-- `admin_tabulator_open_query_set` - Proper admin tool (renamed to `tabular_accessibility_set`)
+- `admin_tabulator_open_query_get` - Proper admin tool (renamed to `admin_tabulator_access_get`)
+- `admin_tabulator_open_query_set` - Proper admin tool (renamed to `admin_tabulator_access_set`)
 
 ### 5. Metadata Templates - MINOR CONSOLIDATION
 

@@ -475,6 +475,21 @@ Required secrets for Docker operations:
 - **Error message updates**: Update any error messages or suggestions to reference the consolidated function instead of removed ones
 - **Achievement**: 75% reduction in search API surface area while preserving 100% of functionality with enhanced capabilities
 
+### 2025-09-30 Migration of _list Functions to MCP Resources
+- **Legacy `_list` functions removed from public API exports**: `list_available_resources`, `list_metadata_templates`, `workflow_list`, `package_tools_list`, `tabulator_tables_list` are no longer exported from `quilt_mcp.__init__`
+- **Functions remain as implementation details**: All 5 functions still exist in their original locations and are called internally by their corresponding MCP resources
+- **Resource pattern for tests**: Tests should now use `from quilt_mcp.resources import SomeResource` and call `await SomeResource().list_items()` instead of importing/calling `_list` functions directly
+- **Resource mappings**:
+  - `list_available_resources()` → `S3BucketsResource().list_items()` (s3://buckets)
+  - `list_metadata_templates()` → `MetadataTemplatesResource().list_items()` (metadata://templates)
+  - `workflow_list()` → `WorkflowResource().list_items()` (workflow://workflows)
+  - `package_tools_list()` → `PackageToolsResource().list_items()` (package://tools)
+  - `tabulator_tables_list(bucket)` → `TabulatorTablesResource().list_items(bucket_name=bucket)` (tabulator://{bucket}/tables)
+- **Previously removed**: `admin_users_list`, `admin_roles_list`, `athena_databases_list`, `athena_workgroups_list` were fully deleted and replaced by `AdminUsersResource`, `AdminRolesResource`, `AthenaDatabasesResource`, `AthenaWorkgroupsResource`
+- **Import pattern**: `from quilt_mcp.resources.workflow import WorkflowResource` then `listing = asyncio.run(WorkflowResource().list_items())`
+- **Breaking change**: Removing from `__all__` is a breaking change for external code importing these functions from `quilt_mcp` package
+- **No functionality loss**: All functionality preserved via MCP resources which provide richer metadata and consistent interface
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.

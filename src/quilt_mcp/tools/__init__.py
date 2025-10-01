@@ -1,25 +1,22 @@
 """MCP tools for Quilt data access.
 
 This package contains all the MCP tool implementations organized by functionality:
-- auth: Authentication and filesystem checks
+- catalog: Catalog configuration, status, and onboarding
 - buckets: S3 bucket operations
 - packages: Package browsing and search
-- package_ops: Package creation, update, and deletion
-- s3_package: S3-to-package creation functionality
+- package_creation: Package creation workflows
 - permissions: AWS permissions discovery and bucket recommendations
-- unified_package: Simplified, intelligent package creation interface
 - metadata_templates: Metadata templates and validation utilities
-- package_management: Enhanced package management with better UX
 - athena_glue: AWS Athena queries and Glue Data Catalog discovery
 - tabulator: Quilt tabulator table management for SQL querying across packages
 
 These tools are pure functions that are registered by the tools module.
 
 Example usage:
-    from quilt_mcp.tools import auth, buckets, packages, package_ops
+    from quilt_mcp.tools import catalog, buckets, packages, package_creation
 
-    # Use auth tools
-    status = auth.auth_status()
+    # Use catalog tools
+    status = catalog.catalog_status()
 
     # Use bucket tools
     objects = buckets.bucket_objects_list("my-bucket")
@@ -29,15 +26,12 @@ Example usage:
 """
 
 from . import (
-    auth,
+    catalog,
     buckets,
-    package_ops,
+    package_creation,
     packages,
-    s3_package,
     permissions,
-    unified_package,
     metadata_templates,
-    package_management,
     metadata_examples,
     quilt_summary,
     graphql,
@@ -51,15 +45,12 @@ from . import (
 # error_recovery temporarily disabled due to Callable parameter issues
 
 __all__ = [
-    "auth",
+    "catalog",
     "buckets",
     "packages",
-    "package_ops",
-    "s3_package",
+    "package_creation",
     "permissions",
-    "unified_package",
     "metadata_templates",
-    "package_management",
     "metadata_examples",
     "quilt_summary",
     "graphql",

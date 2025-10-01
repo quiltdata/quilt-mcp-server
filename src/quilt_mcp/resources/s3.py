@@ -22,7 +22,7 @@ class S3BucketsResource(MCPResource):
             S3 buckets data in original format
         """
         # Import here to avoid circular imports and maintain compatibility
-        from ..tools.unified_package import list_available_resources
+        from ..tools.catalog import list_available_resources
 
         # Call the original sync function
         return list_available_resources()

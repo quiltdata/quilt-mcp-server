@@ -78,8 +78,8 @@ NOTE: catalog_search should be canonical. The others should be removed.
 
 #### Tabulator Access
 
-- tabular_accessibility_get
-- tabular_accessibility_set
+- admin_tabulator_access_get
+- admin_tabulator_access_set
 
 #### Resource
 

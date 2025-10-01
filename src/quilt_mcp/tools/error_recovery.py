@@ -345,9 +345,9 @@ def health_check_with_recovery() -> Dict[str, Any]:
 def _check_auth_status() -> Dict[str, Any]:
     """Check authentication status."""
     try:
-        from .auth import auth_status
+        from .catalog import catalog_status
 
-        return auth_status()
+        return catalog_status()
     except Exception as e:
         raise Exception(f"Auth check failed: {e}")
 

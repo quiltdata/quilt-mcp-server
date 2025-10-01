@@ -4,8 +4,14 @@ This module implements MCP resources for Athena-related functions like
 database and workgroup discovery.
 """
 
+import logging
+import os
 from typing import Dict, Any, List
 from .base import MCPResource
+from ..services.athena_service import AthenaQueryService
+from ..utils import format_error_response
+
+logger = logging.getLogger(__name__)
 
 
 class AthenaDatabasesResource(MCPResource):
@@ -25,11 +31,12 @@ class AthenaDatabasesResource(MCPResource):
         Returns:
             Athena databases data in original format
         """
-        # Import here to avoid circular imports and maintain compatibility
-        from ..tools.athena_glue import athena_databases_list
-
-        # Call the original sync function
-        return athena_databases_list(catalog_name=catalog_name, service=service)
+        try:
+            service = service or AthenaQueryService()
+            return service.discover_databases(catalog_name)
+        except Exception as e:
+            logger.error(f"Failed to list databases: {e}")
+            return format_error_response(f"Failed to list databases: {str(e)}")
 
     def _extract_items(self, raw_data: Dict[str, Any]) -> List[Any]:
         """Extract databases list from Athena databases data."""
@@ -63,11 +70,33 @@ class AthenaWorkgroupsResource(MCPResource):
         Returns:
             Athena workgroups data in original format
         """
-        # Import here to avoid circular imports and maintain compatibility
-        from ..tools.athena_glue import athena_workgroups_list
+        try:
+            # Use consolidated AthenaQueryService for consistent authentication patterns
+            service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
 
-        # Call the original sync function
-        return athena_workgroups_list(use_quilt_auth=use_quilt_auth, service=service)
+            # Get workgroups using the service's consolidated method
+            workgroups = service.list_workgroups()
+
+            # Determine region for response metadata
+            region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+
+            result = {
+                "success": True,
+                "workgroups": workgroups,
+                "region": region,
+                "count": len(workgroups),
+            }
+
+            # Enhance with table formatting for better readability
+            from ..formatting import enhance_result_with_table_format
+
+            result = enhance_result_with_table_format(result)
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to list workgroups: {e}")
+            return format_error_response(f"Failed to list workgroups: {str(e)}")
 
     def _extract_items(self, raw_data: Dict[str, Any]) -> List[Any]:
         """Extract workgroups list from Athena workgroups data."""

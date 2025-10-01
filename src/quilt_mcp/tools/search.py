@@ -118,7 +118,7 @@ def catalog_search(
         }
 
 
-def search_suggest(
+def catalog_search_suggest(
     partial_query: str,
     context: str = "",
     suggestion_types: Optional[List[str]] = None,
@@ -154,7 +154,7 @@ def search_suggest(
         }
 
 
-def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
+def catalog_search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
     """
     Explain how a search query would be processed and executed.
 

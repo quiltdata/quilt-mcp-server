@@ -11,10 +11,9 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.tools.auth import (
-    auth_status,
+from quilt_mcp.tools.catalog import (
+    catalog_status,
     catalog_info,
-    catalog_name,
     catalog_uri,
     catalog_url,
     filesystem_status,
@@ -27,10 +26,10 @@ from quilt_mcp.tools.buckets import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from quilt_mcp.tools.package_ops import (
+from quilt_mcp.tools.package_creation import (
     package_delete,
 )
-from quilt_mcp.tools.unified_package import create_package
+from quilt_mcp.tools.package_creation import package_create
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
@@ -233,7 +232,7 @@ class TestQuiltAPI:
 
     def test_auth_status_returns_status(self):
         """Test authentication check returns valid status."""
-        result = auth_status()
+        result = catalog_status()
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -283,27 +282,6 @@ class TestQuiltAPI:
             assert isinstance(result["catalog_name"], str)
             assert isinstance(result["is_authenticated"], bool)
             assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
-
-    def test_catalog_name_returns_name(self):
-        """Test catalog_name returns the catalog name and detection method."""
-        result = catalog_name()
-
-        assert isinstance(result, dict)
-        assert "catalog_name" in result
-        assert "detection_method" in result
-        assert "status" in result
-        assert result["status"] in ["success", "error"]
-
-        if result["status"] == "success":
-            assert isinstance(result["catalog_name"], str)
-            assert isinstance(result["detection_method"], str)
-            assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
-            assert result["detection_method"] in [
-                "authentication",
-                "navigator_config",
-                "registry_config",
-                "unknown",
-            ]
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""

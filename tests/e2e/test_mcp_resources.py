@@ -28,7 +28,7 @@ class TestAdminUsersFunction:
                 date_joined=datetime(2023, 1, 1, tzinfo=timezone.utc),
                 last_login=datetime(2023, 6, 1, tzinfo=timezone.utc),
                 role=Mock(name="user"),
-                extra_roles=[]
+                extra_roles=[],
             ),
             Mock(
                 name="bob",
@@ -40,41 +40,58 @@ class TestAdminUsersFunction:
                 date_joined=datetime(2023, 2, 1, tzinfo=timezone.utc),
                 last_login=datetime(2023, 6, 15, tzinfo=timezone.utc),
                 role=Mock(name="admin"),
-                extra_roles=[Mock(name="power_user")]
-            )
+                extra_roles=[Mock(name="power_user")],
+            ),
         ]
 
     @pytest.mark.asyncio
     async def test_admin_users_list_success(self, mock_users_data):
         """Test successful admin users listing."""
-        with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
+        from quilt_mcp.resources.admin import AdminUsersResource
+
+        with patch('quilt_mcp.resources.admin.quilt_service.get_users_admin') as mock_get_users:
             # Mock the service and admin users
-            mock_admin_users = Mock()
-            mock_admin_users.list.return_value = mock_users_data
-            mock_service.get_users_admin.return_value = mock_admin_users
+            mock_get_users.return_value.list.return_value = mock_users_data
 
             # Mock the formatting function
-            with patch('quilt_mcp.tools.governance.format_users_as_table') as mock_format:
+            with patch('quilt_mcp.resources.admin.format_users_as_table') as mock_format:
                 mock_format.return_value = {
                     "success": True,
                     "users": [
-                        {"name": "alice", "email": "alice@example.com", "is_active": True, "is_admin": False,
-                         "is_sso_only": False, "is_service": False, "date_joined": "2023-01-01T00:00:00+00:00",
-                         "last_login": "2023-06-01T00:00:00+00:00", "role": "user", "extra_roles": []},
-                        {"name": "bob", "email": "bob@example.com", "is_active": True, "is_admin": True,
-                         "is_sso_only": False, "is_service": False, "date_joined": "2023-02-01T00:00:00+00:00",
-                         "last_login": "2023-06-15T00:00:00+00:00", "role": "admin", "extra_roles": ["power_user"]}
+                        {
+                            "name": "alice",
+                            "email": "alice@example.com",
+                            "is_active": True,
+                            "is_admin": False,
+                            "is_sso_only": False,
+                            "is_service": False,
+                            "date_joined": "2023-01-01T00:00:00+00:00",
+                            "last_login": "2023-06-01T00:00:00+00:00",
+                            "role": "user",
+                            "extra_roles": [],
+                        },
+                        {
+                            "name": "bob",
+                            "email": "bob@example.com",
+                            "is_active": True,
+                            "is_admin": True,
+                            "is_sso_only": False,
+                            "is_service": False,
+                            "date_joined": "2023-02-01T00:00:00+00:00",
+                            "last_login": "2023-06-15T00:00:00+00:00",
+                            "role": "admin",
+                            "extra_roles": ["power_user"],
+                        },
                     ],
                     "count": 2,
                     "message": "Found 2 users",
-                    "formatted_table": "Mock table"
+                    "formatted_table": "Mock table",
                 }
 
                 # Mock ADMIN_AVAILABLE
-                with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                    from quilt_mcp.tools.governance import admin_users_list
-
-                    result = await admin_users_list()
+                with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
+                    resource = AdminUsersResource()
+                    result = await resource.list_items()
 
                     assert result["success"] is True
                     assert len(result["users"]) == 2
@@ -85,10 +102,11 @@ class TestAdminUsersFunction:
     @pytest.mark.asyncio
     async def test_admin_users_list_admin_unavailable(self):
         """Test admin users listing when admin is unavailable."""
-        with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', False):
-            from quilt_mcp.tools.governance import admin_users_list
+        from quilt_mcp.resources.admin import AdminUsersResource
 
-            result = await admin_users_list()
+        with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', False):
+            resource = AdminUsersResource()
+            result = await resource.list_items()
 
             assert result["success"] is False
             assert "Admin functionality not available" in result["error"]
@@ -96,15 +114,14 @@ class TestAdminUsersFunction:
     @pytest.mark.asyncio
     async def test_admin_users_list_exception_handling(self):
         """Test error handling in admin users listing."""
-        with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_users = Mock()
-            mock_admin_users.list.side_effect = Exception("Database error")
-            mock_service.get_users_admin.return_value = mock_admin_users
+        from quilt_mcp.resources.admin import AdminUsersResource
 
-            with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                from quilt_mcp.tools.governance import admin_users_list
+        with patch('quilt_mcp.resources.admin.quilt_service.get_users_admin') as mock_get_users:
+            mock_get_users.return_value.list.side_effect = Exception("Database error")
 
-                result = await admin_users_list()
+            with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
+                resource = AdminUsersResource()
+                result = await resource.list_items()
 
                 assert result["success"] is False
                 assert "error" in result
@@ -119,35 +136,34 @@ class TestAdminRolesFunction:
         return [
             Mock(id=1, name="user", arn="arn:aws:iam::123:role/user", typename="standard"),
             Mock(id=2, name="admin", arn="arn:aws:iam::123:role/admin", typename="admin"),
-            Mock(id=3, name="power_user", arn="arn:aws:iam::123:role/power", typename="enhanced")
+            Mock(id=3, name="power_user", arn="arn:aws:iam::123:role/power", typename="enhanced"),
         ]
 
     @pytest.mark.asyncio
     async def test_admin_roles_list_success(self, mock_roles_data):
         """Test successful admin roles listing."""
-        with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_roles = Mock()
-            mock_admin_roles.list.return_value = mock_roles_data
-            mock_service.get_roles_admin.return_value = mock_admin_roles
+        from quilt_mcp.resources.admin import AdminRolesResource
+
+        with patch('quilt_mcp.resources.admin.quilt_service.get_roles_admin') as mock_get_roles:
+            mock_get_roles.return_value.list.return_value = mock_roles_data
 
             # Mock the formatting function
-            with patch('quilt_mcp.tools.governance.format_roles_as_table') as mock_format:
+            with patch('quilt_mcp.resources.admin.format_roles_as_table') as mock_format:
                 mock_format.return_value = {
                     "success": True,
                     "roles": [
                         {"id": 1, "name": "user", "arn": "arn:aws:iam::123:role/user", "type": "standard"},
                         {"id": 2, "name": "admin", "arn": "arn:aws:iam::123:role/admin", "type": "admin"},
-                        {"id": 3, "name": "power_user", "arn": "arn:aws:iam::123:role/power", "type": "enhanced"}
+                        {"id": 3, "name": "power_user", "arn": "arn:aws:iam::123:role/power", "type": "enhanced"},
                     ],
                     "count": 3,
                     "message": "Found 3 roles",
-                    "formatted_table": "Mock roles table"
+                    "formatted_table": "Mock roles table",
                 }
 
-                with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                    from quilt_mcp.tools.governance import admin_roles_list
-
-                    result = await admin_roles_list()
+                with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
+                    resource = AdminRolesResource()
+                    result = await resource.list_items()
 
                     assert result["success"] is True
                     assert len(result["roles"]) == 3
@@ -158,10 +174,11 @@ class TestAdminRolesFunction:
     @pytest.mark.asyncio
     async def test_admin_roles_list_admin_unavailable(self):
         """Test admin roles listing when admin is unavailable."""
-        with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', False):
-            from quilt_mcp.tools.governance import admin_roles_list
+        from quilt_mcp.resources.admin import AdminRolesResource
 
-            result = await admin_roles_list()
+        with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', False):
+            resource = AdminRolesResource()
+            result = await resource.list_items()
 
             assert result["success"] is False
             assert "Admin functionality not available" in result["error"]
@@ -177,18 +194,33 @@ class TestS3ResourcesFunction:
             "success": True,
             "categorized_buckets": {
                 "full_access": [
-                    {"name": "my-data-bucket", "permission_level": "full_access", "region": "us-east-1", "can_read": True}
+                    {
+                        "name": "my-data-bucket",
+                        "permission_level": "full_access",
+                        "region": "us-east-1",
+                        "can_read": True,
+                    }
                 ],
                 "read_write": [
-                    {"name": "analytics-bucket", "permission_level": "read_write", "region": "us-west-2", "can_read": True}
+                    {
+                        "name": "analytics-bucket",
+                        "permission_level": "read_write",
+                        "region": "us-west-2",
+                        "can_read": True,
+                    }
                 ],
                 "read_only": [
                     {"name": "public-data", "permission_level": "read_only", "region": "us-east-1", "can_read": True}
                 ],
                 "list_only": [
-                    {"name": "shared-bucket", "permission_level": "list_only", "region": "us-west-2", "can_read": False}
-                ]
-            }
+                    {
+                        "name": "shared-bucket",
+                        "permission_level": "list_only",
+                        "region": "us-west-2",
+                        "can_read": False,
+                    }
+                ],
+            },
         }
 
     @pytest.fixture
@@ -198,17 +230,17 @@ class TestS3ResourcesFunction:
             "status": "success",
             "catalog_name": "production",
             "catalog_url": "https://prod.quiltdata.com",
-            "is_authenticated": True
+            "is_authenticated": True,
         }
 
     def test_list_available_resources_success(self, mock_permissions_result, mock_catalog_info):
         """Test successful listing of available S3 resources."""
         with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.auth.catalog_info') as mock_catalog:
+            with patch('quilt_mcp.tools.catalog.catalog_info') as mock_catalog:
                 mock_discover.return_value = mock_permissions_result
                 mock_catalog.return_value = mock_catalog_info
 
-                from quilt_mcp.tools.unified_package import list_available_resources
+                from quilt_mcp.tools.catalog import list_available_resources
 
                 result = list_available_resources()
 
@@ -221,25 +253,22 @@ class TestS3ResourcesFunction:
     def test_list_available_resources_permissions_failure(self):
         """Test handling of permissions discovery failure."""
         with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            mock_discover.return_value = {
-                "success": False,
-                "error": "AWS credentials not configured"
-            }
+            mock_discover.return_value = {"success": False, "error": "AWS credentials not configured"}
 
-            from quilt_mcp.tools.unified_package import list_available_resources
+            from quilt_mcp.tools.catalog import list_available_resources
 
             result = list_available_resources()
 
             assert result["status"] == "error"
             assert "Failed to discover available resources" in result["error"]
-            assert "suggested_fixes" in result
+            assert result["details"] == "AWS credentials not configured"
 
     def test_list_available_resources_exception_handling(self):
         """Test exception handling in resource listing."""
         with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
             mock_discover.side_effect = Exception("Network error")
 
-            from quilt_mcp.tools.unified_package import list_available_resources
+            from quilt_mcp.tools.catalog import list_available_resources
 
             result = list_available_resources()
 
@@ -403,16 +432,18 @@ class TestErrorHandlingPatterns:
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
             with patch('quilt_mcp.tools.governance.UserNotFoundError', Exception):
                 mock_admin_users = Mock()
+                from quilt_mcp.resources.admin import AdminUsersResource
+
                 mock_admin_users.list.side_effect = Exception("User not found")
                 mock_service.get_users_admin.return_value = mock_admin_users
 
-                with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                    from quilt_mcp.tools.governance import admin_users_list
+                with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
+                    with patch('quilt_mcp.resources.admin.quilt_service', mock_service):
+                        resource = AdminUsersResource()
+                        result = await resource.list_items()
 
-                    result = await admin_users_list()
-
-                    assert result["success"] is False
-                    assert "error" in result
+                        assert result["success"] is False
+                        assert "error" in result
 
     def test_service_initialization_without_admin(self):
         """Test service initialization when admin is not available."""
@@ -438,12 +469,12 @@ class TestPerformanceAndCaching:
         import time
 
         with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.auth.catalog_info') as mock_catalog:
+            with patch('quilt_mcp.tools.catalog.catalog_info') as mock_catalog:
                 # Mock fast responses
                 mock_discover.return_value = {"success": True, "categorized_buckets": {}}
                 mock_catalog.return_value = {"status": "success"}
 
-                from quilt_mcp.tools.unified_package import list_available_resources
+                from quilt_mcp.tools.catalog import list_available_resources
 
                 start_time = time.time()
                 result = list_available_resources()
@@ -455,13 +486,16 @@ class TestPerformanceAndCaching:
 
     @pytest.mark.asyncio
     async def test_admin_functions_async_behavior(self):
-        """Test that admin functions behave correctly as async functions."""
-        with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', False):
-            from quilt_mcp.tools.governance import admin_users_list, admin_roles_list
+        """Test that admin resources behave correctly as async functions."""
+        from quilt_mcp.resources.admin import AdminUsersResource, AdminRolesResource
 
+        with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', False):
             # Both should be awaitable and return error responses
-            users_result = await admin_users_list()
-            roles_result = await admin_roles_list()
+            users_resource = AdminUsersResource()
+            roles_resource = AdminRolesResource()
+
+            users_result = await users_resource.list_items()
+            roles_result = await roles_resource.list_items()
 
             assert users_result["success"] is False
             assert roles_result["success"] is False
@@ -471,7 +505,7 @@ class TestTabularAccessibilityFunctions:
     """Test the tabular accessibility functions."""
 
     @pytest.mark.asyncio
-    async def test_tabular_accessibility_get_success(self):
+    async def test_admin_tabulator_access_get_success(self):
         """Test successful tabular accessibility status retrieval."""
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
             mock_admin_tabulator = Mock()
@@ -479,25 +513,25 @@ class TestTabularAccessibilityFunctions:
             mock_service.get_tabulator_admin.return_value = mock_admin_tabulator
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                from quilt_mcp.tools.governance import tabular_accessibility_get
+                from quilt_mcp.tools.governance import admin_tabulator_access_get
 
-                result = await tabular_accessibility_get()
+                result = await admin_tabulator_access_get()
 
                 assert result["success"] is True
                 assert result["open_query_enabled"] is True
                 assert "enabled" in result["message"]
 
     @pytest.mark.asyncio
-    async def test_tabular_accessibility_set_success(self):
+    async def test_admin_tabulator_access_set_success(self):
         """Test successful tabular accessibility status update."""
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
             mock_admin_tabulator = Mock()
             mock_service.get_tabulator_admin.return_value = mock_admin_tabulator
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
-                from quilt_mcp.tools.governance import tabular_accessibility_set
+                from quilt_mcp.tools.governance import admin_tabulator_access_set
 
-                result = await tabular_accessibility_set(False)
+                result = await admin_tabulator_access_set(False)
 
                 assert result["success"] is True
                 assert result["open_query_enabled"] is False

@@ -15,15 +15,14 @@ from .constants import (
 )
 
 # Re-export all tools for easy access
-from .tools.auth import (
-    auth_status,
+from .tools.catalog import (
+    catalog_status,
     catalog_info,
-    catalog_name,
     catalog_uri,
     catalog_url,
-    configure_catalog,
     filesystem_status,
-    switch_catalog,
+    catalog_set,
+    quick_start,
 )
 from .tools.buckets import (
     bucket_object_fetch,
@@ -33,37 +32,27 @@ from .tools.buckets import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from .tools.package_ops import package_delete
 from .tools.permissions import (
     aws_permissions_discover,
     bucket_access_check,
     bucket_recommendations_get,
 )
-from .tools.unified_package import (
-    create_package,
-    list_available_resources,
-    quick_start,
-)
-from .tools.s3_package import (
+from .tools.package_creation import (
+    package_create,
     package_create_from_s3,
+    package_delete,
+    package_validate,
 )
 from .tools.metadata_templates import (
     metadata_template_get,
-    list_metadata_templates,
-    validate_metadata_structure,
-)
-from .tools.package_management import (
-    package_validate,
-    package_tools_list,
+    metadata_validate_structure,
 )
 from .tools.metadata_examples import (
-    show_metadata_examples,
     metadata_template_create,
-    fix_metadata_validation_issues,
 )
 from .tools.governance import (
-    tabular_accessibility_get,
-    tabular_accessibility_set,
+    admin_tabulator_access_get,
+    admin_tabulator_access_set,
 )
 from .tools.quilt_summary import (
     create_quilt_summary_files,
@@ -72,8 +61,8 @@ from .tools.quilt_summary import (
 )
 from .tools.search import (
     catalog_search,
-    search_explain,
-    search_suggest,
+    catalog_search_explain,
+    catalog_search_suggest,
 )
 from .tools.packages import (
     package_browse,
@@ -82,7 +71,6 @@ from .tools.packages import (
     packages_list,
 )
 from .tools.tabulator import (
-    tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
@@ -92,7 +80,6 @@ from .tools.workflow_orchestration import (
     workflow_step_add,
     workflow_step_update,
     workflow_status_get,
-    workflow_list,
     workflow_template_apply,
 )
 
@@ -106,7 +93,6 @@ __all__ = [
     "KNOWN_TEST_ENTRY",
     "KNOWN_TEST_S3_OBJECT",
     # Public tools (alphabetical)
-    "auth_status",
     "aws_permissions_discover",
     "bucket_access_check",
     "bucket_object_fetch",
@@ -117,46 +103,38 @@ __all__ = [
     "bucket_objects_put",
     "bucket_recommendations_get",
     "catalog_info",
-    "catalog_name",
     "catalog_search",
+    "catalog_search_explain",
+    "catalog_search_suggest",
+    "catalog_set",
+    "catalog_status",
     "catalog_uri",
     "catalog_url",
-    "configure_catalog",
-    "create_package",
     "create_quilt_summary_files",
     "filesystem_status",
-    "fix_metadata_validation_issues",
     "generate_package_visualizations",
     "generate_quilt_summarize_json",
-    "list_available_resources",
-    "list_metadata_templates",
     "metadata_template_create",
     "metadata_template_get",
+    "metadata_validate_structure",
     "package_browse",
     "package_contents_search",
+    "package_create",
     "package_create_from_s3",
     "package_delete",
     "package_diff",
-    "package_tools_list",
     "package_validate",
     "packages_list",
     "quick_start",
-    "search_explain",
-    "search_suggest",
-    "show_metadata_examples",
-    "switch_catalog",
     "tabulator_table_create",
     "tabulator_table_delete",
     "tabulator_table_rename",
-    "tabulator_tables_list",
-    "validate_metadata_structure",
     "workflow_create",
-    "workflow_list",
     "workflow_status_get",
     "workflow_step_add",
     "workflow_step_update",
     "workflow_template_apply",
-    # Admin tools (must remain last)
-    "tabular_accessibility_get",
-    "tabular_accessibility_set",
+    # Admin tools (must be last)
+    "admin_tabulator_access_get",
+    "admin_tabulator_access_set",
 ]

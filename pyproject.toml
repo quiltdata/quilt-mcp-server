@@ -90,6 +90,7 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short --color=yes"
+asyncio_mode = "auto"
 markers = [
     "aws: marks tests that require AWS credentials and network access",
     "search: marks tests that require search functionality",
@@ -99,9 +100,6 @@ markers = [
     "error_handling: marks tests as error handling tests",
     "asyncio: marks tests as async tests",
 ]
-
-[tool.pytest.ini_options.asyncio]
-mode = "auto"
 
 [tool.ruff]
 # Use external configuration file

@@ -8,7 +8,11 @@ from .base import MCPResource, ResourceResponse, ResourceRegistry
 from .admin import AdminUsersResource, AdminRolesResource
 from .s3 import S3BucketsResource
 from .athena import AthenaDatabasesResource, AthenaWorkgroupsResource
-from .metadata import MetadataTemplatesResource
+from .metadata import (
+    MetadataTemplatesResource,
+    MetadataExamplesResource,
+    MetadataTroubleshootingResource,
+)
 from .workflow import WorkflowResource
 from .package import PackageToolsResource
 from .tabulator import TabulatorTablesResource
@@ -18,29 +22,24 @@ __all__ = [
     "MCPResource",
     "ResourceResponse",
     "ResourceRegistry",
-
     # Admin resources
     "AdminUsersResource",
     "AdminRolesResource",
-
     # S3 resources
     "S3BucketsResource",
-
     # Athena resources
     "AthenaDatabasesResource",
     "AthenaWorkgroupsResource",
-
     # Metadata resources
     "MetadataTemplatesResource",
-
+    "MetadataExamplesResource",
+    "MetadataTroubleshootingResource",
     # Workflow resources
     "WorkflowResource",
-
     # Package resources
     "PackageToolsResource",
-
     # Tabulator resources
-    "TabulatorTablesResource"
+    "TabulatorTablesResource",
 ]
 
 
@@ -59,6 +58,8 @@ def create_default_registry() -> ResourceRegistry:
     registry.register("athena://databases", AthenaDatabasesResource())
     registry.register("athena://workgroups", AthenaWorkgroupsResource())
     registry.register("metadata://templates", MetadataTemplatesResource())
+    registry.register("metadata://examples", MetadataExamplesResource())
+    registry.register("metadata://troubleshooting", MetadataTroubleshootingResource())
     registry.register("workflow://workflows", WorkflowResource())
     registry.register("package://tools", PackageToolsResource())
     registry.register("tabulator://{bucket}/tables", TabulatorTablesResource())

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -73,12 +74,15 @@ def test_workflow_template_apply_sets_dependencies_and_guidance():
 
 def test_workflow_list_sorts_by_recent_activity():
     """Workflows should be listed in descending order of their last update."""
+    from quilt_mcp.resources.workflow import WorkflowResource
 
     wo.workflow_create("wf-old", "Old workflow")
     time.sleep(0.01)
     wo.workflow_create("wf-new", "New workflow")
 
-    listing = wo.workflow_list()
+    # Use resource instead of direct function call
+    resource = WorkflowResource()
+    listing = asyncio.run(resource.list_items())
 
     assert listing["success"] is True
     workflow_ids = [wf["id"] for wf in listing["workflows"]]

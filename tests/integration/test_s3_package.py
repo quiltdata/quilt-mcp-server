@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from quilt_mcp.tools.s3_package import (
+from quilt_mcp.tools.package_creation import (
     package_create_from_s3,
     _create_enhanced_package,
     _validate_bucket_access,
@@ -46,12 +46,12 @@ class TestPackageCreateFromS3:
         assert result["success"] is False
         assert "source_bucket is required" in result["error"]
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_package_from_objects")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_no_objects_found(
         self,
         mock_access_check,
@@ -88,12 +88,12 @@ class TestPackageCreateFromS3:
         # Check for the actual error message about no objects found
         assert "No objects found matching the specified criteria" in result["error"]
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_package_from_objects")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_successful_package_creation(
         self,
         mock_access_check,
@@ -129,13 +129,10 @@ class TestPackageCreateFromS3:
             target_registry="s3://quilt-sandbox-bucket",  # Use a bucket you have access to
         )
 
-        # Since test-bucket doesn't exist, this should fail with a clear error
-        assert result["success"] is False
-        # Check for the actual error message about S3 access issues
-        assert (
-            "No objects found matching the specified criteria" in result["error"]
-            or "Failed to create package" in result["error"]
-        )
+        # With proper mocking, the function should succeed
+        assert result["success"] is True
+        # Check that package was created
+        assert "top_hash" in result or "package_hash" in result
 
 
 @pytest.mark.aws
@@ -192,12 +189,12 @@ class TestValidation:
     def test_dry_run_preview(self):
         """Test dry run functionality returns preview without creating package."""
         with (
-            patch("quilt_mcp.tools.s3_package.get_s3_client"),
-            patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
-            patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
-            patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
-            patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations,
-            patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check,
+            patch("quilt_mcp.tools.package_creation.get_s3_client"),
+            patch("quilt_mcp.tools.package_creation._validate_bucket_access"),
+            patch("quilt_mcp.tools.package_creation._discover_s3_objects") as mock_discover,
+            patch("quilt_mcp.tools.package_creation._create_enhanced_package") as mock_create,
+            patch("quilt_mcp.tools.package_creation.bucket_recommendations_get") as mock_recommendations,
+            patch("quilt_mcp.tools.package_creation.bucket_access_check") as mock_access_check,
         ):
             mock_discover.return_value = [
                 {"Key": "data.csv", "Size": 1000},
@@ -236,12 +233,12 @@ class TestValidation:
     def test_auto_registry_suggestion(self):
         """Test automatic registry suggestion based on source patterns."""
         with (
-            patch("quilt_mcp.tools.s3_package.boto3.client") as mock_boto3,
-            patch("quilt_mcp.tools.s3_package._validate_bucket_access"),
-            patch("quilt_mcp.tools.s3_package._discover_s3_objects") as mock_discover,
-            patch("quilt_mcp.tools.s3_package._create_enhanced_package") as mock_create,
-            patch("quilt_mcp.tools.s3_package.bucket_recommendations_get") as mock_recommendations,
-            patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access_check,
+            patch("quilt_mcp.tools.package_creation.boto3.client") as mock_boto3,
+            patch("quilt_mcp.tools.package_creation._validate_bucket_access"),
+            patch("quilt_mcp.tools.package_creation._discover_s3_objects") as mock_discover,
+            patch("quilt_mcp.tools.package_creation._create_enhanced_package") as mock_create,
+            patch("quilt_mcp.tools.package_creation.bucket_recommendations_get") as mock_recommendations,
+            patch("quilt_mcp.tools.package_creation.bucket_access_check") as mock_access_check,
         ):
             # Mock the boto3 client
             mock_s3_client = Mock()
@@ -407,12 +404,12 @@ class TestValidationUtilities:
 class TestREADMEContentExtraction:
     """Test cases for README content extraction from metadata."""
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_readme_content_extraction_from_metadata(
         self,
         mock_access_check,
@@ -468,12 +465,12 @@ class TestREADMEContentExtraction:
         # Verify that the metadata passed to enhanced package creation doesn't contain README fields
         # (This would be tested in the actual enhanced package creation function)
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_both_readme_fields_extraction(
         self,
         mock_access_check,
@@ -526,12 +523,12 @@ class TestREADMEContentExtraction:
         # Verify priority README content was used
         assert passed_readme_content == "# Priority README"
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_no_readme_content_in_metadata(
         self,
         mock_access_check,
@@ -584,12 +581,12 @@ class TestREADMEContentExtraction:
         # Verify no README content was passed
         assert passed_readme_content is None
 
-    @patch("quilt_mcp.tools.s3_package.get_s3_client")
-    @patch("quilt_mcp.tools.s3_package._validate_bucket_access")
-    @patch("quilt_mcp.tools.s3_package._discover_s3_objects")
-    @patch("quilt_mcp.tools.s3_package._create_enhanced_package")
-    @patch("quilt_mcp.tools.s3_package.bucket_recommendations_get")
-    @patch("quilt_mcp.tools.s3_package.bucket_access_check")
+    @patch("quilt_mcp.tools.package_creation.get_s3_client")
+    @patch("quilt_mcp.tools.package_creation._validate_bucket_access")
+    @patch("quilt_mcp.tools.package_creation._discover_s3_objects")
+    @patch("quilt_mcp.tools.package_creation._create_enhanced_package")
+    @patch("quilt_mcp.tools.package_creation.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.package_creation.bucket_access_check")
     def test_readme_content_vs_generated_content_priority(
         self,
         mock_access_check,
@@ -646,7 +643,7 @@ class TestREADMEContentExtraction:
 class TestCreateEnhancedPackageMigration:
     """Test cases for the _create_enhanced_package migration to create_package_revision."""
 
-    @patch("quilt_mcp.tools.s3_package.QuiltService")
+    @patch("quilt_mcp.tools.package_creation.QuiltService")
     def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class):
         """Test that _create_enhanced_package uses create_package_revision with auto_organize=True."""
         from pathlib import Path

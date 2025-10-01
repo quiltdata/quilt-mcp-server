@@ -84,62 +84,6 @@ class GovernanceService:
 # User Management Functions
 
 
-async def admin_users_list() -> Dict[str, Any]:
-    """
-    TODO: Delete obsolete tool - replaced by MCP resource admin://users
-
-    List all users in the registry with detailed information.
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - users: List of users with detailed information
-        - count: Number of users found
-        - formatted_table: Table-formatted output for better readability
-    """
-    try:
-        service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
-
-        admin_users = quilt_service.get_users_admin()
-        users = admin_users.list()
-
-        # Convert users to dictionaries for better handling
-        users_data = []
-        for user in users:
-            user_dict = {
-                "name": user.name,
-                "email": user.email,
-                "is_active": user.is_active,
-                "is_admin": user.is_admin,
-                "is_sso_only": user.is_sso_only,
-                "is_service": user.is_service,
-                "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
-                "last_login": user.last_login.isoformat() if user.last_login else None,
-                "role": user.role.name if user.role else None,
-                "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
-            }
-            users_data.append(user_dict)
-
-        result = {
-            "success": True,
-            "users": users_data,
-            "count": len(users_data),
-            "message": f"Found {len(users_data)} users",
-        }
-
-        # Add table formatting for better readability
-        result = format_users_as_table(result)
-
-        return result
-
-    except Exception as e:
-        service = GovernanceService()
-        return service._handle_admin_error(e, "list users")
-
-
 async def admin_user_get(name: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific user.
@@ -561,56 +505,7 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
 
 
 # Role Management Functions
-
-
-async def admin_roles_list() -> Dict[str, Any]:
-    """
-    TODO: Delete obsolete tool - replaced by MCP resource admin://roles
-
-    List all available roles in the registry.
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - roles: List of roles with detailed information
-        - count: Number of roles found
-        - formatted_table: Table-formatted output for better readability
-    """
-    try:
-        service = GovernanceService()
-        error_check = service._check_admin_available()
-        if error_check:
-            return error_check
-
-        admin_roles = quilt_service.get_roles_admin()
-        roles = admin_roles.list()
-
-        # Convert roles to dictionaries for better handling
-        roles_data = []
-        for role in roles:
-            role_dict = {
-                "id": getattr(role, "id", None),
-                "name": getattr(role, "name", None),
-                "arn": getattr(role, "arn", None),
-                "type": getattr(role, "typename", getattr(role, "type", "unknown")),
-            }
-            roles_data.append(role_dict)
-
-        result = {
-            "success": True,
-            "roles": roles_data,
-            "count": len(roles_data),
-            "message": f"Found {len(roles_data)} roles",
-        }
-
-        # Add table formatting for better readability
-        result = format_roles_as_table(result)
-
-        return result
-
-    except Exception as e:
-        service = GovernanceService()
-        return service._handle_admin_error(e, "list roles")
+# (admin_roles_list deleted - now available as resource admin://roles)
 
 
 # SSO Configuration Functions
@@ -728,7 +623,7 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
 # Enhanced Tabulator Administration Functions
 
 
-async def tabular_accessibility_get() -> Dict[str, Any]:
+async def admin_tabulator_access_get() -> Dict[str, Any]:
     """Fetch the current tabulator accessibility status."""
     try:
         service = GovernanceService()
@@ -750,7 +645,7 @@ async def tabular_accessibility_get() -> Dict[str, Any]:
         return service._handle_admin_error(e, "retrieve tabular accessibility status")
 
 
-async def tabular_accessibility_set(enabled: bool) -> Dict[str, Any]:
+async def admin_tabulator_access_set(enabled: bool) -> Dict[str, Any]:
     """Update the tabulator accessibility status."""
     try:
         service = GovernanceService()

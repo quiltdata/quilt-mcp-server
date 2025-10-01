@@ -47,7 +47,10 @@ class TestGovernanceIntegration:
     async def test_roles_list_integration(self):
         """Test role listing with real admin API."""
         try:
-            result = await governance.admin_roles_list()
+            from quilt_mcp.resources.admin import AdminRolesResource
+
+            resource = AdminRolesResource()
+            result = await resource.list_items()
 
             # Should succeed if admin privileges are available
             if result["success"]:
@@ -75,7 +78,10 @@ class TestGovernanceIntegration:
     async def test_users_list_integration(self):
         """Test user listing with real admin API."""
         try:
-            result = await governance.admin_users_list()
+            from quilt_mcp.resources.admin import AdminUsersResource
+
+            resource = AdminUsersResource()
+            result = await resource.list_items()
 
             # Should succeed if admin privileges are available
             if result["success"]:
@@ -122,10 +128,10 @@ class TestGovernanceIntegration:
             pytest.skip(f"Integration test failed due to: {e}")
 
     @pytest.mark.asyncio
-    async def test_tabular_accessibility_get_integration(self):
+    async def test_admin_tabulator_access_get_integration(self):
         """Test tabular accessibility status retrieval with real admin API."""
         try:
-            result = await governance.tabular_accessibility_get()
+            result = await governance.admin_tabulator_access_get()
 
             # Should succeed if admin privileges are available
             if result["success"]:
@@ -152,7 +158,10 @@ class TestGovernanceWorkflows:
 
         try:
             # 1. List existing users
-            users_result = await governance.admin_users_list()
+            from quilt_mcp.resources.admin import AdminUsersResource
+
+            resource = AdminUsersResource()
+            users_result = await resource.list_items()
 
             if not users_result["success"]:
                 pytest.skip("Cannot test workflow without admin privileges")
@@ -177,13 +186,17 @@ class TestGovernanceWorkflows:
         """Test integration between role and user management."""
         try:
             # 1. Get available roles
-            roles_result = await governance.admin_roles_list()
+            from quilt_mcp.resources.admin import AdminRolesResource, AdminUsersResource
+
+            roles_resource = AdminRolesResource()
+            roles_result = await roles_resource.list_items()
 
             if not roles_result["success"]:
                 pytest.skip("Cannot test integration without admin privileges")
 
             # 2. Get users to see role assignments
-            users_result = await governance.admin_users_list()
+            users_resource = AdminUsersResource()
+            users_result = await users_resource.list_items()
 
             if not users_result["success"]:
                 pytest.skip("Cannot test integration without admin privileges")
@@ -215,8 +228,11 @@ class TestGovernanceErrorHandling:
         # This test simulates scenarios where admin operations fail due to permissions
 
         # Mock insufficient privileges by temporarily disabling admin
-        with patch.object(governance, "ADMIN_AVAILABLE", False):
-            result = await governance.admin_users_list()
+        from quilt_mcp.resources.admin import AdminUsersResource
+
+        with patch("quilt_mcp.resources.admin.ADMIN_AVAILABLE", False):
+            resource = AdminUsersResource()
+            result = await resource.list_items()
 
             assert result["success"] is False
             assert "Admin functionality not available" in result["error"]
@@ -226,11 +242,14 @@ class TestGovernanceErrorHandling:
         """Test handling of network errors."""
         # This test simulates network connectivity issues
 
+        from quilt_mcp.resources.admin import AdminUsersResource
+
         with patch(
-            "quilt_mcp.tools.governance.admin_users.list",
+            "quilt_mcp.resources.admin.quilt_service.get_users_admin",
             side_effect=Exception("Network error"),
         ):
-            result = await governance.admin_users_list()
+            resource = AdminUsersResource()
+            result = await resource.list_items()
 
             assert result["success"] is False
             assert "Failed to list users" in result["error"]
@@ -263,7 +282,10 @@ class TestGovernanceTableFormatting:
     async def test_users_table_formatting(self):
         """Test that user list results include proper table formatting."""
         try:
-            result = await governance.admin_users_list()
+            from quilt_mcp.resources.admin import AdminUsersResource
+
+            resource = AdminUsersResource()
+            result = await resource.list_items()
 
             if result["success"] and result.get("users"):
                 # Should include formatted table
@@ -283,7 +305,10 @@ class TestGovernanceTableFormatting:
     async def test_roles_table_formatting(self):
         """Test that role list results include proper table formatting."""
         try:
-            result = await governance.admin_roles_list()
+            from quilt_mcp.resources.admin import AdminRolesResource
+
+            resource = AdminRolesResource()
+            result = await resource.list_items()
 
             if result["success"] and result.get("roles"):
                 # Should include formatted table

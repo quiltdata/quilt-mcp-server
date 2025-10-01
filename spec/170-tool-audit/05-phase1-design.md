@@ -25,8 +25,8 @@
   - `create_package_enhanced` → `package_create`
   - `list_package_tools` → `package_tools_list`
   - `unified_search` → `catalog_search`
-  - `admin_tabulator_open_query_get` → `tabular_accessibility_get`
-  - `admin_tabulator_open_query_set` → `tabular_accessibility_set`
+  - `admin_tabulator_open_query_get` → `admin_tabulator_access_get`
+  - `admin_tabulator_open_query_set` → `admin_tabulator_access_set`
   - `metadata_template_get` → `metadata_template_get`
   - `metadata_template_create` → `metadata_template_create`
   - `workflow_list_all` → `workflow_list`
