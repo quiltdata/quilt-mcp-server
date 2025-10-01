@@ -490,6 +490,126 @@ Required secrets for Docker operations:
 - **Breaking change**: Removing from `__all__` is a breaking change for external code importing these functions from `quilt_mcp` package
 - **No functionality loss**: All functionality preserved via MCP resources which provide richer metadata and consistent interface
 
+### 2025-10-01 QuiltService Refactoring - Getter Methods to Operations (Issue #155)
+
+**Summary**: Successfully refactored QuiltService from exposing raw quilt3 modules via getter methods to providing operational abstractions with typed returns. This enables backend swapping and proper separation of concerns.
+
+**Key Changes**:
+- **27 new operational methods added**: Users, Roles, SSO, Tabulator administration
+- **5 getter methods deleted**: `get_users_admin()`, `get_roles_admin()`, `get_sso_config_admin()`, `get_tabulator_admin()`, `get_search_api()`
+- **35+ call sites migrated**: All tools updated to use new operational API
+- **Return types fixed**: Eliminated `Any` returns in favor of proper types (`dict[str, Any]`, `list[dict[str, Any]]`, etc.)
+
+**New QuiltService Methods**:
+
+*User Management (10 methods)*:
+- `list_users()` → `list[dict[str, Any]]`
+- `get_user(name)` → `dict[str, Any]`
+- `create_user(name, email, role, extra_roles)` → `dict[str, Any]`
+- `delete_user(name)` → `None`
+- `set_user_email(name, email)` → `dict[str, Any]`
+- `set_user_role(name, role, extra_roles, append)` → `dict[str, Any]`
+- `set_user_active(name, active)` → `dict[str, Any]`
+- `set_user_admin(name, admin)` → `dict[str, Any]`
+- `add_user_roles(name, roles)` → `dict[str, Any]`
+- `remove_user_roles(name, roles, fallback)` → `dict[str, Any]`
+- `reset_user_password(name)` → `dict[str, Any]`
+
+*Role Management (4 methods)*:
+- `list_roles()` → `list[dict[str, Any]]`
+- `get_role(name)` → `dict[str, Any]`
+- `create_role(name, permissions)` → `dict[str, Any]`
+- `delete_role(name)` → `None`
+
+*SSO Configuration (3 methods)*:
+- `get_sso_config()` → `str | None`
+- `set_sso_config(config)` → `dict[str, Any]`
+- `remove_sso_config()` → `dict[str, Any]`
+
+*Tabulator Administration (6 methods)*:
+- `get_tabulator_access()` → `bool`
+- `set_tabulator_access(enabled)` → `dict[str, Any]`
+- `list_tabulator_tables(bucket)` → `list[dict[str, Any]]`
+- `create_tabulator_table(bucket, name, config)` → `dict[str, Any]`
+- `delete_tabulator_table(bucket, name)` → `None`
+- `rename_tabulator_table(bucket, old, new)` → `dict[str, Any]`
+
+*Config & Package (2 methods)*:
+- `get_navigator_url()` → `str | None`
+- `delete_package(name, registry)` → `None`
+
+**Migration Patterns** (for future large-scale refactorings):
+
+1. **Phase-based execution**: Break refactoring into discrete phases (Foundation → Implementation → Migration → Cleanup)
+2. **Test first, always**: Add operational methods with tests BEFORE migrating call sites
+3. **Incremental migration**: Update call sites one file at a time, test after each
+4. **Delete in separate phase**: Keep old methods during transition, delete only after all migrations complete
+5. **Private helpers remain**: `_get_*_admin_module()` helpers stay private, only public getters deleted
+6. **Fix return types early**: Update return types from `Any` to proper types before deletion phase
+7. **Validate thoroughly**: Run full test suite after each phase, maintain 100% coverage
+
+**Exception Handling Pattern**:
+- Custom exception hierarchy in `services/exceptions.py`:
+  - `QuiltServiceError` (base)
+  - `AdminNotAvailableError` (when admin features unavailable)
+  - `UserNotFoundError`, `UserAlreadyExistsError` (user operations)
+  - `RoleNotFoundError`, `RoleAlreadyExistsError` (role operations)
+  - `PackageNotFoundError`, `BucketNotFoundError` (package/bucket operations)
+- Centralized error handling using `_require_admin()` helper
+- Consistent exception raising across all operational methods
+
+**Testing Strategy**:
+- Behavioral tests via public API only (no implementation details tested)
+- Separate test files by domain: `test_quilt_service_users.py`, `test_quilt_service_roles.py`, etc.
+- Mock external dependencies (admin modules) for unit tests
+- Test both success and error paths for every operation
+- Verify exception types and messages
+
+**Files Modified**:
+- `src/quilt_mcp/services/quilt_service.py` - Core service implementation
+- `src/quilt_mcp/tools/governance.py` - Admin operations (~25 functions updated)
+- `src/quilt_mcp/tools/tabulator.py` - Tabulator operations (~8 functions updated)
+- `src/quilt_mcp/resources/admin.py` - Admin resources (2 resources updated)
+- `src/quilt_mcp/tools/catalog.py` - Config operations (~1 function updated)
+- `src/quilt_mcp/tools/package_creation.py` - Package deletion (1 function updated)
+
+**Success Metrics**:
+- ✅ 100% test coverage maintained throughout (7 phases, 35+ commits)
+- ✅ All 35+ call sites successfully migrated
+- ✅ Zero behavioral changes (functional equivalence verified)
+- ✅ No `Any` return types in public API (except legacy methods scheduled for deletion)
+- ✅ Backend swapping architecturally possible (no raw module exposure)
+- ✅ Complete audit trail (each phase independently committable and revertable)
+
+**Key Learnings**:
+1. **Prefactoring pays off**: Adding comprehensive tests BEFORE refactoring enables confident changes
+2. **Phase boundaries are critical**: Each phase must be independently testable and committable
+3. **Don't rush deletion**: Keep old methods during migration to enable gradual rollout
+4. **Private helpers vs public getters**: Private `_get_*` helpers can stay for implementation, only public getters are anti-pattern
+5. **Type safety first**: Fix return types early - don't leave `Any` returns until cleanup phase
+6. **Test organization matters**: Domain-based test files (`test_*_users.py`) scale better than monolithic test files
+7. **Commit granularity**: Small, focused commits (RED/GREEN/REFACTOR) enable easy debugging and rollback
+
+**Anti-patterns Eliminated**:
+- ❌ Exposing raw module references via `get_*_admin()` methods
+- ❌ Returning `Any` types that hide implementation details
+- ❌ Forcing callers to check module availability and handle None returns
+- ❌ Leaking quilt3-specific types into tool layer
+- ❌ Inconsistent error handling across operations
+
+**Architecture Improvements**:
+- ✅ Clean separation of concerns (service layer owns quilt3 interaction)
+- ✅ Backend-agnostic interface (can swap quilt3 for different backend)
+- ✅ Consistent operational API across all domains
+- ✅ Centralized error handling with custom exceptions
+- ✅ Type-safe returns enable better IDE support and static analysis
+
+**For Future Reference**:
+- Specification document: `spec/Archive/155-isolate-quilt3/a3-specifications.md`
+- Orchestration plan: `spec/Archive/155-isolate-quilt3/a4-orchestration.md`
+- Original analysis: `spec/Archive/155-isolate-quilt3/a2-analysis.md`
+- Requirements: `spec/Archive/155-isolate-quilt3/a1-requirements.md`
+
 ## important-instruction-reminders
 
 Do what has been asked; nothing more, nothing less.
