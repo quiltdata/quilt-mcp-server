@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dynamic Admin Credential Checking**: Implemented `has_admin_credentials()` method that actually tests if the user has admin permissions by attempting a lightweight admin operation
+  - Replaces incorrect module availability checking with real credential verification
+  - Admin tools and resources are now filtered at registration time based on actual user permissions
+  - Non-admin users see a clean interface without admin clutter
+
 - **MCP Resource Framework**: Implemented standardized Model Context Protocol (MCP) resource system for list-type functions
   - Created `quilt_mcp.resources` package with base framework (`MCPResource`, `ResourceResponse`, `ResourceRegistry`)
   - Implemented 9 resource providers covering admin, S3, Athena, metadata, workflow, package, and tabulator domains
@@ -30,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tabulator_tables_list` → `TabulatorTablesResource` (URI: `tabulator://{bucket}/tables`)
 
 ### Removed
+
+- **Obsolete Admin Availability Checking**: Removed incorrect module availability checking system
+  - Deleted `is_admin_available()` method (was checking module existence instead of user permissions)
+  - Deleted `_require_admin()` method (was blocking operations unnecessarily)
+  - Deleted `AdminNotAvailableError` exception (admin operations now fail naturally via quilt3 if user lacks permissions)
+  - Removed all `_require_admin()` calls from operational methods
+  - Removed module-level `ADMIN_AVAILABLE` constants from tools
+  - Deleted 625 lines of obsolete test code
 
 - **Legacy List Functions**: The following functions have been removed and replaced by MCP resources:
   - `admin_users_list()` - Replaced by MCP resource `admin://users`
