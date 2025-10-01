@@ -375,9 +375,7 @@ class QuiltService:
                 'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
             }
         except ImportError as e:
-            raise AdminNotAvailableError(
-                f"Admin operations not available. quilt3.admin module not installed: {e}"
-            )
+            raise AdminNotAvailableError(f"Admin operations not available. quilt3.admin module not installed: {e}")
 
     def get_tabulator_admin(self) -> Any:
         """Get tabulator admin module.
@@ -389,9 +387,7 @@ class QuiltService:
             AdminNotAvailableError: If admin modules not available
         """
         if not self.is_admin_available():
-            raise AdminNotAvailableError(
-                "Admin operations not available. quilt3.admin module not installed."
-            )
+            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
 
         import quilt3.admin.tabulator
 
@@ -407,9 +403,7 @@ class QuiltService:
             AdminNotAvailableError: If admin modules not available
         """
         if not self.is_admin_available():
-            raise AdminNotAvailableError(
-                "Admin operations not available. quilt3.admin module not installed."
-            )
+            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
 
         import quilt3.admin.users
 
@@ -425,9 +419,7 @@ class QuiltService:
             AdminNotAvailableError: If admin modules not available
         """
         if not self.is_admin_available():
-            raise AdminNotAvailableError(
-                "Admin operations not available. quilt3.admin module not installed."
-            )
+            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
 
         import quilt3.admin.roles
 
@@ -443,9 +435,7 @@ class QuiltService:
             AdminNotAvailableError: If admin modules not available
         """
         if not self.is_admin_available():
-            raise AdminNotAvailableError(
-                "Admin operations not available. quilt3.admin module not installed."
-            )
+            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
 
         import quilt3.admin.sso_config
 
@@ -485,6 +475,7 @@ class QuiltService:
         """
         self._require_admin(context="User management operations require admin access.")
         import quilt3.admin.users
+
         return quilt3.admin.users
 
     def list_users(self) -> list[dict[str, Any]]:

@@ -21,12 +21,16 @@ class TestAdminAvailability:
         mock_sso = MagicMock()
         mock_tabulator = MagicMock()
 
-        with patch.dict('sys.modules', {
-            'quilt3.admin.users': mock_users,
-            'quilt3.admin.roles': mock_roles,
-            'quilt3.admin.sso_config': mock_sso,
-            'quilt3.admin.tabulator': mock_tabulator,
-        }, clear=False):
+        with patch.dict(
+            'sys.modules',
+            {
+                'quilt3.admin.users': mock_users,
+                'quilt3.admin.roles': mock_roles,
+                'quilt3.admin.sso_config': mock_sso,
+                'quilt3.admin.tabulator': mock_tabulator,
+            },
+            clear=False,
+        ):
             result = service.is_admin_available()
 
         # Should return boolean True
