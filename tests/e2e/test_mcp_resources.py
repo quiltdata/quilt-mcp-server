@@ -49,9 +49,22 @@ class TestAdminUsersFunction:
         """Test successful admin users listing."""
         from quilt_mcp.resources.admin import AdminUsersResource
 
-        with patch('quilt_mcp.resources.admin.quilt_service.get_users_admin') as mock_get_users:
-            # Mock the service and admin users
-            mock_get_users.return_value.list.return_value = mock_users_data
+        with patch('quilt_mcp.resources.admin.quilt_service.list_users') as mock_list_users:
+            # Mock the service method to return user dicts
+            mock_list_users.return_value = [
+                {
+                    "name": "alice",
+                    "email": "alice@example.com",
+                    "is_active": True,
+                    "is_admin": False,
+                },
+                {
+                    "name": "bob",
+                    "email": "bob@example.com",
+                    "is_active": True,
+                    "is_admin": True,
+                },
+            ]
 
             # Mock the formatting function
             with patch('quilt_mcp.resources.admin.format_users_as_table') as mock_format:
@@ -116,8 +129,8 @@ class TestAdminUsersFunction:
         """Test error handling in admin users listing."""
         from quilt_mcp.resources.admin import AdminUsersResource
 
-        with patch('quilt_mcp.resources.admin.quilt_service.get_users_admin') as mock_get_users:
-            mock_get_users.return_value.list.side_effect = Exception("Database error")
+        with patch('quilt_mcp.resources.admin.quilt_service.list_users') as mock_list_users:
+            mock_list_users.side_effect = Exception("Database error")
 
             with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
                 resource = AdminUsersResource()
@@ -144,8 +157,12 @@ class TestAdminRolesFunction:
         """Test successful admin roles listing."""
         from quilt_mcp.resources.admin import AdminRolesResource
 
-        with patch('quilt_mcp.resources.admin.quilt_service.get_roles_admin') as mock_get_roles:
-            mock_get_roles.return_value.list.return_value = mock_roles_data
+        with patch('quilt_mcp.resources.admin.quilt_service.list_roles') as mock_list_roles:
+            mock_list_roles.return_value = [
+                {"id": 1, "name": "user", "arn": "arn:aws:iam::123:role/user", "type": "standard"},
+                {"id": 2, "name": "admin", "arn": "arn:aws:iam::123:role/admin", "type": "admin"},
+                {"id": 3, "name": "power_user", "arn": "arn:aws:iam::123:role/power", "type": "enhanced"},
+            ]
 
             # Mock the formatting function
             with patch('quilt_mcp.resources.admin.format_roles_as_table') as mock_format:
@@ -344,9 +361,7 @@ class TestUserManagementFunctions:
         mock_user.extra_roles = []
 
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_users = Mock()
-            mock_admin_users.get.return_value = mock_user
-            mock_service.get_users_admin.return_value = mock_admin_users
+            mock_service.get_user.return_value = mock_user
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
                 from quilt_mcp.tools.governance import admin_user_get
@@ -361,9 +376,7 @@ class TestUserManagementFunctions:
     async def test_admin_user_get_not_found(self):
         """Test user not found scenario."""
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_users = Mock()
-            mock_admin_users.get.return_value = None
-            mock_service.get_users_admin.return_value = mock_admin_users
+            mock_service.get_user.return_value = None
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
                 from quilt_mcp.tools.governance import admin_user_get
@@ -388,9 +401,7 @@ class TestUserManagementFunctions:
         mock_user.extra_roles = []
 
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_users = Mock()
-            mock_admin_users.create.return_value = mock_user
-            mock_service.get_users_admin.return_value = mock_admin_users
+            mock_service.create_user.return_value = mock_user
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
                 from quilt_mcp.tools.governance import admin_user_create
@@ -434,8 +445,7 @@ class TestErrorHandlingPatterns:
                 mock_admin_users = Mock()
                 from quilt_mcp.resources.admin import AdminUsersResource
 
-                mock_admin_users.list.side_effect = Exception("User not found")
-                mock_service.get_users_admin.return_value = mock_admin_users
+                mock_service.list_users.side_effect = Exception("User not found")
 
                 with patch('quilt_mcp.resources.admin.ADMIN_AVAILABLE', True):
                     with patch('quilt_mcp.resources.admin.quilt_service', mock_service):
@@ -508,9 +518,7 @@ class TestTabularAccessibilityFunctions:
     async def test_admin_tabulator_access_get_success(self):
         """Test successful tabular accessibility status retrieval."""
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_tabulator = Mock()
-            mock_admin_tabulator.get_open_query.return_value = True
-            mock_service.get_tabulator_admin.return_value = mock_admin_tabulator
+            mock_service.get_tabulator_access.return_value = True
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
                 from quilt_mcp.tools.governance import admin_tabulator_access_get
@@ -525,8 +533,7 @@ class TestTabularAccessibilityFunctions:
     async def test_admin_tabulator_access_set_success(self):
         """Test successful tabular accessibility status update."""
         with patch('quilt_mcp.tools.governance.quilt_service') as mock_service:
-            mock_admin_tabulator = Mock()
-            mock_service.get_tabulator_admin.return_value = mock_admin_tabulator
+            mock_service.set_tabulator_access.return_value = None
 
             with patch('quilt_mcp.tools.governance.ADMIN_AVAILABLE', True):
                 from quilt_mcp.tools.governance import admin_tabulator_access_set

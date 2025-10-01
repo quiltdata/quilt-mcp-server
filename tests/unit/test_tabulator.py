@@ -27,7 +27,6 @@ def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
 
     # Create a mock QuiltService with all required methods
     mock_service = SimpleNamespace(
-        get_tabulator_admin=lambda: None,
         list_tabulator_tables=lambda bucket: [],
         create_tabulator_table=lambda bucket, name, config: {},
         delete_tabulator_table=lambda bucket, name: None,

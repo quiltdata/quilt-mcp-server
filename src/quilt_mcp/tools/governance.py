@@ -26,12 +26,6 @@ ADMIN_AVAILABLE = quilt_service.is_admin_available()
 if not ADMIN_AVAILABLE:
     logger.warning("quilt3.admin not available - governance functionality disabled")
 
-# Export module-level admin objects for backward compatibility with tests
-admin_users = quilt_service.get_users_admin() if ADMIN_AVAILABLE else None
-admin_roles = quilt_service.get_roles_admin() if ADMIN_AVAILABLE else None
-admin_sso_config = quilt_service.get_sso_config_admin() if ADMIN_AVAILABLE else None
-admin_tabulator = quilt_service.get_tabulator_admin() if ADMIN_AVAILABLE else None
-
 # Export exception classes for backward compatibility with tests
 if ADMIN_AVAILABLE:
     admin_exceptions = quilt_service.get_admin_exceptions()

@@ -245,7 +245,7 @@ class TestGovernanceErrorHandling:
         from quilt_mcp.resources.admin import AdminUsersResource
 
         with patch(
-            "quilt_mcp.resources.admin.quilt_service.get_users_admin",
+            "quilt_mcp.resources.admin.quilt_service.list_users",
             side_effect=Exception("Network error"),
         ):
             resource = AdminUsersResource()

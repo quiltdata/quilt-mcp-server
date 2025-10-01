@@ -425,70 +425,6 @@ class QuiltService:
         except ImportError as e:
             raise AdminNotAvailableError(f"Admin operations not available. quilt3.admin module not installed: {e}")
 
-    def get_tabulator_admin(self) -> Any:
-        """Get tabulator admin module.
-
-        Returns:
-            quilt3.admin.tabulator module
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
-        """
-        if not self.is_admin_available():
-            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
-
-        import quilt3.admin.tabulator
-
-        return quilt3.admin.tabulator
-
-    def get_users_admin(self) -> Any:
-        """Get users admin module.
-
-        Returns:
-            quilt3.admin.users module
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
-        """
-        if not self.is_admin_available():
-            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
-
-        import quilt3.admin.users
-
-        return quilt3.admin.users
-
-    def get_roles_admin(self) -> Any:
-        """Get roles admin module.
-
-        Returns:
-            quilt3.admin.roles module
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
-        """
-        if not self.is_admin_available():
-            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
-
-        import quilt3.admin.roles
-
-        return quilt3.admin.roles
-
-    def get_sso_config_admin(self) -> Any:
-        """Get SSO config admin module.
-
-        Returns:
-            quilt3.admin.sso_config module
-
-        Raises:
-            AdminNotAvailableError: If admin modules not available
-        """
-        if not self.is_admin_available():
-            raise AdminNotAvailableError("Admin operations not available. quilt3.admin module not installed.")
-
-        import quilt3.admin.sso_config
-
-        return quilt3.admin.sso_config
-
     def get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes.
 
@@ -501,14 +437,6 @@ class QuiltService:
             AdminNotAvailableError: If admin modules not available
         """
         return self._get_admin_exceptions()
-
-    def get_quilt3_module(self) -> Any:
-        """Get the quilt3 module for backward compatibility.
-
-        Returns:
-            The quilt3 module
-        """
-        return quilt3
 
     # User Management Methods (Phase 2.1)
 
