@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Test script for the Quilt MCP server
+Syntactic smoke test for Quilt MCP server tools.
+
+This is a purely syntactic test that verifies function signatures and basic
+return types without requiring AWS credentials or network access.
 """
 
 import asyncio
-import pytest
 from quilt_mcp.tools import catalog as auth_tools
 from quilt_mcp.tools.packages import package_browse
 from quilt_mcp.tools.search import catalog_search
 
 
-@pytest.mark.asyncio
-@pytest.mark.aws
 async def test_quilt_tools():
-    """Basic smoke test against local tool functions (no network)."""
+    """Basic smoke test against tool function signatures (no network/AWS required)."""
     print("Testing Quilt MCP Server Tools...")
     print("=" * 50)
 
