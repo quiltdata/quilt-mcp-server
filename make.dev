@@ -11,6 +11,9 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
+# Source files to track for test dependencies
+SRC_FILES := $(shell find src/quilt_mcp -name "*.py" 2>/dev/null)
+
 .PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
@@ -35,14 +38,14 @@ test-ci: | $(RESULTS_DIR)
 
 test-unit: $(RESULTS_DIR)/coverage-unit.xml
 
-$(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
+$(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py $(SRC_FILES) | $(RESULTS_DIR)
 	@echo "Running unit tests only (fast, mocked)..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
 test-integration: $(RESULTS_DIR)/coverage-integration.xml
 
-$(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS_DIR)
+$(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py $(SRC_FILES) | $(RESULTS_DIR)
 	@echo "Running integration tests (AWS/external services)..."
 	@uv sync --group test
 	@if [ -d "tests/integration" ] && [ "$$(find tests/integration -name "*.py" | wc -l)" -gt 0 ]; then \
@@ -54,7 +57,7 @@ $(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS
 
 test-e2e: $(RESULTS_DIR)/coverage-e2e.xml
 
-$(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
+$(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py $(SRC_FILES) | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \

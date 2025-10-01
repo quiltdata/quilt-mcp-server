@@ -76,13 +76,11 @@ def _get_catalog_host_from_config() -> str | None:
             return hostname if hostname else None
 
         # Fall back to navigator_url from config
-        config = service.get_config()
-        if config and config.get("navigator_url"):
-            nav_url = config.get("navigator_url")
-            if nav_url:
-                parsed = urlparse(nav_url)
-                hostname = parsed.hostname
-                return hostname if hostname else None
+        nav_url = service.get_navigator_url()
+        if nav_url:
+            parsed = urlparse(nav_url)
+            hostname = parsed.hostname
+            return hostname if hostname else None
     except Exception:
         pass
     return None
@@ -290,9 +288,9 @@ def catalog_status() -> dict[str, Any]:
             # Get registry bucket information
             registry_bucket = None
             try:
-                config = service.get_config()
-                if config and config.get("registryUrl"):
-                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
+                registry_url = service.get_registry_url()
+                if registry_url:
+                    registry_bucket = _extract_bucket_from_registry(registry_url)
             except Exception:
                 pass
 
@@ -516,8 +514,7 @@ def catalog_set(catalog_name: str) -> dict[str, Any]:
         service.set_config(target_url)
 
         # Verify configuration
-        config = service.get_config()
-        configured_url = config.get("navigator_url") if config else None
+        configured_url = service.get_navigator_url()
 
         return {
             "status": "success",

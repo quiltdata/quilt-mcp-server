@@ -13,7 +13,6 @@ from ..utils import format_error_response
 
 # Initialize service
 quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
 
 
 class AdminUsersResource(MCPResource):
@@ -30,30 +29,8 @@ class AdminUsersResource(MCPResource):
             Admin users data in original format
         """
         try:
-            if not ADMIN_AVAILABLE:
-                return format_error_response(
-                    "Admin functionality not available - check Quilt authentication and admin privileges"
-                )
-
-            admin_users = quilt_service.get_users_admin()
-            users = admin_users.list()
-
-            # Convert users to dictionaries for better handling
-            users_data = []
-            for user in users:
-                user_dict = {
-                    "name": user.name,
-                    "email": user.email,
-                    "is_active": user.is_active,
-                    "is_admin": user.is_admin,
-                    "is_sso_only": user.is_sso_only,
-                    "is_service": user.is_service,
-                    "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
-                    "last_login": user.last_login.isoformat() if user.last_login else None,
-                    "role": user.role.name if user.role else None,
-                    "extra_roles": ([role.name for role in user.extra_roles] if user.extra_roles else []),
-                }
-                users_data.append(user_dict)
+            # Use new QuiltService method that returns list of dicts
+            users_data = quilt_service.list_users()
 
             result = {
                 "success": True,
@@ -102,24 +79,8 @@ class AdminRolesResource(MCPResource):
             Admin roles data in original format
         """
         try:
-            if not ADMIN_AVAILABLE:
-                return format_error_response(
-                    "Admin functionality not available - check Quilt authentication and admin privileges"
-                )
-
-            admin_roles = quilt_service.get_roles_admin()
-            roles = admin_roles.list()
-
-            # Convert roles to dictionaries for better handling
-            roles_data = []
-            for role in roles:
-                role_dict = {
-                    "id": getattr(role, "id", None),
-                    "name": getattr(role, "name", None),
-                    "arn": getattr(role, "arn", None),
-                    "type": getattr(role, "typename", getattr(role, "type", "unknown")),
-                }
-                roles_data.append(role_dict)
+            # Use new QuiltService method that returns list of dicts
+            roles_data = quilt_service.list_roles()
 
             result = {
                 "success": True,

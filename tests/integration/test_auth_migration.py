@@ -18,6 +18,7 @@ class TestAuthMigrationToQuiltService:
         # Mock the QuiltService responses
         mock_service = Mock()
         mock_service.get_logged_in_url.return_value = 'https://example.quiltdata.com'
+        mock_service.get_registry_url.return_value = 's3://example-bucket'
         mock_service.get_config.return_value = {
             'registryUrl': 's3://example-bucket',
             'navigator_url': 'https://example.quiltdata.com',
@@ -43,7 +44,7 @@ class TestAuthMigrationToQuiltService:
 
             # Verify QuiltService methods were called
             mock_service.get_logged_in_url.assert_called_once()
-            mock_service.get_config.assert_called_once()
+            mock_service.get_registry_url.assert_called_once()
             mock_service.get_catalog_info.assert_called_once()
 
     def test_get_catalog_info_uses_quilt_service(self):
