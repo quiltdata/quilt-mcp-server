@@ -36,20 +36,6 @@ class TestQuiltServiceAuthentication:
             result = service.get_logged_in_url()
             assert result == 'https://example.quiltdata.com'
 
-    def test_is_authenticated_when_not_logged_in(self):
-        """Test is_authenticated returns False when not logged in."""
-        service = QuiltService()
-        with patch('quilt3.logged_in', return_value=None):
-            result = service.is_authenticated()
-            assert result is False
-
-    def test_is_authenticated_when_logged_in(self):
-        """Test is_authenticated returns True when logged in."""
-        service = QuiltService()
-        with patch('quilt3.logged_in', return_value='https://example.quiltdata.com'):
-            result = service.is_authenticated()
-            assert result is True
-
     def test_get_config_returns_none_when_no_config(self):
         """Test get_config returns None when no configuration available."""
         service = QuiltService()
@@ -149,14 +135,6 @@ class TestQuiltServicePackageOperations:
             result = service.create_bucket('s3://test-bucket')
             assert result == mock_bucket
             mock_bucket_class.assert_called_once_with('s3://test-bucket')
-
-    def test_get_search_api_returns_search_module(self):
-        """Test get_search_api returns the search_util.search_api module."""
-        service = QuiltService()
-        mock_search_api = Mock()
-        with patch('quilt3.search_util.search_api', mock_search_api):
-            result = service.get_search_api()
-            assert result == mock_search_api
 
     def test_has_session_support_when_available(self):
         """Test has_session_support returns True when session is available."""

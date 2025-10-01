@@ -52,15 +52,6 @@ class QuiltService:
     # Authentication & Configuration Methods
     # Based on usage analysis: 19 calls across auth.py, utils.py, permission_discovery.py
 
-    def is_authenticated(self) -> bool:
-        """Check if user is currently authenticated with Quilt.
-
-        Returns:
-            True if authenticated, False otherwise
-        """
-        logged_in_url = self.get_logged_in_url()
-        return bool(logged_in_url)
-
     def get_logged_in_url(self) -> str | None:
         """Get the URL of the catalog the user is logged into.
 
@@ -360,16 +351,6 @@ class QuiltService:
 
     # Search Operations Methods
     # Based on usage analysis: 1 call in packages.py
-
-    def get_search_api(self) -> Any:
-        """Get search API for package searching.
-
-        Returns:
-            Search API module
-        """
-        from quilt3.search_util import search_api
-
-        return search_api
 
     # Admin Operations Methods (Conditional)
     # Based on usage analysis: 11 calls in tabulator.py and governance.py
