@@ -18,16 +18,23 @@ class TestUserListing:
         """Test that list_users() returns a properly typed list of user dicts."""
         service = QuiltService()
 
-        # This test will fail until we implement list_users()
-        users = service.list_users()
+        # Mock the admin module's list function to return list of dicts
+        mock_users_module = Mock()
+        mock_users_module.list.return_value = [
+            {"name": "alice", "email": "alice@example.com", "role": "user"},
+            {"name": "bob", "email": "bob@example.com", "role": "admin"},
+        ]
 
-        assert isinstance(users, list)
-        assert len(users) > 0
-        # Verify each user is a dict with expected structure
-        for user in users:
-            assert isinstance(user, dict)
-            assert "name" in user
-            assert "email" in user
+        with patch.object(service, '_get_users_admin_module', return_value=mock_users_module):
+            users = service.list_users()
+
+            assert isinstance(users, list)
+            assert len(users) > 0
+            # Verify each user is a dict with expected structure
+            for user in users:
+                assert isinstance(user, dict)
+                assert "name" in user
+                assert "email" in user
 
     def test_list_users_raises_admin_not_available(self):
         """Test that list_users() raises AdminNotAvailableError when admin unavailable."""
@@ -70,13 +77,22 @@ class TestUserRetrieval:
         """Test that get_user() returns a properly typed user dict."""
         service = QuiltService()
 
-        # This test will fail until we implement get_user()
-        user = service.get_user("alice")
+        # Mock the admin module's get function to return a dict
+        mock_users_module = Mock()
+        mock_users_module.get.return_value = {
+            "name": "alice",
+            "email": "alice@example.com",
+            "role": "user",
+            "active": True,
+        }
 
-        assert isinstance(user, dict)
-        assert "name" in user
-        assert user["name"] == "alice"
-        assert "email" in user
+        with patch.object(service, '_get_users_admin_module', return_value=mock_users_module):
+            user = service.get_user("alice")
+
+            assert isinstance(user, dict)
+            assert "name" in user
+            assert user["name"] == "alice"
+            assert "email" in user
 
     def test_get_user_raises_admin_not_available(self):
         """Test that get_user() raises AdminNotAvailableError when admin unavailable."""

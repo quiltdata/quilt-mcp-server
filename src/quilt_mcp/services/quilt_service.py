@@ -11,7 +11,7 @@ from pathlib import Path
 
 import quilt3
 
-from .exceptions import AdminNotAvailableError
+from .exceptions import AdminNotAvailableError, UserNotFoundError
 
 
 class QuiltService:
@@ -471,6 +471,61 @@ class QuiltService:
             The quilt3 module
         """
         return quilt3
+
+    # User Management Methods (Phase 2.1)
+
+    def _get_users_admin_module(self) -> Any:
+        """Get the users admin module.
+
+        Returns:
+            quilt3.admin.users module
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        self._require_admin(context="User management operations require admin access.")
+        import quilt3.admin.users
+        return quilt3.admin.users
+
+    def list_users(self) -> list[dict[str, Any]]:
+        """List all users in the catalog.
+
+        Returns:
+            List of user dictionaries with user information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        users_admin = self._get_users_admin_module()
+        return users_admin.list()
+
+    def get_user(self, name: str) -> dict[str, Any]:
+        """Get detailed information about a specific user.
+
+        Args:
+            name: Username to retrieve
+
+        Returns:
+            User dictionary with detailed information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.get(name)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
 
     # Helper methods for create_package_revision
 
