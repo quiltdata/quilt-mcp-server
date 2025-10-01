@@ -133,13 +133,22 @@ class TestTabulatorTableListing:
         service = QuiltService()
 
         with patch.object(service, '_get_tabulator_admin_module') as mock_admin:
-            # Simulate quilt3.admin BucketNotFoundError
-            admin_exceptions = service._get_admin_exceptions()
-            bucket_not_found = admin_exceptions['BucketNotFoundError']
-            mock_admin.return_value.list_tables.side_effect = bucket_not_found("Bucket not found")
+            # Create a mock exception that looks like quilt3.admin.exceptions.BucketNotFoundError
+            class MockBucketNotFoundError(Exception):
+                pass
 
-            with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
-                service.list_tabulator_tables("nonexistent-bucket")
+            # Mock the _get_admin_exceptions to return our mock class
+            with patch.object(service, '_get_admin_exceptions') as mock_exceptions:
+                mock_exceptions.return_value = {
+                    'Quilt3AdminError': Exception,
+                    'UserNotFoundError': Exception,
+                    'BucketNotFoundError': MockBucketNotFoundError,
+                }
+
+                mock_admin.return_value.list_tables.side_effect = MockBucketNotFoundError("Bucket not found")
+
+                with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
+                    service.list_tabulator_tables("nonexistent-bucket")
 
 
 class TestTabulatorTableCreation:
@@ -205,12 +214,22 @@ parser:
         service = QuiltService()
 
         with patch.object(service, '_get_tabulator_admin_module') as mock_admin:
-            admin_exceptions = service._get_admin_exceptions()
-            bucket_not_found = admin_exceptions['BucketNotFoundError']
-            mock_admin.return_value.set_table.side_effect = bucket_not_found("Bucket not found")
+            # Create a mock exception that looks like quilt3.admin.exceptions.BucketNotFoundError
+            class MockBucketNotFoundError(Exception):
+                pass
 
-            with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
-                service.create_tabulator_table("nonexistent-bucket", "table", {})
+            # Mock the _get_admin_exceptions to return our mock class
+            with patch.object(service, '_get_admin_exceptions') as mock_exceptions:
+                mock_exceptions.return_value = {
+                    'Quilt3AdminError': Exception,
+                    'UserNotFoundError': Exception,
+                    'BucketNotFoundError': MockBucketNotFoundError,
+                }
+
+                mock_admin.return_value.set_table.side_effect = MockBucketNotFoundError("Bucket not found")
+
+                with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
+                    service.create_tabulator_table("nonexistent-bucket", "table", {})
 
 
 class TestTabulatorTableDeletion:
@@ -245,12 +264,22 @@ class TestTabulatorTableDeletion:
         service = QuiltService()
 
         with patch.object(service, '_get_tabulator_admin_module') as mock_admin:
-            admin_exceptions = service._get_admin_exceptions()
-            bucket_not_found = admin_exceptions['BucketNotFoundError']
-            mock_admin.return_value.set_table.side_effect = bucket_not_found("Bucket not found")
+            # Create a mock exception that looks like quilt3.admin.exceptions.BucketNotFoundError
+            class MockBucketNotFoundError(Exception):
+                pass
 
-            with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
-                service.delete_tabulator_table("nonexistent-bucket", "table")
+            # Mock the _get_admin_exceptions to return our mock class
+            with patch.object(service, '_get_admin_exceptions') as mock_exceptions:
+                mock_exceptions.return_value = {
+                    'Quilt3AdminError': Exception,
+                    'UserNotFoundError': Exception,
+                    'BucketNotFoundError': MockBucketNotFoundError,
+                }
+
+                mock_admin.return_value.set_table.side_effect = MockBucketNotFoundError("Bucket not found")
+
+                with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
+                    service.delete_tabulator_table("nonexistent-bucket", "table")
 
 
 class TestTabulatorTableRename:
@@ -289,12 +318,22 @@ class TestTabulatorTableRename:
         service = QuiltService()
 
         with patch.object(service, '_get_tabulator_admin_module') as mock_admin:
-            admin_exceptions = service._get_admin_exceptions()
-            bucket_not_found = admin_exceptions['BucketNotFoundError']
-            mock_admin.return_value.rename_table.side_effect = bucket_not_found("Bucket not found")
+            # Create a mock exception that looks like quilt3.admin.exceptions.BucketNotFoundError
+            class MockBucketNotFoundError(Exception):
+                pass
 
-            with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
-                service.rename_tabulator_table("nonexistent-bucket", "old", "new")
+            # Mock the _get_admin_exceptions to return our mock class
+            with patch.object(service, '_get_admin_exceptions') as mock_exceptions:
+                mock_exceptions.return_value = {
+                    'Quilt3AdminError': Exception,
+                    'UserNotFoundError': Exception,
+                    'BucketNotFoundError': MockBucketNotFoundError,
+                }
+
+                mock_admin.return_value.rename_table.side_effect = MockBucketNotFoundError("Bucket not found")
+
+                with pytest.raises(BucketNotFoundError, match="Bucket 'nonexistent-bucket' not found"):
+                    service.rename_tabulator_table("nonexistent-bucket", "old", "new")
 
 
 class TestTabulatorAdminModule:

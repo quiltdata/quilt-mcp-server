@@ -17,6 +17,7 @@ from .exceptions import (
     UserAlreadyExistsError,
     RoleNotFoundError,
     RoleAlreadyExistsError,
+    BucketNotFoundError,
 )
 
 
@@ -952,6 +953,218 @@ class QuiltService:
             return result
         # If the module doesn't return a dict, construct one
         return {"status": "success", "message": "SSO configuration removed"}
+
+    # Tabulator Administration Methods
+    # Phase 3.3: Tabulator administration operations
+
+    def _get_tabulator_admin_module(self) -> Any:
+        """Get the tabulator admin module.
+
+        Returns:
+            quilt3.admin.tabulator module
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        self._require_admin(context="Tabulator administration operations require admin access.")
+        import quilt3.admin.tabulator
+
+        return quilt3.admin.tabulator
+
+    def _handle_tabulator_operation_error(self, error: Exception, bucket_name: str) -> None:
+        """Handle errors from tabulator operations.
+
+        This helper centralizes the error handling pattern used across
+        tabulator methods that reference a specific bucket.
+
+        Args:
+            error: The exception caught from quilt3.admin.tabulator operation
+            bucket_name: The bucket name that was being operated on
+
+        Raises:
+            BucketNotFoundError: If the error indicates bucket not found
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_bucket_not_found = admin_exceptions.get('BucketNotFoundError')
+
+        # Check if this is a BucketNotFoundError from quilt3.admin
+        if quilt3_bucket_not_found and isinstance(error, quilt3_bucket_not_found):
+            raise BucketNotFoundError(f"Bucket '{bucket_name}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
+    def get_tabulator_access(self) -> bool:
+        """Get current tabulator access status (open query).
+
+        Returns:
+            True if tabulator access is enabled, False otherwise
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+        return tabulator_admin.get_open_query()
+
+    def set_tabulator_access(self, enabled: bool) -> dict[str, Any]:
+        """Set tabulator access status (open query).
+
+        Args:
+            enabled: Whether to enable or disable tabulator access
+
+        Returns:
+            Dict with operation status and enabled state
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+        tabulator_admin.set_open_query(enabled)
+
+        return {
+            "status": "success",
+            "enabled": enabled,
+            "message": f"Tabulator access {'enabled' if enabled else 'disabled'}",
+        }
+
+    def list_tabulator_tables(self, bucket: str) -> list[dict[str, Any]]:
+        """List all tabulator tables in a bucket.
+
+        Args:
+            bucket: Bucket name to list tables from
+
+        Returns:
+            List of table dictionaries with table information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            tables = tabulator_admin.list_tables(bucket)
+
+            # Convert table objects to dictionaries
+            result = []
+            for table in tables:
+                table_dict = {
+                    "name": table.name,
+                    "config": table.config,
+                }
+                result.append(table_dict)
+
+            return result
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def create_tabulator_table(
+        self,
+        bucket: str,
+        name: str,
+        config: dict[str, Any] | str
+    ) -> dict[str, Any]:
+        """Create a new tabulator table.
+
+        Args:
+            bucket: Bucket name to create table in
+            name: Name for the new table
+            config: Table configuration (dict or YAML string)
+
+        Returns:
+            Dict with table creation status and details
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        # Convert dict config to YAML string if needed
+        if isinstance(config, dict):
+            import yaml
+            config_str = yaml.dump(config)
+        else:
+            config_str = config
+
+        try:
+            tabulator_admin.set_table(
+                bucket_name=bucket,
+                table_name=name,
+                config=config_str
+            )
+
+            return {
+                "status": "success",
+                "table_name": name,
+                "bucket_name": bucket,
+                "message": f"Tabulator table '{name}' created successfully",
+            }
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def delete_tabulator_table(self, bucket: str, name: str) -> None:
+        """Delete a tabulator table.
+
+        Args:
+            bucket: Bucket name containing the table
+            name: Name of the table to delete
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            # Delete by setting config to None
+            tabulator_admin.set_table(
+                bucket_name=bucket,
+                table_name=name,
+                config=None
+            )
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def rename_tabulator_table(
+        self,
+        bucket: str,
+        old_name: str,
+        new_name: str
+    ) -> dict[str, Any]:
+        """Rename a tabulator table.
+
+        Args:
+            bucket: Bucket name containing the table
+            old_name: Current name of the table
+            new_name: New name for the table
+
+        Returns:
+            Dict with rename status and details
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            tabulator_admin.rename_table(
+                bucket_name=bucket,
+                table_name=old_name,
+                new_table_name=new_name
+            )
+
+            return {
+                "status": "success",
+                "old_name": old_name,
+                "new_name": new_name,
+                "bucket_name": bucket,
+                "message": f"Tabulator table renamed from '{old_name}' to '{new_name}'",
+            }
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
 
     # Helper methods for create_package_revision
 
