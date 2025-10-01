@@ -586,6 +586,222 @@ class QuiltService:
             # Re-raise any other exceptions
             raise
 
+    def set_user_email(self, name: str, email: str) -> dict[str, Any]:
+        """Update a user's email address.
+
+        Args:
+            name: Username to update
+            email: New email address
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.set_email(name, email)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def set_user_role(
+        self,
+        name: str,
+        role: str,
+        extra_roles: Optional[list[str]],
+        append: bool
+    ) -> dict[str, Any]:
+        """Update a user's role and extra roles.
+
+        Args:
+            name: Username to update
+            role: Primary role to assign
+            extra_roles: Additional roles to assign (optional)
+            append: Whether to append extra_roles to existing ones (True) or replace them (False)
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.set_role(name, role, extra_roles, append)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def set_user_active(self, name: str, active: bool) -> dict[str, Any]:
+        """Update a user's active status.
+
+        Args:
+            name: Username to update
+            active: Whether the user should be active
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.set_active(name, active)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def set_user_admin(self, name: str, admin: bool) -> dict[str, Any]:
+        """Update a user's admin status.
+
+        Args:
+            name: Username to update
+            admin: Whether the user should have admin privileges
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.set_admin(name, admin)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def add_user_roles(self, name: str, roles: list[str]) -> dict[str, Any]:
+        """Add roles to a user.
+
+        Args:
+            name: Username to update
+            roles: List of roles to add to the user
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.add_roles(name, roles)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def remove_user_roles(
+        self,
+        name: str,
+        roles: list[str],
+        fallback: Optional[str]
+    ) -> dict[str, Any]:
+        """Remove roles from a user.
+
+        Args:
+            name: Username to update
+            roles: List of roles to remove from the user
+            fallback: Fallback role if the primary role is removed (optional)
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.remove_roles(name, roles, fallback)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
+    def reset_user_password(self, name: str) -> dict[str, Any]:
+        """Reset a user's password.
+
+        Args:
+            name: Username to reset password for
+
+        Returns:
+            Dictionary with password reset status information
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        try:
+            return users_admin.reset_password(name)
+        except Exception as e:
+            # Check if this is a UserNotFoundError from quilt3.admin
+            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
+                raise UserNotFoundError(f"User '{name}' not found") from e
+            # Re-raise any other exceptions
+            raise
+
     # Helper methods for create_package_revision
 
     def _validate_package_inputs(self, package_name: str, s3_uris: List[str]) -> None:
