@@ -661,27 +661,33 @@ class BucketNotFoundError(QuiltServiceError):
 
 ## Implementation Notes
 
-### 1. Backward Compatibility During Transition
+### 1. Migration Strategy
 
-During migration, both old and new methods will coexist:
+During migration, implement new methods then DELETE old ones:
 
 ```python
-# New method (preferred)
+# New method (operational abstraction)
 def list_users(self) -> list[dict[str, Any]]:
+    self._require_admin()
     users_admin = self._get_users_admin_module()
     return users_admin.list_users()
 
-# Old method (deprecated)
-@deprecated("Use list_users() instead")
-def get_users_admin(self) -> Any:
-    return self._get_users_admin_module()
-
-# Private helper (shared implementation)
+# Private helper (internal implementation detail)
 def _get_users_admin_module(self) -> Any:
     """Internal helper to get admin module."""
     import quilt3.admin.users
     return quilt3.admin.users
+
+# Old method will be DELETED after migration (not deprecated)
+# def get_users_admin(self) -> Any:  # DELETE THIS
 ```
+
+**Migration Steps**:
+
+1. Implement new operational methods
+2. Migrate all call sites to use new methods
+3. DELETE old getter methods and their tests
+4. Verify no references remain
 
 ### 2. Error Handling Consistency
 
@@ -726,7 +732,8 @@ Each new method requires:
 1. **Unit test** - Mock quilt3 module, verify method behavior
 2. **Integration test** - Test against real quilt3 (if available)
 3. **Error test** - Verify exception handling
-4. **Backward compatibility test** - Ensure old code still works during transition
+
+**DO NOT test old getter methods** - they will be deleted.
 
 Example test structure:
 
@@ -761,34 +768,35 @@ class TestUserManagement:
 ## Migration Path
 
 ### Phase 1: Implementation (Week 1)
+
 1. Add exception classes
 2. Implement all user management methods (11 methods)
 3. Implement role, SSO, tabulator methods (9 methods)
 4. Add comprehensive tests for all new methods
 
 ### Phase 2: Tool Migration (Week 2)
+
 1. Update governance.py to use new methods (~25 call sites)
 2. Update tabulator.py to use new methods (~8 call sites)
 3. Update admin.py resources (~5 call sites)
 4. Update catalog.py for config methods (~4 call sites)
 5. Update package_creation.py for delete_package (~1 call site)
 
-### Phase 3: Deprecation (Week 3)
-1. Mark old getter methods as deprecated
-2. Add deprecation warnings
-3. Update documentation
-4. Final testing and validation
+### Phase 3: Delete Old Methods (Week 2, Day 5)
 
-### Phase 4: Removal (Future)
-1. Remove deprecated methods after grace period
-2. Clean up internal helper methods
-3. Final documentation update
+1. **DELETE** old getter methods from QuiltService
+2. **DELETE** tests for old getter methods
+3. Verify no references to deleted methods remain
+4. Update documentation to reflect new API
+5. Final testing and validation
 
 ## Success Criteria
 
 - ✅ All public methods return typed structures (no `Any` return types)
 - ✅ No raw quilt3 modules exposed in public API
 - ✅ All 35+ call sites migrated to new methods
+- ✅ Old getter methods deleted (not deprecated)
+- ✅ Tests for old methods deleted
 - ✅ 100% test coverage maintained
 - ✅ All existing tests pass
 - ✅ Backend swapping is architecturally possible
