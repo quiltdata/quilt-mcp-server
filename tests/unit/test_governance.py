@@ -171,7 +171,7 @@ class TestSSOConfiguration:
     @pytest.mark.asyncio
     async def test_admin_sso_config_remove_success(self, mock_admin_available):
         """Test successful SSO config removal."""
-        with patch("quilt_mcp.tools.governance.quilt_service.set_sso_config"):
+        with patch("quilt_mcp.tools.governance.quilt_service.remove_sso_config"):
             result = await governance.admin_sso_config_remove()
 
             assert result["success"] is True

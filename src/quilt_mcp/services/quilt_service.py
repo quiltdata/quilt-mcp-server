@@ -364,9 +364,10 @@ class QuiltService:
             True if user has admin credentials, False otherwise
         """
         try:
-            import quilt3.admin.roles
-            # Try to list roles - minimal operation that requires admin
-            quilt3.admin.roles.list()
+            # Try to list roles - minimal operation that requires admin credentials
+            # Do NOT check if module exists - that's always True and was the anti-pattern
+            # we're trying to eliminate per spec/Archive/155-isolate-quilt3/a1-requirements.md
+            self.list_roles()
             return True
         except Exception:
             # Any error (auth, permissions, network) means no admin access
