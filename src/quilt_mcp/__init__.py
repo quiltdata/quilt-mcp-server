@@ -68,7 +68,6 @@ from .tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_list,
 )
 from .tools.tabulator import (
     tabulator_table_create,
@@ -124,7 +123,6 @@ __all__ = [
     "package_delete",
     "package_diff",
     "package_validate",
-    "packages_list",
     "quick_start",
     "tabulator_table_create",
     "tabulator_table_delete",

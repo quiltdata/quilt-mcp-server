@@ -384,11 +384,12 @@ def _check_athena_connectivity() -> Dict[str, Any]:
 def _check_package_operations() -> Dict[str, Any]:
     """Check package operations functionality."""
     try:
-        from .packages import packages_list
+        from ..services.quilt_service import QuiltService
+        from ..constants import DEFAULT_REGISTRY
 
-        result = packages_list(limit=1)
-        if not result.get("success"):
-            raise Exception(result.get("error", "Package operations failed"))
+        quilt_service = QuiltService()
+        # Just try to list one package to verify functionality
+        pkgs = list(quilt_service.list_packages(registry=DEFAULT_REGISTRY))
         return {"package_ops_available": True}
     except Exception as e:
         raise Exception(f"Package operations failed: {e}")

@@ -308,7 +308,7 @@ def catalog_status() -> dict[str, Any]:
 
             # Generate suggested actions based on status
             suggested_actions = [
-                "Try listing packages with: packages_list()",
+                "Search for packages with: catalog_search(query)",
                 "Test bucket permissions with: bucket_access_check(bucket_name)",
                 "Discover your writable buckets with: aws_permissions_discover()",
                 "Create your first package with: create_package()",
@@ -327,7 +327,7 @@ def catalog_status() -> dict[str, Any]:
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
                     "package_creation": "Try: create_package() to create your first package",
-                    "exploration": "Try: packages_list() to browse existing packages",
+                    "exploration": "Try: catalog_search(query) to find packages",
                 },
             }
         else:
@@ -412,9 +412,7 @@ def filesystem_status() -> dict[str, Any]:
 
     # Test temp directory write access
     try:
-        import tempfile as _tf
-
-        with _tf.NamedTemporaryFile(delete=True) as f:
+        with tempfile.NamedTemporaryFile(delete=True) as f:
             f.write(b"test")
         result["temp_writable"] = True
     except Exception as e:
@@ -528,7 +526,7 @@ def catalog_set(catalog_name: str) -> dict[str, Any]:
             "next_steps": [
                 "Login with: quilt3 login",
                 "Verify with: auth_status()",
-                "Start exploring with: packages_list()",
+                "Start exploring with: catalog_search(query)",
             ],
             "help": {
                 "login_command": "quilt3 login",
@@ -586,8 +584,8 @@ def quick_start() -> dict[str, Any]:
                     },
                     {
                         "action": "Explore existing packages",
-                        "command": "packages_list()",
-                        "description": "Browse packages in your catalog",
+                        "command": "catalog_search(query)",
+                        "description": "Search for packages in your catalog",
                     },
                 ],
                 "tips": [
@@ -678,84 +676,3 @@ def quick_start() -> dict[str, Any]:
                 "Visit: https://docs.quiltdata.com/ for detailed setup instructions",
             ],
         }
-
-
-def list_available_resources() -> dict[str, Any]:
-    """TODO: Delete obsolete tool - replaced by MCP resource s3://buckets
-
-    Auto-detect user's available buckets and registries.
-    """
-    try:
-        from .permissions import aws_permissions_discover
-
-        permissions_result = aws_permissions_discover()
-
-        if not permissions_result.get("success"):
-            return {
-                "status": "error",
-                "error": "Failed to discover available resources",
-                "details": permissions_result.get("error", "Unknown error"),
-            }
-
-        categorized = permissions_result.get("categorized_buckets", {})
-
-        writable_buckets = []
-        readable_buckets = []
-
-        for bucket_info in categorized.get("full_access", []) + categorized.get("read_write", []):
-            writable_buckets.append(
-                {
-                    "name": bucket_info["name"],
-                    "permission_level": bucket_info["permission_level"],
-                    "region": bucket_info.get("region", "unknown"),
-                    "recommended_for": "package_creation",
-                }
-            )
-
-        for category in ["full_access", "read_write", "read_only", "list_only"]:
-            for bucket_info in categorized.get(category, []):
-                readable_buckets.append(
-                    {
-                        "name": bucket_info["name"],
-                        "permission_level": bucket_info["permission_level"],
-                        "region": bucket_info.get("region", "unknown"),
-                        "can_read_files": bucket_info.get("can_read", False),
-                    }
-                )
-
-        catalog_result = catalog_info()
-        registries = []
-        if catalog_result.get("status") == "success":
-            registries.append(
-                {
-                    "name": catalog_result.get("catalog_name", "current"),
-                    "url": catalog_result.get("catalog_url", "unknown"),
-                    "authenticated": catalog_result.get("is_authenticated", False),
-                }
-            )
-
-        return {
-            "status": "success",
-            "writable_buckets": writable_buckets,
-            "readable_buckets": readable_buckets,
-            "registries": registries,
-            "summary": {
-                "total_writable": len(writable_buckets),
-                "total_readable": len(readable_buckets),
-                "total_registries": len(registries),
-            },
-            "recommendations": {
-                "package_creation": [bucket["name"] for bucket in writable_buckets[:3]],
-                "data_exploration": [bucket["name"] for bucket in readable_buckets[:5]],
-            },
-            "next_steps": [
-                "Create packages in any writable bucket",
-                "Explore data in readable buckets",
-                "Use package_create() for intelligent package creation",
-            ],
-        }
-
-    except Exception as e:
-        from ..utils import format_error_response
-
-        return format_error_response(f"Failed to list resources: {str(e)}")

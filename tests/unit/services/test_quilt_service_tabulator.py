@@ -40,7 +40,6 @@ class TestTabulatorAccessMethods:
             assert isinstance(result, bool)
             assert result is False
 
-
     def test_set_tabulator_access_enables(self):
         """Test set_tabulator_access enables tabulator access."""
         service = QuiltService()
@@ -68,7 +67,6 @@ class TestTabulatorAccessMethods:
             assert result["status"] == "success"
             assert result["enabled"] is False
             mock_admin.return_value.set_open_query.assert_called_once_with(False)
-
 
 
 class TestTabulatorTableListing:
@@ -105,7 +103,6 @@ class TestTabulatorTableListing:
 
             assert isinstance(result, list)
             assert len(result) == 0
-
 
     def test_list_tabulator_tables_raises_bucket_not_found(self):
         """Test list_tabulator_tables raises BucketNotFoundError when bucket doesn't exist."""
@@ -177,7 +174,6 @@ parser:
             assert result["status"] == "success"
             assert result["table_name"] == "new_table"
 
-
     def test_create_tabulator_table_raises_bucket_not_found(self):
         """Test create_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
         service = QuiltService()
@@ -217,7 +213,6 @@ class TestTabulatorTableDeletion:
             mock_admin.return_value.set_table.assert_called_once_with(
                 bucket_name="test-bucket", table_name="old_table", config=None
             )
-
 
     def test_delete_tabulator_table_raises_bucket_not_found(self):
         """Test delete_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
@@ -263,7 +258,6 @@ class TestTabulatorTableRename:
                 bucket_name="test-bucket", table_name="old_name", new_table_name="new_name"
             )
 
-
     def test_rename_tabulator_table_raises_bucket_not_found(self):
         """Test rename_tabulator_table raises BucketNotFoundError when bucket doesn't exist."""
         service = QuiltService()
@@ -289,5 +283,3 @@ class TestTabulatorTableRename:
 
 class TestTabulatorAdminModule:
     """Test _get_tabulator_admin_module helper."""
-
-

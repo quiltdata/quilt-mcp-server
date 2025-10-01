@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import boto3
+
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
 from ..utils import generate_signed_url
@@ -21,37 +23,6 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     if bucket_or_uri.startswith("s3://"):
         return bucket_or_uri
     return f"s3://{bucket_or_uri}"
-
-
-def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
-    """List all available Quilt packages in a registry.
-
-    Args:
-        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
-        limit: Maximum number of packages to return, 0 for unlimited (default: 0)
-        prefix: Filter packages by name prefix (default: "")
-
-    Returns:
-        Dict with list of package names.
-    """
-    # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
-    normalized_registry = _normalize_registry(registry)
-    # Suppress stdout during list_packages to avoid JSON-RPC interference
-    from ..utils import suppress_stdout
-
-    quilt_service = QuiltService()
-    with suppress_stdout():
-        pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
-
-    # Apply prefix filtering if specified
-    if prefix:
-        pkgs = [pkg for pkg in pkgs if pkg.startswith(prefix)]
-
-    # Apply limit if specified
-    if limit > 0:
-        pkgs = pkgs[:limit]
-
-    return {"packages": pkgs}
 
 
 def package_browse(
@@ -118,7 +89,6 @@ def package_browse(
                 "Ensure the package exists in the specified registry",
             ],
             "suggested_actions": [
-                f"Try: packages_list(registry='{registry}') to see available packages",
                 f"Try: catalog_search('{package_name.split('/')[-1]}') to find similar packages",
             ],
         }
@@ -166,8 +136,6 @@ def package_browse(
             if include_file_info and physical_key and physical_key.startswith("s3://"):
                 try:
                     # Try to get additional S3 metadata
-                    import boto3
-
                     from ..utils import get_s3_client
 
                     s3_client = get_s3_client()

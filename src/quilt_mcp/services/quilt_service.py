@@ -373,7 +373,6 @@ class QuiltService:
             # Any error (auth, permissions, network) means no admin access
             return False
 
-
     def _get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes from quilt3.admin.
 

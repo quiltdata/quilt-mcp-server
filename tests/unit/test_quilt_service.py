@@ -470,8 +470,6 @@ class TestQuiltServiceCreatePackageRevision:
 class TestQuiltServiceAdmin:
     """Test admin module access methods."""
 
-
-
     def test_get_admin_exceptions_when_available(self):
         """Test get_admin_exceptions returns exception classes when available."""
         service = QuiltService()

@@ -222,47 +222,20 @@ class TestS3ResourcesFunction:
             "is_authenticated": True,
         }
 
+    @pytest.mark.skip(reason="list_available_resources removed - replaced by s3://buckets resource")
     def test_list_available_resources_success(self, mock_permissions_result, mock_catalog_info):
         """Test successful listing of available S3 resources."""
-        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.catalog.catalog_info') as mock_catalog:
-                mock_discover.return_value = mock_permissions_result
-                mock_catalog.return_value = mock_catalog_info
+        pass
 
-                from quilt_mcp.tools.catalog import list_available_resources
-
-                result = list_available_resources()
-
-                assert result["status"] == "success"
-                assert len(result["writable_buckets"]) == 2  # full_access + read_write
-                assert len(result["readable_buckets"]) == 4  # all buckets
-                assert len(result["registries"]) == 1
-                assert result["writable_buckets"][0]["name"] == "my-data-bucket"
-
+    @pytest.mark.skip(reason="list_available_resources removed - replaced by s3://buckets resource")
     def test_list_available_resources_permissions_failure(self):
         """Test handling of permissions discovery failure."""
-        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            mock_discover.return_value = {"success": False, "error": "AWS credentials not configured"}
+        pass
 
-            from quilt_mcp.tools.catalog import list_available_resources
-
-            result = list_available_resources()
-
-            assert result["status"] == "error"
-            assert "Failed to discover available resources" in result["error"]
-            assert result["details"] == "AWS credentials not configured"
-
+    @pytest.mark.skip(reason="list_available_resources removed - replaced by s3://buckets resource")
     def test_list_available_resources_exception_handling(self):
         """Test exception handling in resource listing."""
-        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            mock_discover.side_effect = Exception("Network error")
-
-            from quilt_mcp.tools.catalog import list_available_resources
-
-            result = list_available_resources()
-
-            assert result["success"] is False
-            assert "Failed to list resources" in result["error"]
+        pass
 
 
 class TestGovernanceService:
@@ -404,25 +377,10 @@ class TestErrorHandlingPatterns:
 class TestPerformanceAndCaching:
     """Test performance considerations and behavior."""
 
+    @pytest.mark.skip(reason="list_available_resources removed - replaced by s3://buckets resource")
     def test_list_available_resources_performance_tracking(self):
         """Test that resource listing completes in reasonable time."""
-        import time
-
-        with patch('quilt_mcp.tools.permissions.aws_permissions_discover') as mock_discover:
-            with patch('quilt_mcp.tools.catalog.catalog_info') as mock_catalog:
-                # Mock fast responses
-                mock_discover.return_value = {"success": True, "categorized_buckets": {}}
-                mock_catalog.return_value = {"status": "success"}
-
-                from quilt_mcp.tools.catalog import list_available_resources
-
-                start_time = time.time()
-                result = list_available_resources()
-                end_time = time.time()
-
-                # Should complete quickly with mocked responses
-                assert (end_time - start_time) < 0.1
-                assert result["status"] == "success"
+        pass
 
     @pytest.mark.asyncio
     async def test_admin_functions_async_behavior(self):

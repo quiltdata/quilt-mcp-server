@@ -135,7 +135,6 @@ class TabulatorService:
     def list_tables(self, bucket_name: str) -> Dict[str, Any]:
         """List all tabulator tables for a bucket."""
         try:
-
             # Use QuiltService to list tabulator tables
             tables = quilt_service.list_tabulator_tables(bucket_name)
 
@@ -190,7 +189,6 @@ class TabulatorService:
     ) -> Dict[str, Any]:
         """Create a new tabulator table."""
         try:
-
             # Validate inputs
             validation_errors = []
 
@@ -238,7 +236,6 @@ class TabulatorService:
     def delete_table(self, bucket_name: str, table_name: str) -> Dict[str, Any]:
         """Delete a tabulator table."""
         try:
-
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
             if not table_name:
@@ -261,7 +258,6 @@ class TabulatorService:
     def rename_table(self, bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
         """Rename a tabulator table."""
         try:
-
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
             if not table_name:
@@ -293,7 +289,6 @@ class TabulatorService:
     def get_open_query_status(self) -> Dict[str, Any]:
         """Get tabulator open query status."""
         try:
-
             # Use QuiltService to get tabulator access status
             enabled = quilt_service.get_tabulator_access()
 
@@ -309,7 +304,6 @@ class TabulatorService:
     def set_open_query(self, enabled: bool) -> Dict[str, Any]:
         """Set tabulator open query status."""
         try:
-
             # Use QuiltService to set tabulator access status
             result = quilt_service.set_tabulator_access(enabled=enabled)
 
@@ -341,33 +335,6 @@ def get_tabulator_service() -> TabulatorService:
 
 
 # MCP Tool Functions
-
-
-async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
-    """
-    TODO: Delete obsolete tool - replaced by MCP resource tabulator://{bucket}/tables
-
-    List all tabulator tables configured for a bucket.
-
-    Tabulator tables enable SQL querying across multiple Quilt packages,
-    aggregating data based on configurable patterns and schemas.
-
-    Args:
-        bucket_name: Name of the S3 bucket to list tables for
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - tables: List of tabulator tables with their configurations
-        - bucket_name: The bucket name that was queried
-        - count: Number of tables found
-    """
-    try:
-        service = get_tabulator_service()
-        return service.list_tables(bucket_name)
-    except Exception as e:
-        logger.error(f"Error in tabulator_tables_list: {e}")
-        return format_error_response(f"Failed to list tabulator tables: {str(e)}")
 
 
 async def tabulator_table_create(

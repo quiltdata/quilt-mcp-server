@@ -6,9 +6,11 @@ with a focus on making tabular data more readable and user-friendly.
 
 from __future__ import annotations
 
-import pandas as pd
-from typing import Any, Dict, List, Optional, Union
+import io
 import logging
+from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -182,8 +184,6 @@ def format_athena_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(data, str) and result.get("format") == "csv":
             try:
                 # Parse CSV string back to DataFrame for table formatting
-                import io
-
                 df = pd.read_csv(io.StringIO(data))
                 table_str = format_as_table(df)
                 result["formatted_data_table"] = table_str
