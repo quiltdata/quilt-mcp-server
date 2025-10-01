@@ -212,50 +212,17 @@ class TestGetTabulatorService:
         assert service.use_quilt_auth is True
 
 
+@pytest.mark.skip(reason="tabulator_tables_list removed - replaced by TabulatorTablesResource")
 class TestTabulatorTablesList:
     """Test tabulator_tables_list function."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_list_tables_success(self, mock_get_service):
+    def test_list_tables_success(self):
         """Test successful table listing."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
+        pass
 
-        mock_service.list_tables.return_value = {
-            "success": True,
-            "tables": [
-                {
-                    "name": "test_table",
-                    "config_yaml": "schema:\n- name: col1\n  type: STRING\n",
-                    "schema": [{"name": "col1", "type": "STRING"}],
-                    "column_count": 1,
-                }
-            ],
-            "bucket_name": "test-bucket",
-            "count": 1,
-        }
-
-        result = await tabulator_tables_list("test-bucket")
-
-        assert result["success"] is True
-        assert len(result["tables"]) == 1
-        assert result["tables"][0]["name"] == "test_table"
-        assert result["bucket_name"] == "test-bucket"
-        mock_service.list_tables.assert_called_once_with("test-bucket")
-
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
-    @pytest.mark.asyncio
-    async def test_list_tables_error(self, mock_get_service):
+    def test_list_tables_error(self):
         """Test table listing error handling."""
-        mock_service = Mock()
-        mock_get_service.return_value = mock_service
-        mock_service.list_tables.side_effect = Exception("Connection failed")
-
-        result = await tabulator_tables_list("test-bucket")
-
-        assert result["success"] is False
-        assert "Connection failed" in result["error"]
+        pass
 
 
 class TestTabulatorTableCreate:
