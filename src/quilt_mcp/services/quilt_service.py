@@ -11,6 +11,8 @@ from pathlib import Path
 
 import quilt3
 
+from .exceptions import AdminNotAvailableError
+
 
 class QuiltService:
     """Centralized abstraction for all quilt3 operations.
@@ -328,7 +330,7 @@ class QuiltService:
         """Check if quilt3.admin modules are available.
 
         Returns:
-            True if admin functionality is available
+            True if admin functionality is available, False otherwise
         """
         try:
             import quilt3.admin.users
@@ -340,6 +342,28 @@ class QuiltService:
         except ImportError:
             return False
 
+    def _get_admin_exceptions(self) -> dict[str, type]:
+        """Get admin exception classes from quilt3.admin.
+
+        Returns:
+            Dict mapping exception names to exception classes
+
+        Raises:
+            AdminNotAvailableError: If admin modules not available
+        """
+        try:
+            import quilt3.admin.exceptions
+
+            return {
+                'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
+                'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
+                'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
+            }
+        except ImportError as e:
+            raise AdminNotAvailableError(
+                f"Admin operations not available. quilt3.admin module not installed: {e}"
+            )
+
     def get_tabulator_admin(self) -> Any:
         """Get tabulator admin module.
 
@@ -347,8 +371,13 @@ class QuiltService:
             quilt3.admin.tabulator module
 
         Raises:
-            ImportError: If admin modules not available
+            AdminNotAvailableError: If admin modules not available
         """
+        if not self.is_admin_available():
+            raise AdminNotAvailableError(
+                "Admin operations not available. quilt3.admin module not installed."
+            )
+
         import quilt3.admin.tabulator
 
         return quilt3.admin.tabulator
@@ -360,8 +389,13 @@ class QuiltService:
             quilt3.admin.users module
 
         Raises:
-            ImportError: If admin modules not available
+            AdminNotAvailableError: If admin modules not available
         """
+        if not self.is_admin_available():
+            raise AdminNotAvailableError(
+                "Admin operations not available. quilt3.admin module not installed."
+            )
+
         import quilt3.admin.users
 
         return quilt3.admin.users
@@ -373,8 +407,13 @@ class QuiltService:
             quilt3.admin.roles module
 
         Raises:
-            ImportError: If admin modules not available
+            AdminNotAvailableError: If admin modules not available
         """
+        if not self.is_admin_available():
+            raise AdminNotAvailableError(
+                "Admin operations not available. quilt3.admin module not installed."
+            )
+
         import quilt3.admin.roles
 
         return quilt3.admin.roles
@@ -386,8 +425,13 @@ class QuiltService:
             quilt3.admin.sso_config module
 
         Raises:
-            ImportError: If admin modules not available
+            AdminNotAvailableError: If admin modules not available
         """
+        if not self.is_admin_available():
+            raise AdminNotAvailableError(
+                "Admin operations not available. quilt3.admin module not installed."
+            )
+
         import quilt3.admin.sso_config
 
         return quilt3.admin.sso_config
@@ -395,19 +439,15 @@ class QuiltService:
     def get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes.
 
+        DEPRECATED: Use _get_admin_exceptions() for internal use.
+
         Returns:
             Dict mapping exception names to exception classes
 
         Raises:
-            ImportError: If admin modules not available
+            AdminNotAvailableError: If admin modules not available
         """
-        import quilt3.admin.exceptions
-
-        return {
-            'Quilt3AdminError': quilt3.admin.exceptions.Quilt3AdminError,
-            'UserNotFoundError': quilt3.admin.exceptions.UserNotFoundError,
-            'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
-        }
+        return self._get_admin_exceptions()
 
     def get_quilt3_module(self) -> Any:
         """Get the quilt3 module for backward compatibility.
