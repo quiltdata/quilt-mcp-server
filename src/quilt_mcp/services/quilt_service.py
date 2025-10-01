@@ -478,6 +478,30 @@ class QuiltService:
 
         return quilt3.admin.users
 
+    def _handle_user_operation_error(self, error: Exception, username: str) -> None:
+        """Handle errors from user management operations.
+
+        This helper centralizes the error handling pattern used across
+        user management methods that reference a specific username.
+
+        Args:
+            error: The exception caught from quilt3.admin.users operation
+            username: The username that was being operated on
+
+        Raises:
+            UserNotFoundError: If the error is a quilt3 UserNotFoundError
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        # Check if this is a UserNotFoundError from quilt3.admin
+        if quilt3_user_not_found and isinstance(error, quilt3_user_not_found):
+            raise UserNotFoundError(f"User '{username}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
     def list_users(self) -> list[dict[str, Any]]:
         """List all users in the catalog.
 
@@ -505,18 +529,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.get(name)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def create_user(
         self,
@@ -573,18 +589,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             users_admin.delete(name)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def set_user_email(self, name: str, email: str) -> dict[str, Any]:
         """Update a user's email address.
@@ -602,18 +610,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.set_email(name, email)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def set_user_role(
         self,
@@ -639,18 +639,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.set_role(name, role, extra_roles, append)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def set_user_active(self, name: str, active: bool) -> dict[str, Any]:
         """Update a user's active status.
@@ -668,18 +660,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.set_active(name, active)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def set_user_admin(self, name: str, admin: bool) -> dict[str, Any]:
         """Update a user's admin status.
@@ -697,18 +681,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.set_admin(name, admin)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def add_user_roles(self, name: str, roles: list[str]) -> dict[str, Any]:
         """Add roles to a user.
@@ -726,18 +702,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.add_roles(name, roles)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def remove_user_roles(
         self,
@@ -761,18 +729,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.remove_roles(name, roles, fallback)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     def reset_user_password(self, name: str) -> dict[str, Any]:
         """Reset a user's password.
@@ -789,18 +749,10 @@ class QuiltService:
         """
         users_admin = self._get_users_admin_module()
 
-        # Get admin exceptions for proper error handling
-        admin_exceptions = self._get_admin_exceptions()
-        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
-
         try:
             return users_admin.reset_password(name)
         except Exception as e:
-            # Check if this is a UserNotFoundError from quilt3.admin
-            if quilt3_user_not_found and isinstance(e, quilt3_user_not_found):
-                raise UserNotFoundError(f"User '{name}' not found") from e
-            # Re-raise any other exceptions
-            raise
+            self._handle_user_operation_error(e, name)
 
     # Helper methods for create_package_revision
 
