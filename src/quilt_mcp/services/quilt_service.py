@@ -342,6 +342,22 @@ class QuiltService:
         except ImportError:
             return False
 
+    def _require_admin(self, context: str | None = None) -> None:
+        """Ensure admin functionality is available, raise if not.
+
+        Args:
+            context: Optional context message to include in error
+
+        Raises:
+            AdminNotAvailableError: If admin modules are not available
+        """
+        if not self.is_admin_available():
+            base_message = "Admin operations not available. quilt3.admin module not installed."
+            if context:
+                raise AdminNotAvailableError(f"{base_message} {context}")
+            else:
+                raise AdminNotAvailableError(base_message)
+
     def _get_admin_exceptions(self) -> dict[str, type]:
         """Get admin exception classes from quilt3.admin.
 
