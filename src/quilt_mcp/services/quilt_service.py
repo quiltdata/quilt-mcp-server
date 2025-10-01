@@ -86,6 +86,17 @@ class QuiltService:
         """
         quilt3.config(catalog_url)
 
+    def get_navigator_url(self) -> str | None:
+        """Get navigator_url from Quilt configuration.
+
+        Returns:
+            Navigator URL or None if not available
+        """
+        config = self.get_config()
+        if config:
+            return config.get("navigator_url")
+        return None
+
     def get_catalog_info(self) -> dict[str, Any]:
         """Get comprehensive catalog information.
 

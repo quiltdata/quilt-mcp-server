@@ -65,6 +65,28 @@ class TestQuiltServiceAuthentication:
             result = service.get_config()
             assert result == expected_config
 
+    def test_get_navigator_url_returns_none_when_no_config(self):
+        """Test get_navigator_url returns None when no configuration available."""
+        service = QuiltService()
+        with patch.object(service, 'get_config', return_value=None):
+            result = service.get_navigator_url()
+            assert result is None
+
+    def test_get_navigator_url_returns_none_when_key_missing(self):
+        """Test get_navigator_url returns None when navigator_url key is missing."""
+        service = QuiltService()
+        with patch.object(service, 'get_config', return_value={'registryUrl': 's3://example-bucket'}):
+            result = service.get_navigator_url()
+            assert result is None
+
+    def test_get_navigator_url_returns_url_when_available(self):
+        """Test get_navigator_url returns URL when available in config."""
+        service = QuiltService()
+        expected_url = 'https://example.quiltdata.com'
+        with patch.object(service, 'get_config', return_value={'navigator_url': expected_url}):
+            result = service.get_navigator_url()
+            assert result == expected_url
+
 
 class TestQuiltServicePackageOperations:
     """Test package operation methods."""
