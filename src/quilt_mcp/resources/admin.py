@@ -29,11 +29,6 @@ class AdminUsersResource(MCPResource):
             Admin users data in original format
         """
         try:
-            if not ADMIN_AVAILABLE:
-                return format_error_response(
-                    "Admin functionality not available - check Quilt authentication and admin privileges"
-                )
-
             # Use new QuiltService method that returns list of dicts
             users_data = quilt_service.list_users()
 
@@ -84,11 +79,6 @@ class AdminRolesResource(MCPResource):
             Admin roles data in original format
         """
         try:
-            if not ADMIN_AVAILABLE:
-                return format_error_response(
-                    "Admin functionality not available - check Quilt authentication and admin privileges"
-                )
-
             # Use new QuiltService method that returns list of dicts
             roles_data = quilt_service.list_roles()
 
