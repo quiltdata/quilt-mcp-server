@@ -11,10 +11,9 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.tools.auth import (
-    auth_status,
+from quilt_mcp.tools.catalog import (
+    catalog_status,
     catalog_info,
-    catalog_name,
     catalog_uri,
     catalog_url,
     filesystem_status,
@@ -26,20 +25,17 @@ from quilt_mcp.tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
 )
-from quilt_mcp.tools.package_ops import (
-    package_create,
+from quilt_mcp.tools.package_creation import (
     package_delete,
-    package_update,
 )
+from quilt_mcp.tools.package_creation import package_create
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_list,
-    packages_search,
 )
+from quilt_mcp.tools.search import catalog_search
 
 # Test configuration - using constants
 TEST_REGISTRY = DEFAULT_REGISTRY
@@ -81,92 +77,58 @@ class TestQuiltAPI:
 
         return result
 
-    def test_packages_list_returns_data(self):
-        """Test that packages_list returns actual packages from configured registry."""
-        try:
-            result = packages_list(registry=TEST_REGISTRY)
-        except Exception as e:
-            if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
-            raise
+    @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
+    # def test_packages_list_returns_data(self):
+    #         """Test that packages_list returns actual packages from configured registry."""
+    #         try:
+    #             result = packages_list(registry=TEST_REGISTRY)
+    #         except Exception as e:
+    #             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
+    #                 pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+    #             raise
 
-        assert isinstance(result, dict), "Result should be a dict"
-        assert "packages" in result, "Result should have 'packages' key"
-        # FAIL if no packages - this indicates a real problem
-        assert len(result["packages"]) > 0, (
-            f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
-        )
+    #         assert isinstance(result, dict), "Result should be a dict"
+    #         assert "packages" in result, "Result should have 'packages' key"
+    #         # FAIL if no packages - this indicates a real problem
+    #         assert len(result["packages"]) > 0, (
+    #             f"Expected packages in {TEST_REGISTRY}, got empty list - this indicates missing data or misconfiguration"
+    #         )
 
-        # Check that we get string package names
-        for pkg in result["packages"]:
-            assert isinstance(pkg, str), f"Package name should be string, got {type(pkg)}: {pkg}"
-            assert "/" in pkg, f"Package names should contain namespace/name format, got: {pkg}"
+    #         # Check that we get string package names
+    #         for pkg in result["packages"]:
+    #             assert isinstance(pkg, str), f"Package name should be string, got {type(pkg)}: {pkg}"
+    #             assert "/" in pkg, f"Package names should contain namespace/name format, got: {pkg}"
 
-    def test_packages_list_prefix(self):
-        """Test that prefix filtering works and finds the configured test package."""
-        # Extract prefix from known test package
-        test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
-        try:
-            result = packages_list(registry=TEST_REGISTRY, prefix=test_prefix)
-        except Exception as e:
-            if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
-            raise
+    @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
 
-        assert isinstance(result, dict)
-        assert "packages" in result
+    # def test_packages_list_prefix(self):
+    #         """Test that prefix filtering works and finds the configured test package."""
+    #         # Extract prefix from known test package
+    #         test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
+    #         try:
+    #             result = packages_list(registry=TEST_REGISTRY, prefix=test_prefix)
+    #         except Exception as e:
+    #             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
+    #                 pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+    #             raise
 
-        # FAIL if no packages with this prefix - this means the test environment is misconfigured
-        assert len(result["packages"]) > 0, (
-            f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
-        )
+    #         assert isinstance(result, dict)
+    #         assert "packages" in result
 
-        # Verify all results match prefix
-        for pkg in result["packages"]:
-            assert pkg.startswith(test_prefix), f"Package {pkg} doesn't start with '{test_prefix}'"
+    #         # FAIL if no packages with this prefix - this means the test environment is misconfigured
+    #         assert len(result["packages"]) > 0, (
+    #             f"No {test_prefix} packages found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
+    #         )
 
-        # FAIL if known package not found - this means the test environment is misconfigured
-        package_names = result["packages"]
-        assert KNOWN_PACKAGE in package_names, (
-            f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
-        )
+    #         # Verify all results match prefix
+    #         for pkg in result["packages"]:
+    #             assert pkg.startswith(test_prefix), f"Package {pkg} doesn't start with '{test_prefix}'"
 
-    @pytest.mark.search
-    @pytest.mark.skipif(
-        os.getenv("GITHUB_ACTIONS") == "true",
-        reason="Skip search integration test in CI - requires indexed content and can timeout",
-    )
-    def test_packages_search_finds_data(self):
-        """Test that searching finds actual data (search returns S3 objects, not packages)."""
-        # Use a very simple search to avoid timeout
-        try:
-            # Test with explicit registry parameter (our fix ensures registry-specific search)
-            # Use limit=1 and a simple query to minimize time
-            result = packages_search("*", registry=TEST_REGISTRY, limit=1)
-            assert isinstance(result, dict)
-            assert "results" in result
-            assert "registry" in result  # Verify our fix adds registry info
-            assert "bucket" in result  # Verify our fix adds bucket info
-
-            # If we get results, verify the structure
-            if len(result["results"]) > 0:
-                for item in result["results"]:
-                    if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
-            else:
-                # No results is fine - the search functionality is working
-                import warnings
-
-                warnings.warn(
-                    f"No search results found in registry {TEST_REGISTRY}. "
-                    "This may be expected in CI environments without indexed content. "
-                    "The search functionality is working correctly - it's properly scoped to the specified registry."
-                )
-        except Exception as e:
-            # If search fails completely, that's also acceptable in CI
-            import warnings
-
-            warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
+    #         # FAIL if known package not found - this means the test environment is misconfigured
+    #         package_names = result["packages"]
+    #         assert KNOWN_PACKAGE in package_names, (
+    #             f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
+    #         )
 
     def test_package_browse_known_package(self, known_package_browse_result):
         """Test browsing the known test package."""
@@ -273,7 +235,7 @@ class TestQuiltAPI:
 
     def test_auth_status_returns_status(self):
         """Test authentication check returns valid status."""
-        result = auth_status()
+        result = catalog_status()
 
         assert isinstance(result, dict)
         assert "status" in result
@@ -323,27 +285,6 @@ class TestQuiltAPI:
             assert isinstance(result["catalog_name"], str)
             assert isinstance(result["is_authenticated"], bool)
             assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
-
-    def test_catalog_name_returns_name(self):
-        """Test catalog_name returns the catalog name and detection method."""
-        result = catalog_name()
-
-        assert isinstance(result, dict)
-        assert "catalog_name" in result
-        assert "detection_method" in result
-        assert "status" in result
-        assert result["status"] in ["success", "error"]
-
-        if result["status"] == "success":
-            assert isinstance(result["catalog_name"], str)
-            assert isinstance(result["detection_method"], str)
-            assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
-            assert result["detection_method"] in [
-                "authentication",
-                "navigator_config",
-                "registry_config",
-                "unknown",
-            ]
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
@@ -413,25 +354,18 @@ class TestQuiltAPI:
 
     # FAILURE CASES - These should fail gracefully
 
-    @pytest.mark.search
-    def test_packages_search_no_results(self):
-        """Test that non-existent search returns empty results, not error."""
-        result = packages_search("xyznonexistentpackage123456789")
+    @pytest.mark.skip(reason="packages_list removed, replaced by catalog_search")
 
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) == 0, "Non-existent search should return empty results"
+    # def test_packages_list_invalid_registry_fails(self):
+    #         """Test that invalid registry fails gracefully with proper error."""
+    #         with pytest.raises(Exception) as exc_info:
+    #             packages_list(registry="s3://definitely-nonexistent-bucket-xyz")
 
-    def test_packages_list_invalid_registry_fails(self):
-        """Test that invalid registry fails gracefully with proper error."""
-        with pytest.raises(Exception) as exc_info:
-            packages_list(registry="s3://definitely-nonexistent-bucket-xyz")
-
-        # Should get a meaningful error about the bucket
-        error_msg = str(exc_info.value).lower()
-        assert any(term in error_msg for term in ["nosuchbucket", "no such bucket", "bucket", "not found"]), (
-            f"Expected meaningful bucket error, got: {exc_info.value}"
-        )
+    #         # Should get a meaningful error about the bucket
+    #         error_msg = str(exc_info.value).lower()
+    #         assert any(term in error_msg for term in ["nosuchbucket", "no such bucket", "bucket", "not found"]), (
+    #             f"Expected meaningful bucket error, got: {exc_info.value}"
+    #         )
 
     def test_package_browse_nonexistent_fails(self):
         """Test that browsing non-existent package returns error response."""
@@ -575,72 +509,6 @@ class TestQuiltAPI:
         except Exception:
             pass  # Cleanup is best-effort
 
-    @pytest.mark.search
-    def test_bucket_objects_search_finds_data(self):
-        """Test bucket_objects_search finds actual data in the test bucket."""
-        # Try multiple search terms to find some data
-        search_terms = ["README", "csv", "parquet", "json", "txt", "data", "test"]
-        found_results = False
-
-        for term in search_terms:
-            result = bucket_objects_search(KNOWN_BUCKET, term, limit=5)
-            assert isinstance(result, dict)
-            assert "bucket" in result
-            assert "query" in result
-            assert "results" in result
-
-            if "error" in result:
-                # Search might not be configured - skip test
-                if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                    pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
-                continue
-
-            if len(result["results"]) > 0:
-                found_results = True
-                # Verify the response structure is correct
-                for item in result["results"]:
-                    if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
-                break
-
-        # If search is configured but no results found, that's okay for some buckets
-        if not found_results:
-            pytest.skip(
-                f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content"
-            )
-
-    def test_bucket_objects_search_no_results(self):
-        """Test that non-existent search returns empty results, not error."""
-        result = bucket_objects_search(KNOWN_BUCKET, "xyznonexistentfile123456789")
-
-        assert isinstance(result, dict)
-        if "error" not in result:
-            assert "results" in result
-            assert len(result["results"]) == 0, "Non-existent search should return empty results"
-        else:
-            # Search might not be configured - that's okay
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}")
-
-    def test_bucket_objects_search_dsl_query(self):
-        """Test bucket_objects_search with dictionary DSL query."""
-        query_dsl = {"query": {"wildcard": {"key": "*.csv"}}}
-
-        result = bucket_objects_search(KNOWN_BUCKET, query_dsl, limit=3)
-
-        assert isinstance(result, dict)
-        assert "bucket" in result
-        assert "query" in result
-        assert result["query"] == query_dsl
-
-        if "error" in result:
-            # Search might not be configured - skip test
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.skip(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
-        else:
-            assert "results" in result
-            # Results might be empty if no CSV files exist, which is okay
-
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""
         result = package_diff(KNOWN_PACKAGE, KNOWN_PACKAGE, registry=TEST_REGISTRY)
@@ -663,37 +531,37 @@ class TestQuiltAPI:
             assert len(diff.get("added", [])) == 0 or len(diff.get("deleted", [])) == 0
 
     @pytest.mark.slow
-    def test_package_diff_different_packages(self):
-        """Test package_diff comparing two different packages."""
-        # Get available packages first
-        try:
-            packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
-        except Exception as e:
-            if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-                pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
-            raise
+    # def test_package_diff_different_packages(self):
+    #         """Test package_diff comparing two different packages."""
+    #         # Get available packages first
+    #         try:
+    #             packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
+    #         except Exception as e:
+    #             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
+    #                 pytest.skip(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
+    #             raise
 
-        if len(packages_result.get("packages", [])) < 2:
-            pytest.skip("Need at least 2 packages to test diff")
+    #         if len(packages_result.get("packages", [])) < 2:
+    #             pytest.skip("Need at least 2 packages to test diff")
 
-        packages = packages_result["packages"]
-        pkg1, pkg2 = packages[0], packages[1]
+    #         packages = packages_result["packages"]
+    #         pkg1, pkg2 = packages[0], packages[1]
 
-        result = package_diff(pkg1, pkg2, registry=TEST_REGISTRY)
+    #         result = package_diff(pkg1, pkg2, registry=TEST_REGISTRY)
 
-        assert isinstance(result, dict)
-        if "error" in result:
-            # Some packages might not support diff operations or might not exist
-            if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
-                pytest.skip(f"Packages not accessible for diff: {result['error']}")
-            else:
-                pytest.skip(f"Package diff not supported: {result['error']}")
+    #         assert isinstance(result, dict)
+    #         if "error" in result:
+    #             # Some packages might not support diff operations or might not exist
+    #             if "not found" in result["error"].lower() or "does not exist" in result["error"].lower():
+    #                 pytest.skip(f"Packages not accessible for diff: {result['error']}")
+    #             else:
+    #                 pytest.skip(f"Package diff not supported: {result['error']}")
 
-        assert "package1" in result
-        assert "package2" in result
-        assert "diff" in result
-        assert result["package1"] == pkg1
-        assert result["package2"] == pkg2
+    #         assert "package1" in result
+    #         assert "package2" in result
+    #         assert "diff" in result
+    #         assert result["package1"] == pkg1
+    #         assert result["package2"] == pkg2
 
     def test_package_diff_nonexistent_packages(self):
         """Test package_diff with non-existent packages."""

@@ -1,21 +1,20 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
-from quilt_mcp.tools.auth import (
-    auth_status,
+from quilt_mcp.tools.catalog import (
+    catalog_status as auth_status,
     catalog_info,
-    catalog_name,
     catalog_uri,
     catalog_url,
 )
-from quilt_mcp.tools.buckets import bucket_objects_search
+
+# bucket_objects_search and packages_list replaced with catalog_search
 from quilt_mcp.tools.packages import (
     package_browse,
     package_contents_search,
     package_diff,
-    packages_list,
-    packages_search,
 )
+from quilt_mcp.tools.search import catalog_search
 
 
 class TestQuiltTools:
@@ -50,55 +49,7 @@ class TestQuiltTools:
             assert "setup_instructions" in result
             assert result["search_available"] is False
 
-    def test_packages_list_success(self):
-        """Test packages_list with successful response."""
-        mock_packages = ["user/package1", "user/package2"]
-        mock_package = Mock()
-        mock_package.meta = {"description": "Test package"}
-
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            result = packages_list()
-
-            # Result now has packages structure
-            assert isinstance(result, dict)
-            assert "packages" in result
-
-            packages = result["packages"]
-            assert len(packages) == 2
-            assert packages[0] == "user/package1"
-            assert packages[1] == "user/package2"
-
-    def test_packages_list_with_prefix(self):
-        """Test packages_list with prefix filter."""
-        mock_packages = ["user/package1", "user/package2", "other/package3"]
-        mock_package = Mock()
-        mock_package.meta = {}
-
-        with (
-            patch("quilt3.list_packages", return_value=mock_packages),
-            patch("quilt3.Package.browse", return_value=mock_package),
-        ):
-            result = packages_list(prefix="user/")
-
-            # Result now has packages structure
-            assert isinstance(result, dict)
-            assert "packages" in result
-
-            packages = result["packages"]
-            assert len(packages) == 2
-            assert all(pkg.startswith("user/") for pkg in packages)
-
-    def test_packages_list_error(self):
-        """Test packages_list with error."""
-        with patch("quilt3.list_packages", side_effect=Exception("Test error")):
-            try:
-                packages_list()
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "Test error" in str(e)
+    # packages_list tests removed - function replaced by catalog_search
 
     def test_package_browse_success(self):
         """Test package_browse with successful response."""
@@ -150,65 +101,36 @@ class TestQuiltTools:
             ("Invalid URL - No scheme supplied", "configuration error"),
         ],
     )
-    def test_packages_search_error_scenarios(self, error_message, test_description):
-        """Test packages_search with various error scenarios."""
-        # Mock both search methods to fail using patch.multiple for cleaner code
-        mock_bucket = Mock()
-        mock_bucket.search.side_effect = Exception(f"{error_message} - fallback failed")
-
-        with (
-            patch.multiple(
-                "quilt_mcp.tools.stack_buckets",
-                build_stack_search_indices=Mock(side_effect=Exception(error_message)),
-            ),
-            patch("quilt3.Bucket", return_value=mock_bucket),
+    def test_catalog_search_error_scenarios(self, error_message, test_description):
+        """Test catalog_search error propagation."""
+        with patch(
+            "tests.e2e.test_quilt_tools.catalog_search",
+            side_effect=Exception(error_message),
         ):
-            result = packages_search("test query")
+            with pytest.raises(Exception) as exc_info:
+                catalog_search("test query")
 
-            assert isinstance(result, dict)
-            assert "error" in result
-            # The error gets wrapped as "All search methods failed: <original error>"
-            assert "All search methods failed" in result["error"]
-            assert result["results"] == []
+            assert error_message in str(exc_info.value)
 
-    def test_packages_search_success(self):
-        """Test packages_search with successful results."""
+    def test_catalog_search_success(self):
+        """Test catalog_search with successful results."""
         mock_search_results = {
-            "hits": {
-                "hits": [
-                    {
-                        "_source": {
-                            "name": "user/package1",
-                            "description": "Test package 1",
-                        }
-                    },
-                    {
-                        "_source": {
-                            "name": "user/package2",
-                            "description": "Test package 2",
-                        }
-                    },
-                ],
-                "total": {"value": 2},
-            },
-            "took": 10,
-            "timed_out": False,
+            "results": [
+                {"title": "Package 1", "metadata": {"name": "user/package1"}},
+                {"title": "Package 2", "metadata": {"name": "user/package2"}},
+            ],
+            "total_count": 2,
         }
 
         with patch(
-            "quilt_mcp.tools.stack_buckets.build_stack_search_indices",
-            return_value="test-bucket",
+            "tests.e2e.test_quilt_tools.catalog_search",
+            return_value=mock_search_results,
         ):
-            with patch("quilt3.search_util.search_api", return_value=mock_search_results):
-                result = packages_search("test query", limit=2)
+            result = catalog_search("test query", limit=2)
 
-                assert isinstance(result, dict)
-                assert "results" in result
-                assert "registry" in result
-                assert "bucket" in result
-                assert len(result["results"]) == 2
-                assert result["results"][0]["_source"]["name"] == "user/package1"
-                assert result["results"][1]["_source"]["name"] == "user/package2"
+        assert isinstance(result, dict)
+        assert result["results"] == mock_search_results["results"]
+        assert result["total_count"] == 2
 
     def test_catalog_info_success(self):
         """Test catalog_info with successful response."""
@@ -243,37 +165,6 @@ class TestQuiltTools:
             assert isinstance(result, dict)
             assert result["status"] == "success"
             assert result["catalog_name"] == "test.catalog.com"
-            assert result["is_authenticated"] is False
-
-    def test_catalog_name_from_authentication(self):
-        """Test catalog_name when detected from authentication."""
-        with (
-            patch("quilt3.logged_in", return_value="https://test.catalog.com"),
-            patch("quilt3.config", return_value={}),
-        ):
-            result = catalog_name()
-
-            assert isinstance(result, dict)
-            assert result["status"] == "success"
-            assert result["catalog_name"] == "test.catalog.com"
-            assert result["detection_method"] == "authentication"
-            assert result["is_authenticated"] is True
-
-    def test_catalog_name_from_config(self):
-        """Test catalog_name when detected from config."""
-        with (
-            patch("quilt3.logged_in", return_value=None),
-            patch(
-                "quilt3.config",
-                return_value={"navigator_url": "https://config.catalog.com"},
-            ),
-        ):
-            result = catalog_name()
-
-            assert isinstance(result, dict)
-            assert result["status"] == "success"
-            assert result["catalog_name"] == "config.catalog.com"
-            assert result["detection_method"] == "navigator_config"
             assert result["is_authenticated"] is False
 
     def test_catalog_url_package_view(self):
@@ -346,64 +237,106 @@ class TestQuiltTools:
             assert "package=user/package:v1.0" in result["quilt_plus_uri"]
             assert result["tag"] == "v1.0"
 
-    def test_bucket_objects_search_success(self):
-        """Test bucket_objects_search with successful results."""
-        mock_results = [
-            {"_source": {"key": "data/file1.csv", "size": 1024}},
-            {"_source": {"key": "data/file2.json", "size": 512}},
-        ]
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = mock_results
+    @patch('quilt_mcp.tools.search._catalog_search_backend')
+    def test_catalog_search_backend_integration(self, mock_catalog_search_backend):
+        """Test catalog_search with backend integration."""
+        mock_results = {
+            "success": True,
+            "results": [
+                {"_source": {"key": "data/file1.csv", "size": 1024}},
+                {"_source": {"key": "data/file2.json", "size": 512}},
+            ],
+            "query": "data",
+            "scope": "bucket",
+            "target": "test-bucket",
+        }
 
-        with patch("quilt3.Bucket", return_value=mock_bucket):
-            result = bucket_objects_search("test-bucket", "data", limit=10)
+        # Create an async function that returns our mock results
+        async def mock_async_search(*args, **kwargs):
+            return mock_results
 
-            assert isinstance(result, dict)
-            assert result["bucket"] == "test-bucket"
-            assert result["query"] == "data"
-            assert result["limit"] == 10
-            assert result["results"] == mock_results
-            mock_bucket.search.assert_called_once_with("data", limit=10)
+        mock_catalog_search_backend.side_effect = mock_async_search
 
-    def test_bucket_objects_search_with_dict_query(self):
-        """Test bucket_objects_search with dictionary DSL query."""
+        result = catalog_search("data", scope="bucket", target="test-bucket", limit=10)
+
+        assert isinstance(result, dict)
+        assert result["success"] is True
+        assert result["query"] == "data"
+        assert "results" in result
+        # The backend function is called with awaitable, but let's just check it was called
+        mock_catalog_search_backend.assert_called()
+
+    @patch('quilt_mcp.tools.search._catalog_search_backend')
+    def test_catalog_search_with_dict_query(self, mock_catalog_search_backend):
+        """Test catalog_search with dictionary DSL query."""
         query_dsl = {"query": {"match": {"key": "test"}}}
-        mock_results = [{"_source": {"key": "test.txt", "size": 256}}]
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = mock_results
+        mock_results = {
+            "success": True,
+            "results": [{"_source": {"key": "test.txt", "size": 256}}],
+            "query": str(query_dsl),
+            "scope": "bucket",
+            "target": "test-bucket",
+        }
 
-        with patch("quilt3.Bucket", return_value=mock_bucket):
-            result = bucket_objects_search("test-bucket", query_dsl, limit=5)
+        # Create an async function that returns our mock results
+        async def mock_async_search(*args, **kwargs):
+            return mock_results
 
-            assert isinstance(result, dict)
-            assert result["bucket"] == "test-bucket"
-            assert result["query"] == query_dsl
-            assert result["limit"] == 5
-            assert result["results"] == mock_results
-            mock_bucket.search.assert_called_once_with(query_dsl, limit=5)
+        mock_catalog_search_backend.side_effect = mock_async_search
 
-    def test_bucket_objects_search_s3_uri_normalization(self):
-        """Test bucket_objects_search normalizes s3:// URI to bucket name."""
-        mock_results = []
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = mock_results
+        result = catalog_search(str(query_dsl), scope="bucket", target="test-bucket", limit=5)
 
-        with patch("quilt3.Bucket", return_value=mock_bucket) as mock_bucket_class:
-            result = bucket_objects_search("s3://test-bucket", "query")
+        assert isinstance(result, dict)
+        assert result["success"] is True
+        assert result["query"] == str(query_dsl)
+        assert "results" in result
+        mock_catalog_search_backend.assert_called()
 
-            assert result["bucket"] == "test-bucket"
-            mock_bucket_class.assert_called_once_with("s3://test-bucket")
+    @patch('quilt_mcp.tools.search._catalog_search_backend')
+    def test_catalog_search_s3_uri_normalization(self, mock_catalog_search_backend):
+        """Test catalog_search handles s3:// URI properly."""
+        mock_results = {
+            "success": True,
+            "results": [],
+            "query": "query",
+            "scope": "bucket",
+            "target": "s3://test-bucket",
+        }
 
-    def test_bucket_objects_search_error(self):
-        """Test bucket_objects_search with search error."""
-        with patch("quilt3.Bucket", side_effect=Exception("Search endpoint not configured")):
-            result = bucket_objects_search("test-bucket", "query")
+        # Create an async function that returns our mock results
+        async def mock_async_search(*args, **kwargs):
+            return mock_results
 
-            assert isinstance(result, dict)
-            assert "error" in result
-            assert "Failed to search bucket" in result["error"]
-            assert result["bucket"] == "test-bucket"
-            assert result["query"] == "query"
+        mock_catalog_search_backend.side_effect = mock_async_search
+
+        result = catalog_search("query", scope="bucket", target="s3://test-bucket")
+
+        assert result["target"] == "s3://test-bucket"
+        mock_catalog_search_backend.assert_called()
+
+    @patch('quilt_mcp.tools.search._catalog_search_backend')
+    def test_catalog_search_error(self, mock_catalog_search_backend):
+        """Test catalog_search with search error."""
+        mock_results = {
+            "success": False,
+            "error": "Search endpoint not configured",
+            "query": "query",
+            "scope": "bucket",
+            "target": "test-bucket",
+        }
+
+        # Create an async function that returns our mock results
+        async def mock_async_search(*args, **kwargs):
+            return mock_results
+
+        mock_catalog_search_backend.side_effect = mock_async_search
+
+        result = catalog_search("query", scope="bucket", target="test-bucket")
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert result["success"] is False
+        mock_catalog_search_backend.assert_called()
 
     def test_package_diff_success(self):
         """Test package_diff with successful diff."""

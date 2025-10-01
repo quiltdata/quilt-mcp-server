@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
-from quilt_mcp.tools import auth, buckets, package_ops, packages
+from quilt_mcp.tools import catalog, buckets, package_creation, packages
 from quilt_mcp.utils import (
     create_configured_server,
     create_mcp_server,
@@ -248,14 +248,14 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_get_tool_modules(self):
         """Test that get_tool_modules returns expected modules."""
         modules = get_tool_modules()
-        # The function returns 16 modules after adding new features
-        self.assertEqual(len(modules), 16)
+        # After consolidation: removed 4 legacy modules (package_ops, s3_package, unified_package, package_management)
+        self.assertEqual(len(modules), 13)
         # Check that key modules are included
         module_names = [m.__name__ for m in modules]
-        self.assertIn("quilt_mcp.tools.auth", module_names)
+        self.assertIn("quilt_mcp.tools.catalog", module_names)
         self.assertIn("quilt_mcp.tools.buckets", module_names)
         self.assertIn("quilt_mcp.tools.packages", module_names)
-        self.assertIn("quilt_mcp.tools.package_ops", module_names)
+        self.assertIn("quilt_mcp.tools.package_creation", module_names)
 
     def test_register_tools_with_mock_server(self):
         """Test tool registration with a mock server."""
@@ -273,7 +273,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
         mock_server = Mock(spec=FastMCP)
 
         # Test with just one module
-        tools_count = register_tools(mock_server, tool_modules=[auth], verbose=False)
+        tools_count = register_tools(mock_server, tool_modules=[catalog], verbose=False)
 
         # Verify tools from auth module were registered
         self.assertGreater(tools_count, 0)
@@ -329,7 +329,7 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
         with patch("sys.stderr") as mock_stderr:
             # Register with verbose=True
-            register_tools(mock_server, tool_modules=[auth], verbose=True)
+            register_tools(mock_server, tool_modules=[catalog], verbose=True)
 
             # Check that print was called
             mock_stderr.write.assert_called()
@@ -431,9 +431,10 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
             # Module should be one of our expected modules
             expected_modules = [
-                "quilt_mcp.tools.auth",
+                "quilt_mcp.tools.catalog",
                 "quilt_mcp.tools.buckets",
                 "quilt_mcp.tools.packages",
+                "quilt_mcp.tools.package_creation",
                 "quilt_mcp.tools.package_ops",
                 "quilt_mcp.tools.s3_package",
                 "quilt_mcp.tools.permissions",

@@ -21,23 +21,35 @@ class DummyTabulatorAdmin:
 
 @pytest.fixture(autouse=True)
 def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(tabulator, "ADMIN_AVAILABLE", True)
+    monkeypatch.setattr(tabulator.quilt_service, "has_admin_credentials", lambda: True)
     service = tabulator.TabulatorService()
-    service.admin_available = True
-    monkeypatch.setattr(
-        tabulator,
-        "quilt_service",
-        SimpleNamespace(get_tabulator_admin=lambda: None),
+
+    # Create a mock QuiltService with all required methods
+    mock_service = SimpleNamespace(
+        list_tabulator_tables=lambda bucket: [],
+        create_tabulator_table=lambda bucket, name, config: {},
+        delete_tabulator_table=lambda bucket, name: None,
+        rename_tabulator_table=lambda bucket, old_name, new_name: {},
+        get_tabulator_access=lambda: False,
+        set_tabulator_access=lambda enabled: {},
     )
+    monkeypatch.setattr(tabulator, "quilt_service", mock_service)
     yield
 
 
 def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
     service = tabulator.TabulatorService()
-    service.admin_available = True
 
-    dummy_admin = DummyTabulatorAdmin()
-    monkeypatch.setattr(tabulator.quilt_service, "get_tabulator_admin", lambda: dummy_admin)
+    # Mock QuiltService.create_tabulator_table method
+    def mock_create_table(bucket, name, config):
+        return {
+            "status": "success",
+            "table_name": name,
+            "bucket_name": bucket,
+            "message": f"Tabulator table '{name}' created successfully",
+        }
+
+    monkeypatch.setattr(tabulator.quilt_service, "create_tabulator_table", mock_create_table)
 
     result = service.create_table(
         bucket_name="demo-bucket",
@@ -51,16 +63,12 @@ def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
     assert result["success"] is True
     assert result["parser_config"]["format"] == "csv"
     assert result["parser_config"]["delimiter"] == ","
-
-    call = dummy_admin.calls[0]
-    assert call[0] == "set_table"
-    config_yaml = call[1]["config"]
-    assert "format: csv" in config_yaml
+    assert result["config"]  # Config YAML should be generated
+    assert "format: csv" in result["config"]
 
 
 def test_create_table_returns_validation_errors(monkeypatch: pytest.MonkeyPatch):
     service = tabulator.TabulatorService()
-    service.admin_available = True
 
     result = service.create_table(
         bucket_name="",

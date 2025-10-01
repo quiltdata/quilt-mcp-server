@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-# Import the original auth functions to test migration
-from quilt_mcp.tools.auth import auth_status, _get_catalog_info
+# Import the original catalog functions to test migration
+from quilt_mcp.tools.catalog import catalog_status, _get_catalog_info
 
 
 class TestAuthMigrationToQuiltService:
@@ -18,6 +18,7 @@ class TestAuthMigrationToQuiltService:
         # Mock the QuiltService responses
         mock_service = Mock()
         mock_service.get_logged_in_url.return_value = 'https://example.quiltdata.com'
+        mock_service.get_registry_url.return_value = 's3://example-bucket'
         mock_service.get_config.return_value = {
             'registryUrl': 's3://example-bucket',
             'navigator_url': 'https://example.quiltdata.com',
@@ -30,8 +31,8 @@ class TestAuthMigrationToQuiltService:
         }
 
         # Patch QuiltService to return our mock
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
-            result = auth_status()
+        with patch('quilt_mcp.tools.catalog.QuiltService', return_value=mock_service):
+            result = catalog_status()
 
             # Verify the result structure
             assert result['status'] == 'authenticated'
@@ -43,7 +44,7 @@ class TestAuthMigrationToQuiltService:
 
             # Verify QuiltService methods were called
             mock_service.get_logged_in_url.assert_called_once()
-            mock_service.get_config.assert_called_once()
+            mock_service.get_registry_url.assert_called_once()
             mock_service.get_catalog_info.assert_called_once()
 
     def test_get_catalog_info_uses_quilt_service(self):
@@ -60,7 +61,7 @@ class TestAuthMigrationToQuiltService:
         }
 
         # Patch QuiltService in the _get_catalog_info function
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
+        with patch('quilt_mcp.tools.catalog.QuiltService', return_value=mock_service):
             result = _get_catalog_info()
 
             # Verify the result
@@ -72,16 +73,16 @@ class TestAuthMigrationToQuiltService:
             mock_service.get_catalog_info.assert_called_once()
 
     def test_no_direct_quilt3_imports_after_migration(self):
-        """Test that auth.py has no direct quilt3 imports after migration."""
+        """Test that catalog.py has no direct quilt3 imports after migration."""
         # This test will initially fail, which is expected in RED phase
-        # After migration, auth.py should not import quilt3 directly
+        # After migration, catalog.py should not import quilt3 directly
 
         import ast
         import inspect
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        # Get the source code of the auth module
-        source = inspect.getsource(auth)
+        # Get the source code of the catalog module
+        source = inspect.getsource(catalog)
         tree = ast.parse(source)
 
         # Check for direct quilt3 imports
