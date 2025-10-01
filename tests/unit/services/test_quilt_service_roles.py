@@ -126,9 +126,7 @@ class TestGetRole:
         mock_roles_admin.get.side_effect = mock_quilt3_error("Role 'nonexistent' not found")
 
         with patch.object(service, '_get_roles_admin_module', return_value=mock_roles_admin):
-            with patch.object(service, '_get_admin_exceptions', return_value={
-                'Quilt3AdminError': mock_quilt3_error
-            }):
+            with patch.object(service, '_get_admin_exceptions', return_value={'Quilt3AdminError': mock_quilt3_error}):
                 with pytest.raises(RoleNotFoundError) as exc_info:
                     service.get_role("nonexistent")
 
@@ -149,18 +147,12 @@ class TestCreateRole:
         mock_roles_admin.create.return_value = expected_role
 
         with patch.object(service, '_get_roles_admin_module', return_value=mock_roles_admin):
-            role = service.create_role(
-                "contributor",
-                {"read": True, "write": True, "delete": False}
-            )
+            role = service.create_role("contributor", {"read": True, "write": True, "delete": False})
 
         assert isinstance(role, dict)
         assert role["name"] == "contributor"
         assert role["permissions"]["read"] is True
-        mock_roles_admin.create.assert_called_once_with(
-            "contributor",
-            {"read": True, "write": True, "delete": False}
-        )
+        mock_roles_admin.create.assert_called_once_with("contributor", {"read": True, "write": True, "delete": False})
 
     def test_create_role_raises_already_exists_when_role_exists(self):
         """create_role() raises RoleAlreadyExistsError when role already exists."""
@@ -172,9 +164,7 @@ class TestCreateRole:
         mock_roles_admin.create.side_effect = mock_admin_error("Role 'editor' already exists")
 
         with patch.object(service, '_get_roles_admin_module', return_value=mock_roles_admin):
-            with patch.object(service, '_get_admin_exceptions', return_value={
-                'Quilt3AdminError': mock_admin_error
-            }):
+            with patch.object(service, '_get_admin_exceptions', return_value={'Quilt3AdminError': mock_admin_error}):
                 with pytest.raises(RoleAlreadyExistsError) as exc_info:
                     service.create_role("editor", {"read": True})
 
@@ -206,9 +196,7 @@ class TestDeleteRole:
         mock_roles_admin.delete.side_effect = mock_quilt3_error("Role 'nonexistent' not found")
 
         with patch.object(service, '_get_roles_admin_module', return_value=mock_roles_admin):
-            with patch.object(service, '_get_admin_exceptions', return_value={
-                'Quilt3AdminError': mock_quilt3_error
-            }):
+            with patch.object(service, '_get_admin_exceptions', return_value={'Quilt3AdminError': mock_quilt3_error}):
                 with pytest.raises(RoleNotFoundError) as exc_info:
                     service.delete_role("nonexistent")
 

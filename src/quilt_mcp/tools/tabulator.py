@@ -223,22 +223,20 @@ class TabulatorService:
             config_yaml = self._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)
 
             # Use QuiltService to create table
-            result = quilt_service.create_tabulator_table(
-                bucket=bucket_name,
-                name=table_name,
-                config=config_yaml
-            )
+            result = quilt_service.create_tabulator_table(bucket=bucket_name, name=table_name, config=config_yaml)
 
             # Enhance result with additional details
-            result.update({
-                "success": True,
-                "config": config_yaml,
-                "schema": schema,
-                "package_pattern": package_pattern,
-                "logical_key_pattern": logical_key_pattern,
-                "parser_config": parser_config,
-                "description": description or f"Tabulator table for {bucket_name}",
-            })
+            result.update(
+                {
+                    "success": True,
+                    "config": config_yaml,
+                    "schema": schema,
+                    "package_pattern": package_pattern,
+                    "logical_key_pattern": logical_key_pattern,
+                    "parser_config": parser_config,
+                    "description": description or f"Tabulator table for {bucket_name}",
+                }
+            )
 
             return result
 
@@ -286,18 +284,18 @@ class TabulatorService:
 
             # Use QuiltService to rename table
             result = quilt_service.rename_tabulator_table(
-                bucket=bucket_name,
-                old_name=table_name,
-                new_name=new_table_name
+                bucket=bucket_name, old_name=table_name, new_name=new_table_name
             )
 
             # Enhance result with additional details
-            result.update({
-                "success": True,
-                "old_table_name": table_name,
-                "new_table_name": new_table_name,
-                "bucket_name": bucket_name,
-            })
+            result.update(
+                {
+                    "success": True,
+                    "old_table_name": table_name,
+                    "new_table_name": new_table_name,
+                    "bucket_name": bucket_name,
+                }
+            )
 
             return result
 
@@ -333,10 +331,12 @@ class TabulatorService:
             result = quilt_service.set_tabulator_access(enabled=enabled)
 
             # Enhance result with consistent field names
-            result.update({
-                "success": True,
-                "open_query_enabled": result.get("enabled", enabled),
-            })
+            result.update(
+                {
+                    "success": True,
+                    "open_query_enabled": result.get("enabled", enabled),
+                }
+            )
 
             return result
 

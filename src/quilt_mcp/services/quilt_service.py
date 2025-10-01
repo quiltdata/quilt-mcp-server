@@ -6,7 +6,7 @@ isolating the 84+ MCP tools from direct quilt3 dependencies.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Dict, List, Optional
+from typing import Any, Iterator, Dict, List, Optional, TYPE_CHECKING
 from pathlib import Path
 
 import quilt3
@@ -20,6 +20,10 @@ from .exceptions import (
     BucketNotFoundError,
     PackageNotFoundError,
 )
+
+if TYPE_CHECKING:
+    import boto3
+    import requests
 
 
 class QuiltService:
@@ -187,7 +191,7 @@ class QuiltService:
         except Exception:
             return False
 
-    def get_session(self) -> Any:
+    def get_session(self) -> requests.Session | None:
         """Get authenticated requests session.
 
         Returns:
@@ -213,7 +217,7 @@ class QuiltService:
         except Exception:
             return None
 
-    def create_botocore_session(self) -> Any:
+    def create_botocore_session(self) -> boto3.Session:
         """Create authenticated botocore session.
 
         Returns:
@@ -285,7 +289,9 @@ class QuiltService:
         # Return dictionary result - NEVER expose quilt3.Package objects
         return self._build_creation_result(package_name, top_hash, normalized_registry, message)
 
-    def browse_package(self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any) -> Any:
+    def browse_package(
+        self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Browse an existing package.
 
         Args:
@@ -341,7 +347,7 @@ class QuiltService:
     # Bucket Operations Methods
     # Based on usage analysis: 4 calls in packages.py and buckets.py
 
-    def create_bucket(self, bucket_uri: str) -> Any:
+    def create_bucket(self, bucket_uri: str) -> dict[str, Any]:
         """Create a Bucket instance for S3 operations.
 
         Args:
@@ -576,13 +582,7 @@ class QuiltService:
         except Exception as e:
             self._handle_user_operation_error(e, name)
 
-    def create_user(
-        self,
-        name: str,
-        email: str,
-        role: str,
-        extra_roles: Optional[list[str]]
-    ) -> dict[str, Any]:
+    def create_user(self, name: str, email: str, role: str, extra_roles: Optional[list[str]]) -> dict[str, Any]:
         """Create a new user in the catalog.
 
         Args:
@@ -657,13 +657,7 @@ class QuiltService:
         except Exception as e:
             self._handle_user_operation_error(e, name)
 
-    def set_user_role(
-        self,
-        name: str,
-        role: str,
-        extra_roles: Optional[list[str]],
-        append: bool
-    ) -> dict[str, Any]:
+    def set_user_role(self, name: str, role: str, extra_roles: Optional[list[str]], append: bool) -> dict[str, Any]:
         """Update a user's role and extra roles.
 
         Args:
@@ -749,12 +743,7 @@ class QuiltService:
         except Exception as e:
             self._handle_user_operation_error(e, name)
 
-    def remove_user_roles(
-        self,
-        name: str,
-        roles: list[str],
-        fallback: Optional[str]
-    ) -> dict[str, Any]:
+    def remove_user_roles(self, name: str, roles: list[str], fallback: Optional[str]) -> dict[str, Any]:
         """Remove roles from a user.
 
         Args:
@@ -870,11 +859,7 @@ class QuiltService:
         except Exception as e:
             self._handle_role_operation_error(e, name)
 
-    def create_role(
-        self,
-        name: str,
-        permissions: dict[str, Any]
-    ) -> dict[str, Any]:
+    def create_role(self, name: str, permissions: dict[str, Any]) -> dict[str, Any]:
         """Create a new role in the catalog.
 
         Args:
@@ -1085,12 +1070,7 @@ class QuiltService:
         except Exception as e:
             self._handle_tabulator_operation_error(e, bucket)
 
-    def create_tabulator_table(
-        self,
-        bucket: str,
-        name: str,
-        config: dict[str, Any] | str
-    ) -> dict[str, Any]:
+    def create_tabulator_table(self, bucket: str, name: str, config: dict[str, Any] | str) -> dict[str, Any]:
         """Create a new tabulator table.
 
         Args:
@@ -1110,16 +1090,13 @@ class QuiltService:
         # Convert dict config to YAML string if needed
         if isinstance(config, dict):
             import yaml
+
             config_str = yaml.dump(config)
         else:
             config_str = config
 
         try:
-            tabulator_admin.set_table(
-                bucket_name=bucket,
-                table_name=name,
-                config=config_str
-            )
+            tabulator_admin.set_table(bucket_name=bucket, table_name=name, config=config_str)
 
             return {
                 "status": "success",
@@ -1145,20 +1122,11 @@ class QuiltService:
 
         try:
             # Delete by setting config to None
-            tabulator_admin.set_table(
-                bucket_name=bucket,
-                table_name=name,
-                config=None
-            )
+            tabulator_admin.set_table(bucket_name=bucket, table_name=name, config=None)
         except Exception as e:
             self._handle_tabulator_operation_error(e, bucket)
 
-    def rename_tabulator_table(
-        self,
-        bucket: str,
-        old_name: str,
-        new_name: str
-    ) -> dict[str, Any]:
+    def rename_tabulator_table(self, bucket: str, old_name: str, new_name: str) -> dict[str, Any]:
         """Rename a tabulator table.
 
         Args:
@@ -1176,11 +1144,7 @@ class QuiltService:
         tabulator_admin = self._get_tabulator_admin_module()
 
         try:
-            tabulator_admin.rename_table(
-                bucket_name=bucket,
-                table_name=old_name,
-                new_table_name=new_name
-            )
+            tabulator_admin.rename_table(bucket_name=bucket, table_name=old_name, new_table_name=new_name)
 
             return {
                 "status": "success",

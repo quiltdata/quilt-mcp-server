@@ -160,11 +160,8 @@ class TestTabulatorTableCreation:
 
         config = {
             "schema": [{"name": "col1", "type": "STRING"}],
-            "source": {
-                "package_pattern": ".*",
-                "logical_key_pattern": ".*\\.csv$"
-            },
-            "parser": {"format": "csv"}
+            "source": {"package_pattern": ".*", "logical_key_pattern": ".*\\.csv$"},
+            "parser": {"format": "csv"},
         }
 
         with patch.object(service, '_get_tabulator_admin_module') as mock_admin:
@@ -246,9 +243,7 @@ class TestTabulatorTableDeletion:
 
             # Should call set_table with config=None to delete
             mock_admin.return_value.set_table.assert_called_once_with(
-                bucket_name="test-bucket",
-                table_name="old_table",
-                config=None
+                bucket_name="test-bucket", table_name="old_table", config=None
             )
 
     def test_delete_tabulator_table_raises_admin_not_available(self):
@@ -300,9 +295,7 @@ class TestTabulatorTableRename:
             assert result["new_name"] == "new_name"
             assert result["bucket_name"] == "test-bucket"
             mock_admin.return_value.rename_table.assert_called_once_with(
-                bucket_name="test-bucket",
-                table_name="old_name",
-                new_table_name="new_name"
+                bucket_name="test-bucket", table_name="old_name", new_table_name="new_name"
             )
 
     def test_rename_tabulator_table_raises_admin_not_available(self):
@@ -354,5 +347,7 @@ class TestTabulatorAdminModule:
         service = QuiltService()
 
         with patch.object(service, 'is_admin_available', return_value=False):
-            with pytest.raises(AdminNotAvailableError, match="Tabulator administration operations require admin access"):
+            with pytest.raises(
+                AdminNotAvailableError, match="Tabulator administration operations require admin access"
+            ):
                 service._get_tabulator_admin_module()
