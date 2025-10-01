@@ -7,7 +7,8 @@ import tempfile
 from typing import Any, Dict, Optional
 from urllib.parse import quote, urlparse
 
-from ..services.quilt_service import QuiltService
+from ..runtime import get_active_token
+from ..utils import resolve_catalog_url
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -35,16 +36,6 @@ def _extract_catalog_name_from_url(url: str) -> str:
         return url
 
 
-def _get_catalog_info() -> dict[str, Any]:
-    """Get comprehensive catalog information from Quilt configuration.
-
-    Returns:
-        Dict with catalog name, URLs, and configuration details.
-    """
-    service = QuiltService()
-    return service.get_catalog_info()
-
-
 def _extract_bucket_from_registry(registry: str) -> str:
     """Extract bucket name from registry URL.
 
@@ -59,33 +50,19 @@ def _extract_bucket_from_registry(registry: str) -> str:
     return registry
 
 
-def _get_catalog_host_from_config() -> str | None:
-    """Get catalog host from Quilt configuration.
+def _resolved_catalog_base(explicit: str | None = None) -> str:
+    base = resolve_catalog_url(explicit)
+    if base:
+        return base.rstrip("/")
+    return "https://demo.quiltdata.com"
 
-    Returns:
-        Catalog hostname or None if not found
-    """
-    try:
-        service = QuiltService()
 
-        # Try authenticated URL first
-        logged_in_url = service.get_logged_in_url()
-        if logged_in_url:
-            parsed = urlparse(logged_in_url)
-            hostname = parsed.hostname
-            return hostname if hostname else None
-
-        # Fall back to navigator_url from config
-        config = service.get_config()
-        if config and config.get("navigator_url"):
-            nav_url = config.get("navigator_url")
-            if nav_url:
-                parsed = urlparse(nav_url)
-                hostname = parsed.hostname
-                return hostname if hostname else None
-    except Exception:
-        pass
-    return None
+def _resolved_catalog_host(explicit: str | None = None) -> str:
+    base = _resolved_catalog_base(explicit)
+    parsed = urlparse(base)
+    if parsed.hostname:
+        return parsed.hostname
+    return base.replace("https://", "").replace("http://", "")
 
 
 def catalog_url(
@@ -108,24 +85,14 @@ def catalog_url(
     try:
         bucket = _extract_bucket_from_registry(registry)
 
-        # Auto-detect catalog host if not provided
-        if not catalog_host:
-            catalog_host = _get_catalog_host_from_config()
-            if not catalog_host:
-                return {
-                    "status": "error",
-                    "error": "Could not determine catalog host. Please provide catalog_host parameter or ensure Quilt is configured.",
-                }
-
-        # Ensure catalog_host has https protocol
-        if not catalog_host.startswith("http"):
-            catalog_host = f"https://{catalog_host}"
+        base_url = _resolved_catalog_base(catalog_host)
+        catalog_host = _resolved_catalog_host(catalog_host)
 
         # Build URL based on whether it's a package or bucket view
         if package_name:
             # Package view: https://{catalog_host}/b/{bucket}/packages/{package_name}/tree/latest/{path}
             url_parts = [
-                catalog_host.rstrip("/"),
+                base_url,
                 "b",
                 bucket,
                 "packages",
@@ -141,7 +108,7 @@ def catalog_url(
             view_type = "package"
         else:
             # Bucket view: https://{catalog_host}/b/{bucket}/tree/{path}
-            url_parts = [catalog_host.rstrip("/"), "b", bucket, "tree"]
+            url_parts = [base_url, "b", bucket, "tree"]
             if path:
                 # URL encode the path components
                 path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
@@ -156,7 +123,7 @@ def catalog_url(
             "bucket": bucket,
             "package_name": package_name,
             "path": path,
-            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
+            "catalog_host": catalog_host,
         }
 
     except Exception as e:
@@ -207,7 +174,7 @@ def catalog_uri(
 
         # Auto-detect catalog host if not provided
         if not catalog_host:
-            catalog_host = _get_catalog_host_from_config()
+            catalog_host = _resolved_catalog_host()
 
         if catalog_host:
             # Remove protocol if present
@@ -228,7 +195,7 @@ def catalog_uri(
             "path": path,
             "top_hash": top_hash,
             "tag": tag,
-            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
+            "catalog_host": catalog_host,
         }
 
     except Exception as e:
@@ -242,27 +209,21 @@ def catalog_info() -> dict[str, Any]:
         Dict with catalog name, URLs, authentication status, and configuration details.
     """
     try:
-        info = _get_catalog_info()
+        base_url = resolve_catalog_url()
+        catalog_name = _resolved_catalog_host()
 
         result = {
-            "catalog_name": info["catalog_name"],
-            "is_authenticated": info["is_authenticated"],
+            "catalog_name": catalog_name,
+            "catalog_url": base_url or "https://demo.quiltdata.com",
+            "is_authenticated": bool(get_active_token()),
             "status": "success",
         }
 
-        # Add URLs if available
-        if info["navigator_url"]:
-            result["navigator_url"] = info["navigator_url"]
-        if info["registry_url"]:
-            result["registry_url"] = info["registry_url"]
-        if info["logged_in_url"]:
-            result["logged_in_url"] = info["logged_in_url"]
-
-        # Add helpful context
-        if info["is_authenticated"]:
-            result["message"] = f"Connected to catalog: {info['catalog_name']}"
-        else:
-            result["message"] = f"Configured for catalog: {info['catalog_name']} (not authenticated)"
+        result["message"] = (
+            f"Connected to catalog: {catalog_name}"
+            if result["is_authenticated"]
+            else f"Configured for catalog: {catalog_name} (not authenticated)"
+        )
 
         return result
 
@@ -281,21 +242,11 @@ def catalog_name() -> dict[str, Any]:
         Dict with the catalog name and detection method.
     """
     try:
-        info = _get_catalog_info()
-
-        # Determine how the catalog name was detected
-        detection_method = "unknown"
-        if info["logged_in_url"]:
-            detection_method = "authentication"
-        elif info["navigator_url"]:
-            detection_method = "navigator_config"
-        elif info["registry_url"]:
-            detection_method = "registry_config"
-
+        catalog_name = _resolved_catalog_host()
         return {
-            "catalog_name": info["catalog_name"],
-            "detection_method": detection_method,
-            "is_authenticated": info["is_authenticated"],
+            "catalog_name": catalog_name,
+            "detection_method": "environment",
+            "is_authenticated": bool(get_active_token()),
             "status": "success",
         }
 
@@ -315,89 +266,35 @@ def auth_status() -> dict[str, Any]:
         Dict with comprehensive authentication status, catalog info, permissions, and next steps.
     """
     try:
-        # Get comprehensive catalog information
-        service = QuiltService()
-        catalog_info = service.get_catalog_info()
-        logged_in_url = service.get_logged_in_url()
+        token = get_active_token()
+        catalog_url = resolve_catalog_url() or "https://demo.quiltdata.com"
+        catalog_name = _resolved_catalog_host()
 
-        if logged_in_url:
-            # Get registry bucket information
-            registry_bucket = None
-            try:
-                config = service.get_config()
-                if config and config.get("registryUrl"):
-                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
-            except Exception:
-                pass
-
-            # Try to get user information
-            user_info = {}
-            try:
-                # Try to get user info from quilt3 if available
-                # This is a placeholder - actual implementation would depend on Quilt3 API
-                user_info = {
-                    "username": "current_user",  # Would be extracted from auth token
-                    "email": "user@example.com",  # Would be extracted from auth token
-                }
-            except Exception:
-                user_info = {"username": "unknown", "email": "unknown"}
-
-            # Generate suggested actions based on status
-            suggested_actions = [
-                "Try listing packages with: packages_list()",
-                "Test bucket permissions with: bucket_access_check(bucket_name)",
-                "Discover your writable buckets with: aws_permissions_discover()",
-                "Create your first package with: package_create_from_s3()",
-            ]
-
+        if token:
             return {
                 "status": "authenticated",
-                "catalog_url": logged_in_url,
-                "catalog_name": catalog_info.get("catalog_name", "unknown"),
-                "registry_bucket": registry_bucket,
-                "write_permissions": "unknown",  # Will be determined by permissions discovery
-                "user_info": user_info,
-                "suggested_actions": suggested_actions,
-                "message": f"Successfully authenticated to {catalog_info.get('catalog_name', 'Quilt catalog')}",
+                "catalog_url": catalog_url,
+                "catalog_name": catalog_name,
+                "message": f"Successfully authenticated to {catalog_name}",
                 "search_available": True,
-                "next_steps": {
-                    "immediate": "Try: aws_permissions_discover() to see your bucket access",
-                    "package_creation": "Try: package_create_from_s3() to create your first package",
-                    "exploration": "Try: packages_list() to browse existing packages",
-                },
+                "suggested_actions": [
+                    "Try listing packages with: packages_list()",
+                    "Test bucket permissions with: permissions_tool(action='discover')",
+                ],
             }
-        else:
-            # Not authenticated - provide helpful setup guidance
-            setup_instructions = [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
-                "2. Login: quilt3 login",
-                "3. Follow the browser authentication flow",
-                "4. Verify with: auth_status()",
-            ]
 
-            return {
-                "status": "not_authenticated",
-                "catalog_name": catalog_info.get("catalog_name", "none"),
-                "message": "Not logged in to Quilt catalog",
-                "search_available": False,
-                "setup_instructions": setup_instructions,
-                "quick_setup": {
-                    "description": "Get started quickly with Quilt",
-                    "steps": [
-                        {
-                            "step": 1,
-                            "action": "Configure catalog",
-                            "command": "quilt3 config https://open.quiltdata.com",
-                        },
-                        {"step": 2, "action": "Login", "command": "quilt3 login"},
-                        {"step": 3, "action": "Verify", "command": "auth_status()"},
-                    ],
-                },
-                "help": {
-                    "documentation": "https://docs.quiltdata.com/",
-                    "support": "For help, visit Quilt documentation or contact support",
-                },
-            }
+        setup_instructions = [
+            "Ensure your frontend sends an Authorization bearer token with each request.",
+            "If running locally, export QUILT_CATALOG_URL before launching the MCP server.",
+        ]
+
+        return {
+            "status": "not_authenticated",
+            "catalog_name": catalog_name,
+            "message": "Authorization token not present",
+            "search_available": False,
+            "setup_instructions": setup_instructions,
+        }
 
     except Exception as e:
         return {
@@ -537,12 +434,8 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
             }
 
         # Configure the catalog
-        service = QuiltService()
-        service.set_config(catalog_url)
-
-        # Verify configuration
-        config = service.get_config()
-        configured_url = config.get("navigator_url") if config else None
+        os.environ["QUILT_CATALOG_URL"] = catalog_url
+        configured_url = catalog_url
 
         return {
             "status": "success",

@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import contextlib
 import inspect
+import io
 import os
 import re
 import sys
-import io
-import contextlib
-from typing import Any, Dict, Literal, Callable
-from urllib.parse import urlparse, parse_qs, unquote
+from typing import Any, Callable, Dict, Literal, Optional
+from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
+from starlette.requests import Request
 from fastmcp import FastMCP
+
+from .runtime import request_context
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -174,6 +177,26 @@ def get_module_wrappers() -> dict[str, Callable]:
     }
 
 
+def resolve_catalog_url(explicit: Optional[str] = None) -> Optional[str]:
+    """Resolve the Quilt catalog base URL from explicit value or environment."""
+
+    if explicit:
+        return explicit.rstrip("/")
+
+    url = os.getenv("QUILT_CATALOG_URL")
+    if url:
+        return url.rstrip("/")
+
+    domain = os.getenv("QUILT_CATALOG_DOMAIN")
+    if domain:
+        domain = domain.strip().rstrip("/")
+        if domain.startswith("http://") or domain.startswith("https://"):
+            return domain
+        return f"https://{domain}"
+
+    return None
+
+
 def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:
     """Register module wrapper functions as MCP tools.
     
@@ -217,55 +240,16 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     return tools_registered
 
 
-def get_s3_client(use_quilt_auth: bool = True):
-    """Get an S3 client instance with optional Quilt authentication.
+def get_s3_client(_use_quilt_auth: bool = True):
+    """Return a standard boto3 S3 client."""
 
-    Args:
-        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-
-    Returns:
-        boto3 S3 client instance
-    """
-    if use_quilt_auth:
-        try:
-            import quilt3
-
-            # Check if we have Quilt session available
-            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
-                if hasattr(quilt3, "get_boto3_session"):
-                    session = quilt3.get_boto3_session()
-                    if session is not None:
-                        return session.client("s3")
-        except Exception:
-            pass
-
-    # Fallback to default boto3 client
+    # _use_quilt_auth retained for compatibility; no longer used.
     return boto3.client("s3")
 
 
-def get_sts_client(use_quilt_auth: bool = True):
-    """Get an STS client instance with optional Quilt authentication.
+def get_sts_client(_use_quilt_auth: bool = True):
+    """Return a standard boto3 STS client."""
 
-    Args:
-        use_quilt_auth: Whether to use Quilt's STS session if available (default: True)
-
-    Returns:
-        boto3 STS client instance
-    """
-    if use_quilt_auth:
-        try:
-            import quilt3
-
-            # Check if we have Quilt session available
-            if hasattr(quilt3, "logged_in") and quilt3.logged_in():
-                if hasattr(quilt3, "get_boto3_session"):
-                    session = quilt3.get_boto3_session()
-                    if session is not None:
-                        return session.client("sts")
-        except Exception:
-            pass
-
-    # Fallback to default boto3 client
     return boto3.client("sts")
 
 
@@ -342,26 +326,44 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     return mcp
 
 
+def _wrap_http_app(mcp: FastMCP):
+    """Wrap the FastAPI application to manage request context."""
+
+    app = mcp.http_app()
+
+    @app.middleware("http")
+    async def _inject_request_context(request: Request, call_next):  # type: ignore
+        token = request.headers.get("authorization")
+        with request_context(token, {"path": str(request.url.path)}):
+            response = await call_next(request)
+        return response
+
+    return app
+
+
 def run_server() -> None:
     """Run the MCP server with proper error handling."""
+
     try:
-        # Create and configure the server
         mcp = create_configured_server()
-
-        # Get transport from environment variable (default to stdio for MCP compatibility)
         transport_str = os.environ.get("FASTMCP_TRANSPORT", "stdio")
-
-        # Validate transport string and fall back to default if invalid
         valid_transports = ["stdio", "http", "sse", "streamable-http"]
         if transport_str not in valid_transports:
             transport_str = "stdio"
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
-        # Run the server
+        if transport in {"http", "streamable-http"}:
+            app = _wrap_http_app(mcp)
+            from fastapi import FastAPI
+            if isinstance(app, FastAPI):
+                import uvicorn
+
+                uvicorn.run(app, host=os.environ.get("FASTMCP_ADDR", "0.0.0.0"), port=int(os.environ.get("FASTMCP_PORT", "8000")))
+                return
+
         mcp.run(transport=transport)
 
-    except Exception as e:
-        # Use stderr to avoid interfering with JSON-RPC on stdout
+    except Exception as e:  # pragma: no cover - startup diagnostics
         print(f"Error starting MCP server: {e}", file=sys.stderr)
         raise

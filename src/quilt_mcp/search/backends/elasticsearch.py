@@ -1,14 +1,9 @@
-"""Elasticsearch backend that wraps existing quilt3.Bucket.search() functionality.
-
-This backend leverages the existing Quilt3 Elasticsearch integration
-rather than building new infrastructure.
-"""
+"""Elasticsearch-compatible backend backed by Quilt Catalog APIs."""
 
 import logging
 import time
 from typing import Dict, List, Any, Optional, Union
 
-import quilt3
 from ..core.query_parser import QueryAnalysis, QueryType
 from .base import (
     SearchBackend,
@@ -17,45 +12,46 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
-from ...services.quilt_service import QuiltService
+from ...clients import catalog as catalog_client
+from ...runtime import get_active_token
+from ...utils import resolve_catalog_url
 
 logger = logging.getLogger(__name__)
 
 
 class Quilt3ElasticsearchBackend(SearchBackend):
-    """Elasticsearch backend using existing quilt3.Bucket.search() API."""
+    """Elasticsearch backend powered by stateless Quilt catalog endpoints."""
 
-    def __init__(self, quilt_service: Optional[QuiltService] = None):
+    def __init__(self):
         super().__init__(BackendType.ELASTICSEARCH)
-        self.quilt_service = quilt_service or QuiltService()
         self._session_available = False
         self._check_session()
 
     def _check_session(self):
-        """Check if quilt3 session is available."""
+        """Check if catalog access is available via tokens/environment."""
         try:
-            # Test if we can get registry URL (indicates session is configured)
-            registry_url = self.quilt_service.get_registry_url()
-            self._session_available = bool(registry_url)
+            catalog_url = resolve_catalog_url()
+            token = get_active_token()
+            self._session_available = bool(catalog_url and token)
             if self._session_available:
                 self._update_status(BackendStatus.AVAILABLE)
             else:
-                self._update_status(BackendStatus.UNAVAILABLE, "No quilt3 session configured")
+                self._update_status(BackendStatus.UNAVAILABLE, "Catalog URL or token unavailable")
         except Exception as e:
             self._session_available = False
-            self._update_status(BackendStatus.ERROR, f"Session check failed: {e}")
+            self._update_status(BackendStatus.ERROR, f"Catalog access check failed: {e}")
 
     async def health_check(self) -> bool:
         """Check if Elasticsearch backend is healthy."""
         try:
-            # Simple health check by attempting to get registry URL
-            registry_url = self.quilt_service.get_registry_url()
-            if registry_url:
-                self._update_status(BackendStatus.AVAILABLE)
-                return True
-            else:
-                self._update_status(BackendStatus.UNAVAILABLE, "No registry URL available")
-                return False
+            catalog_url = resolve_catalog_url()
+            token = get_active_token()
+            healthy = bool(catalog_url and token)
+            self._update_status(
+                BackendStatus.AVAILABLE if healthy else BackendStatus.UNAVAILABLE,
+                None if healthy else "Catalog URL or token unavailable",
+            )
+            return healthy
         except Exception as e:
             self._update_status(BackendStatus.ERROR, f"Health check failed: {e}")
             return False
@@ -70,14 +66,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     ) -> BackendResponse:
         """Execute search using quilt3.Bucket.search() or packages search API."""
         start_time = time.time()
-
-        if not self._session_available:
-            return BackendResponse(
-                backend_type=self.backend_type,
-                status=BackendStatus.UNAVAILABLE,
-                results=[],
-                error_message="Quilt3 session not available",
-            )
 
         try:
             if scope == "bucket" and target:
@@ -115,20 +103,27 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     async def _search_bucket(
         self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search within a specific bucket using quilt3.Bucket.search()."""
-        from ...utils import suppress_stdout
+        """Search within a specific bucket using catalog APIs."""
 
-        # Normalize bucket name
-        bucket_uri = bucket if bucket.startswith("s3://") else f"s3://{bucket}"
+        catalog_url = resolve_catalog_url()
+        token = get_active_token()
+        if not catalog_url or not token:
+            return []
 
-        # Convert filters to Elasticsearch query if needed
+        normalized_bucket = bucket[5:].split("/", 1)[0] if bucket.startswith("s3://") else bucket
+
         es_query = self._build_elasticsearch_query(query, filters)
 
-        with suppress_stdout():
-            bucket_obj = self.quilt_service.create_bucket(bucket_uri)
-            raw_results = bucket_obj.search(es_query, limit=limit)
+        response = catalog_client.catalog_bucket_search(
+            registry_url=catalog_url,
+            bucket=normalized_bucket,
+            query=es_query,
+            limit=limit,
+            auth_token=token,
+        )
 
-        return self._convert_bucket_results(raw_results, bucket)
+        hits = response.get("results", []) if isinstance(response, dict) else []
+        return self._convert_bucket_results(hits, normalized_bucket)
 
     async def _search_package(
         self,
@@ -164,23 +159,17 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         from ...tools.packages import packages_search
 
         try:
-            # Use size=0 approach like the catalog UI for instant counts
-            search_result = packages_search(query, limit=0)  # size=0 in Elasticsearch
-
+            search_result = packages_search(query, limit=0)
             if "error" in search_result:
                 raise Exception(f"Count query failed: {search_result['error']}")
 
-            # Extract total count from Elasticsearch response
             total = search_result.get("total")
-            if total is not None:
-                if isinstance(total, dict) and "value" in total:
-                    return total["value"]
-                else:
-                    return int(total)
+            if isinstance(total, dict) and "value" in total:
+                return int(total["value"])
+            if isinstance(total, int):
+                return total
 
-            # If no total in response, fall back to counting results
-            results = search_result.get("results", [])
-            return len(results)
+            return len(search_result.get("results", []))
 
         except Exception as e:
             raise Exception(f"Failed to get total count: {e}")
@@ -229,7 +218,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         results = []
 
         for hit in raw_results:
-            source = hit.get("_source", {})
+            source = hit.get("_source", hit)
 
             # Extract key information
             key = source.get("key", "")

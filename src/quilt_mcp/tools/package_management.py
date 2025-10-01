@@ -15,8 +15,10 @@ import logging
 from pathlib import Path
 
 from ..constants import DEFAULT_REGISTRY
-from ..utils import validate_package_name, format_error_response
-from ..services.quilt_service import QuiltService
+from ..clients import catalog as catalog_client
+from ..constants import DEFAULT_REGISTRY
+from ..runtime import get_active_token
+from ..utils import validate_package_name, format_error_response, resolve_catalog_url
 from .metadata_templates import (
     get_metadata_template,
     validate_metadata_structure,
@@ -393,71 +395,62 @@ def package_update_metadata(
                 "validation_result": validation_result,
             }
 
-        # Implementation: Update package metadata
+        token = get_active_token()
+        if not token:
+            return format_error_response("Authorization token required to update metadata")
+
+        catalog_url = resolve_catalog_url()
+        if not catalog_url:
+            return format_error_response("Catalog URL not configured")
+
+        registry_url = registry or DEFAULT_REGISTRY or catalog_url
+        if registry_url.startswith("http"):
+            normalized_registry = registry_url.rstrip("/")
+        elif registry_url.startswith("s3://"):
+            normalized_registry = registry_url
+        else:
+            normalized_registry = f"s3://{registry_url.strip('/')}"
+
         try:
-            from ..constants import DEFAULT_REGISTRY
+            package_data = catalog_client.catalog_graphql_query(
+                registry_url=normalized_registry,
+                query=(
+                    "query($name: String!) {\n"
+                    "  package(name: $name) { metadata }\n"
+                    "}\n"
+                ),
+                variables={"name": package_name},
+                auth_token=token,
+            )
+        except Exception as exc:
+            return format_error_response(f"Failed to fetch existing metadata: {exc}")
 
-            # Use default registry if none provided
-            if not registry:
-                registry = DEFAULT_REGISTRY
+        package_info = package_data.get("package") if isinstance(package_data, dict) else None
+        current_metadata = package_info.get("metadata") if package_info else {}
 
-            # Browse existing package to get current structure
-            # Suppress stdout during browse to avoid JSON-RPC interference
-            from ..utils import suppress_stdout
+        if merge_with_existing and isinstance(current_metadata, dict):
+            final_metadata = dict(current_metadata)
+            final_metadata.update(metadata)
+        else:
+            final_metadata = dict(metadata)
 
-            quilt_service = QuiltService()
-            with suppress_stdout():
-                pkg = quilt_service.browse_package(package_name, registry=registry)
-
-            # Get current metadata
-            current_metadata = {}
-            try:
-                current_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else {}
-            except Exception:
-                current_metadata = {}
-
-            # Merge or replace metadata based on user preference
-            if merge_with_existing:
-                final_metadata = current_metadata.copy()
-                final_metadata.update(metadata)
-            else:
-                final_metadata = metadata.copy()
-
-            # Set the new metadata
-            pkg.set_meta(final_metadata)
-
-            # Push the updated package
-            commit_message = f"Updated metadata for {package_name}"
-
-            # Suppress stdout during push to avoid JSON-RPC interference
-            from ..utils import suppress_stdout
-
-            with suppress_stdout():
-                top_hash = pkg.push(package_name, registry=registry, message=commit_message, force=True)
-
-            return {
-                "success": True,
-                "action": "metadata_updated",
-                "package_name": package_name,
-                "registry": registry,
-                "top_hash": str(top_hash),
-                "previous_metadata": current_metadata,
-                "new_metadata": final_metadata,
-                "merge_applied": merge_with_existing,
-                "message": "Metadata updated successfully",
-                "next_steps": [
-                    f"Browse updated package: package_browse('{package_name}')",
-                    f"Validate package: package_validate('{package_name}')",
-                    f"View online: catalog_url('{registry}', '{package_name}')",
-                ],
-            }
-
-        except Exception as e:
+        try:
+            response = catalog_client.catalog_package_update(
+                registry_url=normalized_registry,
+                package_name=package_name,
+                auth_token=token,
+                s3_uris=[],
+                metadata=final_metadata,
+                message=f"Updated metadata for {package_name}",
+                copy_mode="none",
+                flatten=True,
+            )
+        except Exception as exc:
             return {
                 "success": False,
                 "error": "Failed to update package metadata",
-                "cause": str(e),
-                "error_type": type(e).__name__,
+                "cause": str(exc),
+                "error_type": type(exc).__name__,
                 "possible_fixes": [
                     "Verify the package exists in the specified registry",
                     "Check that you have write permissions for the registry",
@@ -469,10 +462,27 @@ def package_update_metadata(
                     "Try: validate_metadata_structure() to check metadata format",
                 ],
                 "debug_info": {
-                    "error_type": type(e).__name__,
+                    "error_type": type(exc).__name__,
                     "operation": "metadata_update",
                 },
             }
+
+        return {
+            "success": True,
+            "action": "metadata_updated",
+            "package_name": package_name,
+            "registry": normalized_registry,
+            "top_hash": str(response.get("top_hash")),
+            "previous_metadata": current_metadata,
+            "new_metadata": final_metadata,
+            "merge_applied": merge_with_existing,
+            "message": "Metadata updated successfully",
+            "next_steps": [
+                f"Browse updated package: package_browse('{package_name}')",
+                f"Validate package: package_validate('{package_name}')",
+                f"View online: catalog_url('{normalized_registry}', '{package_name}')",
+            ],
+        }
 
     except Exception as e:
         return format_error_response(f"Metadata update failed: {str(e)}")

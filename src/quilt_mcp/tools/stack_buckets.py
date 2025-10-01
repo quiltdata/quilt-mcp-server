@@ -2,9 +2,10 @@
 
 import logging
 from typing import List, Set, Optional
-from urllib.parse import urljoin
 
-from ..services.quilt_service import QuiltService
+from ..clients import catalog as catalog_client
+from ..runtime import get_active_token
+from ..utils import resolve_catalog_url
 
 logger = logging.getLogger(__name__)
 
@@ -53,38 +54,24 @@ def get_stack_buckets() -> List[str]:
 def _get_stack_buckets_via_graphql() -> Set[str]:
     """Get stack buckets using GraphQL bucketConfigs query."""
     try:
-        quilt_service = QuiltService()
+        token = get_active_token()
+        catalog_url = resolve_catalog_url()
 
-        # Get the authenticated session from QuiltService
-        if quilt_service.has_session_support():
-            session = quilt_service.get_session()
-            registry_url = quilt_service.get_registry_url()
+        if not token or not catalog_url:
+            logger.debug("Missing catalog URL or token for GraphQL bucket discovery")
+            return set()
 
-            if not registry_url:
-                logger.debug("No registry URL available for GraphQL query")
-                return set()
+        data = catalog_client.catalog_graphql_query(
+            registry_url=catalog_url,
+            query="query { bucketConfigs { name title } }",
+            variables=None,
+            auth_token=token,
+        )
 
-            # Construct GraphQL endpoint URL
-            graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-            logger.debug(f"Querying GraphQL endpoint: {graphql_url}")
-
-            # Query for bucket configurations (this gets all buckets in the stack)
-            query = {"query": "query { bucketConfigs { name title } }"}
-
-            response = session.post(graphql_url, json=query)
-
-            if response.status_code == 200:
-                data = response.json()
-                if "data" in data and "bucketConfigs" in data["data"]:
-                    bucket_names = {bucket["name"] for bucket in data["data"]["bucketConfigs"]}
-                    logger.debug(f"GraphQL discovered buckets: {list(bucket_names)}")
-                    return bucket_names
-                else:
-                    logger.debug(f"GraphQL response missing expected data structure: {data}")
-                    return set()
-            else:
-                logger.debug(f"GraphQL query failed with status {response.status_code}: {response.text}")
-                return set()
+        configs = data.get("bucketConfigs", []) if isinstance(data, dict) else []
+        bucket_names = {entry.get("name") for entry in configs if isinstance(entry, dict) and entry.get("name")}
+        logger.debug(f"GraphQL discovered buckets: {list(bucket_names)}")
+        return bucket_names
 
     except Exception as e:
         logger.debug(f"GraphQL bucket discovery failed: {e}")

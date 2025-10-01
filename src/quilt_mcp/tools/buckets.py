@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-import boto3
-
+from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET
-from ..services.quilt_service import QuiltService
-from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
+from ..runtime import get_active_token
+from ..utils import format_error_response, generate_signed_url, get_s3_client, parse_s3_uri, resolve_catalog_url
 
 # Helpers
 
@@ -394,7 +393,12 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         }
 
 
-def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
+def bucket_objects_search(
+    bucket: str,
+    query: str | dict,
+    limit: int = 10,
+    registry_url: str | None = None,
+) -> dict[str, Any]:
     """Search objects in a Quilt bucket using Elasticsearch query syntax.
 
     Args:
@@ -406,24 +410,46 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
         Dict with search results including matching objects and metadata.
     """
     bkt = _normalize_bucket(bucket)
-    bucket_uri = f"s3://{bkt}"
-    try:
-        # Suppress stdout during bucket operations to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
-        with suppress_stdout():
-            bucket_obj = quilt_service.create_bucket(bucket_uri)
-            results = bucket_obj.search(query, limit=limit)
-        return {"bucket": bkt, "query": query, "limit": limit, "results": results}
-    except Exception as e:
-        # Always include a results array so tests can assert presence regardless of configuration
+    token = get_active_token()
+    if not token:
+        error = format_error_response("Authorization token required for bucket search")
+        error.update({"bucket": bkt, "query": query, "results": []})
+        return error
+
+    catalog_url = resolve_catalog_url(registry_url)
+    if not catalog_url:
         return {
-            "error": f"Failed to search bucket: {e}",
+            "success": False,
+            "error": "Catalog URL not configured",
             "bucket": bkt,
             "query": query,
             "results": [],
         }
+
+    try:
+        resp = catalog_client.catalog_bucket_search(
+            registry_url=catalog_url,
+            bucket=bkt,
+            query=query,
+            limit=limit,
+            auth_token=token,
+        )
+    except Exception as exc:
+        return {
+            "error": f"Failed to search bucket: {exc}",
+            "bucket": bkt,
+            "query": query,
+            "results": [],
+        }
+
+    output: dict[str, Any] = {"bucket": bkt, "query": query, "limit": limit}
+    if isinstance(resp, dict):
+        output.update(resp)
+        output.setdefault("results", resp.get("results", []))
+    else:
+        output["results"] = []
+    return output
 
 
 def bucket_objects_search_graphql(
@@ -431,6 +457,7 @@ def bucket_objects_search_graphql(
     object_filter: dict | None = None,
     first: int = 100,
     after: str = "",
+    registry_url: str | None = None,
 ) -> dict[str, Any]:
     """Search bucket objects via Quilt Catalog GraphQL.
 
@@ -446,104 +473,69 @@ def bucket_objects_search_graphql(
     Returns:
         Dict with objects, pagination info, and the effective filter used.
     """
-    import json
-    from urllib.parse import urljoin
-
     bkt = _normalize_bucket(bucket)
-    # Acquire authenticated session and registry from QuiltService
-    quilt_service = QuiltService()
+    token = get_active_token()
+    if not token:
+        error = format_error_response("Authorization token required for bucket GraphQL search")
+        error.update({"bucket": bkt, "objects": []})
+        return error
 
-    if not quilt_service.has_session_support():
+    catalog_url = resolve_catalog_url(registry_url)
+    if not catalog_url:
         return {
             "success": False,
-            "error": "quilt3 session not available for GraphQL",
+            "error": "Catalog URL not configured",
             "bucket": bkt,
             "objects": [],
         }
-
-    session = quilt_service.get_session()
-    registry_url = quilt_service.get_registry_url()
-    if not registry_url:
-        return {
-            "success": False,
-            "error": "Registry URL not configured for GraphQL",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-
-    # Provide a minimal, generic query. The exact schema may vary by catalog;
-    # we target a common pattern where objects are searchable with filters
-    # and linked to package versions when present.
-    gql = (
-        "query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {\n"
-        "  objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {\n"
-        "    edges {\n"
-        "      node { key size updated contentType extension package { name topHash tag } }\n"
-        "      cursor\n"
-        "    }\n"
-        "    pageInfo { endCursor hasNextPage }\n"
-        "  }\n"
-        "}"
-    )
-
-    variables = {
-        "bucket": bkt,
-        "filter": object_filter or {},
-        "first": max(1, min(first, 1000)),
-        "after": after or None,
-    }
 
     try:
-        resp = session.post(graphql_url, json={"query": gql, "variables": variables})
-        if resp.status_code != 200:
-            return {
-                "success": False,
-                "error": f"GraphQL error {resp.status_code}: {resp.text}",
-                "bucket": bkt,
-                "objects": [],
-            }
-        data = resp.json()
-        if "errors" in data:
-            return {
-                "success": False,
-                "error": json.dumps(data["errors"]),
-                "bucket": bkt,
-                "objects": [],
-            }
-        conn = data.get("data", {}).get("objects", {})
-        edges = conn.get("edges", []) or []
-        objects = [
-            {
-                "key": edge.get("node", {}).get("key"),
-                "size": edge.get("node", {}).get("size"),
-                "updated": edge.get("node", {}).get("updated"),
-                "content_type": edge.get("node", {}).get("contentType"),
-                "extension": edge.get("node", {}).get("extension"),
-                "package": edge.get("node", {}).get("package"),
-            }
-            for edge in edges
-            if isinstance(edge, dict)
-        ]
-        page_info = conn.get("pageInfo", {}) or {}
-        return {
-            "success": True,
-            "bucket": bkt,
-            "objects": objects,
-            "page_info": {
-                "end_cursor": page_info.get("endCursor"),
-                "has_next_page": page_info.get("hasNextPage", False),
-            },
-            "filter": variables["filter"],
-        }
-    except Exception as e:
+        data = catalog_client.catalog_bucket_search_graphql(
+            registry_url=catalog_url,
+            bucket=bkt,
+            object_filter=object_filter,
+            first=first,
+            after=after or None,
+            auth_token=token,
+        )
+    except Exception as exc:
         return {
             "success": False,
-            "error": f"GraphQL request failed: {e}",
+            "error": f"GraphQL request failed: {exc}",
             "bucket": bkt,
             "objects": [],
         }
+
+    conn = data.get("objects", {}) if isinstance(data, dict) else {}
+    if isinstance(conn, list):
+        edges = conn
+        page_info = {}
+    else:
+        edges = conn.get("edges", []) or []
+        page_info = conn.get("pageInfo", {}) or {}
+    objects = [
+        {
+            "key": edge.get("node", {}).get("key"),
+            "size": edge.get("node", {}).get("size"),
+            "updated": edge.get("node", {}).get("updated"),
+            "content_type": edge.get("node", {}).get("contentType"),
+            "extension": edge.get("node", {}).get("extension"),
+            "package": edge.get("node", {}).get("package"),
+        }
+        for edge in edges
+        if isinstance(edge, dict)
+    ]
+
+    return {
+        "success": True,
+        "bucket": bkt,
+        "objects": objects,
+        "page_info": {
+            "end_cursor": page_info.get("endCursor"),
+            "has_next_page": page_info.get("hasNextPage", False),
+        },
+        "filter": object_filter or {},
+    }
 
 
 def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:

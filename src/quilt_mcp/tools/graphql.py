@@ -1,74 +1,46 @@
-"""Generic Quilt Catalog GraphQL tools.
-
-Provides a general-purpose GraphQL executor for the Quilt Catalog and a
-convenience wrapper for object search within a bucket using GraphQL. This
-module relies on the authenticated quilt3 session to inherit auth and
-catalog configuration, similar to how bucket discovery uses GraphQL in
-`aws/permission_discovery.py`.
-"""
+"""Generic Quilt Catalog GraphQL tools using stateless catalog clients."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
-from ..services.quilt_service import QuiltService
-
-
-def _get_graphql_endpoint():
-    """Return (session, graphql_url) from QuiltService context or (None, None).
-
-    Uses QuiltService to acquire the authenticated requests session and
-    the active registry URL, then constructs the GraphQL endpoint.
-    """
-    try:
-        from urllib.parse import urljoin
-
-        quilt_service = QuiltService()
-
-        if not quilt_service.has_session_support():
-            return None, None
-        session = quilt_service.get_session()
-        registry_url = quilt_service.get_registry_url()
-        if not registry_url:
-            return None, None
-        graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-        return session, graphql_url
-    except Exception:
-        return None, None
+from ..clients import catalog as catalog_client
+from ..runtime import get_active_token
+from ..utils import resolve_catalog_url
 
 
-def catalog_graphql_query(query: str, variables: dict | None = None) -> dict[str, Any]:
-    """Execute an arbitrary GraphQL query against the configured Quilt Catalog.
+def catalog_graphql_query(
+    query: str,
+    variables: Optional[dict] = None,
+    registry_url: Optional[str] = None,
+) -> dict[str, Any]:
+    """Execute a GraphQL query against the Quilt catalog using a bearer token."""
 
-    Args:
-        query: GraphQL query string
-        variables: Variables dictionary to bind
+    token = get_active_token()
+    catalog_url = resolve_catalog_url(registry_url)
 
-    Returns:
-        Dict with raw `data`, optional `errors`, and `success` flag.
-    """
-    session, graphql_url = _get_graphql_endpoint()
-    if not session or not graphql_url:
+    if not token or not catalog_url:
         return {
             "success": False,
-            "error": "GraphQL endpoint or session unavailable. Ensure quilt3 is configured and authenticated.",
+            "error": "Authorization token or catalog URL unavailable",
         }
 
     try:
-        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
-        if resp.status_code != 200:
-            return {
-                "success": False,
-                "error": f"GraphQL HTTP {resp.status_code}: {resp.text}",
-            }
-        payload = resp.json()
+        data = catalog_client.catalog_graphql_query(
+            registry_url=catalog_url,
+            query=query,
+            variables=variables,
+            auth_token=token,
+        )
         return {
-            "success": "errors" not in payload,
-            "data": payload.get("data"),
-            "errors": payload.get("errors"),
+            "success": True,
+            "data": data,
         }
-    except Exception as e:
-        return {"success": False, "error": f"GraphQL request failed: {e}"}
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"GraphQL request failed: {exc}",
+        }
 
 
 def objects_search_graphql(

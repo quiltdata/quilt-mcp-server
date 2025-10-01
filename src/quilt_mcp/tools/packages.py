@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 
 from ..constants import DEFAULT_REGISTRY
-from ..services.quilt_service import QuiltService
-from ..utils import generate_signed_url
+from ..clients import catalog as catalog_client
+from ..runtime import get_active_token
+from ..utils import format_error_response, generate_signed_url
+
+
+logger = logging.getLogger(__name__)
 
 # Helpers
 
@@ -18,9 +23,18 @@ def _normalize_registry(bucket_or_uri: str) -> str:
     Returns:
         Full s3:// URI format (e.g., "s3://my-bucket")
     """
-    if bucket_or_uri.startswith("s3://"):
+    if not bucket_or_uri:
         return bucket_or_uri
-    return f"s3://{bucket_or_uri}"
+
+    if bucket_or_uri.startswith(("http://", "https://")):
+        # Stateless catalog endpoints use HTTPS
+        return bucket_or_uri.rstrip("/")
+
+    if bucket_or_uri.startswith("s3://"):
+        return bucket_or_uri.rstrip("/")
+
+    # Backwards compatibility for legacy bucket identifiers
+    return f"s3://{bucket_or_uri.strip('/')}"
 
 
 def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
@@ -34,145 +48,93 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
     Returns:
         Dict with list of package names.
     """
-    # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
     normalized_registry = _normalize_registry(registry)
-    # Suppress stdout during list_packages to avoid JSON-RPC interference
-    from ..utils import suppress_stdout
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required to list packages")
 
-    quilt_service = QuiltService()
-    with suppress_stdout():
-        pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
+    try:
+        pkgs = catalog_client.catalog_packages_list(
+            registry_url=normalized_registry,
+            auth_token=token,
+            limit=limit or None,
+            prefix=prefix or None,
+        )
+    except Exception as exc:
+        return format_error_response(f"Failed to list packages: {exc}")
 
-    # Apply prefix filtering if specified
+    filtered = pkgs or []
     if prefix:
-        pkgs = [pkg for pkg in pkgs if pkg.startswith(prefix)]
+        filtered = [name for name in filtered if isinstance(name, str) and name.startswith(prefix)]
 
-    # Apply limit if specified
-    if limit > 0:
-        pkgs = pkgs[:limit]
+    if limit and limit > 0:
+        filtered = filtered[:limit]
 
-    return {"packages": pkgs}
+    return {"packages": filtered}
 
 
 def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
-    """Search for Quilt packages by content and metadata.
-
-    Args:
-        query: Search query string to find packages
-        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
-        limit: Maximum number of search results (default: 10)
-
-    Returns:
-        Dict with search results including package names and metadata.
-    """
-    # HYBRID APPROACH: Use unified search architecture but scope to specified registry
-    # This prevents inappropriate searches across buckets not in user's stack
-    effective_limit = limit if limit >= 0 else 10
-
-    # Extract bucket name from registry for targeted search
+    """Search for Quilt packages via stateless GraphQL API."""
     normalized_registry = _normalize_registry(registry)
-    bucket_name = normalized_registry.replace("s3://", "")
+    token = get_active_token()
+    if not token:
+        return {
+            "success": False,
+            "error": "Authorization token required for package search",
+            "results": [],
+            "query": query,
+            "registry": normalized_registry,
+        }
 
-    # Suppress stdout during search to avoid JSON-RPC interference
-    from ..utils import suppress_stdout
+    variables = {
+        "query": query,
+        "limit": max(0, limit),
+        "offset": max(0, from_),
+    }
+
+    gql = (
+        "query($query: String!, $limit: Int, $offset: Int) {\n"
+        "  packages(query: $query, first: $limit, after: $offset) {\n"
+        "    edges {\n"
+        "      node { name topHash tag updated description owner }\n"
+        "    }\n"
+        "    pageInfo { endCursor hasNextPage }\n"
+        "  }\n"
+        "}\n"
+    )
 
     try:
-        with suppress_stdout():
-            # UNIFIED SEARCH: Try advanced search API first, but scoped to specific registry
-            try:
-                quilt_service = QuiltService()
-                search_api = quilt_service.get_search_api()
-
-                # For count queries (limit=0), use a simple DSL query with size=0
-                if effective_limit == 0:
-                    dsl_query = {
-                        "size": 0,  # This is the key for fast counts!
-                        "query": {"query_string": {"query": query}},
-                    }
-                else:
-                    # Regular query with pagination
-                    if isinstance(query, str) and not query.strip().startswith("{"):
-                        # Convert string query to DSL with pagination
-                        dsl_query = {
-                            "from": from_,
-                            "size": effective_limit,
-                            "query": {"query_string": {"query": query}},
-                        }
-                    else:
-                        # Already a DSL query
-                        import json
-
-                        if isinstance(query, str):
-                            dsl_query = json.loads(query)
-                        else:
-                            dsl_query = query
-
-                        # Add pagination
-                        dsl_query["from"] = from_
-                        dsl_query["size"] = effective_limit
-
-                # STACK SCOPING: Use all buckets in the stack, not just the registry bucket
-                # This enables proper cross-bucket search across the entire stack
-                from .stack_buckets import build_stack_search_indices
-
-                index_name = build_stack_search_indices()
-
-                # Fallback to single bucket if stack discovery fails
-                if not index_name:
-                    index_name = f"{bucket_name},{bucket_name}_packages"
-
-                # Use registry-specific index instead of '_all'
-                full_result = search_api(query=dsl_query, index=index_name, limit=effective_limit)
-
-                # Return unified search format with bucket context
-                hits = full_result.get("hits", {}).get("hits", [])
-                total_count = full_result.get("hits", {}).get("total", {})
-                if isinstance(total_count, dict):
-                    count = total_count.get("value", 0)
-                else:
-                    count = total_count
-
-                return {
-                    "results": hits,
-                    "total_count": count,
-                    "query": query,
-                    "limit": effective_limit,
-                    "from": from_,
-                    "registry": normalized_registry,
-                    "bucket": bucket_name,
-                    "took": full_result.get("took", 0),
-                    "timed_out": full_result.get("timed_out", False),
-                }
-
-            except Exception as search_api_error:
-                # FALLBACK: Use bucket-specific search if advanced API fails
-                bucket_obj = quilt_service.create_bucket(normalized_registry)
-                results = bucket_obj.search(query, limit=effective_limit)
-
-                return {
-                    "results": results,
-                    "total_count": len(results) if results else 0,
-                    "query": query,
-                    "limit": effective_limit,
-                    "from": from_,
-                    "registry": normalized_registry,
-                    "bucket": bucket_name,
-                    "fallback_used": "bucket_search",
-                    "search_api_error": str(search_api_error),
-                }
-
-    except Exception as e:
-        # Final fallback with error context
+        data = catalog_client.catalog_graphql_query(
+            registry_url=normalized_registry,
+            query=gql,
+            variables=variables,
+            auth_token=token,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.error("GraphQL package search failed: %s", exc)
         return {
+            "success": False,
+            "error": str(exc),
             "results": [],
-            "total_count": 0,
             "query": query,
-            "limit": effective_limit,
-            "from": from_,
             "registry": normalized_registry,
-            "bucket": bucket_name,
-            "error": f"All search methods failed: {e}",
         }
+
+    packages_conn = data.get("packages", {}) if isinstance(data, dict) else {}
+    edges = packages_conn.get("edges", []) or []
+    page_info = packages_conn.get("pageInfo", {}) or {}
+    results = [edge.get("node", {}) for edge in edges if isinstance(edge, dict)]
+
+    return {
+        "success": True,
+        "results": results,
+        "query": query,
+        "registry": normalized_registry,
+        "pagination": {
+            "end_cursor": page_info.get("endCursor"),
+            "has_next_page": page_info.get("hasNextPage", False),
+        },
+    }
 
 
 def package_browse(
@@ -182,8 +144,8 @@ def package_browse(
     include_file_info: bool = True,
     max_depth: int = 0,
     top: int = 0,
-    include: list[str] | None = None,
-    exclude: list[str] | None = None,
+    include: Optional[list[str]] = None,
+    exclude: Optional[list[str]] = None,
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
     """Browse the contents of a Quilt package with enhanced file information.
@@ -218,58 +180,77 @@ def package_browse(
     if exclude is None:
         exclude = []
 
-    # Use the provided registry
     normalized_registry = _normalize_registry(registry)
-    try:
-        # Suppress stdout during browse to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
-
-        quilt_service = QuiltService()
-        with suppress_stdout():
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
-
-    except Exception as e:
+    token = get_active_token()
+    if not token:
         return {
             "success": False,
-            "error": f"Failed to browse package '{package_name}'",
-            "cause": str(e),
-            "possible_fixes": [
-                "Verify the package name is correct",
-                "Check if you have access to the registry",
-                "Ensure the package exists in the specified registry",
-            ],
-            "suggested_actions": [
-                f"Try: packages_list(registry='{registry}') to see available packages",
-                f"Try: packages_search('{package_name.split('/')[-1]}') to find similar packages",
-            ],
+            "error": "Authorization token required to browse packages",
         }
 
-    # Get detailed information about each entry
+    query = """
+    query PackageContents($name: String!, $first: Int) {
+      package(name: $name) {
+        name
+        hash
+        updated
+        entries(first: $first) {
+          edges {
+            node {
+              logicalKey
+              physicalKey
+              size
+              hash
+            }
+          }
+        }
+      }
+    }
+    """
+
+    try:
+        data = catalog_client.catalog_graphql_query(
+            registry_url=normalized_registry,
+            query=query,
+            variables={"name": package_name, "first": top or None},
+            auth_token=token,
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": "Failed to fetch package contents",
+            "cause": str(exc),
+        }
+
+    package_info = (data or {}).get("package") if isinstance(data, dict) else None
+    if not package_info:
+        return {
+            "success": False,
+            "error": f"Package '{package_name}' not found in registry",
+        }
+
+    edges = package_info.get("entries", {}).get("edges", [])
     entries = []
     file_tree = {} if recursive else None
-    keys = list(pkg.keys())
     total_size = 0
     file_types = set()
 
     # Apply top limit if specified
-    if top > 0:
-        keys = keys[:top]
-
-    for logical_key in keys:
+    for edge in edges[: top or None]:
         try:
-            entry = pkg[logical_key]
+            node = edge.get("node", {}) if isinstance(edge, dict) else {}
+            logical_key = node.get("logicalKey")
+            physical_key = node.get("physicalKey")
+            file_size = node.get("size")
+            file_hash = node.get("hash")
 
-            # Get file information
-            file_size = getattr(entry, "size", None)
-            file_hash = str(getattr(entry, "hash", ""))
-            physical_key = str(entry.physical_key) if hasattr(entry, "physical_key") else None
+            if not logical_key:
+                continue
 
-            # Determine file type and properties
             file_ext = logical_key.split(".")[-1].lower() if "." in logical_key else "unknown"
             file_types.add(file_ext)
             is_directory = logical_key.endswith("/") or file_size is None
 
-            # Track total size
             if file_size:
                 total_size += file_size
 
@@ -283,78 +264,56 @@ def package_browse(
                 "is_directory": is_directory,
             }
 
-            # Add enhanced file info if requested
-            if include_file_info and physical_key and physical_key.startswith("s3://"):
-                try:
-                    # Try to get additional S3 metadata
-                    import boto3
-
-                    from ..utils import get_s3_client
-
-                    s3_client = get_s3_client()
-                    bucket_name = physical_key.split("/")[2]
-                    object_key = "/".join(physical_key.split("/")[3:])
-
-                    obj_info = s3_client.head_object(Bucket=bucket_name, Key=object_key)
-                    entry_data.update(
-                        {
-                            "last_modified": str(obj_info.get("LastModified")),
-                            "content_type": obj_info.get("ContentType"),
-                            "storage_class": obj_info.get("StorageClass", "STANDARD"),
-                        }
-                    )
-                except Exception:
-                    # Don't fail if we can't get additional info
-                    pass
-
-            # Add S3 URI and signed URL if this is an S3 object
             if physical_key and physical_key.startswith("s3://"):
                 entry_data["s3_uri"] = physical_key
-
                 if include_signed_urls:
-                    signed_url = generate_signed_url(physical_key)
-                    if signed_url:
-                        entry_data["download_url"] = signed_url
+                    signed = generate_signed_url(physical_key)
+                    if signed:
+                        entry_data["download_url"] = signed
 
             entries.append(entry_data)
 
-            # Build file tree structure for recursive view
             if recursive and file_tree is not None:
                 _add_to_file_tree(file_tree, logical_key, entry_data, max_depth)
 
-        except Exception as e:
-            # Include entry with error info
+        except Exception as exc:  # pragma: no cover - defensive logging
             entries.append(
                 {
-                    "logical_key": logical_key,
+                    "logical_key": logical_key if "logical_key" in locals() else "unknown",
                     "physical_key": None,
                     "size": None,
                     "hash": "",
-                    "error": str(e),
+                    "error": str(exc),
                     "file_type": "error",
                 }
             )
 
-    # Prepare comprehensive response
-    response = {
+    summary = {
+        "total_size": total_size,
+        "total_size_human": _format_file_size(total_size),
+        "file_types": sorted(file_types),
+        "total_files": len([e for e in entries if not e.get("is_directory")]),
+        "total_directories": len([e for e in entries if e.get("is_directory")]),
+    }
+
+    response: dict[str, Any] = {
         "success": True,
         "package_name": package_name,
         "registry": registry,
         "total_entries": len(entries),
-        "summary": {
-            "total_size": total_size,
-            "total_size_human": _format_file_size(total_size),
-            "file_types": sorted(list(file_types)),
-            "total_files": len([e for e in entries if not e.get("is_directory", False)]),
-            "total_directories": len([e for e in entries if e.get("is_directory", False)]),
-        },
+        "summary": summary,
         "view_type": "recursive" if recursive else "flat",
+        "entries": entries,
     }
 
     if recursive and file_tree:
         response["file_tree"] = file_tree
 
-    response["entries"] = entries
+    response["package"] = {
+        "hash": package_info.get("hash"),
+        "updated": package_info.get("updated"),
+        "name": package_info.get("name"),
+    }
 
     return response
 
@@ -416,56 +375,49 @@ def package_contents_search(
     Returns:
         Dict with matching entries including logical keys, S3 URIs, and optional download URLs.
     """
-    # Use the provided registry
     normalized_registry = _normalize_registry(registry)
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required to search package contents")
 
-    # Suppress stdout during browse to avoid JSON-RPC interference
-    from ..utils import suppress_stdout
+    try:
+        raw_entries = catalog_client.catalog_package_entries(
+            registry_url=normalized_registry,
+            package_name=package_name,
+            auth_token=token,
+        )
+    except Exception as exc:
+        return {
+            "package_name": package_name,
+            "query": query,
+            "matches": [],
+            "count": 0,
+            "success": False,
+            "error": str(exc),
+        }
 
-    quilt_service = QuiltService()
-    with suppress_stdout():
-        try:
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
-        except Exception as e:
-            # Return empty result for nonexistent or inaccessible packages
-            return {
-                "package_name": package_name,
-                "query": query,
-                "matches": [],
-                "count": 0,
-                "success": False,
-                "error": f"Failed to browse package: {e}",
-            }
-
-    # Find matching keys
-    matching_keys = [k for k in pkg.keys() if query.lower() in k.lower()]
-
-    # Get detailed information for each match
     matches = []
-    for logical_key in matching_keys:
-        try:
-            entry = pkg[logical_key]
-            match_data = {
-                "logical_key": logical_key,
-                "physical_key": (str(entry.physical_key) if hasattr(entry, "physical_key") else None),
-                "size": getattr(entry, "size", None),
-                "hash": str(getattr(entry, "hash", "")),
-            }
+    for entry in raw_entries:
+        logical_key = entry.get("logicalKey")
+        if not logical_key or query.lower() not in logical_key.lower():
+            continue
 
-            # Add S3 URI and signed URL if this is an S3 object
-            if hasattr(entry, "physical_key") and str(entry.physical_key).startswith("s3://"):
-                s3_uri = str(entry.physical_key)
-                match_data["s3_uri"] = s3_uri
+        match = {
+            "logical_key": logical_key,
+            "physical_key": entry.get("physicalKey"),
+            "size": entry.get("size"),
+            "hash": entry.get("hash"),
+        }
 
-                if include_signed_urls:
-                    signed_url = generate_signed_url(s3_uri)
-                    if signed_url:
-                        match_data["download_url"] = signed_url
+        s3_uri = entry.get("physicalKey")
+        if s3_uri and s3_uri.startswith("s3://"):
+            match["s3_uri"] = s3_uri
+            if include_signed_urls:
+                signed = generate_signed_url(s3_uri)
+                if signed:
+                    match["download_url"] = signed
 
-            matches.append(match_data)
-        except Exception:
-            # Fallback to just the logical key if detailed info fails
-            matches.append({"logical_key": logical_key})
+        matches.append(match)
 
     return {
         "package_name": package_name,
@@ -495,47 +447,17 @@ def package_diff(
         Dict with differences between the two packages including added, removed, and modified files.
     """
     normalized_registry = _normalize_registry(registry)
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required to diff packages")
 
-    try:
-        # Browse packages with optional hash specification
-        # Suppress stdout during browse operations to avoid JSON-RPC interference
-        from ..utils import suppress_stdout
-
-        quilt_service = QuiltService()
-        with suppress_stdout():
-            if package1_hash:
-                pkg1 = quilt_service.browse_package(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
-            else:
-                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
-
-            if package2_hash:
-                pkg2 = quilt_service.browse_package(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
-            else:
-                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
-
-    except Exception as e:
-        return {"error": f"Failed to browse packages: {e}"}
-
-    try:
-        # Use quilt3's built-in diff functionality
-        diff_result = pkg1.diff(pkg2)
-
-        # Convert the diff result to a more readable format
-        return {
-            "package1": package1_name,
-            "package2": package2_name,
-            "package1_hash": package1_hash if package1_hash else "latest",
-            "package2_hash": package2_hash if package2_hash else "latest",
-            "registry": registry,
-            "diff": diff_result,
-        }
-
-    except Exception as e:
-        return {"error": f"Failed to diff packages: {e}"}
+    # TODO: Implement package diff via GraphQL/REST API.
+    return {
+        "success": False,
+        "error": "Package diff not yet implemented for stateless backend",
+        "package1": package1_name,
+        "package2": package2_name,
+    }
 
 
 def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:

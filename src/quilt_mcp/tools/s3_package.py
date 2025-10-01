@@ -21,8 +21,10 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
-from ..utils import get_s3_client, validate_package_name, format_error_response
-from ..services.quilt_service import QuiltService
+from ..clients import catalog as catalog_client
+from ..constants import DEFAULT_BUCKET, DEFAULT_REGISTRY
+from ..runtime import get_active_token
+from ..utils import get_s3_client, validate_package_name, format_error_response, resolve_catalog_url
 from .permissions import bucket_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
@@ -360,7 +362,6 @@ def package_create_from_s3(
         Package creation result with structure info, metadata, and confirmation details
     """
     try:
-        # Validate inputs
         if not validate_package_name(package_name):
             return format_error_response("Invalid package name format. Use 'namespace/name'")
 
@@ -423,58 +424,32 @@ def package_create_from_s3(
                 "fix": f"Try using: {source_bucket.replace('s3://', '')}",
             }
 
-        # Suggest target registry if not provided using permissions discovery
+        token = get_active_token()
+        if not token:
+            return format_error_response("Authorization token required for package creation")
+
+        catalog_url = resolve_catalog_url()
+        if not catalog_url:
+            return format_error_response("Catalog URL not configured")
+
         if not target_registry:
-            # Try to get smart recommendations based on actual permissions
-            try:
-                recommendations = bucket_recommendations_get(
-                    source_bucket=source_bucket, operation_type="package_creation"
-                )
+            target_registry = _suggest_target_registry(source_bucket, source_prefix)
 
-                if recommendations.get("success") and recommendations.get("recommendations", {}).get(
-                    "primary_recommendations"
-                ):
-                    # Use the top recommendation
-                    top_rec = recommendations["recommendations"]["primary_recommendations"][0]
-                    target_registry = f"s3://{top_rec['bucket_name']}"
-                    logger.info(f"Using permission-based recommendation: {target_registry}")
-                else:
-                    # Fallback to pattern-based suggestion
-                    target_registry = _suggest_target_registry(source_bucket, source_prefix)
-                    logger.info(f"Using pattern-based suggestion: {target_registry}")
+        if target_registry.startswith("http"):
+            normalized_registry = target_registry.rstrip("/")
+        elif target_registry.startswith("s3://"):
+            normalized_registry = target_registry
+        else:
+            normalized_registry = f"s3://{target_registry.strip('/')}"
 
-            except Exception as e:
-                logger.warning(f"Permission-based recommendation failed, using pattern-based: {e}")
-                target_registry = _suggest_target_registry(source_bucket, source_prefix)
-                logger.info(f"Fallback suggestion: {target_registry}")
-
-        # Validate target registry permissions
-        target_bucket_name = target_registry.replace("s3://", "")
+        # Best-effort permission check (non-fatal)
+        target_bucket_name = normalized_registry.replace("s3://", "")
         try:
             access_check = bucket_access_check(target_bucket_name)
-            if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
-                return {
-                    "success": False,
-                    "error": "Cannot create package in target registry",
-                    "cause": "Insufficient write permissions",
-                    "target_registry": target_registry,
-                    "possible_fixes": [
-                        f"Verify you have s3:PutObject permissions for {target_bucket_name}",
-                        "Check if you're connected to the right catalog",
-                        "Try a different bucket you own",
-                    ],
-                    "suggested_actions": [
-                        "Try: bucket_recommendations_get() to find writable buckets",
-                        "Try: test_permissions() to diagnose specific issues",
-                    ],
-                    "debug_info": {
-                        "aws_error": "AccessDenied",
-                        "operation": "target_registry_validation",
-                    },
-                }
+            if not access_check.get("success"):
+                logger.debug("Registry permission check inconclusive for %s: %s", target_bucket_name, access_check)
         except Exception as e:
-            logger.warning(f"Could not validate target registry permissions: {e}")
-            # Continue anyway - the user might have permissions that we can't detect
+            logger.debug("Skipping registry permission check: %s", e)
 
         # Initialize clients
         s3_client = get_s3_client()
@@ -588,7 +563,6 @@ def package_create_from_s3(
             "visualization_count": summary_files.get("visualization_count", 0),
         }
 
-        # If dry run, return preview without creating
         if dry_run:
             return {
                 "success": True,
@@ -619,7 +593,7 @@ def package_create_from_s3(
             organized_structure=organized_structure,
             source_bucket=source_bucket,
             package_name=package_name,
-            target_registry=target_registry,
+            target_registry=normalized_registry,
             description=description,
             enhanced_metadata=enhanced_metadata,
             readme_content=final_readme_content,
@@ -628,33 +602,7 @@ def package_create_from_s3(
             force=force,
         )
 
-        return {
-            "success": True,
-            "action": "created",
-            "package_name": package_name,
-            "registry": target_registry,
-            "structure": {
-                "folders_created": list(organized_structure.keys()),
-                "files_organized": len(objects),
-                "readme_generated": generate_readme,
-            },
-            "metadata": {
-                "package_size_mb": round(total_size / (1024 * 1024), 2),
-                "file_types": list(
-                    set(Path(obj["Key"]).suffix.lower().lstrip(".") for obj in objects if Path(obj["Key"]).suffix)
-                ),
-                "organization_applied": ("logical_hierarchy" if auto_organize else "flat"),
-            },
-            "confirmation": confirmation_info,
-            "package_hash": package_result.get("top_hash"),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "summary_files": {
-                "quilt_summarize.json": summary_files.get("summary_package", {}).get("quilt_summarize.json", {}),
-                "visualizations": summary_files.get("summary_package", {}).get("visualizations", {}),
-                "files_generated": summary_files.get("files_generated", {}),
-                "visualization_count": summary_files.get("visualization_count", 0),
-            },
-        }
+        return package_result
 
     except NoCredentialsError:
         return format_error_response("AWS credentials not found. Please configure AWS authentication.")
@@ -663,7 +611,7 @@ def package_create_from_s3(
         return format_error_response(f"AWS error ({error_code}): {str(e)}")
     except Exception as e:
         logger.error(f"Error creating package from S3: {str(e)}")
-        return format_error_response(f"Failed to create package: {str(e)}")
+        return format_error_response(f"Package creation failed: {str(e)}")
 
 
 def _validate_bucket_access(s3_client, bucket_name: str) -> None:
@@ -771,36 +719,56 @@ def _create_enhanced_package(
             else "Created via enhanced S3-to-package tool"
         )
 
-        # Create package using create_package_revision with auto_organize=True
-        # This preserves the smart organization behavior of s3_package.py
-        quilt_service = QuiltService()
-        result = quilt_service.create_package_revision(
-            package_name=package_name,
-            s3_uris=s3_uris,
-            metadata=processed_metadata,
-            registry=target_registry,
-            message=message,
-            auto_organize=True,  # Preserve smart organization behavior
-            copy=copy_mode,
-        )
+        # Ensure we have runtime credentials
+        token = get_active_token()
+        if not token:
+            return format_error_response("Authorization token required for package creation")
 
-        # Handle the result
-        if result.get("error"):
-            logger.error(f"Package creation failed: {result['error']}")
-            raise Exception(result["error"])
+        catalog_url = resolve_catalog_url()
+        if not catalog_url:
+            return format_error_response("Catalog URL not configured")
+
+        registry_url = target_registry or DEFAULT_REGISTRY or catalog_url
+
+        # Normalize registry: if DEFAULT_REGISTRY is empty fall back to catalog URL
+        if registry_url.startswith("s3://"):
+            normalized_registry = registry_url
+        elif registry_url.startswith("http"):
+            normalized_registry = registry_url.rstrip("/")
+        else:
+            normalized_registry = f"s3://{registry_url.strip('/')}"
+
+        try:
+            result = catalog_client.catalog_package_create(
+                registry_url=normalized_registry,
+                package_name=package_name,
+                auth_token=token,
+                s3_uris=s3_uris,
+                metadata=processed_metadata,
+                message=message,
+                flatten=True,
+                copy_mode=copy_mode,
+            )
+        except Exception as exc:
+            logger.error("Catalog package creation failed: %s", exc)
+            return format_error_response(f"Failed to create package: {exc}")
 
         top_hash = result.get("top_hash")
-        logger.info(f"Successfully created package {package_name} with hash {top_hash}")
+        logger.info("Successfully created package %s with hash %s", package_name, top_hash)
 
-        # TODO: Handle summary files and visualizations in future enhancement
-        # For now, basic package creation with README is supported
-        if summary_files:
-            logger.warning("Summary files and visualizations not yet supported with create_package_revision")
+        warnings = []
+        if result.get("warnings"):
+            warnings.extend(result["warnings"])
 
         return {
+            "success": True,
+            "package_name": package_name,
+            "registry": normalized_registry,
             "top_hash": top_hash,
-            "message": f"Enhanced package {package_name} created successfully",
-            "registry": target_registry,
+            "entries_added": result.get("entries_added", len(s3_uris)),
+            "warnings": warnings,
+            "files": result.get("files", []),
+            "message": f"Package '{package_name}' created successfully via S3 import",
         }
 
     except Exception as e:
