@@ -22,7 +22,7 @@ Example usage:
     objects = buckets.bucket_objects_list("my-bucket")
 
     # Use package tools
-    pkg_list = packages.packages_list()
+    pkg_info = packages.package_browse("team/dataset")
 """
 
 from . import (

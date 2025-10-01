@@ -340,56 +340,6 @@ def workflow_status_get(workflow_id: str) -> Dict[str, Any]:
         return format_error_response(f"Failed to get workflow status: {str(e)}")
 
 
-def workflow_list() -> Dict[str, Any]:
-    """
-    TODO: Delete obsolete tool - replaced by MCP resource workflow://workflows
-
-    List all workflows with their current status.
-
-    Returns:
-        List of all workflows with summary information
-    """
-    try:
-        workflows_summary = []
-
-        for workflow_id, workflow in _workflows.items():
-            summary = {
-                "id": workflow_id,
-                "name": workflow["name"],
-                "status": workflow["status"],
-                "progress": {
-                    "completed_steps": workflow["completed_steps"],
-                    "total_steps": workflow["total_steps"],
-                    "percentage": (
-                        round(
-                            (workflow["completed_steps"] / workflow["total_steps"]) * 100,
-                            1,
-                        )
-                        if workflow["total_steps"] > 0
-                        else 0
-                    ),
-                },
-                "created_at": workflow["created_at"],
-                "updated_at": workflow["updated_at"],
-            }
-            workflows_summary.append(summary)
-
-        # Sort by updated_at (most recent first)
-        workflows_summary.sort(key=lambda x: x["updated_at"], reverse=True)
-
-        return {
-            "success": True,
-            "workflows": workflows_summary,
-            "total_workflows": len(workflows_summary),
-            "active_workflows": sum(1 for w in workflows_summary if w["status"] in ["created", "in_progress"]),
-            "completed_workflows": sum(1 for w in workflows_summary if w["status"] == "completed"),
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to list workflows: {e}")
-        return format_error_response(f"Failed to list workflows: {str(e)}")
-
-
 def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Apply a pre-defined workflow template.

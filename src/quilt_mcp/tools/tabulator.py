@@ -343,33 +343,6 @@ def get_tabulator_service() -> TabulatorService:
 # MCP Tool Functions
 
 
-async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
-    """
-    TODO: Delete obsolete tool - replaced by MCP resource tabulator://{bucket}/tables
-
-    List all tabulator tables configured for a bucket.
-
-    Tabulator tables enable SQL querying across multiple Quilt packages,
-    aggregating data based on configurable patterns and schemas.
-
-    Args:
-        bucket_name: Name of the S3 bucket to list tables for
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - tables: List of tabulator tables with their configurations
-        - bucket_name: The bucket name that was queried
-        - count: Number of tables found
-    """
-    try:
-        service = get_tabulator_service()
-        return service.list_tables(bucket_name)
-    except Exception as e:
-        logger.error(f"Error in tabulator_tables_list: {e}")
-        return format_error_response(f"Failed to list tabulator tables: {str(e)}")
-
-
 async def tabulator_table_create(
     bucket_name: str,
     table_name: str,

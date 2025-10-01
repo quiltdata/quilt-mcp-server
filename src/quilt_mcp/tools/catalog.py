@@ -308,7 +308,7 @@ def catalog_status() -> dict[str, Any]:
 
             # Generate suggested actions based on status
             suggested_actions = [
-                "Try listing packages with: packages_list()",
+                "Search for packages with: catalog_search(query)",
                 "Test bucket permissions with: bucket_access_check(bucket_name)",
                 "Discover your writable buckets with: aws_permissions_discover()",
                 "Create your first package with: create_package()",
@@ -327,7 +327,7 @@ def catalog_status() -> dict[str, Any]:
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
                     "package_creation": "Try: create_package() to create your first package",
-                    "exploration": "Try: packages_list() to browse existing packages",
+                    "exploration": "Try: catalog_search(query) to find packages",
                 },
             }
         else:
@@ -528,7 +528,7 @@ def catalog_set(catalog_name: str) -> dict[str, Any]:
             "next_steps": [
                 "Login with: quilt3 login",
                 "Verify with: auth_status()",
-                "Start exploring with: packages_list()",
+                "Start exploring with: catalog_search(query)",
             ],
             "help": {
                 "login_command": "quilt3 login",
@@ -586,8 +586,8 @@ def quick_start() -> dict[str, Any]:
                     },
                     {
                         "action": "Explore existing packages",
-                        "command": "packages_list()",
-                        "description": "Browse packages in your catalog",
+                        "command": "catalog_search(query)",
+                        "description": "Search for packages in your catalog",
                     },
                 ],
                 "tips": [

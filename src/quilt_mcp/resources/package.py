@@ -16,16 +16,59 @@ class PackageToolsResource(MCPResource):
         super().__init__("package://tools")
 
     async def list_items(self, **params) -> Dict[str, Any]:
-        """List package tools.
+        """List package tools with usage guidance.
 
         Returns:
-            Package tools data in original format
+            Package tools data with categories and usage examples
         """
-        # Import here to avoid circular imports and maintain compatibility
-        from ..tools.package_creation import package_tools_list
-
-        # Call the original sync function
-        return package_tools_list()
+        return {
+            "primary_tools": {
+                "package_create": {
+                    "description": "Main package creation tool with templates and dry-run",
+                    "use_when": "Creating new packages with smart defaults",
+                    "example": 'package_create("team/dataset", ["s3://bucket/file.csv"])',
+                },
+                "package_browse": {
+                    "description": "Browse package contents with file tree view",
+                    "use_when": "Exploring package structure and files",
+                    "example": 'package_browse("team/dataset", recursive=True)',
+                },
+                "package_validate": {
+                    "description": "Validate package integrity and accessibility",
+                    "use_when": "Checking package health and file accessibility",
+                    "example": 'package_validate("team/dataset")',
+                },
+            },
+            "specialized_tools": {
+                "package_create_from_s3": {
+                    "description": "Advanced S3-to-package creation with organization",
+                    "use_when": "Creating packages from entire S3 buckets/prefixes",
+                    "example": 'package_create_from_s3("bucket-name", "team/dataset")',
+                },
+            },
+            "utility_tools": {
+                "list_metadata_templates": {
+                    "description": "Show available metadata templates",
+                    "example": "list_metadata_templates()",
+                },
+                "catalog_search": {
+                    "description": "Search packages by content",
+                    "example": 'catalog_search("genomics")',
+                },
+            },
+            "workflow_guide": {
+                "new_package": [
+                    "1. package_create() - Create with template",
+                    "2. package_browse() - Verify contents",
+                    "3. package_validate() - Check integrity",
+                    "4. catalog_url() - Get sharing URL",
+                ],
+                "explore_existing": [
+                    "1. package_browse() - Explore structure",
+                    "2. package_contents_search() - Find specific files",
+                ],
+            },
+        }
 
     def _extract_items(self, raw_data: Dict[str, Any]) -> List[Any]:
         """Extract tools list from package tools data."""

@@ -16,19 +16,33 @@ class TabulatorTablesResource(MCPResource):
         super().__init__("tabulator://{bucket}/tables")
 
     async def list_items(self, bucket_name: str, **params) -> Dict[str, Any]:
-        """List tabulator tables for a bucket.
+        """List all tabulator tables configured for a bucket.
+
+        Tabulator tables enable SQL querying across multiple Quilt packages,
+        aggregating data based on configurable patterns and schemas.
 
         Args:
             bucket_name: Name of the bucket to list tables for
 
         Returns:
-            Tabulator tables data in original format
+            Dict containing:
+            - success: Whether the operation succeeded
+            - tables: List of tabulator tables with their configurations
+            - bucket_name: The bucket name that was queried
+            - count: Number of tables found
         """
-        # Import here to avoid circular imports and maintain compatibility
-        from ..tools.tabulator import tabulator_tables_list
+        from ..tools.tabulator import get_tabulator_service
+        from ..utils import format_error_response
+        import logging
 
-        # Call the original async function
-        return await tabulator_tables_list(bucket_name=bucket_name)
+        logger = logging.getLogger(__name__)
+
+        try:
+            service = get_tabulator_service()
+            return service.list_tables(bucket_name)
+        except Exception as e:
+            logger.error(f"Error in tabulator list_items: {e}")
+            return format_error_response(f"Failed to list tabulator tables: {str(e)}")
 
     def _extract_items(self, raw_data: Dict[str, Any]) -> List[Any]:
         """Extract tables list from tabulator tables data."""
