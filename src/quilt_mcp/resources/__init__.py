@@ -60,6 +60,9 @@ def create_default_registry() -> ResourceRegistry:
     has_admin = service.has_admin_credentials()
 
     # Register admin resources only if user has credentials
+    # NOTE: Admin resources follow URI convention of 'admin://*' scheme.
+    # This is enforced by code review and documented in CLAUDE.md.
+    # Future: Consider resource-level metadata (@requires_admin) for more flexibility.
     if has_admin:
         registry.register("admin://users", AdminUsersResource())
         registry.register("admin://roles", AdminRolesResource())

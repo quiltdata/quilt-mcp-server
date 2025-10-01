@@ -274,6 +274,25 @@ Key execution guidelines:
 - Suggest improvements that align with these principles
 - When unsure, ask for clarification rather than assuming
 
+## Code Conventions
+
+### Admin Tool and Resource Naming
+
+**Convention**: Admin-only functionality follows consistent naming patterns for filtering based on user credentials.
+
+- **Tools**: Admin tools use `admin_*` function name prefix (e.g., `admin_user_create`, `admin_role_list`)
+- **Resources**: Admin resources use `admin://*` URI scheme (e.g., `admin://users`, `admin://roles`)
+
+**Rationale**: These conventions enable credential-based filtering at registration time without requiring decorators or metadata systems. Non-admin users see a clean interface without admin clutter.
+
+**Enforcement**:
+- Code review ensures all admin functions follow naming convention
+- `has_admin_credentials()` in `QuiltService` performs actual credential verification (not just import checks)
+- Tools filtered in `utils.register_tools_from_module()` based on name prefix
+- Resources filtered in `resources.create_default_registry()` at registration time
+
+**Future Consideration**: If naming convention becomes insufficient, consider decorator-based approach (`@admin_required`) or resource-level metadata for more robustness.
+
 ## Summary
 
 The key is to write clean, testable, functional code that evolves through small, safe increments. Every change should be driven by a test that describes the desired behavior, and the implementation should be the simplest thing that makes that test pass. When in doubt, favor simplicity and readability over cleverness.

@@ -155,6 +155,9 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
         for name, func in functions:
             # Skip admin tools if user lacks admin credentials
+            # NOTE: Admin tools follow naming convention of 'admin_*' prefix.
+            # This is enforced by code review and documented in CLAUDE.md.
+            # Future: Consider decorator-based approach (@admin_required) for more robustness.
             if name.startswith('admin_') and not has_admin:
                 if verbose:
                     print(f"Skipped admin tool: {module.__name__}.{name} (no admin credentials)", file=sys.stderr)
