@@ -108,6 +108,24 @@ class TestSetSSOConfig:
             mock_sso_module.set.assert_called_once_with("")
             assert isinstance(result, dict)
 
+    def test_set_sso_config_fallback_when_module_returns_none(self):
+        """Test that set_sso_config() creates fallback dict when module returns None."""
+        service = QuiltService()
+
+        config_text = "saml:\n  provider: okta"
+
+        # Mock SSO admin module returning None
+        mock_sso_module = Mock()
+        mock_sso_module.set.return_value = None
+
+        with patch.object(service, '_get_sso_admin_module', return_value=mock_sso_module):
+            result = service.set_sso_config(config_text)
+
+            # Should return fallback dict
+            assert isinstance(result, dict)
+            assert result["status"] == "success"
+            assert result["config"] == config_text
+
 
 class TestRemoveSSOConfig:
     """Test remove_sso_config() method."""
@@ -154,6 +172,22 @@ class TestRemoveSSOConfig:
             # Should still call remove and return result
             mock_sso_module.remove.assert_called_once()
             assert isinstance(result, dict)
+
+    def test_remove_sso_config_fallback_when_module_returns_none(self):
+        """Test that remove_sso_config() creates fallback dict when module returns None."""
+        service = QuiltService()
+
+        # Mock SSO admin module returning None
+        mock_sso_module = Mock()
+        mock_sso_module.remove.return_value = None
+
+        with patch.object(service, '_get_sso_admin_module', return_value=mock_sso_module):
+            result = service.remove_sso_config()
+
+            # Should return fallback dict
+            assert isinstance(result, dict)
+            assert result["status"] == "success"
+            assert "message" in result
 
 
 class TestGetSSOAdminModuleHelper:
