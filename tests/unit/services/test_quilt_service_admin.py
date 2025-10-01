@@ -98,6 +98,40 @@ class TestAdminAvailability:
         assert "Admin operations not available" in str(exc_info.value)
 
 
+class TestRequireAdminHelper:
+    """Test _require_admin() helper method."""
+
+    def test_require_admin_succeeds_when_admin_available(self):
+        """Test that _require_admin() succeeds silently when admin is available."""
+        service = QuiltService()
+
+        with patch.object(service, 'is_admin_available', return_value=True):
+            # Should not raise any exception
+            service._require_admin()
+
+    def test_require_admin_raises_when_admin_unavailable(self):
+        """Test that _require_admin() raises AdminNotAvailableError when unavailable."""
+        service = QuiltService()
+
+        with patch.object(service, 'is_admin_available', return_value=False):
+            with pytest.raises(AdminNotAvailableError) as exc_info:
+                service._require_admin()
+
+        assert "Admin operations not available" in str(exc_info.value)
+
+    def test_require_admin_with_custom_message(self):
+        """Test that _require_admin() can include custom context in error message."""
+        service = QuiltService()
+
+        with patch.object(service, 'is_admin_available', return_value=False):
+            with pytest.raises(AdminNotAvailableError) as exc_info:
+                service._require_admin("Operation 'list_users' requires admin access")
+
+        error_message = str(exc_info.value)
+        assert "Admin operations not available" in error_message
+        assert "list_users" in error_message
+
+
 class TestAdminMethodsErrorHandling:
     """Test that admin methods use new exceptions properly."""
 
