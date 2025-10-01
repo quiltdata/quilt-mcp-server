@@ -922,37 +922,28 @@ class QuiltService:
             config: SSO configuration string (typically YAML format)
 
         Returns:
-            Dict with operation status and configuration details
+            SSO config object (despite type annotation saying dict - matches pattern of user methods)
 
         Raises:
             AdminNotAvailableError: If admin modules not available
         """
         sso_admin = self._get_sso_admin_module()
-        result = sso_admin.set(config)
-
-        # Ensure we return a dict with expected structure
-        if isinstance(result, dict):
-            return result
-        # If the module doesn't return a dict, construct one
-        return {"status": "success", "config": config}
+        # Return the config object directly, matching the pattern used by user management methods
+        # Type annotation is incorrect but maintained for API consistency
+        return sso_admin.set(config)
 
     def remove_sso_config(self) -> dict[str, Any]:
         """Remove SSO configuration.
 
         Returns:
-            Dict with operation status
+            Result of remove operation (type annotation is dict but may vary)
 
         Raises:
             AdminNotAvailableError: If admin modules not available
         """
         sso_admin = self._get_sso_admin_module()
-        result = sso_admin.remove()
-
-        # Ensure we return a dict with expected structure
-        if isinstance(result, dict):
-            return result
-        # If the module doesn't return a dict, construct one
-        return {"status": "success", "message": "SSO configuration removed"}
+        # The module's remove() method may call set(None), so just pass through the result
+        return sso_admin.set(None)
 
     # Tabulator Administration Methods
     # Phase 3.3: Tabulator administration operations

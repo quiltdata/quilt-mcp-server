@@ -514,8 +514,7 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        sso_config = admin_sso_config.get()
+        sso_config = quilt_service.get_sso_config()
 
         if sso_config is None:
             return {
@@ -562,8 +561,8 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
         if not config:
             return format_error_response("SSO configuration cannot be empty")
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        sso_config = admin_sso_config.set(config)
+        # set_sso_config returns the SSO config object (despite type annotation saying dict)
+        sso_config = quilt_service.set_sso_config(config)
 
         if sso_config is None:
             return format_error_response("Failed to set SSO configuration")
@@ -600,8 +599,7 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_sso_config = quilt_service.get_sso_config_admin()
-        admin_sso_config.set(None)
+        quilt_service.remove_sso_config()
 
         return {"success": True, "message": "Successfully removed SSO configuration"}
 
@@ -621,8 +619,7 @@ async def admin_tabulator_access_get() -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
-        open_query_enabled = admin_tabulator.get_open_query()
+        open_query_enabled = quilt_service.get_tabulator_access()
 
         return {
             "success": True,
@@ -643,8 +640,7 @@ async def admin_tabulator_access_set(enabled: bool) -> Dict[str, Any]:
         if error_check:
             return error_check
 
-        admin_tabulator = quilt_service.get_tabulator_admin()
-        admin_tabulator.set_open_query(enabled)
+        quilt_service.set_tabulator_access(enabled)
 
         return {
             "success": True,
