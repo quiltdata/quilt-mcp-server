@@ -141,58 +141,62 @@ def bucket_objects_list(
     bucket: str = DEFAULT_BUCKET,
     prefix: str = "",
     max_keys: int = 100,
-    continuation_token: str = "",
-    include_signed_urls: bool = True,
+    continuation_token: str = "",  # noqa: ARG001
+    include_signed_urls: bool = True,  # noqa: ARG001
 ) -> dict[str, Any]:
-    """List objects in an S3 bucket with optional prefix filtering.
+    """[DEPRECATED] List objects in an S3 bucket.
+    
+    This function requires AWS credentials in the JWT token, which are not available
+    in authentication-only JWT tokens from the Quilt frontend.
+    
+    **Use search.unified_search instead:**
+    
+    ```python
+    # Instead of:
+    # buckets.objects_list(bucket="my-bucket", prefix="data/")
+    
+    # Use:
+    search.unified_search(
+        query="*",  # or specific search terms
+        scope="bucket",
+        target="my-bucket",
+        limit=100
+    )
+    ```
+    
+    The unified search uses GraphQL which only requires authentication tokens,
+    not AWS credentials, and provides richer filtering and metadata.
 
     Args:
-        bucket: S3 bucket name or s3:// URI (default: DEFAULT_BUCKET)
-        prefix: Filter objects by prefix (default: "")
-        max_keys: Maximum number of objects to return, 1-1000 (default: 100)
-        continuation_token: Token for paginating through large result sets (default: "")
-        include_signed_urls: Include presigned download URLs for each object (default: True)
+        bucket: S3 bucket name or s3:// URI
+        prefix: Filter objects by prefix
+        max_keys: Maximum number of objects to return
+        continuation_token: [Ignored] Token for pagination
+        include_signed_urls: [Ignored] Include presigned URLs
 
     Returns:
-        Dict with bucket info, objects list, and pagination details.
+        Error message directing to use search.unified_search instead.
     """
     bkt = _normalize_bucket(bucket)
-    max_keys = max(1, min(max_keys, 1000))
-    client = get_s3_client()
-    params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
-    if prefix:
-        params["Prefix"] = prefix
-    if continuation_token:
-        params["ContinuationToken"] = continuation_token
-    try:
-        resp = client.list_objects_v2(**params)
-    except Exception as e:
-        return {"error": f"Failed to list objects: {e}", "bucket": bkt}
-    objects: list[dict[str, Any]] = []
-    for item in resp.get("Contents", []) or []:
-        key = item.get("Key")
-        s3_uri = f"s3://{bkt}/{key}"
-        obj_data = {
-            "key": key,
-            "s3_uri": s3_uri,
-            "size": item.get("Size"),
-            "last_modified": str(item.get("LastModified")),
-            "etag": item.get("ETag"),
-            "storage_class": item.get("StorageClass"),
-        }
-        if include_signed_urls:
-            signed_url = generate_signed_url(s3_uri)
-            if signed_url:
-                obj_data["download_url"] = signed_url
-        objects.append(obj_data)
+    
     return {
-        "bucket": bkt,
-        "prefix": prefix,
-        "objects": objects,
-        "truncated": resp.get("IsTruncated", False),
-        "next_token": resp.get("NextContinuationToken", ""),
-        "key_count": resp.get("KeyCount", len(objects)),
-        "max_keys": max_keys,
+        "success": False,
+        "deprecated": True,
+        "error": "buckets.objects_list requires AWS credentials which are not available in JWT tokens.",
+        "alternative": "Use search.unified_search instead",
+        "example": {
+            "action": "unified_search",
+            "params": {
+                "query": f"{prefix}*" if prefix else "*",
+                "scope": "bucket",
+                "target": bkt,
+                "limit": max_keys
+            }
+        },
+        "message": (
+            f"To list objects in bucket '{bkt}', use search.unified_search:\n"
+            f"search.unified_search(query='{prefix}*' if prefix else '*', scope='bucket', target='{bkt}', limit={max_keys})"
+        )
     }
 
 

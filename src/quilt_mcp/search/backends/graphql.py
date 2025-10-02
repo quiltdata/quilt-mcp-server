@@ -311,10 +311,21 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Search objects globally using Enterprise GraphQL searchObjects (expensive but valuable)."""
         # Use the proper Enterprise searchObjects query with rich filtering
         graphql_query = """
-        query SearchObjects($buckets: [String!], $searchString: String, $filter: ObjectsSearchFilter) {
+        query SearchObjects($buckets: [String!], $searchString: String, $filter: ObjectsSearchFilter, $first: Int!) {
             searchObjects(buckets: $buckets, searchString: $searchString, filter: $filter) {
                 ... on ObjectsSearchResultSet {
                     total
+                    firstPage(first: $first) {
+                        edges {
+                            node {
+                                key
+                                size
+                                updated
+                                contentType
+                                ext
+                            }
+                        }
+                    }
                     stats {
                         modified {
                             min
@@ -357,6 +368,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             "buckets": [],  # Search all accessible buckets
             "searchString": query,
             "filter": object_filter,
+            "first": limit,
         }
 
         try:
@@ -682,46 +694,41 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         # Handle union type response
         if search_objects.get("total") is not None:
-            # ObjectsSearchResultSet
-            total = search_objects["total"]
-            stats = search_objects.get("stats", {})
-
-            # Create a summary result with rich statistics
-            size_stats = stats.get("size", {})
-            modified_stats = stats.get("modified", {})
-            ext_stats = stats.get("ext", {})
-
-            description_parts = [f"Found {total} objects"]
-            if size_stats.get("sum"):
-                total_gb = size_stats["sum"] / (1024**3)
-                description_parts.append(f"Total size: {total_gb:.1f} GB")
-
-            # Add file extension breakdown
-            if ext_stats.get("buckets"):
-                ext_breakdown = ext_stats["buckets"][:3]  # Top 3 extensions
-                ext_summary = ", ".join([f"{ext['key']}: {ext['docCount']}" for ext in ext_breakdown])
-                description_parts.append(f"Top types: {ext_summary}")
-
-            result = SearchResult(
-                id=f"graphql-objects-{query}",
-                type="object_summary",
-                title=f"{total} objects matching '{query}'",
-                description=" | ".join(description_parts),
-                metadata={
-                    "total_objects": total,
-                    "search_query": query,
-                    "stats": stats,
-                    "size_sum_bytes": size_stats.get("sum"),
-                    "size_min_bytes": size_stats.get("min"),
-                    "size_max_bytes": size_stats.get("max"),
-                    "modified_min": modified_stats.get("min"),
-                    "modified_max": modified_stats.get("max"),
-                    "extension_breakdown": ext_stats.get("buckets", []),
-                },
-                score=1.0,
-                backend="graphql",
-            )
-
-            results.append(result)
+            # ObjectsSearchResultSet - process individual objects from firstPage
+            firstPage = search_objects.get("firstPage", {})
+            edges = firstPage.get("edges", [])
+            
+            # Process each individual object
+            for edge in edges:
+                node = edge.get("node", {})
+                key = node.get("key", "")
+                size = node.get("size", 0)
+                updated = node.get("updated")
+                content_type = node.get("contentType", "")
+                ext = node.get("ext", "")
+                
+                # Extract bucket from key (if available) or leave empty
+                # Note: searchObjects might not include bucket in results
+                s3_uri = f"s3://unknown/{key}"  # Will be corrected if bucket info available
+                
+                result = SearchResult(
+                    id=f"graphql-object-{key}",
+                    type="file",
+                    title=key.split("/")[-1] if "/" in key else key,
+                    description=f"{key} ({size} bytes)",
+                    s3_uri=s3_uri,
+                    logical_key=key,
+                    metadata={
+                        "key": key,
+                        "size": size,
+                        "updated": updated,
+                        "content_type": content_type,
+                        "extension": ext,
+                    },
+                    size=size,
+                    score=1.0,
+                    backend="graphql",
+                )
+                results.append(result)
 
         return results
