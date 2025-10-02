@@ -284,13 +284,13 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
         expected_call_count=5,
         steps=[
             TestStep(
-                tool_name="list_metadata_templates",
-                args={},
+                tool_name="packaging",
+                args={"action": "metadata_templates"},
                 description="List available metadata templates",
             ),
             TestStep(
-                tool_name="get_metadata_template",
-                args={"template_name": "genomics"},
+                tool_name="packaging",
+                args={"action": "get_template", "params": {"template_name": "genomics"}},
                 description="Get genomics metadata template",
             ),
             TestStep(

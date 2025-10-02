@@ -6,7 +6,7 @@ with Quilt packages, addressing common user confusion and validation issues.
 
 from typing import Optional, Dict, Any
 from typing import List
-from .metadata_templates import get_metadata_template, list_metadata_templates
+from .packaging import get_metadata_template, list_metadata_templates
 
 
 def show_metadata_examples() -> Dict[str, Any]:

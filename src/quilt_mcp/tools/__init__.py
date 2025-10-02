@@ -16,7 +16,7 @@ This package contains all the MCP tool implementations organized by functionalit
 These tools are pure functions that are registered by the tools module.
 
 Example usage:
-    from quilt_mcp.tools import auth, buckets, packages, package_ops
+    from quilt_mcp.tools import auth, buckets, packaging
 
     # Use auth tools
     status = auth.auth_status()
@@ -24,8 +24,8 @@ Example usage:
     # Use bucket tools
     objects = buckets.bucket_objects_list("my-bucket")
 
-    # Use package tools
-    pkg_list = packages.packages_list()
+    # Use packaging tools
+    pkg_list = packaging.packaging(action="list")
 """
 
 from . import (

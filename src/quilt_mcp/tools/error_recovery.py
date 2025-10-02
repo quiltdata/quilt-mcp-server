@@ -299,9 +299,9 @@ def health_check_with_recovery() -> Dict[str, Any]:
             "fallback": lambda: {"athena_available": False, "fallback": True},
         },
         {
-            "name": "package_operations",
-            "func": lambda: _check_package_operations(),
-            "fallback": lambda: {"package_ops_available": False, "fallback": True},
+            "name": "packaging_operations",
+            "func": lambda: _check_packaging_operations(),
+            "fallback": lambda: {"packaging_available": False, "fallback": True},
         },
     ]
 
@@ -381,17 +381,17 @@ def _check_athena_connectivity() -> Dict[str, Any]:
         raise Exception(f"Athena connectivity failed: {e}")
 
 
-def _check_package_operations() -> Dict[str, Any]:
-    """Check package operations functionality."""
+def _check_packaging_operations() -> Dict[str, Any]:
+    """Check packaging operations functionality."""
     try:
-        from .packages import packages_list
+        from .packaging import packaging
 
-        result = packages_list(limit=1)
+        result = packaging(action="list", params={"limit": 1})
         if not result.get("success"):
-            raise Exception(result.get("error", "Package operations failed"))
-        return {"package_ops_available": True}
+            raise Exception(result.get("error", "Packaging operations failed"))
+        return {"packaging_available": True}
     except Exception as e:
-        raise Exception(f"Package operations failed: {e}")
+        raise Exception(f"Packaging operations failed: {e}")
 
 
 def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str]:
