@@ -22,7 +22,9 @@ class EnterpriseGraphQLBackend(SearchBackend):
     def __init__(self):
         super().__init__(BackendType.GRAPHQL)
         self._registry_url = None
-        self._check_graphql_access()
+        # Don't check access during initialization - do it lazily during searches
+        # to ensure we have an active request context with JWT token
+        self._update_status(BackendStatus.AVAILABLE)
 
     def _check_graphql_access(self):
         """Check if GraphQL endpoint is accessible using stateless infrastructure."""
@@ -109,13 +111,29 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Execute search using Enterprise GraphQL."""
         start_time = time.time()
 
-        if self.status != BackendStatus.AVAILABLE:
+        # Check for authorization token before executing search
+        from ...runtime import get_active_token
+        from ...utils import resolve_catalog_url
+        
+        token = get_active_token()
+        if not token:
             return BackendResponse(
                 backend_type=self.backend_type,
-                status=self.status,
+                status=BackendStatus.UNAVAILABLE,
                 results=[],
-                error_message=self.last_error,
+                error_message="Authorization token not available",
             )
+        
+        # Update registry URL if needed
+        if not self._registry_url:
+            self._registry_url = resolve_catalog_url()
+            if not self._registry_url:
+                return BackendResponse(
+                    backend_type=self.backend_type,
+                    status=BackendStatus.UNAVAILABLE,
+                    results=[],
+                    error_message="Catalog URL not configured",
+                )
 
         try:
             if scope == "bucket" and target:
