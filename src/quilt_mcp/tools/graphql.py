@@ -49,64 +49,48 @@ def objects_search_graphql(
     first: int = 100,
     after: str = "",
 ) -> dict[str, Any]:
-    """Search for objects within a bucket via Quilt GraphQL.
+    """DEPRECATED: Use search.unified_search instead.
+    
+    This function is deprecated and will be removed in a future version.
+    Use search.unified_search with scope="bucket" and target=bucket for better results.
+    
+    Args:
+        bucket: S3 bucket name or s3:// URI
+        object_filter: Object filter criteria (deprecated parameter)
+        first: Maximum number of results (deprecated parameter)
+        after: Pagination cursor (deprecated parameter)
 
-    Note: The exact schema may vary by Quilt deployment. This targets a common
-    Enterprise pattern with `objects(bucket:, filter:, first:, after:)` and
-    nodes containing object attributes and an optional `package` linkage.
+    Returns:
+        Dict with deprecation warning and redirect to unified search.
     """
+    from .search import unified_search
+    
     # Normalize bucket input: allow s3://bucket
     bkt = bucket[5:].split("/", 1)[0] if bucket.startswith("s3://") else bucket
-
-    gql = (
-        "query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {\n"
-        "  objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {\n"
-        "    edges {\n"
-        "      node { key size updated contentType extension package { name topHash tag } }\n"
-        "      cursor\n"
-        "    }\n"
-        "    pageInfo { endCursor hasNextPage }\n"
-        "  }\n"
-        "}"
-    )
-    variables = {
-        "bucket": bkt,
-        "filter": object_filter or {},
-        "first": max(1, min(first, 1000)),
-        "after": after or None,
-    }
-
-    result = catalog_graphql_query(gql, variables)
-    if not result.get("success"):
+    
+    # Redirect to unified search
+    try:
+        search_result = unified_search(
+            query="*",  # Search for all objects in bucket
+            scope="bucket",
+            target=bkt,
+            limit=first,
+            include_metadata=True
+        )
+        
+        return {
+            "success": True,
+            "deprecated": True,
+            "message": "objects_search_graphql is deprecated. Use search.unified_search instead.",
+            "bucket": bkt,
+            "redirected_to": "search.unified_search",
+            "search_results": search_result
+        }
+    except Exception as e:
         return {
             "success": False,
+            "deprecated": True,
+            "error": f"Deprecated function failed to redirect to unified search: {e}",
+            "message": "objects_search_graphql is deprecated. Use search.unified_search instead.",
             "bucket": bkt,
-            "objects": [],
-            "error": result.get("error") or result.get("errors"),
         }
-    data = result.get("data", {}) or {}
-    conn = data.get("objects", {}) or {}
-    edges = conn.get("edges", []) or []
-    objects = [
-        {
-            "key": edge.get("node", {}).get("key"),
-            "size": edge.get("node", {}).get("size"),
-            "updated": edge.get("node", {}).get("updated"),
-            "content_type": edge.get("node", {}).get("contentType"),
-            "extension": edge.get("node", {}).get("extension"),
-            "package": edge.get("node", {}).get("package"),
-        }
-        for edge in edges
-        if isinstance(edge, dict)
-    ]
-    page_info = conn.get("pageInfo") or {}
-    return {
-        "success": True,
-        "bucket": bkt,
-        "objects": objects,
-        "page_info": {
-            "end_cursor": page_info.get("endCursor"),
-            "has_next_page": page_info.get("hasNextPage", False),
-        },
-        "filter": variables["filter"],
-    }

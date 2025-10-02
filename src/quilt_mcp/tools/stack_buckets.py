@@ -108,29 +108,19 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
 
 
 def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
-    """Build Elasticsearch index pattern for searching across all stack buckets.
-
+    """DEPRECATED: Elasticsearch functionality removed.
+    
+    This function is deprecated and will be removed in a future version.
+    Use search.unified_search for cross-bucket search instead.
+    
     Args:
-        buckets: List of bucket names. If None, discovers stack buckets automatically.
+        buckets: List of bucket names (deprecated parameter)
 
     Returns:
-        Comma-separated index pattern for Elasticsearch (e.g., "bucket1,bucket1_packages,bucket2,bucket2_packages")
+        Empty string with deprecation warning.
     """
-    if buckets is None:
-        buckets = get_stack_buckets()
-
-    if not buckets:
-        logger.warning("No buckets found for stack search")
-        return ""
-
-    # Build index pattern: for each bucket, include both the main index and packages index
-    indices = []
-    for bucket in buckets:
-        indices.extend([bucket, f"{bucket}_packages"])
-
-    index_pattern = ",".join(indices)
-    logger.debug(f"Built stack search index pattern: {index_pattern}")
-    return index_pattern
+    logger.warning("build_stack_search_indices is deprecated. Use search.unified_search for cross-bucket search.")
+    return ""
 
 
 def stack_info() -> dict:
@@ -144,7 +134,6 @@ def stack_info() -> dict:
     """
     try:
         buckets = get_stack_buckets()
-        index_pattern = build_stack_search_indices(buckets)
 
         # Test GraphQL availability
         graphql_buckets = _get_stack_buckets_via_graphql()
@@ -160,7 +149,6 @@ def stack_info() -> dict:
             "success": True,
             "stack_buckets": buckets,
             "bucket_count": len(buckets),
-            "search_index_pattern": index_pattern,
             "cross_bucket_search_enabled": len(buckets) > 1,
             "discovery_method": discovery_method,
             "discovery_details": {
@@ -168,11 +156,11 @@ def stack_info() -> dict:
                 "permissions_found": len(permissions_buckets),
             },
             "search_capabilities": {
-                "elasticsearch_indices": len(buckets) * 2,  # Each bucket has 2 indices
                 "supports_cross_bucket": len(buckets) > 1,
-                "fallback_configured": bool(buckets),
+                "unified_search_available": True,
+                "deprecated_elasticsearch": True,
             },
-            "message": f"Stack contains {len(buckets)} buckets with cross-bucket search {'enabled' if len(buckets) > 1 else 'not needed (single bucket)'}",
+            "message": f"Stack contains {len(buckets)} buckets. Use search.unified_search for cross-bucket search.",
         }
 
     except Exception as e:

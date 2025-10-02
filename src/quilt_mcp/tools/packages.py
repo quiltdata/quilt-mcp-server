@@ -74,67 +74,50 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
 
 def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
-    """Search for Quilt packages via stateless GraphQL API."""
-    normalized_registry = _normalize_registry(registry)
-    token = get_active_token()
-    if not token:
-        return {
-            "success": False,
-            "error": "Authorization token required for package search",
-            "results": [],
-            "query": query,
-            "registry": normalized_registry,
-        }
+    """DEPRECATED: Use search.unified_search instead.
+    
+    This function is deprecated and will be removed in a future version.
+    Use search.unified_search with scope="catalog" for better package search results.
+    
+    Args:
+        query: Search query string
+        registry: Registry URL (deprecated parameter)
+        limit: Maximum number of results to return
+        from_: Offset for pagination (deprecated parameter)
 
-    variables = {
-        "query": query,
-        "limit": max(0, limit),
-        "offset": max(0, from_),
-    }
-
-    gql = (
-        "query($query: String!, $limit: Int, $offset: Int) {\n"
-        "  packages(query: $query, first: $limit, after: $offset) {\n"
-        "    edges {\n"
-        "      node { name topHash tag updated description owner }\n"
-        "    }\n"
-        "    pageInfo { endCursor hasNextPage }\n"
-        "  }\n"
-        "}\n"
-    )
-
+    Returns:
+        Dict with deprecation warning and redirect to unified search.
+    """
+    from .search import unified_search
+    
+    # Redirect to unified search
     try:
-        data = catalog_client.catalog_graphql_query(
-            registry_url=normalized_registry,
-            query=gql,
-            variables=variables,
-            auth_token=token,
+        search_result = unified_search(
+            query=query,
+            scope="catalog",
+            limit=limit,
+            include_metadata=True
         )
-    except Exception as exc:  # pragma: no cover
-        logger.error("GraphQL package search failed: %s", exc)
+        
+        return {
+            "success": True,
+            "deprecated": True,
+            "message": "packages_search is deprecated. Use search.unified_search instead.",
+            "query": query,
+            "registry": registry,
+            "limit": limit,
+            "redirected_to": "search.unified_search",
+            "search_results": search_result
+        }
+    except Exception as e:
         return {
             "success": False,
-            "error": str(exc),
-            "results": [],
+            "deprecated": True,
+            "error": f"Deprecated function failed to redirect to unified search: {e}",
+            "message": "packages_search is deprecated. Use search.unified_search instead.",
             "query": query,
-            "registry": normalized_registry,
+            "registry": registry,
         }
-
-    packages_conn = data.get("packages", {}) if isinstance(data, dict) else {}
-    edges = packages_conn.get("edges", []) or []
-    page_info = packages_conn.get("pageInfo", {}) or {}
-    results = [edge.get("node", {}) for edge in edges if isinstance(edge, dict)]
-
-    return {
-        "success": True,
-        "results": results,
-        "query": query,
-        "registry": normalized_registry,
-        "pagination": {
-            "end_cursor": page_info.get("endCursor"),
-            "has_next_page": page_info.get("hasNextPage", False),
-        },
-    }
 
 
 def package_browse(
@@ -364,67 +347,49 @@ def package_contents_search(
     registry: str = DEFAULT_REGISTRY,
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
-    """Search within a package's contents by filename or path.
-
+    """DEPRECATED: Use search.unified_search instead.
+    
+    This function is deprecated and will be removed in a future version.
+    Use search.unified_search with scope="package" and target=package_name for better results.
+    
     Args:
         package_name: Name of the package to search (e.g., "username/package-name")
         query: Search query to match against file/folder names
-        registry: Quilt registry URL (default: DEFAULT_REGISTRY)
-        include_signed_urls: Include presigned download URLs for S3 objects (default: True)
+        registry: Quilt registry URL (deprecated parameter)
+        include_signed_urls: Include presigned download URLs (deprecated parameter)
 
     Returns:
-        Dict with matching entries including logical keys, S3 URIs, and optional download URLs.
+        Dict with deprecation warning and redirect to unified search.
     """
-    normalized_registry = _normalize_registry(registry)
-    token = get_active_token()
-    if not token:
-        return format_error_response("Authorization token required to search package contents")
-
+    from .search import unified_search
+    
+    # Redirect to unified search
     try:
-        raw_entries = catalog_client.catalog_package_entries(
-            registry_url=normalized_registry,
-            package_name=package_name,
-            auth_token=token,
+        search_result = unified_search(
+            query=query,
+            scope="package",
+            target=package_name,
+            include_metadata=True
         )
-    except Exception as exc:
+        
         return {
+            "success": True,
+            "deprecated": True,
+            "message": "package_contents_search is deprecated. Use search.unified_search instead.",
             "package_name": package_name,
             "query": query,
-            "matches": [],
-            "count": 0,
+            "redirected_to": "search.unified_search",
+            "search_results": search_result
+        }
+    except Exception as e:
+        return {
             "success": False,
-            "error": str(exc),
+            "deprecated": True,
+            "error": f"Deprecated function failed to redirect to unified search: {e}",
+            "message": "package_contents_search is deprecated. Use search.unified_search instead.",
+            "package_name": package_name,
+            "query": query,
         }
-
-    matches = []
-    for entry in raw_entries:
-        logical_key = entry.get("logicalKey")
-        if not logical_key or query.lower() not in logical_key.lower():
-            continue
-
-        match = {
-            "logical_key": logical_key,
-            "physical_key": entry.get("physicalKey"),
-            "size": entry.get("size"),
-            "hash": entry.get("hash"),
-        }
-
-        s3_uri = entry.get("physicalKey")
-        if s3_uri and s3_uri.startswith("s3://"):
-            match["s3_uri"] = s3_uri
-            if include_signed_urls:
-                signed = generate_signed_url(s3_uri)
-                if signed:
-                    match["download_url"] = signed
-
-        matches.append(match)
-
-    return {
-        "package_name": package_name,
-        "query": query,
-        "matches": matches,
-        "count": len(matches),
-    }
 
 
 def package_diff(
@@ -466,10 +431,10 @@ def packages(action: str | None = None, params: Optional[Dict[str, Any]] = None)
 
     Available actions:
     - browse: Browse the contents of a Quilt package with enhanced file information
-    - contents_search: Search within a package's contents by filename or path
+    - contents_search: [DEPRECATED] Search within package contents (use search.unified_search instead)
     - diff: Compare two package versions and show differences
     - list: List all available Quilt packages in a registry
-    - search: Search for Quilt packages by content and metadata
+    - search: [DEPRECATED] Search for packages (use search.unified_search instead)
 
     Args:
         action: The operation to perform. If None, returns available actions.

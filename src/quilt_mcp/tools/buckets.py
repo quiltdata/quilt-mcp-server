@@ -520,57 +520,53 @@ def bucket_objects_search(
     limit: int = 10,
     registry_url: str | None = None,
 ) -> dict[str, Any]:
-    """Search objects in a Quilt bucket using Elasticsearch query syntax.
-
+    """DEPRECATED: Use search.unified_search instead.
+    
+    This function is deprecated and will be removed in a future version.
+    Use search.unified_search with scope="bucket" and target=bucket for better results.
+    
     Args:
         bucket: S3 bucket name or s3:// URI
         query: Search query string or dictionary-based DSL query
         limit: Maximum number of results to return (default: 10)
+        registry_url: Registry URL (deprecated parameter)
 
     Returns:
-        Dict with search results including matching objects and metadata.
+        Dict with deprecation warning and redirect to unified search.
     """
+    from .search import unified_search
+    
     bkt = _normalize_bucket(bucket)
-
-    token = get_active_token()
-    if not token:
-        error = format_error_response("Authorization token required for bucket search")
-        error.update({"bucket": bkt, "query": query, "results": []})
-        return error
-
-    catalog_url = resolve_catalog_url(registry_url)
-    if not catalog_url:
+    
+    # Redirect to unified search
+    try:
+        search_result = unified_search(
+            query=str(query) if isinstance(query, dict) else query,
+            scope="bucket",
+            target=bkt,
+            limit=limit,
+            include_metadata=True
+        )
+        
+        return {
+            "success": True,
+            "deprecated": True,
+            "message": "bucket_objects_search is deprecated. Use search.unified_search instead.",
+            "bucket": bkt,
+            "query": query,
+            "limit": limit,
+            "redirected_to": "search.unified_search",
+            "search_results": search_result
+        }
+    except Exception as e:
         return {
             "success": False,
-            "error": "Catalog URL not configured",
+            "deprecated": True,
+            "error": f"Deprecated function failed to redirect to unified search: {e}",
+            "message": "bucket_objects_search is deprecated. Use search.unified_search instead.",
             "bucket": bkt,
             "query": query,
-            "results": [],
         }
-
-    try:
-        resp = catalog_client.catalog_bucket_search(
-            registry_url=catalog_url,
-            bucket=bkt,
-            query=query,
-            limit=limit,
-            auth_token=token,
-        )
-    except Exception as exc:
-        return {
-            "error": f"Failed to search bucket: {exc}",
-            "bucket": bkt,
-            "query": query,
-            "results": [],
-        }
-
-    output: dict[str, Any] = {"bucket": bkt, "query": query, "limit": limit}
-    if isinstance(resp, dict):
-        output.update(resp)
-        output.setdefault("results", resp.get("results", []))
-    else:
-        output["results"] = []
-    return output
 
 
 def bucket_objects_search_graphql(
@@ -671,7 +667,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
     - object_text: Read text content from an S3 object
     - objects_list: List objects in an S3 bucket with filtering
     - objects_put: Upload multiple objects to an S3 bucket
-    - objects_search: Search objects using Elasticsearch
+    - objects_search: [DEPRECATED] Search objects (use search.unified_search instead)
     - objects_search_graphql: Search objects via GraphQL
 
     Args:

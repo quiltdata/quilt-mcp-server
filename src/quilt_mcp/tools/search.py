@@ -8,11 +8,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
-from ..clients import catalog as catalog_client
 from ..runtime import get_active_token
 from ..search.tools.unified_search import unified_search as _unified_search
 from ..search.tools.search_suggest import search_suggest as _search_suggest
-from ..search.tools.search_explain import search_explain as _search_explain
 from ..utils import format_error_response, resolve_catalog_url
 
 logger = logging.getLogger(__name__)
@@ -214,26 +212,6 @@ def search_suggest(
         }
 
 
-def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
-    """
-    Explain how a search query would be processed and executed.
-
-    Args:
-        query: Search query to explain
-        scope: Search scope
-        target: Target for scoped searches
-
-    Returns:
-        Detailed explanation of query processing and backend selection
-    """
-    try:
-        return _search_explain(query=query)
-    except (RuntimeError, ValueError) as e:
-        return {
-            "success": False,
-            "error": f"Search explanation failed: {e}",
-            "query": query,
-        }
 
 
 def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -277,8 +255,7 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
                 "actions": [
                     "discover",
                     "unified_search",
-                    "suggest", 
-                    "explain",
+                    "suggest",
                 ],
                 "description": "Intelligent search operations via Quilt Catalog GraphQL",
             }
@@ -310,8 +287,6 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
             return unified_search(**mapped_params)
         elif action == "suggest":
             return search_suggest(**params)
-        elif action == "explain":
-            return search_explain(**params)
         else:
             return format_error_response(f"Unknown search action: {action}")
     
