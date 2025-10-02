@@ -599,3 +599,138 @@ def catalog_bucket_search_graphql(
     )
 
     return data
+
+
+def catalog_create_browsing_session(
+    *,
+    registry_url: str,
+    bucket: str,
+    package_name: str,
+    package_hash: str,
+    ttl: int = 180,
+    auth_token: Optional[str],
+    timeout: int = DEFAULT_TIMEOUT,
+) -> Dict[str, Any]:
+    """Create a browsing session for accessing package files via REST.
+    
+    The browsing session allows downloading files from a package without
+    direct AWS credentials. The backend assumes the necessary IAM role.
+    
+    Args:
+        registry_url: Quilt catalog URL
+        bucket: S3 bucket name
+        package_name: Package name (e.g., "demo-team/visualization-showcase")
+        package_hash: Package top hash
+        ttl: Session time-to-live in seconds (default: 180)
+        auth_token: JWT authentication token
+        timeout: Request timeout
+        
+    Returns:
+        Dict with 'id' (session ID) and 'expires' (expiration timestamp)
+        
+    Raises:
+        ValueError: If session creation fails
+    """
+    token = _require_token(auth_token)
+    
+    # Format: quilt+s3://bucket#package=name@hash (or package=name:tag)
+    # The fragment (#) contains package=name@hash
+    scope = f"quilt+s3://{bucket}#package={package_name}@{package_hash}"
+    
+    query = """
+    mutation BrowsingSessionCreate($scope: String!, $ttl: Int!) {
+        browsingSessionCreate(scope: $scope, ttl: $ttl) {
+            ... on BrowsingSession {
+                id
+                expires
+            }
+            ... on InvalidInput {
+                errors {
+                    name
+                    message
+                }
+            }
+            ... on OperationError {
+                message
+            }
+        }
+    }
+    """
+    
+    result = catalog_graphql_query(
+        registry_url=registry_url,
+        query=query,
+        variables={"scope": scope, "ttl": ttl},
+        auth_token=token,
+        timeout=timeout,
+    )
+    
+    session_result = result.get("browsingSessionCreate", {})
+    
+    # Handle errors
+    if "errors" in session_result:
+        error_messages = [err.get("message", "Unknown error") for err in session_result["errors"]]
+        raise ValueError(f"Failed to create browsing session: {'; '.join(error_messages)}")
+    
+    if "message" in session_result:  # OperationError
+        raise ValueError(f"Failed to create browsing session: {session_result['message']}")
+    
+    if "id" not in session_result:
+        raise ValueError("Browsing session creation returned unexpected response")
+    
+    return session_result
+
+
+def catalog_browse_file(
+    *,
+    registry_url: str,
+    session_id: str,
+    path: str,
+    auth_token: Optional[str],
+    timeout: int = DEFAULT_TIMEOUT,
+) -> str:
+    """Get a presigned URL for a file in a package via browsing session.
+    
+    This uses the backend's /browse/ REST endpoint which assumes the
+    necessary IAM role and generates presigned S3 URLs.
+    
+    Args:
+        registry_url: Quilt catalog URL
+        session_id: Browsing session ID from catalog_create_browsing_session
+        path: File path within the package (logical key)
+        auth_token: JWT authentication token
+        timeout: Request timeout
+        
+    Returns:
+        Presigned S3 URL as a string
+        
+    Raises:
+        ValueError: If file not found or session invalid
+    """
+    token = _require_token(auth_token)
+    
+    browse_url = f"{registry_url.rstrip('/')}/browse/{session_id}/{path.lstrip('/')}"
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "Quilt-MCP-Server/Stateless",
+    }
+    
+    # Make request - this will redirect to a presigned URL
+    response = requests.get(
+        browse_url,
+        headers=headers,
+        timeout=timeout,
+        allow_redirects=False,  # We want the redirect URL, not to follow it
+    )
+    
+    if response.status_code == 302 or response.status_code == 303:
+        # Return the redirect location (presigned URL)
+        return response.headers.get("Location", "")
+    elif response.status_code == 404:
+        raise ValueError(f"File not found: {path}")
+    elif response.status_code == 403:
+        raise ValueError("Session expired or invalid")
+    else:
+        response.raise_for_status()
+        raise ValueError(f"Unexpected response: {response.status_code}")

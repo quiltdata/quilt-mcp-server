@@ -20,6 +20,27 @@ def _normalize_bucket(uri_or_name: str) -> str:
     return uri_or_name
 
 
+def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -> dict[str, Any]:
+    """Return a user-friendly error message for actions that require AWS credentials."""
+    return {
+        "success": False,
+        "error": f"The '{action_name}' action requires AWS S3 credentials which are not currently available.",
+        "message": (
+            f"This action needs direct S3 access, but the current JWT token is authentication-only "
+            f"and doesn't include AWS credentials. "
+            f"This feature will be available once backend proxy endpoints are implemented."
+        ),
+        "alternatives": {
+            "search_files": "Use search.unified_search to find and list files",
+            "view_packages": "Use packaging.list and packaging.browse to explore package contents",
+            "upload_files": "Upload files through the Quilt web interface, then use packaging.create",
+            "web_interface": "Access files directly through the Quilt catalog web UI"
+        },
+        "status": "awaiting_backend_support",
+        "requested_resource": s3_uri_or_bucket or "unknown",
+    }
+
+
 def buckets_discover() -> Dict[str, Any]:
     """
     Discover all accessible buckets using GraphQL.
