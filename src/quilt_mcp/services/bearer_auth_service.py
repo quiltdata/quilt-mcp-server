@@ -246,21 +246,20 @@ class BearerAuthService:
 
         credentials = result.aws_credentials
         if credentials:
-            session = boto3.Session(
+            return boto3.Session(
                 aws_access_key_id=credentials.get("access_key_id"),
                 aws_secret_access_key=credentials.get("secret_access_key"),
                 aws_session_token=credentials.get("session_token"),
                 region_name=credentials.get("region") or "us-east-1",
             )
-            return session
 
         if result.aws_role_arn:
-            session = self._assume_role_session(result.aws_role_arn)
-            return session
+            return self._assume_role_session(result.aws_role_arn)
 
-        # Final fallback: use ambient credentials (useful for dev containers)
-        session = boto3.Session()
-        return session
+        raise JwtAuthError(
+            "missing_credentials",
+            "JWT token did not include aws_credentials or aws_role_arn; ambient credentials are disabled",
+        )
 
     def build_boto3_client(self, result: JwtAuthResult, service: str):
         session = self.build_boto3_session(result)

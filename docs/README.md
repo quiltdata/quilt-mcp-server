@@ -28,6 +28,7 @@ find what you need quickly.
 - [`architecture/FEATURE_S3_TO_PACKAGE.md`](architecture/FEATURE_S3_TO_PACKAGE.md) - S3 to Package creation feature
 - [`architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md`](architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md) - GraphQL performance analysis
 - [`architecture/MCP_OPTIMIZATION.md`](architecture/MCP_OPTIMIZATION.md) - MCP optimization strategies
+- [`architecture/STATELESS_GRAPHQL_ARCHITECTURE.md`](architecture/STATELESS_GRAPHQL_ARCHITECTURE.md) - Current stateless GraphQL-only MCP architecture (auth, HTTPS proxying, infrastructure)
 
 ## 📖 **API Reference**
 

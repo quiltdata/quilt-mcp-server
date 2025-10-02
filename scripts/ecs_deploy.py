@@ -36,9 +36,22 @@ class ECSDeployer:
         self.ecs = boto3.client("ecs", region_name=region)
 
     def get_current_task_definition(self) -> dict[str, Any]:
-        """Retrieve the current task definition."""
+        """Retrieve the current task definition from the running service."""
         try:
-            response = self.ecs.describe_task_definition(taskDefinition=self.task_family)
+            # First, get the current task definition from the service
+            service_response = self.ecs.describe_services(
+                cluster=self.cluster,
+                services=[self.service]
+            )
+            
+            if not service_response["services"]:
+                raise ValueError(f"Service {self.service} not found in cluster {self.cluster}")
+            
+            current_task_arn = service_response["services"][0]["taskDefinition"]
+            print(f"INFO: Using current running task definition: {current_task_arn}", file=sys.stderr)
+            
+            # Get the full task definition
+            response = self.ecs.describe_task_definition(taskDefinition=current_task_arn)
             return response["taskDefinition"]
         except ClientError as e:
             print(f"ERROR: Failed to get task definition: {e}", file=sys.stderr)

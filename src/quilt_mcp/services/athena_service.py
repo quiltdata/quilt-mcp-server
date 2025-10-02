@@ -97,16 +97,7 @@ class AthenaQueryService:
                 return create_engine(connection_string, echo=False)
 
             else:
-                # Use default AWS credentials
-                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-
-                # Discover available workgroups dynamically or fall back to environment
-                workgroup = self._discover_workgroup(None, region) or os.environ.get("ATHENA_WORKGROUP", "primary")
-
-                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
-
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
-                return create_engine(connection_string, echo=False)
+                raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
 
         except Exception as e:
             logger.error(f"Failed to create SQLAlchemy engine: {e}")
@@ -150,28 +141,27 @@ class AthenaQueryService:
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""
         if self.use_jwt_auth:
-            try:
-                # Use JWT-based authentication via BearerAuthService
-                from ..utils import get_sts_client
-                sts_client = get_sts_client()
-                # Use us-east-1 region for Quilt Athena workgroup resources
-                return sts_client._client_config.region_name and boto3.client("glue", region_name="us-east-1") or boto3.client("glue", region_name="us-east-1")
-            except Exception:
-                # Fallback to default credentials
-                pass
-        return boto3.client("glue", region_name="us-east-1")
+            # Use JWT-based authentication via BearerAuthService
+            from ..utils import get_sts_client
+            sts_client = get_sts_client()
+            # Build a request-scoped glue client using the same session
+            # Extract the session from the sts client
+            session = boto3.Session(
+                aws_access_key_id=sts_client._request_signer._credentials.access_key,
+                aws_secret_access_key=sts_client._request_signer._credentials.secret_key,
+                aws_session_token=sts_client._request_signer._credentials.token,
+                region_name="us-east-1"
+            )
+            return session.client("glue")
+        raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
 
     def _create_s3_client(self):
         """Create S3 client for result management."""
         if self.use_jwt_auth:
-            try:
-                # Use JWT-based authentication via BearerAuthService
-                from ..utils import get_s3_client
-                return get_s3_client()
-            except Exception:
-                # Fallback to default credentials
-                pass
-        return boto3.client("s3")
+            # Use JWT-based authentication via BearerAuthService
+            from ..utils import get_s3_client
+            return get_s3_client()
+        raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
 
     def _get_s3_staging_dir(self) -> str:
         """Get S3 staging directory for query results."""
@@ -440,8 +430,6 @@ class AthenaQueryService:
     def list_workgroups(self) -> List[Dict[str, Any]]:
         """List available Athena workgroups using the service's authentication patterns."""
         try:
-            import boto3
-
             # Use the same auth pattern as other service methods
             if self.use_jwt_auth:
                 # Use JWT-based authentication via BearerAuthService
@@ -458,8 +446,7 @@ class AthenaQueryService:
                     aws_session_token=credentials.token,
                 )
             else:
-                region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-                athena_client = boto3.client("athena", region_name=region)
+                raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
 
             # List all workgroups and filter to ENABLED only
             response = athena_client.list_work_groups()

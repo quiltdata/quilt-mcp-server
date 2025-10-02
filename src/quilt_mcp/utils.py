@@ -237,20 +237,11 @@ def _build_request_scoped_session() -> boto3.Session:
 
     token = get_active_token()
     if not token:
-        return boto3.Session()
+        raise RuntimeError("No active request token; JWT authentication is required")
 
     auth_service = _get_bearer_auth_service()
-    try:
-        result = auth_service.authenticate_header(f"Bearer {token}")
-        return auth_service.build_boto3_session(result)
-    except Exception as exc:  # pragma: no cover - defensive
-        detail = getattr(exc, "detail", str(exc))
-        logger.warning(
-            "authenticate_header failed (%s); returning passthrough session", detail
-        )
-
-    # Fallback: unauthenticated session (catalog will reject if token required)
-    return boto3.Session()
+    result = auth_service.authenticate_header(f"Bearer {token}")
+    return auth_service.build_boto3_session(result)
 
 
 def get_s3_client(_use_quilt_auth: bool = True):
