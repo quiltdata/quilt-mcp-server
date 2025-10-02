@@ -310,8 +310,10 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
                 check_buckets=params.get("check_buckets"),
             )
         elif action == "access_check":
+            # Support both 'bucket_name' and 'bucket' parameter names
+            bucket_name = params.get("bucket_name") or params.get("bucket")
             return bucket_access_check(
-                bucket_name=params.get("bucket_name"),
+                bucket_name=bucket_name,
             )
         elif action == "recommendations_get":
             return permissions_recommendations_get()
