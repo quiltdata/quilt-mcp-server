@@ -370,9 +370,14 @@ def _wrap_http_app(mcp: FastMCP):
         auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
         print(f"DEBUG: Request to {request.url.path}", file=sys.stderr)
         print(f"DEBUG: Authorization header: {auth_header[:30] if auth_header else 'None'}...", file=sys.stderr)
-        print(f"DEBUG: All headers: {dict(request.headers)}", file=sys.stderr)
         
-        with request_context(auth_header, {"path": str(request.url.path)}):
+        # Strip "Bearer " prefix if present
+        token = auth_header
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]  # Remove "Bearer " prefix
+            print(f"DEBUG: Stripped Bearer prefix, token: {token[:20]}...", file=sys.stderr)
+        
+        with request_context(token, {"path": str(request.url.path)}):
             response = await call_next(request)
         return response
 
