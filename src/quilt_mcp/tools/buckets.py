@@ -730,9 +730,27 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         elif action == "object_text":
             return bucket_object_text(**params)
         elif action == "objects_list":
-            return bucket_objects_list(**params)
+            # Map frontend parameter names to function parameter names
+            mapped_params = {}
+            if "limit" in params:
+                mapped_params["max_keys"] = params["limit"]
+            if "bucket" in params:
+                mapped_params["bucket"] = params["bucket"]
+            if "prefix" in params:
+                mapped_params["prefix"] = params["prefix"]
+            if "continuation_token" in params:
+                mapped_params["continuation_token"] = params["continuation_token"]
+            if "include_signed_urls" in params:
+                mapped_params["include_signed_urls"] = params["include_signed_urls"]
+            return bucket_objects_list(**mapped_params)
         elif action == "objects_put":
-            return bucket_objects_put(**params)
+            # Map frontend parameter names to function parameter names
+            mapped_params = {}
+            if "bucket" in params:
+                mapped_params["bucket"] = params["bucket"]
+            if "objects" in params:
+                mapped_params["items"] = params["objects"]
+            return bucket_objects_put(**mapped_params)
         elif action == "objects_search":
             return bucket_objects_search(**params)
         elif action == "objects_search_graphql":

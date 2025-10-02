@@ -31,13 +31,9 @@ Example usage:
 from . import (
     auth,
     buckets,
-    package_ops,
-    packages,
-    s3_package,
+    packaging,  # New unified packaging module
     permissions,
-    unified_package,
     metadata_templates,
-    package_management,
     metadata_examples,
     quilt_summary,
     graphql,
@@ -53,13 +49,9 @@ from . import (
 __all__ = [
     "auth",
     "buckets",
-    "packages",
-    "package_ops",
-    "s3_package",
+    "packaging",  # New unified packaging module
     "permissions",
-    "unified_package",
     "metadata_templates",
-    "package_management",
     "metadata_examples",
     "quilt_summary",
     "graphql",

@@ -565,11 +565,12 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                 registry=params.get("registry", DEFAULT_REGISTRY),
             )
         elif action == "create":
+            # Map frontend parameter names to function parameter names
             return package_create(
-                name=params.get("name"),
+                name=params.get("name") or params.get("package_name"),  # Support both names
                 files=params.get("files", []),
                 description=params.get("description", ""),
-                metadata=params.get("metadata"),
+                metadata=params.get("metadata") or params.get("meta"),  # Support both names
                 registry=params.get("registry"),
                 dry_run=params.get("dry_run", False),
                 auto_organize=params.get("auto_organize", True),

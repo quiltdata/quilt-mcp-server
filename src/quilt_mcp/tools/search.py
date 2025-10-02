@@ -293,7 +293,31 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
         elif action == "discover":
             return search_discover()
         elif action == "unified_search":
-            return unified_search(**params)
+            # Map frontend parameter names to function parameter names
+            mapped_params = {}
+            if "query" in params:
+                mapped_params["query"] = params["query"]
+            if "scope" in params:
+                mapped_params["scope"] = params["scope"]
+            if "target" in params:
+                mapped_params["target"] = params["target"]
+            if "backends" in params:
+                mapped_params["backends"] = params["backends"]
+            if "max_results" in params:
+                mapped_params["limit"] = params["max_results"]
+            if "limit" in params:
+                mapped_params["limit"] = params["limit"]
+            if "include_metadata" in params:
+                mapped_params["include_metadata"] = params["include_metadata"]
+            if "include_content_preview" in params:
+                mapped_params["include_content_preview"] = params["include_content_preview"]
+            if "explain_query" in params:
+                mapped_params["explain_query"] = params["explain_query"]
+            if "filters" in params:
+                mapped_params["filters"] = params["filters"]
+            if "count_only" in params:
+                mapped_params["count_only"] = params["count_only"]
+            return unified_search(**mapped_params)
         elif action == "suggest":
             return search_suggest(**params)
         elif action == "explain":

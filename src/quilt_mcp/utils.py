@@ -95,13 +95,9 @@ def get_tool_modules() -> list[Any]:
     from quilt_mcp.tools import (
         auth,
         buckets,
-        package_ops,
-        packages,
-        s3_package,
+        packaging,  # New unified packaging module
         permissions,
-        unified_package,
         metadata_templates,
-        package_management,
         metadata_examples,
         quilt_summary,
         search,
@@ -112,17 +108,14 @@ def get_tool_modules() -> list[Any]:
     )
 
     # error_recovery temporarily disabled due to Callable parameter issues
+    # Removed old package modules: package_ops, packages, s3_package, unified_package, package_management
 
     return [
         auth,
         buckets,
-        packages,
-        package_ops,
-        s3_package,
+        packaging,  # New unified packaging module
         permissions,
-        unified_package,
         metadata_templates,
-        package_management,
         metadata_examples,
         quilt_summary,
         search,
@@ -142,13 +135,9 @@ def get_module_wrappers() -> dict[str, Callable]:
     from quilt_mcp.tools import (
         auth,
         buckets,
-        package_ops,
-        packages,
-        s3_package,
+        packaging,  # New unified packaging module
         permissions,
-        unified_package,
         metadata_templates,
-        package_management,
         metadata_examples,
         quilt_summary,
         search,
@@ -163,19 +152,15 @@ def get_module_wrappers() -> dict[str, Callable]:
     return {
         "auth": auth.auth,
         "buckets": buckets.buckets,
+        "packaging": packaging.packaging,  # New unified packaging module
+        "permissions": permissions.permissions,
         "athena_glue": athena_glue.athena_glue,
         "governance": governance.governance,
         "metadata_examples": metadata_examples.metadata_examples,
         "metadata_templates": metadata_templates.metadata_templates,
-        "package_management": package_management.package_management,
-        "package_ops": package_ops.package_ops,
-        "packages": packages.packages,
-        "permissions": permissions.permissions,
         "quilt_summary": quilt_summary.quilt_summary,
-        "s3_package": s3_package.s3_package,
         "search": search.search,
         "tabulator": tabulator.tabulator,
-        "unified_package": unified_package.unified_package,
         "workflow_orchestration": workflow_orchestration.workflow_orchestration,
     }
 
