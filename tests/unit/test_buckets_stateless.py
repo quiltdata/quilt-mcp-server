@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Dict
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
@@ -103,3 +103,64 @@ def test_bucket_objects_search_graphql_propagates_errors(fake_graphql, monkeypat
 
     assert result["success"] is False
     assert "boom" in result["error"]
+
+
+@patch("quilt_mcp.utils._get_bearer_auth_service")
+def test_bucket_object_info_uses_request_scoped_client(mock_get_auth_service, monkeypatch):
+    fake_session = MagicMock()
+    fake_client = MagicMock()
+    fake_session.client.return_value = fake_client
+
+    fake_auth_result = MagicMock()
+    fake_auth_service = MagicMock()
+    fake_auth_service.authenticate_header.return_value = fake_auth_result
+    fake_auth_service.build_boto3_session.return_value = fake_session
+    mock_get_auth_service.return_value = fake_auth_service
+
+    fake_client.head_object.return_value = {
+        "ContentLength": 123,
+        "ContentType": "text/plain",
+        "ETag": "etag",
+        "LastModified": "2025-10-02T00:00:00+00:00",
+        "Metadata": {},
+        "StorageClass": "STANDARD",
+        "CacheControl": "no-cache",
+    }
+
+    with runtime_token("token"):
+        result = buckets.bucket_object_info("s3://bucket/key.txt")
+
+    fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+    fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+    fake_session.client.assert_called_once_with("s3")
+    fake_client.head_object.assert_called_once_with(Bucket="bucket", Key="key.txt")
+    assert result["bucket"] == "bucket"
+    assert result["key"] == "key.txt"
+
+
+@patch("quilt_mcp.utils._get_bearer_auth_service")
+def test_bucket_object_link_uses_request_scoped_client(mock_get_auth_service):
+    fake_session = MagicMock()
+    fake_client = MagicMock()
+    fake_session.client.return_value = fake_client
+
+    fake_auth_result = MagicMock()
+    fake_auth_service = MagicMock()
+    fake_auth_service.authenticate_header.return_value = fake_auth_result
+    fake_auth_service.build_boto3_session.return_value = fake_session
+    mock_get_auth_service.return_value = fake_auth_service
+
+    fake_client.generate_presigned_url.return_value = "https://signed"
+
+    with runtime_token("token"):
+        result = buckets.bucket_object_link("s3://bucket/key.txt")
+
+    fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+    fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+    fake_session.client.assert_called_once_with("s3")
+    fake_client.generate_presigned_url.assert_called_once_with(
+        "get_object",
+        Params={"Bucket": "bucket", "Key": "key.txt"},
+        ExpiresIn=3600,
+    )
+    assert result["presigned_url"] == "https://signed"

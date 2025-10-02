@@ -2,18 +2,11 @@
 
 from .quilt_service import QuiltService
 from .athena_service import AthenaQueryService
-from .permission_discovery import (
-    AWSPermissionDiscovery,
-    PermissionLevel,
-    BucketInfo,
-    UserIdentity,
-)
+
+# Note: AWSPermissionDiscovery has been replaced with catalog-based permissions
+# queries in src/quilt_mcp/tools/permissions.py
 
 __all__ = [
     "QuiltService",
     "AthenaQueryService",
-    "AWSPermissionDiscovery",
-    "PermissionLevel",
-    "BucketInfo",
-    "UserIdentity",
 ]

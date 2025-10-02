@@ -37,9 +37,9 @@ from .tools.buckets import (
 from .tools.package_ops import package_create, package_delete, package_update
 from .tools.s3_package import package_create_from_s3
 from .tools.permissions import (
-    aws_permissions_discover,
+    permissions,
     bucket_access_check,
-    bucket_recommendations_get,
+    permissions_recommendations_get,
 )
 from .tools.unified_package import (
     create_package,
@@ -120,9 +120,9 @@ __all__ = [
     "packages_list",
     "packages_search",
     # Permission tools
-    "aws_permissions_discover",
+    "permissions",
     "bucket_access_check",
-    "bucket_recommendations_get",
+    "permissions_recommendations_get",
     # Unified tools
     "create_package",
     "list_available_resources",

@@ -355,9 +355,9 @@ def _check_auth_status() -> Dict[str, Any]:
 def _check_permissions_discovery() -> Dict[str, Any]:
     """Check permissions discovery functionality."""
     try:
-        from .permissions import aws_permissions_discover
+        from .permissions import permissions
 
-        result = aws_permissions_discover(force_refresh=False)
+        result = permissions(action="discover")
         if not result.get("success"):
             raise Exception(result.get("error", "Permissions discovery failed"))
         return {"accessible_buckets": len(result.get("bucket_permissions", []))}

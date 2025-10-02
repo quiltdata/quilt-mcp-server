@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 
 from ..utils import validate_package_name, format_error_response
-from .permissions import bucket_recommendations_get, bucket_access_check
+from .permissions import permissions_recommendations_get, bucket_access_check
 from .s3_package import package_create_from_s3
 
 logger = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ def quick_start() -> Dict[str, Any]:
                 "next_actions": [
                     {
                         "action": "Discover your bucket permissions",
-                        "command": "aws_permissions_discover()",
+                        "command": "permissions(action='discover')",
                         "description": "See which buckets you can read from and write to",
                     },
                     {
@@ -245,7 +245,7 @@ def quick_start() -> Dict[str, Any]:
                     {
                         "step": 4,
                         "action": "Check permissions",
-                        "command": "aws_permissions_discover()",
+                        "command": "permissions(action='discover')",
                         "description": "Discover your S3 bucket access levels",
                     },
                 ],
@@ -253,7 +253,7 @@ def quick_start() -> Dict[str, Any]:
                     "configure_catalog('https://demo.quiltdata.com')",
                     "# Then run in terminal: quilt3 login",
                     "auth_status()",
-                    "aws_permissions_discover()",
+                    "permissions(action='discover')",
                 ],
             }
         else:
@@ -306,9 +306,9 @@ def list_available_resources() -> Dict[str, Any]:
     """
     try:
         # Use the permissions discovery to get comprehensive bucket information
-        from .permissions import aws_permissions_discover
+        from .permissions import permissions
 
-        permissions_result = aws_permissions_discover()
+        permissions_result = permissions(action="discover")
 
         if not permissions_result.get("success"):
             return {

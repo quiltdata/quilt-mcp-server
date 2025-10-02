@@ -75,7 +75,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 description="List files in data directory",
             ),
             TestStep(
-                tool_name="aws_permissions_discover",
+                tool_name="permissions",
                 args={"check_buckets": ["quilt-sandbox-bucket"]},
                 description="Verify permissions for bulk operation",
             ),
@@ -238,7 +238,7 @@ def create_permission_discovery_scenarios() -> List[TestScenario]:
         expected_call_count=4,
         steps=[
             TestStep(
-                tool_name="aws_permissions_discover",
+                tool_name="permissions",
                 args={"include_cross_account": False},
                 description="Discover AWS permissions",
             ),

@@ -42,7 +42,12 @@ def execute_catalog_query(
 ) -> Dict[str, Any]:
     """Execute a GraphQL query against the Quilt catalog using a bearer token."""
 
+    # Debug logging
+    logger.info(f"execute_catalog_query called with auth_token: {auth_token[:20] if auth_token else 'None'}...")
+    logger.info(f"GraphQL URL: {graphql_url}")
+
     token = _require_token(auth_token)
+    logger.info(f"Token after _require_token: {token[:20] if token else 'None'}...")
     payload = {"query": query, "variables": variables or {}}
 
     client = session or requests
@@ -63,6 +68,16 @@ def execute_catalog_query(
 
 
 def _graphql_url(registry_url: str) -> str:
+    """
+    Convert catalog URL to GraphQL endpoint URL.
+    
+    The catalog URL (demo.quiltdata.com) needs to be converted to the
+    registry URL (demo-registry.quiltdata.com) for GraphQL queries.
+    """
+    # Handle demo.quiltdata.com -> demo-registry.quiltdata.com
+    if "demo.quiltdata.com" in registry_url:
+        registry_url = registry_url.replace("demo.quiltdata.com", "demo-registry.quiltdata.com")
+    
     return registry_url.rstrip("/") + "/graphql"
 
 

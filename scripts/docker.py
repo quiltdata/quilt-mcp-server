@@ -102,12 +102,25 @@ class DockerManager:
 
         return tags
 
-    def build(self, tag: str) -> bool:
-        """Build Docker image with the specified tag."""
+    def build(self, tag: str, platform: Optional[str] = None) -> bool:
+        """Build Docker image with the specified tag.
+        
+        Args:
+            tag: Docker image tag
+            platform: Target platform (e.g., 'linux/amd64'). If None, uses default.
+        """
         print(f"INFO: Building Docker image: {tag}", file=sys.stderr)
+        if platform:
+            print(f"INFO: Target platform: {platform}", file=sys.stderr)
 
         os.chdir(self.project_root)
-        result = self._run_command(["docker", "build", "--file", "Dockerfile", "--tag", tag, "."])
+        
+        build_cmd = ["docker", "build", "--file", "Dockerfile"]
+        if platform:
+            build_cmd.extend(["--platform", platform])
+        build_cmd.extend(["--tag", tag, "."])
+        
+        result = self._run_command(build_cmd)
 
         if result.returncode == 0:
             print(f"INFO: Successfully built: {tag}", file=sys.stderr)
@@ -141,8 +154,14 @@ class DockerManager:
             print(f"ERROR: Failed to push image: {result.stderr}", file=sys.stderr)
             return False
 
-    def build_and_push(self, version: str, include_latest: bool = True) -> bool:
-        """Build and push Docker image with all generated tags."""
+    def build_and_push(self, version: str, include_latest: bool = True, platform: Optional[str] = None) -> bool:
+        """Build and push Docker image with all generated tags.
+        
+        Args:
+            version: Version tag for the image
+            include_latest: Whether to tag as 'latest'
+            platform: Target platform (e.g., 'linux/amd64')
+        """
         if not self._check_docker():
             return False
 
@@ -156,7 +175,7 @@ class DockerManager:
 
         # Build with first tag
         primary_tag = tags[0].uri
-        if not self.build(primary_tag):
+        if not self.build(primary_tag, platform=platform):
             return False
 
         # Tag with additional tags
@@ -238,6 +257,7 @@ ENVIRONMENT VARIABLES:
     push_parser.add_argument("--registry", help="ECR registry URL")
     push_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
+    push_parser.add_argument("--platform", help="Target platform (e.g., linux/amd64)")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
 
@@ -289,6 +309,7 @@ def cmd_push(args: argparse.Namespace) -> int:
     """Build and push Docker image to registry."""
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
+    platform = os.getenv("DOCKER_PLATFORM", args.platform)
 
     manager = DockerManager(
         registry=args.registry,
@@ -296,7 +317,7 @@ def cmd_push(args: argparse.Namespace) -> int:
         region=args.region,
         dry_run=args.dry_run,
     )
-    success = manager.build_and_push(version, include_latest=not args.no_latest)
+    success = manager.build_and_push(version, include_latest=not args.no_latest, platform=platform)
     return 0 if success else 1
 
 

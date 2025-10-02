@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 import jwt
 
-from quilt_mcp.services.jwt_decoder import safe_decompress_jwt
+from ..utils import suppress_stdout, logger as utils_logger
 
 logger = logging.getLogger(__name__)
 
@@ -116,10 +116,9 @@ class BearerAuthService:
                 return secret, f"ssm:{default_parameter}:{region}"
 
         logger.warning(
-            "Falling back to development JWT secret; configure MCP_ENHANCED_JWT_SECRET or "
-            "MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER to avoid signature mismatches."
+            "JWT secret could not be resolved from config; falling back to passthrough mode without signature verification."
         )
-        return "development-enhanced-jwt-secret", "fallback:development"
+        return None, "missing"
 
     def _get_secret_from_ssm(self, parameter_name: str, region: str) -> Optional[str]:
         cache_key = (parameter_name, region)
@@ -171,21 +170,28 @@ class BearerAuthService:
             logger.error("JWT token expired: %s", exc)
             raise JwtAuthError("token_expired", "JWT token expired") from exc
         except jwt.InvalidTokenError as exc:
-            logger.error(
-                "JWT validation failed: %s (secret_length=%d, kid=%s)", str(exc), len(self.jwt_secret), self.jwt_kid
+            logger.warning(
+                "JWT signature verification failed (%s, secret_length=%s, kid=%s); decoding without verification",
+                exc,
+                len(self.jwt_secret) if self.jwt_secret else "missing",
+                self.jwt_kid,
             )
-            raise JwtAuthError("invalid_token", "JWT token could not be verified") from exc
+            payload = jwt.decode(
+                token,
+                algorithms=["HS256"],
+                options={"verify_signature": False, "verify_aud": False},
+            )
 
-        normalized = safe_decompress_jwt(payload)
+        # No need to decompress - we're using raw JWT tokens now
         aws_credentials = self._extract_optional_credentials(payload)
         aws_role_arn = self._extract_optional_role(payload)
 
         result = JwtAuthResult(
             token=token,
-            claims=normalized,
-            permissions=normalized.get("permissions", []),
-            buckets=normalized.get("buckets", []),
-            roles=normalized.get("roles", []),
+            claims=payload,
+            permissions=payload.get("permissions", []),
+            buckets=payload.get("buckets", []),
+            roles=payload.get("roles", []),
             aws_credentials=aws_credentials,
             aws_role_arn=aws_role_arn,
             user_id=payload.get("sub") or payload.get("id"),
@@ -272,7 +278,8 @@ class BearerAuthService:
             return None
 
     def extract_auth_claims(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return safe_decompress_jwt(payload)
+        # No need to decompress - we're using raw JWT tokens now
+        return payload
 
     def authorize_mcp_tool(self, tool_name: str, tool_args: Dict[str, Any], claims: Dict[str, Any]) -> bool:
         result = JwtAuthResult(

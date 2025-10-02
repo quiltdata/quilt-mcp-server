@@ -242,10 +242,10 @@ def create_package_enhanced(
 
         # Auto-detect registry if not provided
         if not registry:
-            from .permissions import bucket_recommendations_get
+            from .permissions import permissions_recommendations_get
 
             try:
-                recommendations = bucket_recommendations_get(operation_type="package_creation")
+                recommendations = permissions_recommendations_get()
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
                     "primary_recommendations"
                 ):
@@ -306,9 +306,9 @@ def create_package_enhanced(
                                 "Try a different bucket you own",
                             ],
                             "suggested_actions": [
-                                "Try: bucket_recommendations_get() to find writable buckets",
+                                "Try: permissions(action='discover') to find writable buckets",
                                 "Try: test_permissions() to diagnose specific issues",
-                                "Try: aws_permissions_discover() to see all your bucket access",
+                                "Try: permissions(action='discover') to see all your bucket access",
                             ],
                             "debug_info": {
                                 "aws_error": error_msg,
@@ -334,7 +334,7 @@ def create_package_enhanced(
                 "suggested_actions": [
                     "Try: test_permissions() to check bucket access",
                     "Try with dry_run=True to validate inputs first",
-                    "Try: bucket_recommendations_get() for alternative registries",
+                    "Try: permissions(action='discover') for alternative registries",
                 ],
                 "debug_info": {
                     "error_type": type(e).__name__,
@@ -694,8 +694,8 @@ def list_package_tools() -> Dict[str, Any]:
             ],
             "troubleshooting": [
                 "1. test_permissions() - Check bucket access",
-                "2. aws_permissions_discover() - See all permissions",
-                "3. bucket_recommendations_get() - Find writable buckets",
+                "2. permissions(action='discover') - See all permissions",
+                "3. permissions(action='discover') - Find writable buckets",
             ],
         },
         "tips": [

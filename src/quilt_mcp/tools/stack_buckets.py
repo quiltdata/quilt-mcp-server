@@ -81,15 +81,23 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
 
 
 def _get_stack_buckets_via_permissions() -> Set[str]:
-    """Get stack buckets using AWS permission discovery."""
+    """Get stack buckets using catalog permissions query."""
     try:
-        from ..services.permission_discovery import AWSPermissionDiscovery
+        from .permissions import permissions
 
-        discovery = AWSPermissionDiscovery()
-        accessible_buckets = discovery.discover_accessible_buckets()
-
-        # Return buckets that user has at least read access to
-        bucket_names = {bucket.name for bucket in accessible_buckets if bucket.can_read or bucket.can_list}
+        result = permissions(action="discover")
+        
+        if not result.get("success"):
+            logger.debug(f"Permission discovery failed: {result.get('error')}")
+            return set()
+        
+        # Return accessible buckets
+        bucket_permissions = result.get("bucket_permissions", [])
+        bucket_names = {
+            bucket["name"] 
+            for bucket in bucket_permissions 
+            if bucket.get("accessible", False)
+        }
 
         logger.debug(f"Permission discovery found buckets: {list(bucket_names)}")
         return bucket_names

@@ -19,16 +19,14 @@ def runtime_token(token: str | None):
         yield
 
 
-@pytest.mark.asyncio
-async def test_metadata_update_requires_token(monkeypatch):
+def test_metadata_update_requires_token(monkeypatch):
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
     result = package_management.package_update_metadata("user/pkg", {"key": "value"})
     assert result["success"] is False
     assert "Authorization token" in result["error"]
 
 
-@pytest.mark.asyncio
-async def test_metadata_update_requires_catalog(monkeypatch):
+def test_metadata_update_requires_catalog(monkeypatch):
     monkeypatch.delenv("QUILT_CATALOG_URL", raising=False)
     with runtime_token("token"):
         result = package_management.package_update_metadata("user/pkg", {"key": "value"})
@@ -36,8 +34,7 @@ async def test_metadata_update_requires_catalog(monkeypatch):
     assert "Catalog URL" in result["error"]
 
 
-@pytest.mark.asyncio
-async def test_metadata_update_merges_existing(monkeypatch):
+def test_metadata_update_merges_existing(monkeypatch):
     captured = {}
 
     def fake_query(**kwargs):
@@ -76,8 +73,7 @@ async def test_metadata_update_merges_existing(monkeypatch):
     assert result["top_hash"] == "updated"
 
 
-@pytest.mark.asyncio
-async def test_metadata_update_replace(monkeypatch):
+def test_metadata_update_replace(monkeypatch):
     def fake_query(**kwargs):
         return {
             "package": {
@@ -109,8 +105,7 @@ async def test_metadata_update_replace(monkeypatch):
     assert result["top_hash"] == "hash2"
 
 
-@pytest.mark.asyncio
-async def test_metadata_update_handles_errors(monkeypatch):
+def test_metadata_update_handles_errors(monkeypatch):
     def fake_query(**_kwargs):
         return {"package": {"name": "user/pkg", "metadata": {}}}
 

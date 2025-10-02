@@ -1,0 +1,105 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "mcp-server",
+      "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.19-stateless",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "MCP_ENHANCED_JWT_KID",
+          "value": "frontend-enhanced"
+        },
+        {
+          "name": "MCP_SERVER_NAME",
+          "value": "quilt-mcp-server"
+        },
+        {
+          "name": "AWS_DEFAULT_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "FASTMCP_TRANSPORT",
+          "value": "streamable-http"
+        },
+        {
+          "name": "FASTMCP_PORT",
+          "value": "8000"
+        },
+        {
+          "name": "MCP_SERVER_VERSION",
+          "value": "0.6.19-stateless"
+        },
+        {
+          "name": "PYTHONUNBUFFERED",
+          "value": "1"
+        },
+        {
+          "name": "FASTMCP_ADDR",
+          "value": "0.0.0.0"
+        },
+        {
+          "name": "QUILT_REGISTRY_URL",
+          "value": "https://demo.quiltdata.com"
+        },
+        {
+          "name": "QUILT_CATALOG_URL",
+          "value": "https://demo.quiltdata.com"
+        },
+        {
+          "name": "MCP_ENHANCED_JWT_SECRET",
+          "value": "7nzzo8vskFWWUrFT2gWq9FhYJmJexXnETFvrzYOtihYXWHW5Ns2VgI6N8lYDxpk0"
+        },
+        {
+          "name": "LOG_LEVEL",
+          "value": "INFO"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "secrets": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/mcp-server-production",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request, urllib.error; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()\" || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "systemControls": []
+    }
+  ],
+  "family": "quilt-mcp-server",
+  "taskRoleArn": "arn:aws:iam::850787717197:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::850787717197:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "volumes": [],
+  "placementConstraints": [],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "256",
+  "memory": "512",
+  "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.19-stateless"
+}

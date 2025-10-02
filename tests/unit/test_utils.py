@@ -11,10 +11,13 @@ from fastmcp import FastMCP
 from quilt_mcp.tools import auth, buckets, packages
 from quilt_mcp import utils
 from quilt_mcp.tools import package_ops
+from quilt_mcp.runtime import request_context
 from quilt_mcp.utils import (
     create_configured_server,
     create_mcp_server,
     generate_signed_url,
+    get_s3_client,
+    get_sts_client,
     get_tool_modules,
     parse_s3_uri,
     register_tools,
@@ -84,6 +87,50 @@ class TestUtils(unittest.TestCase):
         result = generate_signed_url("s3://bucket/key")
 
         assert result is None
+
+    @patch("quilt_mcp.utils._get_bearer_auth_service")
+    def test_get_s3_client_uses_jwt_session(self, mock_get_auth_service):
+        """Ensure get_s3_client builds client from request-scoped JWT session."""
+
+        fake_session = MagicMock()
+        fake_client = MagicMock()
+        fake_session.client.return_value = fake_client
+
+        fake_auth_result = MagicMock()
+        fake_auth_service = MagicMock()
+        fake_auth_service.authenticate_header.return_value = fake_auth_result
+        fake_auth_service.build_boto3_session.return_value = fake_session
+        mock_get_auth_service.return_value = fake_auth_service
+
+        with request_context("token", {"path": "/test"}):
+            client = get_s3_client()
+
+        fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+        fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+        fake_session.client.assert_called_once_with("s3")
+        self.assertIs(client, fake_client)
+
+    @patch("quilt_mcp.utils._get_bearer_auth_service")
+    def test_get_sts_client_uses_jwt_session(self, mock_get_auth_service):
+        """Ensure get_sts_client builds client from request-scoped JWT session."""
+
+        fake_session = MagicMock()
+        fake_client = MagicMock()
+        fake_session.client.return_value = fake_client
+
+        fake_auth_result = MagicMock()
+        fake_auth_service = MagicMock()
+        fake_auth_service.authenticate_header.return_value = fake_auth_result
+        fake_auth_service.build_boto3_session.return_value = fake_session
+        mock_get_auth_service.return_value = fake_auth_service
+
+        with request_context("token", {"path": "/test"}):
+            client = get_sts_client()
+
+        fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+        fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+        fake_session.client.assert_called_once_with("sts")
+        self.assertIs(client, fake_client)
 
     def test_generate_signed_url_complex_key(self):
         """Test with complex S3 key containing slashes."""
@@ -352,11 +399,11 @@ class TestMCPServerConfiguration(unittest.TestCase):
             fake_fastapi = SimpleNamespace(FastAPI=FakeFastAPI)
             with patch("quilt_mcp.utils.get_module_wrappers", return_value=wrapper_map):
                 with patch.dict(sys.modules, {"fastapi": fake_fastapi}):
-                    run_server()
-
-        # Verify server was created and run was called
+                    with patch("uvicorn.run") as mock_uvicorn:
+                        run_server()
+                        mock_uvicorn.assert_called_once()
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="http")
+        mock_server.run.assert_not_called()
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):

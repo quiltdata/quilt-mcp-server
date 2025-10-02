@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Dict
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
@@ -24,16 +24,14 @@ def reset_recommended_bucket_cache():
     yield
 
 
-@pytest.mark.asyncio
-async def test_package_create_from_s3_requires_token(monkeypatch):
+def test_package_create_from_s3_requires_token(monkeypatch):
     monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
     result = s3_package.package_create_from_s3("bucket", "user/pkg")
     assert result["success"] is False
     assert "Authorization token" in result["error"]
 
 
-@pytest.mark.asyncio
-async def test_package_create_from_s3_requires_catalog(monkeypatch):
+def test_package_create_from_s3_requires_catalog(monkeypatch):
     monkeypatch.delenv("QUILT_CATALOG_URL", raising=False)
     with runtime_token("token"):
         result = s3_package.package_create_from_s3("bucket", "user/pkg")
@@ -41,8 +39,7 @@ async def test_package_create_from_s3_requires_catalog(monkeypatch):
     assert "Catalog URL" in result["error"]
 
 
-@pytest.mark.asyncio
-async def test_package_create_from_s3_dry_run(monkeypatch):
+def test_package_create_from_s3_dry_run(monkeypatch):
     class FakePaginator:
         def paginate(self, **_kwargs):
             return [
@@ -80,8 +77,7 @@ async def test_package_create_from_s3_dry_run(monkeypatch):
     assert structure["total_size_mb"] >= 0
 
 
-@pytest.mark.asyncio
-async def test_package_create_from_s3_creates_package(monkeypatch):
+def test_package_create_from_s3_creates_package(monkeypatch):
     captured_call: Dict[str, object] = {}
 
     class FakePaginator:
@@ -134,8 +130,7 @@ async def test_package_create_from_s3_creates_package(monkeypatch):
     assert result["message"].startswith("Package 'user/pkg' created")
 
 
-@pytest.mark.asyncio
-async def test_package_create_from_s3_handles_catalog_error(monkeypatch):
+def test_package_create_from_s3_handles_catalog_error(monkeypatch):
     class FakePaginator:
         def paginate(self, **_kwargs):
             return [{"Contents": [{"Key": "data/file.csv", "Size": 1_024}]}]
@@ -159,3 +154,65 @@ async def test_package_create_from_s3_handles_catalog_error(monkeypatch):
     assert result["success"] is False
     assert "Failed to create package" in result["error"]
     assert "boom" in result["error"]
+
+
+@patch("quilt_mcp.utils._get_bearer_auth_service")
+def test_package_create_from_s3_uses_request_scoped_client(mock_get_auth_service, monkeypatch):
+    class FakePaginator:
+        def paginate(self, **_kwargs):
+            return [{"Contents": [{"Key": "data/file.csv", "Size": 1_024}]}]
+
+    fake_session = MagicMock()
+    fake_client = MagicMock()
+    fake_client.get_paginator.return_value = FakePaginator()
+    fake_session.client.return_value = fake_client
+
+    fake_auth_result = MagicMock()
+    fake_auth_service = MagicMock()
+    fake_auth_service.authenticate_header.return_value = fake_auth_result
+    fake_auth_service.build_boto3_session.return_value = fake_session
+    mock_get_auth_service.return_value = fake_auth_service
+
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
+    monkeypatch.setattr(s3_package, "_validate_bucket_access", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        s3_package,
+        "_discover_s3_objects",
+        lambda client, *_args, **_kwargs: (
+            client.get_paginator("list_objects_v2"),
+            [{"Key": "data/file.csv", "Size": 1024, "LastModified": "now"}],
+        )[1],
+    )
+    monkeypatch.setattr(
+        s3_package,
+        "_generate_package_metadata",
+        lambda **_kwargs: {"description": "auto"},
+    )
+    monkeypatch.setattr(
+        "quilt_mcp.tools.quilt_summary.create_quilt_summary_files",
+        lambda **_: {"success": True, "visualization_count": 0},
+    )
+
+    monkeypatch.setattr(
+        "quilt_mcp.clients.catalog.catalog_package_create",
+        lambda **_: {
+            "top_hash": "hash",
+            "entries_added": 1,
+            "files": [{"logical_path": "data/file.csv"}],
+            "warnings": [],
+        },
+    )
+
+    with runtime_token("token"):
+        result = s3_package.package_create_from_s3(
+            source_bucket="bucket",
+            package_name="user/pkg",
+            dry_run=False,
+            auto_organize=False,
+        )
+
+    fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+    fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+    fake_session.client.assert_called_once_with("s3")
+    fake_client.get_paginator.assert_called_once_with("list_objects_v2")
+    assert result["success"] is True

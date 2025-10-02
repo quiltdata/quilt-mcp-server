@@ -25,7 +25,7 @@ from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET, DEFAULT_REGISTRY
 from ..runtime import get_active_token
 from ..utils import get_s3_client, validate_package_name, format_error_response, resolve_catalog_url
-from .permissions import bucket_recommendations_get, bucket_access_check
+from .permissions import permissions_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
 
@@ -473,8 +473,8 @@ def package_create_from_s3(
                         "Try: bucket_access_check() to diagnose specific permission issues",
                     ],
                     "suggested_actions": [
-                        "Try: bucket_recommendations_get() to find buckets you can access",
-                        "Try: aws_permissions_discover() to see all your bucket permissions",
+                        "Try: permissions(action='discover') to find buckets you can access",
+                        "Try: permissions(action='discover') to see all your bucket permissions",
                     ],
                     "debug_info": {
                         "aws_error": error_msg,

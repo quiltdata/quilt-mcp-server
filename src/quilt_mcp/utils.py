@@ -9,13 +9,16 @@ import os
 import re
 import sys
 from typing import Any, Callable, Dict, Literal, Optional
+import logging
 from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
 from starlette.requests import Request
 from fastmcp import FastMCP
 
-from .runtime import request_context
+from .runtime import get_active_token, request_context
+
+logger = logging.getLogger(__name__)
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -242,18 +245,45 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     return tools_registered
 
+def _get_bearer_auth_service():
+    from .services.bearer_auth_service import get_bearer_auth_service
+
+    return get_bearer_auth_service()
+
+
+def _build_request_scoped_session() -> boto3.Session:
+    """Build a boto3 session derived from the active request token."""
+
+    token = get_active_token()
+    if not token:
+        return boto3.Session()
+
+    auth_service = _get_bearer_auth_service()
+    try:
+        result = auth_service.authenticate_header(f"Bearer {token}")
+        return auth_service.build_boto3_session(result)
+    except Exception as exc:  # pragma: no cover - defensive
+        detail = getattr(exc, "detail", str(exc))
+        logger.warning(
+            "authenticate_header failed (%s); returning passthrough session", detail
+        )
+
+    # Fallback: unauthenticated session (catalog will reject if token required)
+    return boto3.Session()
+
 
 def get_s3_client(_use_quilt_auth: bool = True):
-    """Return a standard boto3 S3 client."""
+    """Return an S3 client tied to the current request token."""
 
-    # _use_quilt_auth retained for compatibility; no longer used.
-    return boto3.client("s3")
+    session = _build_request_scoped_session()
+    return session.client("s3")
 
 
 def get_sts_client(_use_quilt_auth: bool = True):
-    """Return a standard boto3 STS client."""
+    """Return an STS client tied to the current request token."""
 
-    return boto3.client("sts")
+    session = _build_request_scoped_session()
+    return session.client("sts")
 
 
 def validate_package_name(package_name: str) -> bool:
