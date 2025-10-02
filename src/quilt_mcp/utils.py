@@ -13,6 +13,7 @@ import logging
 from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.requests import Request
 from fastmcp import FastMCP
 
@@ -345,6 +346,23 @@ def _wrap_http_app(mcp: FastMCP):
 
     app = mcp.http_app(stateless_http=True)
 
+    # Configure proxy-aware middleware to honor X-Forwarded-* headers when behind ALB/ELB
+    trusted_hosts_env = os.environ.get("FASTMCP_TRUSTED_HOSTS", "*")
+    trusted_hosts = [host.strip() for host in trusted_hosts_env.split(",") if host.strip()]
+    if not trusted_hosts:
+        trusted_hosts = ["*"]
+
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted_hosts)
+
+    # Allow external URL configuration so generated links keep HTTPS + correct root path
+    external_url = os.environ.get("FASTMCP_EXTERNAL_URL")
+    if external_url:
+        parsed = urlparse(external_url)
+        if parsed.scheme:
+            app.state.external_scheme = parsed.scheme  # type: ignore[attr-defined]
+        if parsed.path:
+            app.router.root_path = parsed.path.rstrip("/")
+
     @app.middleware("http")
     async def _inject_request_context(request: Request, call_next):  # type: ignore
         # Debug: Check all headers
@@ -385,6 +403,8 @@ def run_server() -> None:
                 app,
                 host=os.environ.get("FASTMCP_ADDR", "127.0.0.1"),
                 port=int(os.environ.get("FASTMCP_PORT", "8000")),
+                proxy_headers=True,
+                forwarded_allow_ips=os.environ.get("FASTMCP_FORWARDED_ALLOW_IPS", "*"),
             )
             return
 
