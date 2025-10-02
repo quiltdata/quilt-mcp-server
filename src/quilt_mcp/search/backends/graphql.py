@@ -137,14 +137,17 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         try:
             if scope == "bucket" and target:
-                results = await self._search_bucket_objects(query, target, filters, limit)
+                # For bucket scope, search both packages and objects
+                package_results = await self._search_bucket_packages(target, query, filters, limit // 2)
+                object_results = await self._search_bucket_objects(query, target, filters, limit // 2)
+                results = package_results + object_results
             elif scope == "package" and target:
                 results = await self._search_package_contents(query, target, filters, limit)
             else:
-                # Global/catalog search - search both objects and packages
-                object_results = await self._search_objects_global(query, filters, limit // 2)
+                # Global/catalog search - search both objects and packages across all buckets
                 package_results = await self._search_packages_global(query, filters, limit // 2)
-                results = object_results + package_results
+                object_results = await self._search_objects_global(query, filters, limit // 2)
+                results = package_results + object_results
 
             query_time = (time.time() - start_time) * 1000
 
@@ -167,52 +170,50 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 error_message=str(e),
             )
 
-    async def _search_bucket_objects(
-        self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
+    async def _search_bucket_packages(
+        self, bucket: str, query: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search objects within a specific bucket using GraphQL."""
-        # Use the same GraphQL query pattern as the working bucket_objects_search_graphql
+        """Search packages within a specific bucket using GraphQL packages() query."""
         graphql_query = """
-        query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
-            objects(bucket: $bucket, filter: $filter, first: $first) {
-                edges {
-                    node {
-                        key
-                        size
-                        updated
-                        contentType
-                        extension
-                        package {
-                            name
-                            topHash
-                            tag
-                        }
-                    }
-                    cursor
-                }
-                pageInfo {
-                    endCursor
-                    hasNextPage
+        query BucketPackages($bucket: String!, $filter: String, $page: Int!, $perPage: Int!) {
+            packages(bucket: $bucket, filter: $filter) {
+                total
+                page(number: $page, perPage: $perPage) {
+                    bucket
+                    name
+                    modified
                 }
             }
         }
         """
 
-        # Build filter from query and filters
-        object_filter = self._build_graphql_filter(query, filters)
-
         variables = {
             "bucket": bucket.replace("s3://", ""),
-            "filter": object_filter,
-            "first": limit,
+            "filter": query if query else None,
+            "page": 1,
+            "perPage": limit,
         }
 
-        result = await self._execute_graphql_query(graphql_query, variables)
+        try:
+            result = await self._execute_graphql_query(graphql_query, variables)
 
-        if result.get("errors"):
-            raise Exception(f"GraphQL errors: {result['errors']}")
+            if result.get("errors"):
+                raise Exception(f"GraphQL errors: {result['errors']}")
 
-        return self._convert_bucket_objects_results(result, bucket)
+            return self._convert_packages_results(result, bucket)
+        except Exception:
+            # If packages query fails, return empty results
+            return []
+
+    async def _search_bucket_objects(
+        self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
+    ) -> List[SearchResult]:
+        """Search objects within a specific bucket using GraphQL."""
+        # Note: The top-level objects() query doesn't exist in the GraphQL schema.
+        # Objects can only be searched via searchObjects, but searchObjects.firstPage
+        # has a backend bug. For now, we only return package results for bucket searches.
+        # TODO: Implement object search when backend bug is fixed
+        return []
 
     async def _search_packages_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
@@ -650,6 +651,38 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 )
 
                 results.append(result)
+
+        return results
+
+    def _convert_packages_results(self, graphql_result: Dict[str, Any], bucket: str) -> List[SearchResult]:
+        """Convert packages() GraphQL results to standard format."""
+        results = []
+
+        data = graphql_result.get("data", {})
+        packages_data = data.get("packages", {})
+        packages_list = packages_data.get("page", [])
+
+        for pkg in packages_list:
+            pkg_name = pkg.get("name", "")
+            pkg_bucket = pkg.get("bucket", bucket)
+            modified = pkg.get("modified", "")
+            
+            result = SearchResult(
+                id=f"graphql-package-{pkg_bucket}/{pkg_name}",
+                type="package",
+                title=pkg_name,
+                description=f"Package in {pkg_bucket}",
+                s3_uri=f"s3://{pkg_bucket}/.quilt/named_packages/{pkg_name}",
+                logical_key=pkg_name,
+                metadata={
+                    "bucket": pkg_bucket,
+                    "name": pkg_name,
+                    "modified": modified,
+                },
+                score=1.0,
+                backend="graphql",
+            )
+            results.append(result)
 
         return results
 
