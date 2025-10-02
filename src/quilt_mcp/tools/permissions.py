@@ -371,6 +371,7 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
             "actions": [
                 "discover",
                 "access_check",
+                "check_bucket_access",  # Alias for access_check
                 "recommendations_get",
             ],
             "description": "Discover user permissions and bucket access via Quilt Catalog",
@@ -383,7 +384,7 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
             return permissions_discover(
                 check_buckets=params.get("check_buckets"),
             )
-        elif action == "access_check":
+        elif action == "access_check" or action == "check_bucket_access":
             # Support both 'bucket_name' and 'bucket' parameter names
             bucket_name = params.get("bucket_name") or params.get("bucket")
             return bucket_access_check(
