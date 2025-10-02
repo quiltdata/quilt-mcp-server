@@ -64,8 +64,11 @@ class DockerManager:
             region = os.getenv("AWS_DEFAULT_REGION", self.region)
             return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
 
-        # For local builds, use a default local registry
-        return "localhost:5000"
+        # Require AWS credentials - no localhost fallback for production builds
+        raise ValueError(
+            "AWS_ACCOUNT_ID or ECR_REGISTRY environment variable required for ECR push.\n"
+            "Set AWS_ACCOUNT_ID using: export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
+        )
 
     def _run_command(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
         """Execute a command with optional dry-run mode."""

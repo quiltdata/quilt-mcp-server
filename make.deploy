@@ -139,12 +139,24 @@ docker-tools:
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found - install Docker"; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
 	@echo "✅ Docker tools available"
+	@echo "🔍 Getting AWS Account ID..."
+	@if [ -z "$(AWS_ACCOUNT_ID)" ]; then \
+		export AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text 2>/dev/null) && \
+		if [ -z "$$AWS_ACCOUNT_ID" ]; then \
+			echo "❌ Failed to get AWS Account ID. Ensure AWS CLI is configured."; \
+			exit 1; \
+		fi && \
+		echo "✅ AWS Account ID: $$AWS_ACCOUNT_ID"; \
+	else \
+		echo "✅ Using provided AWS Account ID: $(AWS_ACCOUNT_ID)"; \
+	fi
 	@echo "🔍 Checking ECR repository..."
 	@aws ecr describe-repositories --repository-names quilt-mcp-server --region $(AWS_REGION) >/dev/null 2>&1 || \
 		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name quilt-mcp-server --region $(AWS_REGION) >/dev/null; }
 	@echo "✅ ECR repository ready"
 	@echo "🔐 Authenticating with ECR..."
-	@aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin 712023778557.dkr.ecr.$(AWS_REGION).amazonaws.com >/dev/null 2>&1
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+		aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$(AWS_REGION).amazonaws.com >/dev/null 2>&1
 	@echo "✅ ECR authentication successful"
 
 docker-build: docker-tools
@@ -159,19 +171,22 @@ docker-build-amd64: docker-tools
 
 docker-push: docker-tools
 	@echo "🐳 Building and pushing Docker image..."
-	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	VERSION=$(PACKAGE_VERSION) AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
 	@echo "✅ Docker push completed"
 
 docker-push-amd64: docker-tools
 	@echo "🐳 Building and pushing Docker image for AMD64..."
-	@VERSION=$(PACKAGE_VERSION) DOCKER_PLATFORM=linux/amd64 uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --platform linux/amd64
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	VERSION=$(PACKAGE_VERSION) DOCKER_PLATFORM=linux/amd64 AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --platform linux/amd64
 	@echo "✅ AMD64 Docker push completed"
 
 docker-push-dev: docker-tools
 	@echo "🐳 Building and pushing development Docker image..."
-	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
 	echo "Using development version: $$DEV_VERSION" && \
-	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
+	VERSION=$$DEV_VERSION AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
 	@echo "✅ Development Docker push completed"
 
 # ECS Deployment Operations
@@ -216,10 +231,12 @@ docker-release: docker-tools
 	@echo "Service: $(ECS_SERVICE)"
 	@echo ""
 	@echo "Step 1/4: Building AMD64 Docker image..."
-	@VERSION=$(PACKAGE_VERSION) DOCKER_PLATFORM=$(DOCKER_PLATFORM) uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --platform $(DOCKER_PLATFORM)
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	VERSION=$(PACKAGE_VERSION) DOCKER_PLATFORM=$(DOCKER_PLATFORM) AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --platform $(DOCKER_PLATFORM)
 	@echo ""
 	@echo "Step 2/4: Determining image URI..."
-	@IMAGE_URI=$$(VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py info --version $(PACKAGE_VERSION)) && \
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	IMAGE_URI=$$(VERSION=$(PACKAGE_VERSION) AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py info --version $(PACKAGE_VERSION)) && \
 	echo "Image URI: $$IMAGE_URI" && \
 	echo "" && \
 	echo "Step 3/4: Updating ECS task definition..." && \
@@ -235,14 +252,15 @@ docker-release: docker-tools
 
 docker-release-dev: docker-tools
 	@echo "🚀 Development Docker Release Workflow"
-	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
+	@AWS_ACCOUNT_ID=$${AWS_ACCOUNT_ID:-$$(aws sts get-caller-identity --query Account --output text 2>/dev/null)} && \
+	DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
 	echo "Using development version: $$DEV_VERSION" && \
 	echo "" && \
 	echo "Step 1/3: Building and pushing AMD64 dev image..." && \
-	VERSION=$$DEV_VERSION DOCKER_PLATFORM=$(DOCKER_PLATFORM) uv run python scripts/docker.py push --version $$DEV_VERSION --platform $(DOCKER_PLATFORM) --no-latest && \
+	VERSION=$$DEV_VERSION DOCKER_PLATFORM=$(DOCKER_PLATFORM) AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py push --version $$DEV_VERSION --platform $(DOCKER_PLATFORM) --no-latest && \
 	echo "" && \
 	echo "Step 2/3: Determining image URI..." && \
-	IMAGE_URI=$$(VERSION=$$DEV_VERSION uv run python scripts/docker.py info --version $$DEV_VERSION) && \
+	IMAGE_URI=$$(VERSION=$$DEV_VERSION AWS_ACCOUNT_ID=$$AWS_ACCOUNT_ID uv run python scripts/docker.py info --version $$DEV_VERSION) && \
 	echo "Image URI: $$IMAGE_URI" && \
 	echo "" && \
 	echo "Step 3/3: Updating ECS task definition..." && \
