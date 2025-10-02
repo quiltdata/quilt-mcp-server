@@ -40,9 +40,10 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
-    "fastapi>=0.100.0",
+    "fastapi>=0.115.0",
     "uvicorn>=0.20.0",
     "pyjwt>=2.0.0",
+    "starlette>=0.37.2",
 ]
 
 [project.urls]
