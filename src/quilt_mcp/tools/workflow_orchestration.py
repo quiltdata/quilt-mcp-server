@@ -635,7 +635,7 @@ def _create_validation_template(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def workflow_orchestration(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def workflow_orchestration(action: str | None = None, params: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
     """
     Workflow creation and orchestration for multi-step operations.
 
@@ -649,7 +649,8 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
 
     Args:
         action: The operation to perform. If None, returns available actions.
-        **kwargs: Action-specific parameters
+        params: Action-specific parameters as a dictionary
+        **kwargs: Alternative way to pass action-specific parameters
 
     Returns:
         Action-specific response dictionary
@@ -695,8 +696,10 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
     # Dispatch
     try:
         func = actions[action]
-        params = params or {}
-        return func(**params)
+        # Merge params and kwargs, with kwargs taking precedence
+        merged_params = (params or {}).copy()
+        merged_params.update(kwargs)
+        return func(**merged_params)
     except TypeError as e:
         import inspect
 
@@ -707,7 +710,8 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
             "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
         }
     except Exception as e:
-        if isinstance(e, dict) and not e.get("success"):
+        # Check if the exception is a dict-like error response
+        if hasattr(e, 'get') and isinstance(e, dict) and not e.get("success"):
             return e
         return {
             "success": False,
