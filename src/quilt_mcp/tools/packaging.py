@@ -387,15 +387,31 @@ def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any
 # Package creation
 def package_create(
     name: str,
-    files: List[str],
+    files: Optional[List[str]] = None,
     description: str = "",
     metadata: Optional[Dict[str, Any]] = None,
     registry: Optional[str] = None,
     dry_run: bool = False,
     auto_organize: bool = True,
     copy_mode: str = "all",
+    readme: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create a new Quilt package."""
+    """Create a new Quilt package.
+    
+    Args:
+        name: Package name in format 'namespace/packagename'
+        files: List of S3 URIs to include in package (optional if readme provided)
+        description: Package description
+        metadata: Package metadata dict
+        registry: Target registry bucket (optional, extracted from name if not provided)
+        dry_run: If true, validate but don't create
+        auto_organize: Organize files into logical folders
+        copy_mode: Copy mode for files ('all', 'none', or 'metadata')
+        readme: README content to create as README.md file (optional)
+        
+    Returns:
+        Dict with success status and package information
+    """
     token = get_active_token()
     if not token:
         return format_error_response("Authorization token required for package creation")
@@ -409,6 +425,13 @@ def package_create(
     if not is_valid:
         return format_error_response(error)
 
+    # Extract registry bucket from name if not provided
+    if not registry:
+        if "/" in name:
+            registry = name.split("/")[0]
+        else:
+            return format_error_response("Could not determine registry bucket")
+
     # Prepare metadata
     warnings = []
     metadata_dict, error = _prepare_metadata(
@@ -421,9 +444,37 @@ def package_create(
     if description:
         metadata_dict["description"] = description
 
+    # Handle README content if provided
+    uploaded_files = []
+    if readme:
+        try:
+            # Upload README to S3
+            s3_client = get_s3_client()
+            readme_key = f".quilt/packages/{name}/README.md"
+            s3_client.put_object(
+                Bucket=registry,
+                Key=readme_key,
+                Body=readme.encode('utf-8'),
+                ContentType='text/markdown'
+            )
+            readme_uri = f"s3://{registry}/{readme_key}"
+            uploaded_files.append(readme_uri)
+            warnings.append(f"Uploaded README.md to {readme_uri}")
+        except Exception as e:
+            return format_error_response(f"Failed to upload README: {str(e)}")
+
+    # Combine provided files with uploaded files
+    all_files = (files or []) + uploaded_files
+
+    # Require at least one file
+    if not all_files:
+        return format_error_response(
+            "Package creation requires at least one file. Provide 'files' (S3 URIs) or 'readme' (text content)."
+        )
+
     # Organize files
     organized_files = []
-    for file_path in files:
+    for file_path in all_files:
         organized_path = _organize_file_path(file_path, auto_organize)
         organized_files.append({
             "logical_key": organized_path,
@@ -447,7 +498,7 @@ def package_create(
             registry_url=catalog_url,
             package_name=name,
             auth_token=token,
-            s3_uris=files,
+            s3_uris=all_files,
             metadata=metadata_dict,
             message=description or f"Created package {name}",
             flatten=not auto_organize,
@@ -616,13 +667,14 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
             # Map frontend parameter names to function parameter names
             return package_create(
                 name=params.get("name") or params.get("package_name"),  # Support both names
-                files=params.get("files", []),
+                files=params.get("files"),  # Now optional
                 description=params.get("description", ""),
                 metadata=params.get("metadata") or params.get("meta"),  # Support both names
                 registry=params.get("registry"),
                 dry_run=params.get("dry_run", False),
                 auto_organize=params.get("auto_organize", True),
                 copy_mode=params.get("copy_mode", "all"),
+                readme=params.get("readme"),  # Support inline README content
             )
         elif action == "create_from_s3":
             return package_create_from_s3(
