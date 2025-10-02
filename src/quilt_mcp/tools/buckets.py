@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET
 from ..runtime import get_active_token
 from ..utils import format_error_response, generate_signed_url, get_s3_client, parse_s3_uri, resolve_catalog_url
+
+logger = logging.getLogger(__name__)
 
 # Helpers
 
@@ -14,6 +18,123 @@ def _normalize_bucket(uri_or_name: str) -> str:
     if uri_or_name.startswith("s3://"):
         return uri_or_name[5:].split("/", 1)[0]
     return uri_or_name
+
+
+def buckets_discover() -> Dict[str, Any]:
+    """
+    Discover all accessible buckets using GraphQL.
+    
+    Returns:
+        Dict with bucket information including names, titles, descriptions, and access levels.
+    """
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required for bucket discovery")
+    
+    catalog_url = resolve_catalog_url()
+    if not catalog_url:
+        return format_error_response("Catalog URL not configured")
+    
+    try:
+        # Query all bucket configs with collaborators to get permission levels
+        buckets_query = """
+            query BucketConfigs {
+                bucketConfigs {
+                    name
+                    title
+                    description
+                    browsable
+                    lastIndexed
+                    collaborators {
+                        collaborator {
+                            email
+                            username
+                        }
+                        permissionLevel
+                    }
+                }
+            }
+        """
+        
+        buckets_data = catalog_client.catalog_graphql_query(
+            registry_url=catalog_url,
+            query=buckets_query,
+            auth_token=token,
+        )
+        
+        all_buckets = buckets_data.get("bucketConfigs", [])
+        
+        # Get user email for permission checking
+        user_email = None
+        try:
+            me_data = catalog_client.catalog_graphql_query(
+                registry_url=catalog_url,
+                query="query { me { email } }",
+                auth_token=token,
+            )
+            user_email = me_data.get("me", {}).get("email")
+        except Exception:
+            pass
+        
+        # Format bucket info with actual permission levels
+        formatted_buckets = []
+        for bucket in all_buckets:
+            # Determine actual permission level from collaborators
+            permission_level = "read_access"  # Default
+            collaborators = bucket.get("collaborators", [])
+            
+            for collab in collaborators:
+                collab_email = collab.get("collaborator", {}).get("email")
+                if collab_email == user_email:
+                    level = collab.get("permissionLevel")
+                    if level == "READ_WRITE":
+                        permission_level = "write_access"
+                    elif level == "READ":
+                        permission_level = "read_access"
+                    break
+            
+            # Check if user is admin (admin users get write access to all buckets)
+            if permission_level == "read_access" and user_email:
+                try:
+                    me_data = catalog_client.catalog_graphql_query(
+                        registry_url=catalog_url,
+                        query="query { me { isAdmin } }",
+                        auth_token=token,
+                    )
+                    is_admin = me_data.get("me", {}).get("isAdmin", False)
+                    if is_admin:
+                        permission_level = "write_access"
+                except Exception:
+                    pass
+            
+            formatted_buckets.append({
+                "name": bucket["name"],
+                "title": bucket.get("title", ""),
+                "description": bucket.get("description", ""),
+                "browsable": bucket.get("browsable", False),
+                "last_indexed": bucket.get("lastIndexed"),
+                "permission_level": permission_level,
+                "accessible": True,
+            })
+        
+        # Categorize buckets by access level
+        categorized = {
+            "write_access": [b for b in formatted_buckets if b.get("permission_level") == "write_access"],
+            "read_access": [b for b in formatted_buckets if b.get("permission_level") == "read_access"],
+        }
+        
+        return {
+            "success": True,
+            "buckets": formatted_buckets,
+            "categorized_buckets": categorized,
+            "total_buckets": len(formatted_buckets),
+            "user_email": user_email,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error discovering buckets: {e}")
+        return format_error_response(f"Failed to discover buckets: {str(e)}")
 
 
 def bucket_objects_list(
@@ -543,6 +664,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
     S3 bucket operations and object management.
 
     Available actions:
+    - discover: Discover all accessible buckets with permission levels
     - object_fetch: Fetch binary or text data from an S3 object
     - object_info: Get metadata information for an S3 object
     - object_link: Generate presigned URL for an S3 object
@@ -554,7 +676,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
 
     Args:
         action: The operation to perform. If None, returns available actions.
-        **kwargs: Action-specific parameters
+        params: Action-specific parameters
 
     Returns:
         Action-specific response dictionary
@@ -563,15 +685,19 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         # Discovery mode
         result = buckets()
 
+        # Discover buckets
+        result = buckets(action="discover")
+
         # List objects
-        result = buckets(action="objects_list", bucket="my-bucket")
+        result = buckets(action="objects_list", params={"bucket": "my-bucket"})
 
         # Fetch object
-        result = buckets(action="object_fetch", s3_uri="s3://bucket/key")
+        result = buckets(action="object_fetch", params={"s3_uri": "s3://bucket/key"})
 
     For detailed parameter documentation, see individual action functions.
     """
     actions = {
+        "discover": buckets_discover,
         "object_fetch": bucket_object_fetch,
         "object_info": bucket_object_info,
         "object_link": bucket_object_link,
@@ -585,38 +711,35 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
     # Discovery mode
     if action is None:
         return {
-            "success": True,
             "module": "buckets",
             "actions": list(actions.keys()),
-            "usage": "Call with action='<action_name>' to execute",
+            "description": "S3 bucket operations and object management via Quilt Catalog",
         }
 
-    # Validate action
-    if action not in actions:
-        available = ", ".join(sorted(actions.keys()))
-        return {
-            "success": False,
-            "error": f"Unknown action '{action}' for module 'buckets'. Available actions: {available}",
-        }
-
-    # Dispatch
+    params = params or {}
+    
     try:
-        func = actions[action]
-        params = params or {}
-        return func(**params)
-    except TypeError as e:
-        import inspect
-
-        sig = inspect.signature(func)
-        expected_params = list(sig.parameters.keys())
-        return {
-            "success": False,
-            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
-        }
-    except Exception as e:
-        if isinstance(e, dict) and not e.get("success"):
-            return e
-        return {
-            "success": False,
-            "error": f"Error executing action '{action}': {str(e)}",
-        }
+        if action == "discover":
+            return buckets_discover()
+        elif action == "object_fetch":
+            return bucket_object_fetch(**params)
+        elif action == "object_info":
+            return bucket_object_info(**params)
+        elif action == "object_link":
+            return bucket_object_link(**params)
+        elif action == "object_text":
+            return bucket_object_text(**params)
+        elif action == "objects_list":
+            return bucket_objects_list(**params)
+        elif action == "objects_put":
+            return bucket_objects_put(**params)
+        elif action == "objects_search":
+            return bucket_objects_search(**params)
+        elif action == "objects_search_graphql":
+            return bucket_objects_search_graphql(**params)
+        else:
+            return format_error_response(f"Unknown buckets action: {action}")
+    
+    except Exception as exc:
+        logger.exception(f"Error executing buckets action '{action}': {exc}")
+        return format_error_response(f"Failed to execute buckets action '{action}': {str(exc)}")

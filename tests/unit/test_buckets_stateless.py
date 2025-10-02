@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import Dict
 from unittest.mock import Mock, MagicMock, patch
@@ -164,3 +165,89 @@ def test_bucket_object_link_uses_request_scoped_client(mock_get_auth_service):
         ExpiresIn=3600,
     )
     assert result["presigned_url"] == "https://signed"
+
+
+@pytest.fixture
+def test_token():
+    """Get test token from environment."""
+    token = os.getenv("QUILT_TEST_TOKEN")
+    if not token:
+        pytest.skip("QUILT_TEST_TOKEN not set - skipping tests requiring authentication")
+    return token
+
+
+@pytest.fixture
+def catalog_url(monkeypatch):
+    """Set catalog URL to demo."""
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://demo.quiltdata.com")
+    return "https://demo.quiltdata.com"
+
+
+class TestBucketsDiscovery:
+    """Test bucket discovery via catalog GraphQL (real calls to demo)."""
+
+    def test_discovery_mode_no_action(self):
+        """Test discovery mode returns module info (no auth needed)."""
+        result = buckets.buckets()
+
+        assert result.get("module") == "buckets"
+        assert "discover" in result.get("actions", [])
+        assert "object_fetch" in result.get("actions", [])
+        assert "objects_list" in result.get("actions", [])
+
+    def test_buckets_discover_success(self, test_token, catalog_url):
+        """Test successful bucket discovery with real GraphQL call."""
+        with request_context(test_token, metadata={"path": "/buckets"}):
+            result = buckets.buckets(action="discover")
+
+        # Should succeed with valid token
+        assert result.get("success") is True, f"Discovery failed: {result.get('error')}"
+
+        # Should have buckets from real demo catalog
+        assert "buckets" in result
+        assert isinstance(result["buckets"], list)
+        assert result["total_buckets"] > 0
+
+        # Should have categorized buckets
+        assert "categorized_buckets" in result
+        assert "write_access" in result["categorized_buckets"]
+        assert "read_access" in result["categorized_buckets"]
+
+        # Should have user email
+        assert "user_email" in result
+        assert result["user_email"] == "simon@quiltdata.io"
+
+    def test_buckets_discover_no_token(self, catalog_url):
+        """Test discovery fails gracefully without token."""
+        with request_context(None, metadata={"path": "/buckets"}):
+            result = buckets.buckets(action="discover")
+
+        assert result["success"] is False
+        assert "token required" in result["error"].lower()
+
+    def test_buckets_discover_invalid_token(self, catalog_url):
+        """Test discovery handles invalid token."""
+        invalid_token = "invalid.jwt.token"
+
+        with request_context(invalid_token, metadata={"path": "/buckets"}):
+            result = buckets.buckets(action="discover")
+
+        # Should fail with authentication error
+        assert result["success"] is False
+        assert "401" in result["error"] or "unauthorized" in result["error"].lower()
+
+    def test_buckets_discover_catalog_url_not_configured(self, monkeypatch):
+        """Test error when catalog URL not configured."""
+        token_value = "test.jwt.token"
+
+        # Mock resolve_catalog_url to return None
+        monkeypatch.setattr(
+            "quilt_mcp.tools.buckets.resolve_catalog_url",
+            lambda: None
+        )
+
+        with request_context(token_value, metadata={"path": "/buckets"}):
+            result = buckets.buckets(action="discover")
+
+        assert result["success"] is False
+        assert "catalog url" in result["error"].lower()
