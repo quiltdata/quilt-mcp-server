@@ -95,9 +95,8 @@ def get_tool_modules() -> list[Any]:
     from quilt_mcp.tools import (
         auth,
         buckets,
-        packaging,  # New unified packaging module
+        packaging,  # New unified packaging module (includes metadata_templates)
         permissions,
-        metadata_templates,
         metadata_examples,
         quilt_summary,
         search,
@@ -108,14 +107,13 @@ def get_tool_modules() -> list[Any]:
     )
 
     # error_recovery temporarily disabled due to Callable parameter issues
-    # Removed old package modules: package_ops, packages, s3_package, unified_package, package_management
+    # Removed old package modules: package_ops, packages, s3_package, unified_package, package_management, metadata_templates
 
     return [
         auth,
         buckets,
-        packaging,  # New unified packaging module
+        packaging,  # New unified packaging module (includes metadata_templates)
         permissions,
-        metadata_templates,
         metadata_examples,
         quilt_summary,
         search,
@@ -135,9 +133,8 @@ def get_module_wrappers() -> dict[str, Callable]:
     from quilt_mcp.tools import (
         auth,
         buckets,
-        packaging,  # New unified packaging module
+        packaging,  # New unified packaging module (includes metadata_templates)
         permissions,
-        metadata_templates,
         metadata_examples,
         quilt_summary,
         search,
@@ -152,12 +149,11 @@ def get_module_wrappers() -> dict[str, Callable]:
     return {
         "auth": auth.auth,
         "buckets": buckets.buckets,
-        "packaging": packaging.packaging,  # New unified packaging module
+        "packaging": packaging.packaging,  # New unified packaging module (includes metadata_templates)
         "permissions": permissions.permissions,
         "athena_glue": athena_glue.athena_glue,
         "governance": governance.governance,
         "metadata_examples": metadata_examples.metadata_examples,
-        "metadata_templates": metadata_templates.metadata_templates,
         "quilt_summary": quilt_summary.quilt_summary,
         "search": search.search,
         "tabulator": tabulator.tabulator,

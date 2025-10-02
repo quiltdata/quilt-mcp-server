@@ -31,9 +31,8 @@ Example usage:
 from . import (
     auth,
     buckets,
-    packaging,  # New unified packaging module
+    packaging,  # New unified packaging module (includes metadata_templates)
     permissions,
-    metadata_templates,
     metadata_examples,
     quilt_summary,
     graphql,
@@ -49,9 +48,8 @@ from . import (
 __all__ = [
     "auth",
     "buckets",
-    "packaging",  # New unified packaging module
+    "packaging",  # New unified packaging module (includes metadata_templates)
     "permissions",
-    "metadata_templates",
     "metadata_examples",
     "quilt_summary",
     "graphql",

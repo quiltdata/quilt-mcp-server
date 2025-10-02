@@ -34,28 +34,20 @@ from .tools.buckets import (
     bucket_objects_put,
     bucket_objects_search,
 )
-from .tools.package_ops import package_create, package_delete, package_update
-from .tools.s3_package import package_create_from_s3
+from .tools.packaging import (
+    packaging,
+    packages_discover,
+    packages_list,
+    package_browse,
+    package_create,
+    package_create_from_s3,
+    list_metadata_templates,
+    get_metadata_template,
+)
 from .tools.permissions import (
     permissions,
     bucket_access_check,
     permissions_recommendations_get,
-)
-from .tools.unified_package import (
-    create_package,
-    list_available_resources,
-    quick_start,
-)
-from .tools.metadata_templates import (
-    get_metadata_template,
-    list_metadata_templates,
-    validate_metadata_structure,
-)
-from .tools.package_management import (
-    create_package_enhanced,
-    package_update_metadata,
-    package_validate,
-    list_package_tools,
 )
 from .tools.metadata_examples import (
     show_metadata_examples,
@@ -67,13 +59,7 @@ from .tools.quilt_summary import (
     generate_quilt_summarize_json,
     generate_package_visualizations,
 )
-from .tools.packages import (
-    package_browse,
-    package_contents_search,
-    package_diff,
-    packages_list,
-    packages_search,
-)
+# Removed old packages module - functionality moved to packaging
 from .tools.tabulator import (
     tabulator_tables_list,
     tabulator_table_create,
