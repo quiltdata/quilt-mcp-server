@@ -246,7 +246,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         
-        # Determine actual permission level from collaborators
+        # Determine actual permission level from collaborators and role information
         user_email = None
         try:
             # Get current user email from token context
@@ -263,6 +263,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
         permission_level = "read_access"  # Default
         collaborators = bucket_config.get("collaborators", [])
         
+        # First try to get permission from explicit collaborators
         for collab in collaborators:
             collab_email = collab.get("collaborator", {}).get("email")
             if collab_email == user_email:
@@ -272,6 +273,21 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 elif level == "READ":
                     permission_level = "read_access"
                 break
+        
+        # If no explicit collaborator permission found, check if user has admin role
+        # (Admin users typically have write access to all buckets)
+        if permission_level == "read_access" and user_email:
+            try:
+                me_data = catalog_client.catalog_graphql_query(
+                    registry_url=catalog_url,
+                    query="query { me { isAdmin } }",
+                    auth_token=token,
+                )
+                is_admin = me_data.get("me", {}).get("isAdmin", False)
+                if is_admin:
+                    permission_level = "write_access"
+            except Exception:
+                pass
         
         return {
             "success": True,
