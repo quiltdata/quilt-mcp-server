@@ -308,81 +308,49 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def _search_objects_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search objects globally using Enterprise GraphQL searchObjects (expensive but valuable)."""
-        # Use the proper Enterprise searchObjects query with rich filtering
-        graphql_query = """
-        query SearchObjects($buckets: [String!], $searchString: String, $filter: ObjectsSearchFilter, $first: Int!) {
-            searchObjects(buckets: $buckets, searchString: $searchString, filter: $filter) {
-                ... on ObjectsSearchResultSet {
-                    total
-                    firstPage(first: $first) {
-                        edges {
-                            node {
-                                key
-                                size
-                                updated
-                                contentType
-                                ext
-                            }
-                        }
-                    }
-                    stats {
-                        modified {
-                            min
-                            max
-                        }
-                        size {
-                            min
-                            max
-                            sum
-                        }
-                        ext {
-                            buckets {
-                                key
-                                docCount
-                            }
-                        }
-                    }
-                }
-                ... on EmptySearchResultSet {
-                    _
-                }
-            }
-        }
+        """Search objects globally by querying accessible buckets.
+        
+        Note: searchObjects.firstPage has a backend bug (Internal Server Error),
+        so we query individual buckets using the working objects(bucket:...) query.
         """
-
-        # Build comprehensive filter from our parsed filters
-        object_filter = {}
-        if filters:
-            if filters.get("file_extensions"):
-                object_filter["ext"] = {"terms": filters["file_extensions"]}
-            if filters.get("size_min") or filters.get("size_max"):
-                size_filter = {}
-                if filters.get("size_min"):
-                    size_filter["gte"] = filters["size_min"]
-                if filters.get("size_max"):
-                    size_filter["lte"] = filters["size_max"]
-                object_filter["size"] = size_filter
-
-        variables = {
-            "buckets": [],  # Search all accessible buckets
-            "searchString": query,
-            "filter": object_filter,
-            "first": limit,
-        }
-
+        # First, get list of accessible buckets
+        buckets_query = "query { bucketConfigs { name } }"
         try:
-            result = await self._execute_graphql_query(graphql_query, variables)
-
-            if result.get("errors"):
-                raise Exception(f"GraphQL errors: {result['errors']}")
-
-            return self._convert_objects_search_results(result, query)
-
-        except Exception as e:
-            # For expensive object queries, we expect some may timeout or fail
-            # Log the attempt but don't fail the entire search
+            buckets_result = await self._execute_graphql_query(buckets_query, {})
+            bucket_names = [
+                cfg["name"] 
+                for cfg in buckets_result.get("data", {}).get("bucketConfigs", [])
+            ]
+        except Exception:
+            # If we can't get buckets, we can't search
             return []
+        
+        if not bucket_names:
+            return []
+        
+        # Build GraphQL filter from query and filters
+        object_filter = self._build_graphql_filter(query, filters)
+        
+        # Query each bucket (limit results per bucket to spread across buckets)
+        per_bucket_limit = max(10, limit // len(bucket_names)) if len(bucket_names) > 0 else limit
+        all_results = []
+        
+        for bucket in bucket_names[:10]:  # Limit to first 10 buckets to avoid too many queries
+            try:
+                bucket_results = await self._search_bucket_objects(
+                    query, bucket, filters, per_bucket_limit
+                )
+                all_results.extend(bucket_results)
+                
+                # Stop if we have enough results
+                if len(all_results) >= limit:
+                    break
+            except Exception:
+                # Skip buckets that fail
+                continue
+        
+        # Return up to limit results
+        return all_results[:limit]
 
     async def _search_package_contents(
         self,
