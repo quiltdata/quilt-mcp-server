@@ -74,7 +74,7 @@ def permissions_discover(
         if not user_data:
             return format_error_response("No user data returned from catalog")
 
-        # Query accessible buckets
+        # Query accessible buckets with collaborators to get permission levels
         buckets_query = """
             query BucketConfigs {
                 bucketConfigs {
@@ -83,6 +83,13 @@ def permissions_discover(
                     description
                     browsable
                     lastIndexed
+                    collaborators {
+                        collaborator {
+                            email
+                            username
+                        }
+                        permissionLevel
+                    }
                 }
             }
         """
@@ -114,7 +121,10 @@ def permissions_discover(
         else:
             bucket_permissions = all_buckets
         
-        # Format bucket info
+        # Get user email for permission checking
+        user_email = user_data.get("email")
+        
+        # Format bucket info with actual permission levels
         formatted_buckets = []
         for bucket in bucket_permissions:
             if bucket.get("accessible") is False:
@@ -125,14 +135,27 @@ def permissions_discover(
                     "accessible": False,
                 })
             else:
-                # Bucket is accessible (at least READ access)
+                # Determine actual permission level from collaborators
+                permission_level = "read_access"  # Default
+                collaborators = bucket.get("collaborators", [])
+                
+                for collab in collaborators:
+                    collab_email = collab.get("collaborator", {}).get("email")
+                    if collab_email == user_email:
+                        level = collab.get("permissionLevel")
+                        if level == "READ_WRITE":
+                            permission_level = "write_access"
+                        elif level == "READ":
+                            permission_level = "read_access"
+                        break
+                
                 formatted_buckets.append({
                     "name": bucket["name"],
                     "title": bucket.get("title", ""),
                     "description": bucket.get("description", ""),
                     "browsable": bucket.get("browsable", False),
                     "last_indexed": bucket.get("lastIndexed"),
-                    "permission_level": "read_access",  # Minimum level if in bucketConfigs
+                    "permission_level": permission_level,
                     "accessible": True,
                 })
         
@@ -185,7 +208,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
         return format_error_response("Catalog URL not configured")
 
     try:
-        # Query specific bucket config
+        # Query specific bucket config with collaborators to get permission level
         bucket_query = """
             query BucketConfig($name: String!) {
                 bucketConfig(name: $name) {
@@ -194,6 +217,13 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                     description
                     browsable
                     lastIndexed
+                    collaborators {
+                        collaborator {
+                            email
+                            username
+                        }
+                        permissionLevel
+                    }
                 }
             }
         """
@@ -216,7 +246,33 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         
-        # Bucket is accessible
+        # Determine actual permission level from collaborators
+        user_email = None
+        try:
+            # Get current user email from token context
+            me_data = catalog_client.catalog_graphql_query(
+                registry_url=catalog_url,
+                query="query { me { email } }",
+                auth_token=token,
+            )
+            user_email = me_data.get("me", {}).get("email")
+        except Exception:
+            pass  # If we can't get user email, we'll use default logic
+        
+        # Check collaborators for user's permission level
+        permission_level = "read_access"  # Default
+        collaborators = bucket_config.get("collaborators", [])
+        
+        for collab in collaborators:
+            collab_email = collab.get("collaborator", {}).get("email")
+            if collab_email == user_email:
+                level = collab.get("permissionLevel")
+                if level == "READ_WRITE":
+                    permission_level = "write_access"
+                elif level == "READ":
+                    permission_level = "read_access"
+                break
+        
         return {
             "success": True,
             "bucket_name": bucket_name,
@@ -225,7 +281,9 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
             "browsable": bucket_config.get("browsable", False),
             "last_indexed": bucket_config.get("lastIndexed"),
             "accessible": True,
-            "permission_level": "read_access",  # Minimum level if query succeeds
+            "permission_level": permission_level,
+            "user_email": user_email,
+            "collaborators_count": len(collaborators),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
