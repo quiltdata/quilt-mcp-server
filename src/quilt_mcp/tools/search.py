@@ -117,29 +117,29 @@ def unified_search(
         backends = ["graphql"]
 
         # Handle async execution properly for MCP tools
+        # IMPORTANT: Don't use ThreadPoolExecutor - it breaks ContextVar propagation
+        # The request context (including JWT token) won't be available in the new thread
         try:
             # Try to get the current event loop
-            asyncio.get_running_loop()
-            # We're in an async context, need to handle this carefully
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    _unified_search(
-                        query=query,
-                        scope=scope,
-                        target=target,
-                        backends=backends,
-                        limit=limit,
-                        include_metadata=include_metadata,
-                        include_content_preview=include_content_preview,
-                        explain_query=explain_query,
-                        filters=filters,
-                        count_only=count_only,
-                    ),
+            loop = asyncio.get_running_loop()
+            # We're in an async context, create a task in the current loop
+            # This preserves the ContextVar from the request middleware
+            task = asyncio.create_task(
+                _unified_search(
+                    query=query,
+                    scope=scope,
+                    target=target,
+                    backends=backends,
+                    limit=limit,
+                    include_metadata=include_metadata,
+                    include_content_preview=include_content_preview,
+                    explain_query=explain_query,
+                    filters=filters,
+                    count_only=count_only,
                 )
-                return future.result(timeout=30)
+            )
+            # Wait for the task to complete synchronously
+            return loop.run_until_complete(task)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
             return asyncio.run(
