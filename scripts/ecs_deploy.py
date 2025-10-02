@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from typing import Any, Optional
@@ -48,6 +49,18 @@ class ECSDeployer:
         print(f"INFO: Fetching current task definition: {self.task_family}", file=sys.stderr)
         current_task = self.get_current_task_definition()
 
+        # Load optional environment overrides from ECS_ENV_OVERRIDES (JSON object)
+        env_overrides: dict[str, str] = {}
+        overrides_raw = os.environ.get("ECS_ENV_OVERRIDES")
+        if overrides_raw:
+            try:
+                env_overrides = json.loads(overrides_raw)
+                if not isinstance(env_overrides, dict):
+                    raise ValueError("ECS_ENV_OVERRIDES must be a JSON object")
+            except Exception as exc:  # pragma: no cover - deployment diagnostics
+                print(f"WARNING: Failed to parse ECS_ENV_OVERRIDES: {exc}", file=sys.stderr)
+                env_overrides = {}
+
         # Extract only the fields needed for registration
         new_task_def = {
             "family": current_task["family"],
@@ -72,6 +85,21 @@ class ECSDeployer:
             print(f"INFO: Updating container '{container['name']}':", file=sys.stderr)
             print(f"INFO:   Old image: {old_image}", file=sys.stderr)
             print(f"INFO:   New image: {image_uri}", file=sys.stderr)
+
+            if env_overrides:
+                existing_env = {item["name"]: item for item in container.get("environment", [])}
+                for key, value in env_overrides.items():
+                    if key in existing_env:
+                        existing_env[key]["value"] = value
+                    else:
+                        existing_env[key] = {"name": key, "value": value}
+
+                container["environment"] = list(existing_env.values())
+                print(
+                    "INFO:   Applied environment overrides for keys: "
+                    + ", ".join(env_overrides.keys()),
+                    file=sys.stderr,
+                )
 
         if self.dry_run:
             print("DRY RUN: Would register new task definition", file=sys.stderr)
