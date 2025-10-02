@@ -122,14 +122,14 @@ def athena_workgroups_list(
     List available Athena workgroups that the user can access.
 
     Args:
-        use_quilt_auth: Use quilt3 assumed role credentials if available
+        use_quilt_auth: Use JWT-based authentication if available
 
     Returns:
         List of accessible workgroups with their configurations
     """
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
 
         # Get workgroups using the service's consolidated method
         workgroups = service.list_workgroups()
@@ -180,7 +180,7 @@ def athena_query_execute(
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
-        use_quilt_auth: Use quilt3 assumed role credentials if available
+        use_quilt_auth: Use JWT-based authentication if available
 
     Returns:
         Query execution results with data, metadata, and formatting
@@ -217,7 +217,7 @@ def athena_query_execute(
             return format_error_response("output_format must be one of: json, csv, parquet, table")
 
         # Execute query
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):
@@ -299,7 +299,7 @@ def athena_query_history(
         from datetime import datetime, timedelta
 
         # Create Athena client
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
         athena_client = boto3.client("athena")
 
         # Set default time range if not provided

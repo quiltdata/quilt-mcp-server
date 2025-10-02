@@ -134,7 +134,7 @@ def generate_quilt_summarize_json(
             },
             "quilt_metadata": package_metadata.get("quilt", {}),
             "access": {
-                "browse_command": f"quilt3.Package.browse('{package_name}')",
+                "browse_command": f"Use search.unified_search with scope='package' and target='{package_name}'",
                 "catalog_url": f"https://open.quiltdata.com/b/{source_info.get('bucket', 'unknown')}/packages/{package_name}",
                 "api_access": True,
                 "cli_access": True,

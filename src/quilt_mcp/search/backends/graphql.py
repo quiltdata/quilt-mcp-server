@@ -10,7 +10,6 @@ from typing import Dict, List, Any, Optional, Union
 from urllib.parse import urljoin
 
 import requests
-import quilt3
 from ..core.query_parser import QueryAnalysis, QueryType
 from .base import (
     SearchBackend,
@@ -43,7 +42,9 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 return
 
             self._session = session
-            self._registry_url = quilt3.session.get_registry_url()
+            # Get registry URL from catalog client instead of quilt3
+            from ...utils import resolve_catalog_url
+            self._registry_url = resolve_catalog_url()
 
             # Test with the working bucketConfigs query first
             test_query = "query { bucketConfigs { name } }"
@@ -70,8 +71,24 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Check if GraphQL backend is healthy."""
         try:
             if not self._registry_url or not self._session:
-                self._registry_url = quilt3.session.get_registry_url()
-                self._session = quilt3.session.get_session()
+                # Use stateless GraphQL client instead of quilt3
+                from ...runtime import get_active_token
+                from ...utils import resolve_catalog_url
+                
+                token = get_active_token()
+                self._registry_url = resolve_catalog_url()
+                
+                if not token or not self._registry_url:
+                    self._update_status(BackendStatus.UNAVAILABLE, "No token or GraphQL endpoint available")
+                    return False
+                
+                # Create a mock session object for compatibility
+                class MockSession:
+                    def __init__(self, token, registry_url):
+                        self.token = token
+                        self.registry_url = registry_url
+                
+                self._session = MockSession(token, self._registry_url)
 
             if not self._registry_url or not self._session:
                 self._update_status(BackendStatus.UNAVAILABLE, "No GraphQL endpoint available")

@@ -18,7 +18,6 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..utils import format_error_response, suppress_stdout
-from .quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +25,13 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
-    def __init__(self, use_quilt_auth: bool = True, quilt_service: Optional[QuiltService] = None):
+    def __init__(self, use_jwt_auth: bool = True):
         """Initialize the Athena service.
 
         Args:
-            use_quilt_auth: Whether to use quilt3 authentication
-            quilt_service: Optional QuiltService instance for dependency injection
+            use_jwt_auth: Whether to use JWT-based authentication (default: True)
         """
-        self.use_quilt_auth = use_quilt_auth
-        self.quilt_service = quilt_service
+        self.use_jwt_auth = use_jwt_auth
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
@@ -66,11 +63,11 @@ class AthenaQueryService:
     def _create_sqlalchemy_engine(self) -> Engine:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
-            if self.use_quilt_auth:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                credentials = botocore_session.get_credentials()
+            if self.use_jwt_auth:
+                # Use JWT-based authentication via BearerAuthService
+                from ..utils import get_s3_client
+                s3_client = get_s3_client()
+                credentials = s3_client._get_credentials()
 
                 # Force region to us-east-1 for Quilt Athena workgroup
                 # The QuiltUserAthena workgroup and permissions are configured in us-east-1
@@ -152,13 +149,13 @@ class AthenaQueryService:
 
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""
-        if self.use_quilt_auth:
+        if self.use_jwt_auth:
             try:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
+                # Use JWT-based authentication via BearerAuthService
+                from ..utils import get_sts_client
+                sts_client = get_sts_client()
                 # Use us-east-1 region for Quilt Athena workgroup resources
-                return botocore_session.create_client("glue", region_name="us-east-1")
+                return sts_client._client_config.region_name and boto3.client("glue", region_name="us-east-1") or boto3.client("glue", region_name="us-east-1")
             except Exception:
                 # Fallback to default credentials
                 pass
@@ -166,12 +163,11 @@ class AthenaQueryService:
 
     def _create_s3_client(self):
         """Create S3 client for result management."""
-        if self.use_quilt_auth:
+        if self.use_jwt_auth:
             try:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                return botocore_session.create_client("s3")
+                # Use JWT-based authentication via BearerAuthService
+                from ..utils import get_s3_client
+                return get_s3_client()
             except Exception:
                 # Fallback to default credentials
                 pass
@@ -447,11 +443,11 @@ class AthenaQueryService:
             import boto3
 
             # Use the same auth pattern as other service methods
-            if self.use_quilt_auth:
-                # Use QuiltService for complete abstraction
-                quilt_service = self.quilt_service or QuiltService()
-                botocore_session = quilt_service.create_botocore_session()
-                credentials = botocore_session.get_credentials()
+            if self.use_jwt_auth:
+                # Use JWT-based authentication via BearerAuthService
+                from ..utils import get_s3_client
+                s3_client = get_s3_client()
+                credentials = s3_client._get_credentials()
                 region = "us-east-1"  # Force region for Quilt Athena workgroups
 
                 athena_client = boto3.client(

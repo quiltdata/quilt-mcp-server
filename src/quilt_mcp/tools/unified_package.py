@@ -270,9 +270,9 @@ def quick_start() -> Dict[str, Any]:
                         "fix": "Configure AWS credentials with: aws configure",
                     },
                     {
-                        "issue": "Quilt not installed",
-                        "check": "Run: python -c 'import quilt3; print(quilt3.__version__)'",
-                        "fix": "Install with: pip install quilt3",
+                        "issue": "AWS SDK not installed",
+                        "check": "Run: python -c 'import boto3; print(boto3.__version__)'",
+                        "fix": "Install with: pip install boto3",
                     },
                     {
                         "issue": "Network connectivity",

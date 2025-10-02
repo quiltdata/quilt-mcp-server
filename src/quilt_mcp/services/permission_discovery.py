@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 import json
 
 import boto3
-import quilt3
 import os
 from botocore.exceptions import ClientError, NoCredentialsError
 from cachetools import TTLCache
@@ -564,36 +563,33 @@ class AWSPermissionDiscovery:
     def _discover_buckets_via_graphql(self) -> Set[str]:
         """Discover buckets by querying the Quilt catalog's GraphQL endpoint."""
         try:
-            # Get the authenticated session from quilt3
-            if hasattr(quilt3, "session") and hasattr(quilt3.session, "get_session"):
-                session = quilt3.session.get_session()
-                registry_url = quilt3.session.get_registry_url()
+            # Use stateless GraphQL client instead of quilt3
+            from ..clients import catalog as catalog_client
+            from ..runtime import get_active_token
+            from ..utils import resolve_catalog_url
+            
+            token = get_active_token()
+            registry_url = resolve_catalog_url()
+            
+            if not token or not registry_url:
+                logger.warning("No token or registry URL available for GraphQL query")
+                return set()
 
-                if not registry_url:
-                    logger.warning("No registry URL available for GraphQL query")
-                    return set()
-
-                # Construct GraphQL endpoint URL
-                graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
-                logger.info(f"Querying GraphQL endpoint: {graphql_url}")
-
-                # Query for bucket configurations
-                query = {"query": "query { bucketConfigs { name } }"}
-
-                response = session.post(graphql_url, json=query)
-
-                if response.status_code == 200:
-                    data = response.json()
-                    if "data" in data and "bucketConfigs" in data["data"]:
-                        bucket_names = {bucket["name"] for bucket in data["data"]["bucketConfigs"]}
-                        logger.info(f"GraphQL discovered {len(bucket_names)} buckets: {list(bucket_names)[:5]}...")
-                        return bucket_names
-                    else:
-                        logger.warning(f"GraphQL response missing expected data structure: {data}")
-                        return set()
-                else:
-                    logger.warning(f"GraphQL query failed with status {response.status_code}: {response.text}")
-                    return set()
+            # Use stateless GraphQL client
+            data = catalog_client.catalog_graphql_query(
+                registry_url=registry_url,
+                query="query { bucketConfigs { name } }",
+                variables=None,
+                auth_token=token,
+            )
+            
+            if isinstance(data, dict) and "bucketConfigs" in data:
+                bucket_names = {bucket["name"] for bucket in data["bucketConfigs"] if isinstance(bucket, dict) and bucket.get("name")}
+                logger.info(f"GraphQL discovered {len(bucket_names)} buckets: {list(bucket_names)[:5]}...")
+                return bucket_names
+            else:
+                logger.warning(f"GraphQL response missing expected data structure: {data}")
+                return set()
 
         except Exception as e:
             logger.warning(f"GraphQL bucket discovery failed: {e}")
