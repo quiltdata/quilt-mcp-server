@@ -366,8 +366,13 @@ def _wrap_http_app(mcp: FastMCP):
 
     @app.middleware("http")
     async def _inject_request_context(request: Request, call_next):  # type: ignore
-        token = request.headers.get("authorization")
-        with request_context(token, {"path": str(request.url.path)}):
+        # Debug: Check all headers
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        print(f"DEBUG: Request to {request.url.path}", file=sys.stderr)
+        print(f"DEBUG: Authorization header: {auth_header[:30] if auth_header else 'None'}...", file=sys.stderr)
+        print(f"DEBUG: All headers: {dict(request.headers)}", file=sys.stderr)
+        
+        with request_context(auth_header, {"path": str(request.url.path)}):
             response = await call_next(request)
         return response
 
