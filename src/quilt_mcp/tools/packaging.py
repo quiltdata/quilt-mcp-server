@@ -444,32 +444,34 @@ def package_create(
     if description:
         metadata_dict["description"] = description
 
-    # Handle README content if provided
-    uploaded_files = []
-    if readme:
-        try:
-            # Upload README to S3
-            s3_client = get_s3_client()
-            readme_key = f".quilt/packages/{name}/README.md"
-            s3_client.put_object(
-                Bucket=registry,
-                Key=readme_key,
-                Body=readme.encode('utf-8'),
-                ContentType='text/markdown'
-            )
-            readme_uri = f"s3://{registry}/{readme_key}"
-            uploaded_files.append(readme_uri)
-            warnings.append(f"Uploaded README.md to {readme_uri}")
-        except Exception as e:
-            return format_error_response(f"Failed to upload README: {str(e)}")
+    # Validate inputs
+    if not files and not readme:
+        return format_error_response(
+            "Package creation requires either 'files' (list of S3 URIs) or 'readme' (text content). "
+            "To create a package with text content: "
+            "1. Use 'buckets.objects_put' to upload text to S3, "
+            "2. Then use 'packaging.create' with the resulting S3 URI."
+        )
 
-    # Combine provided files with uploaded files
-    all_files = (files or []) + uploaded_files
+    # Handle README content if provided
+    # NOTE: GraphQL packageConstruct requires files to already exist in S3.
+    # We cannot upload inline content directly - user must upload files first.
+    if readme and not files:
+        return format_error_response(
+            "Cannot create package with inline 'readme' content. "
+            "GraphQL package creation requires files to already exist in S3. "
+            "Please use 'buckets.objects_put' action first to upload README.md to S3, "
+            "then provide the resulting S3 URI in the 'files' parameter. "
+            f"Example: buckets.objects_put(bucket='{registry}', objects=[{{key='README.md', text='{readme[:50]}...'}}])"
+        )
+
+    # Use provided files
+    all_files = files or []
 
     # Require at least one file
     if not all_files:
         return format_error_response(
-            "Package creation requires at least one file. Provide 'files' (S3 URIs) or 'readme' (text content)."
+            "Package creation requires at least one S3 URI in 'files' parameter."
         )
 
     # Organize files
