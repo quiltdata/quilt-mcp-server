@@ -29,6 +29,7 @@ find what you need quickly.
 - [`architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md`](architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md) - GraphQL performance analysis
 - [`architecture/MCP_OPTIMIZATION.md`](architecture/MCP_OPTIMIZATION.md) - MCP optimization strategies
 - [`architecture/STATELESS_GRAPHQL_ARCHITECTURE.md`](architecture/STATELESS_GRAPHQL_ARCHITECTURE.md) - Current stateless GraphQL-only MCP architecture (auth, HTTPS proxying, infrastructure)
+- [`PACKAGE_CREATION_WORKFLOW.md`](PACKAGE_CREATION_WORKFLOW.md) - Package creation workflow and limitations (why MCP can't upload files)
 
 ## 📖 **API Reference**
 
@@ -53,6 +54,7 @@ find what you need quickly.
 | **Contribute code** | [`developer/CONTRIBUTING.md`](developer/CONTRIBUTING.md) |
 | **Understand the codebase** | [`developer/REPOSITORY.md`](developer/REPOSITORY.md) |
 | **Use MCP tools** | [`api/TOOLS.md`](api/TOOLS.md) |
+| **Create packages** | [`PACKAGE_CREATION_WORKFLOW.md`](PACKAGE_CREATION_WORKFLOW.md) |
 | **Run tests** | [`developer/TESTING.md`](developer/TESTING.md) |
 | **Troubleshoot issues** | [`user/SEARCH_TROUBLESHOOTING.md`](user/SEARCH_TROUBLESHOOTING.md) |
 | **AI development guidelines** | [`CLAUDE.md`](CLAUDE.md) |

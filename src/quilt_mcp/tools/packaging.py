@@ -15,25 +15,17 @@ and converted to package files.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import os
-import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
-
-import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
+from typing import Any, Dict, List, Optional
 
 from ..clients import catalog as catalog_client
-from ..constants import DEFAULT_BUCKET, DEFAULT_REGISTRY
+from ..constants import DEFAULT_REGISTRY
 from ..runtime import get_active_token
 from ..utils import (
     format_error_response,
-    generate_signed_url,
-    get_s3_client,
     resolve_catalog_url,
     validate_package_name,
 )
@@ -174,13 +166,12 @@ def _prepare_metadata(
         }
 
     # Extract README content and convert to file
-    readme_content = None
     if "readme_content" in metadata_dict:
-        readme_content = metadata_dict.pop("readme_content")
-        warnings.append("README content extracted from metadata and will be written as README.md file")
+        metadata_dict.pop("readme_content")
+        warnings.append("README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead")
     elif "readme" in metadata_dict:
-        readme_content = metadata_dict.pop("readme")
-        warnings.append("README content extracted from metadata and will be written as README.md file")
+        metadata_dict.pop("readme")
+        warnings.append("README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead")
 
     return metadata_dict, None
 
@@ -447,22 +438,37 @@ def package_create(
     # Validate inputs
     if not files and not readme:
         return format_error_response(
-            "Package creation requires either 'files' (list of S3 URIs) or 'readme' (text content). "
-            "To create a package with text content: "
-            "1. Use 'buckets.objects_put' to upload text to S3, "
-            "2. Then use 'packaging.create' with the resulting S3 URI."
+            "Package creation requires 'files' parameter with a list of S3 URIs. "
+            "\n\n"
+            "IMPORTANT: The MCP server cannot upload files directly because the JWT token is for "
+            "authentication only and does not contain AWS credentials. The Quilt catalog backend "
+            "handles AWS credential management via IAM role assumption.\n\n"
+            "To create a package, files must already exist in S3. You have two options:\n\n"
+            "Option 1 - Upload via Quilt web UI:\n"
+            "  1. Use the Quilt web interface to upload files\n"
+            "  2. Then call packaging.create with those S3 URIs\n\n"
+            "Option 2 - Upload via AWS CLI:\n"
+            "  1. Use AWS CLI to upload: aws s3 cp README.md s3://bucket/path/README.md\n"
+            "  2. Then call packaging.create(name='bucket/pkg', files=['s3://bucket/path/README.md'])\n\n"
+            "The 'readme' parameter is not currently supported - files must be pre-uploaded to S3."
         )
 
     # Handle README content if provided
     # NOTE: GraphQL packageConstruct requires files to already exist in S3.
-    # We cannot upload inline content directly - user must upload files first.
+    # The JWT token doesn't contain AWS credentials - the registry backend handles
+    # credential management via IAM role assumption on the server side.
     if readme and not files:
         return format_error_response(
-            "Cannot create package with inline 'readme' content. "
-            "GraphQL package creation requires files to already exist in S3. "
-            "Please use 'buckets.objects_put' action first to upload README.md to S3, "
-            "then provide the resulting S3 URI in the 'files' parameter. "
-            f"Example: buckets.objects_put(bucket='{registry}', objects=[{{key='README.md', text='{readme[:50]}...'}}])"
+            "Cannot create package with inline 'readme' content.\n\n"
+            "The MCP server uses JWT for authentication, but the JWT does not contain AWS credentials. "
+            "The Quilt registry backend handles AWS access by assuming IAM roles on behalf of users.\n\n"
+            "To create a package with a README:\n"
+            "1. Upload README.md to S3 first (via Quilt web UI or AWS CLI)\n"
+            "2. Then call: packaging.create(name='{registry}/pkg', files=['s3://{registry}/path/README.md'])\n\n"
+            "Example using AWS CLI:\n"
+            "  $ echo 'hello world' > README.md\n"
+            "  $ aws s3 cp README.md s3://{registry}/.quilt/packages/my-pkg/README.md\n"
+            "  Then call packaging.create with files=['s3://{registry}/.quilt/packages/my-pkg/README.md']"
         )
 
     # Use provided files
@@ -471,7 +477,9 @@ def package_create(
     # Require at least one file
     if not all_files:
         return format_error_response(
-            "Package creation requires at least one S3 URI in 'files' parameter."
+            "Package creation requires at least one S3 URI in 'files' parameter.\n\n"
+            "Files must already exist in S3 before creating a package. "
+            "Upload files via Quilt web UI or AWS CLI first."
         )
 
     # Organize files
@@ -524,62 +532,31 @@ def package_create_from_s3(
     name: str,
     bucket: str,
     prefix: str = "",
-    description: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
-    auto_organize: bool = True,
-    dry_run: bool = False,
-    copy_mode: str = "all",
+    description: str = "",  # noqa: ARG001
+    metadata: Optional[Dict[str, Any]] = None,  # noqa: ARG001
+    auto_organize: bool = True,  # noqa: ARG001
+    dry_run: bool = False,  # noqa: ARG001
+    copy_mode: str = "all",  # noqa: ARG001
 ) -> Dict[str, Any]:
-    """Create a package from S3 bucket contents."""
-    token = get_active_token()
-    if not token:
-        return format_error_response("Authorization token required for S3 package creation")
-
-    # Validate package name
-    is_valid, error = _validate_package_name(name)
-    if not is_valid:
-        return error
-
-    # Get S3 client
-    try:
-        s3_client = get_s3_client()
-    except Exception as e:
-        return format_error_response(f"Failed to get S3 client: {str(e)}")
-
-    # List S3 objects
-    try:
-        response = s3_client.list_objects_v2(
-            Bucket=bucket,
-            Prefix=prefix,
-            MaxKeys=1000
-        )
-        objects = response.get("Contents", [])
-    except Exception as e:
-        return format_error_response(f"Failed to list S3 objects: {str(e)}")
-
-    if not objects:
-        return format_error_response(f"No objects found in bucket '{bucket}' with prefix '{prefix}'")
-
-    # Prepare files
-    files = []
-    for obj in objects:
-        key = obj["Key"]
-        if key.endswith("/"):  # Skip directories
-            continue
-        
-        # Create S3 URI
-        s3_uri = f"s3://{bucket}/{key}"
-        files.append(s3_uri)
-
-    # Create package
-    return package_create(
-        name=name,
-        files=files,
-        description=description,
-        metadata=metadata,
-        auto_organize=auto_organize,
-        dry_run=dry_run,
-        copy_mode=copy_mode,
+    """Create a package from S3 bucket contents.
+    
+    NOTE: This function cannot list S3 objects because JWT tokens do not contain AWS credentials.
+    The Quilt registry backend handles AWS access via IAM role assumption.
+    
+    To create a package from S3 contents, you must:
+    1. Use 'search.unified_search' to find files in the bucket
+    2. Collect the S3 URIs from search results
+    3. Call 'packaging.create' with the list of S3 URIs
+    """
+    return format_error_response(
+        "Cannot create package from S3 bucket listing - JWT tokens do not contain AWS credentials.\n\n"
+        "The MCP server cannot list S3 objects directly. To create a package from S3 contents:\n\n"
+        "1. Use 'search.unified_search' to find files:\n"
+        f"   search.unified_search(query='*', buckets=['{bucket}'], object_prefix='{prefix}')\n\n"
+        "2. Collect S3 URIs from search results\n\n"
+        "3. Call packaging.create with the URIs:\n"
+        f"   packaging.create(name='{name}', files=['s3://{bucket}/file1.csv', 's3://{bucket}/file2.csv'])\n\n"
+        "Alternatively, if you know the exact file paths, provide them directly to packaging.create."
     )
 
 

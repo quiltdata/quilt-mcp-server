@@ -4,19 +4,15 @@ This backend leverages the existing Enterprise GraphQL search infrastructure
 including ObjectsSearchContext and PackagesSearchContext.
 """
 
-import json
 import time
-from typing import Dict, List, Any, Optional, Union
-from urllib.parse import urljoin
+from typing import Any, Dict, List, Optional
 
-import requests
-from ..core.query_parser import QueryAnalysis, QueryType
 from .base import (
-    SearchBackend,
-    BackendType,
-    BackendStatus,
-    SearchResult,
     BackendResponse,
+    BackendStatus,
+    BackendType,
+    SearchBackend,
+    SearchResult,
 )
 
 
@@ -26,30 +22,31 @@ class EnterpriseGraphQLBackend(SearchBackend):
     def __init__(self):
         super().__init__(BackendType.GRAPHQL)
         self._registry_url = None
-        self._session = None
         self._check_graphql_access()
 
     def _check_graphql_access(self):
-        """Check if GraphQL endpoint is accessible using proven infrastructure."""
+        """Check if GraphQL endpoint is accessible using stateless infrastructure."""
         try:
-            # Use the existing working GraphQL infrastructure
-            from ...tools.graphql import _get_graphql_endpoint, catalog_graphql_query
+            # Use stateless GraphQL infrastructure
+            from ...runtime import get_active_token
+            from ...tools.graphql import catalog_graphql_query
+            from ...utils import resolve_catalog_url
 
-            session, graphql_url = _get_graphql_endpoint()
-
-            if not session or not graphql_url:
-                self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint or session unavailable")
+            token = get_active_token()
+            if not token:
+                self._update_status(BackendStatus.UNAVAILABLE, "Authorization token not available")
                 return
 
-            self._session = session
-            # Get registry URL from catalog client instead of quilt3
-            from ...utils import resolve_catalog_url
+            # Get registry URL
             self._registry_url = resolve_catalog_url()
+            if not self._registry_url:
+                self._update_status(BackendStatus.UNAVAILABLE, "Catalog URL not configured")
+                return
 
-            # Test with the working bucketConfigs query first
+            # Test with the working bucketConfigs query
             test_query = "query { bucketConfigs { name } }"
 
-            # Use the proven catalog_graphql_query function
+            # Use the stateless catalog_graphql_query function
             result = catalog_graphql_query(test_query, {})
 
             if result.get("success"):
@@ -70,33 +67,22 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def health_check(self) -> bool:
         """Check if GraphQL backend is healthy."""
         try:
-            if not self._registry_url or not self._session:
-                # Use stateless GraphQL client instead of quilt3
-                from ...runtime import get_active_token
-                from ...utils import resolve_catalog_url
-                
-                token = get_active_token()
-                self._registry_url = resolve_catalog_url()
-                
-                if not token or not self._registry_url:
-                    self._update_status(BackendStatus.UNAVAILABLE, "No token or GraphQL endpoint available")
-                    return False
-                
-                # Create a mock session object for compatibility
-                class MockSession:
-                    def __init__(self, token, registry_url):
-                        self.token = token
-                        self.registry_url = registry_url
-                
-                self._session = MockSession(token, self._registry_url)
-
-            if not self._registry_url or not self._session:
-                self._update_status(BackendStatus.UNAVAILABLE, "No GraphQL endpoint available")
+            # Use stateless GraphQL client
+            from ...runtime import get_active_token
+            from ...tools.graphql import catalog_graphql_query
+            from ...utils import resolve_catalog_url
+            
+            token = get_active_token()
+            registry_url = resolve_catalog_url()
+            
+            if not token or not registry_url:
+                self._update_status(BackendStatus.UNAVAILABLE, "No token or GraphQL endpoint available")
                 return False
 
-            # Test with the working bucketConfigs query
-            from ...tools.graphql import catalog_graphql_query
+            # Update cached registry URL
+            self._registry_url = registry_url
 
+            # Test with the working bucketConfigs query
             test_query = "query { bucketConfigs { name } }"
             result = catalog_graphql_query(test_query, {})
 
