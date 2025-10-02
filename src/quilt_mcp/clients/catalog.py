@@ -375,22 +375,125 @@ def catalog_package_create(
     flatten: bool,
     copy_mode: str,
 ) -> Dict[str, Any]:
-    payload = {
-        "package": package_name,
-        "s3_uris": list(s3_uris),
-        "metadata": metadata or {},
-        "message": message,
-        "flatten": flatten,
-        "copy_mode": copy_mode,
+    """
+    Create a package using GraphQL packageConstruct mutation.
+    
+    This replaces the old REST endpoint approach which was causing 405 errors.
+    """
+    # Parse package name to get bucket and name
+    if "/" not in package_name:
+        return {
+            "success": False,
+            "error": f"Invalid package name format: {package_name}. Expected format: 'bucket/package-name'"
+        }
+    
+    bucket, name = package_name.split("/", 1)
+    
+    # Convert S3 URIs to package entries
+    entries = []
+    for s3_uri in s3_uris:
+        if not s3_uri.startswith("s3://"):
+            return {
+                "success": False,
+                "error": f"Invalid S3 URI: {s3_uri}. Must start with 's3://'"
+            }
+        
+        # Extract bucket and key from S3 URI
+        uri_parts = s3_uri[5:].split("/", 1)  # Remove 's3://' prefix
+        if len(uri_parts) != 2:
+            return {
+                "success": False,
+                "error": f"Invalid S3 URI format: {s3_uri}. Expected format: 's3://bucket/key'"
+            }
+        
+        s3_bucket, s3_key = uri_parts
+        
+        # Determine logical key (flattened or full path)
+        if flatten:
+            # Use just the filename as logical key
+            logical_key = s3_key.split("/")[-1]
+        else:
+            # Use the full S3 key as logical key
+            logical_key = s3_key
+        
+        entries.append({
+            "logicalKey": logical_key,
+            "physicalKey": s3_uri,
+            "meta": metadata or {}
+        })
+    
+    # GraphQL mutation
+    mutation = """
+    mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
+        packageConstruct(params: $params, src: $src) {
+            ... on PackagePushSuccess {
+                package {
+                    bucket
+                    name
+                }
+                revision {
+                    hash
+                    modified
+                    message
+                    metadata
+                    userMeta
+                }
+            }
+            ... on InvalidInput {
+                _: Boolean
+            }
+            ... on OperationError {
+                _: Boolean
+            }
+        }
     }
-
-    url = _registry_endpoint(registry_url, "/api/package_revisions")
-    return catalog_rest_request(
-        method="POST",
-        url=url,
-        auth_token=auth_token,
-        json_body=payload,
-    )
+    """
+    
+    variables = {
+        "params": {
+            "bucket": bucket,
+            "name": name,
+            "message": message,
+            "userMeta": metadata or {}
+        },
+        "src": {
+            "entries": entries
+        }
+    }
+    
+    try:
+        result = catalog_graphql_query(
+            registry_url=registry_url,
+            query=mutation,
+            variables=variables,
+            auth_token=auth_token,
+        )
+        
+        if result.get("packageConstruct"):
+            construct_result = result["packageConstruct"]
+            if "package" in construct_result:
+                return {
+                    "success": True,
+                    "package": construct_result["package"],
+                    "revision": construct_result["revision"],
+                    "message": f"Package {package_name} created successfully"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Package creation failed - invalid input or operation error"
+                }
+        else:
+            return {
+                "success": False,
+                "error": "No result from packageConstruct mutation"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"GraphQL package creation failed: {str(e)}"
+        }
 
 
 def catalog_package_update(
