@@ -12,9 +12,7 @@ from enum import Enum
 class BackendType(Enum):
     """Types of search backends."""
 
-    ELASTICSEARCH = "elasticsearch"
     GRAPHQL = "graphql"
-    S3 = "s3"
 
 
 class BackendStatus(Enum):

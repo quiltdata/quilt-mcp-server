@@ -309,7 +309,7 @@ class BearerAuthService:
             aws_access_key_id=credentials["AccessKeyId"],
             aws_secret_access_key=credentials["SecretAccessKey"],
             aws_session_token=credentials["SessionToken"],
-            region_name="us-east-1",
+            region_name=credentials.get("Region") or "us-east-1",
         )
 
     @staticmethod
@@ -317,13 +317,18 @@ class BearerAuthService:
         candidate = payload.get("aws_credentials") or payload.get("awsCredentials")
         if not isinstance(candidate, dict):
             return None
-        if not candidate.get("access_key_id") or not candidate.get("secret_access_key"):
+        access_key = candidate.get("access_key_id") or candidate.get("accessKeyId")
+        secret_key = candidate.get("secret_access_key") or candidate.get("secretAccessKey")
+        session_token = candidate.get("session_token") or candidate.get("sessionToken")
+        region = candidate.get("region") or candidate.get("Region") or candidate.get("awsRegion")
+
+        if not access_key or not secret_key:
             return None
         return {
-            "access_key_id": candidate.get("access_key_id"),
-            "secret_access_key": candidate.get("secret_access_key"),
-            "session_token": candidate.get("session_token"),
-            "region": candidate.get("region") or "us-east-1",
+            "access_key_id": access_key,
+            "secret_access_key": secret_key,
+            "session_token": session_token,
+            "region": region or "us-east-1",
         }
 
     @staticmethod

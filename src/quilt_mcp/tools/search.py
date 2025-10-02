@@ -34,21 +34,14 @@ def search_discover() -> Dict[str, Any]:
         return format_error_response("Catalog URL not configured")
     
     try:
-        # For now, return basic search capabilities without GraphQL testing
-        # TODO: Implement proper GraphQL schema introspection once schema is clarified
         return {
             "success": True,
             "search_capabilities": {
-                "graphql_search": True,  # Assume available
-                "elasticsearch_search": True,
-                "s3_search": True,
+                "graphql_search": True,
                 "unified_search": True,
             },
             "available_backends": [
-                "auto",
                 "graphql",
-                "elasticsearch", 
-                "s3",
             ],
             "search_scopes": [
                 "global",
@@ -122,9 +115,8 @@ def unified_search(
         unified_search("*.csv", scope="bucket", target="s3://quilt-example")
     """
     try:
-        # Set default backends if None
-        if backends is None:
-            backends = ["auto"]
+        # Force GraphQL backend regardless of caller input
+        backends = ["graphql"]
 
         # Handle async execution properly for MCP tools
         try:
@@ -181,7 +173,7 @@ def unified_search(
                     "packages created this month",
                 ],
                 "scopes": ["global", "catalog", "package", "bucket"],
-                "backends": ["auto", "elasticsearch", "graphql", "s3"],
+                "backends": ["graphql"],
             },
         }
 
@@ -301,8 +293,6 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
                 mapped_params["scope"] = params["scope"]
             if "target" in params:
                 mapped_params["target"] = params["target"]
-            if "backends" in params:
-                mapped_params["backends"] = params["backends"]
             if "max_results" in params:
                 mapped_params["limit"] = params["max_results"]
             if "limit" in params:

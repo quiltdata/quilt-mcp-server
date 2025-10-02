@@ -10,8 +10,6 @@ from typing import Dict, List, Any, Optional, Union
 
 from ..core.query_parser import parse_query, QueryType, SearchScope
 from ..backends.base import BackendRegistry, BackendType, BackendStatus
-from ..backends.elasticsearch import Quilt3ElasticsearchBackend
-from ..backends.s3 import S3FallbackBackend
 from ..backends.graphql import EnterpriseGraphQLBackend
 
 
@@ -24,15 +22,7 @@ class UnifiedSearchEngine:
 
     def _initialize_backends(self):
         """Initialize and register all available backends."""
-        # Register Elasticsearch backend (wraps quilt3)
-        es_backend = Quilt3ElasticsearchBackend()
-        self.registry.register(es_backend)
-
-        # Register S3 fallback backend
-        s3_backend = S3FallbackBackend()
-        self.registry.register(s3_backend)
-
-        # Register GraphQL backend
+        # Register GraphQL backend as the sole backend for search operations.
         graphql_backend = EnterpriseGraphQLBackend()
         self.registry.register(graphql_backend)
 
@@ -74,27 +64,16 @@ class UnifiedSearchEngine:
         if filters:
             combined_filters.update(filters)
 
-        # Determine which backends to use
-        if backends is None:
-            backends = ["auto"]
+        # Determine which backends to use (GraphQL only)
+        selected_backends = self._get_backends_by_name(backends or ["graphql"])
 
-        if backends == ["auto"] or "auto" in backends:
-            selected_backends = self._select_backends(analysis)
-        else:
-            selected_backends = self._get_backends_by_name(backends)
-
-        # Execute searches in parallel
+        # Execute searches (GraphQL only – still go through shared helper for consistency)
         backend_responses = await self._execute_parallel_searches(
             selected_backends, query, scope, target, combined_filters, limit
         )
 
-        # Aggregate and rank results
+        # Aggregate and rank results (single backend currently)
         unified_results = self._aggregate_results(backend_responses, limit)
-
-        # Apply post-processing filters only for specific cases
-        # Don't apply post-filters if the query already contains ext: syntax
-        if "ext:" not in query.lower():
-            unified_results = self._apply_post_filters(unified_results, combined_filters)
 
         # Build response
         total_time = (time.time() - start_time) * 1000
@@ -107,9 +86,7 @@ class UnifiedSearchEngine:
             "results": unified_results,
             "total_results": len(unified_results),
             "query_time_ms": total_time,
-            "backends_used": [
-                resp.backend_type.value for resp in backend_responses if resp.status == BackendStatus.AVAILABLE
-            ],
+            "backend": "graphql",
             "analysis": (
                 {
                     "query_type": analysis.query_type.value,
@@ -128,34 +105,21 @@ class UnifiedSearchEngine:
             response["explanation"] = self._generate_explanation(analysis, backend_responses, selected_backends)
 
         # Add backend status information
-        response["backend_status"] = {
-            backend_type.value: {
+        response["backend_status"] = {}
+        if backend_responses:
+            resp = backend_responses[0]
+            response["backend_status"]["graphql"] = {
                 "status": resp.status.value,
                 "query_time_ms": resp.query_time_ms,
                 "result_count": len(resp.results),
                 "error": resp.error_message,
             }
-            for backend_type, resp in zip([b.backend_type for b in selected_backends], backend_responses)
-        }
 
         return response
 
     def _select_backends(self, analysis) -> List:
         """Select optimal backends based on query analysis."""
-        available_backends = self.registry.get_available_backends()
-
-        # Map suggested backend names to actual backend objects
-        selected = []
-        for backend_name in analysis.suggested_backends:
-            backend = self.registry.get_backend_by_name(backend_name)
-            if backend and backend in available_backends:
-                selected.append(backend)
-
-        # If no backends selected or available, use all available
-        if not selected:
-            selected = available_backends
-
-        return selected
+        return self._get_backends_by_name(["graphql"])
 
     def _get_backends_by_name(self, backend_names: List[str]) -> List:
         """Get backend objects by their string names."""
@@ -175,38 +139,28 @@ class UnifiedSearchEngine:
         filters: Dict[str, Any],
         limit: int,
     ) -> List:
-        """Execute searches across multiple backends in parallel."""
-        tasks = []
+        """Execute searches across configured backends."""
+        if not backends:
+            return []
 
-        for backend in backends:
-            task = backend.search(query, scope, target, filters, limit)
-            tasks.append(task)
-
-        # Execute all searches in parallel
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Handle exceptions
-        backend_responses = []
-        for i, response in enumerate(responses):
-            if isinstance(response, Exception):
-                # Create error response
-                backend_responses.append(
-                    type(
-                        "BackendResponse",
-                        (),
-                        {
-                            "backend_type": backends[i].backend_type,
-                            "status": BackendStatus.ERROR,
-                            "results": [],
-                            "error_message": str(response),
-                            "query_time_ms": 0,
-                        },
-                    )()
-                )
-            else:
-                backend_responses.append(response)
-
-        return backend_responses
+        backend = backends[0]
+        try:
+            response = await backend.search(query, scope, target, filters, limit)
+            return [response]
+        except Exception as exc:
+            return [
+                type(
+                    "BackendResponse",
+                    (),
+                    {
+                        "backend_type": backend.backend_type,
+                        "status": BackendStatus.ERROR,
+                        "results": [],
+                        "error_message": str(exc),
+                        "query_time_ms": 0,
+                    },
+                )()
+            ]
 
     def _aggregate_results(self, backend_responses: List, limit: int) -> List[Dict[str, Any]]:
         """Aggregate and rank results from multiple backends."""

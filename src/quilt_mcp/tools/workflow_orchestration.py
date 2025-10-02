@@ -635,7 +635,19 @@ def _create_validation_template(params: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def workflow_orchestration(action: str | None = None, params: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+def workflow_orchestration(
+    action: str | None = None,
+    params: Optional[Dict[str, Any]] = None,
+    workflow_id: Optional[str] = None,
+    step_id: Optional[str] = None,
+    template_name: Optional[str] = None,
+    template_id: Optional[str] = None,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    status: Optional[str] = None,
+    output: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Workflow creation and orchestration for multi-step operations.
 
@@ -650,7 +662,15 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
     Args:
         action: The operation to perform. If None, returns available actions.
         params: Action-specific parameters as a dictionary
-        **kwargs: Alternative way to pass action-specific parameters
+        workflow_id: Convenience parameter for callers that pass workflow_id at the top level
+        step_id: Convenience parameter for callers that pass step_id at the top level
+        template_name: Template identifier for template_apply actions (camelCase compatible)
+        template_id: Alias for template_name used by some clients
+        name: Workflow or step name (optional convenience parameter)
+        description: Workflow or step description (optional convenience parameter)
+        metadata: Arbitrary metadata for workflow or step
+        status: Step status for update_step
+        output: Optional output payload for update_step
 
     Returns:
         Action-specific response dictionary
@@ -696,9 +716,36 @@ def workflow_orchestration(action: str | None = None, params: Optional[Dict[str,
     # Dispatch
     try:
         func = actions[action]
-        # Merge params and kwargs, with kwargs taking precedence
-        merged_params = (params or {}).copy()
-        merged_params.update(kwargs)
+
+        merged_params: Dict[str, Any] = (params or {}).copy()
+
+        # Merge top-level convenience parameters supplied by clients (without overriding explicit params)
+        if workflow_id is not None and "workflow_id" not in merged_params:
+            merged_params["workflow_id"] = workflow_id
+        if step_id is not None and "step_id" not in merged_params:
+            merged_params["step_id"] = step_id
+        if name is not None and "name" not in merged_params:
+            merged_params["name"] = name
+        if description is not None and "description" not in merged_params:
+            merged_params["description"] = description
+        if metadata is not None and "metadata" not in merged_params:
+            merged_params["metadata"] = metadata
+        if status is not None and "status" not in merged_params:
+            merged_params["status"] = status
+        if output is not None and "output" not in merged_params:
+            merged_params["output"] = output
+
+        # Handle template identifiers supplied with camelCase or snake_case naming.
+        # template_name is the official snake_case parameter; template_id is the camelCase alias.
+        if "template_name" in merged_params:
+            pass  # explicit value already provided
+        elif "templateName" in merged_params:
+            merged_params["template_name"] = merged_params.pop("templateName")
+        else:
+            effective_template_name = template_name or template_id
+            if effective_template_name is not None:
+                merged_params["template_name"] = effective_template_name
+
         return func(**merged_params)
     except TypeError as e:
         import inspect
