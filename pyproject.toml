@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.6.35"
+version = "0.6.37"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,7 +43,6 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.20.0",
     "pyjwt>=2.0.0",
-    "starlette>=0.37.2",
 ]
 
 [project.urls]

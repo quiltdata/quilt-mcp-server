@@ -13,7 +13,6 @@ import logging
 from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
-from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.requests import Request
 from fastmcp import FastMCP
 
@@ -346,15 +345,8 @@ def _wrap_http_app(mcp: FastMCP):
 
     app = mcp.http_app(stateless_http=True)
 
-    # Configure proxy-aware middleware to honor X-Forwarded-* headers when behind ALB/ELB
-    trusted_hosts_env = os.environ.get("FASTMCP_TRUSTED_HOSTS", "*")
-    trusted_hosts = [host.strip() for host in trusted_hosts_env.split(",") if host.strip()]
-    if not trusted_hosts:
-        trusted_hosts = ["*"]
-
-    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted_hosts)
-
     # Allow external URL configuration so generated links keep HTTPS + correct root path
+    # Note: Proxy header handling is configured via uvicorn.run(proxy_headers=True)
     external_url = os.environ.get("FASTMCP_EXTERNAL_URL")
     if external_url:
         parsed = urlparse(external_url)
