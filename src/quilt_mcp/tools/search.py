@@ -4,11 +4,79 @@ This module exposes the unified search functionality as MCP tools.
 """
 
 import asyncio
+import logging
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
+from ..clients import catalog as catalog_client
+from ..runtime import get_active_token
 from ..search.tools.unified_search import unified_search as _unified_search
 from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.search_explain import search_explain as _search_explain
+from ..utils import format_error_response, resolve_catalog_url
+
+logger = logging.getLogger(__name__)
+
+
+def search_discover() -> Dict[str, Any]:
+    """
+    Discover search capabilities and available backends.
+    
+    Returns:
+        Dict with search capabilities, available backends, and configuration info.
+    """
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required for search discovery")
+    
+    catalog_url = resolve_catalog_url()
+    if not catalog_url:
+        return format_error_response("Catalog URL not configured")
+    
+    try:
+        # For now, return basic search capabilities without GraphQL testing
+        # TODO: Implement proper GraphQL schema introspection once schema is clarified
+        return {
+            "success": True,
+            "search_capabilities": {
+                "graphql_search": True,  # Assume available
+                "elasticsearch_search": True,
+                "s3_search": True,
+                "unified_search": True,
+            },
+            "available_backends": [
+                "auto",
+                "graphql",
+                "elasticsearch", 
+                "s3",
+            ],
+            "search_scopes": [
+                "global",
+                "catalog", 
+                "package",
+                "bucket",
+            ],
+            "supported_filters": [
+                "file_extensions",
+                "size_gt",
+                "size_lt", 
+                "date_after",
+                "date_before",
+                "content_type",
+            ],
+            "common_queries": [
+                "CSV files",
+                "genomics data", 
+                "files larger than 100MB",
+                "packages created this month",
+                "README files",
+            ],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        
+    except Exception as e:
+        logger.exception(f"Error discovering search capabilities: {e}")
+        return format_error_response(f"Failed to discover search capabilities: {str(e)}")
 
 
 def unified_search(
@@ -181,13 +249,14 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
     Intelligent search operations across Quilt catalogs, packages, and S3 buckets.
 
     Available actions:
+    - discover: Discover search capabilities and available backends
     - unified_search: Intelligent unified search with automatic backend selection
     - suggest: Get intelligent search suggestions based on partial queries
     - explain: Explain how a search query would be processed
 
     Args:
         action: The operation to perform. If None, returns available actions.
-        **kwargs: Action-specific parameters
+        params: Action-specific parameters
 
     Returns:
         Action-specific response dictionary
@@ -196,55 +265,42 @@ def search(action: str | None = None, params: Optional[Dict[str, Any]] = None) -
         # Discovery mode
         result = search()
 
+        # Discover search capabilities
+        result = search(action="discover")
+
         # Unified search
-        result = search(action="unified_search", query="CSV files")
+        result = search(action="unified_search", params={"query": "CSV files"})
 
         # Get suggestions
-        result = search(action="suggest", partial_query="genom")
+        result = search(action="suggest", params={"partial_query": "genom"})
 
     For detailed parameter documentation, see individual action functions.
     """
-    actions = {
-        "unified_search": unified_search,
-        "suggest": search_suggest,
-        "explain": search_explain,
-    }
-
-    # Discovery mode
-    if action is None:
-        return {
-            "success": True,
-            "module": "search",
-            "actions": list(actions.keys()),
-            "usage": "Call with action='<action_name>' to execute",
-        }
-
-    # Validate action
-    if action not in actions:
-        available = ", ".join(sorted(actions.keys()))
-        return {
-            "success": False,
-            "error": f"Unknown action '{action}' for module 'search'. Available actions: {available}",
-        }
-
-    # Dispatch
+    params = params or {}
+    
     try:
-        func = actions[action]
-        params = params or {}
-        return func(**params)
-    except TypeError as e:
-        import inspect
-
-        sig = inspect.signature(func)
-        expected_params = list(sig.parameters.keys())
-        return {
-            "success": False,
-            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
-        }
-    except Exception as e:
-        if isinstance(e, dict) and not e.get("success"):
-            return e
-        return {
-            "success": False,
-            "error": f"Error executing action '{action}': {str(e)}",
-        }
+        if action is None:
+            return {
+                "module": "search",
+                "actions": [
+                    "discover",
+                    "unified_search",
+                    "suggest", 
+                    "explain",
+                ],
+                "description": "Intelligent search operations via Quilt Catalog GraphQL",
+            }
+        elif action == "discover":
+            return search_discover()
+        elif action == "unified_search":
+            return unified_search(**params)
+        elif action == "suggest":
+            return search_suggest(**params)
+        elif action == "explain":
+            return search_explain(**params)
+        else:
+            return format_error_response(f"Unknown search action: {action}")
+    
+    except Exception as exc:
+        logger.exception(f"Error executing search action '{action}': {exc}")
+        return format_error_response(f"Failed to execute search action '{action}': {str(exc)}")
