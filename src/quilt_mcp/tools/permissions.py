@@ -4,11 +4,13 @@ This module provides MCP tools for discovering AWS permissions and providing
 intelligent bucket recommendations based on user's actual access levels.
 """
 
+import boto3
 from typing import Dict, List, Any, Optional
 import logging
 from datetime import datetime, timezone
 
 from ..services.permission_discovery import AWSPermissionDiscovery, PermissionLevel
+from ..runtime import get_active_token
 from ..utils import format_error_response
 
 logger = logging.getLogger(__name__)
@@ -17,11 +19,28 @@ logger = logging.getLogger(__name__)
 _permission_discovery = None
 
 
+def _get_bearer_auth_service():
+    from ..services.bearer_auth_service import get_bearer_auth_service
+
+    return get_bearer_auth_service()
+
+
+def _build_jwt_backed_session():
+    token = get_active_token()
+    auth_service = _get_bearer_auth_service()
+    if token:
+        result = auth_service.authenticate_header(f"Bearer {token}")
+        return auth_service.build_boto3_session(result)
+
+    # No token available (e.g., unauthenticated context); fall back to ambient session
+    return boto3.Session()
+
+
 def _get_permission_discovery() -> AWSPermissionDiscovery:
     """Get or create the global permission discovery instance."""
     global _permission_discovery
     if _permission_discovery is None:
-        _permission_discovery = AWSPermissionDiscovery()
+        _permission_discovery = AWSPermissionDiscovery(aws_session_builder=_build_jwt_backed_session)
     return _permission_discovery
 
 

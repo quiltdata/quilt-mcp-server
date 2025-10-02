@@ -332,7 +332,7 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 def _wrap_http_app(mcp: FastMCP):
     """Wrap the FastAPI application to manage request context."""
 
-    app = mcp.http_app()
+    app = mcp.http_app(stateless_http=True)
 
     @app.middleware("http")
     async def _inject_request_context(request: Request, call_next):  # type: ignore
@@ -358,17 +358,14 @@ def run_server() -> None:
 
         if transport in {"http", "streamable-http"}:
             app = _wrap_http_app(mcp)
-            from fastapi import FastAPI
+            import uvicorn
 
-            if isinstance(app, FastAPI):
-                import uvicorn
-
-                uvicorn.run(
-                    app,
-                    host=os.environ.get("FASTMCP_ADDR", "127.0.0.1"),
-                    port=int(os.environ.get("FASTMCP_PORT", "8000")),
-                )
-                return
+            uvicorn.run(
+                app,
+                host=os.environ.get("FASTMCP_ADDR", "127.0.0.1"),
+                port=int(os.environ.get("FASTMCP_PORT", "8000")),
+            )
+            return
 
         mcp.run(transport=transport)
 

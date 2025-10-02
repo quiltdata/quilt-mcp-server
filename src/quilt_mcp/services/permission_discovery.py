@@ -5,7 +5,7 @@ including bucket access level detection, user identity discovery, and
 intelligent permission caching.
 """
 
-from typing import Dict, List, Any, Optional, NamedTuple, Set
+from typing import Callable, Dict, List, Any, Optional, NamedTuple, Set
 from enum import Enum
 import logging
 from datetime import datetime, timezone
@@ -58,66 +58,44 @@ class UserIdentity(NamedTuple):
 class AWSPermissionDiscovery:
     """AWS permission discovery and caching engine."""
 
-    def __init__(self, cache_ttl: int = 3600):
+    def __init__(self, cache_ttl: int = 3600, aws_session_builder: Optional[Callable[[], boto3.Session]] = None):
         """Initialize the permission discovery engine.
 
         Args:
             cache_ttl: Cache TTL in seconds (default: 1 hour)
+            aws_session_builder: Optional callable returning a boto3.Session configured for the
+                current request (typically using JWT credentials). If not provided, the service
+                falls back to the default boto3 session resolution.
         """
         self.cache_ttl = cache_ttl
         self.permission_cache = TTLCache(maxsize=1000, ttl=cache_ttl)
         self.identity_cache = TTLCache(maxsize=10, ttl=cache_ttl)
         self.bucket_list_cache = TTLCache(maxsize=10, ttl=cache_ttl // 2)  # Shorter TTL for bucket lists
+        self.aws_session_builder = aws_session_builder
 
         # Initialize AWS clients
         try:
-            # Prefer Quilt3-provided STS-backed session, if logged in
-            session = None
-            try:
-                disable_quilt3_session = os.getenv("QUILT_DISABLE_QUILT3_SESSION") == "1"
-                # If quilt3 is mocked in tests, always allow using it regardless of env flag
-                try:
-                    is_quilt3_mock = "unittest.mock" in type(quilt3).__module__
-                except Exception:
-                    is_quilt3_mock = False
-                if (
-                    (not disable_quilt3_session or is_quilt3_mock)
-                    and hasattr(quilt3, "logged_in")
-                    and quilt3.logged_in()
-                ):
-                    if hasattr(quilt3, "get_boto3_session"):
-                        session = quilt3.get_boto3_session()
-            except Exception:
-                session = None
+            session = self.aws_session_builder() if self.aws_session_builder else None
 
-            if session is not None:
-                logger.info("Using Quilt3-backed boto3 session for permission discovery")
-                self.sts_client = session.client("sts")
-                self.iam_client = session.client("iam")
-                self.s3_client = session.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = session.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = session.client("athena")
-                except Exception:
-                    self.athena_client = None
+            if session is None:
+                if self.aws_session_builder:
+                    logger.info("AWS session builder returned None; falling back to default boto3 session")
+                session = boto3.Session()
             else:
-                logger.info("Using default boto3 clients for permission discovery")
-                self.sts_client = boto3.client("sts")
-                self.iam_client = boto3.client("iam")
-                self.s3_client = boto3.client("s3")
-                # Optional clients used for fallback discovery paths
-                try:
-                    self.glue_client = boto3.client("glue")
-                except Exception:
-                    self.glue_client = None
-                try:
-                    self.athena_client = boto3.client("athena")
-                except Exception:
-                    self.athena_client = None
+                logger.info("Using provided AWS session for permission discovery")
+
+            self.sts_client = session.client("sts")
+            self.iam_client = session.client("iam")
+            self.s3_client = session.client("s3")
+
+            try:
+                self.glue_client = session.client("glue")
+            except Exception:
+                self.glue_client = None
+            try:
+                self.athena_client = session.client("athena")
+            except Exception:
+                self.athena_client = None
         except NoCredentialsError:
             logger.error("AWS credentials not found")
             raise

@@ -1,8 +1,10 @@
-- Packages module now normalizes HTTP registries, depends on runtime tokens, and has stateless tests under tests/unit/test_packages_stateless.py; keep client mocks in sync when expanding coverage.
-- Package ops now delegate to catalog client helpers and enforce runtime tokens; update dependent tools/tests to mock catalog_package_create/update/delete.
-- Bucket search stack now depends on catalog client helpers; ensure env exposes QUILT_CATALOG_URL or domain when running tests.
-- Auth module now resolves catalog context from environment + runtime tokens; configure tests by setting QUILT_CATALOG_URL and using request_context.
-- Pending follow-up: athena_service and governance/admin flows still depend on QuiltService; they're intentionally omitted from the current stateless migration and must remain off the happy path until refactored.
+- **Stateless Architecture**: All core modules (packages, package_ops, buckets, auth, tabulator, s3_package, package_management) use runtime tokens and catalog client helpers instead of QuiltService.
+- **MCP HTTP Transport**: Server uses `stateless_http=True` mode - accepts requests without session ID requirement, returns session ID header for client tracking, but doesn't enforce server-side session persistence.
+- **Runtime Context**: Tests use `request_context(token, metadata)` to inject auth tokens and request metadata; ensure QUILT_CATALOG_URL is set when testing catalog operations.
+- **Catalog Client Helpers**: All GraphQL/REST calls to Quilt Catalog go through `src/quilt_mcp/clients/catalog.py` - mock these helpers when expanding test coverage.
+- **Pending follow-up**: 
+  - `athena_service` and `governance/admin` flows still depend on QuiltService; they're intentionally omitted from the current stateless migration and must remain off the happy path until refactored.
+  - ~~`AWSPermissionDiscovery` service uses `quilt3.get_boto3_session()` or default boto3 credentials instead of JWT-provided AWS credentials~~ **Resolved (2025-10-01)**: `AWSPermissionDiscovery` now accepts an injected `aws_session_builder` and the permissions tool passes a builder that derives boto3 sessions from the active JWT via `BearerAuthService.build_boto3_session()` when available, falling back to ambient credentials otherwise. Tests (`tests/unit/test_permissions_stateless.py`) cover the JWT-provided credential path.
 <!-- markdownlint-disable MD013 -->
 # Development Guidelines for Claude
 
