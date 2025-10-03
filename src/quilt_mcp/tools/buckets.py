@@ -221,114 +221,88 @@ def bucket_objects_list(
     }
 
 
-def bucket_object_info(s3_uri: str) -> dict[str, Any]:
-    """Get metadata information for a specific S3 object.
+def bucket_object_info(path: str = "", s3_uri: str = "", **kwargs) -> dict[str, Any]:
+    """Get metadata information for a file using backend proxy.
 
     Args:
-        s3_uri: Full S3 URI, optionally with versionId query parameter
-                Examples:
-                - "s3://bucket-name/path/to/object"
-                - "s3://bucket-name/path/to/object?versionId=abc123"
+        path: Logical file path within package (e.g., "README.md")
+        s3_uri: Alternative: Full S3 URI (legacy, requires AWS creds)
+        **kwargs: Additional parameters including _context from frontend
 
     Returns:
-        Dict with object metadata including size, content type, etag, and modification date.
-        For versioned objects, includes version-specific metadata.
-
-    Version-specific Error Responses:
-        - InvalidVersionId: Generic error with operation details
-        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
-        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+        Dict with object metadata including size, content type, etc.
     """
+    import requests
+    
+    # Get presigned URL
+    link_result = bucket_object_link(path=path, s3_uri=s3_uri, **kwargs)
+    
+    if not link_result.get("success"):
+        return link_result  # Return error from object_link
+    
+    presigned_url = link_result.get("url")
+    if not presigned_url:
+        return format_error_response("Failed to get presigned URL")
+    
+    # HEAD request to get metadata
     try:
-        bucket, key, version_id = parse_s3_uri(s3_uri)
-    except ValueError as e:
-        return {"error": str(e)}
-
-    client = get_s3_client()
-    try:
-        # Build params dict and conditionally add VersionId
-        params = {"Bucket": bucket, "Key": key}
-        if version_id:
-            params["VersionId"] = version_id
-        head = client.head_object(**params)
+        response = requests.head(presigned_url, timeout=10)
+        response.raise_for_status()
+        
+        return {
+            "success": True,
+            "path": path or s3_uri,
+            "size": int(response.headers.get("Content-Length", 0)),
+            "content_type": response.headers.get("Content-Type", ""),
+            "etag": response.headers.get("ETag", "").strip('"'),
+            "last_modified": response.headers.get("Last-Modified", ""),
+            "cache_control": response.headers.get("Cache-Control", ""),
+        }
     except Exception as e:
-        # Handle version-specific errors
-        if hasattr(e, 'response') and 'Error' in e.response:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchVersion':
-                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
-            elif error_code == 'AccessDenied' and version_id:
-                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
-        return {"error": f"Failed to head object: {e}", "bucket": bucket, "key": key}
-    return {
-        "bucket": bucket,
-        "key": key,
-        "size": head.get("ContentLength"),
-        "content_type": head.get("ContentType"),
-        "etag": head.get("ETag"),
-        "last_modified": str(head.get("LastModified")),
-        "metadata": head.get("Metadata", {}),
-        "storage_class": head.get("StorageClass"),
-        "cache_control": head.get("CacheControl"),
-    }
+        return format_error_response(f"Failed to get file metadata: {e}")
 
 
-def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> dict[str, Any]:
-    """Read text content from an S3 object.
+def bucket_object_text(
+    path: str = "",
+    s3_uri: str = "",
+    max_bytes: int = 65536,
+    encoding: str = "utf-8",
+    **kwargs
+) -> dict[str, Any]:
+    """Read text content from a file using backend proxy.
 
     Args:
-        s3_uri: Full S3 URI, optionally with versionId query parameter
-                Examples:
-                - "s3://bucket-name/path/to/file.txt"
-                - "s3://bucket-name/path/to/file.txt?versionId=xyz"
+        path: Logical file path within package (e.g., "README.md")
+        s3_uri: Alternative: Full S3 URI (legacy, requires AWS creds)
         max_bytes: Maximum bytes to read (default: 65536)
         encoding: Text encoding to use (default: "utf-8")
+        **kwargs: Additional parameters including _context from frontend
 
     Returns:
         Dict with decoded text content and metadata.
-        For versioned objects, retrieves content from the specific version.
-
-    Version-specific Error Responses:
-        - InvalidVersionId: Generic error with operation details
-        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
-        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
-    try:
-        bucket, key, version_id = parse_s3_uri(s3_uri)
-    except ValueError as e:
-        return {"error": str(e)}
-
-    client = get_s3_client()
-    try:
-        # Build params dict and conditionally add VersionId
-        params = {"Bucket": bucket, "Key": key}
-        if version_id:
-            params["VersionId"] = version_id
-        obj = client.get_object(**params)
-        body = obj["Body"].read(max_bytes + 1)
-    except Exception as e:
-        # Handle version-specific errors
-        if hasattr(e, 'response') and 'Error' in e.response:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchVersion':
-                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
-            elif error_code == 'AccessDenied' and version_id:
-                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
-        return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
-    truncated = len(body) > max_bytes
-    if truncated:
-        body = body[:max_bytes]
-    try:
-        text = body.decode(encoding, errors="replace")
-    except Exception as e:
-        return {"error": f"Decode failed: {e}", "bucket": bucket, "key": key}
+    # Use bucket_object_fetch with base64_encode=False to get text
+    fetch_result = bucket_object_fetch(
+        path=path,
+        s3_uri=s3_uri,
+        max_bytes=max_bytes,
+        base64_encode=False,
+        **kwargs
+    )
+    
+    if not fetch_result.get("success"):
+        return fetch_result  # Return error
+    
+    # Re-format for text-specific response
     return {
-        "bucket": bucket,
-        "key": key,
+        "success": True,
+        "path": fetch_result.get("path"),
+        "text": fetch_result.get("text", ""),
         "encoding": encoding,
-        "truncated": truncated,
+        "truncated": fetch_result.get("truncated", False),
         "max_bytes": max_bytes,
-        "text": text,
+        "size": fetch_result.get("size", 0),
+        "content_type": fetch_result.get("content_type", ""),
     }
 
 
@@ -399,144 +373,185 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> dict[str, Any]:
-    """Fetch binary or text data from an S3 object.
+def bucket_object_fetch(
+    path: str = "",
+    s3_uri: str = "",
+    max_bytes: int = 65536,
+    base64_encode: bool = True,
+    **kwargs
+) -> dict[str, Any]:
+    """Fetch binary or text data from a file using backend proxy.
 
     Args:
-        s3_uri: Full S3 URI, optionally with versionId query parameter
-                Examples:
-                - "s3://bucket-name/path/to/file"
-                - "s3://bucket-name/path/to/file?versionId=xyz"
+        path: Logical file path within package (e.g., "README.md")
+        s3_uri: Alternative: Full S3 URI (legacy, requires AWS creds)
         max_bytes: Maximum bytes to read (default: 65536)
         base64_encode: Return binary data as base64 (default: True)
+        **kwargs: Additional parameters including _context from frontend
 
     Returns:
         Dict with object data as base64 or text, plus metadata.
-        For versioned objects, fetches data from the specific version.
-
-    Version-specific Error Responses:
-        - InvalidVersionId: Generic error with operation details
-        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
-        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
     """
     import base64
-
+    import requests
+    
+    # Get presigned URL using object_link
+    link_result = bucket_object_link(path=path, s3_uri=s3_uri, **kwargs)
+    
+    if not link_result.get("success"):
+        return link_result  # Return error from object_link
+    
+    presigned_url = link_result.get("url")
+    if not presigned_url:
+        return format_error_response("Failed to get presigned URL")
+    
+    # Fetch content from presigned URL
     try:
-        bucket, key, version_id = parse_s3_uri(s3_uri)
-    except ValueError as e:
-        return {"error": str(e)}
-
-    client = get_s3_client()
-    try:
-        # Build params dict and conditionally add VersionId
-        params = {"Bucket": bucket, "Key": key}
-        if version_id:
-            params["VersionId"] = version_id
-        obj = client.get_object(**params)
-        body = obj["Body"].read(max_bytes + 1)
-        content_type = obj.get("ContentType")
+        response = requests.get(presigned_url, timeout=30)
+        response.raise_for_status()
+        
+        body = response.content[:max_bytes + 1]
+        content_type = response.headers.get("Content-Type", "")
+        
+        truncated = len(body) > max_bytes
+        if truncated:
+            body = body[:max_bytes]
+        
+        if base64_encode:
+            data = base64.b64encode(body).decode("ascii")
+            return {
+                "success": True,
+                "path": path or s3_uri,
+                "truncated": truncated,
+                "max_bytes": max_bytes,
+                "base64": True,
+                "data": data,
+                "content_type": content_type,
+                "size": len(body),
+            }
+        try:
+            text = body.decode("utf-8")
+            return {
+                "success": True,
+                "path": path or s3_uri,
+                "truncated": truncated,
+                "max_bytes": max_bytes,
+                "base64": False,
+                "text": text,
+                "content_type": content_type,
+                "size": len(body),
+            }
+        except Exception:
+            data = base64.b64encode(body).decode("ascii")
+            return {
+                "success": True,
+                "path": path or s3_uri,
+                "truncated": truncated,
+                "max_bytes": max_bytes,
+                "base64": True,
+                "data": data,
+                "content_type": content_type,
+                "size": len(body),
+                "note": "Binary data returned as base64 after decode failure",
+            }
     except Exception as e:
-        # Handle version-specific errors
-        if hasattr(e, 'response') and 'Error' in e.response:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchVersion':
-                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
-            elif error_code == 'AccessDenied' and version_id:
-                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
-        return {"error": f"Failed to get object: {e}", "bucket": bucket, "key": key}
-    truncated = len(body) > max_bytes
-    if truncated:
-        body = body[:max_bytes]
-    if base64_encode:
-        data = base64.b64encode(body).decode("ascii")
-        return {
-            "bucket": bucket,
-            "key": key,
-            "truncated": truncated,
-            "max_bytes": max_bytes,
-            "base64": True,
-            "data": data,
-            "content_type": content_type,
-            "size": len(body),
-        }
-    try:
-        text = body.decode("utf-8")
-        return {
-            "bucket": bucket,
-            "key": key,
-            "truncated": truncated,
-            "max_bytes": max_bytes,
-            "base64": False,
-            "text": text,
-            "content_type": content_type,
-            "size": len(body),
-        }
-    except Exception:
-        data = base64.b64encode(body).decode("ascii")
-        return {
-            "bucket": bucket,
-            "key": key,
-            "truncated": truncated,
-            "max_bytes": max_bytes,
-            "base64": True,
-            "data": data,
-            "content_type": content_type,
-            "size": len(body),
-            "note": "Binary data returned as base64 after decode failure",
-        }
+        return format_error_response(f"Failed to fetch file content: {e}")
 
 
-def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
-    """Generate a presigned URL for downloading an S3 object.
+def bucket_object_link(
+    path: str = "",
+    s3_uri: str = "",
+    expiration: int = 3600,
+    **params
+) -> dict[str, Any]:
+    """Generate a presigned URL for downloading a file using backend proxy.
+
+    This function uses the backend's browsing session mechanism to generate
+    presigned URLs without requiring AWS credentials in the JWT token.
 
     Args:
-        s3_uri: Full S3 URI, optionally with versionId query parameter
-                Examples:
-                - "s3://bucket-name/path/to/file"
-                - "s3://bucket-name/path/to/file?versionId=xyz"
+        path: Logical file path within package (e.g., "README.md", "data/file.csv")
+        s3_uri: Alternative: Full S3 URI (legacy support)
         expiration: URL expiration time in seconds (default: 3600, max: 604800)
+        **params: Additional parameters including _context from frontend navigation
 
     Returns:
         Dict with presigned URL and metadata.
-        For versioned objects, generates URL for the specific version.
 
-    Version-specific Error Responses:
-        - InvalidVersionId: Generic error with operation details
-        - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
-        - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+    Examples:
+        # Using navigation context (preferred)
+        bucket_object_link(path="README.md", _context={...})
+        
+        # Using explicit S3 URI (legacy)
+        bucket_object_link(s3_uri="s3://bucket/path/to/file")
     """
-    try:
-        bucket, key, version_id = parse_s3_uri(s3_uri)
-    except ValueError as e:
-        return {"error": str(e)}
-
-    expiration = max(1, min(expiration, 604800))
-    client = get_s3_client()
-    try:
-        # Build params dict and conditionally add VersionId
-        params = {"Bucket": bucket, "Key": key}
-        if version_id:
-            params["VersionId"] = version_id
-        url = client.generate_presigned_url("get_object", Params=params, ExpiresIn=expiration)
+    from ..runtime.context_helpers import get_navigation_context, has_package_context
+    
+    # Extract navigation context
+    nav_context = get_navigation_context(params)
+    
+    # Try to use browsing session if we have package context
+    if path and has_package_context(nav_context):
+        token = get_active_token()
+        if not token:
+            return format_error_response("Authorization token required")
+        
+        catalog_url = resolve_catalog_url()
+        if not catalog_url:
+            return format_error_response("Catalog URL not configured")
+        
+        try:
+            # Create browsing session for current package
+            session = catalog_client.catalog_create_browsing_session(
+                registry_url=catalog_url,
+                bucket=nav_context['bucket'],
+                package_name=nav_context['package'],
+                package_hash=nav_context['hash'],
+                ttl=min(expiration, 180),  # Max 3 minutes for session
+                auth_token=token,
+            )
+            
+            # Get presigned URL for file
+            presigned_url = catalog_client.catalog_browse_file(
+                registry_url=catalog_url,
+                session_id=session['id'],
+                path=path,
+                auth_token=token,
+            )
+            
+            return {
+                "success": True,
+                "url": presigned_url,
+                "expires": session['expires'],
+                "session_id": session['id'],
+                "method": "browsing_session",
+                "path": path,
+                "package": f"{nav_context['bucket']}/{nav_context['package']}",
+            }
+        except Exception as e:
+            return format_error_response(f"Failed to generate presigned URL: {e}")
+    
+    # Fall back to legacy S3 URI approach (requires AWS credentials)
+    if not s3_uri and path:
         return {
-            "bucket": bucket,
-            "key": key,
-            "presigned_url": url,
-            "expires_in": expiration,
+            "success": False,
+            "error": "Package context required for presigned URLs",
+            "message": (
+                "To generate a presigned URL, you must be viewing a package. "
+                "The frontend navigation context provides the necessary package information. "
+                "If you're not in a package view, use search.unified_search to find the file."
+            ),
+            "alternatives": {
+                "search": "Use search.unified_search to find files",
+                "packaging": "Use packaging.browse to explore package contents"
+            }
         }
-    except Exception as e:
-        # Handle version-specific errors
-        if hasattr(e, 'response') and 'Error' in e.response:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchVersion':
-                return {"error": f"Version {version_id} not found for {s3_uri}", "bucket": bucket, "key": key}
-            elif error_code == 'AccessDenied' and version_id:
-                return {"error": f"Access denied for version {version_id} of {s3_uri}", "bucket": bucket, "key": key}
-        return {
-            "error": f"Failed to generate presigned URL: {e}",
-            "bucket": bucket,
-            "key": key,
-        }
+    
+    if not s3_uri:
+        return format_error_response("Either 'path' with package context or 's3_uri' required")
+    
+    # Legacy S3 URI approach (will fail without AWS credentials)
+    return _aws_credentials_unavailable("object_link", s3_uri)
 
 
 def bucket_objects_search(
