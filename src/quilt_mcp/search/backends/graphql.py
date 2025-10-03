@@ -334,49 +334,90 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def _search_objects_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search objects globally by querying accessible buckets.
-        
-        Note: searchObjects.firstPage has a backend bug (Internal Server Error),
-        so we query individual buckets using the working objects(bucket:...) query.
+        """Search objects globally using Enterprise GraphQL searchObjects."""
+
+        graphql_query = """
+        query SearchObjects($searchString: String!, $filter: ObjectsSearchFilter, $order: SearchResultOrder!) {
+            searchObjects(buckets: [], searchString: $searchString, filter: $filter) {
+                ... on ObjectsSearchResultSet {
+                    total
+                    firstPage(order: $order) {
+                        hits {
+                            id
+                            score
+                            bucket
+                            key
+                            version
+                            size
+                            modified
+                            deleted
+                            indexedContent
+                        }
+                    }
+                }
+            }
+        }
         """
-        # First, get list of accessible buckets
-        buckets_query = "query { bucketConfigs { name } }"
+
+        variables = {
+            "searchString": query if query and query != "*" else "",
+            "filter": self._build_objects_filter(query, filters),
+            "order": "BEST_MATCH",
+        }
+
         try:
-            buckets_result = await self._execute_graphql_query(buckets_query, {})
-            bucket_names = [
-                cfg["name"] 
-                for cfg in buckets_result.get("data", {}).get("bucketConfigs", [])
-            ]
-        except Exception:
-            # If we can't get buckets, we can't search
-            return []
-        
-        if not bucket_names:
-            return []
-        
-        # Build GraphQL filter from query and filters
-        object_filter = self._build_graphql_filter(query, filters)
-        
-        # Query each bucket (limit results per bucket to spread across buckets)
-        per_bucket_limit = max(10, limit // len(bucket_names)) if len(bucket_names) > 0 else limit
-        all_results = []
-        
-        for bucket in bucket_names[:10]:  # Limit to first 10 buckets to avoid too many queries
-            try:
-                bucket_results = await self._search_bucket_objects(
-                    query, bucket, filters, per_bucket_limit
+            result = await self._execute_graphql_query(graphql_query, variables)
+
+            if result.get("errors"):
+                raise Exception(f"GraphQL errors: {result['errors']}")
+
+            data = result.get("data", {})
+            search_result = data.get("searchObjects", {})
+
+            first_page = search_result.get("firstPage", {})
+            hits = first_page.get("hits", [])
+
+            results: List[SearchResult] = []
+            for hit in hits[:limit]:
+                bucket = hit.get("bucket", "")
+                key = hit.get("key", "")
+
+                result_obj = SearchResult(
+                    id=f"graphql-object-{bucket}-{key}",
+                    type="file",
+                    title=key.split("/")[-1] if key else "(unknown)",
+                    description=f"Object in {bucket}",
+                    s3_uri=f"s3://{bucket}/{key}" if bucket and key else None,
+                    logical_key=key,
+                    metadata={
+                        "bucket": bucket,
+                        "version": hit.get("version"),
+                        "size": hit.get("size"),
+                        "modified": hit.get("modified"),
+                        "deleted": hit.get("deleted", False),
+                        "score": hit.get("score"),
+                        "indexed_content": hit.get("indexedContent"),
+                    },
+                    score=hit.get("score", 1.0),
+                    backend="graphql",
                 )
-                all_results.extend(bucket_results)
-                
-                # Stop if we have enough results
-                if len(all_results) >= limit:
-                    break
-            except Exception:
-                # Skip buckets that fail
-                continue
-        
-        # Return up to limit results
-        return all_results[:limit]
+                results.append(result_obj)
+
+            return results
+
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            # On failure, return an informative error result rather than crashing
+            return [
+                SearchResult(
+                    id="graphql-object-error",
+                    type="error",
+                    title="Object search failed",
+                    description=str(exc),
+                    metadata={"query": query, "filters": filters},
+                    score=0,
+                    backend="graphql",
+                )
+            ]
 
     async def _search_package_contents(
         self,
@@ -390,33 +431,34 @@ class EnterpriseGraphQLBackend(SearchBackend):
         # For now, return empty results as this is complex to implement without full schema
         return []
 
-    def _build_graphql_filter(self, query: str, filters: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """Build GraphQL filter object from query and filters."""
-        graphql_filter = {}
+    def _build_objects_filter(self, query: str, filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Translate unified search filters into ObjectsSearchFilter format."""
 
-        # Add key-based search if query contains terms
-        if query and query.strip():
-            # For simple text queries, use key_contains
-            graphql_filter["key_contains"] = query
+        gql_filter: Dict[str, Any] = {}
 
-        # Add file extension filters
-        if filters and filters.get("file_extensions"):
-            # Use extension filter if available
-            if len(filters["file_extensions"]) == 1:
-                graphql_filter["extension"] = filters["file_extensions"][0]
-            else:
-                # For multiple extensions, use key pattern matching
-                ext_patterns = [f"*.{ext}" for ext in filters["file_extensions"]]
-                graphql_filter["key_contains"] = " OR ".join(ext_patterns)
+        search_terms = (query or "").strip()
+        if search_terms and search_terms != "*":
+            gql_filter["key"] = {"wildcard": search_terms}
 
-        # Add size filters
         if filters:
-            if filters.get("size_min"):
-                graphql_filter["size_gte"] = filters["size_min"]
-            if filters.get("size_max"):
-                graphql_filter["size_lte"] = filters["size_max"]
+            extensions = filters.get("file_extensions") or []
+            if extensions:
+                normalized = [ext.lower().lstrip(".") for ext in extensions]
+                gql_filter.setdefault("ext", {})["terms"] = normalized
 
-        return graphql_filter
+                if not search_terms or search_terms == "*":
+                    wildcard_terms = [f"*.{ext}" for ext in normalized]
+                    gql_filter["key"] = {"wildcard": " OR ".join(wildcard_terms)}
+
+            size_min = filters.get("size_min")
+            size_max = filters.get("size_max")
+            if size_min or size_max:
+                gql_filter["size"] = {
+                    "gte": size_min,
+                    "lte": size_max,
+                }
+
+        return gql_filter or None
 
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a GraphQL query using the proven catalog_graphql_query approach."""
