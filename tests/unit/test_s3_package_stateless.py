@@ -93,6 +93,7 @@ def test_package_create_from_s3_creates_package(monkeypatch):
     def fake_catalog_create(**kwargs):
         captured_call.update(kwargs)
         return {
+            "success": True,
             "top_hash": "hash",
             "entries_added": 1,
             "files": [{"logical_path": "data/file1.csv"}],
@@ -196,6 +197,7 @@ def test_package_create_from_s3_uses_request_scoped_client(mock_get_auth_service
     monkeypatch.setattr(
         "quilt_mcp.clients.catalog.catalog_package_create",
         lambda **_: {
+            "success": True,
             "top_hash": "hash",
             "entries_added": 1,
             "files": [{"logical_path": "data/file.csv"}],

@@ -21,6 +21,7 @@ def test_package_create_calls_catalog_client(monkeypatch):
     def fake_create(**kwargs):
         captured.update(kwargs)
         return {
+            "success": True,
             "top_hash": "tophash",
             "entries_added": 2,
             "files": [
