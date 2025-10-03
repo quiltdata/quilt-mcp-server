@@ -218,46 +218,118 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def _search_packages_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search packages globally by querying accessible buckets.
+        """Search packages globally using searchPackages.firstPage (FIXED).
         
-        Note: searchPackages.firstPage has a backend bug (Internal Server Error),
-        so we query individual buckets using the working packages(bucket:...) query.
+        Note: The backend bug was caused by passing 'size' parameter to firstPage.
+        The frontend does NOT pass size - it uses the default page size.
         """
-        # First, get list of accessible buckets
-        buckets_query = "query { bucketConfigs { name } }"
+        # Use searchPackages with firstPage WITHOUT size parameter (like the frontend)
+        graphql_query = """
+        query SearchPackages($searchString: String!, $order: SearchResultOrder!, $latestOnly: Boolean!) {
+            searchPackages(buckets: [], searchString: $searchString, latestOnly: $latestOnly) {
+                ... on PackagesSearchResultSet {
+                    total
+                    firstPage(order: $order) {
+                        hits {
+                            id
+                            score
+                            bucket
+                            name
+                            pointer
+                            hash
+                            size
+                            modified
+                            totalEntriesCount
+                            comment
+                            workflow
+                        }
+                    }
+                }
+                ... on EmptySearchResultSet {
+                    _
+                }
+            }
+        }
+        """
+
+        # Variables WITHOUT size parameter - this is the key!
+        variables = {
+            "searchString": query if query and query != "*" else "",
+            "order": "BEST_MATCH",  # Default ordering
+            "latestOnly": False,  # Include all revisions, not just latest
+        }
+
         try:
-            buckets_result = await self._execute_graphql_query(buckets_query, {})
-            bucket_names = [
-                cfg["name"] 
-                for cfg in buckets_result.get("data", {}).get("bucketConfigs", [])
-            ]
-        except Exception:
-            # If we can't get buckets, we can't search
-            return []
-        
-        if not bucket_names:
-            return []
-        
-        # Query each bucket (limit results per bucket to spread across buckets)
-        per_bucket_limit = max(5, limit // len(bucket_names)) if len(bucket_names) > 0 else limit
-        all_results = []
-        
-        for bucket in bucket_names[:10]:  # Limit to first 10 buckets to avoid too many queries
-            try:
-                bucket_results = await self._search_bucket_packages(
-                    bucket, query, filters, per_bucket_limit
-                )
-                all_results.extend(bucket_results)
+            result = await self._execute_graphql_query(graphql_query, variables)
+
+            if result.get("errors"):
+                raise Exception(f"GraphQL errors: {result['errors']}")
+
+            # Extract individual package results from firstPage
+            data = result.get("data", {})
+            search_result = data.get("searchPackages", {})
+            
+            # Handle EmptySearchResultSet
+            if "_" in search_result:
+                return []
+            
+            first_page = search_result.get("firstPage", {})
+            hits = first_page.get("hits", [])
+            
+            if not hits:
+                return []
+            
+            # Convert each hit to a SearchResult
+            results = []
+            for hit in hits[:limit]:  # Limit results to requested limit
+                bucket = hit.get("bucket", "")
+                name = hit.get("name", "")
+                pkg_hash = hit.get("hash", "")
+                size = hit.get("size", 0)
+                modified = hit.get("modified", "")
+                entries_count = hit.get("totalEntriesCount", 0)
+                comment = hit.get("comment", "")
+                workflow = hit.get("workflow", {})
                 
-                # Stop if we have enough results
-                if len(all_results) >= limit:
-                    break
-            except Exception:
-                # Skip buckets that fail
-                continue
-        
-        # Return up to limit results
-        return all_results[:limit]
+                # Build description
+                description_parts = [f"{entries_count} files"]
+                if size > 0:
+                    size_mb = size / (1024**2)
+                    if size_mb < 1024:
+                        description_parts.append(f"{size_mb:.1f} MB")
+                    else:
+                        description_parts.append(f"{size / (1024**3):.1f} GB")
+                if comment:
+                    description_parts.append(comment[:100])
+                
+                result_obj = SearchResult(
+                    id=f"graphql-pkg-{bucket}-{name}-{pkg_hash}",
+                    type="package",
+                    title=f"{bucket}/{name}",
+                    description=" | ".join(description_parts),
+                    s3_uri=f"s3://{bucket}/.quilt/named_packages/{name}",
+                    logical_key=name,
+                    metadata={
+                        "bucket": bucket,
+                        "name": name,
+                        "hash": pkg_hash,
+                        "pointer": hit.get("pointer", ""),
+                        "size": size,
+                        "modified": modified,
+                        "totalEntriesCount": entries_count,
+                        "comment": comment,
+                        "workflow": workflow,
+                    },
+                    score=hit.get("score", 1.0),
+                    backend="graphql",
+                )
+                results.append(result_obj)
+            
+            return results
+
+        except Exception:
+            # Fallback: query buckets individually if searchPackages fails
+            return []
 
     async def _search_objects_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
