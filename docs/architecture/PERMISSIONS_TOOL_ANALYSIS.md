@@ -469,3 +469,6 @@ The permissions tool is **production-ready** and correctly implements all functi
 - Catalog Client: `src/quilt_mcp/clients/catalog.py`
 - GraphQL Schema: `docs/quilt-enterprise-schema.graphql`
 
+
+
+

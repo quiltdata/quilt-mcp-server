@@ -75,10 +75,10 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
 def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
     """DEPRECATED: Use search.unified_search instead.
-    
+
     This function is deprecated and will be removed in a future version.
     Use search.unified_search with scope="catalog" for better package search results.
-    
+
     Args:
         query: Search query string
         registry: Registry URL (deprecated parameter)
@@ -89,16 +89,11 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
         Dict with deprecation warning and redirect to unified search.
     """
     from .search import unified_search
-    
+
     # Redirect to unified search
     try:
-        search_result = unified_search(
-            query=query,
-            scope="catalog",
-            limit=limit,
-            include_metadata=True
-        )
-        
+        search_result = unified_search(query=query, scope="catalog", limit=limit, include_metadata=True)
+
         return {
             "success": True,
             "deprecated": True,
@@ -107,7 +102,7 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
             "registry": registry,
             "limit": limit,
             "redirected_to": "search.unified_search",
-            "search_results": search_result
+            "search_results": search_result,
         }
     except Exception as e:
         return {
@@ -348,10 +343,10 @@ def package_contents_search(
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
     """DEPRECATED: Use search.unified_search instead.
-    
+
     This function is deprecated and will be removed in a future version.
     Use search.unified_search with scope="package" and target=package_name for better results.
-    
+
     Args:
         package_name: Name of the package to search (e.g., "username/package-name")
         query: Search query to match against file/folder names
@@ -362,16 +357,11 @@ def package_contents_search(
         Dict with deprecation warning and redirect to unified search.
     """
     from .search import unified_search
-    
+
     # Redirect to unified search
     try:
-        search_result = unified_search(
-            query=query,
-            scope="package",
-            target=package_name,
-            include_metadata=True
-        )
-        
+        search_result = unified_search(query=query, scope="package", target=package_name, include_metadata=True)
+
         return {
             "success": True,
             "deprecated": True,
@@ -379,7 +369,7 @@ def package_contents_search(
             "package_name": package_name,
             "query": query,
             "redirected_to": "search.unified_search",
-            "search_results": search_result
+            "search_results": search_result,
         }
     except Exception as e:
         return {

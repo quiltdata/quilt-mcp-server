@@ -51,7 +51,6 @@ PACKAGE_METADATA_STOPWORDS = {
     "sample",
     "samples",
     "analysis",
-    "analysis",
     "test",
     "default",
 }
@@ -112,7 +111,7 @@ METADATA_TEMPLATES = {
             "author": {"type": "string", "required": False, "description": "Package author"},
             "license": {"type": "string", "required": False, "description": "Package license"},
             "tags": {"type": "array", "required": False, "description": "Package tags"},
-        }
+        },
     },
     "dataset": {
         "description": "Dataset package metadata template",
@@ -125,7 +124,7 @@ METADATA_TEMPLATES = {
             "format": {"type": "string", "required": False, "description": "Data format"},
             "size": {"type": "string", "required": False, "description": "Dataset size"},
             "tags": {"type": "array", "required": False, "description": "Dataset tags"},
-        }
+        },
     },
     "model": {
         "description": "ML model package metadata template",
@@ -138,8 +137,8 @@ METADATA_TEMPLATES = {
             "performance": {"type": "object", "required": False, "description": "Model performance metrics"},
             "training_data": {"type": "string", "required": False, "description": "Training data reference"},
             "tags": {"type": "array", "required": False, "description": "Model tags"},
-        }
-    }
+        },
+    },
 }
 
 
@@ -192,10 +191,14 @@ def _prepare_metadata(
     # Extract README content and convert to file
     if "readme_content" in metadata_dict:
         metadata_dict.pop("readme_content")
-        warnings.append("README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead")
+        warnings.append(
+            "README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead"
+        )
     elif "readme" in metadata_dict:
         metadata_dict.pop("readme")
-        warnings.append("README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead")
+        warnings.append(
+            "README content extracted from metadata - upload README.md to S3 and add to 'files' parameter instead"
+        )
 
     return metadata_dict, None
 
@@ -334,7 +337,7 @@ def _validate_package_name(name: str) -> tuple[bool, Optional[str]]:
                 f"Format: 'namespace/packagename'\n"
                 f"Examples: 'demo-team/csv-data', 'myteam/dataset1'"
             )
-        
+
         namespace, pkg_name = parts
         return False, (
             f"Invalid package name: '{name}'.\n"
@@ -370,12 +373,12 @@ def _validate_package_name(name: str) -> tuple[bool, Optional[str]]:
 # Package browsing
 def package_browse(name: str, bucket: Optional[str] = None, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:  # noqa: ARG001
     """Browse a specific Quilt package and its contents.
-    
+
     Args:
         name: Package name (e.g., "team/package")
         bucket: S3 bucket name (without s3:// prefix). If not provided, will try to infer.
         registry: Registry URL (unused, kept for compatibility)
-        
+
     Returns:
         Dict with success status and package entries
     """
@@ -386,7 +389,7 @@ def package_browse(name: str, bucket: Optional[str] = None, registry: str = DEFA
     catalog_url = resolve_catalog_url()
     if not catalog_url:
         return format_error_response("Catalog URL not configured")
-    
+
     # If bucket not provided, return helpful error
     if not bucket:
         return format_error_response(
@@ -411,7 +414,7 @@ def package_browse(name: str, bucket: Optional[str] = None, registry: str = DEFA
                 "entries": entries,
             },
         }
-        
+
     except Exception:
         logger.exception("Error browsing package '%s' in bucket '%s'", name, bucket)
         return format_error_response(f"Failed to browse package '{name}' in bucket '{bucket}'")
@@ -430,9 +433,9 @@ def package_create(
     readme: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a new Quilt package.
-    
+
     IMPORTANT: Package names MUST be in 'namespace/packagename' format with BOTH parts.
-    
+
     Args:
         name: Package name in format 'namespace/packagename' (REQUIRED: both namespace AND package name)
               Examples: 'demo-team/csv-data', 'myteam/dataset1', 'analytics/q1-reports'
@@ -447,10 +450,10 @@ def package_create(
         auto_organize: Organize files into logical folders. Defaults to False to keep a shallow structure.
         copy_mode: Copy mode for files ('all', 'none', or 'metadata')
         readme: README content to create as README.md file (optional)
-        
+
     Returns:
         Dict with success status and package information
-        
+
     Example:
         package_create(
             name='demo-team/csv-analysis',  # MUST have both namespace/packagename
@@ -480,9 +483,7 @@ def package_create(
 
     # Prepare metadata
     warnings = []
-    metadata_dict, error = _prepare_metadata(
-        metadata, warnings, on_error_message="Invalid metadata format"
-    )
+    metadata_dict, error = _prepare_metadata(metadata, warnings, on_error_message="Invalid metadata format")
     if error:
         return error
 
@@ -543,10 +544,12 @@ def package_create(
     organized_files = []
     for file_path in all_files:
         organized_path = _organize_file_path(file_path, auto_organize)
-        organized_files.append({
-            "logical_key": organized_path,
-            "physical_key": file_path,
-        })
+        organized_files.append(
+            {
+                "logical_key": organized_path,
+                "physical_key": file_path,
+            }
+        )
 
     auto_metadata = _generate_default_metadata(
         package_name=name,
@@ -559,9 +562,7 @@ def package_create(
     for key, value in auto_metadata.items():
         metadata_dict.setdefault(key, value)
     if added_keys:
-        warnings.append(
-            "Auto-generated metadata fields applied: " + ", ".join(sorted(added_keys))
-        )
+        warnings.append("Auto-generated metadata fields applied: " + ", ".join(sorted(added_keys)))
 
     if dry_run:
         return {
@@ -648,7 +649,7 @@ def package_create(
             response_payload["navigation"] = navigation
 
         return response_payload
-        
+
     except Exception:
         logger.exception("Error creating package '%s'", name)
         return format_error_response(f"Failed to create package '{name}'")
@@ -666,10 +667,10 @@ def package_create_from_s3(  # noqa: ARG001
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """Create a package from S3 bucket contents.
-    
+
     NOTE: This function cannot list S3 objects because JWT tokens do not contain AWS credentials.
     The Quilt registry backend handles AWS access via IAM role assumption.
-    
+
     To create a package from S3 contents, you must:
     1. Use 'search.unified_search' to find files in the bucket
     2. Collect the S3 URIs from search results
@@ -692,7 +693,7 @@ def get_metadata_template(template_name: str = "standard") -> Dict[str, Any]:
     """Get metadata template by name."""
     if template_name not in METADATA_TEMPLATES:
         return format_error_response(f"Unknown metadata template: {template_name}")
-    
+
     return {
         "success": True,
         "template": METADATA_TEMPLATES[template_name],
@@ -708,7 +709,7 @@ def list_metadata_templates() -> Dict[str, Any]:
             "description": template["description"],
             "fields": list(template["fields"].keys()),
         }
-    
+
     return {
         "success": True,
         "templates": templates,
@@ -716,10 +717,12 @@ def list_metadata_templates() -> Dict[str, Any]:
 
 
 # Main unified function
-def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None) -> Dict[str, Any]:
+def packaging(
+    action: Optional[str] = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None
+) -> Dict[str, Any]:
     """
     Unified package management operations.
-    
+
     ⚠️  CRITICAL: Package names MUST use 'namespace/package-name' format:
         - REQUIRED: Both namespace AND package name separated by exactly one '/'
         - REQUIRED: Lowercase letters, numbers, hyphens (-), underscores (_) ONLY
@@ -738,11 +741,11 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
 
     Note: For package discovery/listing, use the search tool:
         search.unified_search(query="*", scope="catalog", search_type="packages")
-    
+
     Defaults:
         - Files are added to the package root (flattened) unless auto_organize=True
         - Useful metadata (description, tags, extension counts) is auto-generated when missing
-    
+
     Example create action:
         packaging(action="create", params={
             "name": "demo-team/csv-analysis",  # MUST have namespace/package-name
@@ -759,7 +762,7 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
         Action-specific response dictionary
     """
     params = params or {}
-    
+
     try:
         if action is None:
             return {
@@ -776,14 +779,14 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                 "naming_examples": {
                     "valid": ["demo-team/csv-data", "myteam/dataset1", "analytics/q1-reports", "user123/data-v2"],
                     "invalid": [
-                        "csvdata (missing namespace)", 
-                        "MyTeam/Data (uppercase not allowed)", 
+                        "csvdata (missing namespace)",
+                        "MyTeam/Data (uppercase not allowed)",
                         "team/data.csv (periods not allowed)",
                         "team/my data (spaces not allowed)",
-                        "team/data@v1 (special chars not allowed)"
-                    ]
+                        "team/data@v1 (special chars not allowed)",
+                    ],
                 },
-                "note": "For package discovery/listing, use search.unified_search(scope='catalog', search_type='packages')"
+                "note": "For package discovery/listing, use search.unified_search(scope='catalog', search_type='packages')",
             }
         elif action == "browse":
             name = params.get("name")
@@ -797,7 +800,7 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
         elif action == "create":
             # Map frontend parameter names to function parameter names
             name = params.get("name") or params.get("package_name")
-            
+
             # Early validation with helpful error message
             if name and "/" not in name:
                 return {
@@ -807,12 +810,16 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                     "provided": name,
                     "examples": {
                         "valid": ["demo-team/csv-data", "myteam/dataset1", "analytics/reports"],
-                        "invalid": ["csvdata (missing namespace)", "MyTeam/Data (uppercase)", "team/data.csv (period)"]
+                        "invalid": [
+                            "csvdata (missing namespace)",
+                            "MyTeam/Data (uppercase)",
+                            "team/data.csv (period)",
+                        ],
                     },
                     "correct_format": "namespace/package-name (lowercase, hyphens, underscores only - NO PERIODS)",
-                    "tip": f"Try: 'demo-team/{name}' or 'myteam/{name}'"
+                    "tip": f"Try: 'demo-team/{name}' or 'myteam/{name}'",
                 }
-            
+
             # Check for periods in the name
             if name and "." in name:
                 clean_name = name.replace(".", "-")
@@ -824,11 +831,11 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                     "suggestion": clean_name,
                     "examples": {
                         "valid": ["demo-team/csv-data", "myteam/v1-0", "analytics/data-v2"],
-                        "invalid": ["team/data.csv (period)", "team/v1.0 (period)", "team/file.name (period)"]
+                        "invalid": ["team/data.csv (period)", "team/v1.0 (period)", "team/file.name (period)"],
                     },
-                    "tip": f"Use hyphens instead: '{clean_name}'"
+                    "tip": f"Use hyphens instead: '{clean_name}'",
                 }
-            
+
             # Apply navigation context for smart defaults
             if _context and not name:
                 suggested_name = suggest_package_name_from_context(_context)
@@ -841,9 +848,9 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                             "route": _context.route.name,
                             "bucket": get_context_bucket(_context),
                             "path": get_context_path(_context),
-                        }
+                        },
                     }
-            
+
             return package_create(
                 name=name,
                 files=params.get("files"),  # Now optional
@@ -869,12 +876,10 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
         elif action == "metadata_templates":
             return list_metadata_templates()
         elif action == "get_template":
-            return get_metadata_template(
-                template_name=params.get("template_name", "standard")
-            )
+            return get_metadata_template(template_name=params.get("template_name", "standard"))
         else:
             return format_error_response(f"Unknown packaging action: {action}")
-    
+
     except Exception:
         logger.exception("Error executing packaging action '%s'", action)
         return format_error_response(f"Failed to execute packaging action '{action}'")

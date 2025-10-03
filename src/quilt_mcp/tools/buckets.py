@@ -33,15 +33,15 @@ def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -
         "success": False,
         "error": f"The '{action_name}' action requires AWS S3 credentials which are not currently available.",
         "message": (
-            f"This action needs direct S3 access, but the current JWT token is authentication-only "
-            f"and doesn't include AWS credentials. "
-            f"This feature will be available once backend proxy endpoints are implemented."
+            "This action needs direct S3 access, but the current JWT token is authentication-only "
+            "and doesn't include AWS credentials. "
+            "This feature will be available once backend proxy endpoints are implemented."
         ),
         "alternatives": {
             "search_files": "Use search.unified_search to find and list files",
             "view_packages": "Use packaging.list and packaging.browse to explore package contents",
             "upload_files": "Upload files through the Quilt web interface, then use packaging.create",
-            "web_interface": "Access files directly through the Quilt catalog web UI"
+            "web_interface": "Access files directly through the Quilt catalog web UI",
         },
         "status": "awaiting_backend_support",
         "requested_resource": s3_uri_or_bucket or "unknown",
@@ -51,18 +51,18 @@ def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -
 def buckets_discover() -> Dict[str, Any]:
     """
     Discover all accessible buckets using GraphQL.
-    
+
     Returns:
         Dict with bucket information including names, titles, descriptions, and access levels.
     """
     token = get_active_token()
     if not token:
         return format_error_response("Authorization token required for bucket discovery")
-    
+
     catalog_url = resolve_catalog_url()
     if not catalog_url:
         return format_error_response("Catalog URL not configured")
-    
+
     try:
         # Query all bucket configs with collaborators to get permission levels
         buckets_query = """
@@ -83,15 +83,15 @@ def buckets_discover() -> Dict[str, Any]:
                 }
             }
         """
-        
+
         buckets_data = catalog_client.catalog_graphql_query(
             registry_url=catalog_url,
             query=buckets_query,
             auth_token=token,
         )
-        
+
         all_buckets = buckets_data.get("bucketConfigs", [])
-        
+
         # Get user email for permission checking
         user_email = None
         try:
@@ -103,14 +103,14 @@ def buckets_discover() -> Dict[str, Any]:
             user_email = me_data.get("me", {}).get("email")
         except Exception:
             pass
-        
+
         # Format bucket info with actual permission levels
         formatted_buckets = []
         for bucket in all_buckets:
             # Determine actual permission level from collaborators
             permission_level = "read_access"  # Default
             collaborators = bucket.get("collaborators", [])
-            
+
             for collab in collaborators:
                 collab_email = collab.get("collaborator", {}).get("email")
                 if collab_email == user_email:
@@ -120,7 +120,7 @@ def buckets_discover() -> Dict[str, Any]:
                     elif level == "READ":
                         permission_level = "read_access"
                     break
-            
+
             # Check if user is admin (admin users get write access to all buckets)
             if permission_level == "read_access" and user_email:
                 try:
@@ -134,23 +134,25 @@ def buckets_discover() -> Dict[str, Any]:
                         permission_level = "write_access"
                 except Exception:
                     pass
-            
-            formatted_buckets.append({
-                "name": bucket["name"],
-                "title": bucket.get("title", ""),
-                "description": bucket.get("description", ""),
-                "browsable": bucket.get("browsable", False),
-                "last_indexed": bucket.get("lastIndexed"),
-                "permission_level": permission_level,
-                "accessible": True,
-            })
-        
+
+            formatted_buckets.append(
+                {
+                    "name": bucket["name"],
+                    "title": bucket.get("title", ""),
+                    "description": bucket.get("description", ""),
+                    "browsable": bucket.get("browsable", False),
+                    "last_indexed": bucket.get("lastIndexed"),
+                    "permission_level": permission_level,
+                    "accessible": True,
+                }
+            )
+
         # Categorize buckets by access level
         categorized = {
             "write_access": [b for b in formatted_buckets if b.get("permission_level") == "write_access"],
             "read_access": [b for b in formatted_buckets if b.get("permission_level") == "read_access"],
         }
-        
+
         return {
             "success": True,
             "buckets": formatted_buckets,
@@ -159,7 +161,7 @@ def buckets_discover() -> Dict[str, Any]:
             "user_email": user_email,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        
+
     except Exception as e:
         logger.exception(f"Error discovering buckets: {e}")
         return format_error_response(f"Failed to discover buckets: {str(e)}")
@@ -177,22 +179,22 @@ def bucket_object_info(path: str = "", s3_uri: str = "", **kwargs) -> dict[str, 
         Dict with object metadata including size, content type, etc.
     """
     import requests
-    
+
     # Get presigned URL
     link_result = bucket_object_link(path=path, s3_uri=s3_uri, **kwargs)
-    
+
     if not link_result.get("success"):
         return link_result  # Return error from object_link
-    
+
     presigned_url = link_result.get("url")
     if not presigned_url:
         return format_error_response("Failed to get presigned URL")
-    
+
     # HEAD request to get metadata
     try:
         response = requests.head(presigned_url, timeout=10)
         response.raise_for_status()
-        
+
         return {
             "success": True,
             "path": path or s3_uri,
@@ -207,11 +209,7 @@ def bucket_object_info(path: str = "", s3_uri: str = "", **kwargs) -> dict[str, 
 
 
 def bucket_object_text(
-    path: str = "",
-    s3_uri: str = "",
-    max_bytes: int = 65536,
-    encoding: str = "utf-8",
-    **kwargs
+    path: str = "", s3_uri: str = "", max_bytes: int = 65536, encoding: str = "utf-8", **kwargs
 ) -> dict[str, Any]:
     """Read text content from a file using backend proxy.
 
@@ -226,17 +224,11 @@ def bucket_object_text(
         Dict with decoded text content and metadata.
     """
     # Use bucket_object_fetch with base64_encode=False to get text
-    fetch_result = bucket_object_fetch(
-        path=path,
-        s3_uri=s3_uri,
-        max_bytes=max_bytes,
-        base64_encode=False,
-        **kwargs
-    )
-    
+    fetch_result = bucket_object_fetch(path=path, s3_uri=s3_uri, max_bytes=max_bytes, base64_encode=False, **kwargs)
+
     if not fetch_result.get("success"):
         return fetch_result  # Return error
-    
+
     # Re-format for text-specific response
     return {
         "success": True,
@@ -252,7 +244,7 @@ def bucket_object_text(
 
 def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, Any]:
     """[NOT IMPLEMENTED] Upload multiple objects to an S3 bucket.
-    
+
     This action is not yet implemented because the Quilt backend does not provide
     presigned upload URLs or direct S3 write access via its APIs. This is intentional
     security design - the backend controls all S3 access via IAM roles.
@@ -265,7 +257,7 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
         Error message with workarounds.
     """
     bkt = _normalize_bucket(bucket)
-    
+
     return {
         "success": False,
         "not_implemented": True,
@@ -278,21 +270,17 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
         "workarounds": {
             "web_ui": f"Upload files via Quilt catalog web interface at {resolve_catalog_url() or 'your catalog URL'}",
             "aws_cli": f"Upload with AWS CLI: aws s3 cp <file> s3://{bkt}/<key>",
-            "then_package": "After upload, use packaging.create with the S3 URI to create a package"
+            "then_package": "After upload, use packaging.create with the S3 URI to create a package",
         },
         "requested_bucket": bkt,
         "requested_items_count": len(items) if items else 0,
         "backend_feature_needed": "generateUploadUrl GraphQL mutation or presigned POST endpoint",
-        "status": "awaiting_backend_api_enhancement"
+        "status": "awaiting_backend_api_enhancement",
     }
 
 
 def bucket_object_fetch(
-    path: str = "",
-    s3_uri: str = "",
-    max_bytes: int = 65536,
-    base64_encode: bool = True,
-    **kwargs
+    path: str = "", s3_uri: str = "", max_bytes: int = 65536, base64_encode: bool = True, **kwargs
 ) -> dict[str, Any]:
     """Fetch binary or text data from a file using backend proxy.
 
@@ -308,29 +296,29 @@ def bucket_object_fetch(
     """
     import base64
     import requests
-    
+
     # Get presigned URL using object_link
     link_result = bucket_object_link(path=path, s3_uri=s3_uri, **kwargs)
-    
+
     if not link_result.get("success"):
         return link_result  # Return error from object_link
-    
+
     presigned_url = link_result.get("url")
     if not presigned_url:
         return format_error_response("Failed to get presigned URL")
-    
+
     # Fetch content from presigned URL
     try:
         response = requests.get(presigned_url, timeout=30)
         response.raise_for_status()
-        
-        body = response.content[:max_bytes + 1]
+
+        body = response.content[: max_bytes + 1]
         content_type = response.headers.get("Content-Type", "")
-        
+
         truncated = len(body) > max_bytes
         if truncated:
             body = body[:max_bytes]
-        
+
         if base64_encode:
             data = base64.b64encode(body).decode("ascii")
             return {
@@ -372,12 +360,7 @@ def bucket_object_fetch(
         return format_error_response(f"Failed to fetch file content: {e}")
 
 
-def bucket_object_link(
-    path: str = "",
-    s3_uri: str = "",
-    expiration: int = 3600,
-    **params
-) -> dict[str, Any]:
+def bucket_object_link(path: str = "", s3_uri: str = "", expiration: int = 3600, **params) -> dict[str, Any]:
     """Generate a presigned URL for downloading a file using backend proxy.
 
     This function uses the backend's browsing session mechanism to generate
@@ -395,19 +378,19 @@ def bucket_object_link(
     Examples:
         # Using navigation context (preferred)
         bucket_object_link(path="README.md", _context={...})
-        
+
         # Using explicit S3 URI (legacy)
         bucket_object_link(s3_uri="s3://bucket/path/to/file")
     """
     # Extract navigation context from params
     nav_context = params.get('_context')
-    
+
     # Try to use browsing session if we have package context
     if path and nav_context:
         # Validate navigation context has required fields
         required_fields = ['bucket', 'package', 'hash']
         missing_fields = [f for f in required_fields if f not in nav_context]
-        
+
         if missing_fields:
             return {
                 "success": False,
@@ -415,15 +398,15 @@ def bucket_object_link(
                 "required_fields": required_fields,
                 "provided_context": nav_context,
             }
-        
+
         token = get_active_token()
         if not token:
             return format_error_response("Authorization token required")
-        
+
         catalog_url = resolve_catalog_url()
         if not catalog_url:
             return format_error_response("Catalog URL not configured")
-        
+
         try:
             # Create browsing session for current package
             session = catalog_client.catalog_create_browsing_session(
@@ -434,7 +417,7 @@ def bucket_object_link(
                 ttl=min(expiration, 180),  # Max 3 minutes for session
                 auth_token=token,
             )
-            
+
             # Get presigned URL for file
             presigned_url = catalog_client.catalog_browse_file(
                 registry_url=catalog_url,
@@ -442,7 +425,7 @@ def bucket_object_link(
                 path=path,
                 auth_token=token,
             )
-            
+
             return {
                 "success": True,
                 "url": presigned_url,
@@ -454,7 +437,7 @@ def bucket_object_link(
             }
         except Exception as e:
             return format_error_response(f"Failed to generate presigned URL: {e}")
-    
+
     # Fall back to legacy S3 URI approach (requires AWS credentials)
     if not s3_uri and path:
         return {
@@ -467,18 +450,20 @@ def bucket_object_link(
             ),
             "alternatives": {
                 "search": "Use search.unified_search to find files",
-                "packaging": "Use packaging.browse to explore package contents"
-            }
+                "packaging": "Use packaging.browse to explore package contents",
+            },
         }
-    
+
     if not s3_uri:
         return format_error_response("Either 'path' with package context or 's3_uri' required")
-    
+
     # Legacy S3 URI approach (will fail without AWS credentials)
     return _aws_credentials_unavailable("object_link", s3_uri)
 
 
-def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None) -> dict[str, Any]:
+def buckets(
+    action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None
+) -> dict[str, Any]:
     """
     S3 bucket operations and object management.
 
@@ -534,11 +519,11 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, 
         }
 
     params = params or {}
-    
+
     # Inject navigation context into params if provided
     if _context:
         params['_context'] = _context
-    
+
     try:
         if action == "discover":
             return buckets_discover()
@@ -549,11 +534,14 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, 
             if _context and is_object_context(_context):
                 context_bucket = get_context_bucket(_context)
                 context_path = get_context_path(_context)
-                
+
                 # If we're viewing the same object, provide enhanced info
-                if (context_bucket and context_path and 
-                    params.get("bucket") == context_bucket and 
-                    params.get("key") == context_path):
+                if (
+                    context_bucket
+                    and context_path
+                    and params.get("bucket") == context_bucket
+                    and params.get("key") == context_path
+                ):
                     return {
                         "success": True,
                         "object": {
@@ -562,10 +550,10 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, 
                             "version": get_context_version(_context),
                             "native_context": True,
                             "navigation_url": f"/b/{context_bucket}/files/{context_path}",
-                            "message": "Object info from current navigation context"
-                        }
+                            "message": "Object info from current navigation context",
+                        },
                     }
-            
+
             return bucket_object_info(**params)
         elif action == "object_link":
             return bucket_object_link(**params)
@@ -581,7 +569,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, 
             return bucket_objects_put(**mapped_params)
         else:
             return format_error_response(f"Unknown buckets action: {action}")
-    
+
     except Exception as exc:
         logger.exception(f"Error executing buckets action '{action}': {exc}")
         return format_error_response(f"Failed to execute buckets action '{action}': {str(exc)}")

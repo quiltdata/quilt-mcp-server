@@ -21,7 +21,7 @@ _debug_mode: ContextVar[bool] = ContextVar("mcp_debug_mode", default=False)
 
 def set_debug_mode(enabled: bool) -> None:
     """Enable or disable debug logging for the current request.
-    
+
     Args:
         enabled: Whether to enable detailed debug logging
     """
@@ -35,11 +35,11 @@ def is_debug_enabled() -> bool:
 
 def sanitize_for_logging(data: Any, max_length: int = 500) -> Any:
     """Sanitize data for logging by truncating large values.
-    
+
     Args:
         data: Data to sanitize
         max_length: Maximum string length before truncation
-        
+
     Returns:
         Sanitized data safe for logging
     """
@@ -66,18 +66,18 @@ def log_tool_call_start(
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Log the start of a tool call.
-    
+
     Args:
         tool_name: Name of the tool being called
         action: Action within the tool (if applicable)
         params: Tool parameters
         session_id: MCP session ID
-        
+
     Returns:
         Context dict with start_time for use in log_tool_call_end
     """
     start_time = time.time()
-    
+
     # Always log basic info
     log_data = {
         "event": "tool_call_start",
@@ -86,7 +86,7 @@ def log_tool_call_start(
         "session_id": session_id,
         "timestamp": start_time,
     }
-    
+
     # Log detailed params only in debug mode
     if is_debug_enabled():
         log_data["params"] = sanitize_for_logging(params)
@@ -95,7 +95,7 @@ def log_tool_call_start(
         # Compact log for production
         action_str = f".{action}" if action else ""
         logger.info(f"🔧 Tool: {tool_name}{action_str}")
-    
+
     return {"start_time": start_time, "tool": tool_name, "action": action}
 
 
@@ -107,7 +107,7 @@ def log_tool_call_end(
     session_id: Optional[str] = None,
 ) -> None:
     """Log the end of a tool call with results.
-    
+
     Args:
         context: Context dict from log_tool_call_start
         result: Tool execution result
@@ -117,11 +117,11 @@ def log_tool_call_end(
     """
     end_time = time.time()
     execution_time = end_time - context["start_time"]
-    
+
     tool_name = context["tool"]
     action = context.get("action")
     action_str = f".{action}" if action else ""
-    
+
     # Always log basic metrics
     log_data = {
         "event": "tool_call_end",
@@ -132,11 +132,10 @@ def log_tool_call_end(
         "session_id": session_id,
         "timestamp": end_time,
     }
-    
+
     if not success:
         log_data["error"] = error
-        logger.error("❌ Tool Failed: %s%s - %s (%.2fms)", 
-                    tool_name, action_str, error, execution_time * 1000)
+        logger.error("❌ Tool Failed: %s%s - %s (%.2fms)", tool_name, action_str, error, execution_time * 1000)
     elif is_debug_enabled():
         # Include result details in debug mode
         log_data["result"] = sanitize_for_logging(result)
@@ -149,7 +148,7 @@ def log_tool_call_end(
 
 def log_tool_discovery(tool_count: int, session_id: Optional[str] = None) -> None:
     """Log tool discovery/listing.
-    
+
     Args:
         tool_count: Number of tools discovered
         session_id: MCP session ID
@@ -159,7 +158,7 @@ def log_tool_discovery(tool_count: int, session_id: Optional[str] = None) -> Non
         "tool_count": tool_count,
         "session_id": session_id,
     }
-    
+
     if is_debug_enabled():
         logger.info("🔍 Tool Discovery: %s", json.dumps(log_data))
     else:
@@ -172,7 +171,7 @@ def log_request_context(
     session_id: Optional[str] = None,
 ) -> None:
     """Log request context information.
-    
+
     Args:
         has_jwt: Whether JWT token is present
         catalog_url: Catalog URL being used
@@ -186,4 +185,3 @@ def log_request_context(
             "session_id": session_id,
         }
         logger.info("📋 Request Context: %s", json.dumps(log_data))
-

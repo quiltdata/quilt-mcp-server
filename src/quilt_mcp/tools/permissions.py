@@ -44,7 +44,7 @@ def permissions_discover(
         # Debug logging
         logger.info(f"Starting permissions discovery with token: {token[:20] if token else 'None'}...")
         logger.info(f"Catalog URL: {catalog_url}")
-        
+
         # Query user identity
         me_query = """
             query Me {
@@ -61,7 +61,7 @@ def permissions_discover(
                 }
             }
         """
-        
+
         logger.info(f"Making GraphQL query to: {catalog_url}")
         me_data = catalog_client.catalog_graphql_query(
             registry_url=catalog_url,
@@ -69,7 +69,7 @@ def permissions_discover(
             auth_token=token,
         )
         logger.info(f"GraphQL query successful, got user data: {bool(me_data.get('me'))}")
-        
+
         user_data = me_data.get("me")
         if not user_data:
             return format_error_response("No user data returned from catalog")
@@ -93,52 +93,56 @@ def permissions_discover(
                 }
             }
         """
-        
+
         buckets_data = catalog_client.catalog_graphql_query(
             registry_url=catalog_url,
             query=buckets_query,
             auth_token=token,
         )
-        
+
         all_buckets = buckets_data.get("bucketConfigs", [])
-        
+
         # Filter to specific buckets if requested
         if check_buckets:
             bucket_set = set(check_buckets)
             filtered_buckets = [b for b in all_buckets if b.get("name") in bucket_set]
-            
+
             # Add any requested buckets that weren't found (no access)
             found_names = {b.get("name") for b in filtered_buckets}
             for bucket_name in check_buckets:
                 if bucket_name not in found_names:
-                    filtered_buckets.append({
-                        "name": bucket_name,
-                        "permission_level": "no_access",
-                        "accessible": False,
-                    })
-            
+                    filtered_buckets.append(
+                        {
+                            "name": bucket_name,
+                            "permission_level": "no_access",
+                            "accessible": False,
+                        }
+                    )
+
             bucket_permissions = filtered_buckets
         else:
             bucket_permissions = all_buckets
-        
+
         # Get user email for permission checking
         user_email = user_data.get("email")
-        
+
         # Format bucket info with actual permission levels
         formatted_buckets = []
         for bucket in bucket_permissions:
             if bucket.get("accessible") is False:
                 # Bucket not accessible
-                formatted_buckets.append({
-                    "name": bucket["name"],
-                    "permission_level": "no_access",
-                    "accessible": False,
-                })
+                formatted_buckets.append(
+                    {
+                        "name": bucket["name"],
+                        "permission_level": "no_access",
+                        "accessible": False,
+                    }
+                )
             else:
                 # Determine actual permission level from collaborators
                 permission_level = "read_access"  # Default
                 collaborators = bucket.get("collaborators", [])
-                
+
                 for collab in collaborators:
                     collab_email = collab.get("collaborator", {}).get("email")
                     if collab_email == user_email:
@@ -148,23 +152,25 @@ def permissions_discover(
                         elif level == "READ":
                             permission_level = "read_access"
                         break
-                
-                formatted_buckets.append({
-                    "name": bucket["name"],
-                    "title": bucket.get("title", ""),
-                    "description": bucket.get("description", ""),
-                    "browsable": bucket.get("browsable", False),
-                    "last_indexed": bucket.get("lastIndexed"),
-                    "permission_level": permission_level,
-                    "accessible": True,
-                })
-        
+
+                formatted_buckets.append(
+                    {
+                        "name": bucket["name"],
+                        "title": bucket.get("title", ""),
+                        "description": bucket.get("description", ""),
+                        "browsable": bucket.get("browsable", False),
+                        "last_indexed": bucket.get("lastIndexed"),
+                        "permission_level": permission_level,
+                        "accessible": True,
+                    }
+                )
+
         # Categorize buckets by access
         categorized = {
             "accessible": [b for b in formatted_buckets if b.get("accessible")],
             "not_accessible": [b for b in formatted_buckets if not b.get("accessible")],
         }
-        
+
         return {
             "success": True,
             "user_identity": {
@@ -227,16 +233,16 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 }
             }
         """
-        
+
         bucket_data = catalog_client.catalog_graphql_query(
             registry_url=catalog_url,
             query=bucket_query,
             variables={"name": bucket_name},
             auth_token=token,
         )
-        
+
         bucket_config = bucket_data.get("bucketConfig")
-        
+
         if not bucket_config:
             return {
                 "success": True,
@@ -245,7 +251,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 "permission_level": "no_access",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
-        
+
         # Determine actual permission level from collaborators and role information
         user_email = None
         try:
@@ -258,11 +264,11 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
             user_email = me_data.get("me", {}).get("email")
         except Exception:
             pass  # If we can't get user email, we'll use default logic
-        
+
         # Check collaborators for user's permission level
         permission_level = "read_access"  # Default
         collaborators = bucket_config.get("collaborators", [])
-        
+
         # First try to get permission from explicit collaborators
         for collab in collaborators:
             collab_email = collab.get("collaborator", {}).get("email")
@@ -273,7 +279,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                 elif level == "READ":
                     permission_level = "read_access"
                 break
-        
+
         # If no explicit collaborator permission found, check if user has admin role
         # (Admin users typically have write access to all buckets)
         if permission_level == "read_access" and user_email:
@@ -288,7 +294,7 @@ def bucket_access_check(bucket_name: str) -> Dict[str, Any]:
                     permission_level = "write_access"
             except Exception:
                 pass
-        
+
         return {
             "success": True,
             "bucket_name": bucket_name,
@@ -317,36 +323,42 @@ def permissions_recommendations_get() -> Dict[str, Any]:
     """
     # Get current permissions
     perms = permissions_discover()
-    
+
     if not perms.get("success"):
         return perms
-    
+
     recommendations = []
-    
+
     user_identity = perms.get("user_identity", {})
     accessible_buckets = perms.get("categorized_buckets", {}).get("accessible", [])
-    
+
     # Generate recommendations
     if user_identity.get("is_admin"):
-        recommendations.append({
-            "category": "security",
-            "priority": "info",
-            "message": "You have admin privileges. Use them responsibly.",
-        })
-    
+        recommendations.append(
+            {
+                "category": "security",
+                "priority": "info",
+                "message": "You have admin privileges. Use them responsibly.",
+            }
+        )
+
     if len(accessible_buckets) == 0:
-        recommendations.append({
-            "category": "access",
-            "priority": "warning",
-            "message": "No accessible buckets found. Contact your administrator if you need bucket access.",
-        })
+        recommendations.append(
+            {
+                "category": "access",
+                "priority": "warning",
+                "message": "No accessible buckets found. Contact your administrator if you need bucket access.",
+            }
+        )
     elif len(accessible_buckets) > 20:
-        recommendations.append({
-            "category": "organization",
-            "priority": "info",
-            "message": f"You have access to {len(accessible_buckets)} buckets. Consider organizing them with favorites or tags.",
-        })
-    
+        recommendations.append(
+            {
+                "category": "organization",
+                "priority": "info",
+                "message": f"You have access to {len(accessible_buckets)} buckets. Consider organizing them with favorites or tags.",
+            }
+        )
+
     return {
         "success": True,
         "recommendations": recommendations,
@@ -378,7 +390,7 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
         }
 
     params = params or {}
-    
+
     try:
         if action == "discover":
             return permissions_discover(
@@ -394,7 +406,7 @@ def permissions(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
             return permissions_recommendations_get()
         else:
             return format_error_response(f"Unknown permissions action: {action}")
-    
+
     except Exception as exc:
         logger.exception(f"Permissions action {action} failed")
         return format_error_response(f"Permissions action failed: {exc}")

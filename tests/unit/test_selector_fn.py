@@ -60,7 +60,8 @@ def _with_token():
 
 @patch("quilt3.Package")
 @patch(
-    "quilt_mcp.clients.catalog.catalog_package_create", return_value={"success": True, "top_hash": "test_top_hash", "entries_added": 2}
+    "quilt_mcp.clients.catalog.catalog_package_create",
+    return_value={"success": True, "top_hash": "test_top_hash", "entries_added": 2},
 )
 def test_package_ops_copy_mode_none(mock_catalog_create, mock_package_class):
     # Configure mock to return our MockPackage
@@ -85,7 +86,8 @@ def test_package_ops_copy_mode_none(mock_catalog_create, mock_package_class):
 
 @patch("quilt3.Package")
 @patch(
-    "quilt_mcp.clients.catalog.catalog_package_create", return_value={"success": True, "top_hash": "test_top_hash", "entries_added": 2}
+    "quilt_mcp.clients.catalog.catalog_package_create",
+    return_value={"success": True, "top_hash": "test_top_hash", "entries_added": 2},
 )
 def test_package_ops_copy_mode_same_bucket(mock_catalog_create, mock_package_class):
     # Configure mock to return our MockPackage

@@ -77,7 +77,9 @@ class UnifiedSearchEngine:
         # Collect extension facets and pagination metadata from backends
         extension_counter: Dict[str, int] = {}
         object_total: Optional[int] = None
-        next_cursor: Optional[str] = None
+        object_next_cursor: Optional[str] = None
+        package_total: Optional[int] = None
+        package_next_cursor: Optional[str] = None
 
         for backend_response in backend_responses:
             raw_meta = getattr(backend_response, "raw_response", None)
@@ -85,22 +87,30 @@ class UnifiedSearchEngine:
                 continue
 
             objects_meta = raw_meta.get("objects")
-            if not isinstance(objects_meta, dict):
-                continue
+            if isinstance(objects_meta, dict):
+                for facet in objects_meta.get("ext_stats", []) or []:
+                    key = facet.get("key")
+                    count = facet.get("count", 0)
+                    if key:
+                        extension_counter[key] = extension_counter.get(key, 0) + int(count or 0)
 
-            for facet in objects_meta.get("ext_stats", []) or []:
-                key = facet.get("key")
-                count = facet.get("count", 0)
-                if key:
-                    extension_counter[key] = extension_counter.get(key, 0) + int(count or 0)
+                total = objects_meta.get("total")
+                if isinstance(total, int):
+                    object_total = max(object_total or 0, total)
 
-            total = objects_meta.get("total")
-            if isinstance(total, int):
-                object_total = max(object_total or 0, total)
+                cursor = objects_meta.get("next_cursor")
+                if isinstance(cursor, str) and cursor:
+                    object_next_cursor = cursor
 
-            cursor = objects_meta.get("next_cursor")
-            if isinstance(cursor, str) and cursor:
-                next_cursor = cursor
+            packages_meta = raw_meta.get("packages")
+            if isinstance(packages_meta, dict):
+                total = packages_meta.get("total")
+                if isinstance(total, int):
+                    package_total = max(package_total or 0, total)
+
+                cursor = packages_meta.get("next_cursor")
+                if isinstance(cursor, str) and cursor:
+                    package_next_cursor = cursor
 
         # Aggregate and rank results (single backend currently)
         unified_results = self._aggregate_results(backend_responses, limit, include_metadata)
@@ -152,9 +162,15 @@ class UnifiedSearchEngine:
         if object_total is not None:
             response["object_total"] = object_total
 
-        if next_cursor:
-            response["next_cursor"] = next_cursor
-        
+        if object_next_cursor:
+            response["next_cursor"] = object_next_cursor
+
+        if package_total is not None:
+            response["package_total"] = package_total
+
+        if package_next_cursor:
+            response["packages_next_cursor"] = package_next_cursor
+
         # Add query explanation if requested
         if explain_query:
             response["explanation"] = self._generate_explanation(analysis, backend_responses, selected_backends)
@@ -223,7 +239,9 @@ class UnifiedSearchEngine:
                 )()
             ]
 
-    def _aggregate_results(self, backend_responses: List, limit: int, include_metadata: bool = False) -> List[Dict[str, Any]]:
+    def _aggregate_results(
+        self, backend_responses: List, limit: int, include_metadata: bool = False
+    ) -> List[Dict[str, Any]]:
         """Aggregate and rank results from multiple backends."""
         all_results = []
 
@@ -245,7 +263,7 @@ class UnifiedSearchEngine:
                         "size": result.size,
                         "last_modified": result.last_modified,
                     }
-                    
+
                     # Only include metadata if explicitly requested
                     if include_metadata:
                         result_dict["metadata"] = self._optimize_metadata(result.metadata)
@@ -272,13 +290,20 @@ class UnifiedSearchEngine:
         """Optimize metadata to reduce response size for LLM consumption."""
         if not metadata:
             return None
-        
+
         # Keep only essential metadata fields to reduce token count
         essential_fields = {
-            "bucket", "name", "hash", "size", "modified", "content_type", 
-            "extension", "total_entries", "comment"
+            "bucket",
+            "name",
+            "hash",
+            "size",
+            "modified",
+            "content_type",
+            "extension",
+            "total_entries",
+            "comment",
         }
-        
+
         optimized = {}
         for key, value in metadata.items():
             if key in essential_fields:
@@ -287,7 +312,7 @@ class UnifiedSearchEngine:
                     optimized[key] = value[:200] + "..."
                 else:
                     optimized[key] = value
-        
+
         return optimized if optimized else None
 
     def _apply_post_filters(self, results: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -333,11 +358,11 @@ class UnifiedSearchEngine:
 
     def _build_navigation_suggestion(self, scope: str, target: str) -> Dict[str, Any]:
         """Build navigation suggestion that matches frontend's navigate tool format.
-        
+
         Args:
             scope: Search scope (bucket, package, etc.)
             target: Target identifier (bucket name, package name, etc.)
-            
+
         Returns:
             Dictionary with navigation suggestion that frontend can auto-execute
         """
@@ -365,7 +390,7 @@ class UnifiedSearchEngine:
             else:
                 bucket_name = target
                 package_name = ""
-            
+
             return {
                 "tool": "navigate",
                 "params": {
@@ -381,7 +406,7 @@ class UnifiedSearchEngine:
                 "description": f"Navigating to package: {target}",
                 "url": f"/b/{bucket_name}/packages/{package_name}",
             }
-        
+
         return {}
 
     def _generate_explanation(self, analysis, backend_responses: List, selected_backends: List) -> Dict[str, Any]:

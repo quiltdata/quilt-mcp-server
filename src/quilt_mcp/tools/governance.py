@@ -41,11 +41,11 @@ from .governance_impl_part2 import (
 
 async def governance(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Governance and administration tool dispatcher.
-    
+
     Args:
         action: The governance action to perform
         params: Parameters for the action
-        
+
     Returns:
         Result dictionary with success status and data/error
     """

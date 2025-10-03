@@ -25,18 +25,18 @@ logger = logging.getLogger(__name__)
 def search_discover() -> Dict[str, Any]:
     """
     Discover search capabilities and available backends.
-    
+
     Returns:
         Dict with search capabilities, available backends, and configuration info.
     """
     token = get_active_token()
     if not token:
         return format_error_response("Authorization token required for search discovery")
-    
+
     catalog_url = resolve_catalog_url()
     if not catalog_url:
         return format_error_response("Catalog URL not configured")
-    
+
     try:
         return {
             "success": True,
@@ -49,28 +49,28 @@ def search_discover() -> Dict[str, Any]:
             ],
             "search_scopes": [
                 "global",
-                "catalog", 
+                "catalog",
                 "package",
                 "bucket",
             ],
             "supported_filters": [
                 "file_extensions",
                 "size_gt",
-                "size_lt", 
+                "size_lt",
                 "date_after",
                 "date_before",
                 "content_type",
             ],
             "common_queries": [
                 "CSV files",
-                "genomics data", 
+                "genomics data",
                 "files larger than 100MB",
                 "packages created this month",
                 "README files",
             ],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        
+
     except Exception as e:
         logger.exception(f"Error discovering search capabilities: {e}")
         return format_error_response(f"Failed to discover search capabilities: {str(e)}")
@@ -89,9 +89,9 @@ async def search_packages(
 ) -> Dict[str, Any]:
     """
     Search for packages/collections of files.
-    
+
     This is a convenience function that calls unified_search with search_type="packages".
-    
+
     Args:
         query: Search query for packages (e.g., "genomics datasets", "machine learning packages")
         scope: Search scope - "global", "catalog", "package", "bucket"
@@ -102,10 +102,10 @@ async def search_packages(
         include_metadata: Include rich metadata in results
         explain_query: Include query execution explanation
         filters: Additional filters
-        
+
     Returns:
         Search results for packages only
-        
+
     Examples:
         search_packages("genomics datasets")
         search_packages("machine learning packages", scope="catalog")
@@ -138,9 +138,9 @@ async def search_objects(
 ) -> Dict[str, Any]:
     """
     Search for individual files/objects.
-    
+
     This is a convenience function that calls unified_search with search_type="objects".
-    
+
     Args:
         query: Search query for files (e.g., "CSV files", "README.md", "*.parquet")
         scope: Search scope - "global", "catalog", "package", "bucket"
@@ -151,10 +151,10 @@ async def search_objects(
         include_metadata: Include rich metadata in results
         explain_query: Include query execution explanation
         filters: Additional filters
-        
+
     Returns:
         Search results for files/objects only
-        
+
     Examples:
         search_objects("CSV files")
         search_objects("README files", scope="bucket", target="quilt-sandbox-bucket")
@@ -225,16 +225,16 @@ async def unified_search(
         # Package Search Examples
         unified_search("genomics datasets", search_type="packages")
         unified_search("machine learning packages", scope="catalog", search_type="packages")
-        
-        # Object Search Examples  
+
+        # Object Search Examples
         unified_search("CSV files", search_type="objects")
         unified_search("README files", search_type="objects", scope="bucket", target="quilt-sandbox-bucket")
         unified_search("*.parquet", search_type="objects", filters={"size_gt": "100MB"})
-        
+
         # Auto-detection (default)
         unified_search("CSV files in genomics packages")  # Will search both packages and objects
         unified_search("datasets", search_type="auto")  # Will likely focus on packages
-        
+
         # Pagination
         unified_search("CSV files", scope="bucket", target="quilt-open-ccle-virginia", limit=50, offset=20)
     """
@@ -314,9 +314,9 @@ def search_suggest(
         }
 
 
-
-
-async def search(action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None) -> Dict[str, Any]:
+async def search(
+    action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None
+) -> Dict[str, Any]:
     """
     Intelligent search operations across Quilt catalogs, packages, and S3 buckets.
 
@@ -349,7 +349,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
     For detailed parameter documentation, see individual action functions.
     """
     params = params or {}
-    
+
     try:
         if action is None:
             return {
@@ -393,7 +393,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["explain_query"] = params["explain_query"]
             if "filters" in params:
                 mapped_params["filters"] = params["filters"]
-            
+
             # Apply navigation context for smart defaults
             if _context:
                 # Auto-detect scope and target if not specified
@@ -402,7 +402,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                     mapped_params["scope"] = context_scope
                     if context_target and not mapped_params.get("target"):
                         mapped_params["target"] = context_target
-                
+
                 # Add path prefix filter for directory-aware searches
                 if is_prefix_context(_context):
                     path_prefix = get_context_path_prefix(_context)
@@ -410,7 +410,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                         filters = mapped_params.get("filters", {})
                         filters["path_prefix"] = path_prefix
                         mapped_params["filters"] = filters
-            
+
             return await search_packages(**mapped_params)
         elif action == "search_objects":
             # Map frontend parameter names to function parameter names
@@ -440,7 +440,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["explain_query"] = params["explain_query"]
             if "filters" in params:
                 mapped_params["filters"] = params["filters"]
-            
+
             # Apply navigation context for smart defaults
             if _context:
                 # Auto-detect scope and target if not specified
@@ -449,7 +449,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                     mapped_params["scope"] = context_scope
                     if context_target and not mapped_params.get("target"):
                         mapped_params["target"] = context_target
-                
+
                 # Add path prefix filter for directory-aware searches
                 if is_prefix_context(_context):
                     path_prefix = get_context_path_prefix(_context)
@@ -457,7 +457,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                         filters = mapped_params.get("filters", {})
                         filters["path_prefix"] = path_prefix
                         mapped_params["filters"] = filters
-            
+
             return await search_objects(**mapped_params)
         elif action == "unified_search":
             # Map frontend parameter names to function parameter names
@@ -493,7 +493,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["filters"] = params["filters"]
             if "count_only" in params:
                 mapped_params["count_only"] = params["count_only"]
-            
+
             # Apply navigation context for smart defaults
             if _context:
                 # Auto-detect scope and target if not specified
@@ -502,7 +502,7 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                     mapped_params["scope"] = context_scope
                     if context_target and not mapped_params.get("target"):
                         mapped_params["target"] = context_target
-                
+
                 # Add path prefix filter for directory-aware searches
                 if is_prefix_context(_context):
                     path_prefix = get_context_path_prefix(_context)
@@ -510,13 +510,13 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                         filters = mapped_params.get("filters", {})
                         filters["path_prefix"] = path_prefix
                         mapped_params["filters"] = filters
-            
+
             return await unified_search(**mapped_params)
         elif action == "suggest":
             return search_suggest(**params)
         else:
             return format_error_response(f"Unknown search action: {action}")
-    
+
     except Exception as exc:
         logger.exception(f"Error executing search action '{action}': {exc}")
         return format_error_response(f"Failed to execute search action '{action}': {str(exc)}")

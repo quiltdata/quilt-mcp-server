@@ -98,10 +98,11 @@ def test_package_create_handles_client_error(monkeypatch):
 
 def test_package_create_handles_invalid_input(monkeypatch):
     """Test that InvalidInput errors from GraphQL are properly reported."""
+
     def fake_create_invalid(**_kwargs):
         return {
             "success": False,
-            "error": "Invalid input: S3 object not found: s3://bucket/missing.csv; Permission denied for bucket"
+            "error": "Invalid input: S3 object not found: s3://bucket/missing.csv; Permission denied for bucket",
         }
 
     monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_package_create", fake_create_invalid)
@@ -120,11 +121,9 @@ def test_package_create_handles_invalid_input(monkeypatch):
 
 def test_package_create_handles_operation_error(monkeypatch):
     """Test that OperationError from GraphQL are properly reported."""
+
     def fake_create_error(**_kwargs):
-        return {
-            "success": False,
-            "error": "Operation failed: Database connection timeout"
-        }
+        return {"success": False, "error": "Operation failed: Database connection timeout"}
 
     monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_package_create", fake_create_error)
 

@@ -66,6 +66,7 @@ class AthenaQueryService:
             if self.use_jwt_auth:
                 # Use JWT-based authentication via BearerAuthService
                 from ..utils import get_s3_client
+
                 s3_client = get_s3_client()
                 credentials = s3_client._get_credentials()
 
@@ -143,6 +144,7 @@ class AthenaQueryService:
         if self.use_jwt_auth:
             # Use JWT-based authentication via BearerAuthService
             from ..utils import get_sts_client
+
             sts_client = get_sts_client()
             # Build a request-scoped glue client using the same session
             # Extract the session from the sts client
@@ -150,7 +152,7 @@ class AthenaQueryService:
                 aws_access_key_id=sts_client._request_signer._credentials.access_key,
                 aws_secret_access_key=sts_client._request_signer._credentials.secret_key,
                 aws_session_token=sts_client._request_signer._credentials.token,
-                region_name="us-east-1"
+                region_name="us-east-1",
             )
             return session.client("glue")
         raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
@@ -160,6 +162,7 @@ class AthenaQueryService:
         if self.use_jwt_auth:
             # Use JWT-based authentication via BearerAuthService
             from ..utils import get_s3_client
+
             return get_s3_client()
         raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
 
@@ -434,6 +437,7 @@ class AthenaQueryService:
             if self.use_jwt_auth:
                 # Use JWT-based authentication via BearerAuthService
                 from ..utils import get_s3_client
+
                 s3_client = get_s3_client()
                 credentials = s3_client._get_credentials()
                 region = "us-east-1"  # Force region for Quilt Athena workgroups

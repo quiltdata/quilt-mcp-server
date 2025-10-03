@@ -355,3 +355,6 @@ aws logs tail /ecs/mcp-server-production --region us-east-1 --since 2m --format 
 
 
 
+
+
+

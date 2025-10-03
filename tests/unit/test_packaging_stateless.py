@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import Dict
+from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -65,7 +65,7 @@ class TestPackagingMetadataTemplates:
         assert result["success"] is True
         assert "templates" in result
         assert isinstance(result["templates"], dict)
-        
+
         # Should have standard templates
         assert "standard" in result["templates"]
         assert "dataset" in result["templates"]
@@ -255,6 +255,7 @@ class TestPackagingMetadataDefaults:
         assert result["navigation"]["params"]["route"]["params"]["bucket"] == "quilt-sandbox-bucket"
         assert result["navigation"]["params"]["route"]["params"]["name"] == "demo-team/new-dataset"
 
+
 class TestPackagingIntegration:
     """Test integration with real catalog (if token available)."""
 
@@ -263,20 +264,17 @@ class TestPackagingIntegration:
         with request_context(test_token, metadata={"path": "/packaging"}):
             # First try to discover packages to see if any exist
             discover_result = packaging.packaging(action="discover")
-            
+
             if discover_result.get("success") and discover_result.get("total_packages", 0) > 0:
                 # If packages exist, try to browse the first one
                 packages_list = discover_result.get("packages", [])
                 if packages_list:
                     first_package = packages_list[0]
                     package_name = first_package.get("name")
-                    
+
                     if package_name:
-                        browse_result = packaging.packaging(
-                            action="browse", 
-                            params={"name": package_name}
-                        )
-                        
+                        browse_result = packaging.packaging(action="browse", params={"name": package_name})
+
                         # Should succeed or fail gracefully
                         assert isinstance(browse_result, dict)
                         assert "success" in browse_result

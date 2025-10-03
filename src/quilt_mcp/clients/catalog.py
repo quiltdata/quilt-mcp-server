@@ -59,12 +59,12 @@ def execute_catalog_query(
         headers=_auth_headers(token),
         timeout=timeout,
     )
-    
+
     # Log response for debugging
     if response.status_code != 200:
         logger.error(f"GraphQL request failed with status {response.status_code}")
         logger.error(f"Response body: {response.text[:500]}")
-    
+
     response.raise_for_status()
     data = response.json()
 
@@ -78,14 +78,14 @@ def execute_catalog_query(
 def _graphql_url(registry_url: str) -> str:
     """
     Convert catalog URL to GraphQL endpoint URL.
-    
+
     The catalog URL (demo.quiltdata.com) needs to be converted to the
     registry URL (demo-registry.quiltdata.com) for GraphQL queries.
     """
     # Handle demo.quiltdata.com -> demo-registry.quiltdata.com
     if "demo.quiltdata.com" in registry_url:
         registry_url = registry_url.replace("demo.quiltdata.com", "demo-registry.quiltdata.com")
-    
+
     return registry_url.rstrip("/") + "/graphql"
 
 
@@ -347,9 +347,9 @@ def catalog_package_entries(
     *, registry_url: str, bucket: str, package_name: str, auth_token: Optional[str], top: Optional[int] = None
 ) -> list[dict[str, Any]]:
     """Get package entries using the correct GraphQL schema.
-    
+
     Uses PackageRevision.contentsFlatMap to get package contents.
-    
+
     Args:
         registry_url: Quilt catalog URL
         bucket: S3 bucket name (without s3:// prefix)
@@ -379,27 +379,29 @@ def catalog_package_entries(
     package = data.get("package")
     if not package:
         return []
-    
+
     revision = package.get("revision")
     if not revision:
         return []
-    
+
     contents_flat_map = revision.get("contentsFlatMap", {})
     if not contents_flat_map:
         return []
-    
+
     # contentsFlatMap is a scalar that contains the flat map of package contents
     # We need to parse it and convert to our expected format
     entries = []
     for logical_key, entry_data in contents_flat_map.items():
         if isinstance(entry_data, dict):
-            entries.append({
-                "logicalKey": logical_key,
-                "physicalKey": entry_data.get("physicalKey", ""),
-                "size": entry_data.get("size", 0),
-                "hash": entry_data.get("hash", ""),
-            })
-    
+            entries.append(
+                {
+                    "logicalKey": logical_key,
+                    "physicalKey": entry_data.get("physicalKey", ""),
+                    "size": entry_data.get("size", 0),
+                    "hash": entry_data.get("hash", ""),
+                }
+            )
+
     return entries
 
 
@@ -420,7 +422,7 @@ def catalog_package_create(
 ) -> Dict[str, Any]:
     """
     Create a package using GraphQL packageConstruct mutation.
-    
+
     This replaces the old REST endpoint approach which was causing 405 errors.
     """
     if not validate_package_name(package_name):
@@ -438,19 +440,13 @@ def catalog_package_create(
     discovered_buckets: set[str] = set()
     for s3_uri in s3_uris:
         if not s3_uri.startswith("s3://"):
-            return {
-                "success": False,
-                "error": f"Invalid S3 URI: {s3_uri}. Must start with 's3://'"
-            }
-        
+            return {"success": False, "error": f"Invalid S3 URI: {s3_uri}. Must start with 's3://'"}
+
         # Extract bucket and key from S3 URI
         uri_parts = s3_uri[5:].split("/", 1)  # Remove 's3://' prefix
         if len(uri_parts) != 2:
-            return {
-                "success": False,
-                "error": f"Invalid S3 URI format: {s3_uri}. Expected format: 's3://bucket/key'"
-            }
-        
+            return {"success": False, "error": f"Invalid S3 URI format: {s3_uri}. Expected format: 's3://bucket/key'"}
+
         s3_bucket, s3_key = uri_parts
         discovered_buckets.add(s3_bucket)
         if len(discovered_buckets) > 1:
@@ -459,7 +455,7 @@ def catalog_package_create(
                 "error": "All files must live in the same S3 bucket to create a package",
                 "buckets": sorted(discovered_buckets),
             }
-        
+
         # Determine logical key (flattened or full path)
         if flatten:
             # Use just the filename as logical key
@@ -467,12 +463,14 @@ def catalog_package_create(
         else:
             # Use the full S3 key as logical key
             logical_key = s3_key
-        
-        entries.append({
-            "logicalKey": logical_key,
-            "physicalKey": s3_uri,
-            "meta": {},
-        })
+
+        entries.append(
+            {
+                "logicalKey": logical_key,
+                "physicalKey": s3_uri,
+                "meta": {},
+            }
+        )
 
     if not discovered_buckets:
         return {
@@ -514,7 +512,7 @@ def catalog_package_create(
         }
     }
     """
-    
+
     variables = {
         "params": {
             "bucket": target_bucket,
@@ -522,11 +520,9 @@ def catalog_package_create(
             "message": message,
             "userMeta": metadata or {},
         },
-        "src": {
-            "entries": entries
-        }
+        "src": {"entries": entries},
     }
-    
+
     try:
         result = catalog_graphql_query(
             registry_url=registry_url,
@@ -534,10 +530,10 @@ def catalog_package_create(
             variables=variables,
             auth_token=auth_token,
         )
-        
+
         if result.get("packageConstruct"):
             construct_result = result["packageConstruct"]
-            
+
             # Check for success (PackagePushSuccess)
             if "package" in construct_result:
                 return {
@@ -548,7 +544,7 @@ def catalog_package_create(
                     "top_hash": construct_result.get("revision", {}).get("hash"),
                     "entries_added": len(s3_uris),
                 }
-            
+
             # Check for InvalidInput errors
             if "errors" in construct_result:
                 errors = construct_result.get("errors", [])
@@ -566,39 +562,30 @@ def catalog_package_create(
                     "error": f"Invalid input: {'; '.join(error_messages) if error_messages else 'Package validation failed'}",
                     "error_type": "InvalidInput",
                 }
-            
+
             # Check for OperationError
             if "message" in construct_result:
                 error_name = construct_result.get("name", "OperationError")
                 error_message = construct_result.get("message", "Unknown operation error")
                 error_context = construct_result.get("context", {})
-                
+
                 error_details = f"Operation failed: {error_message}"
                 if error_context:
                     error_details += f" (context: {error_context})"
-                
+
                 return {
                     "success": False,
                     "error": error_details,
                     "error_type": error_name,
                 }
-            
+
             # Unexpected response format
-            return {
-                "success": False,
-                "error": "Package creation failed - unexpected response format from backend"
-            }
+            return {"success": False, "error": "Package creation failed - unexpected response format from backend"}
         else:
-            return {
-                "success": False,
-                "error": "No result from packageConstruct mutation"
-            }
-            
+            return {"success": False, "error": "No result from packageConstruct mutation"}
+
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"GraphQL package creation failed: {str(e)}"
-        }
+        return {"success": False, "error": f"GraphQL package creation failed: {str(e)}"}
 
 
 def catalog_package_update(
@@ -717,10 +704,10 @@ def catalog_create_browsing_session(
     timeout: int = DEFAULT_TIMEOUT,
 ) -> Dict[str, Any]:
     """Create a browsing session for accessing package files via REST.
-    
+
     The browsing session allows downloading files from a package without
     direct AWS credentials. The backend assumes the necessary IAM role.
-    
+
     Args:
         registry_url: Quilt catalog URL
         bucket: S3 bucket name
@@ -729,19 +716,19 @@ def catalog_create_browsing_session(
         ttl: Session time-to-live in seconds (default: 180)
         auth_token: JWT authentication token
         timeout: Request timeout
-        
+
     Returns:
         Dict with 'id' (session ID) and 'expires' (expiration timestamp)
-        
+
     Raises:
         ValueError: If session creation fails
     """
     token = _require_token(auth_token)
-    
+
     # Format: quilt+s3://bucket#package=name@hash (or package=name:tag)
     # The fragment (#) contains package=name@hash
     scope = f"quilt+s3://{bucket}#package={package_name}@{package_hash}"
-    
+
     query = """
     mutation BrowsingSessionCreate($scope: String!, $ttl: Int!) {
         browsingSessionCreate(scope: $scope, ttl: $ttl) {
@@ -761,7 +748,7 @@ def catalog_create_browsing_session(
         }
     }
     """
-    
+
     result = catalog_graphql_query(
         registry_url=registry_url,
         query=query,
@@ -769,20 +756,20 @@ def catalog_create_browsing_session(
         auth_token=token,
         timeout=timeout,
     )
-    
+
     session_result = result.get("browsingSessionCreate", {})
-    
+
     # Handle errors
     if "errors" in session_result:
         error_messages = [err.get("message", "Unknown error") for err in session_result["errors"]]
         raise ValueError(f"Failed to create browsing session: {'; '.join(error_messages)}")
-    
+
     if "message" in session_result:  # OperationError
         raise ValueError(f"Failed to create browsing session: {session_result['message']}")
-    
+
     if "id" not in session_result:
         raise ValueError("Browsing session creation returned unexpected response")
-    
+
     return session_result
 
 
@@ -795,32 +782,32 @@ def catalog_browse_file(
     timeout: int = DEFAULT_TIMEOUT,
 ) -> str:
     """Get a presigned URL for a file in a package via browsing session.
-    
+
     This uses the backend's /browse/ REST endpoint which assumes the
     necessary IAM role and generates presigned S3 URLs.
-    
+
     Args:
         registry_url: Quilt catalog URL
         session_id: Browsing session ID from catalog_create_browsing_session
         path: File path within the package (logical key)
         auth_token: JWT authentication token
         timeout: Request timeout
-        
+
     Returns:
         Presigned S3 URL as a string
-        
+
     Raises:
         ValueError: If file not found or session invalid
     """
     token = _require_token(auth_token)
-    
+
     browse_url = f"{registry_url.rstrip('/')}/browse/{session_id}/{path.lstrip('/')}"
-    
+
     headers = {
         "Authorization": f"Bearer {token}",
         "User-Agent": "Quilt-MCP-Server/Stateless",
     }
-    
+
     # Make request - this will redirect to a presigned URL
     response = requests.get(
         browse_url,
@@ -828,7 +815,7 @@ def catalog_browse_file(
         timeout=timeout,
         allow_redirects=False,  # We want the redirect URL, not to follow it
     )
-    
+
     if response.status_code == 302 or response.status_code == 303:
         # Return the redirect location (presigned URL)
         return response.headers.get("Location", "")

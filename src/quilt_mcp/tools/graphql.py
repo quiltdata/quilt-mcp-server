@@ -50,10 +50,10 @@ def objects_search_graphql(
     after: str = "",
 ) -> dict[str, Any]:
     """DEPRECATED: Use search.unified_search instead.
-    
+
     This function is deprecated and will be removed in a future version.
     Use search.unified_search with scope="bucket" and target=bucket for better results.
-    
+
     Args:
         bucket: S3 bucket name or s3:// URI
         object_filter: Object filter criteria (deprecated parameter)
@@ -64,10 +64,10 @@ def objects_search_graphql(
         Dict with deprecation warning and redirect to unified search.
     """
     from .search import unified_search
-    
+
     # Normalize bucket input: allow s3://bucket
     bkt = bucket[5:].split("/", 1)[0] if bucket.startswith("s3://") else bucket
-    
+
     # Redirect to unified search
     try:
         search_result = unified_search(
@@ -75,16 +75,16 @@ def objects_search_graphql(
             scope="bucket",
             target=bkt,
             limit=first,
-            include_metadata=True
+            include_metadata=True,
         )
-        
+
         return {
             "success": True,
             "deprecated": True,
             "message": "objects_search_graphql is deprecated. Use search.unified_search instead.",
             "bucket": bkt,
             "redirected_to": "search.unified_search",
-            "search_results": search_result
+            "search_results": search_result,
         }
     except Exception as e:
         return {

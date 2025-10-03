@@ -567,10 +567,10 @@ class AWSPermissionDiscovery:
             from ..clients import catalog as catalog_client
             from ..runtime import get_active_token
             from ..utils import resolve_catalog_url
-            
+
             token = get_active_token()
             registry_url = resolve_catalog_url()
-            
+
             if not token or not registry_url:
                 logger.warning("No token or registry URL available for GraphQL query")
                 return set()
@@ -582,9 +582,13 @@ class AWSPermissionDiscovery:
                 variables=None,
                 auth_token=token,
             )
-            
+
             if isinstance(data, dict) and "bucketConfigs" in data:
-                bucket_names = {bucket["name"] for bucket in data["bucketConfigs"] if isinstance(bucket, dict) and bucket.get("name")}
+                bucket_names = {
+                    bucket["name"]
+                    for bucket in data["bucketConfigs"]
+                    if isinstance(bucket, dict) and bucket.get("name")
+                }
                 logger.info(f"GraphQL discovered {len(bucket_names)} buckets: {list(bucket_names)[:5]}...")
                 return bucket_names
             else:

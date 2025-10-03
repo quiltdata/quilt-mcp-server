@@ -2,7 +2,7 @@
   "containerDefinitions": [
     {
       "name": "mcp-server",
-      "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.57-dev-20251003164632",
+      "image": "850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.57",
       "cpu": 0,
       "portMappings": [
         {
@@ -39,7 +39,7 @@
         },
         {
           "name": "MCP_SERVER_VERSION",
-          "value": "0.6.57-dev-20251003164632"
+          "value": "0.6.57"
         },
         {
           "name": "PYTHONUNBUFFERED",

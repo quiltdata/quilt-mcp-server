@@ -226,6 +226,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     return tools_registered
 
+
 def _get_bearer_auth_service():
     from .services.bearer_auth_service import get_bearer_auth_service
 
@@ -260,7 +261,7 @@ def get_sts_client(_use_quilt_auth: bool = True):
 
 def validate_package_name(package_name: str) -> bool:
     """Validate package name format (namespace/name).
-    
+
     Matches Quilt backend validation rules:
     - Must be lowercase letters, numbers, hyphens, underscores only
     - Must start with lowercase letter or number
@@ -356,33 +357,33 @@ def _wrap_http_app(mcp: FastMCP):
     @app.middleware("http")
     async def _inject_request_context(request: Request, call_next):  # type: ignore
         from .telemetry.tool_logger import set_debug_mode, log_request_context
-        
+
         # Check for debug mode header (X-MCP-Debug: true)
         debug_header = request.headers.get("X-MCP-Debug", "false").lower()
         debug_enabled = debug_header in ("true", "1", "yes")
         set_debug_mode(debug_enabled)
-        
+
         # Debug: Check all headers
         auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        
+
         if debug_enabled:
             print(f"DEBUG: Request to {request.url.path}", file=sys.stderr)
             print(f"DEBUG: Authorization header: {auth_header[:30] if auth_header else 'None'}...", file=sys.stderr)
-        
+
         # Strip "Bearer " prefix if present
         token = auth_header
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]  # Remove "Bearer " prefix
             if debug_enabled:
                 print(f"DEBUG: Stripped Bearer prefix, token: {token[:20]}...", file=sys.stderr)
-        
+
         # Log request context
         log_request_context(
             has_jwt=bool(token),
             catalog_url=resolve_catalog_url(),
             session_id=request.headers.get("X-Session-ID"),
         )
-        
+
         with request_context(token, {"path": str(request.url.path)}):
             response = await call_next(request)
         return response

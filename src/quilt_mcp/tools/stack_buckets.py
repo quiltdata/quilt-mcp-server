@@ -86,18 +86,14 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
         from .permissions import permissions
 
         result = permissions(action="discover")
-        
+
         if not result.get("success"):
             logger.debug(f"Permission discovery failed: {result.get('error')}")
             return set()
-        
+
         # Return accessible buckets
         bucket_permissions = result.get("bucket_permissions", [])
-        bucket_names = {
-            bucket["name"] 
-            for bucket in bucket_permissions 
-            if bucket.get("accessible", False)
-        }
+        bucket_names = {bucket["name"] for bucket in bucket_permissions if bucket.get("accessible", False)}
 
         logger.debug(f"Permission discovery found buckets: {list(bucket_names)}")
         return bucket_names
@@ -109,10 +105,10 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
 
 def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
     """DEPRECATED: Elasticsearch functionality removed.
-    
+
     This function is deprecated and will be removed in a future version.
     Use search.unified_search for cross-bucket search instead.
-    
+
     Args:
         buckets: List of bucket names (deprecated parameter)
 

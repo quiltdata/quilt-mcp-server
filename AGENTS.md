@@ -523,3 +523,5 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - When mocking `catalog_package_create` in tests, capture kwargs to assert `flatten` toggles with `auto_organize`; the tool now returns backend errors directly if `success` is False.
 - GraphQL object search treats wildcard/extension filters as ANDed with `searchString`; set `searchString=""` whenever you rely on `key.wildcard` otherwise queries like `*.csv` will return zero rows.
 - Unified search responses expose `available_extensions`, `object_total`, and `next_cursor` derived from GraphQL `stats.ext`; use those facets to drive follow-up prompts instead of hardcoding suffixes.
+- Unified search auto-routing now defaults ambiguous queries (e.g., "glioblastoma") to the package path; update tests to `await search.search(...)` and patch async helpers with `AsyncMock` when stubbing `_unified_search`.
+- `EnterpriseGraphQLBackend._search_packages_global` paginates via `searchMorePackages`; use the returned `PackageSearchResponse`'s `total` and `next_cursor` to drive pagination-aware assertions or follow-up calls.

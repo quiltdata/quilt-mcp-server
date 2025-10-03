@@ -295,8 +295,27 @@ class QueryParser:
         # If no extensions found yet, check for standalone common file extensions
         # This handles queries like just "csv" or "json"
         if not extensions:
-            common_extensions = ['csv', 'json', 'parquet', 'txt', 'md', 'pdf', 'xlsx', 'xls', 'xml', 'yaml', 'yml', 
-                               'tsv', 'avro', 'orc', 'feather', 'hdf5', 'h5', 'html', 'ipynb']
+            common_extensions = [
+                'csv',
+                'json',
+                'parquet',
+                'txt',
+                'md',
+                'pdf',
+                'xlsx',
+                'xls',
+                'xml',
+                'yaml',
+                'yml',
+                'tsv',
+                'avro',
+                'orc',
+                'feather',
+                'hdf5',
+                'h5',
+                'html',
+                'ipynb',
+            ]
             query_lower = query.lower().strip()
             # Only match if the query is JUST the extension (or extension with wildcards)
             if query_lower in common_extensions or query_lower.replace('*', '').replace('.', '') in common_extensions:

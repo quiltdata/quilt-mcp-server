@@ -158,10 +158,7 @@ class TestBucketsDiscovery:
         token_value = "test.jwt.token"
 
         # Mock resolve_catalog_url to return None
-        monkeypatch.setattr(
-            "quilt_mcp.tools.buckets.resolve_catalog_url",
-            lambda: None
-        )
+        monkeypatch.setattr("quilt_mcp.tools.buckets.resolve_catalog_url", lambda: None)
 
         with request_context(token_value, metadata={"path": "/buckets"}):
             result = buckets.buckets(action="discover")

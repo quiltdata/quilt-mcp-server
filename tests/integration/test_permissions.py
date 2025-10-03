@@ -32,7 +32,7 @@ class TestPermissionsIntegration:
     def test_discovery_mode(self):
         """Test discovery mode returns module info (no auth needed)."""
         result = permissions()
-        
+
         assert result.get("module") == "permissions"
         assert "discover" in result.get("actions", [])
 
@@ -40,7 +40,7 @@ class TestPermissionsIntegration:
         """Test permissions discovery against real catalog."""
         with request_context(test_token, metadata={"source": "test"}):
             result = permissions(action="discover")
-        
+
         assert result.get("success") is True
         assert "user_identity" in result
         assert result["user_identity"].get("email")
@@ -48,22 +48,16 @@ class TestPermissionsIntegration:
     def test_bucket_access_check_existing(self, test_token, catalog_url):
         """Test access check on an existing bucket."""
         with request_context(test_token, metadata={"source": "test"}):
-            result = permissions(
-                action="access_check",
-                params={"bucket_name": "quilt-example"}
-            )
-        
+            result = permissions(action="access_check", params={"bucket_name": "quilt-example"})
+
         assert result.get("success") is True
         assert result.get("bucket_name") == "quilt-example"
 
     def test_bucket_access_check_nonexistent(self, test_token, catalog_url):
         """Test access check on a nonexistent bucket."""
         with request_context(test_token, metadata={"source": "test"}):
-            result = permissions(
-                action="access_check",
-                params={"bucket_name": "definitely-nonexistent-xyz"}
-            )
-        
+            result = permissions(action="access_check", params={"bucket_name": "definitely-nonexistent-xyz"})
+
         assert result.get("success") is True
         assert result.get("accessible") is False
 
@@ -71,7 +65,6 @@ class TestPermissionsIntegration:
         """Test permission recommendations."""
         with request_context(test_token, metadata={"source": "test"}):
             result = permissions(action="recommendations_get")
-        
+
         assert result.get("success") is True
         assert "recommendations" in result
-
