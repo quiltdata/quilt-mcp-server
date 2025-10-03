@@ -307,69 +307,39 @@ def bucket_object_text(
 
 
 def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, Any]:
-    """Upload multiple objects to an S3 bucket.
+    """[NOT IMPLEMENTED] Upload multiple objects to an S3 bucket.
+    
+    This action is not yet implemented because the Quilt backend does not provide
+    presigned upload URLs or direct S3 write access via its APIs. This is intentional
+    security design - the backend controls all S3 access via IAM roles.
 
     Args:
         bucket: S3 bucket name or s3:// URI
         items: List of objects to upload, each with 'key' and either 'text' or 'data' (base64)
-               Optional: 'content_type', 'encoding' (for text), 'metadata' dict
 
     Returns:
-        Dict with upload results and summary statistics.
+        Error message with workarounds.
     """
-    import base64
-
     bkt = _normalize_bucket(bucket)
-    if not items:
-        return {"error": "items list is empty", "bucket": bkt}
-    client = get_s3_client()
-    results: list[dict[str, Any]] = []
-    for idx, item in enumerate(items):
-        key = item.get("key")
-        if not key or not isinstance(key, str):
-            results.append({"index": idx, "error": "missing key"})
-            continue
-        text = item.get("text")
-        data_b64 = item.get("data")
-        if (text is None) == (data_b64 is None):
-            results.append({"key": key, "error": "provide exactly one of text or data"})
-            continue
-        if text is not None:
-            encoding = item.get("encoding", "utf-8")
-            try:
-                body = text.encode(encoding)
-            except Exception as e:
-                results.append({"key": key, "error": f"encode failed: {e}"})
-                continue
-        else:
-            try:
-                body = base64.b64decode(str(data_b64), validate=True)
-            except Exception as e:
-                results.append({"key": key, "error": f"base64 decode failed: {e}"})
-                continue
-        put_kwargs: dict[str, Any] = {"Bucket": bkt, "Key": key, "Body": body}
-        if item.get("content_type"):
-            put_kwargs["ContentType"] = item["content_type"]
-        if item.get("metadata") and isinstance(item.get("metadata"), dict):
-            put_kwargs["Metadata"] = item["metadata"]
-        try:
-            resp = client.put_object(**put_kwargs)
-            results.append(
-                {
-                    "key": key,
-                    "etag": resp.get("ETag"),
-                    "size": len(body),
-                    "content_type": put_kwargs.get("ContentType"),
-                }
-            )
-        except Exception as e:
-            results.append({"key": key, "error": str(e)})
-    successes = sum(1 for r in results if "etag" in r)
+    
     return {
-        "bucket": bkt,
-        "requested": len(items),
-        "uploaded": successes,
-        "results": results,
+        "success": False,
+        "not_implemented": True,
+        "error": "File upload is not yet implemented in the MCP server",
+        "message": (
+            "The Quilt backend does not provide presigned upload URLs or direct S3 write access. "
+            "This is intentional security design - the backend controls all AWS operations via IAM roles. "
+            "To implement this feature, the backend would need a new 'generateUploadUrl' GraphQL mutation."
+        ),
+        "workarounds": {
+            "web_ui": f"Upload files via Quilt catalog web interface at {resolve_catalog_url() or 'your catalog URL'}",
+            "aws_cli": f"Upload with AWS CLI: aws s3 cp <file> s3://{bkt}/<key>",
+            "then_package": "After upload, use packaging.create with the S3 URI to create a package"
+        },
+        "requested_bucket": bkt,
+        "requested_items_count": len(items) if items else 0,
+        "backend_feature_needed": "generateUploadUrl GraphQL mutation or presigned POST endpoint",
+        "status": "awaiting_backend_api_enhancement"
     }
 
 
