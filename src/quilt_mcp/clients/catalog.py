@@ -57,6 +57,12 @@ def execute_catalog_query(
         headers=_auth_headers(token),
         timeout=timeout,
     )
+    
+    # Log response for debugging
+    if response.status_code != 200:
+        logger.error(f"GraphQL request failed with status {response.status_code}")
+        logger.error(f"Response body: {response.text[:500]}")
+    
     response.raise_for_status()
     data = response.json()
 
@@ -475,10 +481,16 @@ def catalog_package_create(
                 }
             }
             ... on InvalidInput {
-                _: Boolean
+                errors {
+                    path
+                    message
+                    name
+                }
             }
             ... on OperationError {
-                _: Boolean
+                message
+                name
+                context
             }
         }
     }
