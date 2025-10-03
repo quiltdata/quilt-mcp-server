@@ -348,16 +348,33 @@ def _wrap_http_app(mcp: FastMCP):
 
     @app.middleware("http")
     async def _inject_request_context(request: Request, call_next):  # type: ignore
+        from .telemetry.tool_logger import set_debug_mode, log_request_context
+        
+        # Check for debug mode header (X-MCP-Debug: true)
+        debug_header = request.headers.get("X-MCP-Debug", "false").lower()
+        debug_enabled = debug_header in ("true", "1", "yes")
+        set_debug_mode(debug_enabled)
+        
         # Debug: Check all headers
         auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
-        print(f"DEBUG: Request to {request.url.path}", file=sys.stderr)
-        print(f"DEBUG: Authorization header: {auth_header[:30] if auth_header else 'None'}...", file=sys.stderr)
+        
+        if debug_enabled:
+            print(f"DEBUG: Request to {request.url.path}", file=sys.stderr)
+            print(f"DEBUG: Authorization header: {auth_header[:30] if auth_header else 'None'}...", file=sys.stderr)
         
         # Strip "Bearer " prefix if present
         token = auth_header
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]  # Remove "Bearer " prefix
-            print(f"DEBUG: Stripped Bearer prefix, token: {token[:20]}...", file=sys.stderr)
+            if debug_enabled:
+                print(f"DEBUG: Stripped Bearer prefix, token: {token[:20]}...", file=sys.stderr)
+        
+        # Log request context
+        log_request_context(
+            has_jwt=bool(token),
+            catalog_url=resolve_catalog_url(),
+            session_id=request.headers.get("X-Session-ID"),
+        )
         
         with request_context(token, {"path": str(request.url.path)}):
             response = await call_next(request)
