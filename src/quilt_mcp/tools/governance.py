@@ -39,7 +39,7 @@ from .governance_impl_part2 import (
 )
 
 
-def governance(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def governance(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Governance and administration tool dispatcher.
     
     Args:
@@ -102,11 +102,8 @@ def governance(action: Optional[str] = None, params: Optional[Dict[str, Any]] = 
 
     try:
         if callable(func):
-            # Check if function is async
-            if getattr(func, "__code__", None) and func.__code__.co_flags & 0x80:
-                import asyncio
-                return asyncio.get_event_loop().run_until_complete(func(**params))
-            return func(**params)
+            # All governance functions are async, so await them
+            return await func(**params)
         return format_error_response(f"Governance action not callable: {action}")
     except Exception as exc:
         logger.exception("Governance action %s failed", action)

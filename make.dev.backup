@@ -136,7 +136,6 @@ test-buckets-discover:
 	@echo "Discovering accessible buckets..."
 	@curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"discover"}}}' \
 		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-discover.json
@@ -152,7 +151,6 @@ test-buckets-browse:
 	@echo "Note: This requires _context with bucket/package/hash"
 	@curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_link","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"}}}}}' \
 		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-link.json
@@ -167,14 +165,12 @@ test-buckets-file-access:
 	@echo "Testing object_info..."
 	@curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_info","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"}}}}}' \
 		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-info.json
 	@echo "Testing object_text..."
 	@curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_text","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"},"max_bytes":1024}}}}' \
 		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-text.json
@@ -205,7 +201,6 @@ test-packaging-browse:
 	echo "→ Calling packaging.browse with package name..."; \
 	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d "{\"jsonrpc\":\"2.0\",\"id\":102,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"browse\",\"params\":{\"name\":\"$$TEST_PKG\"}}}}"); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-browse.json; \
@@ -241,7 +236,6 @@ test-packaging-create:
 	fi; \
 	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d "{\"jsonrpc\":\"2.0\",\"id\":103,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"create\",\"params\":{\"name\":\"quilt-example/test-pkg-curl\",\"files\":[\"$$TEST_URI\"],\"description\":\"Test package via curl\",\"metadata\":{\"source\":\"curl-test\",\"author\":\"mcp-server\"},\"dry_run\":true}}}}"); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-dry-run.json; \
@@ -256,7 +250,6 @@ test-packaging-create:
 	@echo "Test 2: Error handling with missing package name..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":104,"method":"tools/call","params":{"name":"packaging","arguments":{"action":"create","params":{"files":["s3://bucket/file.txt"],"dry_run":true}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-error-name.json; \
@@ -270,7 +263,6 @@ test-packaging-create:
 	@echo "Test 3: Error handling with missing files..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":105,"method":"tools/call","params":{"name":"packaging","arguments":{"action":"create","params":{"name":"bucket/test","description":"Test","dry_run":true}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-error-files.json; \
@@ -289,7 +281,6 @@ test-packaging-create:
 	fi; \
 	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d "{\"jsonrpc\":\"2.0\",\"id\":106,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"create\",\"params\":{\"name\":\"quilt-example/test-pkg-organized\",\"files\":[\"$$TEST_URI\"],\"description\":\"Test with auto-organize\",\"metadata\":{\"test\":true,\"version\":\"1.0.0\"},\"auto_organize\":true,\"dry_run\":true}}}}"); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-organized.json; \
@@ -325,7 +316,6 @@ test-governance-users:
 	@echo "Test 1: List all users..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":401,"method":"tools/call","params":{"name":"governance","arguments":{"action":"users_list"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-users-list.json; \
@@ -353,7 +343,6 @@ test-governance-roles:
 	@echo "Test 1: List all roles..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":402,"method":"tools/call","params":{"name":"governance","arguments":{"action":"roles_list"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-roles-list.json; \
@@ -381,7 +370,6 @@ test-governance-sso:
 	@echo "Test 1: Get SSO configuration..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":403,"method":"tools/call","params":{"name":"governance","arguments":{"action":"sso_config_get"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-sso-get.json; \
@@ -409,7 +397,6 @@ test-governance-tabulator:
 	@echo "Test 1: Get tabulator open query status..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":404,"method":"tools/call","params":{"name":"governance","arguments":{"action":"tabulator_open_query_get"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-tabulator-open-query.json; \
@@ -437,7 +424,6 @@ test-permissions-discover:
 	@echo "Test 1: Discover all accessible buckets and user identity..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":200,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover.json; \
@@ -460,7 +446,6 @@ test-permissions-discover:
 	@echo "Test 2: Discover specific buckets (including non-existent)..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":201,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover","params":{"check_buckets":["quilt-example","nonexistent-test-bucket-xyz"]}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover-filtered.json; \
@@ -476,7 +461,6 @@ test-permissions-discover:
 	@echo "Test 3: Error handling - no token..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-d '{"jsonrpc":"2.0","id":202,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover-no-token.json; \
 	echo ""; \
@@ -499,7 +483,6 @@ test-permissions-access-check:
 	@echo "Test 1: Check access to existing bucket (quilt-example)..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":210,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{"bucket_name":"quilt-example"}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-existing.json; \
@@ -521,7 +504,6 @@ test-permissions-access-check:
 	@echo "Test 2: Check access to non-existent bucket..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":211,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{"bucket_name":"definitely-does-not-exist-xyz-123"}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-nonexistent.json; \
@@ -541,7 +523,6 @@ test-permissions-access-check:
 	@echo "Test 3: Check access with alias action name (check_bucket_access)..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":212,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"check_bucket_access","params":{"bucket":"quilt-example"}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-check-bucket-access.json; \
@@ -555,7 +536,6 @@ test-permissions-access-check:
 	@echo "Test 4: Error handling - missing bucket name..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":213,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{}}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-no-bucket.json; \
@@ -579,7 +559,6 @@ test-permissions-recommendations:
 	@echo "Test 1: Get permission recommendations..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
 		-d '{"jsonrpc":"2.0","id":220,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"recommendations_get"}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-recommendations.json; \
@@ -608,7 +587,6 @@ test-permissions-module-info:
 	@echo "Test: Get permissions module info..."
 	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
 		-H "Content-Type: application/json" \
-		-H "Accept: application/json, text/event-stream" \
 		-d '{"jsonrpc":"2.0","id":230,"method":"tools/call","params":{"name":"permissions","arguments":{}}}'); \
 	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-module-info.json; \
 	echo ""; \
