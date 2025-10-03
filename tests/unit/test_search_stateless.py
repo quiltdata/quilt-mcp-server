@@ -5,12 +5,20 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from typing import Dict
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, AsyncMock
 
 import pytest
 
 from quilt_mcp.runtime import request_context
 from quilt_mcp.tools import search
+from quilt_mcp.search.backends.base import (
+    BackendResponse,
+    BackendStatus,
+    BackendType,
+    SearchResult,
+)
+from quilt_mcp.search.backends.graphql import EnterpriseGraphQLBackend
+from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine
 
 
 @contextmanager
@@ -217,6 +225,179 @@ class TestSearchErrorHandling:
         assert result["success"] is False
         assert "failed" in result["error"].lower()
         assert "execute search action" in result["error"].lower()
+
+
+class TestGraphQLBackendFilters:
+    """Tests for GraphQL backend filter logic."""
+
+    def test_build_objects_filter_wildcard(self):
+        backend = EnterpriseGraphQLBackend()
+
+        filt, blank = backend._build_objects_filter("*.csv", None)
+
+        assert filt == {"key": {"wildcard": "*.csv"}}
+        assert blank is True
+
+    def test_build_objects_filter_extension_keyword(self):
+        backend = EnterpriseGraphQLBackend()
+
+        filt, blank = backend._build_objects_filter("csv", None)
+
+        assert filt == {"key": {"wildcard": "*.csv"}}
+        assert blank is True
+
+    def test_build_objects_filter_extension_with_dot(self):
+        backend = EnterpriseGraphQLBackend()
+
+        filt, blank = backend._build_objects_filter(".csv", None)
+
+        assert filt == {"key": {"wildcard": "*.csv"}}
+        assert blank is True
+
+
+class TestGraphQLBackendSearch:
+    """Tests for GraphQL backend search behaviour."""
+
+    @pytest.mark.asyncio
+    async def test_search_objects_blank_search_for_wildcard(self, monkeypatch):
+        backend = EnterpriseGraphQLBackend()
+
+        async def fake_execute(query, variables):
+            fake_execute.calls.append(variables)
+            return {
+                "data": {
+                    "searchObjects": {
+                        "__typename": "ObjectsSearchResultSet",
+                        "total": 1,
+                        "firstPage": {
+                            "hits": [
+                                {
+                                    "bucket": "demo-bucket",
+                                    "key": "path/file.csv",
+                                    "version": "v1",
+                                    "size": 1024,
+                                    "modified": "2025-10-03T00:00:00Z",
+                                    "deleted": False,
+                                    "score": 1.0,
+                                    "indexedContent": None,
+                                }
+                            ],
+                            "cursor": None,
+                        },
+                    }
+                }
+            }
+
+        fake_execute.calls = []
+        monkeypatch.setattr(backend, "_execute_graphql_query", fake_execute)
+        monkeypatch.setattr(backend, "_fetch_more_objects", AsyncMock(return_value=([], None)))
+
+        payload = await backend._search_objects_global("*.csv", None, limit=5)
+
+        assert len(payload.results) == 1
+        assert fake_execute.calls[0]["searchString"] == ""
+        assert payload.stats == {}
+
+    @pytest.mark.asyncio
+    async def test_search_objects_paginates_results(self, monkeypatch):
+        backend = EnterpriseGraphQLBackend()
+
+        async def fake_execute(query, variables):
+            return {
+                "data": {
+                    "searchObjects": {
+                        "__typename": "ObjectsSearchResultSet",
+                        "total": 5,
+                        "firstPage": {
+                            "hits": [
+                                {
+                                    "bucket": "demo-bucket",
+                                    "key": f"file-{i}.csv",
+                                    "version": "v1",
+                                    "size": 10,
+                                    "modified": "2025-10-03T00:00:00Z",
+                                    "deleted": False,
+                                    "score": 1.0,
+                                    "indexedContent": None,
+                                }
+                                for i in range(2)
+                            ],
+                            "cursor": "cursor-1",
+                        },
+                    }
+                }
+            }
+
+        more_hits = [
+            {
+                "bucket": "demo-bucket",
+                "key": f"file-{i}.csv",
+                "version": "v1",
+                "size": 10,
+                "modified": "2025-10-03T00:00:00Z",
+                "deleted": False,
+                "score": 0.9,
+                "indexedContent": None,
+            }
+            for i in range(2, 5)
+        ]
+
+        monkeypatch.setattr(backend, "_execute_graphql_query", fake_execute)
+        fetch_more_mock = AsyncMock(return_value=(more_hits, None))
+        monkeypatch.setattr(backend, "_fetch_more_objects", fetch_more_mock)
+
+        payload = await backend._search_objects_global("*.csv", None, limit=4)
+
+        assert len(payload.results) == 4
+        fetch_more_mock.assert_awaited()
+        returned_keys = {res.logical_key for res in payload.results}
+        assert "file-3.csv" in returned_keys
+
+
+class TestUnifiedSearchEngine:
+    """Validate unified search enrichment metadata."""
+
+    @pytest.mark.asyncio
+    async def test_available_extensions_surface_in_response(self, monkeypatch):
+        engine = UnifiedSearchEngine()
+
+        fake_result = SearchResult(
+            id="obj-1",
+            type="file",
+            title="file.csv",
+            description="",
+            s3_uri="s3://demo/file.csv",
+            metadata={"bucket": "demo", "extension": "csv"},
+            score=1.0,
+            backend="graphql",
+        )
+
+        backend_response = BackendResponse(
+            backend_type=BackendType.GRAPHQL,
+            status=BackendStatus.AVAILABLE,
+            results=[fake_result],
+            total=1,
+            raw_response={
+                "objects": {
+                    "ext_stats": [{"key": "csv", "count": 7}, {"key": "h5", "count": 2}],
+                    "total": 15,
+                    "next_cursor": "cursor-123",
+                }
+            },
+        )
+
+        monkeypatch.setattr(
+            engine,
+            "_execute_parallel_searches",
+            AsyncMock(return_value=[backend_response]),
+        )
+
+        result = await engine.search(query="csv", search_type="objects", limit=5)
+
+        assert result["available_extensions"][0] == {"extension": "csv", "count": 7}
+        assert result["available_extensions"][1] == {"extension": "h5", "count": 2}
+        assert result["object_total"] == 15
+        assert result["next_cursor"] == "cursor-123"
 
 
 class TestSearchIntegration:

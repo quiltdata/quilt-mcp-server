@@ -259,7 +259,13 @@ def get_sts_client(_use_quilt_auth: bool = True):
 
 
 def validate_package_name(package_name: str) -> bool:
-    """Validate package name format (namespace/name)."""
+    """Validate package name format (namespace/name).
+    
+    Matches Quilt backend validation rules:
+    - Must be lowercase letters, numbers, hyphens, underscores only
+    - Must start with lowercase letter or number
+    - No uppercase letters allowed
+    """
     if not package_name or "/" not in package_name:
         return False
 
@@ -269,8 +275,9 @@ def validate_package_name(package_name: str) -> bool:
 
     namespace, name = parts
 
-    # Check for valid characters and format
-    pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9\-_]*[a-zA-Z0-9])?$"
+    # Pattern from quilt3 backend: lowercase letters, numbers, hyphens, underscores
+    # Must start with lowercase letter or number
+    pattern = r"^[a-z0-9][a-z0-9\-_]*$"
     return bool(re.match(pattern, namespace) and re.match(pattern, name))
 
 

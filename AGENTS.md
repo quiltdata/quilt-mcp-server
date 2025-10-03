@@ -519,3 +519,7 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+- `catalog_package_create` expects `params.bucket` to match the actual S3 bucket from the provided URIs; infer it from the URIs and send the full `namespace/package` value as `params.name` to avoid Quilt's "Invalid package name" errors.
+- When mocking `catalog_package_create` in tests, capture kwargs to assert `flatten` toggles with `auto_organize`; the tool now returns backend errors directly if `success` is False.
+- GraphQL object search treats wildcard/extension filters as ANDed with `searchString`; set `searchString=""` whenever you rely on `key.wildcard` otherwise queries like `*.csv` will return zero rows.
+- Unified search responses expose `available_extensions`, `object_total`, and `next_cursor` derived from GraphQL `stats.ext`; use those facets to drive follow-up prompts instead of hardcoding suffixes.

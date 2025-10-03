@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from typing import Dict
+from unittest.mock import patch
 
 import pytest
 
@@ -177,6 +179,81 @@ class TestPackagingErrorHandling:
         # The error will be about GraphQL failure, not missing params, since we pass None as name
         assert "failed" in result["error"].lower()
 
+    def test_create_propagates_catalog_errors(self, monkeypatch, catalog_url):
+        """Ensure catalog failures bubble up without reporting success."""
+        from quilt_mcp.clients import catalog as catalog_client
+
+        captured: dict[str, object] = {}
+
+        def fake_package_create(**kwargs):
+            captured.update(kwargs)
+            return {
+                "success": False,
+                "error": "Operation failed: Invalid package name: jump-csv-data.",
+                "error_type": "QuiltException",
+            }
+
+        monkeypatch.setattr(catalog_client, "catalog_package_create", fake_package_create)
+
+        with request_context("token-123", metadata={"path": "/packaging"}):
+            result = packaging.packaging(
+                action="create",
+                params={
+                    "name": "demo-team/jump-csv-data",
+                    "files": ["s3://demo-bucket/path/data.csv"],
+                    "description": "Demo dataset",
+                },
+            )
+
+        assert result["success"] is False
+        assert "invalid package name" in result["error"].lower()
+        assert captured["package_name"] == "demo-team/jump-csv-data"
+        assert captured["s3_uris"] == ["s3://demo-bucket/path/data.csv"]
+        assert captured["flatten"] is True
+
+
+class TestPackagingMetadataDefaults:
+    """Test automatic metadata generation for packaging."""
+
+    @patch("quilt_mcp.tools.packaging.catalog_client.catalog_package_create")
+    @patch("quilt_mcp.tools.packaging.catalog_client.catalog_packages_list")
+    def test_auto_metadata_generation(self, mock_packages_list, mock_package_create, test_token, catalog_url):
+        mock_packages_list.return_value = [
+            "demo-team/existing-analysis",
+            "demo-team/cell-data",
+        ]
+
+        captured_kwargs: Dict[str, Any] = {}
+
+        def fake_package_create(**kwargs):
+            captured_kwargs.update(kwargs)
+            return {
+                "success": True,
+                "package": {"bucket": "quilt-sandbox-bucket", "name": kwargs["package_name"]},
+                "revision": {"hash": "abc123"},
+                "message": "created",
+            }
+
+        mock_package_create.side_effect = fake_package_create
+
+        with request_context(test_token, metadata={"path": "/packaging"}):
+            result = packaging.package_create(
+                name="demo-team/new-dataset",
+                files=[
+                    "s3://quilt-sandbox-bucket/data/file1.csv",
+                    "s3://quilt-sandbox-bucket/data/file2.tsv",
+                ],
+            )
+
+        metadata_sent = captured_kwargs["metadata"]
+        assert sorted(metadata_sent.get("file_extensions", [])) == ["csv", "tsv"]
+        assert metadata_sent.get("file_counts_by_extension", {}).get("csv") == 1
+        assert "tags" in metadata_sent and metadata_sent["tags"]
+        assert metadata_sent.get("source_buckets") == ["quilt-sandbox-bucket"]
+        assert result["warnings"]
+        assert result.get("navigation", {}).get("tool") == "navigate"
+        assert result["navigation"]["params"]["route"]["params"]["bucket"] == "quilt-sandbox-bucket"
+        assert result["navigation"]["params"]["route"]["params"]["name"] == "demo-team/new-dataset"
 
 class TestPackagingIntegration:
     """Test integration with real catalog (if token available)."""

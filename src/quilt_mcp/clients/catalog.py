@@ -7,6 +7,8 @@ from typing import Any, Dict, Mapping, Optional
 
 import requests
 
+from ..utils import validate_package_name
+
 
 logger = logging.getLogger(__name__)
 
@@ -421,17 +423,19 @@ def catalog_package_create(
     
     This replaces the old REST endpoint approach which was causing 405 errors.
     """
-    # Parse package name to get bucket and name
-    if "/" not in package_name:
+    if not validate_package_name(package_name):
         return {
             "success": False,
-            "error": f"Invalid package name format: {package_name}. Expected format: 'bucket/package-name'"
+            "error": (
+                "Invalid package name format. Packages must be 'namespace/package-name' "
+                "and use lowercase letters, numbers, hyphens, or underscores."
+            ),
+            "provided": package_name,
         }
-    
-    bucket, name = package_name.split("/", 1)
-    
+
     # Convert S3 URIs to package entries
     entries = []
+    discovered_buckets: set[str] = set()
     for s3_uri in s3_uris:
         if not s3_uri.startswith("s3://"):
             return {
@@ -448,6 +452,13 @@ def catalog_package_create(
             }
         
         s3_bucket, s3_key = uri_parts
+        discovered_buckets.add(s3_bucket)
+        if len(discovered_buckets) > 1:
+            return {
+                "success": False,
+                "error": "All files must live in the same S3 bucket to create a package",
+                "buckets": sorted(discovered_buckets),
+            }
         
         # Determine logical key (flattened or full path)
         if flatten:
@@ -460,9 +471,17 @@ def catalog_package_create(
         entries.append({
             "logicalKey": logical_key,
             "physicalKey": s3_uri,
-            "meta": metadata or {}
+            "meta": {},
         })
-    
+
+    if not discovered_buckets:
+        return {
+            "success": False,
+            "error": "No S3 URIs provided for package creation",
+        }
+
+    target_bucket = next(iter(discovered_buckets))
+
     # GraphQL mutation
     mutation = """
     mutation PackageConstruct($params: PackagePushParams!, $src: PackageConstructSource!) {
@@ -498,10 +517,10 @@ def catalog_package_create(
     
     variables = {
         "params": {
-            "bucket": bucket,
-            "name": name,
+            "bucket": target_bucket,
+            "name": package_name,
             "message": message,
-            "userMeta": metadata or {}
+            "userMeta": metadata or {},
         },
         "src": {
             "entries": entries

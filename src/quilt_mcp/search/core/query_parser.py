@@ -292,12 +292,24 @@ class QueryParser:
         for match in and_matches:
             extensions.extend(match)
 
+        # If no extensions found yet, check for standalone common file extensions
+        # This handles queries like just "csv" or "json"
+        if not extensions:
+            common_extensions = ['csv', 'json', 'parquet', 'txt', 'md', 'pdf', 'xlsx', 'xls', 'xml', 'yaml', 'yml', 
+                               'tsv', 'avro', 'orc', 'feather', 'hdf5', 'h5', 'html', 'ipynb']
+            query_lower = query.lower().strip()
+            # Only match if the query is JUST the extension (or extension with wildcards)
+            if query_lower in common_extensions or query_lower.replace('*', '').replace('.', '') in common_extensions:
+                clean_query = query_lower.replace('*', '').replace('.', '').strip()
+                if clean_query in common_extensions:
+                    extensions.append(clean_query)
+
         # Clean and deduplicate extensions
         clean_extensions = []
         for ext in extensions:
             ext_clean = ext.lower().strip()
             if (
-                len(ext_clean) <= 5
+                len(ext_clean) <= 10  # Allow longer extensions like "parquet", "feather", "ipynb"
                 and ext_clean not in ["data", "files", "file", "with", "extension", "format", "type"]
                 and ext_clean not in clean_extensions
             ):

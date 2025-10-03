@@ -74,6 +74,34 @@ class UnifiedSearchEngine:
             selected_backends, query, scope, target, search_type, combined_filters, limit, offset
         )
 
+        # Collect extension facets and pagination metadata from backends
+        extension_counter: Dict[str, int] = {}
+        object_total: Optional[int] = None
+        next_cursor: Optional[str] = None
+
+        for backend_response in backend_responses:
+            raw_meta = getattr(backend_response, "raw_response", None)
+            if not isinstance(raw_meta, dict):
+                continue
+
+            objects_meta = raw_meta.get("objects")
+            if not isinstance(objects_meta, dict):
+                continue
+
+            for facet in objects_meta.get("ext_stats", []) or []:
+                key = facet.get("key")
+                count = facet.get("count", 0)
+                if key:
+                    extension_counter[key] = extension_counter.get(key, 0) + int(count or 0)
+
+            total = objects_meta.get("total")
+            if isinstance(total, int):
+                object_total = max(object_total or 0, total)
+
+            cursor = objects_meta.get("next_cursor")
+            if isinstance(cursor, str) and cursor:
+                next_cursor = cursor
+
         # Aggregate and rank results (single backend currently)
         unified_results = self._aggregate_results(backend_responses, limit, include_metadata)
 
@@ -115,6 +143,18 @@ class UnifiedSearchEngine:
             ),
         }
 
+        if extension_counter:
+            sorted_exts = sorted(extension_counter.items(), key=lambda item: item[1], reverse=True)
+            response["available_extensions"] = [
+                {"extension": extension, "count": count} for extension, count in sorted_exts
+            ]
+
+        if object_total is not None:
+            response["object_total"] = object_total
+
+        if next_cursor:
+            response["next_cursor"] = next_cursor
+        
         # Add query explanation if requested
         if explain_query:
             response["explanation"] = self._generate_explanation(analysis, backend_responses, selected_backends)
@@ -129,6 +169,10 @@ class UnifiedSearchEngine:
                 "result_count": len(resp.results),
                 "error": resp.error_message,
             }
+
+        # Add navigation suggestion if scope/target are specified
+        if scope in ["bucket", "package"] and target:
+            response["navigation"] = self._build_navigation_suggestion(scope, target)
 
         return response
 
@@ -286,6 +330,59 @@ class UnifiedSearchEngine:
             filtered_results.append(result)
 
         return filtered_results
+
+    def _build_navigation_suggestion(self, scope: str, target: str) -> Dict[str, Any]:
+        """Build navigation suggestion that matches frontend's navigate tool format.
+        
+        Args:
+            scope: Search scope (bucket, package, etc.)
+            target: Target identifier (bucket name, package name, etc.)
+            
+        Returns:
+            Dictionary with navigation suggestion that frontend can auto-execute
+        """
+        if scope == "bucket":
+            # Clean bucket name (remove s3:// prefix if present)
+            bucket_name = target.replace("s3://", "")
+            return {
+                "tool": "navigate",
+                "params": {
+                    "route": {
+                        "name": "bucket.overview",
+                        "params": {
+                            "bucket": bucket_name,
+                        },
+                    },
+                },
+                "auto_execute": True,  # Frontend should auto-execute this navigation
+                "description": f"Navigating to bucket: {bucket_name}",
+                "url": f"/b/{bucket_name}",
+            }
+        elif scope == "package":
+            # Parse package name (format: bucket/package_name)
+            if "/" in target:
+                bucket_name, package_name = target.split("/", 1)
+            else:
+                bucket_name = target
+                package_name = ""
+            
+            return {
+                "tool": "navigate",
+                "params": {
+                    "route": {
+                        "name": "package.overview",
+                        "params": {
+                            "bucket": bucket_name,
+                            "name": package_name,
+                        },
+                    },
+                },
+                "auto_execute": True,
+                "description": f"Navigating to package: {target}",
+                "url": f"/b/{bucket_name}/packages/{package_name}",
+            }
+        
+        return {}
 
     def _generate_explanation(self, analysis, backend_responses: List, selected_backends: List) -> Dict[str, Any]:
         """Generate explanation of query execution."""

@@ -374,6 +374,9 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["scope"] = params["scope"]
             if "target" in params:
                 mapped_params["target"] = params["target"]
+            # Map bucket parameter to target for bucket-scoped searches
+            if "bucket" in params and not mapped_params.get("target"):
+                mapped_params["target"] = params["bucket"]
             if "max_results" in params:
                 mapped_params["limit"] = params["max_results"]
             if "limit" in params:
@@ -418,6 +421,9 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["scope"] = params["scope"]
             if "target" in params:
                 mapped_params["target"] = params["target"]
+            # Map bucket parameter to target for bucket-scoped searches
+            if "bucket" in params and not mapped_params.get("target"):
+                mapped_params["target"] = params["bucket"]
             if "max_results" in params:
                 mapped_params["limit"] = params["max_results"]
             if "limit" in params:
@@ -462,6 +468,9 @@ async def search(action: str | None = None, params: Optional[Dict[str, Any]] = N
                 mapped_params["scope"] = params["scope"]
             if "target" in params:
                 mapped_params["target"] = params["target"]
+            # Map bucket parameter to target for bucket-scoped searches
+            if "bucket" in params and not mapped_params.get("target"):
+                mapped_params["target"] = params["bucket"]
             if "search_type" in params:
                 mapped_params["search_type"] = params["search_type"]
             if "max_results" in params:
