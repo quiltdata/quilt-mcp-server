@@ -521,6 +521,7 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                 return format_error_response("Package name is required for browse action")
             return package_browse(
                 name=name,
+                bucket=params.get("bucket"),
                 registry=params.get("registry", DEFAULT_REGISTRY),
             )
         elif action == "create":
