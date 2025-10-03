@@ -105,8 +105,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
         query: str,
         scope: str = "global",
         target: str = "",
+        search_type: str = "auto",  # "auto", "packages", "objects", "both"
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> BackendResponse:
         """Execute search using Enterprise GraphQL."""
         start_time = time.time()
@@ -136,18 +138,54 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 )
 
         try:
-            if scope == "bucket" and target:
-                # For bucket scope, search both packages and objects
-                package_results = await self._search_bucket_packages(target, query, filters, limit // 2)
-                object_results = await self._search_bucket_objects(query, target, filters, limit // 2)
-                results = package_results + object_results
-            elif scope == "package" and target:
-                results = await self._search_package_contents(query, target, filters, limit)
-            else:
-                # Global/catalog search - search both objects and packages across all buckets
-                package_results = await self._search_packages_global(query, filters, limit // 2)
-                object_results = await self._search_objects_global(query, filters, limit // 2)
-                results = package_results + object_results
+            # Determine search strategy based on search_type
+            if search_type == "packages":
+                # Search only packages
+                if scope == "bucket" and target:
+                    results = await self._search_bucket_packages(target, query, filters, limit, offset)
+                elif scope == "package" and target:
+                    results = await self._search_package_contents(query, target, filters, limit, offset)
+                else:
+                    results = await self._search_packages_global(query, filters, limit, offset)
+            elif search_type == "objects":
+                # Search only objects/files
+                if scope == "bucket" and target:
+                    results = await self._search_objects_global(query, filters, limit, buckets=[target], offset=offset)
+                elif scope == "package" and target:
+                    results = await self._search_package_contents(query, target, filters, limit, offset)
+                else:
+                    results = await self._search_objects_global(query, filters, limit, offset=offset)
+            elif search_type == "both":
+                # Search both packages and objects
+                if scope == "bucket" and target:
+                    package_results = await self._search_bucket_packages(target, query, filters, limit // 2, offset // 2)
+                    object_results = await self._search_objects_global(query, filters, limit // 2, buckets=[target], offset=offset // 2)
+                    results = package_results + object_results
+                elif scope == "package" and target:
+                    results = await self._search_package_contents(query, target, filters, limit, offset)
+                else:
+                    package_results = await self._search_packages_global(query, filters, limit // 2, offset // 2)
+                    object_results = await self._search_objects_global(query, filters, limit // 2, offset=offset // 2)
+                    results = package_results + object_results
+            else:  # search_type == "auto"
+                # Auto-detect based on query content
+                is_file_query = self._is_file_or_object_query(query)
+                if is_file_query:
+                    # Query seems to be for files/objects
+                    if scope == "bucket" and target:
+                        results = await self._search_objects_global(query, filters, limit, buckets=[target], offset=offset)
+                    elif scope == "package" and target:
+                        results = await self._search_package_contents(query, target, filters, limit, offset)
+                    else:
+                        results = await self._search_objects_global(query, filters, limit, offset=offset)
+                else:
+                    # Query seems to be for packages/collections
+                    if scope == "bucket" and target:
+                        results = await self._search_bucket_packages(target, query, filters, limit, offset)
+                    elif scope == "package" and target:
+                        results = await self._search_package_contents(query, target, filters, limit, offset)
+                    else:
+                        results = await self._search_packages_global(query, filters, limit, offset)
 
             query_time = (time.time() - start_time) * 1000
 
@@ -170,8 +208,42 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 error_message=str(e),
             )
 
+    def _is_file_or_object_query(self, query: str) -> bool:
+        """Detect if a query is likely for files/objects vs packages/collections."""
+        query_lower = query.lower()
+        
+        # File extension patterns
+        file_extensions = ['.csv', '.json', '.parquet', '.tsv', '.txt', '.md', '.py', '.r', '.ipynb', 
+                          '.h5', '.hdf5', '.zarr', '.nc', '.tif', '.tiff', '.png', '.jpg', '.jpeg']
+        
+        # File-specific keywords
+        file_keywords = ['file', 'files', 'object', 'objects', 'data file', 'dataset file', 'readme', 'config']
+        
+        # Package/collection keywords
+        package_keywords = ['package', 'packages', 'dataset', 'datasets', 'collection', 'collections', 
+                           'project', 'projects', 'experiment', 'experiments', 'study', 'studies']
+        
+        # Check for file extensions
+        if any(ext in query_lower for ext in file_extensions):
+            return True
+            
+        # Check for wildcard patterns (like *.csv)
+        if '*' in query or 'wildcard' in query_lower:
+            return True
+            
+        # Check for file-specific keywords
+        if any(keyword in query_lower for keyword in file_keywords):
+            return True
+            
+        # Check for package-specific keywords
+        if any(keyword in query_lower for keyword in package_keywords):
+            return False
+            
+        # Default to objects for ambiguous queries
+        return True
+
     async def _search_bucket_packages(
-        self, bucket: str, query: str, filters: Optional[Dict[str, Any]], limit: int
+        self, bucket: str, query: str, filters: Optional[Dict[str, Any]], limit: int, offset: int = 0
     ) -> List[SearchResult]:
         """Search packages within a specific bucket using GraphQL packages() query."""
         graphql_query = """
@@ -187,10 +259,13 @@ class EnterpriseGraphQLBackend(SearchBackend):
         }
         """
 
+        # Calculate page number from offset
+        page = (offset // limit) + 1
+        
         variables = {
             "bucket": bucket.replace("s3://", ""),
             "filter": query if query else None,
-            "page": 1,
+            "page": page,
             "perPage": limit,
         }
 
@@ -216,7 +291,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return []
 
     async def _search_packages_global(
-        self, query: str, filters: Optional[Dict[str, Any]], limit: int
+        self, query: str, filters: Optional[Dict[str, Any]], limit: int, offset: int = 0
     ) -> List[SearchResult]:
         """Search packages globally using searchPackages.firstPage (FIXED).
         
@@ -279,9 +354,14 @@ class EnterpriseGraphQLBackend(SearchBackend):
             if not hits:
                 return []
             
-            # Convert each hit to a SearchResult
+            # Convert each hit to a SearchResult with pagination
             results = []
-            for hit in hits[:limit]:  # Limit results to requested limit
+            # Apply offset and limit to the hits
+            start_idx = offset % len(hits) if hits else 0  # Handle offset within available results
+            end_idx = start_idx + limit
+            paginated_hits = hits[start_idx:end_idx]
+            
+            for hit in paginated_hits:
                 bucket = hit.get("bucket", "")
                 name = hit.get("name", "")
                 pkg_hash = hit.get("hash", "")
@@ -332,13 +412,21 @@ class EnterpriseGraphQLBackend(SearchBackend):
             return []
 
     async def _search_objects_global(
-        self, query: str, filters: Optional[Dict[str, Any]], limit: int
+        self, query: str, filters: Optional[Dict[str, Any]], limit: int, buckets: Optional[List[str]] = None, offset: int = 0
     ) -> List[SearchResult]:
-        """Search objects globally using Enterprise GraphQL searchObjects."""
+        """Search objects globally using Enterprise GraphQL searchObjects.
+        
+        Args:
+            query: Search query string
+            filters: Search filters
+            limit: Maximum number of results
+            buckets: Optional list of buckets to search (if None, searches all buckets)
+        """
 
         graphql_query = """
-        query SearchObjects($searchString: String!, $filter: ObjectsSearchFilter, $order: SearchResultOrder!) {
-            searchObjects(buckets: [], searchString: $searchString, filter: $filter) {
+        query SearchObjects($searchString: String!, $filter: ObjectsSearchFilter, $order: SearchResultOrder!, $buckets: [String!]) {
+            searchObjects(buckets: $buckets, searchString: $searchString, filter: $filter) {
+                __typename
                 ... on ObjectsSearchResultSet {
                     total
                     firstPage(order: $order) {
@@ -355,6 +443,22 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         }
                     }
                 }
+                ... on EmptySearchResultSet {
+                    _
+                }
+                ... on InvalidInput {
+                    errors {
+                        path
+                        message
+                        name
+                        context
+                    }
+                }
+                ... on OperationError {
+                    name
+                    message
+                    context
+                }
             }
         }
         """
@@ -363,6 +467,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             "searchString": query if query and query != "*" else "",
             "filter": self._build_objects_filter(query, filters),
             "order": "BEST_MATCH",
+            "buckets": buckets or [],  # Empty list means search all buckets
         }
 
         try:
@@ -373,37 +478,59 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
             data = result.get("data", {})
             search_result = data.get("searchObjects", {})
+            
+            # Check the response type
+            typename = search_result.get("__typename")
+            
+            if typename == "EmptySearchResultSet":
+                # No objects found - this is normal, not an error
+                return []
+            elif typename == "InvalidInput":
+                errors = search_result.get("errors", [])
+                error_msg = "; ".join([f"{e.get('message', 'Unknown error')}" for e in errors])
+                raise Exception(f"Invalid search input: {error_msg}")
+            elif typename == "OperationError":
+                error_msg = search_result.get("message", "Unknown operation error")
+                raise Exception(f"Search operation failed: {error_msg}")
+            elif typename == "ObjectsSearchResultSet":
+                first_page = search_result.get("firstPage", {})
+                hits = first_page.get("hits", [])
 
-            first_page = search_result.get("firstPage", {})
-            hits = first_page.get("hits", [])
+                results: List[SearchResult] = []
+                # Apply offset and limit to the hits
+                start_idx = offset % len(hits) if hits else 0
+                end_idx = start_idx + limit
+                paginated_hits = hits[start_idx:end_idx]
+                
+                for hit in paginated_hits:
+                    bucket = hit.get("bucket", "")
+                    key = hit.get("key", "")
 
-            results: List[SearchResult] = []
-            for hit in hits[:limit]:
-                bucket = hit.get("bucket", "")
-                key = hit.get("key", "")
+                    result_obj = SearchResult(
+                        id=f"graphql-object-{bucket}-{key}",
+                        type="file",
+                        title=key.split("/")[-1] if key else "(unknown)",
+                        description=f"Object in {bucket}",
+                        s3_uri=f"s3://{bucket}/{key}" if bucket and key else None,
+                        logical_key=key,
+                        metadata={
+                            "bucket": bucket,
+                            "version": hit.get("version"),
+                            "size": hit.get("size"),
+                            "modified": hit.get("modified"),
+                            "deleted": hit.get("deleted", False),
+                            "score": hit.get("score"),
+                            "indexed_content": hit.get("indexedContent"),
+                        },
+                        score=hit.get("score", 1.0),
+                        backend="graphql",
+                    )
+                    results.append(result_obj)
 
-                result_obj = SearchResult(
-                    id=f"graphql-object-{bucket}-{key}",
-                    type="file",
-                    title=key.split("/")[-1] if key else "(unknown)",
-                    description=f"Object in {bucket}",
-                    s3_uri=f"s3://{bucket}/{key}" if bucket and key else None,
-                    logical_key=key,
-                    metadata={
-                        "bucket": bucket,
-                        "version": hit.get("version"),
-                        "size": hit.get("size"),
-                        "modified": hit.get("modified"),
-                        "deleted": hit.get("deleted", False),
-                        "score": hit.get("score"),
-                        "indexed_content": hit.get("indexedContent"),
-                    },
-                    score=hit.get("score", 1.0),
-                    backend="graphql",
-                )
-                results.append(result_obj)
-
-            return results
+                return results
+            else:
+                # Unknown response type
+                raise Exception(f"Unexpected response type: {typename}")
 
         except Exception as exc:  # pragma: no cover - defensive fallback
             # On failure, return an informative error result rather than crashing
@@ -432,31 +559,45 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return []
 
     def _build_objects_filter(self, query: str, filters: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Translate unified search filters into ObjectsSearchFilter format."""
+        """Translate unified search filters into ObjectsSearchFilter format.
+        
+        This matches the frontend's approach:
+        - For extension filters, use ext.terms
+        - For wildcard queries like *.csv, use key.wildcard
+        - For general text, rely on searchString parameter
+        """
 
         gql_filter: Dict[str, Any] = {}
 
         search_terms = (query or "").strip()
-        if search_terms and search_terms != "*":
-            gql_filter["key"] = {"wildcard": search_terms}
-
+        
         if filters:
             extensions = filters.get("file_extensions") or []
             if extensions:
+                # Normalize extensions (remove dots, lowercase)
                 normalized = [ext.lower().lstrip(".") for ext in extensions]
-                gql_filter.setdefault("ext", {})["terms"] = normalized
-
-                if not search_terms or search_terms == "*":
-                    wildcard_terms = [f"*.{ext}" for ext in normalized]
-                    gql_filter["key"] = {"wildcard": " OR ".join(wildcard_terms)}
+                gql_filter["ext"] = {"terms": normalized}
+                
+                # If query is a wildcard pattern like *.csv, use key.wildcard
+                if search_terms.startswith("*.") and len(normalized) == 1:
+                    gql_filter["key"] = {"wildcard": search_terms}
+                elif not search_terms or search_terms == "*":
+                    # If no specific query but extensions specified, create wildcard
+                    gql_filter["key"] = {"wildcard": f"*.{normalized[0]}"}
 
             size_min = filters.get("size_min")
             size_max = filters.get("size_max")
             if size_min or size_max:
-                gql_filter["size"] = {
-                    "gte": size_min,
-                    "lte": size_max,
-                }
+                size_filter = {}
+                if size_min:
+                    size_filter["gte"] = size_min
+                if size_max:
+                    size_filter["lte"] = size_max
+                gql_filter["size"] = size_filter
+
+        # If we have a specific key pattern but no extension filter, use key.wildcard
+        elif search_terms and search_terms != "*" and search_terms.startswith("*."):
+            gql_filter["key"] = {"wildcard": search_terms}
 
         return gql_filter or None
 
@@ -533,37 +674,6 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return results
 
-    def _convert_packages_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
-        """Convert GraphQL packages results to standard format."""
-        results = []
-
-        data = graphql_result.get("data", {})
-        packages = data.get("packages", {})
-        edges = packages.get("edges", [])
-
-        for edge in edges:
-            node = edge.get("node", {})
-
-            result = SearchResult(
-                id=f"graphql-package-{node.get('name', '')}",
-                type="package",
-                title=node.get("name", ""),
-                description=f"Quilt package: {node.get('name', '')}",
-                package_name=node.get("name"),
-                size=node.get("totalBytes"),
-                last_modified=node.get("lastModified"),
-                metadata={
-                    "total_entries": node.get("totalEntries"),
-                    "total_bytes": node.get("totalBytes"),
-                    "package_metadata": node.get("metadata", {}),
-                },
-                score=1.0,  # GraphQL doesn't provide relevance scores
-                backend="graphql",
-            )
-
-            results.append(result)
-
-        return results
 
     def _convert_objects_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert GraphQL objects results to standard format."""

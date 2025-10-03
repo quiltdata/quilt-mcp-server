@@ -338,11 +338,15 @@ def catalog_packages_list(
 def catalog_package_entries(
     *, registry_url: str, package_name: str, auth_token: Optional[str], top: Optional[int] = None
 ) -> list[dict[str, Any]]:
+    """Get package entries using the correct GraphQL schema.
+    
+    Uses PackageRevision.contentsFlatMap to get package contents.
+    """
     query = """
-    query PackageEntries($name: String!, $first: Int) {
+    query PackageEntries($name: String!, $max: Int) {
       package(name: $name) {
-        entries(first: $first) {
-          edges { node { logicalKey physicalKey size hash } }
+        revision(hashOrTag: "latest") {
+          contentsFlatMap(max: $max)
         }
       }
     }
@@ -351,13 +355,37 @@ def catalog_package_entries(
     data = catalog_graphql_query(
         registry_url=registry_url,
         query=query,
-        variables={"name": package_name, "first": top},
+        variables={"name": package_name, "max": top or 1000},
         auth_token=auth_token,
     )
 
-    package = data.get("package") if isinstance(data, dict) else None
-    edges = package.get("entries", {}).get("edges", []) if isinstance(package, dict) else []
-    return [edge.get("node", {}) for edge in edges if isinstance(edge, dict)]
+    # catalog_graphql_query already returns the 'data' field from the GraphQL response
+    # and raises RuntimeError if there are errors, so we can directly access 'package'
+    package = data.get("package")
+    if not package:
+        return []
+    
+    revision = package.get("revision")
+    if not revision:
+        return []
+    
+    contents_flat_map = revision.get("contentsFlatMap", {})
+    if not contents_flat_map:
+        return []
+    
+    # contentsFlatMap is a scalar that contains the flat map of package contents
+    # We need to parse it and convert to our expected format
+    entries = []
+    for logical_key, entry_data in contents_flat_map.items():
+        if isinstance(entry_data, dict):
+            entries.append({
+                "logicalKey": logical_key,
+                "physicalKey": entry_data.get("physicalKey", ""),
+                "size": entry_data.get("size", 0),
+                "hash": entry_data.get("hash", ""),
+            })
+    
+    return entries
 
 
 def _registry_endpoint(registry_url: str, path: str) -> str:

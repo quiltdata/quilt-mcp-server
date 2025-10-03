@@ -30,14 +30,10 @@ from .tools.buckets import (
     bucket_object_info,
     bucket_object_link,
     bucket_object_text,
-    bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
 )
 from .tools.packaging import (
     packaging,
-    packages_discover,
-    packages_list,
     package_browse,
     package_create,
     package_create_from_s3,
@@ -90,11 +86,9 @@ __all__ = [
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",
-    "bucket_objects_list",
     "bucket_objects_put",
     "bucket_object_fetch",
     "bucket_object_link",
-    "bucket_objects_search",
     # Package tools
     "package_browse",
     "package_contents_search",

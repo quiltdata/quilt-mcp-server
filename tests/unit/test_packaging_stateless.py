@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import Dict
-from unittest.mock import Mock, MagicMock, patch
 
 import pytest
 
@@ -35,56 +33,24 @@ def catalog_url(monkeypatch):
     return "https://demo.quiltdata.com"
 
 
-class TestPackagingDiscovery:
-    """Test packaging discovery functionality."""
+class TestPackagingCoreActions:
+    """Test core packaging actions (browse and create)."""
 
     def test_discovery_mode_no_action(self):
         """Test discovery mode returns module info (no auth needed)."""
         result = packaging.packaging()
 
         assert result.get("module") == "packaging"
-        assert "discover" in result.get("actions", [])
-        assert "list" in result.get("actions", [])
+        # discover and list removed - use search instead
+        assert "discover" not in result.get("actions", [])
+        assert "list" not in result.get("actions", [])
+        # Core actions should be present
         assert "browse" in result.get("actions", [])
         assert "create" in result.get("actions", [])
         assert "metadata_templates" in result.get("actions", [])
-
-    def test_packaging_discover_success(self, test_token, catalog_url):
-        """Test successful package discovery with real GraphQL call."""
-        with request_context(test_token, metadata={"path": "/packaging"}):
-            result = packaging.packaging(action="discover")
-
-        # Should succeed with valid token
-        assert result.get("success") is True, f"Discovery failed: {result.get('error')}"
-
-        # Should have packages list (even if empty for now)
-        assert "packages" in result
-        assert isinstance(result["packages"], list)
-        assert "total_packages" in result
-
-    def test_packaging_discover_no_token(self, catalog_url):
-        """Test discovery fails gracefully without token."""
-        with request_context(None, metadata={"path": "/packaging"}):
-            result = packaging.packaging(action="discover")
-
-        assert result["success"] is False
-        assert "token required" in result["error"].lower()
-
-    def test_packaging_discover_catalog_url_not_configured(self, monkeypatch):
-        """Test error when catalog URL not configured."""
-        token_value = "test.jwt.token"
-
-        # Mock resolve_catalog_url to return None
-        monkeypatch.setattr(
-            "quilt_mcp.tools.packaging.resolve_catalog_url",
-            lambda: None
-        )
-
-        with request_context(token_value, metadata={"path": "/packaging"}):
-            result = packaging.packaging(action="discover")
-
-        assert result["success"] is False
-        assert "catalog url" in result["error"].lower()
+        # Should have note about using search
+        assert "note" in result
+        assert "search" in result["note"].lower()
 
 
 class TestPackagingMetadataTemplates:

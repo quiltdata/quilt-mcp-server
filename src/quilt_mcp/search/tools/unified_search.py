@@ -31,9 +31,11 @@ class UnifiedSearchEngine:
         query: str,
         scope: str = "global",
         target: str = "",
+        search_type: str = "auto",  # "auto", "packages", "objects", "both"
         backends: Optional[List[str]] = None,
-        limit: int = 50,
-        include_metadata: bool = True,
+        limit: int = 20,  # Reduced default limit to prevent LLM input length errors
+        offset: int = 0,  # Pagination offset for retrieving additional pages
+        include_metadata: bool = False,  # Changed default to False to reduce response size
         include_content_preview: bool = False,
         explain_query: bool = False,
         filters: Optional[Dict[str, Any]] = None,
@@ -46,7 +48,7 @@ class UnifiedSearchEngine:
             target: Specific target when scope is narrow
             backends: Preferred backends (auto, elasticsearch, graphql, s3)
             limit: Maximum results to return
-            include_metadata: Include rich metadata in results
+            include_metadata: Include rich metadata in results (default: False)
             include_content_preview: Include content previews for files
             explain_query: Include query execution explanation
             filters: Additional filters
@@ -69,22 +71,35 @@ class UnifiedSearchEngine:
 
         # Execute searches (GraphQL only – still go through shared helper for consistency)
         backend_responses = await self._execute_parallel_searches(
-            selected_backends, query, scope, target, combined_filters, limit
+            selected_backends, query, scope, target, search_type, combined_filters, limit, offset
         )
 
         # Aggregate and rank results (single backend currently)
-        unified_results = self._aggregate_results(backend_responses, limit)
+        unified_results = self._aggregate_results(backend_responses, limit, include_metadata)
 
         # Build response
         total_time = (time.time() - start_time) * 1000
+
+        # Truncate descriptions to prevent LLM input length errors
+        truncated_results = []
+        for result in unified_results:
+            truncated_result = result.copy()
+            if truncated_result.get("description") and len(truncated_result["description"]) > 300:
+                truncated_result["description"] = truncated_result["description"][:300] + "..."
+            truncated_results.append(truncated_result)
 
         response = {
             "success": True,
             "query": query,
             "scope": scope,
             "target": target,
-            "results": unified_results,
-            "total_results": len(unified_results),
+            "search_type": search_type,
+            "results": truncated_results,
+            "total_results": len(truncated_results),
+            "limit": limit,
+            "offset": offset,
+            "has_more": len(truncated_results) == limit,  # Indicate if there might be more results
+            "next_offset": offset + limit if len(truncated_results) == limit else None,
             "query_time_ms": total_time,
             "backend": "graphql",
             "analysis": (
@@ -136,8 +151,10 @@ class UnifiedSearchEngine:
         query: str,
         scope: str,
         target: str,
+        search_type: str,
         filters: Dict[str, Any],
         limit: int,
+        offset: int = 0,
     ) -> List:
         """Execute searches across configured backends."""
         if not backends:
@@ -145,7 +162,7 @@ class UnifiedSearchEngine:
 
         backend = backends[0]
         try:
-            response = await backend.search(query, scope, target, filters, limit)
+            response = await backend.search(query, scope, target, search_type, filters, limit, offset)
             return [response]
         except Exception as exc:
             return [
@@ -162,7 +179,7 @@ class UnifiedSearchEngine:
                 )()
             ]
 
-    def _aggregate_results(self, backend_responses: List, limit: int) -> List[Dict[str, Any]]:
+    def _aggregate_results(self, backend_responses: List, limit: int, include_metadata: bool = False) -> List[Dict[str, Any]]:
         """Aggregate and rank results from multiple backends."""
         all_results = []
 
@@ -170,7 +187,7 @@ class UnifiedSearchEngine:
         for response in backend_responses:
             if response.status == BackendStatus.AVAILABLE:
                 for result in response.results:
-                    # Convert SearchResult to dict for JSON serialization
+                    # Convert SearchResult to dict for JSON serialization with conditional metadata
                     result_dict = {
                         "id": result.id,
                         "type": result.type,
@@ -183,8 +200,11 @@ class UnifiedSearchEngine:
                         "logical_key": result.logical_key,
                         "size": result.size,
                         "last_modified": result.last_modified,
-                        "metadata": result.metadata,
                     }
+                    
+                    # Only include metadata if explicitly requested
+                    if include_metadata:
+                        result_dict["metadata"] = self._optimize_metadata(result.metadata)
                     all_results.append(result_dict)
 
         # Remove duplicates based on S3 URI or logical key
@@ -203,6 +223,28 @@ class UnifiedSearchEngine:
         unique_results.sort(key=lambda x: x.get("score", 0), reverse=True)
 
         return unique_results[:limit]
+
+    def _optimize_metadata(self, metadata: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Optimize metadata to reduce response size for LLM consumption."""
+        if not metadata:
+            return None
+        
+        # Keep only essential metadata fields to reduce token count
+        essential_fields = {
+            "bucket", "name", "hash", "size", "modified", "content_type", 
+            "extension", "total_entries", "comment"
+        }
+        
+        optimized = {}
+        for key, value in metadata.items():
+            if key in essential_fields:
+                # Truncate long string values
+                if isinstance(value, str) and len(value) > 200:
+                    optimized[key] = value[:200] + "..."
+                else:
+                    optimized[key] = value
+        
+        return optimized if optimized else None
 
     def _apply_post_filters(self, results: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Apply additional filtering to results that backends might have missed."""
@@ -284,9 +326,11 @@ async def unified_search(
     query: str,
     scope: str = "global",
     target: str = "",
+    search_type: str = "auto",  # "auto", "packages", "objects", "both"
     backends: Optional[List[str]] = None,
-    limit: int = 50,
-    include_metadata: bool = True,
+    limit: int = 20,  # Reduced default limit to prevent LLM input length errors
+    offset: int = 0,  # Pagination offset for retrieving additional pages
+    include_metadata: bool = False,  # Changed default to False to reduce response size
     include_content_preview: bool = False,
     explain_query: bool = False,
     filters: Optional[Dict[str, Any]] = None,
@@ -307,7 +351,7 @@ async def unified_search(
         target: Specific target when scope is narrow (package/bucket name)
         backends: Preferred backends (auto, elasticsearch, graphql, s3)
         limit: Maximum results to return
-        include_metadata: Include rich metadata in results
+        include_metadata: Include rich metadata in results (default: False)
         include_content_preview: Include content previews for files
         explain_query: Include query execution explanation
         filters: Additional filters (size, date, type, etc.)
@@ -368,8 +412,10 @@ async def unified_search(
             query=query,
             scope=scope,
             target=target,
+            search_type=search_type,
             backends=backends,
             limit=limit,
+            offset=offset,
             include_metadata=include_metadata,
             include_content_preview=include_content_preview,
             explain_query=explain_query,

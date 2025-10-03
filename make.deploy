@@ -129,9 +129,9 @@ release-zip: $(RELEASE_ZIP)
 #   DOCKER_PLATFORM   - Target platform (default: linux/amd64 for ECS)
 #   AWS_REGION        - AWS region (default: us-east-1)
 
-ECS_CLUSTER ?= quilt-mcp-cluster
-ECS_SERVICE ?= quilt-mcp-service
-ECS_TASK_FAMILY ?= quilt-mcp-task
+ECS_CLUSTER ?= sales-prod
+ECS_SERVICE ?= sales-prod-mcp-server-production
+ECS_TASK_FAMILY ?= quilt-mcp-server
 AWS_REGION ?= us-east-1
 DOCKER_PLATFORM ?= linux/amd64
 

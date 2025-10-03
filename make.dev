@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test test-buckets-curl test-buckets-discover test-buckets-file-access test-buckets-browse test-packaging-curl test-packaging-browse test-packaging-create test-readme
 
 # Directory targets
 $(RESULTS_DIR):
@@ -120,6 +120,491 @@ kill:
 	@lsof -ti :8000 | xargs -r kill 2>/dev/null || echo "No processes on port 8000"
 	@lsof -ti :8001 | xargs -r kill 2>/dev/null || echo "No processes on port 8001"
 	@echo "✅ Server kill completed"
+
+# Bucket Tool Testing with curl
+# These tests validate the HTTP endpoint behavior of bucket operations
+
+test-buckets-curl: test-buckets-discover test-buckets-browse test-buckets-file-access
+	@echo "✅ All bucket curl tests completed"
+
+test-buckets-discover:
+	@echo "🔍 Testing buckets.discover via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@echo "Discovering accessible buckets..."
+	@curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"discover"}}}' \
+		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-discover.json
+	@echo "✅ Bucket discovery test completed"
+
+test-buckets-browse:
+	@echo "🔍 Testing buckets.object_link (browsing session) via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@echo "Testing object_link with package context..."
+	@echo "Note: This requires _context with bucket/package/hash"
+	@curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_link","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"}}}}}' \
+		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-link.json
+	@echo "✅ Bucket browsing session test completed"
+
+test-buckets-file-access:
+	@echo "🔍 Testing bucket file access operations..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@echo "Testing object_info..."
+	@curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_info","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"}}}}}' \
+		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-info.json
+	@echo "Testing object_text..."
+	@curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"buckets","arguments":{"action":"object_text","params":{"path":"README.md","_context":{"bucket":"quilt-example","package":"examples/wellplates","hash":"abc123"},"max_bytes":1024}}}}' \
+		| python3 -m json.tool | tee $(RESULTS_DIR)/bucket-object-text.json
+	@echo "✅ File access tests completed"
+
+# Package Tool Testing with curl
+# These tests validate the HTTP endpoint behavior of packaging operations
+# Note: discover/list removed - use search tool instead
+
+test-packaging-curl: test-packaging-browse test-packaging-create
+	@echo "✅ All packaging curl tests completed"
+
+test-packaging-browse:
+	@echo "🔍 Testing packaging.browse via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@if [ -z "$(TEST_PACKAGE_NAME)" ]; then \
+		echo "⚠️  TEST_PACKAGE_NAME not set, using default: demo-team/visualization-showcase"; \
+		TEST_PKG="demo-team/visualization-showcase"; \
+	else \
+		TEST_PKG="$(TEST_PACKAGE_NAME)"; \
+	fi; \
+	echo "Testing package browse: $$TEST_PKG"; \
+	echo ""; \
+	echo "→ Calling packaging.browse with package name..."; \
+	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d "{\"jsonrpc\":\"2.0\",\"id\":102,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"browse\",\"params\":{\"name\":\"$$TEST_PKG\"}}}}"); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-browse.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Package browse successful"; \
+		ENTRY_COUNT=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('result', {}).get('package', {}).get('entries', [])))" 2>/dev/null || echo "0"); \
+		echo "   Found $$ENTRY_COUNT entries in package"; \
+	else \
+		echo "❌ Package browse failed"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Package browse test completed"
+
+test-packaging-create:
+	@echo "🔍 Testing packaging.create via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo "⚠️  Package creation requires pre-uploaded S3 files"
+	@echo ""
+	@echo "Test 1: Dry run validation with valid S3 URI..."
+	@if [ -z "$(TEST_S3_URI)" ]; then \
+		echo "⚠️  TEST_S3_URI not set, using example URI"; \
+		TEST_URI="s3://quilt-example/.quilt/packages/test/README.md"; \
+	else \
+		TEST_URI="$(TEST_S3_URI)"; \
+	fi; \
+	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d "{\"jsonrpc\":\"2.0\",\"id\":103,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"create\",\"params\":{\"name\":\"quilt-example/test-pkg-curl\",\"files\":[\"$$TEST_URI\"],\"description\":\"Test package via curl\",\"metadata\":{\"source\":\"curl-test\",\"author\":\"mcp-server\"},\"dry_run\":true}}}}"); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-dry-run.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"dry_run": true'; then \
+		echo "✅ Dry run validation successful"; \
+	else \
+		echo "❌ Dry run validation failed"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Test 2: Error handling with missing package name..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":104,"method":"tools/call","params":{"name":"packaging","arguments":{"action":"create","params":{"files":["s3://bucket/file.txt"],"dry_run":true}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-error-name.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": false'; then \
+		echo "✅ Error handling working (missing name detected)"; \
+	else \
+		echo "⚠️  Expected error not returned"; \
+	fi
+	@echo ""
+	@echo "Test 3: Error handling with missing files..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":105,"method":"tools/call","params":{"name":"packaging","arguments":{"action":"create","params":{"name":"bucket/test","description":"Test","dry_run":true}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-error-files.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": false'; then \
+		echo "✅ Error handling working (missing files detected)"; \
+	else \
+		echo "⚠️  Expected error not returned"; \
+	fi
+	@echo ""
+	@echo "Test 4: Metadata and organization features..."
+	@if [ -z "$(TEST_S3_URI)" ]; then \
+		TEST_URI="s3://quilt-example/.quilt/packages/test/README.md"; \
+	else \
+		TEST_URI="$(TEST_S3_URI)"; \
+	fi; \
+	RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d "{\"jsonrpc\":\"2.0\",\"id\":106,\"method\":\"tools/call\",\"params\":{\"name\":\"packaging\",\"arguments\":{\"action\":\"create\",\"params\":{\"name\":\"quilt-example/test-pkg-organized\",\"files\":[\"$$TEST_URI\"],\"description\":\"Test with auto-organize\",\"metadata\":{\"test\":true,\"version\":\"1.0.0\"},\"auto_organize\":true,\"dry_run\":true}}}}"); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/packaging-create-organized.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"dry_run": true'; then \
+		echo "✅ Metadata and organization features working"; \
+	else \
+		echo "⚠️  Organization test failed"; \
+	fi
+	@echo ""
+	@echo "✅ All package create tests completed"
+
+# Permissions Tool Testing with curl
+# These tests validate permissions discovery and access checking via GraphQL
+
+test-permissions-curl: test-permissions-discover test-permissions-access-check test-permissions-recommendations test-permissions-module-info
+	@echo "✅ All permissions curl tests completed"
+
+# Governance Tool Testing with curl
+# These tests validate admin operations via GraphQL (requires admin privileges)
+
+test-governance-curl: test-governance-users test-governance-roles test-governance-sso test-governance-tabulator
+	@echo "✅ All governance curl tests completed"
+
+test-governance-users:
+	@echo "🔍 Testing governance user management via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: List all users..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":401,"method":"tools/call","params":{"name":"governance","arguments":{"action":"users_list"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-users-list.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ User list successful"; \
+		USER_COUNT=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('count', 0))" 2>/dev/null || echo "0"); \
+		echo "   Total users: $$USER_COUNT"; \
+	else \
+		echo "❌ User list failed (may require admin privileges)"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+	fi
+	@echo ""
+	@echo "✅ Governance user tests completed"
+
+test-governance-roles:
+	@echo "🔍 Testing governance role management via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: List all roles..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":402,"method":"tools/call","params":{"name":"governance","arguments":{"action":"roles_list"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-roles-list.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Role list successful"; \
+		ROLE_COUNT=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('count', 0))" 2>/dev/null || echo "0"); \
+		echo "   Total roles: $$ROLE_COUNT"; \
+	else \
+		echo "❌ Role list failed (may require admin privileges)"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+	fi
+	@echo ""
+	@echo "✅ Governance role tests completed"
+
+test-governance-sso:
+	@echo "🔍 Testing governance SSO config via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: Get SSO configuration..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":403,"method":"tools/call","params":{"name":"governance","arguments":{"action":"sso_config_get"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-sso-get.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ SSO config retrieval successful"; \
+		HAS_CONFIG=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print('Yes' if data.get('result', {}).get('sso_config') else 'No')" 2>/dev/null || echo "Unknown"); \
+		echo "   SSO configured: $$HAS_CONFIG"; \
+	else \
+		echo "❌ SSO config retrieval failed (may require admin privileges)"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+	fi
+	@echo ""
+	@echo "✅ Governance SSO tests completed"
+
+test-governance-tabulator:
+	@echo "🔍 Testing governance tabulator settings via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: Get tabulator open query status..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":404,"method":"tools/call","params":{"name":"governance","arguments":{"action":"tabulator_open_query_get"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/governance-tabulator-open-query.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Tabulator open query status retrieval successful"; \
+		OPEN_QUERY=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('open_query_enabled', False))" 2>/dev/null || echo "Unknown"); \
+		echo "   Open query enabled: $$OPEN_QUERY"; \
+	else \
+		echo "❌ Tabulator open query status retrieval failed (may require admin privileges)"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+	fi
+	@echo ""
+	@echo "✅ Governance tabulator tests completed"
+
+test-permissions-discover:
+	@echo "🔍 Testing permissions.discover via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: Discover all accessible buckets and user identity..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":200,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Permissions discovery successful"; \
+		USER_EMAIL=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('user_identity', {}).get('email', 'unknown'))" 2>/dev/null || echo "unknown"); \
+		BUCKET_COUNT=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('total_buckets_checked', 0))" 2>/dev/null || echo "0"); \
+		IS_ADMIN=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('user_identity', {}).get('is_admin', False))" 2>/dev/null || echo "False"); \
+		echo "   User: $$USER_EMAIL"; \
+		echo "   Admin: $$IS_ADMIN"; \
+		echo "   Accessible buckets: $$BUCKET_COUNT"; \
+	else \
+		echo "❌ Permissions discovery failed"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Test 2: Discover specific buckets (including non-existent)..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":201,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover","params":{"check_buckets":["quilt-example","nonexistent-test-bucket-xyz"]}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover-filtered.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Filtered discovery successful"; \
+		CHECKED=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('total_buckets_checked', 0))" 2>/dev/null || echo "0"); \
+		echo "   Buckets checked: $$CHECKED (should be 2)"; \
+	else \
+		echo "❌ Filtered discovery failed"; \
+	fi
+	@echo ""
+	@echo "Test 3: Error handling - no token..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-d '{"jsonrpc":"2.0","id":202,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"discover"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-discover-no-token.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": false'; then \
+		echo "✅ Error handling working (no token detected)"; \
+	else \
+		echo "⚠️  Expected authentication error not returned"; \
+	fi
+	@echo ""
+	@echo "✅ Permissions discovery tests completed"
+
+test-permissions-access-check:
+	@echo "🔍 Testing permissions.access_check via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: Check access to existing bucket (quilt-example)..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":210,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{"bucket_name":"quilt-example"}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-existing.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Access check successful"; \
+		ACCESSIBLE=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('accessible', False))" 2>/dev/null || echo "False"); \
+		PERMISSION=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('permission_level', 'unknown'))" 2>/dev/null || echo "unknown"); \
+		echo "   Bucket: quilt-example"; \
+		echo "   Accessible: $$ACCESSIBLE"; \
+		echo "   Permission Level: $$PERMISSION"; \
+	else \
+		echo "❌ Access check failed"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Test 2: Check access to non-existent bucket..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":211,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{"bucket_name":"definitely-does-not-exist-xyz-123"}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-nonexistent.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		ACCESSIBLE=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('accessible', True))" 2>/dev/null || echo "True"); \
+		PERMISSION=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('permission_level', ''))" 2>/dev/null || echo ""); \
+		if [ "$$ACCESSIBLE" = "False" ] && [ "$$PERMISSION" = "no_access" ]; then \
+			echo "✅ Non-existent bucket correctly identified as inaccessible"; \
+		else \
+			echo "⚠️  Unexpected result for non-existent bucket"; \
+		fi; \
+	else \
+		echo "❌ Access check for non-existent bucket failed"; \
+	fi
+	@echo ""
+	@echo "Test 3: Check access with alias action name (check_bucket_access)..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":212,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"check_bucket_access","params":{"bucket":"quilt-example"}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-check-bucket-access.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Alias action (check_bucket_access) working correctly"; \
+	else \
+		echo "❌ Alias action failed"; \
+	fi
+	@echo ""
+	@echo "Test 4: Error handling - missing bucket name..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":213,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"access_check","params":{}}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-access-check-no-bucket.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": false'; then \
+		echo "✅ Error handling working (missing bucket name detected)"; \
+	else \
+		echo "⚠️  Expected validation error not returned"; \
+	fi
+	@echo ""
+	@echo "✅ Permissions access check tests completed"
+
+test-permissions-recommendations:
+	@echo "🔍 Testing permissions.recommendations_get via curl..."
+	@if [ -z "$(QUILT_TEST_TOKEN)" ]; then \
+		echo "❌ QUILT_TEST_TOKEN not set. Set with: export QUILT_TEST_TOKEN=<token>"; \
+		exit 1; \
+	fi
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test 1: Get permission recommendations..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-H "Authorization: Bearer $(QUILT_TEST_TOKEN)" \
+		-d '{"jsonrpc":"2.0","id":220,"method":"tools/call","params":{"name":"permissions","arguments":{"action":"recommendations_get"}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-recommendations.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"success": true'; then \
+		echo "✅ Recommendations retrieved successfully"; \
+		REC_COUNT=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('result', {}).get('recommendations', [])))" 2>/dev/null || echo "0"); \
+		echo "   Recommendations: $$REC_COUNT"; \
+		if [ "$$REC_COUNT" -gt "0" ]; then \
+			echo "   First recommendation:"; \
+			echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); recs=data.get('result', {}).get('recommendations', []); print('     Priority:', recs[0].get('priority', 'N/A')) if recs else None; print('     Message:', recs[0].get('message', 'N/A')) if recs else None" 2>/dev/null || echo "     (could not parse)"; \
+		fi; \
+	else \
+		echo "❌ Recommendations retrieval failed"; \
+		ERROR=$$(echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('result', {}).get('error', 'Unknown error'))" 2>/dev/null || echo "Parse error"); \
+		echo "   Error: $$ERROR"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Permissions recommendations tests completed"
+
+test-permissions-module-info:
+	@echo "🔍 Testing permissions module discovery (no action)..."
+	@mkdir -p $(RESULTS_DIR)
+	@echo ""
+	@echo "Test: Get permissions module info..."
+	@RESPONSE=$$(curl -s -X POST $(DEV_ENDPOINT) \
+		-H "Content-Type: application/json" \
+		-d '{"jsonrpc":"2.0","id":230,"method":"tools/call","params":{"name":"permissions","arguments":{}}}'); \
+	echo "$$RESPONSE" | python3 -m json.tool | tee $(RESULTS_DIR)/permissions-module-info.json; \
+	echo ""; \
+	if echo "$$RESPONSE" | grep -q '"module": "permissions"'; then \
+		echo "✅ Module info retrieved successfully"; \
+		echo "   Available actions:"; \
+		echo "$$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); actions=data.get('result', {}).get('actions', []); [print(f'     - {a}') for a in actions]" 2>/dev/null || echo "     (could not parse)"; \
+	else \
+		echo "❌ Module info retrieval failed"; \
+	fi
+	@echo ""
+	@echo "✅ Permissions module info test completed"
+
+test-readme:
+	@echo "🔍 Testing README validation..."
+	@test -f README.md || { echo "❌ README.md missing"; exit 1; }
+	@grep -q "Quilt MCP Server" README.md || { echo "❌ README missing project name"; exit 1; }
+	@echo "✅ README validation passed"
 
 # Cleanup Targets
 dev-clean:

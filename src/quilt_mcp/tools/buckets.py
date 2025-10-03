@@ -7,7 +7,14 @@ from typing import Any, Dict, Optional
 from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET
 from ..runtime import get_active_token
-from ..utils import format_error_response, generate_signed_url, get_s3_client, parse_s3_uri, resolve_catalog_url
+from ..utils import format_error_response, resolve_catalog_url
+from ..types.navigation import (
+    NavigationContext,
+    get_context_bucket,
+    get_context_path,
+    get_context_version,
+    is_object_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,69 +163,6 @@ def buckets_discover() -> Dict[str, Any]:
     except Exception as e:
         logger.exception(f"Error discovering buckets: {e}")
         return format_error_response(f"Failed to discover buckets: {str(e)}")
-
-
-def bucket_objects_list(
-    bucket: str = DEFAULT_BUCKET,
-    prefix: str = "",
-    max_keys: int = 100,
-    continuation_token: str = "",  # noqa: ARG001
-    include_signed_urls: bool = True,  # noqa: ARG001
-) -> dict[str, Any]:
-    """[DEPRECATED] List objects in an S3 bucket.
-    
-    This function requires AWS credentials in the JWT token, which are not available
-    in authentication-only JWT tokens from the Quilt frontend.
-    
-    **Use search.unified_search instead:**
-    
-    ```python
-    # Instead of:
-    # buckets.objects_list(bucket="my-bucket", prefix="data/")
-    
-    # Use:
-    search.unified_search(
-        query="*",  # or specific search terms
-        scope="bucket",
-        target="my-bucket",
-        limit=100
-    )
-    ```
-    
-    The unified search uses GraphQL which only requires authentication tokens,
-    not AWS credentials, and provides richer filtering and metadata.
-
-    Args:
-        bucket: S3 bucket name or s3:// URI
-        prefix: Filter objects by prefix
-        max_keys: Maximum number of objects to return
-        continuation_token: [Ignored] Token for pagination
-        include_signed_urls: [Ignored] Include presigned URLs
-
-    Returns:
-        Error message directing to use search.unified_search instead.
-    """
-    bkt = _normalize_bucket(bucket)
-    
-    return {
-        "success": False,
-        "deprecated": True,
-        "error": "buckets.objects_list requires AWS credentials which are not available in JWT tokens.",
-        "alternative": "Use search.unified_search instead",
-        "example": {
-            "action": "unified_search",
-            "params": {
-                "query": f"{prefix}*" if prefix else "*",
-                "scope": "bucket",
-                "target": bkt,
-                "limit": max_keys
-            }
-        },
-        "message": (
-            f"To list objects in bucket '{bkt}', use search.unified_search:\n"
-            f"search.unified_search(query='{prefix}*' if prefix else '*', scope='bucket', target='{bkt}', limit={max_keys})"
-        )
-    }
 
 
 def bucket_object_info(path: str = "", s3_uri: str = "", **kwargs) -> dict[str, Any]:
@@ -455,13 +399,23 @@ def bucket_object_link(
         # Using explicit S3 URI (legacy)
         bucket_object_link(s3_uri="s3://bucket/path/to/file")
     """
-    from ..runtime.context_helpers import get_navigation_context, has_package_context
-    
-    # Extract navigation context
-    nav_context = get_navigation_context(params)
+    # Extract navigation context from params
+    nav_context = params.get('_context')
     
     # Try to use browsing session if we have package context
-    if path and has_package_context(nav_context):
+    if path and nav_context:
+        # Validate navigation context has required fields
+        required_fields = ['bucket', 'package', 'hash']
+        missing_fields = [f for f in required_fields if f not in nav_context]
+        
+        if missing_fields:
+            return {
+                "success": False,
+                "error": f"Navigation context missing required fields: {', '.join(missing_fields)}",
+                "required_fields": required_fields,
+                "provided_context": nav_context,
+            }
+        
         token = get_active_token()
         if not token:
             return format_error_response("Authorization token required")
@@ -524,148 +478,7 @@ def bucket_object_link(
     return _aws_credentials_unavailable("object_link", s3_uri)
 
 
-def bucket_objects_search(
-    bucket: str,
-    query: str | dict,
-    limit: int = 10,
-    registry_url: str | None = None,
-) -> dict[str, Any]:
-    """DEPRECATED: Use search.unified_search instead.
-    
-    This function is deprecated and will be removed in a future version.
-    Use search.unified_search with scope="bucket" and target=bucket for better results.
-    
-    Args:
-        bucket: S3 bucket name or s3:// URI
-        query: Search query string or dictionary-based DSL query
-        limit: Maximum number of results to return (default: 10)
-        registry_url: Registry URL (deprecated parameter)
-
-    Returns:
-        Dict with deprecation warning and redirect to unified search.
-    """
-    from .search import unified_search
-    
-    bkt = _normalize_bucket(bucket)
-    
-    # Redirect to unified search
-    try:
-        search_result = unified_search(
-            query=str(query) if isinstance(query, dict) else query,
-            scope="bucket",
-            target=bkt,
-            limit=limit,
-            include_metadata=True
-        )
-        
-        return {
-            "success": True,
-            "deprecated": True,
-            "message": "bucket_objects_search is deprecated. Use search.unified_search instead.",
-            "bucket": bkt,
-            "query": query,
-            "limit": limit,
-            "redirected_to": "search.unified_search",
-            "search_results": search_result
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "deprecated": True,
-            "error": f"Deprecated function failed to redirect to unified search: {e}",
-            "message": "bucket_objects_search is deprecated. Use search.unified_search instead.",
-            "bucket": bkt,
-            "query": query,
-        }
-
-
-def bucket_objects_search_graphql(
-    bucket: str,
-    object_filter: dict | None = None,
-    first: int = 100,
-    after: str = "",
-    registry_url: str | None = None,
-) -> dict[str, Any]:
-    """Search bucket objects via Quilt Catalog GraphQL.
-
-    This is a generic GraphQL-powered search that can express rich filters and
-    returns objects with optional package linkage where available.
-
-    Args:
-        bucket: S3 bucket name or s3:// URI
-        object_filter: Dictionary of filter fields compatible with the catalog schema
-        first: Page size (default 100)
-        after: Cursor for pagination
-
-    Returns:
-        Dict with objects, pagination info, and the effective filter used.
-    """
-    bkt = _normalize_bucket(bucket)
-    token = get_active_token()
-    if not token:
-        error = format_error_response("Authorization token required for bucket GraphQL search")
-        error.update({"bucket": bkt, "objects": []})
-        return error
-
-    catalog_url = resolve_catalog_url(registry_url)
-    if not catalog_url:
-        return {
-            "success": False,
-            "error": "Catalog URL not configured",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    try:
-        data = catalog_client.catalog_bucket_search_graphql(
-            registry_url=catalog_url,
-            bucket=bkt,
-            object_filter=object_filter,
-            first=first,
-            after=after or None,
-            auth_token=token,
-        )
-    except Exception as exc:
-        return {
-            "success": False,
-            "error": f"GraphQL request failed: {exc}",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    conn = data.get("objects", {}) if isinstance(data, dict) else {}
-    if isinstance(conn, list):
-        edges = conn
-        page_info = {}
-    else:
-        edges = conn.get("edges", []) or []
-        page_info = conn.get("pageInfo", {}) or {}
-    objects = [
-        {
-            "key": edge.get("node", {}).get("key"),
-            "size": edge.get("node", {}).get("size"),
-            "updated": edge.get("node", {}).get("updated"),
-            "content_type": edge.get("node", {}).get("contentType"),
-            "extension": edge.get("node", {}).get("extension"),
-            "package": edge.get("node", {}).get("package"),
-        }
-        for edge in edges
-        if isinstance(edge, dict)
-    ]
-
-    return {
-        "success": True,
-        "bucket": bkt,
-        "objects": objects,
-        "page_info": {
-            "end_cursor": page_info.get("endCursor"),
-            "has_next_page": page_info.get("hasNextPage", False),
-        },
-        "filter": object_filter or {},
-    }
-
-
-def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> dict[str, Any]:
+def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None) -> dict[str, Any]:
     """
     S3 bucket operations and object management.
 
@@ -675,14 +488,12 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
     - object_info: Get metadata information for an S3 object
     - object_link: Generate presigned URL for an S3 object
     - object_text: Read text content from an S3 object
-    - objects_list: List objects in an S3 bucket with filtering
     - objects_put: Upload multiple objects to an S3 bucket
-    - objects_search: [DEPRECATED] Search objects (use search.unified_search instead)
-    - objects_search_graphql: Search objects via GraphQL
 
     Args:
         action: The operation to perform. If None, returns available actions.
         params: Action-specific parameters
+        _context: Navigation context from frontend (optional)
 
     Returns:
         Action-specific response dictionary
@@ -694,11 +505,14 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         # Discover buckets
         result = buckets(action="discover")
 
-        # List objects
-        result = buckets(action="objects_list", params={"bucket": "my-bucket"})
+        # Get file info with package context
+        result = buckets(action="object_info", params={"path": "README.md", "_context": {...}})
 
-        # Fetch object
-        result = buckets(action="object_fetch", params={"s3_uri": "s3://bucket/key"})
+        # Fetch object content
+        result = buckets(action="object_fetch", params={"path": "data.csv", "_context": {...}})
+
+    Note:
+        For listing or searching objects, use search.unified_search with scope="bucket"
 
     For detailed parameter documentation, see individual action functions.
     """
@@ -708,10 +522,7 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
         "object_info": bucket_object_info,
         "object_link": bucket_object_link,
         "object_text": bucket_object_text,
-        "objects_list": bucket_objects_list,
         "objects_put": bucket_objects_put,
-        "objects_search": bucket_objects_search,
-        "objects_search_graphql": bucket_objects_search_graphql,
     }
 
     # Discovery mode
@@ -724,31 +535,42 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
 
     params = params or {}
     
+    # Inject navigation context into params if provided
+    if _context:
+        params['_context'] = _context
+    
     try:
         if action == "discover":
             return buckets_discover()
         elif action == "object_fetch":
             return bucket_object_fetch(**params)
         elif action == "object_info":
+            # Apply navigation context for smart defaults
+            if _context and is_object_context(_context):
+                context_bucket = get_context_bucket(_context)
+                context_path = get_context_path(_context)
+                
+                # If we're viewing the same object, provide enhanced info
+                if (context_bucket and context_path and 
+                    params.get("bucket") == context_bucket and 
+                    params.get("key") == context_path):
+                    return {
+                        "success": True,
+                        "object": {
+                            "bucket": context_bucket,
+                            "key": context_path,
+                            "version": get_context_version(_context),
+                            "native_context": True,
+                            "navigation_url": f"/b/{context_bucket}/files/{context_path}",
+                            "message": "Object info from current navigation context"
+                        }
+                    }
+            
             return bucket_object_info(**params)
         elif action == "object_link":
             return bucket_object_link(**params)
         elif action == "object_text":
             return bucket_object_text(**params)
-        elif action == "objects_list":
-            # Map frontend parameter names to function parameter names
-            mapped_params = {}
-            if "limit" in params:
-                mapped_params["max_keys"] = params["limit"]
-            if "bucket" in params:
-                mapped_params["bucket"] = params["bucket"]
-            if "prefix" in params:
-                mapped_params["prefix"] = params["prefix"]
-            if "continuation_token" in params:
-                mapped_params["continuation_token"] = params["continuation_token"]
-            if "include_signed_urls" in params:
-                mapped_params["include_signed_urls"] = params["include_signed_urls"]
-            return bucket_objects_list(**mapped_params)
         elif action == "objects_put":
             # Map frontend parameter names to function parameter names
             mapped_params = {}
@@ -757,10 +579,6 @@ def buckets(action: str | None = None, params: Optional[Dict[str, Any]] = None) 
             if "objects" in params:
                 mapped_params["items"] = params["objects"]
             return bucket_objects_put(**mapped_params)
-        elif action == "objects_search":
-            return bucket_objects_search(**params)
-        elif action == "objects_search_graphql":
-            return bucket_objects_search_graphql(**params)
         else:
             return format_error_response(f"Unknown buckets action: {action}")
     

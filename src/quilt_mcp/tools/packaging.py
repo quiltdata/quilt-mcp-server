@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,6 +27,12 @@ from ..utils import (
     format_error_response,
     resolve_catalog_url,
     validate_package_name,
+)
+from ..types.navigation import (
+    NavigationContext,
+    get_context_bucket,
+    get_context_path,
+    suggest_package_name_from_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -205,146 +210,12 @@ def _validate_package_name(name: str) -> tuple[bool, Optional[str]]:
     return True, None
 
 
-# Package discovery (simplified for now)
-def packages_discover(registry: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
-    """
-    Discover all accessible packages.
-    
-    Args:
-        registry: Registry to search (default: auto-detect)
-        limit: Maximum number of packages to return
-        
-    Returns:
-        Dict with package information including names, descriptions, and metadata.
-    """
-    token = get_active_token()
-    if not token:
-        return format_error_response("Authorization token required for package discovery")
-    
-    catalog_url = resolve_catalog_url()
-    if not catalog_url:
-        return format_error_response("Catalog URL not configured")
-    
-    try:
-        # Use search functionality to discover packages
-        from .search import unified_search
-        
-        # Search for all packages to discover what's available
-        search_result = unified_search(
-            query="*",
-            scope="catalog",
-            limit=limit,
-            include_metadata=True,
-            backends=["graphql"]
-        )
-        
-        if search_result.get("success"):
-            packages = []
-            search_results = search_result.get("results", [])
-            
-            for result in search_results:
-                if result.get("type") == "package":
-                    package_info = {
-                        "name": result.get("name", ""),
-                        "description": result.get("description", ""),
-                        "bucket": result.get("bucket", ""),
-                        "modified": result.get("modified", ""),
-                        "size": result.get("size", 0),
-                        "accessible": True,
-                    }
-                    packages.append(package_info)
-            
-            return {
-                "success": True,
-                "packages": packages,
-                "total_packages": len(packages),
-                "message": f"Discovered {len(packages)} packages using search functionality",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-        else:
-            # Fallback if search fails
-            return {
-                "success": True,
-                "packages": [],
-                "total_packages": 0,
-                "message": "Package discovery via search - no packages found or search unavailable",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-        
-    except Exception as e:
-        logger.exception(f"Error discovering packages: {e}")
-        return format_error_response(f"Failed to discover packages: {str(e)}")
-
-
-# Package listing (legacy compatibility)
-def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
-    """List all available Quilt packages in a registry."""
-    token = get_active_token()
-    if not token:
-        return format_error_response("Authorization token required for package listing")
-
-    catalog_url = resolve_catalog_url()
-    if not catalog_url:
-        return format_error_response("Catalog URL not configured")
-
-    try:
-        # Use search functionality to find packages instead of direct GraphQL
-        # This approach is more reliable and doesn't require specific package permissions
-        from .search import unified_search
-        
-        # Search for packages using a broad query
-        search_query = "*"  # Search for all packages
-        if prefix:
-            search_query = f"{prefix}*"  # Search for packages with specific prefix
-            
-        search_result = unified_search(
-            query=search_query,
-            scope="catalog",
-            limit=limit if limit > 0 else 100,
-            include_metadata=True,
-            backends=["graphql"]  # Use GraphQL backend for package search
-        )
-        
-        if search_result.get("success"):
-            # Extract package information from search results
-            packages = []
-            search_results = search_result.get("results", [])
-            
-            for result in search_results:
-                if result.get("type") == "package":
-                    package_info = {
-                        "name": result.get("name", ""),
-                        "description": result.get("description", ""),
-                        "bucket": result.get("bucket", ""),
-                        "modified": result.get("modified", ""),
-                        "size": result.get("size", 0),
-                    }
-                    packages.append(package_info)
-            
-            return {
-                "success": True,
-                "packages": packages,
-                "count": len(packages),
-                "registry": registry,
-                "search_query": search_query,
-            }
-        else:
-            # Fallback to basic response if search fails
-            return {
-                "success": True,
-                "packages": [],
-                "count": 0,
-                "registry": registry,
-                "message": "Package listing via search - no packages found or search unavailable",
-            }
-        
-    except Exception as e:
-        logger.exception(f"Error listing packages: {e}")
-        return format_error_response(f"Failed to list packages: {str(e)}")
+# Package discovery and listing removed - use search tool instead
+# Users should use: search.unified_search(query="*", scope="catalog", search_type="packages")
 
 
 # Package browsing
-def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
+def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:  # noqa: ARG001
     """Browse a specific Quilt package and its contents."""
     token = get_active_token()
     if not token:
@@ -370,9 +241,9 @@ def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any
             },
         }
         
-    except Exception as e:
-        logger.exception(f"Error browsing package '{name}': {e}")
-        return format_error_response(f"Failed to browse package '{name}': {str(e)}")
+    except Exception:
+        logger.exception("Error browsing package '%s'", name)
+        return format_error_response(f"Failed to browse package '{name}'")
 
 
 # Package creation
@@ -522,21 +393,21 @@ def package_create(
             "message": f"Package '{name}' created successfully",
         }
         
-    except Exception as e:
-        logger.exception(f"Error creating package '{name}': {e}")
-        return format_error_response(f"Failed to create package '{name}': {str(e)}")
+    except Exception:
+        logger.exception("Error creating package '%s'", name)
+        return format_error_response(f"Failed to create package '{name}'")
 
 
 # S3-to-package creation
-def package_create_from_s3(
+def package_create_from_s3(  # noqa: ARG001
     name: str,
     bucket: str,
     prefix: str = "",
-    description: str = "",  # noqa: ARG001
-    metadata: Optional[Dict[str, Any]] = None,  # noqa: ARG001
-    auto_organize: bool = True,  # noqa: ARG001
-    dry_run: bool = False,  # noqa: ARG001
-    copy_mode: str = "all",  # noqa: ARG001
+    description: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+    auto_organize: bool = True,
+    dry_run: bool = False,
+    copy_mode: str = "all",
 ) -> Dict[str, Any]:
     """Create a package from S3 bucket contents.
     
@@ -589,18 +460,19 @@ def list_metadata_templates() -> Dict[str, Any]:
 
 
 # Main unified function
-def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None) -> Dict[str, Any]:
     """
     Unified package management operations.
 
     Available actions:
-    - discover: Discover all accessible packages with metadata
-    - list: List package names in a registry
     - browse: Browse a specific package and its contents
     - create: Create a new package
-    - create_from_s3: Create a package from S3 bucket contents
+    - create_from_s3: Create a package from S3 bucket contents (returns guidance)
     - metadata_templates: List available metadata templates
     - get_template: Get a specific metadata template
+
+    Note: For package discovery/listing, use the search tool:
+        search.unified_search(query="*", scope="catalog", search_type="packages")
 
     Args:
         action: The operation to perform. If None, returns available actions.
@@ -616,8 +488,6 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
             return {
                 "module": "packaging",
                 "actions": [
-                    "discover",
-                    "list", 
                     "browse",
                     "create",
                     "create_from_s3",
@@ -625,27 +495,37 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
                     "get_template",
                 ],
                 "description": "Unified package management via Quilt Catalog GraphQL",
+                "note": "For package discovery/listing, use search.unified_search(scope='catalog', search_type='packages')"
             }
-        elif action == "discover":
-            return packages_discover(
-                registry=params.get("registry"),
-                limit=params.get("limit", 100),
-            )
-        elif action == "list":
-            return packages_list(
-                registry=params.get("registry", DEFAULT_REGISTRY),
-                limit=params.get("limit", 0),
-                prefix=params.get("prefix", ""),
-            )
         elif action == "browse":
+            name = params.get("name")
+            if not name:
+                return format_error_response("Package name is required for browse action")
             return package_browse(
-                name=params.get("name"),
+                name=name,
                 registry=params.get("registry", DEFAULT_REGISTRY),
             )
         elif action == "create":
             # Map frontend parameter names to function parameter names
+            name = params.get("name") or params.get("package_name")
+            
+            # Apply navigation context for smart defaults
+            if _context and not name:
+                suggested_name = suggest_package_name_from_context(_context)
+                if suggested_name:
+                    return {
+                        "success": False,
+                        "error": f"Package name is required. Suggested name based on current context: {suggested_name}",
+                        "suggested_name": suggested_name,
+                        "context_info": {
+                            "route": _context.route.name,
+                            "bucket": get_context_bucket(_context),
+                            "path": get_context_path(_context),
+                        }
+                    }
+            
             return package_create(
-                name=params.get("name") or params.get("package_name"),  # Support both names
+                name=name,
                 files=params.get("files"),  # Now optional
                 description=params.get("description", ""),
                 metadata=params.get("metadata") or params.get("meta"),  # Support both names
@@ -675,6 +555,6 @@ def packaging(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
         else:
             return format_error_response(f"Unknown packaging action: {action}")
     
-    except Exception as exc:
-        logger.exception(f"Error executing packaging action '{action}': {exc}")
-        return format_error_response(f"Failed to execute packaging action '{action}': {str(exc)}")
+    except Exception:
+        logger.exception("Error executing packaging action '%s'", action)
+        return format_error_response(f"Failed to execute packaging action '{action}'")
