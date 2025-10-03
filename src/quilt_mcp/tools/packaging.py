@@ -215,8 +215,17 @@ def _validate_package_name(name: str) -> tuple[bool, Optional[str]]:
 
 
 # Package browsing
-def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:  # noqa: ARG001
-    """Browse a specific Quilt package and its contents."""
+def package_browse(name: str, bucket: Optional[str] = None, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:  # noqa: ARG001
+    """Browse a specific Quilt package and its contents.
+    
+    Args:
+        name: Package name (e.g., "team/package")
+        bucket: S3 bucket name (without s3:// prefix). If not provided, will try to infer.
+        registry: Registry URL (unused, kept for compatibility)
+        
+    Returns:
+        Dict with success status and package entries
+    """
     token = get_active_token()
     if not token:
         return format_error_response("Authorization token required for package browsing")
@@ -224,11 +233,19 @@ def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any
     catalog_url = resolve_catalog_url()
     if not catalog_url:
         return format_error_response("Catalog URL not configured")
+    
+    # If bucket not provided, return helpful error
+    if not bucket:
+        return format_error_response(
+            f"Bucket parameter required for package browsing. "
+            f"Specify bucket name (e.g., 'quilt-sandbox-bucket') for package '{name}'"
+        )
 
     try:
         # Use existing catalog_package_entries function
         entries = catalog_client.catalog_package_entries(
             registry_url=catalog_url,
+            bucket=bucket,
             package_name=name,
             auth_token=token,
         )
@@ -237,13 +254,14 @@ def package_browse(name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any
             "success": True,
             "package": {
                 "name": name,
+                "bucket": bucket,
                 "entries": entries,
             },
         }
         
     except Exception:
-        logger.exception("Error browsing package '%s'", name)
-        return format_error_response(f"Failed to browse package '{name}'")
+        logger.exception("Error browsing package '%s' in bucket '%s'", name, bucket)
+        return format_error_response(f"Failed to browse package '{name}' in bucket '{bucket}'")
 
 
 # Package creation

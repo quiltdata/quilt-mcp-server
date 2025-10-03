@@ -336,15 +336,22 @@ def catalog_packages_list(
 
 
 def catalog_package_entries(
-    *, registry_url: str, package_name: str, auth_token: Optional[str], top: Optional[int] = None
+    *, registry_url: str, bucket: str, package_name: str, auth_token: Optional[str], top: Optional[int] = None
 ) -> list[dict[str, Any]]:
     """Get package entries using the correct GraphQL schema.
     
     Uses PackageRevision.contentsFlatMap to get package contents.
+    
+    Args:
+        registry_url: Quilt catalog URL
+        bucket: S3 bucket name (without s3:// prefix)
+        package_name: Package name (e.g., "team/package")
+        auth_token: JWT authentication token
+        top: Maximum number of entries to return (default: 1000)
     """
     query = """
-    query PackageEntries($name: String!, $max: Int) {
-      package(name: $name) {
+    query PackageEntries($bucket: String!, $name: String!, $max: Int) {
+      package(bucket: $bucket, name: $name) {
         revision(hashOrTag: "latest") {
           contentsFlatMap(max: $max)
         }
@@ -355,7 +362,7 @@ def catalog_package_entries(
     data = catalog_graphql_query(
         registry_url=registry_url,
         query=query,
-        variables={"name": package_name, "max": top or 1000},
+        variables={"bucket": bucket, "name": package_name, "max": top or 1000},
         auth_token=auth_token,
     )
 
