@@ -218,93 +218,46 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def _search_packages_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search packages globally using Enterprise GraphQL searchPackages."""
-        # Use working searchPackages query (total only - firstPage has server errors)
-        # Based on Enterprise schema: PackagesSearchResult union type
-        graphql_query = """
-        query SearchPackages($searchString: String!) {
-            searchPackages(buckets: [], searchString: $searchString) {
-                ... on PackagesSearchResultSet {
-                    total
-                    stats {
-                        modified {
-                            min
-                            max
-                        }
-                        size {
-                            min
-                            max
-                            sum
-                        }
-                    }
-                }
-                ... on EmptySearchResultSet {
-                    _
-                }
-            }
-        }
+        """Search packages globally by querying accessible buckets.
+        
+        Note: searchPackages.firstPage has a backend bug (Internal Server Error),
+        so we query individual buckets using the working packages(bucket:...) query.
         """
-
-        # Simplified variables
-        variables = {"searchString": query}
-
+        # First, get list of accessible buckets
+        buckets_query = "query { bucketConfigs { name } }"
         try:
-            result = await self._execute_graphql_query(graphql_query, variables)
-
-            if result.get("errors"):
-                raise Exception(f"GraphQL errors: {result['errors']}")
-
-            # Extract rich metadata from working searchPackages query
-            data = result.get("data", {})
-            search_result = data.get("searchPackages", {})
-            total = search_result.get("total", 0)
-            stats = search_result.get("stats", {})
-
-            if total > 0:
-                # Create meaningful result with statistics from GraphQL
-                size_stats = stats.get("size", {})
-                modified_stats = stats.get("modified", {})
-
-                description_parts = [f"Found {total} packages"]
-                if size_stats.get("sum"):
-                    total_gb = size_stats["sum"] / (1024**3)
-                    description_parts.append(f"Total size: {total_gb:.1f} GB")
-                if modified_stats.get("min") and modified_stats.get("max"):
-                    description_parts.append(
-                        f"Date range: {modified_stats['min'][:10]} to {modified_stats['max'][:10]}"
-                    )
-
-                return [
-                    SearchResult(
-                        id=f"graphql-packages-{query}",
-                        type="package_summary",
-                        title=f"{total} packages matching '{query}'",
-                        description=" | ".join(description_parts),
-                        metadata={
-                            "total_packages": total,
-                            "search_query": query,
-                            "stats": stats,
-                            "size_sum_bytes": size_stats.get("sum"),
-                            "size_min_bytes": size_stats.get("min"),
-                            "size_max_bytes": size_stats.get("max"),
-                            "modified_min": modified_stats.get("min"),
-                            "modified_max": modified_stats.get("max"),
-                        },
-                        score=1.0,
-                        backend="graphql",
-                    )
-                ]
-            else:
-                return []
-
-        except Exception as e:
-            # Fallback: try simple bucketConfigs if searchPackages fails
+            buckets_result = await self._execute_graphql_query(buckets_query, {})
+            bucket_names = [
+                cfg["name"] 
+                for cfg in buckets_result.get("data", {}).get("bucketConfigs", [])
+            ]
+        except Exception:
+            # If we can't get buckets, we can't search
+            return []
+        
+        if not bucket_names:
+            return []
+        
+        # Query each bucket (limit results per bucket to spread across buckets)
+        per_bucket_limit = max(5, limit // len(bucket_names)) if len(bucket_names) > 0 else limit
+        all_results = []
+        
+        for bucket in bucket_names[:10]:  # Limit to first 10 buckets to avoid too many queries
             try:
-                bucketconfigs_query = "query { bucketConfigs { name } }"
-                fallback_result = await self._execute_graphql_query(bucketconfigs_query, {})
-                return self._convert_bucketconfigs_to_packages(fallback_result, query, limit)
+                bucket_results = await self._search_bucket_packages(
+                    bucket, query, filters, per_bucket_limit
+                )
+                all_results.extend(bucket_results)
+                
+                # Stop if we have enough results
+                if len(all_results) >= limit:
+                    break
             except Exception:
-                return []
+                # Skip buckets that fail
+                continue
+        
+        # Return up to limit results
+        return all_results[:limit]
 
     async def _search_objects_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
