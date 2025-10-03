@@ -138,6 +138,16 @@ def package_create(
             "warnings": warnings,
         }
 
+    # Check if the catalog client returned an error
+    if not response.get("success", True):
+        return {
+            "success": False,
+            "error": response.get("error", "Unknown error from catalog"),
+            "error_type": response.get("error_type"),
+            "package_name": package_name,
+            "warnings": warnings,
+        }
+
     top_hash = response.get("top_hash")
     entries_added = response.get("entries_added", len(s3_uris))
     response_warnings = response.get("warnings", [])
@@ -351,8 +361,6 @@ def package_ops(action: str | None = None, params: Optional[Dict[str, Any]] = No
             "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
         }
     except Exception as e:
-        if isinstance(e, dict) and not e.get("success"):
-            return e
         return {
             "success": False,
             "error": f"Error executing action '{action}': {str(e)}",

@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from typing import Dict
-from unittest.mock import patch
-
-import pytest
 
 from quilt_mcp.runtime import request_context
 from quilt_mcp.tools import package_ops
@@ -96,6 +93,50 @@ def test_package_create_handles_client_error(monkeypatch):
 
     assert result["error"].startswith("Failed to create package")
     assert "upstream failure" in result["error"]
+
+
+def test_package_create_handles_invalid_input(monkeypatch):
+    """Test that InvalidInput errors from GraphQL are properly reported."""
+    def fake_create_invalid(**_kwargs):
+        return {
+            "success": False,
+            "error": "Invalid input: S3 object not found: s3://bucket/missing.csv; Permission denied for bucket"
+        }
+
+    monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_package_create", fake_create_invalid)
+
+    with runtime_token("token"):
+        result = package_ops.package_create(
+            package_name="user/pkg",
+            s3_uris=["s3://bucket/missing.csv"],
+            registry="https://registry.example.com",
+        )
+
+    assert result["success"] is False
+    assert "Invalid input" in result["error"]
+    assert "S3 object not found" in result["error"]
+
+
+def test_package_create_handles_operation_error(monkeypatch):
+    """Test that OperationError from GraphQL are properly reported."""
+    def fake_create_error(**_kwargs):
+        return {
+            "success": False,
+            "error": "Operation failed: Database connection timeout"
+        }
+
+    monkeypatch.setattr("quilt_mcp.clients.catalog.catalog_package_create", fake_create_error)
+
+    with runtime_token("token"):
+        result = package_ops.package_create(
+            package_name="user/pkg",
+            s3_uris=["s3://bucket/file.csv"],
+            registry="https://registry.example.com",
+        )
+
+    assert result["success"] is False
+    assert "Operation failed" in result["error"]
+    assert "Database connection" in result["error"]
 
 
 def test_package_update_calls_catalog_client(monkeypatch):

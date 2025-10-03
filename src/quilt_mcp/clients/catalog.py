@@ -506,18 +506,57 @@ def catalog_package_create(
         
         if result.get("packageConstruct"):
             construct_result = result["packageConstruct"]
+            
+            # Check for success (PackagePushSuccess)
             if "package" in construct_result:
                 return {
                     "success": True,
                     "package": construct_result["package"],
                     "revision": construct_result["revision"],
-                    "message": f"Package {package_name} created successfully"
+                    "message": f"Package {package_name} created successfully",
+                    "top_hash": construct_result.get("revision", {}).get("hash"),
+                    "entries_added": len(s3_uris),
                 }
-            else:
+            
+            # Check for InvalidInput errors
+            if "errors" in construct_result:
+                errors = construct_result.get("errors", [])
+                error_messages = []
+                for err in errors:
+                    if isinstance(err, dict):
+                        msg = err.get("message", "Unknown error")
+                        path = err.get("path", "")
+                        if path:
+                            error_messages.append(f"{path}: {msg}")
+                        else:
+                            error_messages.append(msg)
                 return {
                     "success": False,
-                    "error": "Package creation failed - invalid input or operation error"
+                    "error": f"Invalid input: {'; '.join(error_messages) if error_messages else 'Package validation failed'}",
+                    "error_type": "InvalidInput",
                 }
+            
+            # Check for OperationError
+            if "message" in construct_result:
+                error_name = construct_result.get("name", "OperationError")
+                error_message = construct_result.get("message", "Unknown operation error")
+                error_context = construct_result.get("context", {})
+                
+                error_details = f"Operation failed: {error_message}"
+                if error_context:
+                    error_details += f" (context: {error_context})"
+                
+                return {
+                    "success": False,
+                    "error": error_details,
+                    "error_type": error_name,
+                }
+            
+            # Unexpected response format
+            return {
+                "success": False,
+                "error": "Package creation failed - unexpected response format from backend"
+            }
         else:
             return {
                 "success": False,
