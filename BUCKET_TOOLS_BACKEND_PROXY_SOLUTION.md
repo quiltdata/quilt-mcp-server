@@ -193,15 +193,68 @@ if session.user is not None:
 
 ---
 
+## Navigation Context Integration 🎯
+
+**KEY INSIGHT**: Frontend provides navigation context automatically!
+
+The frontend's navigate tool passes current page context to MCP calls:
+- Current bucket user is viewing
+- Current package (name + hash)
+- Current file path
+
+This **solves the "which package?" problem** for browsing sessions!
+
+### How It Works
+
+```javascript
+// Frontend automatically injects navigation context
+await mcpClient.callTool('buckets', {
+  action: 'object_link',
+  params: {
+    path: 'README.md',
+    _context: {  // ← Automatically added by frontend!
+      bucket: 'quilt-sandbox-bucket',
+      package: 'demo-team/viz-showcase',
+      hash: '4bb163860a05c57b496f01f5f824854f5ae720a9cc0516ed99cab4ca88b252f4'
+    }
+  }
+});
+```
+
+### Backend Usage
+
+```python
+# Extract context from tool parameters
+nav_context = params.get('_context', {})
+
+if nav_context.get('package'):
+    # Create browsing session using navigation context
+    session = catalog_create_browsing_session(
+        bucket=nav_context['bucket'],
+        package_name=nav_context['package'],
+        package_hash=nav_context['hash'],
+        ...
+    )
+    
+    # Get presigned URL
+    url = catalog_browse_file(session_id, path, ...)
+    return {'url': url}
+```
+
+This makes bucket tools **fully functional** with backend proxy! 🎉
+
+---
+
 ## Next Steps
 
 1. ✅ **DONE**: Add `catalog_create_browsing_session()` to client
 2. ✅ **DONE**: Add `catalog_browse_file()` to client  
-3. 🔄 **TODO**: Solve cookie/authentication issue for browse endpoint
-4. 🔄 **TODO**: Implement `bucket_object_link()` using browsing sessions
-5. 🔄 **TODO**: Implement `bucket_object_fetch/text/info()` using presigned URLs
-6. 🔄 **TODO**: Find upload endpoint for `bucket_objects_put()`
-7. 🔄 **TODO**: Update error messages to guide users
+3. ✅ **DONE**: Document navigation context integration
+4. 🔄 **TODO**: Add `get_navigation_context()` helper
+5. 🔄 **TODO**: Implement `bucket_object_link()` using browsing sessions + context
+6. 🔄 **TODO**: Implement `bucket_object_fetch/text/info()` using presigned URLs + context
+7. 🔄 **TODO**: Update search tool to use context for smart scoping
+8. 🔄 **TODO**: Find upload endpoint for `bucket_objects_put()`
 
 ---
 
