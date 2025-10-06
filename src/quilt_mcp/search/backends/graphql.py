@@ -476,9 +476,16 @@ class EnterpriseGraphQLBackend(SearchBackend):
     ) -> PackageSearchResponse:
         """Search packages globally using GraphQL searchPackages with pagination support."""
 
+        # Extract bucket filter if provided
+        buckets = []
+        if filters and "buckets" in filters:
+            buckets = filters.get("buckets", [])
+            if isinstance(buckets, str):
+                buckets = [buckets]
+
         graphql_query = """
-        query SearchPackages($searchString: String!, $order: SearchResultOrder!, $latestOnly: Boolean!) {
-            searchPackages(buckets: [], searchString: $searchString, latestOnly: $latestOnly) {
+        query SearchPackages($searchString: String!, $order: SearchResultOrder!, $latestOnly: Boolean!, $buckets: [String!]!) {
+            searchPackages(buckets: $buckets, searchString: $searchString, latestOnly: $latestOnly) {
                 ... on PackagesSearchResultSet {
                     total
                     stats {
@@ -513,6 +520,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             "searchString": query if query and query != "*" else "",
             "order": "BEST_MATCH",
             "latestOnly": False,
+            "buckets": buckets,
         }
 
         try:
