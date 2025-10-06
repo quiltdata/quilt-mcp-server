@@ -75,7 +75,7 @@ __all__ = [
     "KNOWN_TEST_PACKAGE",
     "KNOWN_TEST_ENTRY",
     "KNOWN_TEST_S3_OBJECT",
-    # Auth tools
+    # Auth tools (7 tools)
     "auth_status",
     "catalog_info",
     "catalog_name",
@@ -84,47 +84,32 @@ __all__ = [
     "configure_catalog",
     "filesystem_status",
     "switch_catalog",
-    # Bucket tools
+    # Bucket tools (5 tools)
     "bucket_object_info",
     "bucket_object_text",
     "bucket_objects_put",
     "bucket_object_fetch",
     "bucket_object_link",
-    # Package tools
+    # Package tools (6 tools)
+    "packaging",
     "package_browse",
-    "package_contents_search",
     "package_create",
     "package_create_from_s3",
-    "package_delete",
-    "package_diff",
-    "package_update",
-    "packages_list",
-    "packages_search",
-    # Permission tools
+    "list_metadata_templates",
+    "get_metadata_template",
+    # Permission tools (3 tools)
     "permissions",
     "bucket_access_check",
     "permissions_recommendations_get",
-    # Unified tools
-    "create_package",
-    "list_available_resources",
-    "quick_start",
-    # Enhanced package management
-    "create_package_enhanced",
-    "get_metadata_template",
-    "list_metadata_templates",
-    "list_package_tools",
-    "package_update_metadata",
-    "package_validate",
-    "validate_metadata_structure",
-    # Metadata examples and guidance
+    # Metadata examples (3 tools)
     "show_metadata_examples",
     "create_metadata_from_template",
     "fix_metadata_validation_issues",
-    # Quilt summary and visualization tools
+    # Quilt summary (3 tools)
     "create_quilt_summary_files",
     "generate_quilt_summarize_json",
     "generate_package_visualizations",
-    # Tabulator tools
+    # Tabulator tools (6 tools)
     "tabulator_tables_list",
     "tabulator_table_create",
     "tabulator_table_delete",
