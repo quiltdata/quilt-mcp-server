@@ -81,7 +81,7 @@ async def search_packages(
     scope: str = "global",
     target: str = "",
     backends: Optional[List[str]] = None,
-    limit: int = 20,
+    limit: int = 100,
     offset: int = 0,
     include_metadata: bool = False,
     explain_query: bool = False,
@@ -130,7 +130,7 @@ async def search_objects(
     scope: str = "global",
     target: str = "",
     backends: Optional[List[str]] = None,
-    limit: int = 20,
+    limit: int = 100,
     offset: int = 0,
     include_metadata: bool = False,
     explain_query: bool = False,
@@ -180,7 +180,7 @@ async def unified_search(
     target: str = "",
     search_type: str = "auto",  # "auto", "packages", "objects", "both"
     backends: Optional[List[str]] = None,
-    limit: int = 20,  # Reduced default limit to prevent LLM input length errors
+    limit: int = 100,  # Increased default limit for better search coverage
     offset: int = 0,  # Pagination offset for retrieving additional pages
     include_metadata: bool = False,  # Changed default to False to reduce response size
     include_content_preview: bool = False,
@@ -211,7 +211,7 @@ async def unified_search(
             - "objects": Search only for individual files/objects
             - "both": Search both packages and objects
         backends: Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations
-        limit: Maximum number of results to return (default: 20)
+        limit: Maximum number of results to return (default: 100)
         offset: Pagination offset for retrieving additional pages (default: 0)
         include_metadata: Include rich metadata in results (default: False)
         include_content_preview: Include content previews for files (default: False)
@@ -385,7 +385,7 @@ async def search(
                 mapped_params["offset"] = params["offset"]
             if "page" in params:
                 # Convert page number to offset (page 1 = offset 0, page 2 = offset limit, etc.)
-                limit = mapped_params.get("limit", 20)
+                limit = mapped_params.get("limit", 100)
                 mapped_params["offset"] = (params["page"] - 1) * limit
             if "include_metadata" in params:
                 mapped_params["include_metadata"] = params["include_metadata"]
@@ -432,7 +432,7 @@ async def search(
                 mapped_params["offset"] = params["offset"]
             if "page" in params:
                 # Convert page number to offset (page 1 = offset 0, page 2 = offset limit, etc.)
-                limit = mapped_params.get("limit", 20)
+                limit = mapped_params.get("limit", 100)
                 mapped_params["offset"] = (params["page"] - 1) * limit
             if "include_metadata" in params:
                 mapped_params["include_metadata"] = params["include_metadata"]
@@ -481,7 +481,7 @@ async def search(
                 mapped_params["offset"] = params["offset"]
             if "page" in params:
                 # Convert page number to offset (page 1 = offset 0, page 2 = offset limit, etc.)
-                limit = mapped_params.get("limit", 20)
+                limit = mapped_params.get("limit", 100)
                 mapped_params["offset"] = (params["page"] - 1) * limit
             if "include_metadata" in params:
                 mapped_params["include_metadata"] = params["include_metadata"]

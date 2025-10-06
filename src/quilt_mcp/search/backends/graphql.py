@@ -152,7 +152,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         target: str = "",
         search_type: str = "auto",  # "auto", "packages", "objects", "both"
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 50,
+        limit: int = 100,
         offset: int = 0,
     ) -> BackendResponse:
         """Execute search using Enterprise GraphQL."""
@@ -548,7 +548,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
             target_count = min(total_packages, required)
 
             while cursor and len(hits) < target_count:
-                remaining = min(max(target_count - len(hits), 0), 200)
+                remaining = min(max(target_count - len(hits), 0), 1000)
                 if remaining <= 0:
                     break
                 more_hits, cursor = await self._fetch_more_packages(cursor, remaining)
@@ -686,7 +686,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         # Determine how many records we need from the API to satisfy the requested page
         requested_window = max(limit + offset, limit, 30)
-        page_size = min(requested_window, 200)
+        page_size = min(requested_window, 1000)
 
         search_string = query if (query and query != "*") else ""
         if force_blank_search:
@@ -732,7 +732,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 # Fetch more pages if needed to satisfy offset/limit
                 required = offset + limit
                 while cursor and len(hits) < min(total_hits, required):
-                    remaining = min(max(required - len(hits), 0), 200)
+                    remaining = min(max(required - len(hits), 0), 1000)
                     more_hits, cursor = await self._fetch_more_objects(cursor, remaining)
                     if not more_hits:
                         break
@@ -856,7 +856,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         variables = {
             "after": cursor,
-            "size": max(min(size, 200), 1),
+            "size": max(min(size, 1000), 1),
         }
 
         result = await self._execute_graphql_query(graphql_query, variables)
@@ -909,7 +909,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         variables = {
             "after": cursor,
-            "size": max(min(size, 200), 1),
+            "size": max(min(size, 1000), 1),
         }
 
         result = await self._execute_graphql_query(graphql_query, variables)

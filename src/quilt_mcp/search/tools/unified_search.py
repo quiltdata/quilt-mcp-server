@@ -33,7 +33,7 @@ class UnifiedSearchEngine:
         target: str = "",
         search_type: str = "auto",  # "auto", "packages", "objects", "both"
         backends: Optional[List[str]] = None,
-        limit: int = 20,  # Reduced default limit to prevent LLM input length errors
+        limit: int = 100,  # Increased default limit for better search coverage
         offset: int = 0,  # Pagination offset for retrieving additional pages
         include_metadata: bool = False,  # Changed default to False to reduce response size
         include_content_preview: bool = False,
@@ -450,7 +450,7 @@ async def unified_search(
     target: str = "",
     search_type: str = "auto",  # "auto", "packages", "objects", "both"
     backends: Optional[List[str]] = None,
-    limit: int = 20,  # Reduced default limit to prevent LLM input length errors
+    limit: int = 100,  # Increased default limit for better search coverage
     offset: int = 0,  # Pagination offset for retrieving additional pages
     include_metadata: bool = False,  # Changed default to False to reduce response size
     include_content_preview: bool = False,

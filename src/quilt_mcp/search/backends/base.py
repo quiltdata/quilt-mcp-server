@@ -89,7 +89,7 @@ class SearchBackend(ABC):
         scope: str = "global",
         target: str = "",
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 50,
+        limit: int = 100,
     ) -> BackendResponse:
         """Execute a search query.
 
