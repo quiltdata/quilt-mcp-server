@@ -22,6 +22,80 @@ from ..types.navigation import (
 logger = logging.getLogger(__name__)
 
 
+def _enhance_search_result_with_links(search_result: Dict[str, Any], query: str, scope: str, target: str, search_type: str, limit: int, offset: int) -> Dict[str, Any]:
+    """Enhance search results with navigation links and context."""
+    try:
+        from ..utils import resolve_catalog_url
+        
+        catalog_base = resolve_catalog_url()
+        if not catalog_base:
+            return search_result
+        
+        # Clean catalog base URL
+        if catalog_base.startswith("https://"):
+            base_url = catalog_base
+        elif catalog_base.startswith("http://"):
+            base_url = catalog_base
+        else:
+            base_url = f"https://{catalog_base}"
+        
+        # Add search context to each result
+        enhanced_results = []
+        for result in search_result.get("results", []):
+            enhanced_result = result.copy()
+            
+            # Add navigation context for each result
+            if result.get("type") == "package" and result.get("package_name"):
+                # Generate package navigation link
+                package_name = result.get("package_name")
+                bucket = result.get("metadata", {}).get("bucket", "")
+                if bucket and package_name:
+                    enhanced_result["navigation"] = {
+                        "type": "package",
+                        "url": result.get("url", f"{base_url}/b/{bucket}/packages/{package_name}"),
+                        "package_name": package_name,
+                        "bucket": bucket,
+                    }
+            elif result.get("type") == "file" and result.get("s3_uri"):
+                # Generate file navigation link
+                s3_uri = result.get("s3_uri", "")
+                if s3_uri.startswith("s3://"):
+                    parts = s3_uri[5:].split("/", 1)
+                    if len(parts) == 2:
+                        bucket, key = parts
+                        enhanced_result["navigation"] = {
+                            "type": "file",
+                            "url": result.get("url", f"{base_url}/b/{bucket}/tree/{key}"),
+                            "bucket": bucket,
+                            "key": key,
+                        }
+            
+            enhanced_results.append(enhanced_result)
+        
+        # Update the search result with enhanced results
+        search_result["results"] = enhanced_results
+        
+        # Add search result page link
+        search_params = {
+            "q": query,
+            "scope": scope,
+            "type": search_type,
+            "limit": str(limit),
+            "offset": str(offset)
+        }
+        
+        if target:
+            search_params["target"] = target
+        
+        search_result["search_page_url"] = f"{base_url}/search?" + "&".join([f"{k}={v}" for k, v in search_params.items()])
+        
+        return search_result
+        
+    except Exception as e:
+        logger.warning(f"Failed to enhance search results with links: {e}")
+        return search_result
+
+
 def search_discover() -> Dict[str, Any]:
     """
     Discover search capabilities and available backends.
@@ -244,7 +318,8 @@ async def unified_search(
 
         # Simply await the async function - FastMCP supports async tools
         # This preserves the ContextVar (JWT token) from the request middleware
-        return await _unified_search(
+        # Execute the search
+        search_result = await _unified_search(
             query=query,
             scope=scope,
             target=target,
@@ -258,6 +333,12 @@ async def unified_search(
             filters=filters,
             count_only=count_only,
         )
+        
+        # Enhance the result with search context and links
+        if search_result.get("success"):
+            search_result = _enhance_search_result_with_links(search_result, query, scope, target, search_type, limit, offset)
+        
+        return search_result
     except (RuntimeError, asyncio.TimeoutError, OSError) as e:
         return {
             "success": False,

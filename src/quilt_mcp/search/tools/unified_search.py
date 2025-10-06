@@ -126,6 +126,9 @@ class UnifiedSearchEngine:
                 truncated_result["description"] = truncated_result["description"][:300] + "..."
             truncated_results.append(truncated_result)
 
+        # Generate search result links and navigation context
+        search_links = self._generate_search_result_links(query, scope, target, search_type, limit, offset)
+        
         response = {
             "success": True,
             "query": query,
@@ -140,6 +143,7 @@ class UnifiedSearchEngine:
             "next_offset": offset + limit if len(truncated_results) == limit else None,
             "query_time_ms": total_time,
             "backend": "graphql",
+            "search_links": search_links,
             "analysis": (
                 {
                     "query_type": analysis.query_type.value,
@@ -262,6 +266,7 @@ class UnifiedSearchEngine:
                         "logical_key": result.logical_key,
                         "size": result.size,
                         "last_modified": result.last_modified,
+                        "url": result.url,  # Include catalog URL for direct navigation
                     }
 
                     # Only include metadata if explicitly requested
@@ -408,6 +413,65 @@ class UnifiedSearchEngine:
             }
 
         return {}
+
+    def _generate_search_result_links(self, query: str, scope: str, target: str, search_type: str, limit: int, offset: int) -> Dict[str, Any]:
+        """Generate search result links and navigation context for better UX."""
+        try:
+            from ...utils import resolve_catalog_url
+            
+            catalog_base = resolve_catalog_url()
+            if not catalog_base:
+                return {}
+            
+            # Clean catalog base URL
+            if catalog_base.startswith("https://"):
+                base_url = catalog_base
+            elif catalog_base.startswith("http://"):
+                base_url = catalog_base
+            else:
+                base_url = f"https://{catalog_base}"
+            
+            # Generate search result page URL
+            search_params = {
+                "q": query,
+                "scope": scope,
+                "type": search_type,
+                "limit": str(limit),
+                "offset": str(offset)
+            }
+            
+            if target:
+                search_params["target"] = target
+            
+            # Build search URL
+            search_url = f"{base_url}/search?" + "&".join([f"{k}={v}" for k, v in search_params.items()])
+            
+            # Generate pagination links
+            pagination_links = {}
+            if offset > 0:
+                prev_params = search_params.copy()
+                prev_params["offset"] = str(max(0, offset - limit))
+                pagination_links["previous"] = f"{base_url}/search?" + "&".join([f"{k}={v}" for k, v in prev_params.items()])
+            
+            next_params = search_params.copy()
+            next_params["offset"] = str(offset + limit)
+            pagination_links["next"] = f"{base_url}/search?" + "&".join([f"{k}={v}" for k, v in next_params.items()])
+            
+            return {
+                "search_page": search_url,
+                "pagination": pagination_links,
+                "catalog_base": base_url,
+                "search_params": search_params,
+                "navigation_context": {
+                    "query": query,
+                    "scope": scope,
+                    "target": target,
+                    "search_type": search_type,
+                }
+            }
+            
+        except Exception:
+            return {}
 
     def _generate_explanation(self, analysis, backend_responses: List, selected_backends: List) -> Dict[str, Any]:
         """Generate explanation of query execution."""

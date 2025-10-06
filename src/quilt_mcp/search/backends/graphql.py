@@ -583,11 +583,15 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 if comment:
                     description_parts.append(comment[:100])
 
+                # Generate catalog URL for the package
+                catalog_url = self._generate_package_catalog_url(bucket, name)
+                
                 result_obj = SearchResult(
                     id=f"graphql-pkg-{bucket}-{name}-{pkg_hash}",
                     type="package",
                     title=f"{bucket}/{name}",
                     description=" | ".join(description_parts),
+                    url=catalog_url,
                     s3_uri=f"s3://{bucket}/.quilt/named_packages/{name}",
                     logical_key=name,
                     metadata={
@@ -600,6 +604,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         "totalEntriesCount": entries_count,
                         "comment": comment,
                         "workflow": workflow,
+                        "catalog_url": catalog_url,
                     },
                     score=hit.get("score", 1.0),
                     backend="graphql",
@@ -764,11 +769,15 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         else:
                             size_info = f" ({size_bytes} bytes)"
 
+                    # Generate catalog URL for the object
+                    catalog_url = self._generate_object_catalog_url(bucket, key)
+                    
                     result_obj = SearchResult(
                         id=f"graphql-object-{bucket}-{key}",
                         type="file",
                         title=filename,
                         description=f"{file_ext} file in {bucket}{size_info}",
+                        url=catalog_url,
                         s3_uri=f"s3://{bucket}/{key}" if bucket and key else None,
                         logical_key=key,
                         metadata={
@@ -780,6 +789,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
                             "score": hit.get("score"),
                             "indexed_content": hit.get("indexedContent"),
                             "file_extension": file_ext.lower() if file_ext else None,
+                            "catalog_url": catalog_url,
                         },
                         score=hit.get("score", 1.0),
                         backend="graphql",
@@ -874,6 +884,70 @@ class EnterpriseGraphQLBackend(SearchBackend):
             raise Exception(f"searchMoreObjects invalid input: {error_msg}")
 
         raise Exception(f"Unexpected searchMoreObjects response: {typename}")
+
+    def _generate_package_catalog_url(self, bucket: str, package_name: str) -> str:
+        """Generate a catalog URL for a package."""
+        try:
+            from ...tools.auth import catalog_url
+            from ...utils import resolve_catalog_url
+            
+            catalog_base = resolve_catalog_url()
+            if not catalog_base:
+                return f"s3://{bucket}/.quilt/named_packages/{package_name}"
+            
+            # Extract bucket from registry if needed
+            if catalog_base.startswith("s3://"):
+                registry = catalog_base
+            else:
+                # Assume it's a catalog URL, extract bucket from it
+                registry = f"s3://{bucket}"
+            
+            result = catalog_url(
+                registry=registry,
+                package_name=package_name,
+                catalog_host=catalog_base
+            )
+            
+            if result.get("status") == "success":
+                return result.get("catalog_url", f"s3://{bucket}/.quilt/named_packages/{package_name}")
+            else:
+                return f"s3://{bucket}/.quilt/named_packages/{package_name}"
+                
+        except Exception:
+            # Fallback to S3 URI if URL generation fails
+            return f"s3://{bucket}/.quilt/named_packages/{package_name}"
+
+    def _generate_object_catalog_url(self, bucket: str, key: str) -> str:
+        """Generate a catalog URL for an object."""
+        try:
+            from ...tools.auth import catalog_url
+            from ...utils import resolve_catalog_url
+            
+            catalog_base = resolve_catalog_url()
+            if not catalog_base:
+                return f"s3://{bucket}/{key}"
+            
+            # Extract bucket from registry if needed
+            if catalog_base.startswith("s3://"):
+                registry = catalog_base
+            else:
+                # Assume it's a catalog URL, extract bucket from it
+                registry = f"s3://{bucket}"
+            
+            result = catalog_url(
+                registry=registry,
+                path=key,
+                catalog_host=catalog_base
+            )
+            
+            if result.get("status") == "success":
+                return result.get("catalog_url", f"s3://{bucket}/{key}")
+            else:
+                return f"s3://{bucket}/{key}"
+                
+        except Exception:
+            # Fallback to S3 URI if URL generation fails
+            return f"s3://{bucket}/{key}"
 
     async def _fetch_more_packages(self, cursor: str, size: int) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """Fetch additional package search results using searchMorePackages."""
