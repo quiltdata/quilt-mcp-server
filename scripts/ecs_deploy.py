@@ -77,8 +77,8 @@ class ECSDeployer:
         # Extract only the fields needed for registration
         new_task_def = {
             "family": current_task["family"],
-            "taskRoleArn": current_task.get("taskRoleArn"),
-            "executionRoleArn": current_task.get("executionRoleArn"),
+            "taskRoleArn": "arn:aws:iam::850787717197:role/ecsTaskRole-with-s3-write",  # Updated to use S3 write task role
+            "executionRoleArn": "arn:aws:iam::850787717197:role/ecsTaskExecutionRole-with-s3-write",  # Updated to use S3 write role
             "networkMode": current_task.get("networkMode"),
             "containerDefinitions": current_task["containerDefinitions"],
             "volumes": current_task.get("volumes", []),
