@@ -442,12 +442,13 @@ def catalog_package_create(
         if not s3_uri.startswith("s3://"):
             return {"success": False, "error": f"Invalid S3 URI: {s3_uri}. Must start with 's3://'"}
 
-        # Extract bucket and key from S3 URI
-        uri_parts = s3_uri[5:].split("/", 1)  # Remove 's3://' prefix
-        if len(uri_parts) != 2:
-            return {"success": False, "error": f"Invalid S3 URI format: {s3_uri}. Expected format: 's3://bucket/key'"}
+        # Parse S3 URI properly, stripping version IDs
+        try:
+            from ..utils import parse_s3_uri
+            s3_bucket, s3_key, version_id = parse_s3_uri(s3_uri)
+        except ValueError as e:
+            return {"success": False, "error": f"Invalid S3 URI format: {s3_uri}. {str(e)}"}
 
-        s3_bucket, s3_key = uri_parts
         discovered_buckets.add(s3_bucket)
         if len(discovered_buckets) > 1:
             return {
