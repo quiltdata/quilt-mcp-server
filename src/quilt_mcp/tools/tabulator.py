@@ -220,6 +220,43 @@ async def tabulator_table_get(bucket_name: str, table_name: str) -> Dict[str, An
     )
 
 
+async def tabulator_tables_overview() -> Dict[str, Any]:
+    prereq_error = _missing_prerequisites()
+    if prereq_error:
+        return prereq_error
+
+    catalog_url = resolve_catalog_url()
+    token = get_active_token()
+
+    try:
+        bucket_configs = catalog_client.catalog_tabulator_buckets_with_tables(
+            registry_url=catalog_url,
+            auth_token=token,
+        )
+    except Exception as exc:
+        return format_error_response(f"Failed to fetch tabulator overview: {exc}")
+
+    buckets: list[Dict[str, Any]] = []
+    for bucket in bucket_configs or []:
+        tables = bucket.get("tabulatorTables") or []
+        if not tables:
+            continue
+        buckets.append(
+            {
+                "bucket_name": bucket.get("name"),
+                "table_count": len(tables),
+                "tables": tables,
+            }
+        )
+
+    return _success(
+        {
+            "bucket_count": len(buckets),
+            "buckets": buckets,
+        }
+    )
+
+
 async def tabulator_open_query_status() -> Dict[str, Any]:
     prereq_error = _missing_prerequisites()
     if prereq_error:
@@ -275,6 +312,7 @@ async def tabulator(
             "module": "tabulator",
             "actions": [
                 "tables_list",
+                "tables_overview",
                 "table_create",
                 "table_delete",
                 "table_rename",
@@ -287,6 +325,7 @@ async def tabulator(
     params = dict(params or {})
     dispatch_map = {
         "tables_list": tabulator_tables_list,
+        "tables_overview": tabulator_tables_overview,
         "table_create": tabulator_table_create,
         "table_delete": tabulator_table_delete,
         "table_rename": tabulator_table_rename,

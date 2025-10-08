@@ -271,6 +271,29 @@ def catalog_tabulator_table_rename(
     return _handle_tabulator_mutation_result(result)
 
 
+def catalog_tabulator_buckets_with_tables(
+    *, registry_url: str, auth_token: Optional[str], session: Optional[requests.Session] = None
+) -> Dict[str, Any]:
+    query = (
+        "query TabulatorBuckets {\n"
+        "  bucketConfigs {\n"
+        "    name\n"
+        "    tabulatorTables { name config }\n"
+        "  }\n"
+        "}\n"
+    )
+
+    data = catalog_graphql_query(
+        registry_url=registry_url,
+        query=query,
+        variables=None,
+        auth_token=auth_token,
+        session=session,
+    )
+
+    return data.get("bucketConfigs", []) if isinstance(data, dict) else []
+
+
 def catalog_tabulator_open_query_status(
     *, registry_url: str, auth_token: Optional[str], session: Optional[requests.Session] = None
 ) -> bool:

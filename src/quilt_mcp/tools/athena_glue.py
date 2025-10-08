@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
 
@@ -65,10 +65,11 @@ def athena_databases_list(
 
 
 def athena_tables_list(
-    database_name: str,
+    database_name: Optional[str] = None,
     catalog_name: str = "AwsDataCatalog",
     table_pattern: Optional[str] = None,
     service: Optional[Any] = None,
+    **aliases: Any,
 ) -> Dict[str, Any]:
     """
     List tables in a specific database.
@@ -82,6 +83,12 @@ def athena_tables_list(
         List of tables with metadata and schemas
     """
     try:
+        if database_name is None:
+            database_name = aliases.pop("database", None)
+
+        if not database_name:
+            return format_error_response("database_name is required")
+
         service = service or AthenaQueryService(allow_ambient=True)
         return service.discover_tables(database_name, catalog_name, table_pattern)
     except Exception as e:
@@ -90,10 +97,11 @@ def athena_tables_list(
 
 
 def athena_table_schema(
-    database_name: str,
-    table_name: str,
+    database_name: Optional[str] = None,
+    table_name: Optional[str] = None,
     catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
+    **aliases: Any,
 ) -> Dict[str, Any]:
     """
     Get detailed schema information for a specific table.
@@ -107,6 +115,14 @@ def athena_table_schema(
         Detailed table schema including columns, types, partitions
     """
     try:
+        if database_name is None:
+            database_name = aliases.pop("database", None)
+        if table_name is None:
+            table_name = aliases.pop("table", None)
+
+        if not database_name or not table_name:
+            return format_error_response("database_name and table_name are required")
+
         service = service or AthenaQueryService()
         return service.get_table_metadata(database_name, table_name, catalog_name)
     except Exception as e:
@@ -156,6 +172,60 @@ def athena_workgroups_list(
         return format_error_response(f"Failed to list workgroups: {str(e)}")
 
 
+def athena_tables_overview(
+    database_names: Optional[List[str]] = None,
+    catalog_name: str = "AwsDataCatalog",
+    include_tables: bool = False,
+    service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Summarize tables across multiple databases.
+
+    Args:
+        database_names: Optional list of database names to inspect. If omitted, all databases are queried.
+        catalog_name: Glue catalog name
+        include_tables: Include table details instead of counts only
+    """
+    try:
+        service = service or AthenaQueryService(allow_ambient=True)
+
+        if database_names is None:
+            db_result = service.discover_databases(catalog_name)
+            if not db_result.get("success"):
+                return db_result
+            database_names = [db["name"] for db in db_result.get("databases", [])]
+
+        summary: List[Dict[str, Any]] = []
+        for db_name in database_names:
+            table_result = service.discover_tables(db_name, catalog_name)
+            if table_result.get("success"):
+                tables = table_result.get("tables", [])
+                entry = {
+                    "database_name": db_name,
+                    "table_count": table_result.get("count", len(tables)),
+                }
+                if include_tables:
+                    entry["tables"] = tables
+                summary.append(entry)
+            else:
+                summary.append(
+                    {
+                        "database_name": db_name,
+                        "error": table_result.get("error"),
+                    }
+                )
+
+        return {
+            "success": True,
+            "catalog_name": catalog_name,
+            "database_count": len(summary),
+            "databases": summary,
+        }
+    except Exception as exc:
+        logger.error("Failed to build tables overview: %s", exc)
+        return format_error_response(f"Failed to build tables overview: {str(exc)}")
+
+
 def athena_query_execute(
     query: str,
     database_name: Optional[str] = None,
@@ -165,6 +235,7 @@ def athena_query_execute(
     use_quilt_auth: bool = True,
     output_location: Optional[str] = None,
     service: Optional[Any] = None,
+    **aliases: Any,
 ) -> Dict[str, Any]:
     """
     Execute SQL query against Athena using SQLAlchemy/PyAthena.
@@ -187,6 +258,9 @@ def athena_query_execute(
         Query execution results with data, metadata, and formatting
     """
     try:
+        if database_name is None:
+            database_name = aliases.pop("database", None)
+
         # Validate inputs
         if not query or not query.strip():
             return format_error_response("Query cannot be empty")
@@ -503,6 +577,7 @@ def athena_glue(action: str | None = None, params: Optional[Dict[str, Any]] = No
     - databases_list: List available databases in AWS Glue Data Catalog
     - tables_list: List tables in a specific database
     - table_schema: Get detailed schema information for a specific table
+    - tables_overview: Summarize tables across databases
     - workgroups_list: List available Athena workgroups
     - query_execute: Execute SQL query against Athena
     - query_history: Retrieve query execution history from Athena
@@ -531,6 +606,7 @@ def athena_glue(action: str | None = None, params: Optional[Dict[str, Any]] = No
         "databases_list": athena_databases_list,
         "tables_list": athena_tables_list,
         "table_schema": athena_table_schema,
+        "tables_overview": athena_tables_overview,
         "workgroups_list": athena_workgroups_list,
         "query_execute": athena_query_execute,
         "query_history": athena_query_history,

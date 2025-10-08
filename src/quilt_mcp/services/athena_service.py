@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, MetaData, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from botocore.exceptions import ClientError
+import fnmatch
 
 from ..utils import format_error_response, suppress_stdout
 
@@ -39,7 +40,7 @@ class AthenaQueryService:
         # Initialize clients
         self._glue_client: Optional[Any] = None
         self._s3_client: Optional[Any] = None
-        self._engine: Optional[Engine] = None
+        self._engines: Dict[str, Engine] = {}
         self._cached_session: Optional[boto3.Session] = None
 
     # ------------------------------------------------------------------
@@ -108,14 +109,19 @@ class AthenaQueryService:
             self._s3_client = self._create_s3_client()
         return self._s3_client
 
+    def _get_engine(self, database: str = "default") -> Engine:
+        """Get or create a cached SQLAlchemy engine for a database."""
+        key = database or "default"
+        if key not in self._engines:
+            self._engines[key] = self._create_sqlalchemy_engine(key)
+        return self._engines[key]
+
     @property
     def engine(self):
-        """Lazy initialization of SQLAlchemy engine."""
-        if self._engine is None:
-            self._engine = self._create_sqlalchemy_engine()
-        return self._engine
+        """Backward compatible default engine accessor."""
+        return self._get_engine()
 
-    def _create_sqlalchemy_engine(self) -> Engine:
+    def _create_sqlalchemy_engine(self, database: str = "default") -> Engine:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
             session = self._build_boto3_session()
@@ -134,10 +140,11 @@ class AthenaQueryService:
 
             access_key = quote_plus(frozen.access_key)
             secret_key = quote_plus(frozen.secret_key)
+            database_path = quote_plus(database or "default")
 
             connection_string = (
                 f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
-                f"?work_group={workgroup}"
+                f"{database_path}?work_group={workgroup}"
             )
 
             staging_dir = workgroup_info.get("output_location") or self._get_s3_staging_dir(session, region)
@@ -262,42 +269,49 @@ class AthenaQueryService:
     ) -> Dict[str, Any]:
         """Discover tables using Athena SQL queries."""
         try:
-            # Properly escape database names with special characters
-            if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                escaped_db = f'"{database_name}"'
-            else:
-                escaped_db = database_name
+            glue = self.glue_client
+            kwargs: Dict[str, Any] = {"DatabaseName": database_name, "MaxResults": 100}
 
-            # Use Athena SQL to list tables instead of direct Glue API
-            query = f"SHOW TABLES IN {escaped_db}"
-            if table_pattern:
-                query += f" LIKE '{table_pattern}'"
+            tables: List[Dict[str, Any]] = []
+            next_token: Optional[str] = None
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            while True:
+                if next_token:
+                    kwargs["NextToken"] = next_token
+                else:
+                    kwargs.pop("NextToken", None)
 
-            tables = []
-            for _, row in df.iterrows():
-                table_name = row.iloc[0]  # First column should be table name
-                tables.append(
-                    {
-                        "name": table_name,
-                        "database_name": database_name,
-                        "description": "",  # Not available through SHOW TABLES
-                        "owner": "",
-                        "create_time": None,
-                        "update_time": None,
-                        "table_type": "",
-                        "storage_descriptor": {
-                            "location": "",
-                            "input_format": "",
-                            "output_format": "",
-                            "serde_info": {},
-                        },
-                        "partition_keys": [],
-                        "parameters": {},
-                    }
-                )
+                response = glue.get_tables(**kwargs)
+                for table in response.get("TableList", []) or []:
+                    name = table.get("Name")
+                    if table_pattern and name and not fnmatch.fnmatch(name, table_pattern):
+                        continue
+
+                    storage_descriptor = table.get("StorageDescriptor", {}) or {}
+
+                    tables.append(
+                        {
+                            "name": name,
+                            "database_name": database_name,
+                            "description": table.get("Description", ""),
+                            "owner": table.get("Owner", ""),
+                            "create_time": table.get("CreateTime"),
+                            "update_time": table.get("UpdateTime"),
+                            "table_type": table.get("TableType", ""),
+                            "storage_descriptor": {
+                                "location": storage_descriptor.get("Location", ""),
+                                "input_format": storage_descriptor.get("InputFormat", ""),
+                                "output_format": storage_descriptor.get("OutputFormat", ""),
+                                "serde_info": storage_descriptor.get("SerdeInfo", {}),
+                            },
+                            "partition_keys": table.get("PartitionKeys", []),
+                            "parameters": table.get("Parameters", {}),
+                        }
+                    )
+
+                next_token = response.get("NextToken")
+                if not next_token:
+                    break
 
             return {
                 "success": True,
@@ -307,6 +321,9 @@ class AthenaQueryService:
                 "count": len(tables),
             }
 
+        except ClientError as exc:
+            logger.error("Glue get_tables failed for %s: %s", database_name, exc)
+            return format_error_response(f"Failed to discover tables: {str(exc)}")
         except Exception as e:
             logger.error(f"Failed to discover tables: {e}")
             return format_error_response(f"Failed to discover tables: {str(e)}")
@@ -416,7 +433,7 @@ class AthenaQueryService:
 
         try:
             with suppress_stdout():
-                with self.engine.connect() as conn:
+                with self._get_engine().connect() as conn:
                     result = conn.exec_driver_sql(query)
                     rows = result.fetchall()
                     keys = tuple(result.keys())
@@ -490,22 +507,15 @@ class AthenaQueryService:
     def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
-            # Set database context if provided
-            if database_name:
-                # Properly escape database name for USE statement
-                if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                    escaped_db = f'"{database_name}"'
-                else:
-                    escaped_db = database_name
+            target_database = database_name or "default"
 
-                with self.engine.connect() as conn:
-                    conn.execute(text(f"USE {escaped_db}"))
+            engine = self._get_engine(target_database)
 
             # Execute query and load results into pandas DataFrame
             # Sanitize query to prevent string formatting issues
             safe_query = self._sanitize_query_for_pandas(query)
             with suppress_stdout():
-                df = pd.read_sql_query(safe_query, self.engine)
+                df = pd.read_sql_query(safe_query, engine)
 
             # Apply result limit
             truncated = False

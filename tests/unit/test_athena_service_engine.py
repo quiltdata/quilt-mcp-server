@@ -84,6 +84,7 @@ def test_engine_uses_workgroup_output_location(mock_create_engine):
     assert mock_create_engine.call_count == 1
     connection_string = mock_create_engine.call_args[0][0]
     assert "work_group=analytics" in connection_string
+    assert "/default?work_group=" in connection_string
     assert "s3_staging_dir=s3%3A%2F%2Fathena-results-bucket%2Fpath%2F" in connection_string
 
 
@@ -104,6 +105,7 @@ def test_engine_falls_back_to_env_staging_dir(mock_create_engine):
         service._create_sqlalchemy_engine()
 
     connection_string = mock_create_engine.call_args[0][0]
+    assert "/default?work_group=" in connection_string
     assert "s3_staging_dir=s3%3A%2F%2Fcustom-bucket%2Fresults%2F" in connection_string
 
 
@@ -183,9 +185,14 @@ def test_get_table_metadata_falls_back_to_describe():
         rows=[{"col_name": "id", "data_type": "string", "comment": ""}],
         keys=("col_name", "data_type", "comment"),
     )
-    service._engine = FakeEngine(fake_result)
+    fake_engine = FakeEngine(fake_result)
 
-    result = service.get_table_metadata("db", "table")
+    with patch.object(service, "_build_boto3_session", return_value=MagicMock()), patch.object(
+        service, "_determine_region", return_value="us-east-1"
+    ), patch.object(service, "_discover_workgroup", return_value={"name": "primary", "output_location": None}), patch.object(
+        service, "_get_engine", return_value=fake_engine
+    ):
+        result = service.get_table_metadata("db", "table")
 
     assert result["success"] is True
     assert result["columns"][0]["name"] == "id"
