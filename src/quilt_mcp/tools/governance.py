@@ -52,6 +52,9 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
     """
     Quilt catalog administration and governance operations (ADMIN ONLY).
     
+    ⚠️  IMPORTANT: To create bucket access permissions, use `policy_create_managed`, NOT `role_create`.
+    Policies define bucket access (READ/READ_WRITE). Roles group policies together.
+    
     Use this tool for administrative operations on Quilt catalogs including user management,
     role administration, SSO configuration, and tabulator table settings. All operations
     require administrative privileges on the Quilt catalog.
@@ -70,26 +73,36 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
     - WORKFLOW: Create policies first, then create roles using those policies, then assign roles to users
     
     Available actions:
+    
+    USER ACTIONS:
     - users_list: List all users in the catalog
     - user_get: Get detailed information about a specific user
-    - user_create: Create a new catalog user
+    - user_create: Create a new catalog user (requires username, email, role)
     - user_delete: Delete a user from the catalog
     - user_set_email: Update a user's email address
     - user_set_admin: Grant or revoke admin privileges for a user
     - user_set_active: Activate or deactivate a user account
+    
+    POLICY ACTIONS (use these to define bucket access permissions):
+    - policies_list: List all policies in the catalog
+    - policy_get: Get details about a specific policy (requires policy_id)
+    - policy_create_managed: **USE THIS to create bucket access policies** (requires name, permissions list)
+    - policy_create_unmanaged: Create policy from existing IAM policy ARN
+    - policy_update_managed: Update an existing managed policy
+    - policy_update_unmanaged: Update an existing unmanaged policy
+    - policy_delete: Delete a policy (requires policy_id)
+    
+    ROLE ACTIONS (use these to group policies and assign to users):
     - roles_list: List all IAM roles configured in the catalog
-    - role_get: Get details about a specific IAM role
-    - role_create: Create a new IAM role
-    - role_delete: Delete an IAM role
+    - role_get: Get details about a specific IAM role (requires role_id)
+    - role_create: Create IAM role using existing policy IDs (requires name, role_type, policies list)
+    - role_delete: Delete an IAM role (requires role_id)
+    
+    SSO ACTIONS:
     - sso_config_get: Get current SSO configuration
     - sso_config_set: Update SSO configuration settings
-    - policies_list: List all policies in the catalog
-    - policy_get: Get details about a specific policy
-    - policy_create_managed: Create a managed policy with bucket permissions
-    - policy_create_unmanaged: Create an unmanaged policy with IAM ARN
-    - policy_update_managed: Update a managed policy
-    - policy_update_unmanaged: Update an unmanaged policy
-    - policy_delete: Delete a policy
+    
+    TABULATOR ACTIONS:
     - tabulator_list: List tabulator tables for a bucket
     - tabulator_create: Create a new tabulator table
     - tabulator_delete: Delete a tabulator table
