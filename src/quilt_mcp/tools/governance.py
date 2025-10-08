@@ -58,10 +58,16 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
     
     **When to use this tool:**
     - Managing catalog users (list, create, modify, delete users)
-    - Managing IAM roles and permissions
+    - Creating/managing POLICIES (define bucket access: READ or READ_WRITE)
+    - Creating/managing ROLES (group policies together, assign to users)
     - Configuring single sign-on (SSO) settings
     - Administering tabulator table configurations
     - Any operation requiring catalog admin privileges
+    
+    **Key Concepts:**
+    - POLICY: Defines access to buckets (e.g., "READ_WRITE to bucket-A, READ to bucket-B")
+    - ROLE: Groups one or more policies, assigned to users (e.g., "DataScientist role has DataSciencePolicy")
+    - WORKFLOW: Create policies first, then create roles using those policies, then assign roles to users
     
     Available actions:
     - users_list: List all users in the catalog
@@ -101,6 +107,7 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
         # Discovery mode - list available actions
         result = admin()
         
+        # === USER MANAGEMENT ===
         # List all catalog users (admin only)
         result = admin(action="users_list")
         
@@ -110,12 +117,39 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
         # Create a new user
         result = admin(action="user_create", params={
             "username": "jane.doe",
-            "email": "jane.doe@example.com"
+            "email": "jane.doe@example.com",
+            "role": "my-role-name"
         })
         
-        # List IAM roles
+        # === POLICY MANAGEMENT ===
+        # Create a managed policy with bucket permissions
+        result = admin(action="policy_create_managed", params={
+            "name": "DataSciencePolicy",
+            "title": "Data Science Team Access",
+            "permissions": [
+                {"bucket_name": "my-data-bucket", "level": "READ_WRITE"},
+                {"bucket_name": "shared-bucket", "level": "READ"}
+            ]
+        })
+        
+        # List all policies
+        result = admin(action="policies_list")
+        
+        # Get policy details
+        result = admin(action="policy_get", params={"policy_id": "policy-123"})
+        
+        # === ROLE MANAGEMENT ===
+        # Create a managed role using policies
+        result = admin(action="role_create", params={
+            "name": "DataScienceRole",
+            "role_type": "managed",
+            "policies": ["policy-id-1", "policy-id-2"]
+        })
+        
+        # List all IAM roles
         result = admin(action="roles_list")
         
+        # === SSO & TABULATOR ===
         # Get SSO configuration
         result = admin(action="sso_config_get")
         
