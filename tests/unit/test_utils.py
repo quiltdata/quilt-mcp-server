@@ -23,6 +23,7 @@ from quilt_mcp.utils import (
     register_tools,
     run_server,
 )
+from quilt_mcp.services.bearer_auth_service import JwtAuthError
 
 
 class TestUtils(unittest.TestCase):
@@ -109,6 +110,84 @@ class TestUtils(unittest.TestCase):
         fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
         fake_session.client.assert_called_once_with("s3")
         self.assertIs(client, fake_client)
+
+    def test_get_s3_client_uses_catalog_credentials_when_available(self):
+        """Ensure get_s3_client fetches catalog credentials when JWT lacks AWS sessions."""
+
+        fake_session = MagicMock()
+        fake_session.client.return_value = MagicMock()
+
+        fake_auth_result = MagicMock()
+        fake_auth_service = MagicMock()
+        fake_auth_service.authenticate_header.return_value = fake_auth_result
+        fake_auth_service.build_boto3_session.side_effect = JwtAuthError(
+            "missing_credentials", "no aws credentials"
+        )
+
+        with patch("quilt_mcp.utils._get_bearer_auth_service", return_value=fake_auth_service):
+            with patch(
+                "quilt_mcp.utils.fetch_catalog_session_for_request",
+                return_value=(fake_session, {"source": "catalog"}),
+            ) as mock_fetch:
+                with request_context("token", {"path": "/test"}):
+                    client = get_s3_client()
+
+        fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+        fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+        mock_fetch.assert_called_once()
+        fake_session.client.assert_called_once_with("s3")
+        self.assertIs(client, fake_session.client.return_value)
+
+    def test_get_s3_client_falls_back_to_ambient_when_catalog_unavailable(self):
+        """Ensure get_s3_client falls back to ambient session if catalog credentials fail."""
+
+        fake_session = MagicMock()
+        fake_session.client.return_value = MagicMock()
+        fake_session.get_credentials.return_value = object()
+
+        fake_auth_result = MagicMock()
+        fake_auth_service = MagicMock()
+        fake_auth_service.authenticate_header.return_value = fake_auth_result
+        fake_auth_service.build_boto3_session.side_effect = JwtAuthError(
+            "missing_credentials", "no aws credentials"
+        )
+
+        with patch("quilt_mcp.utils._get_bearer_auth_service", return_value=fake_auth_service):
+            with patch("quilt_mcp.utils.fetch_catalog_session_for_request", side_effect=RuntimeError("boom")):
+                with patch("quilt_mcp.utils.boto3.Session", return_value=fake_session):
+                    with request_context("token", {"path": "/test"}):
+                        client = get_s3_client()
+
+        fake_auth_service.authenticate_header.assert_called_once_with("Bearer token")
+        fake_auth_service.build_boto3_session.assert_called_once_with(fake_auth_result)
+        fake_session.get_credentials.assert_called_once()
+        fake_session.client.assert_called_once_with("s3")
+        self.assertIs(client, fake_session.client.return_value)
+
+    def test_get_s3_client_raises_when_no_credentials_available(self):
+        """Ensure get_s3_client surfaces error when JWT, catalog, and ambient credentials are unavailable."""
+
+        fake_session = MagicMock()
+        fake_session.get_credentials.return_value = None
+
+        fake_auth_result = MagicMock()
+        fake_auth_service = MagicMock()
+        fake_auth_service.authenticate_header.return_value = fake_auth_result
+        fake_auth_service.build_boto3_session.side_effect = JwtAuthError(
+            "missing_credentials", "no aws credentials"
+        )
+
+        with patch("quilt_mcp.utils._get_bearer_auth_service", return_value=fake_auth_service):
+            with patch("quilt_mcp.utils.fetch_catalog_session_for_request", side_effect=RuntimeError("boom")):
+                with patch("quilt_mcp.utils.boto3.Session", return_value=fake_session):
+                    with request_context("token", {"path": "/test"}):
+                        with self.assertRaises(RuntimeError) as exc_info:
+                            get_s3_client()
+
+        self.assertIn(
+            "neither catalog-supplied nor ambient AWS credentials are available",
+            str(exc_info.exception),
+        )
 
     @patch("quilt_mcp.utils._get_bearer_auth_service")
     def test_get_sts_client_uses_jwt_session(self, mock_get_auth_service):

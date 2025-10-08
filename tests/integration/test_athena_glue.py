@@ -849,13 +849,14 @@ class TestAthenaWorkgroupsList:
         ]
 
         # Create service and test _discover_workgroup method
-        service = AthenaQueryService(use_quilt_auth=True)
+        service = AthenaQueryService(use_jwt_auth=True)
 
         # Call _discover_workgroup (this should internally call list_workgroups)
         result = service._discover_workgroup(None, "us-east-1")
 
         # Verify it returns the Quilt workgroup (prioritized and has output location)
-        assert result == "QuiltUserAthena-test"
+        assert result["name"] == "QuiltUserAthena-test"
+        assert result["output_location"] == "s3://quilt-results/test/"
 
         # Key test: Verify that list_workgroups was called internally
         # This ensures Episode 7 consolidation is working correctly
@@ -866,10 +867,11 @@ class TestAthenaWorkgroupsList:
         """Test _discover_workgroup fallback behavior when no valid workgroups available."""
         # Test empty workgroups list
         mock_list_workgroups.return_value = []
-        service = AthenaQueryService(use_quilt_auth=False)
+        service = AthenaQueryService(use_jwt_auth=False)
 
         result = service._discover_workgroup(None, "us-east-1")
-        assert result == "primary"
+        assert result["name"] == "primary"
+        assert result["output_location"] is None
 
         # Test workgroups without output locations
         mock_list_workgroups.return_value = [
@@ -883,7 +885,7 @@ class TestAthenaWorkgroupsList:
         ]
 
         result = service._discover_workgroup(None, "us-east-1")
-        assert result == "test-workgroup"  # Uses first available when no valid output locations
+        assert result["name"] == "test-workgroup"  # Uses first available when no valid output locations
 
 
 class TestAthenaQueryValidate:

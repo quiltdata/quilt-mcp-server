@@ -80,6 +80,7 @@ class UnifiedSearchEngine:
         object_next_cursor: Optional[str] = None
         package_total: Optional[int] = None
         package_next_cursor: Optional[str] = None
+        warnings: List[str] = []
 
         for backend_response in backend_responses:
             raw_meta = getattr(backend_response, "raw_response", None)
@@ -101,6 +102,10 @@ class UnifiedSearchEngine:
                 cursor = objects_meta.get("next_cursor")
                 if isinstance(cursor, str) and cursor:
                     object_next_cursor = cursor
+
+                warning_msg = objects_meta.get("warning")
+                if isinstance(warning_msg, str) and warning_msg:
+                    warnings.append(warning_msg)
 
             packages_meta = raw_meta.get("packages")
             if isinstance(packages_meta, dict):
@@ -163,11 +168,6 @@ class UnifiedSearchEngine:
             ),
         }
 
-        warnings: List[str] = []
-        if isinstance(raw_metadata, dict):
-            objects_meta = raw_metadata.get("objects")
-            if isinstance(objects_meta, dict) and objects_meta.get("warning"):
-                warnings.append(objects_meta["warning"])
         if warnings:
             response["warnings"] = warnings
 

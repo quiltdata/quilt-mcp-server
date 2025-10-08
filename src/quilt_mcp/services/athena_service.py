@@ -25,19 +25,73 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
-    def __init__(self, use_jwt_auth: bool = True):
+    def __init__(self, use_jwt_auth: bool = True, allow_ambient: bool = True):
         """Initialize the Athena service.
 
         Args:
             use_jwt_auth: Whether to use JWT-based authentication (default: True)
         """
         self.use_jwt_auth = use_jwt_auth
+        self.allow_ambient = allow_ambient
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
         self._glue_client: Optional[Any] = None
         self._s3_client: Optional[Any] = None
         self._engine: Optional[Engine] = None
+        self._cached_session: Optional[boto3.Session] = None
+
+    # ------------------------------------------------------------------
+    # Credential/session helpers
+    # ------------------------------------------------------------------
+
+    def _build_boto3_session(self) -> boto3.Session:
+        """Create a boto3 session using JWT credentials or ambient credentials."""
+
+        # Prefer cached session to avoid repeated credential resolution
+        if self._cached_session is not None:
+            return self._cached_session
+
+        # Try JWT-derived credentials first
+        if self.use_jwt_auth:
+            try:
+                from ..utils import get_s3_client
+
+                s3_client = get_s3_client()
+                credentials = getattr(s3_client, "_get_credentials", lambda: None)()
+                if credentials and getattr(credentials, "access_key", None):
+                    session = boto3.Session(
+                        aws_access_key_id=credentials.access_key,
+                        aws_secret_access_key=credentials.secret_key,
+                        aws_session_token=getattr(credentials, "token", None),
+                    )
+                    self._cached_session = session
+                    return session
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                logger.debug("Failed to obtain JWT credentials for Athena: %s", exc)
+                if not self.allow_ambient:
+                    raise
+
+        if not self.allow_ambient:
+            raise RuntimeError("Unable to obtain JWT credentials for Athena")
+
+        # Ambient credentials (ECS task role, instance profile, AWS_PROFILE, etc.)
+        session = boto3.Session()
+        self._cached_session = session
+        return session
+
+    def _determine_region(self, fallback: str = "us-east-1") -> str:
+        """Determine AWS region for Athena/Glue operations."""
+
+        env_region = (
+            os.getenv("ATHENA_REGION")
+            or os.getenv("AWS_REGION")
+            or os.getenv("AWS_DEFAULT_REGION")
+            or fallback
+        )
+
+        session_region = self._cached_session.region_name if self._cached_session else None
+        return session_region or env_region
 
     @property
     def glue_client(self):
@@ -63,112 +117,109 @@ class AthenaQueryService:
     def _create_sqlalchemy_engine(self) -> Engine:
         """Create SQLAlchemy engine with PyAthena driver."""
         try:
-            if self.use_jwt_auth:
-                # Use JWT-based authentication via BearerAuthService
-                from ..utils import get_s3_client
+            session = self._build_boto3_session()
+            credentials = session.get_credentials()
+            if not credentials:
+                raise RuntimeError("No AWS credentials available for Athena connection")
 
-                s3_client = get_s3_client()
-                credentials = s3_client._get_credentials()
+            frozen = credentials.get_frozen_credentials()
+            region = self._determine_region()
 
-                # Force region to us-east-1 for Quilt Athena workgroup
-                # The QuiltUserAthena workgroup and permissions are configured in us-east-1
-                region = "us-east-1"
+            # Discover available workgroup dynamically
+            workgroup_info = self._discover_workgroup(session, region)
+            workgroup = workgroup_info.get("name") or os.environ.get("ATHENA_WORKGROUP", "primary")
 
-                # Discover available workgroups dynamically
-                workgroup = self._discover_workgroup(credentials, region)
+            from urllib.parse import quote_plus
 
-                # Create connection string with explicit credentials
-                # URL encode the credentials to handle special characters
-                from urllib.parse import quote_plus
+            access_key = quote_plus(frozen.access_key)
+            secret_key = quote_plus(frozen.secret_key)
 
-                access_key = quote_plus(credentials.access_key)
-                secret_key = quote_plus(credentials.secret_key)
+            connection_string = (
+                f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
+                f"?work_group={workgroup}"
+            )
 
-                # Create connection string without hardcoded schema or workgroup
-                connection_string = (
-                    f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
-                    f"?work_group={workgroup}"
-                )
+            staging_dir = workgroup_info.get("output_location") or self._get_s3_staging_dir(session, region)
+            if staging_dir:
+                connection_string += f"&s3_staging_dir={quote_plus(staging_dir)}"
 
-                # Add session token if available
-                if credentials.token:
-                    connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
+            if frozen.token:
+                connection_string += f"&aws_session_token={quote_plus(frozen.token)}"
 
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
-                return create_engine(connection_string, echo=False)
-
-            else:
-                raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
+            logger.info("Creating Athena engine with workgroup: %s", workgroup)
+            return create_engine(connection_string, echo=False)
 
         except Exception as e:
             logger.error(f"Failed to create SQLAlchemy engine: {e}")
             raise
 
-    def _discover_workgroup(self, credentials, region: str) -> str:
+    def _discover_workgroup(self, session: boto3.Session | None, region: str) -> Dict[str, Any]:
         """Discover the best available Athena workgroup for the user.
 
         Uses the consolidated list_workgroups method to avoid code duplication.
         """
+        default = {"name": os.environ.get("ATHENA_WORKGROUP", "primary"), "output_location": None}
         try:
+            if session is None:
+                session = self._build_boto3_session()
+
             # Use the consolidated list_workgroups method instead of duplicating logic
-            workgroups = self.list_workgroups()
+            workgroups = self.list_workgroups(session=session, region_override=region)
 
             if not workgroups:
                 # Fallback to primary if no workgroups available
-                return "primary"
+                return default.copy()
 
             # Filter workgroups with valid output locations for query execution
-            valid_workgroups = [wg["name"] for wg in workgroups if wg.get("output_location") is not None]
-
-            if not valid_workgroups:
-                # If no workgroups have output locations, use the first available
-                return workgroups[0]["name"]
+            valid_workgroups = [wg for wg in workgroups if wg.get("output_location")]
 
             # Prioritize workgroups (Quilt workgroups first, then others)
-            quilt_workgroups = [name for name in valid_workgroups if "quilt" in name.lower()]
-            if quilt_workgroups:
-                return quilt_workgroups[0]
-            elif valid_workgroups:
-                return valid_workgroups[0]
-            else:
-                # Fallback to primary if no valid workgroups found
-                return "primary"
+            selected = next((wg for wg in valid_workgroups if "quilt" in wg["name"].lower()), None)
+            if not selected and valid_workgroups:
+                selected = valid_workgroups[0]
+
+            if not selected:
+                # If no workgroups have output locations, use the first available workgroup
+                selected = workgroups[0]
+
+            # Return a shallow copy to avoid mutating cached structures
+            result = dict(selected)
+            result.setdefault("name", default["name"])
+            result.setdefault("output_location", None)
+            return result
 
         except Exception as e:
             logger.warning(f"Failed to discover workgroups: {e}")
             # Fallback to environment variable or primary
-            return os.environ.get("ATHENA_WORKGROUP", "primary")
+            return default.copy()
 
     def _create_glue_client(self):
         """Create Glue client for metadata operations."""
-        if self.use_jwt_auth:
-            # Use JWT-based authentication via BearerAuthService
-            from ..utils import get_sts_client
-
-            sts_client = get_sts_client()
-            # Build a request-scoped glue client using the same session
-            # Extract the session from the sts client
-            session = boto3.Session(
-                aws_access_key_id=sts_client._request_signer._credentials.access_key,
-                aws_secret_access_key=sts_client._request_signer._credentials.secret_key,
-                aws_session_token=sts_client._request_signer._credentials.token,
-                region_name="us-east-1",
-            )
-            return session.client("glue")
-        raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
+        session = self._build_boto3_session()
+        region = self._determine_region()
+        return session.client("glue", region_name=region)
 
     def _create_s3_client(self):
         """Create S3 client for result management."""
-        if self.use_jwt_auth:
-            # Use JWT-based authentication via BearerAuthService
-            from ..utils import get_s3_client
+        session = self._build_boto3_session()
+        return session.client("s3")
 
-            return get_s3_client()
-        raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
-
-    def _get_s3_staging_dir(self) -> str:
+    def _get_s3_staging_dir(self, session: boto3.Session, region: str) -> str:
         """Get S3 staging directory for query results."""
-        return os.environ.get("ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/")
+        configured = os.environ.get("ATHENA_QUERY_RESULT_LOCATION")
+        if configured:
+            return configured.rstrip("/") + "/"
+
+        try:
+            sts = session.client("sts")
+            identity = sts.get_caller_identity()
+            account = identity.get("Account")
+            if account:
+                return f"s3://aws-athena-query-results-{account}-{region}/"
+        except Exception as exc:  # pragma: no cover - best effort fallback
+            logger.debug("Failed to derive account for Athena staging dir: %s", exc)
+
+        return "s3://aws-athena-query-results/"
 
     def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
@@ -430,27 +481,14 @@ class AthenaQueryService:
             logger.error(f"Failed to format results: {e}")
             return format_error_response(f"Failed to format results: {str(e)}")
 
-    def list_workgroups(self) -> List[Dict[str, Any]]:
+    def list_workgroups(self, session: Optional[boto3.Session] = None, region_override: Optional[str] = None) -> List[Dict[str, Any]]:
         """List available Athena workgroups using the service's authentication patterns."""
         try:
-            # Use the same auth pattern as other service methods
-            if self.use_jwt_auth:
-                # Use JWT-based authentication via BearerAuthService
-                from ..utils import get_s3_client
+            if session is None:
+                session = self._build_boto3_session()
 
-                s3_client = get_s3_client()
-                credentials = s3_client._get_credentials()
-                region = "us-east-1"  # Force region for Quilt Athena workgroups
-
-                athena_client = boto3.client(
-                    "athena",
-                    region_name=region,
-                    aws_access_key_id=credentials.access_key,
-                    aws_secret_access_key=credentials.secret_key,
-                    aws_session_token=credentials.token,
-                )
-            else:
-                raise RuntimeError("JWT authentication is required; ambient credentials are disabled")
+            region = region_override or self._determine_region()
+            athena_client = session.client("athena", region_name=region)
 
             # List all workgroups and filter to ENABLED only
             response = athena_client.list_work_groups()

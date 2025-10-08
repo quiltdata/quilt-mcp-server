@@ -14,7 +14,11 @@ from botocore.exceptions import BotoCoreError, ClientError
 from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET
 from ..runtime import get_active_token
-from ..utils import format_error_response, resolve_catalog_url
+from ..utils import (
+    format_error_response,
+    resolve_catalog_url,
+    fetch_catalog_session_for_request,
+)
 from ..types.navigation import (
     NavigationContext,
     get_context_bucket,
@@ -53,74 +57,6 @@ def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -
         "status": "awaiting_backend_support",
         "requested_resource": s3_uri_or_bucket or "unknown",
     }
-
-
-def _fetch_catalog_session() -> Tuple[boto3.Session, Dict[str, Any]]:
-    """
-    Request short-lived AWS credentials from the Quilt catalog.
-
-    Returns:
-        Tuple of (boto3.Session, metadata)
-    """
-    token = get_active_token()
-    if not token:
-        raise RuntimeError("Authorization token required to obtain upload credentials")
-
-    catalog_url = resolve_catalog_url()
-    if not catalog_url:
-        raise RuntimeError("Catalog URL not configured")
-
-    url = f"{catalog_url.rstrip('/')}/api/auth/get_credentials"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "User-Agent": "Quilt-MCP-Server/Stateless",
-    }
-    timeout = float(os.getenv("QUILT_CREDENTIALS_TIMEOUT", "15"))
-
-    response = requests.get(url, headers=headers, timeout=timeout)
-    status_code = response.status_code
-    body_text = response.text.strip()
-
-    try:
-        response.raise_for_status()
-    except requests.HTTPError as exc:
-        raise RuntimeError(f"Catalog credential request failed (status {status_code}): {body_text[:200]}") from exc
-
-    if not body_text:
-        raise RuntimeError("Catalog credential endpoint returned an empty response")
-
-    try:
-        data = response.json()
-    except ValueError as exc:
-        raise RuntimeError(f"Catalog credential endpoint returned non-JSON response: {body_text[:200]}") from exc
-
-    access_key = data.get("AccessKeyId")
-    secret_key = data.get("SecretAccessKey")
-    session_token = data.get("SessionToken")
-    if not access_key or not secret_key:
-        raise RuntimeError("Catalog get_credentials response missing access key or secret key")
-
-    region = (
-        data.get("Region")
-        or data.get("region")
-        or os.getenv("AWS_REGION")
-        or os.getenv("AWS_DEFAULT_REGION")
-        or "us-east-1"
-    )
-
-    session = boto3.Session(
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        aws_session_token=session_token,
-        region_name=region,
-    )
-
-    return session, {
-        "source": "catalog",
-        "expiration": data.get("Expiration"),
-    }
-
-
 def _build_s3_client_for_upload(bucket_name: str) -> Tuple[Optional[Any], Dict[str, Any]]:
     """Build an S3 client using catalog-provided credentials with ambient fallback."""
 
@@ -129,7 +65,7 @@ def _build_s3_client_for_upload(bucket_name: str) -> Tuple[Optional[Any], Dict[s
     session: Optional[boto3.Session] = None
 
     try:
-        session, session_meta = _fetch_catalog_session()
+        session, session_meta = fetch_catalog_session_for_request()
         metadata.update(session_meta)
     except Exception as exc:  # pragma: no cover - catalog may be unreachable in tests
         attempts.append(f"catalog_credentials: {exc}")

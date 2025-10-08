@@ -101,7 +101,11 @@ aws iam put-role-policy \
 **Policy Details**:
 - Athena actions: 19 permissions for query lifecycle and metadata access
 - Glue resources: Scoped to account 850787717197 in us-east-1
-- S3 resources: Wildcard access to Athena results buckets
+- S3 resources: Wildcard access to Athena results buckets including:
+  - `quilt-athena-results-*`
+  - `aws-athena-query-results-*`
+  - `amazon-datazone-*` (for DataZone workgroups)
+  - `*athena*` (catch-all for any athena-related buckets)
 
 ### Related Files
 - ECS Task Definition: `quilt-mcp-server` (currently revision 172)

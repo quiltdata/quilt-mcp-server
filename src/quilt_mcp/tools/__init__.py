@@ -40,6 +40,7 @@ from . import (
     athena_glue,
     tabulator,
     workflow_orchestration,
+    package_visualization,
     governance,
 )
 
@@ -57,5 +58,6 @@ __all__ = [
     "athena_glue",
     "tabulator",
     "workflow_orchestration",
+    "package_visualization",
     "governance",
 ]

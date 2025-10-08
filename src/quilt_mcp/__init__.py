@@ -55,6 +55,7 @@ from .tools.quilt_summary import (
     generate_quilt_summarize_json,
     generate_package_visualizations,
 )
+from .tools.package_visualization import package_visualization
 
 # Removed old packages module - functionality moved to packaging
 from .tools.tabulator import (
@@ -116,4 +117,6 @@ __all__ = [
     "tabulator_table_rename",
     "tabulator_open_query_status",
     "tabulator_open_query_toggle",
+    # Package visualization enrichment
+    "package_visualization",
 ]

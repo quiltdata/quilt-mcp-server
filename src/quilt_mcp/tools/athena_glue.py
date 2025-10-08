@@ -57,7 +57,7 @@ def athena_databases_list(
         List of databases with metadata
     """
     try:
-        service = service or AthenaQueryService()
+        service = service or AthenaQueryService(allow_ambient=True)
         return service.discover_databases(catalog_name)
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
@@ -82,7 +82,7 @@ def athena_tables_list(
         List of tables with metadata and schemas
     """
     try:
-        service = service or AthenaQueryService()
+        service = service or AthenaQueryService(allow_ambient=True)
         return service.discover_tables(database_name, catalog_name, table_pattern)
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
@@ -129,7 +129,7 @@ def athena_workgroups_list(
     """
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
-        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth, allow_ambient=True)
 
         # Get workgroups using the service's consolidated method
         workgroups = service.list_workgroups()
@@ -163,6 +163,7 @@ def athena_query_execute(
     max_results: int = 1000,
     output_format: str = "json",
     use_quilt_auth: bool = True,
+    output_location: Optional[str] = None,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
@@ -217,7 +218,7 @@ def athena_query_execute(
             return format_error_response("output_format must be one of: json, csv, parquet, table")
 
         # Execute query
-        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth, allow_ambient=True)
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):
@@ -295,12 +296,12 @@ def athena_query_history(
         List of historical query executions
     """
     try:
-        import boto3
         from datetime import datetime, timedelta
 
-        # Create Athena client
-        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth)
-        athena_client = boto3.client("athena")
+        service = service or AthenaQueryService(use_jwt_auth=use_quilt_auth, allow_ambient=True)
+        session = service._build_boto3_session()
+        region = service._determine_region()
+        athena_client = session.client("athena", region_name=region)
 
         # Set default time range if not provided
         if not start_time:

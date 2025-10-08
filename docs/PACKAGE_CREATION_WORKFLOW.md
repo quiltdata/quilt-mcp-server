@@ -134,6 +134,33 @@ If you receive an `AccessDenied` error while uploading files (for example when `
 
 The result highlights whether you have `read_access` or `write_access`. If you need an upgrade, request it through your standard Quilt governance process (catalog UI request or admin ticket). The MCP server cannot bypass AWS permissions; it relies on the same short-lived credentials issued by the catalog.
 
+## Generate Package Visualizations
+
+Packages feel “complete” when they include documentation, metadata, and dashboards. Use the `package_visualization` tool to enrich an existing package with a README, `quilt_summarize.json`, and automatically generated visualizations.
+
+```json
+{
+  "name": "package_visualization",
+  "arguments": {
+    "action": "enrich",
+    "params": {
+      "package_name": "example-team/cellpainting-csv-data",
+      "bucket": "quilt-sandbox-bucket"
+    }
+  }
+}
+```
+
+The tool performs the following:
+
+- Scans package entries and builds `quilt_summarize.json` using Quilt’s visualization spec.
+- Creates or updates `.quilt/packages/<pkg>/README.md` when one is missing.
+- Detects embedded HTML dashboards (for example MultiQC reports) and surfaces them in the summary.
+- Adds quick previews for tabular assets (`.csv`, `.tsv`, `.parquet`, `.json`).
+- Uploads the generated assets to the bucket and records them in the latest package revision.
+
+If the stack does not allow direct HTML embedding, you can edit the generated `quilt_summarize.json` to disable dashboards. The tool never enables Voila; notebook rendering must already be configured in the stack before you reference it in the summary.
+
 ## Comparison with Other Tools
 
 | Tool | Can Upload Files? | Why? |
