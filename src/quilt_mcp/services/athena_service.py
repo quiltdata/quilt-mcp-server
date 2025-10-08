@@ -315,8 +315,19 @@ class AthenaQueryService:
     ) -> Dict[str, Any]:
         """Get comprehensive table metadata using Athena DESCRIBE."""
         try:
+            # Properly escape database and table names with special characters
+            if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
+                escaped_db = f'"{database_name}"'
+            else:
+                escaped_db = database_name
+            
+            if "-" in table_name or any(c in table_name for c in [" ", ".", "@", "/"]):
+                escaped_table = f'"{table_name}"'
+            else:
+                escaped_table = table_name
+            
             # Use Athena SQL to describe table instead of direct Glue API
-            query = f"DESCRIBE {database_name}.{table_name}"
+            query = f"DESCRIBE {escaped_db}.{escaped_table}"
 
             with suppress_stdout():
                 df = pd.read_sql_query(query, self.engine)
@@ -347,6 +358,13 @@ class AthenaQueryService:
                         }
                     )
 
+            # If no columns were found, this might indicate an issue
+            if not columns:
+                logger.warning(
+                    f"No columns found for table {database_name}.{table_name}. "
+                    f"DataFrame has {len(df)} rows. Query: {query}"
+                )
+            
             return {
                 "success": True,
                 "table_name": table_name,
@@ -367,11 +385,17 @@ class AthenaQueryService:
                     "serde_info": {},  # Not available through DESCRIBE
                 },
                 "parameters": {},  # Not available through DESCRIBE
+                "query_used": query,  # Add for debugging
             }
 
         except Exception as e:
-            logger.error(f"Failed to get table metadata: {e}")
-            return format_error_response(f"Failed to get table metadata: {str(e)}")
+            logger.error(
+                f"Failed to get table metadata for {database_name}.{table_name}: {e}",
+                exc_info=True  # Include stack trace
+            )
+            return format_error_response(
+                f"Failed to get table metadata for {database_name}.{table_name}: {str(e)}"
+            )
 
     def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
