@@ -104,7 +104,8 @@ aws iam put-role-policy \
 - S3 resources: Wildcard access to Athena results buckets
 
 ### Related Files
-- ECS Task Definition: `quilt-mcp-server` (currently revision 168)
+- ECS Task Definition: `quilt-mcp-server` (currently revision 170)
+- Docker Image: `850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.59`
 - Deployment Script: `scripts/ecs_deploy.py`
 - AWS Account: 850787717197
 - Region: us-east-1
