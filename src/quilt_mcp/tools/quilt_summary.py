@@ -173,15 +173,67 @@ def generate_package_visualizations(
     - Package overview dashboard
 
     Args:
-        package_name: Package name for title generation
-        organized_structure: Organized file structure
-        file_types: File type counts
-        metadata_template: Template for color scheme selection
+        package_name: Package name for title generation (e.g., "user/dataset")
+        organized_structure: Organized file structure by folder.
+            REQUIRED FORMAT: Dict[folder_name, List[file_dict]]
+            Example: {
+                "data": [
+                    {"Key": "file1.csv", "Size": 1024},
+                    {"Key": "file2.json", "Size": 512}
+                ],
+                "docs": [{"Key": "README.md", "Size": 256}]
+            }
+            Each file_dict MUST have "Key" (or "key") and "Size" (or "size") fields.
+        file_types: File type counts. Can be:
+            - Dict[str, int]: {"csv": 5, "json": 3}
+            - Dict[str, dict]: {"csv": {"count": 5}}
+            - {} (empty): Will auto-derive from organized_structure
+        metadata_template: Template for color scheme (default, genomics, ml, research, analytics)
+        package_metadata: Optional package metadata (reserved for future use)
+        **_extra: Future-proof parameter for accepting additional kwargs
 
     Returns:
-        Dictionary with visualization data and metadata
+        Dictionary with:
+        - success: bool
+        - count: int (number of visualizations generated)
+        - types: List[str] (visualization types)
+        - visualizations: Dict (visualization data)
+        - metadata: Dict (generation metadata)
+        - visualization_dashboards: List (widget-based dashboard configs)
+
+    Example:
+        result = generate_package_visualizations(
+            package_name="user/dataset",
+            organized_structure={
+                "data": [
+                    {"Key": "data.csv", "Size": 1024},
+                    {"Key": "results.json", "Size": 512}
+                ]
+            },
+            file_types={"csv": 1, "json": 1}
+        )
     """
     try:
+        # Validate organized_structure format
+        if not isinstance(organized_structure, dict):
+            return {
+                "success": False,
+                "error": f"organized_structure must be a dict, got {type(organized_structure).__name__}",
+                "visualizations": {},
+                "count": 0,
+            }
+        
+        # Check that all values are lists
+        for folder_name, files in (organized_structure or {}).items():
+            if not isinstance(files, list):
+                return {
+                    "success": False,
+                    "error": f"organized_structure['{folder_name}'] must be a list, got {type(files).__name__}. "
+                            f"Expected format: {{'folder': [{{'Key': 'file.csv', 'Size': 1024}}]}}",
+                    "visualizations": {},
+                    "count": 0,
+                }
+        
         # Normalize incoming file_types to simple counts
         normalized_file_types: Dict[str, int] = {}
         for ext, info in (file_types or {}).items():
