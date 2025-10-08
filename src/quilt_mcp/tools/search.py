@@ -395,6 +395,174 @@ def search_suggest(
         }
 
 
+def search_explain(
+    query: str,
+) -> Dict[str, Any]:
+    """
+    Explain how a search query would be processed by the search engine.
+
+    This action analyzes the query and returns detailed information about:
+    - Query type detection (file search, package discovery, etc.)
+    - Extracted keywords and filters
+    - Suggested backends for optimal search
+    - Confidence score for the analysis
+    
+    Useful for understanding how the search engine interprets your query
+    and for debugging unexpected search results.
+
+    Args:
+        query: The search query to explain
+
+    Returns:
+        Dict with query analysis including:
+        - success: bool indicating if explanation succeeded
+        - query: The original query string
+        - analysis: Detailed analysis of the query including:
+            - query_type: Type of query detected (e.g., "file_search", "package_discovery")
+            - scope: Search scope (e.g., "global", "catalog")
+            - keywords: Extracted keywords from the query
+            - file_extensions: File extensions detected in the query
+            - filters: Additional filters extracted (size, date, etc.)
+            - suggested_backends: Recommended backends for this query
+            - confidence: Confidence score (0.0-1.0) for the analysis
+        - recommendations: Suggested improvements or alternative queries
+
+    Examples:
+        search_explain("CSV files larger than 100MB")
+        search_explain("genomics packages created in 2024")
+        search_explain("*.parquet files containing RNA-seq data")
+    """
+    try:
+        from ..search.core.query_parser import parse_query
+
+        # Parse the query to get detailed analysis
+        analysis = parse_query(query)
+
+        # Format the response with rich explanation
+        response = {
+            "success": True,
+            "query": query,
+            "analysis": {
+                "query_type": analysis.query_type.value,
+                "query_type_description": _get_query_type_description(analysis.query_type.value),
+                "scope": analysis.scope.value,
+                "keywords": analysis.keywords,
+                "file_extensions": analysis.file_extensions,
+                "filters": {
+                    **analysis.filters,
+                    "size_filters": analysis.size_filters if analysis.size_filters else {},
+                    "date_filters": analysis.date_filters if analysis.date_filters else {},
+                },
+                "suggested_backends": analysis.suggested_backends,
+                "confidence": analysis.confidence,
+            },
+            "execution_plan": {
+                "backends": analysis.suggested_backends,
+                "search_strategy": _get_search_strategy(analysis),
+                "expected_result_types": _get_expected_result_types(analysis),
+            },
+            "recommendations": _get_query_recommendations(analysis),
+        }
+
+        return response
+
+    except Exception as e:
+        logger.exception(f"Error explaining search query: {e}")
+        return {
+            "success": False,
+            "error": f"Failed to explain search query: {str(e)}",
+            "query": query,
+        }
+
+
+def _get_query_type_description(query_type: str) -> str:
+    """Get a human-readable description of the query type."""
+    descriptions = {
+        "file_search": "Searching for individual files/objects",
+        "package_discovery": "Discovering packages/collections of files",
+        "content_search": "Searching within file contents",
+        "metadata_search": "Searching based on metadata attributes",
+        "analytical_search": "Analytical query (size, count, aggregations)",
+        "cross_catalog": "Search across multiple catalogs",
+    }
+    return descriptions.get(query_type, "General search")
+
+
+def _get_search_strategy(analysis) -> str:
+    """Generate a human-readable search strategy description."""
+    query_type = analysis.query_type.value
+    
+    if query_type == "file_search":
+        strategy = "Search for individual files/objects matching the criteria"
+        if analysis.file_extensions:
+            strategy += f" with extensions: {', '.join(analysis.file_extensions)}"
+        if analysis.size_filters:
+            strategy += f" and size constraints"
+    elif query_type == "package_discovery":
+        strategy = "Search for packages/collections containing relevant datasets"
+        if analysis.keywords:
+            strategy += f" related to: {', '.join(analysis.keywords[:3])}"
+    elif query_type == "content_search":
+        strategy = "Search within file contents for matching text"
+    elif query_type == "metadata_search":
+        strategy = "Search based on metadata attributes and properties"
+    elif query_type == "analytical_search":
+        strategy = "Perform analytical query with aggregations or filters"
+    else:
+        strategy = "Execute general search across available backends"
+    
+    return strategy
+
+
+def _get_expected_result_types(analysis) -> List[str]:
+    """Determine what types of results to expect."""
+    query_type = analysis.query_type.value
+    
+    if query_type == "file_search":
+        return ["files", "objects"]
+    elif query_type == "package_discovery":
+        return ["packages", "collections"]
+    elif query_type == "content_search":
+        return ["files", "objects"]
+    elif query_type == "metadata_search":
+        return ["packages", "files"]
+    elif query_type == "analytical_search":
+        return ["aggregated_results", "statistics"]
+    else:
+        return ["mixed"]
+
+
+def _get_query_recommendations(analysis) -> List[str]:
+    """Generate recommendations for improving the query."""
+    recommendations = []
+    
+    # Recommend being more specific if confidence is low
+    if analysis.confidence < 0.6:
+        recommendations.append(
+            "Consider adding more specific keywords or file extensions to improve search accuracy"
+        )
+    
+    # Recommend narrowing scope if searching globally
+    if analysis.scope.value == "global" and not analysis.target:
+        recommendations.append(
+            "Consider narrowing the search scope to a specific catalog or bucket for faster results"
+        )
+    
+    # Recommend using filters
+    if not analysis.filters and not analysis.file_extensions:
+        recommendations.append(
+            "Add file type filters (e.g., 'CSV files') or size constraints (e.g., 'larger than 10MB') to refine results"
+        )
+    
+    # Recommend checking query type
+    if analysis.query_type.value == "file_search" and len(analysis.keywords) > 5:
+        recommendations.append(
+            "Your query has many keywords - consider if you're looking for a package instead of individual files"
+        )
+    
+    return recommendations if recommendations else ["Query looks good! No specific recommendations."]
+
+
 async def search(
     action: str | None = None, params: Optional[Dict[str, Any]] = None, _context: Optional[NavigationContext] = None
 ) -> Dict[str, Any]:
@@ -441,6 +609,7 @@ async def search(
                     "search_packages",
                     "search_objects",
                     "suggest",
+                    "explain",
                 ],
                 "description": "Intelligent search operations via Quilt Catalog GraphQL with distinct Package and Object search types",
             }
@@ -605,6 +774,11 @@ async def search(
             return await unified_search(**mapped_params)
         elif action == "suggest":
             return search_suggest(**params)
+        elif action == "explain":
+            # Extract query parameter
+            if "query" not in params:
+                return format_error_response("Parameter 'query' is required for explain action")
+            return search_explain(query=params["query"])
         else:
             return format_error_response(f"Unknown search action: {action}")
 

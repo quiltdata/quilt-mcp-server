@@ -152,16 +152,31 @@ class TestSearchActions:
         assert result == {"suggestions": ["test"]}
 
     @pytest.mark.asyncio
-    @patch("quilt_mcp.tools.search._search_explain")
-    async def test_search_explain_calls_backend(self, mock_search_explain, test_token, catalog_url):
-        """Test search explain calls the backend function."""
-        mock_search_explain.return_value = {"explanation": "test"}
-
+    async def test_search_explain_returns_analysis(self, test_token, catalog_url):
+        """Test search explain returns query analysis."""
         with request_context(test_token, metadata={"path": "/search"}):
-            result = await search.search(action="explain", params={"query": "test query"})
+            result = await search.search(action="explain", params={"query": "CSV files larger than 100MB"})
 
-        mock_search_explain.assert_called_once_with(query="test query")
-        assert result == {"explanation": "test"}
+        # Verify the response structure
+        assert result["success"] is True
+        assert result["query"] == "CSV files larger than 100MB"
+        assert "analysis" in result
+        assert "execution_plan" in result
+        assert "recommendations" in result
+        
+        # Verify analysis details
+        analysis = result["analysis"]
+        assert "query_type" in analysis
+        assert "query_type_description" in analysis
+        assert "keywords" in analysis
+        assert "file_extensions" in analysis
+        assert "filters" in analysis
+        assert "suggested_backends" in analysis
+        assert "confidence" in analysis
+        
+        # Verify it detected CSV extension and size filter
+        assert "csv" in analysis["file_extensions"]
+        assert analysis["filters"]["size_filters"].get("size_min") is not None
 
 
 class TestSearchErrorHandling:
@@ -203,17 +218,14 @@ class TestSearchErrorHandling:
         assert "execute search action" in result["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("quilt_mcp.tools.search._search_explain")
-    async def test_search_explain_backend_error(self, mock_search_explain, test_token, catalog_url):
-        """Test search explain handles backend errors."""
-        mock_search_explain.side_effect = Exception("Backend error")
-
+    async def test_search_explain_missing_query_param(self, test_token, catalog_url):
+        """Test search explain requires query parameter."""
         with request_context(test_token, metadata={"path": "/search"}):
-            result = await search.search(action="explain", params={"query": "test"})
+            result = await search.search(action="explain", params={})
 
         assert result["success"] is False
-        assert "failed" in result["error"].lower()
-        assert "execute search action" in result["error"].lower()
+        assert "query" in result["error"].lower()
+        assert "required" in result["error"].lower()
 
 
 class TestGraphQLBackendFilters:
