@@ -139,26 +139,111 @@ async def admin_role_get(role_id: str) -> Dict[str, Any]:
         return format_error_response(f"Failed to get role: {e}")
 
 
-async def admin_role_create(name: str, description: str) -> Dict[str, Any]:
-    """Create a new role (admin only).
-
-    Note: This is a simplified stub. The actual GraphQL schema requires
-    complex inputs (ManagedRoleInput or UnmanagedRoleInput) including
-    policies and ARNs. This function signature needs updating.
+async def admin_role_create(
+    name: str,
+    role_type: str = "managed",
+    policies: list[str] | None = None,
+    arn: str | None = None,
+    description: str | None = None,  # kept for backwards compatibility
+) -> Dict[str, Any]:
+    """Create a new role using Quilt's GraphQL API.
 
     Args:
-        name: Role name
-        description: Role description (currently unused due to schema complexity)
+        name: Human-readable role name (must be unique).
+        role_type: Either ``managed`` (default) or ``unmanaged``.
+        policies: For managed roles, list of policy IDs to attach.
+        arn: For unmanaged roles, the AWS IAM role ARN to register.
+        description: Currently unused; accepted for backwards compatibility.
     """
-    if not name:
+
+    if not name or not name.strip():
         return format_error_response("Role name cannot be empty")
 
-    # Note: description argument is ignored because the GraphQL schema requires
-    # complex role inputs that include policies, ARNs, etc.
-    return format_error_response(
-        "Role creation requires complex inputs (policies, ARNs). "
-        "Use the Quilt catalog UI or contact support for role management."
-    )
+    normalized_type = (role_type or "managed").strip().lower()
+    if normalized_type not in {"managed", "unmanaged"}:
+        return format_error_response("role_type must be either 'managed' or 'unmanaged'")
+
+    if normalized_type == "managed":
+        if not policies:
+            return format_error_response("Managed roles require a non-empty list of policy IDs")
+        input_payload: Dict[str, Any] = {"name": name.strip(), "policies": policies}
+        mutation = """
+        mutation RoleCreateManaged($input: ManagedRoleInput!) {
+          roleCreateManaged(input: $input) {
+            __typename
+            ... on RoleCreateSuccess {
+              role {
+                id
+                name
+                arn
+                ... on ManagedRole {
+                  policies { id title }
+                  permissions { bucket { name } level }
+                }
+              }
+            }
+          }
+        }
+        """
+        root_field = "roleCreateManaged"
+    else:
+        if not arn or not arn.strip():
+            return format_error_response("Unmanaged roles require an IAM role ARN")
+        input_payload = {"name": name.strip(), "arn": arn.strip()}
+        mutation = """
+        mutation RoleCreateUnmanaged($input: UnmanagedRoleInput!) {
+          roleCreateUnmanaged(input: $input) {
+            __typename
+            ... on RoleCreateSuccess {
+              role {
+                id
+                name
+                arn
+              }
+            }
+          }
+        }
+        """
+        root_field = "roleCreateUnmanaged"
+
+    error_messages = {
+        "RoleNameReserved": "Role name is reserved. Choose a different name.",
+        "RoleNameExists": "Role name already exists.",
+        "RoleNameInvalid": "Role name is invalid.",
+        "RoleHasTooManyPoliciesToAttach": "Too many policies attached to role.",
+    }
+
+    try:
+        token, catalog_url = _require_admin_auth()
+    except ValueError as exc:
+        return format_error_response(str(exc))
+
+    try:
+        result = catalog_graphql_query(
+            registry_url=catalog_url,
+            query=mutation,
+            variables={"input": input_payload},
+            auth_token=token,
+        )
+    except Exception as exc:
+        logger.exception("Failed to execute role creation mutation")
+        return format_error_response(f"Failed to create role: {exc}")
+
+    payload = result.get(root_field)
+    if not isinstance(payload, dict):
+        return format_error_response("Unexpected response from role creation mutation")
+
+    typename = payload.get("__typename")
+    if typename == "RoleCreateSuccess":
+        role_info = payload.get("role", {})
+        return {
+            "success": True,
+            "role_type": normalized_type,
+            "role": role_info,
+        }
+
+    message = error_messages.get(typename, f"Role creation failed with result '{typename}'")
+    return format_error_response(message)
 
 
 async def admin_role_delete(role_id: str) -> Dict[str, Any]:

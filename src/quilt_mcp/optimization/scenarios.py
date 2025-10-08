@@ -328,46 +328,108 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_governance_admin_scenarios() -> List[TestScenario]:
-    """Create test scenarios for governance and admin workflows."""
+def create_admin_scenarios() -> List[TestScenario]:
+    """Create test scenarios for catalog administration workflows."""
 
     scenarios = []
 
     # User management workflow
     user_management_scenario = TestScenario(
-        name="user_management_workflow",
-        description="Manage users and roles in Quilt catalog",
+        name="admin_user_management_workflow",
+        description="Manage users and roles in Quilt catalog (admin operations)",
         scenario_type=TestScenarioType.GOVERNANCE_ADMIN,
         expected_total_time=18.0,
         expected_call_count=4,
         steps=[
             TestStep(
-                tool_name="governance_users_list",
-                args={"limit": 20},
+                tool_name="admin",
+                args={"action": "users_list", "params": {"limit": 20}},
                 description="List catalog users",
             ),
             TestStep(
-                tool_name="governance_roles_list",
-                args={},
+                tool_name="admin",
+                args={"action": "roles_list"},
                 description="List available roles",
             ),
             TestStep(
-                tool_name="governance_user_info",
-                args={"username": "test-user"},
+                tool_name="admin",
+                args={"action": "user_get", "params": {"username": "test-user"}},
                 description="Get user information",
             ),
             TestStep(
-                tool_name="governance_sso_config_get",
-                args={},
+                tool_name="admin",
+                args={"action": "sso_config_get"},
                 description="Get SSO configuration",
             ),
         ],
         success_criteria=["users_listed", "roles_retrieved", "config_accessed"],
-        tags=["governance", "admin", "user_management"],
+        tags=["admin", "governance", "user_management"],
     )
     scenarios.append(user_management_scenario)
 
+    policy_scenario = TestScenario(
+        name="admin_policy_lifecycle",
+        description="Create, inspect, update, and delete a policy via admin tool",
+        scenario_type=TestScenarioType.GOVERNANCE_ADMIN,
+        expected_total_time=20.0,
+        expected_call_count=5,
+        steps=[
+            TestStep(
+                tool_name="admin",
+                args={
+                    "action": "policy_create_managed",
+                    "params": {
+                        "name": "TempPolicy",
+                        "title": "Temporary policy for testing",
+                        "permissions": [
+                            {"bucket_name": "quilt-sandbox-bucket", "level": "READ"}
+                        ],
+                    },
+                },
+                description="Create managed policy",
+            ),
+            TestStep(
+                tool_name="admin",
+                args={"action": "policies_list"},
+                description="List catalog policies",
+            ),
+            TestStep(
+                tool_name="admin",
+                args={
+                    "action": "policy_get",
+                    "params": {"policy_id": "{{steps.policy_create_managed.policy.id}}"},
+                },
+                description="Fetch created policy",
+            ),
+            TestStep(
+                tool_name="admin",
+                args={
+                    "action": "policy_update_managed",
+                    "params": {
+                        "policy_id": "{{steps.policy_create_managed.policy.id}}",
+                        "title": "Updated temporary policy",
+                    },
+                },
+                description="Update policy title",
+            ),
+            TestStep(
+                tool_name="admin",
+                args={
+                    "action": "policy_delete",
+                    "params": {"policy_id": "{{steps.policy_create_managed.policy.id}}"},
+                },
+                description="Delete temporary policy",
+            ),
+        ],
+        success_criteria=["policy_created", "policy_deleted"],
+        tags=["admin", "policy", "lifecycle"],
+    )
+    scenarios.append(policy_scenario)
+
     return scenarios
+
+# Backwards compatibility alias
+create_governance_admin_scenarios = create_admin_scenarios
 
 
 def create_all_test_scenarios() -> List[TestScenario]:
@@ -381,7 +443,7 @@ def create_all_test_scenarios() -> List[TestScenario]:
     all_scenarios.extend(create_athena_querying_scenarios())
     all_scenarios.extend(create_permission_discovery_scenarios())
     all_scenarios.extend(create_metadata_management_scenarios())
-    all_scenarios.extend(create_governance_admin_scenarios())
+    all_scenarios.extend(create_admin_scenarios())
 
     return all_scenarios
 
@@ -547,7 +609,8 @@ __all__ = [
     "create_athena_querying_scenarios",
     "create_permission_discovery_scenarios",
     "create_metadata_management_scenarios",
-    "create_governance_admin_scenarios",
+    "create_admin_scenarios",
+    "create_governance_admin_scenarios",  # Deprecated alias
     "create_all_test_scenarios",
     "create_optimization_challenge_scenarios",
 ]

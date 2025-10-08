@@ -79,7 +79,7 @@ export MCP_PERFORMANCE_ALERTS=true
 
 ### 1. Telemetry Collection System
 
-**Location**: `app/quilt_mcp/telemetry/`
+**Location**: `src/quilt_mcp/telemetry/`
 
 - **Collector**: Gathers performance and usage data
 - **Privacy Manager**: Ensures data anonymization and protection
@@ -96,7 +96,7 @@ collector.end_session(session_id, completed=True)
 
 ### 2. Optimization Framework
 
-**Location**: `app/quilt_mcp/optimization/`
+**Location**: `src/quilt_mcp/optimization/`
 
 - **Interceptor**: Captures tool calls for analysis
 - **Analyzer**: Identifies optimization opportunities
@@ -117,22 +117,434 @@ with optimization_context(context):
     result = create_package_enhanced(name="test/pkg", files=["s3://bucket/file.csv"])
 ```
 
-### 3. Test Scenarios
+### 3. Tool & Action Coverage Matrix
 
-**Location**: `app/quilt_mcp/optimization/scenarios.py`
+The MCP server exposes module-based tools where each tool accepts an `action` parameter.  
+The table below lists every registered tool, the actions it currently supports, and the scenario templates that exercise those actions.  
+Use this matrix as the source of truth when generating coverage prompts for Qurator or automated evaluations.
 
-Comprehensive test scenarios covering:
+| Tool (wrapper) | Actions (current) | Scenario IDs (see templates below) |
+| --- | --- | --- |
+| `auth` | `status`, `catalog_info`, `catalog_name`, `catalog_uri`, `catalog_url`, `configure_catalog`, `filesystem_status`, `switch_catalog` | `auth_catalog_status`, `auth_switch_catalog` |
+| `buckets` | `discover`, `object_fetch`, `object_info`, `object_link`, `object_text`, `objects_put` | `bucket_discovery_and_fetch`, `bucket_object_put_roundtrip` |
+| `packaging` | `browse`, `create`, `create_from_s3`, `delete`, `metadata_templates`, `get_template` | `package_create_basic`, `package_create_from_s3`, `package_delete_cleanup`, `package_metadata_template` |
+| `permissions` | `discover`, `access_check`, `check_bucket_access`, `recommendations_get` | `permissions_bucket_audit`, `permissions_recommendations_review` |
+| `metadata_examples` | `from_template`, `fix_issues`, `show_examples` | `metadata_examples_end_to_end` |
+| `quilt_summary` | `create_files`, `generate_viz`, `generate_json` | `quilt_summary_visualization` |
+| `search` | `discover`, `unified_search`, `search_packages`, `search_objects`, `suggest`, `explain` | `search_unified_packages`, `search_explainability` |
+| `athena_glue` | `databases_list`, `tables_list`, `table_schema`, `tables_overview`, `workgroups_list`, `query_execute`, `query_history`, `query_validate` | `athena_overview`, `athena_query_sample`, `athena_query_history_review`, `athena_query_validation` |
+| `tabulator` | `tables_list`, `tables_overview`, `table_create`, `table_delete`, `table_rename`, `table_get`, `open_query_status`, `open_query_toggle` | `tabulator_overview`, `tabulator_manage_table` |
+| `admin` | `users_list`, `user_get`, `user_create`, `user_delete`, `user_set_email`, `user_set_admin`, `user_set_active`, `roles_list`, `role_get`, `role_create`, `role_delete`, `policies_list`, `policy_get`, `policy_create_managed`, `policy_create_unmanaged`, `policy_update_managed`, `policy_update_unmanaged`, `policy_delete`, `sso_config_get`, `sso_config_set`, `tabulator_list`, `tabulator_create`, `tabulator_delete`, `tabulator_open_query_get`, `tabulator_open_query_set` | `admin_user_lifecycle`, `admin_role_lifecycle`, `admin_policy_lifecycle`, `admin_tabulator_admin` |
+| `workflow_orchestration` | `create`, `add_step`, `update_step`, `get_status`, `list_all`, `template_apply` | `workflow_creation_flow` |
 
-- 📦 **Package Creation**: Basic and bulk package workflows
-- 🔍 **Data Discovery**: Package and bucket exploration  
-- 🗃️ **Athena Querying**: Database discovery and SQL execution
-- 🔐 **Permission Discovery**: AWS access verification
-- 📝 **Metadata Management**: Template usage and validation
-- 👥 **Governance Admin**: User and role management
+> Note: The legacy wrapper name `governance` remains available as an alias for `admin`.
 
-### 4. Autonomous Improvement
+> ℹ️ **Why the matrix matters:** each scenario listed below references the wrapper + action pairings shown here. When you feed these scenarios to a model, you get deterministic coverage reports and can quickly identify missing actions.
 
-**Location**: `app/quilt_mcp/optimization/autonomous.py`
+### 4. Scenario Templates (MCP Tool Coverage)
+
+The following YAML templates enumerate curated scenarios for every action.  
+Each scenario includes a suggested natural-language prompt (for Qurator), the expected tool call(s), and success criteria.
+
+```yaml
+scenarios:
+  - id: auth_catalog_status
+    user_prompt: "Check my Quilt catalog connection and report its URL."
+    steps:
+      - tool: auth
+        action: status
+      - tool: auth
+        action: catalog_info
+    success_criteria:
+      - response.includes_catalog_details
+
+  - id: auth_switch_catalog
+    user_prompt: "Switch me to the staging catalog."
+    steps:
+      - tool: auth
+        action: catalog_url
+      - tool: auth
+        action: configure_catalog
+        params:
+          catalog_url: "https://staging.example.com"
+      - tool: auth
+        action: switch_catalog
+    success_criteria:
+      - catalog_url_matches_request
+
+  - id: bucket_discovery_and_fetch
+    user_prompt: "List objects in quilt-sandbox-bucket and fetch README."
+    steps:
+      - tool: buckets
+        action: discover
+        params:
+          bucket: "quilt-sandbox-bucket"
+      - tool: buckets
+        action: object_info
+        params:
+          s3_uri: "s3://quilt-sandbox-bucket/README.md"
+      - tool: buckets
+        action: object_text
+        params:
+          s3_uri: "s3://quilt-sandbox-bucket/README.md"
+    success_criteria:
+      - object_list_provided
+      - readme_text_returned
+
+  - id: bucket_object_put_roundtrip
+    user_prompt: "Upload a small note to the sandbox bucket."
+    steps:
+      - tool: buckets
+        action: objects_put
+        params:
+          bucket: "quilt-sandbox-bucket"
+          items:
+            - key: "notes/test.txt"
+              text: "Hello Quilt MCP"
+      - tool: buckets
+        action: object_fetch
+        params:
+          s3_uri: "s3://quilt-sandbox-bucket/notes/test.txt"
+    success_criteria:
+      - upload_confirmed
+      - fetched_body_matches_upload
+
+  - id: package_create_basic
+    user_prompt: "Create a package named examples/basic with the sample CSV."
+    steps:
+      - tool: packaging
+        action: create
+        params:
+          name: "examples/basic"
+          entries:
+            - physical_key: "s3://quilt-sandbox-bucket/sample.csv"
+              logical_key: "sample.csv"
+      - tool: packaging
+        action: browse
+        params:
+          name: "examples/basic"
+    success_criteria:
+      - package_created
+      - package_contains_sample_csv
+
+  - id: package_create_from_s3
+    user_prompt: "Import everything in quilt-sandbox-bucket/data as a package."
+    steps:
+      - tool: packaging
+        action: create_from_s3
+        params:
+          source_bucket: "quilt-sandbox-bucket"
+          source_prefix: "data/"
+          package_name: "examples/bulk-import"
+      - tool: packaging
+        action: browse
+        params:
+          name: "examples/bulk-import"
+    success_criteria:
+      - package_created
+      - multiple_objects_present
+
+  - id: package_delete_cleanup
+    user_prompt: "Delete the examples/basic package."
+    steps:
+      - tool: packaging
+        action: delete
+        params:
+          package_name: "examples/basic"
+    success_criteria:
+      - package_deletion_acknowledged
+
+  - id: package_metadata_template
+    user_prompt: "Show me the RNA-seq metadata template."
+    steps:
+      - tool: packaging
+        action: metadata_templates
+      - tool: packaging
+        action: get_template
+        params:
+          template_name: "rna_seq"
+    success_criteria:
+      - template_list_returned
+      - template_body_included
+
+  - id: permissions_bucket_audit
+    user_prompt: "Audit my access to quilt-sandbox-bucket."
+    steps:
+      - tool: permissions
+        action: discover
+      - tool: permissions
+        action: check_bucket_access
+        params:
+          bucket_name: "quilt-sandbox-bucket"
+    success_criteria:
+      - permissions_report_generated
+
+  - id: permissions_recommendations_review
+    user_prompt: "Recommend missing permissions for the analytics bucket."
+    steps:
+      - tool: permissions
+        action: recommendations_get
+        params:
+          bucket_name: "sales_prod_analyticsbucket_komyakmcvebb"
+    success_criteria:
+      - recommendations_listed
+
+  - id: metadata_examples_end_to_end
+    user_prompt: "Show me metadata examples and fix any issues in this snippet."
+    steps:
+      - tool: metadata_examples
+        action: show_examples
+      - tool: metadata_examples
+        action: from_template
+        params:
+          template_name: "dataset"
+      - tool: metadata_examples
+        action: fix_issues
+        params:
+          metadata:
+            title: ""
+            description: "Needs auto-fix"
+    success_criteria:
+      - corrected_metadata_returned
+
+  - id: quilt_summary_visualization
+    user_prompt: "Produce a dataset summary and a visualization."
+    steps:
+      - tool: quilt_summary
+        action: create_files
+        params:
+          package: "examples/wellcome-data"
+      - tool: quilt_summary
+        action: generate_viz
+        params:
+          package: "examples/wellcome-data"
+    success_criteria:
+      - summary_files_listed
+      - visualization_artifact_returned
+
+  - id: search_unified_packages
+    user_prompt: "Search for glioblastoma packages."
+    steps:
+      - tool: search
+        action: unified_search
+        params:
+          query: "glioblastoma"
+      - tool: search
+        action: search_packages
+        params:
+          query: "glioblastoma"
+    success_criteria:
+      - package_results_returned
+
+  - id: search_explainability
+    user_prompt: "Explain why a specific object matched my search."
+    steps:
+      - tool: search
+        action: discover
+      - tool: search
+        action: explain
+        params:
+          query: "gene expression"
+          object_key: "demo-team/visualization-showcase/notebooks/gene-expression.ipynb"
+    success_criteria:
+      - explanation_contains_relevance_signals
+
+  - id: athena_overview
+    user_prompt: "Summarize every Athena database and table count."
+    steps:
+      - tool: athena_glue
+        action: tables_overview
+        params:
+          include_tables: false
+    success_criteria:
+      - per_database_counts_returned
+
+  - id: athena_query_sample
+    user_prompt: "Run a sample query for gene_expression_data."
+    steps:
+      - tool: athena_glue
+        action: query_validate
+        params:
+          query: "SELECT cell_line, EGFR FROM quilt_sandbox_bucket_tabulator.gene_expression_data LIMIT 10"
+      - tool: athena_glue
+        action: query_execute
+        params:
+          query: "SELECT cell_line, EGFR FROM quilt_sandbox_bucket_tabulator.gene_expression_data LIMIT 10"
+    success_criteria:
+      - validation_passed
+      - rows_returned
+
+  - id: athena_query_history_review
+    user_prompt: "Show me the last five Athena queries."
+    steps:
+      - tool: athena_glue
+        action: query_history
+        params:
+          max_results: 5
+    success_criteria:
+      - history_entries_returned
+
+  - id: athena_query_validation
+    user_prompt: "Check this query for mistakes before running it."
+    steps:
+      - tool: athena_glue
+        action: query_validate
+        params:
+          query: "SELECT * FROM default.boats WHERE length > 100"
+    success_criteria:
+      - validation_result_returned
+
+  - id: tabulator_overview
+    user_prompt: "List every bucket that has tabulator tables."
+    steps:
+      - tool: tabulator
+        action: tables_overview
+    success_criteria:
+      - buckets_with_tables_listed
+
+  - id: tabulator_manage_table
+    user_prompt: "Rename the tabulator table in quilt-sandbox-bucket."
+    steps:
+      - tool: tabulator
+        action: table_get
+        params:
+          bucket_name: "quilt-sandbox-bucket"
+          table_name: "gene_expression_data"
+      - tool: tabulator
+        action: table_rename
+        params:
+          bucket_name: "quilt-sandbox-bucket"
+          table_name: "gene_expression_data"
+          new_table_name: "gene_expression_data_tmp"
+      - tool: tabulator
+        action: table_rename
+        params:
+          bucket_name: "quilt-sandbox-bucket"
+          table_name: "gene_expression_data_tmp"
+          new_table_name: "gene_expression_data"
+    success_criteria:
+      - rename_acknowledged
+      - table_restored
+
+  - id: admin_user_lifecycle
+    user_prompt: "Use the admin tool to create a temporary user, set them active, and delete them."
+    steps:
+      - tool: admin
+        action: users_list
+      - tool: admin
+        action: user_create
+        params:
+          email: "temp-user@example.com"
+          username: "temp-user"
+      - tool: admin
+        action: user_set_active
+        params:
+          username: "temp-user"
+          is_active: true
+      - tool: admin
+        action: user_delete
+        params:
+          username: "temp-user"
+    success_criteria:
+      - user_created
+      - user_deleted
+
+  - id: admin_role_lifecycle
+    user_prompt: "Provision a temporary role through the admin tool and clean it up."
+    steps:
+      - tool: admin
+        action: roles_list
+      - tool: admin
+        action: role_create
+        params:
+          name: "TempDataScientist"
+          role_type: "unmanaged"
+          arn: "arn:aws:iam::123456789012:role/TempDataScientist"
+      - tool: admin
+        action: role_get
+        params:
+          role_id: "{{steps.role_create.role.id}}"
+      - tool: admin
+        action: role_delete
+        params:
+          role_id: "{{steps.role_create.role.id}}"
+    success_criteria:
+      - role_created
+      - role_deleted
+
+  - id: admin_policy_lifecycle
+    user_prompt: "Create a temporary policy, update it, and then remove it via the admin tool."
+    steps:
+      - tool: admin
+        action: policy_create_managed
+        params:
+          name: "TempPolicy"
+          title: "Temporary policy for testing"
+          permissions:
+            - bucket_name: "quilt-sandbox-bucket"
+              level: "READ"
+      - tool: admin
+        action: policies_list
+      - tool: admin
+        action: policy_get
+        params:
+          policy_id: "{{steps.policy_create_managed.policy.id}}"
+      - tool: admin
+        action: policy_update_managed
+        params:
+          policy_id: "{{steps.policy_create_managed.policy.id}}"
+          title: "Updated temporary policy"
+      - tool: admin
+        action: policy_delete
+        params:
+          policy_id: "{{steps.policy_create_managed.policy.id}}"
+    success_criteria:
+      - policy_created
+      - policy_deleted
+
+  - id: admin_tabulator_admin
+    user_prompt: "Use the admin tool to audit tabulator tables in a bucket."
+    steps:
+      - tool: admin
+        action: tabulator_list
+        params:
+          bucket_name: "quilt-sandbox-bucket"
+    success_criteria:
+      - tabulator_list_returned
+
+  - id: workflow_creation_flow
+    user_prompt: "Create a workflow, add a step, and check status."
+    steps:
+      - tool: workflow_orchestration
+        action: create
+        params:
+          workflow_id: "demo-workflow"
+      - tool: workflow_orchestration
+        action: add_step
+        params:
+          workflow_id: "demo-workflow"
+          step_id: "download"
+          command: "aws s3 cp ..."
+      - tool: workflow_orchestration
+        action: update_step
+        params:
+          workflow_id: "demo-workflow"
+          step_id: "download"
+          status: "SUCCEEDED"
+      - tool: workflow_orchestration
+        action: get_status
+        params:
+          workflow_id: "demo-workflow"
+    success_criteria:
+      - workflow_created
+      - step_status_reported
+```
+
+> ✅ **Usage tip:** copy any scenario block into your evaluation harness, replace placeholder values as needed, and replay the `steps` sequentially. The `success_criteria` list indicates what assertions the harness should perform.
+
+### 5. Autonomous Improvement
+
+**Location**: `src/quilt_mcp/optimization/autonomous.py`
 
 Self-optimizing system that:
 

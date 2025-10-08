@@ -208,7 +208,7 @@ def get_module_wrappers() -> dict[str, Callable]:
         athena_glue,
         tabulator,
         workflow_orchestration,
-        governance,
+        governance,  # Now provides both admin and governance (deprecated alias)
     )
 
     # Map tool names to their wrapper functions
@@ -219,7 +219,8 @@ def get_module_wrappers() -> dict[str, Callable]:
         "packaging": packaging.packaging,  # New unified packaging module (includes metadata_templates)
         "permissions": permissions.permissions,
         "athena_glue": athena_glue.athena_glue,
-        "governance": governance.governance,
+        "admin": governance.admin,  # Primary name for catalog administration
+        "governance": governance.governance,  # Deprecated alias for backwards compatibility
         "metadata_examples": metadata_examples.metadata_examples,
         "quilt_summary": quilt_summary.quilt_summary,
         "search": search.search,
