@@ -16,6 +16,7 @@ import pandas as pd
 from sqlalchemy import create_engine, MetaData, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from botocore.exceptions import ClientError
 
 from ..utils import format_error_response, suppress_stdout
 
@@ -326,45 +327,34 @@ class AthenaQueryService:
             else:
                 escaped_table = table_name
             
-            # Use Athena SQL to describe table instead of direct Glue API
-            query = f"DESCRIBE {escaped_db}.{escaped_table}"
+            glue = self.glue_client
+            response = glue.get_table(
+                DatabaseName=database_name,
+                Name=table_name,
+            )
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            table = response.get("Table", {})
+            storage_descriptor = table.get("StorageDescriptor", {}) or {}
+            columns = [
+                {
+                    "name": col.get("Name"),
+                    "type": col.get("Type"),
+                    "comment": col.get("Comment", ""),
+                    "parameters": col.get("Parameters", {}),
+                }
+                for col in storage_descriptor.get("Columns", []) or []
+            ]
 
-            columns = []
-            partitions = []
+            partitions = [
+                {
+                    "name": part.get("Name"),
+                    "type": part.get("Type"),
+                    "comment": part.get("Comment", ""),
+                    "parameters": part.get("Parameters", {}),
+                }
+                for part in table.get("PartitionKeys", []) or []
+            ]
 
-            for _, row in df.iterrows():
-                col_name = row.iloc[0]
-                col_type = row.iloc[1] if len(row) > 1 else "string"
-                col_comment = row.iloc[2] if len(row) > 2 else ""
-
-                # Check if this is a partition column
-                # Partition columns often appear after a separator or with special formatting
-                if col_name.startswith("#") or "partition" in str(col_comment).lower():
-                    continue  # Skip header/separator rows
-                elif any(keyword in str(col_name).lower() for keyword in ["partition", "date", "year", "month"]):
-                    # This is likely a partition column
-                    partitions.append({"name": col_name, "type": col_type, "comment": col_comment})
-                else:
-                    # Regular column
-                    columns.append(
-                        {
-                            "name": col_name,
-                            "type": col_type,
-                            "comment": col_comment,
-                            "parameters": {},
-                        }
-                    )
-
-            # If no columns were found, this might indicate an issue
-            if not columns:
-                logger.warning(
-                    f"No columns found for table {database_name}.{table_name}. "
-                    f"DataFrame has {len(df)} rows. Query: {query}"
-                )
-            
             return {
                 "success": True,
                 "table_name": table_name,
@@ -372,29 +362,129 @@ class AthenaQueryService:
                 "catalog_name": catalog_name,
                 "columns": columns,
                 "partitions": partitions,
-                "table_type": "",  # Not available through DESCRIBE
-                "description": "",  # Not available through DESCRIBE
-                "owner": "",  # Not available through DESCRIBE
-                "create_time": None,  # Not available through DESCRIBE
-                "update_time": None,  # Not available through DESCRIBE
+                "table_type": table.get("TableType", ""),
+                "description": table.get("Description", ""),
+                "owner": table.get("Owner", ""),
+                "create_time": table.get("CreateTime"),
+                "update_time": table.get("UpdateTime"),
                 "storage_descriptor": {
-                    "location": "",  # Not available through DESCRIBE
-                    "input_format": "",  # Not available through DESCRIBE
-                    "output_format": "",  # Not available through DESCRIBE
-                    "compressed": False,  # Not available through DESCRIBE
-                    "serde_info": {},  # Not available through DESCRIBE
+                    "location": storage_descriptor.get("Location", ""),
+                    "input_format": storage_descriptor.get("InputFormat", ""),
+                    "output_format": storage_descriptor.get("OutputFormat", ""),
+                    "compressed": storage_descriptor.get("Compressed", False),
+                    "serde_info": storage_descriptor.get("SerdeInfo", {}),
                 },
-                "parameters": {},  # Not available through DESCRIBE
-                "query_used": query,  # Add for debugging
+                "parameters": table.get("Parameters", {}),
             }
 
-        except Exception as e:
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code")
+            if error_code == "EntityNotFoundException":
+                return format_error_response(
+                    f"Table not found: {database_name}.{table_name}"
+                )
+
+            logger.warning(
+                "Glue get_table failed for %s.%s (code=%s); falling back to DESCRIBE query",
+                database_name,
+                table_name,
+                error_code,
+            )
+            return self._describe_table_via_sql(database_name, table_name, catalog_name)
+        except Exception as exc:
+            logger.warning(
+                "Unexpected error fetching Glue metadata for %s.%s: %s; falling back to DESCRIBE query",
+                database_name,
+                table_name,
+                exc,
+            )
+            return self._describe_table_via_sql(database_name, table_name, catalog_name)
+
+    def _describe_table_via_sql(self, database_name: str, table_name: str, catalog_name: str) -> Dict[str, Any]:
+        """Fallback: describe table structure via DESCRIBE query."""
+        if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
+            escaped_db = f'"{database_name}"'
+        else:
+            escaped_db = database_name
+
+        if "-" in table_name or any(c in table_name for c in [" ", ".", "@", "/"]):
+            escaped_table = f'"{table_name}"'
+        else:
+            escaped_table = table_name
+
+        query = f"DESCRIBE {escaped_db}.{escaped_table}"
+
+        try:
+            with suppress_stdout():
+                with self.engine.connect() as conn:
+                    result = conn.exec_driver_sql(query)
+                    rows = result.fetchall()
+                    keys = tuple(result.keys())
+
+            columns: List[Dict[str, Any]] = []
+            partitions: List[Dict[str, Any]] = []
+
+            for row in rows:
+                mapping = getattr(row, "_mapping", None)
+                values = []
+                for idx, key in enumerate(keys):
+                    if mapping is not None and key in mapping:
+                        values.append(mapping.get(key))
+                    else:
+                        try:
+                            values.append(row[idx])
+                        except Exception:
+                            values.append(None)
+                col_name = values[0] if len(values) > 0 else ""
+                col_type = values[1] if len(values) > 1 else "string"
+                col_comment = values[2] if len(values) > 2 else ""
+
+                if not col_name or str(col_name).startswith("#"):
+                    continue
+
+                entry = {
+                    "name": col_name,
+                    "type": col_type,
+                    "comment": col_comment,
+                    "parameters": {},
+                }
+
+                if "partition" in str(col_comment).lower():
+                    partitions.append(entry)
+                else:
+                    columns.append(entry)
+
+            return {
+                "success": True,
+                "table_name": table_name,
+                "database_name": database_name,
+                "catalog_name": catalog_name,
+                "columns": columns,
+                "partitions": partitions,
+                "table_type": "",
+                "description": "",
+                "owner": "",
+                "create_time": None,
+                "update_time": None,
+                "storage_descriptor": {
+                    "location": "",
+                    "input_format": "",
+                    "output_format": "",
+                    "compressed": False,
+                    "serde_info": {},
+                },
+                "parameters": {},
+                "query_used": query,
+            }
+        except Exception as exc:
             logger.error(
-                f"Failed to get table metadata for {database_name}.{table_name}: {e}",
-                exc_info=True  # Include stack trace
+                "Failed to describe table via SQL for %s.%s: %s",
+                database_name,
+                table_name,
+                exc,
             )
             return format_error_response(
-                f"Failed to get table metadata for {database_name}.{table_name}: {str(e)}"
+                f"Failed to get table metadata for {database_name}.{table_name}: {str(exc)}"
             )
 
     def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:

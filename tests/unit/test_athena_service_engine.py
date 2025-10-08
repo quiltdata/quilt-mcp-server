@@ -8,6 +8,50 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from quilt_mcp.services.athena_service import AthenaQueryService
+from botocore.exceptions import ClientError
+
+
+class FakeRow:
+    def __init__(self, mapping):
+        self._mapping = mapping
+        self._values = tuple(mapping[key] for key in mapping)
+
+    def __getitem__(self, index):
+        return self._values[index]
+
+
+class FakeResult:
+    def __init__(self, rows, keys):
+        self._rows = [FakeRow(row) for row in rows]
+        self._keys = keys
+
+    def fetchall(self):
+        return self._rows
+
+    def keys(self):
+        return self._keys
+
+
+class FakeConnection:
+    def __init__(self, result):
+        self._result = result
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def exec_driver_sql(self, query):
+        return self._result
+
+
+class FakeEngine:
+    def __init__(self, result):
+        self._result = result
+
+    def connect(self):
+        return FakeConnection(self._result)
 
 
 def _make_fake_credentials(access_key: str = "AKIA123", secret_key: str = "SECRET123", token: str | None = None):
@@ -86,3 +130,78 @@ def test_engine_derives_default_staging_dir_when_not_configured(mock_create_engi
     expected = "s3_staging_dir=s3%3A%2F%2Faws-athena-query-results-123456789012-us-west-2%2F"
     assert expected in connection_string
     fake_session.client.assert_called_once_with("sts")
+
+
+def test_get_table_metadata_uses_glue_columns():
+    """Glue get_table response should be normalized into column metadata."""
+
+    service = AthenaQueryService(use_jwt_auth=False)
+    mock_glue = MagicMock()
+    mock_glue.get_table.return_value = {
+        "Table": {
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "value", "Type": "int", "Comment": "test"},
+                ],
+                "Location": "s3://bucket/path/",
+                "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                "Compressed": False,
+                "SerdeInfo": {"SerializationLibrary": "org.openx.data.jsonserde.JsonSerDe"},
+            },
+            "PartitionKeys": [{"Name": "date", "Type": "string"}],
+            "TableType": "EXTERNAL_TABLE",
+            "Description": "Sample table",
+            "Owner": "owner",
+            "CreateTime": "2024-01-01T00:00:00Z",
+            "UpdateTime": "2024-02-01T00:00:00Z",
+            "Parameters": {"classification": "json"},
+        }
+    }
+    service._glue_client = mock_glue
+
+    result = service.get_table_metadata("db", "table")
+
+    assert result["success"] is True
+    assert result["columns"][0]["name"] == "id"
+    assert result["partitions"][0]["name"] == "date"
+    assert result["storage_descriptor"]["location"] == "s3://bucket/path/"
+
+
+def test_get_table_metadata_falls_back_to_describe():
+    """When Glue access is denied, fallback DESCRIBE query should be used."""
+
+    service = AthenaQueryService(use_jwt_auth=False)
+    mock_glue = MagicMock()
+    mock_glue.get_table.side_effect = ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "denied"}}, "GetTable"
+    )
+    service._glue_client = mock_glue
+
+    fake_result = FakeResult(
+        rows=[{"col_name": "id", "data_type": "string", "comment": ""}],
+        keys=("col_name", "data_type", "comment"),
+    )
+    service._engine = FakeEngine(fake_result)
+
+    result = service.get_table_metadata("db", "table")
+
+    assert result["success"] is True
+    assert result["columns"][0]["name"] == "id"
+
+
+def test_get_table_metadata_handles_missing_table():
+    """EntityNotFoundException should return a formatted error."""
+
+    service = AthenaQueryService(use_jwt_auth=False)
+    mock_glue = MagicMock()
+    mock_glue.get_table.side_effect = ClientError(
+        {"Error": {"Code": "EntityNotFoundException", "Message": "not found"}}, "GetTable"
+    )
+    service._glue_client = mock_glue
+
+    result = service.get_table_metadata("db", "table")
+
+    assert result["success"] is False
+    assert "Table not found" in result["error"]
