@@ -104,11 +104,16 @@ aws iam put-role-policy \
 - S3 resources: Wildcard access to Athena results buckets
 
 ### Related Files
-- ECS Task Definition: `quilt-mcp-server` (currently revision 170)
+- ECS Task Definition: `quilt-mcp-server` (currently revision 172)
 - Docker Image: `850787717197.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:0.6.59`
 - Deployment Script: `scripts/ecs_deploy.py`
 - AWS Account: 850787717197
 - Region: us-east-1
+
+### Deployment Issues Fixed (2025-01-07)
+- **Issue**: Task revision 171 failed to start with `NameError: name 'package_visualization' is not defined`
+- **Fix**: Removed undefined `package_visualization` module reference from `get_module_wrappers()` 
+- **Result**: Task revision 172 deployed successfully with 1 running task, 0 failures
 
 ### References
 - [AWS ECS Task Execution vs Task Role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html)
