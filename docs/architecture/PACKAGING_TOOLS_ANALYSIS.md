@@ -229,9 +229,10 @@ def _auth_headers(auth_token: str) -> Dict[str, str]:
    - Schema has `packagePromote` mutation (lines 980-984)
    - Could add `package_update` action using existing helper
 
-4. **Add Package Deletion Support**
-   - Schema has `packageRevisionDelete` mutation (lines 985-989)
-   - Could add `package_delete` action
+4. ✅ **Package Deletion Support Implemented**
+   - `packaging.delete` now wraps the catalog REST endpoint for `/api/packages/{name}`
+   - Requires explicit `confirm=True` (or `dry_run=True`) to guard against accidental removal
+   - Supports optional `bucket`/`registry` parameters for clarity and auditing feedback
 
 ### Low Priority
 

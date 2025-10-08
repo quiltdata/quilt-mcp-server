@@ -48,6 +48,7 @@ class ObjectSearchResponse:
     stats: Dict[str, Any] = field(default_factory=dict)
     next_cursor: Optional[str] = None
     raw: Optional[Dict[str, Any]] = None
+    warning: Optional[str] = None
 
 
 @dataclass
@@ -291,13 +292,18 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         totals.append(payload.total)
                     if payload.next_cursor:
                         next_cursor = payload.next_cursor
+                    if payload.warning:
+                        raw_metadata.setdefault("objects", {})["warning"] = payload.warning
 
                 sorted_exts = sorted(ext_counter.items(), key=lambda item: item[1], reverse=True)
-                raw_metadata["objects"] = {
-                    "ext_stats": [{"key": key, "count": value} for key, value in sorted_exts],
-                    "total": max(totals) if totals else None,
-                    "next_cursor": next_cursor,
-                }
+                objects_meta = raw_metadata.setdefault("objects", {})
+                objects_meta.update(
+                    {
+                        "ext_stats": [{"key": key, "count": value} for key, value in sorted_exts],
+                        "total": max(totals) if totals else None,
+                        "next_cursor": next_cursor,
+                    }
+                )
 
             if package_payloads:
                 totals: List[int] = []
@@ -816,17 +822,8 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 raise Exception(f"Unexpected response type: {typename}")
 
         except Exception as exc:  # pragma: no cover - defensive fallback
-            # On failure, return an informative error result rather than crashing
-            error_result = SearchResult(
-                id="graphql-object-error",
-                type="error",
-                title="Object search failed",
-                description=str(exc),
-                metadata={"query": query, "filters": filters},
-                score=0,
-                backend="graphql",
-            )
-            return ObjectSearchResponse(results=[error_result], total=0, stats={})
+            warning_message = f"Object search failed: {exc}"
+            return ObjectSearchResponse(results=[], total=None, stats={}, warning=warning_message)
 
     async def _search_package_contents(
         self,

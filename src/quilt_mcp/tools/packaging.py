@@ -205,6 +205,13 @@ def _prepare_metadata(
 
 def _get_file_extension(filename: str) -> str:
     """Get file extension from filename."""
+    if filename.startswith("s3://"):
+        without_scheme = filename[5:]
+        without_query = without_scheme.split("?", 1)[0]
+        if "/" in without_query:
+            without_query = without_query.split("/", 1)[1]
+        filename = without_query
+    filename = filename.split("?", 1)[0]
     return Path(filename).suffix.lstrip('.').lower()
 
 
@@ -431,6 +438,7 @@ def package_create(
     auto_organize: bool = False,
     copy_mode: str = "all",
     readme: Optional[str] = None,
+    target_bucket: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create a new Quilt package.
 
@@ -449,7 +457,7 @@ def package_create(
         dry_run: If true, validate but don't create
         auto_organize: Organize files into logical folders. Defaults to False to keep a shallow structure.
         copy_mode: Copy mode for files ('all', 'none', or 'metadata')
-        readme: README content to create as README.md file (optional)
+        readme: README content to upload as README.md (requires target bucket)
 
     Returns:
         Dict with success status and package information
@@ -496,48 +504,69 @@ def package_create(
     # Validate inputs
     if not files and not readme:
         return format_error_response(
-            "Package creation requires 'files' parameter with a list of S3 URIs. "
-            "\n\n"
-            "IMPORTANT: The MCP server cannot upload files directly because the JWT token is for "
-            "authentication only and does not contain AWS credentials. The Quilt catalog backend "
-            "handles AWS credential management via IAM role assumption.\n\n"
-            "To create a package, files must already exist in S3. You have two options:\n\n"
-            "Option 1 - Upload via Quilt web UI:\n"
-            "  1. Use the Quilt web interface to upload files\n"
-            "  2. Then call packaging.create with those S3 URIs\n\n"
-            "Option 2 - Upload via AWS CLI:\n"
-            "  1. Use AWS CLI to upload: aws s3 cp README.md s3://bucket/path/README.md\n"
-            "  2. Then call packaging.create(name='bucket/pkg', files=['s3://bucket/path/README.md'])\n\n"
-            "The 'readme' parameter is not currently supported - files must be pre-uploaded to S3."
-        )
-
-    # Handle README content if provided
-    # NOTE: GraphQL packageConstruct requires files to already exist in S3.
-    # The JWT token doesn't contain AWS credentials - the registry backend handles
-    # credential management via IAM role assumption on the server side.
-    if readme and not files:
-        return format_error_response(
-            "Cannot create package with inline 'readme' content.\n\n"
-            "The MCP server uses JWT for authentication, but the JWT does not contain AWS credentials. "
-            "The Quilt registry backend handles AWS access by assuming IAM roles on behalf of users.\n\n"
-            "To create a package with a README:\n"
-            "1. Upload README.md to S3 first (via Quilt web UI or AWS CLI)\n"
-            "2. Then call: packaging.create(name='{registry}/pkg', files=['s3://{registry}/path/README.md'])\n\n"
-            "Example using AWS CLI:\n"
-            "  $ echo 'hello world' > README.md\n"
-            "  $ aws s3 cp README.md s3://{registry}/.quilt/packages/my-pkg/README.md\n"
-            "  Then call packaging.create with files=['s3://{registry}/.quilt/packages/my-pkg/README.md']"
+            "Package creation requires at least one S3 URI in 'files' or inline README content."
         )
 
     # Use provided files
-    all_files = files or []
+    all_files = list(files or [])
+    readme_file_added = False
+    readme_upload_details: Dict[str, Any] = {}
+    readme_planned_uri: Optional[str] = None
+    readme_target_bucket: Optional[str] = None
+    readme_key: Optional[str] = None
 
-    # Require at least one file
+    if readme:
+        readme_target_bucket = target_bucket or (all_files and _extract_bucket_from_uri(all_files[0])) or registry
+        if readme_target_bucket and isinstance(readme_target_bucket, str):
+            if readme_target_bucket.startswith("s3://"):
+                readme_target_bucket = readme_target_bucket[5:].split("/", 1)[0]
+            else:
+                readme_target_bucket = readme_target_bucket.strip("/")
+
+        if not readme_target_bucket:
+            return format_error_response(
+                "Cannot determine target bucket for README upload. "
+                "Provide the 'bucket' parameter or include at least one S3 URI with a bucket."
+            )
+
+        readme_key = f".quilt/packages/{name}/README.md".replace("//", "/")
+        readme_planned_uri = f"s3://{readme_target_bucket}/{readme_key}"
+
+        if dry_run:
+            all_files.append(readme_planned_uri)
+        else:
+            try:
+                from .buckets import bucket_objects_put
+
+                upload_result = bucket_objects_put(
+                    bucket=readme_target_bucket,
+                    items=[
+                        {
+                            "key": readme_key,
+                            "text": readme,
+                            "content_type": "text/markdown",
+                        }
+                    ],
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                return format_error_response(f"Failed to upload README content: {exc}")
+
+            readme_upload_details = upload_result
+            upload_outcome = (upload_result.get("results") or [{}])[0]
+            if upload_outcome.get("error"):
+                return {
+                    "success": False,
+                    "error": f"Failed to upload README.md: {upload_outcome['error']}",
+                    "upload_context": upload_result,
+                }
+
+            readme_uri = readme_planned_uri
+            all_files.append(readme_uri)
+            readme_file_added = True
+
     if not all_files:
         return format_error_response(
-            "Package creation requires at least one S3 URI in 'files' parameter.\n\n"
-            "Files must already exist in S3 before creating a package. "
-            "Upload files via Quilt web UI or AWS CLI first."
+            "Package creation requires at least one S3 object. Upload failed or no files were provided."
         )
 
     # Organize files
@@ -564,6 +593,11 @@ def package_create(
     if added_keys:
         warnings.append("Auto-generated metadata fields applied: " + ", ".join(sorted(added_keys)))
 
+    if readme_file_added:
+        warnings.append("README.md uploaded and included in package manifest")
+    elif readme and dry_run and readme_planned_uri:
+        warnings.append(f"README.md will be uploaded to {readme_planned_uri}")
+
     if dry_run:
         return {
             "success": True,
@@ -573,6 +607,8 @@ def package_create(
             "metadata": metadata_dict,
             "warnings": warnings,
             "message": "Dry run completed successfully",
+            "planned_readme_uri": readme_planned_uri,
+            "readme_target_bucket": readme_target_bucket,
         }
 
     try:
@@ -648,11 +684,109 @@ def package_create(
         if navigation:
             response_payload["navigation"] = navigation
 
+        if readme_file_added:
+            response_payload["readme_upload"] = readme_upload_details
+        elif readme_planned_uri:
+            response_payload["readme_upload"] = {
+                "planned_uri": readme_planned_uri,
+                "target_bucket": readme_target_bucket,
+            }
+
         return response_payload
 
     except Exception:
         logger.exception("Error creating package '%s'", name)
         return format_error_response(f"Failed to create package '{name}'")
+
+
+def package_delete(
+    name: str,
+    bucket: Optional[str] = None,
+    registry: Optional[str] = None,
+    confirm: bool = False,
+    dry_run: bool = False,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Delete an existing Quilt package."""
+    if not name:
+        return format_error_response("Package name is required for deletion")
+
+    target_registry: Optional[str] = None
+    normalized_bucket = None
+    if registry:
+        target_registry = registry
+    elif bucket:
+        normalized_bucket = bucket.strip("/")
+        if normalized_bucket.startswith("s3://"):
+            target_registry = normalized_bucket
+            normalized_bucket = normalized_bucket[5:]
+        else:
+            target_registry = f"s3://{normalized_bucket}"
+    else:
+        target_registry = resolve_catalog_url() or DEFAULT_REGISTRY
+
+    if normalized_bucket is None and bucket:
+        normalized_bucket = bucket.strip("/")
+
+    preview_payload = {
+        "success": True,
+        "action": "preview",
+        "package_name": name,
+        "registry": target_registry,
+        "bucket": normalized_bucket,
+        "message": "Set confirm=True to delete this package",
+    }
+    if reason:
+        preview_payload["reason"] = reason
+
+    if dry_run:
+        return preview_payload
+
+    if not confirm:
+        preview_payload["success"] = False
+        preview_payload["error"] = "Package deletion requires confirm=True"
+        preview_payload["next_steps"] = [
+            "Call packaging(action='delete', params={'name': 'namespace/package', 'bucket': 'my-bucket', 'confirm': True})"
+        ]
+        return preview_payload
+
+    token = get_active_token()
+    if not token:
+        return format_error_response("Authorization token required to delete packages")
+
+    catalog_url = resolve_catalog_url()
+    if not catalog_url:
+        return format_error_response("Catalog URL not configured")
+
+    try:
+        backend_response = catalog_client.catalog_package_delete(
+            registry_url=catalog_url,
+            package_name=name,
+            auth_token=token,
+        )
+    except Exception as exc:
+        logger.exception("Failed to delete package '%s'", name)
+        return {
+            "success": False,
+            "error": f"Failed to delete package '{name}': {exc}",
+            "package_name": name,
+            "registry": target_registry,
+            "bucket": normalized_bucket,
+        }
+
+    response: Dict[str, Any] = {
+        "success": True,
+        "action": "deleted",
+        "package_name": name,
+        "registry": target_registry,
+        "bucket": normalized_bucket,
+        "message": f"Package '{name}' deleted successfully",
+    }
+    if reason:
+        response["reason"] = reason
+    if backend_response:
+        response["backend_response"] = backend_response
+    return response
 
 
 # S3-to-package creation
@@ -771,6 +905,7 @@ def packaging(
                     "browse",
                     "create",
                     "create_from_s3",
+                    "delete",
                     "metadata_templates",
                     "get_template",
                 ],
@@ -861,6 +996,7 @@ def packaging(
                 auto_organize=params.get("auto_organize", False),
                 copy_mode=params.get("copy_mode", "all"),
                 readme=params.get("readme"),  # Support inline README content
+                target_bucket=params.get("bucket"),
             )
         elif action == "create_from_s3":
             return package_create_from_s3(
@@ -872,6 +1008,18 @@ def packaging(
                 auto_organize=params.get("auto_organize", False),
                 dry_run=params.get("dry_run", False),
                 copy_mode=params.get("copy_mode", "all"),
+            )
+        elif action == "delete":
+            name = params.get("name") or params.get("package_name")
+            if not name:
+                return format_error_response("Package name is required for delete action")
+            return package_delete(
+                name=name,
+                bucket=params.get("bucket"),
+                registry=params.get("registry"),
+                confirm=params.get("confirm", False),
+                dry_run=params.get("dry_run", False),
+                reason=params.get("reason"),
             )
         elif action == "metadata_templates":
             return list_metadata_templates()

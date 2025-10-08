@@ -68,6 +68,7 @@ def test_metadata_update_merges_existing(monkeypatch):
     assert update_call["package_name"] == "user/pkg"
     assert update_call["metadata"]["existing"] is True
     assert update_call["metadata"]["new"] == "value"
+    assert update_call["copy_mode"] == "metadata"
     assert update_call["auth_token"] == "token"
     assert result["success"] is True
     assert result["top_hash"] == "updated"
@@ -101,6 +102,7 @@ def test_metadata_update_replace(monkeypatch):
         )
 
     assert captured["metadata"] == {"replacement": True}
+    assert captured["copy_mode"] == "metadata"
     assert result["success"] is True
     assert result["top_hash"] == "hash2"
 

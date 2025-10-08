@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import logging
+import base64
+import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+
+import boto3
+import requests
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 from ..clients import catalog as catalog_client
 from ..constants import DEFAULT_BUCKET
@@ -46,6 +53,132 @@ def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -
         "status": "awaiting_backend_support",
         "requested_resource": s3_uri_or_bucket or "unknown",
     }
+
+
+def _fetch_catalog_session() -> Tuple[boto3.Session, Dict[str, Any]]:
+    """
+    Request short-lived AWS credentials from the Quilt catalog.
+
+    Returns:
+        Tuple of (boto3.Session, metadata)
+    """
+    token = get_active_token()
+    if not token:
+        raise RuntimeError("Authorization token required to obtain upload credentials")
+
+    catalog_url = resolve_catalog_url()
+    if not catalog_url:
+        raise RuntimeError("Catalog URL not configured")
+
+    url = f"{catalog_url.rstrip('/')}/api/auth/get_credentials"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "Quilt-MCP-Server/Stateless",
+    }
+    timeout = float(os.getenv("QUILT_CREDENTIALS_TIMEOUT", "15"))
+
+    response = requests.get(url, headers=headers, timeout=timeout)
+    status_code = response.status_code
+    body_text = response.text.strip()
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        raise RuntimeError(f"Catalog credential request failed (status {status_code}): {body_text[:200]}") from exc
+
+    if not body_text:
+        raise RuntimeError("Catalog credential endpoint returned an empty response")
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError(f"Catalog credential endpoint returned non-JSON response: {body_text[:200]}") from exc
+
+    access_key = data.get("AccessKeyId")
+    secret_key = data.get("SecretAccessKey")
+    session_token = data.get("SessionToken")
+    if not access_key or not secret_key:
+        raise RuntimeError("Catalog get_credentials response missing access key or secret key")
+
+    region = (
+        data.get("Region")
+        or data.get("region")
+        or os.getenv("AWS_REGION")
+        or os.getenv("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+
+    session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        aws_session_token=session_token,
+        region_name=region,
+    )
+
+    return session, {
+        "source": "catalog",
+        "expiration": data.get("Expiration"),
+    }
+
+
+def _build_s3_client_for_upload(bucket_name: str) -> Tuple[Optional[Any], Dict[str, Any]]:
+    """Build an S3 client using catalog-provided credentials with ambient fallback."""
+
+    metadata: Dict[str, Any] = {"bucket": bucket_name}
+    attempts: list[str] = []
+    session: Optional[boto3.Session] = None
+
+    try:
+        session, session_meta = _fetch_catalog_session()
+        metadata.update(session_meta)
+    except Exception as exc:  # pragma: no cover - catalog may be unreachable in tests
+        attempts.append(f"catalog_credentials: {exc}")
+
+    if session is None:
+        try:
+            session = boto3.Session()
+            credentials = session.get_credentials()
+            if credentials is None:
+                raise RuntimeError("No AWS credentials available in the default boto3 session")
+            metadata.setdefault("source", "ambient")
+        except Exception as exc:  # pragma: no cover - only hit when no ambient creds
+            attempts.append(f"ambient_credentials: {exc}")
+            metadata["credential_attempts"] = attempts
+            return None, metadata
+
+    proxy_url = os.getenv("QUILT_S3_PROXY_URL") or os.getenv("S3_PROXY_URL")
+    client_kwargs: Dict[str, Any] = {}
+    if proxy_url:
+        client_kwargs["endpoint_url"] = proxy_url.rstrip("/")
+        metadata["proxy_endpoint"] = proxy_url.rstrip("/")
+
+    if attempts:
+        metadata["credential_attempts"] = attempts
+
+    client = session.client("s3", config=Config(signature_version="s3v4"), **client_kwargs)
+    return client, metadata
+
+
+def _prepare_upload_body(item: Dict[str, Any]) -> bytes:
+    """Convert an upload item payload into raw bytes."""
+    if "data" in item and item["data"] is not None:
+        try:
+            return base64.b64decode(item["data"])
+        except Exception as exc:
+            raise ValueError(f"Invalid base64 data: {exc}") from exc
+
+    if "text" in item and item["text"] is not None:
+        encoding = item.get("encoding") or "utf-8"
+        try:
+            return item["text"].encode(encoding)
+        except Exception as exc:
+            raise ValueError(f"Failed to encode text using {encoding}: {exc}") from exc
+
+    body = item.get("body") or item.get("bytes")
+    if isinstance(body, bytes):
+        return body
+
+    raise ValueError("Upload item must include 'text', 'data', or raw 'body' bytes")
 
 
 def buckets_discover() -> Dict[str, Any]:
@@ -243,40 +376,123 @@ def bucket_object_text(
 
 
 def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, Any]:
-    """[NOT IMPLEMENTED] Upload multiple objects to an S3 bucket.
-
-    This action is not yet implemented because the Quilt backend does not provide
-    presigned upload URLs or direct S3 write access via its APIs. This is intentional
-    security design - the backend controls all S3 access via IAM roles.
-
-    Args:
-        bucket: S3 bucket name or s3:// URI
-        items: List of objects to upload, each with 'key' and either 'text' or 'data' (base64)
-
-    Returns:
-        Error message with workarounds.
-    """
+    """Upload multiple objects to an S3 bucket using Quilt-issued credentials."""
     bkt = _normalize_bucket(bucket)
 
-    return {
-        "success": False,
-        "not_implemented": True,
-        "error": "File upload is not yet implemented in the MCP server",
-        "message": (
-            "The Quilt backend does not provide presigned upload URLs or direct S3 write access. "
-            "This is intentional security design - the backend controls all AWS operations via IAM roles. "
-            "To implement this feature, the backend would need a new 'generateUploadUrl' GraphQL mutation."
-        ),
-        "workarounds": {
-            "web_ui": f"Upload files via Quilt catalog web interface at {resolve_catalog_url() or 'your catalog URL'}",
-            "aws_cli": f"Upload with AWS CLI: aws s3 cp <file> s3://{bkt}/<key>",
-            "then_package": "After upload, use packaging.create with the S3 URI to create a package",
-        },
-        "requested_bucket": bkt,
-        "requested_items_count": len(items) if items else 0,
-        "backend_feature_needed": "generateUploadUrl GraphQL mutation or presigned POST endpoint",
-        "status": "awaiting_backend_api_enhancement",
+    if not items:
+        return format_error_response("No items provided for upload")
+
+    client, client_meta = _build_s3_client_for_upload(bkt)
+    if client is None:
+        unavailable = _aws_credentials_unavailable("bucket_objects_put", bkt)
+        unavailable["details"] = client_meta
+        return unavailable
+
+    results: list[Dict[str, Any]] = []
+    uploaded = 0
+
+    for item in items:
+        key = item.get("key")
+        entry_result: Dict[str, Any] = {"key": key}
+
+        if not key or not isinstance(key, str):
+            entry_result["error"] = "Each upload item requires a non-empty 'key'"
+            results.append(entry_result)
+            continue
+
+        try:
+            body = _prepare_upload_body(item)
+        except ValueError as exc:
+            entry_result["error"] = str(exc)
+            results.append(entry_result)
+            continue
+
+        extra_args: Dict[str, Any] = {}
+        content_type = item.get("content_type") or item.get("ContentType")
+        if content_type:
+            extra_args["ContentType"] = content_type
+
+        metadata = item.get("metadata") or item.get("Metadata")
+        if isinstance(metadata, dict):
+            cleaned_metadata = {str(k): str(v) for k, v in metadata.items() if v is not None}
+            if cleaned_metadata:
+                extra_args["Metadata"] = cleaned_metadata
+
+        cache_control = item.get("cache_control") or item.get("CacheControl")
+        if cache_control:
+            extra_args["CacheControl"] = cache_control
+
+        content_encoding = item.get("content_encoding") or item.get("ContentEncoding")
+        if content_encoding:
+            extra_args["ContentEncoding"] = content_encoding
+
+        storage_class = item.get("storage_class") or item.get("StorageClass")
+        if storage_class:
+            extra_args["StorageClass"] = storage_class
+
+        expires = item.get("expires") or item.get("Expires")
+        if expires:
+            extra_args["Expires"] = expires
+
+        acl = item.get("acl") or item.get("ACL")
+        if acl:
+            extra_args["ACL"] = acl
+
+        try:
+            response = client.put_object(Bucket=bkt, Key=key, Body=body, **extra_args)
+            entry_result.update(
+                {
+                    "success": True,
+                    "etag": (response.get("ETag") or "").strip('"'),
+                    "version": response.get("VersionId"),
+                    "size": len(body),
+                }
+            )
+            if content_type:
+                entry_result["content_type"] = content_type
+            uploaded += 1
+        except (BotoCoreError, ClientError) as exc:
+            entry_result["error"] = str(exc)
+            error_code = None
+            error_message = str(exc)
+            if isinstance(exc, ClientError):
+                error_code = exc.response.get("Error", {}).get("Code")
+                error_message = exc.response.get("Error", {}).get("Message", error_message)
+
+            if error_code in {"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"}:
+                entry_result["permission_error"] = True
+                entry_result["resolution"] = [
+                    f"Verify you have write access to bucket '{bkt}'.",
+                    "Run permissions(action='discover', params={'check_buckets': ['%s']}) to inspect access levels." % bkt,
+                    "Use the Quilt catalog UI or contact an administrator to request s3:PutObject permissions.",
+                ]
+                entry_result["error_detail"] = error_message
+        except Exception as exc:  # pragma: no cover - defensive catch-all
+            entry_result["error"] = str(exc)
+
+        results.append(entry_result)
+
+    overall_success = uploaded == len(results)
+    response: Dict[str, Any] = {
+        "success": overall_success,
+        "bucket": bkt,
+        "requested": len(items),
+        "uploaded": uploaded,
+        "results": results,
     }
+    if client_meta:
+        response["upload_context"] = client_meta
+
+    if not overall_success:
+        if any(res.get("permission_error") for res in results):
+            response.setdefault(
+                "message",
+                "Upload failed due to missing S3 permissions. Request write access and retry.",
+            )
+        else:
+            response.setdefault("message", "Some objects failed to upload; see individual results for details.")
+
+    return response
 
 
 def bucket_object_fetch(

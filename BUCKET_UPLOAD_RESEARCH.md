@@ -2,9 +2,10 @@
 
 ## TL;DR
 
-**Upload via MCP server is NOT possible** with current JWT architecture.
+**Update (Oct 2025)**: The MCP server now uploads files by requesting short-lived AWS credentials from the catalog (`/api/auth/get_credentials`) and streaming objects directly to S3.  
+If Quilt credentials are unavailable, the tool falls back to ambient AWS credentials for developer workflows.
 
-The backend **intentionally does NOT provide** presigned upload URLs or direct S3 write access via GraphQL/REST APIs.
+The historical investigation below describes the limitations that existed before this capability shipped.
 
 ---
 
@@ -232,4 +233,3 @@ The 5th action (`objects_put`) is architecturally blocked and requires backend A
 - `BUCKET_TOOLS_BACKEND_PROXY_SOLUTION.md` - Download solution
 - `NAVIGATION_CONTEXT_INTEGRATION.md` - Context usage
 - `BUCKET_ACTIONS_FIXABILITY_ANALYSIS.md` - Original analysis (now outdated)
-

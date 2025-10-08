@@ -10,64 +10,63 @@ The Quilt MCP server uses a **stateless, JWT-based architecture** where:
 
 This architecture follows the same pattern as the Quilt Enterprise web interface.
 
-## Why Can't MCP Upload Files Directly?
+## Uploading Files Through MCP
 
-The MCP server **cannot upload files to S3** for the following reasons:
+Starting in October 2025, the MCP server can upload objects directly to your Quilt buckets.  
+The server mirrors the catalog web UI flow:
 
-1. **JWT tokens don't include AWS credentials** - they're authentication tokens for the Quilt catalog API
-2. **Registry backend manages AWS access** - the backend assumes IAM roles and provides credentials server-side
-3. **GraphQL `packageConstruct` requires S3 URIs** - files must already exist in S3
+1. Request short-lived AWS credentials by calling the catalog’s `/api/auth/get_credentials` endpoint with the user’s JWT.
+2. Build a request-scoped boto3 session using those credentials.
+3. Stream file content to S3 via `bucket_objects_put`.
 
-This is **by design** - the Quilt architecture centralizes credential management in the registry backend, not in client applications.
+If the catalog is unreachable or you are running in an environment without Quilt authentication, the tool falls back to ambient AWS credentials (e.g., `AWS_PROFILE`, instance roles) so integration tests continue to work.
 
-## Current Workflow
+### Step 1: Upload Files with `bucket_objects_put` *(optional)*
 
-To create a package with the MCP server, you **must** follow this two-step process:
-
-### Step 1: Upload Files to S3
-
-Files must be uploaded to S3 **before** creating a package. You have multiple options:
-
-#### Option A: Quilt Web UI
-1. Navigate to your bucket in the Quilt catalog
-2. Use the "Upload" button to upload files
-3. Note the S3 URIs of uploaded files
-
-#### Option B: AWS CLI
-```bash
-# Upload a single file
-aws s3 cp README.md s3://my-bucket/.quilt/packages/my-pkg/README.md
-
-# Upload multiple files
-aws s3 cp data.csv s3://my-bucket/.quilt/packages/my-pkg/data.csv
-aws s3 cp analysis.py s3://my-bucket/.quilt/packages/my-pkg/analysis.py
+```json
+{
+  "name": "bucket_objects_put",
+  "arguments": {
+    "bucket": "my-team-bucket",
+    "items": [
+      {
+        "key": "packages/my-pkg/README.md",
+        "text": "# My Package\\n\\nUploaded via MCP!",
+        "content_type": "text/markdown"
+      },
+      {
+        "key": "packages/my-pkg/data.csv",
+        "data": "Y29sdW1uMSxjb2x1bW4yCjEsMgo=",
+        "content_type": "text/csv",
+        "metadata": {"source": "mcp-demo"}
+      }
+    ]
+  }
+}
 ```
 
-#### Option C: Quilt Python SDK (quilt3)
-```python
-import quilt3 as q3
+The response includes the number of objects uploaded, individual results (ETag, VersionId), and diagnostics about the credential source.  
+Behind the scenes, the MCP server calls `/api/auth/get_credentials`, builds an S3 client, and issues `PutObject` requests.
 
-# Build and push a package
-pkg = q3.Package()
-pkg.set("README.md", "README.md")
-pkg.set("data.csv", "data.csv")
-pkg.push("my-bucket/my-pkg", registry="s3://my-bucket")
-```
+If the catalog cannot provide credentials (for example, when running locally without JWTs), `bucket_objects_put` attempts to use ambient credentials and clearly reports which path succeeded.
+
+> **Tip:** If you call `packaging.create` with the `bucket` parameter and inline `readme` content, the tool uploads the README for you before constructing the package. Use `bucket_objects_put` directly only when you need custom paths or to upload additional assets yourself.
 
 ### Step 2: Create Package via MCP
 
-Once files exist in S3, use the MCP `packaging.create` tool:
+Once your files are in S3, call the MCP `packaging.create` tool:
 
 ```json
 {
   "action": "create",
   "params": {
     "name": "my-bucket/my-pkg",
+    "bucket": "my-bucket",
     "files": [
-      "s3://my-bucket/.quilt/packages/my-pkg/README.md",
-      "s3://my-bucket/.quilt/packages/my-pkg/data.csv"
+      "s3://my-bucket/data.csv"
     ],
     "description": "My package description",
+    "readme": "# My Package\n\nThis README was uploaded automatically by packaging.create.",
     "metadata": {
       "author": "John Doe",
       "version": "1.0.0"
@@ -77,40 +76,22 @@ Once files exist in S3, use the MCP `packaging.create` tool:
 ```
 
 The MCP server will:
-1. Call the GraphQL `packageConstruct` mutation with the provided S3 URIs
+1. Call the GraphQL `packageConstruct` mutation with the S3 URIs you uploaded
 2. The registry backend assumes the user's IAM role
 3. The registry backend creates the package manifest
 4. Return the package revision details
 
-## Future Enhancement: Presigned URLs
-
-A potential future enhancement would be to implement a **presigned URL flow**:
-
-1. User requests: "I want to upload README.md"
-2. MCP server calls registry endpoint: `POST /api/s3/presigned_upload_url`
-3. Registry assumes role and generates presigned PUT URL
-4. MCP server returns presigned URL to client
-5. Client uploads file directly to S3 using presigned URL
-6. MCP server calls `packageConstruct` with the S3 URI
-
-This would require:
-- New REST/GraphQL endpoint in the registry backend
-- Registry backend to generate presigned URLs
-- Frontend changes to handle direct-to-S3 uploads
-
-**Status**: Not yet implemented. This would need to be added to the registry backend first.
-
 ## Error Messages You Might See
 
 ### "Package creation requires 'files' parameter"
-**Cause**: You called `packaging.create` without providing S3 URIs.
+**Cause**: You called `packaging.create` without providing any S3 URIs or inline README content.
 
-**Solution**: Upload files to S3 first (via web UI or AWS CLI), then provide their S3 URIs.
+**Solution**: Either supply existing S3 object URIs in `files`, or include a `readme` value (and `bucket`) so the tool can upload the README for you.
 
 ### "JWT token did not include aws_credentials"
-**Cause**: The MCP server tried to upload files directly, but the JWT doesn't contain AWS credentials.
+**Cause**: The catalog refused to issue temporary credentials (for example, the JWT lacks the correct role or the user is unauthenticated).
 
-**Solution**: Don't use the `readme` parameter. Upload files to S3 first, then reference them via S3 URIs.
+**Solution**: Ensure you are logged in through the catalog, confirm your role can call `/api/auth/get_credentials`, or configure ambient AWS credentials as a fallback.
 
 ### "GraphQL package creation failed: 400 Client Error"
 **Cause**: The provided S3 URIs may not exist, or there's a permission issue.
@@ -120,6 +101,39 @@ This would require:
 - Ensure your user/role has access to those files
 - Check that S3 URIs are in the correct format: `s3://bucket/key`
 
+## Deleting Packages via MCP
+
+Use the `packaging.delete` action to remove a package when you have the appropriate permissions. Deletions require an explicit confirmation flag to prevent mistakes:
+
+```json
+{
+  "action": "delete",
+  "params": {
+    "name": "my-bucket/my-pkg",
+    "bucket": "my-bucket",
+    "confirm": true
+  }
+}
+```
+
+Add `"dry_run": true` instead of `confirm` to preview the target registry/bucket and the confirmation instructions without deleting anything.
+
+## Requesting Write Access
+
+If you receive an `AccessDenied` error while uploading files (for example when `packaging.create` tries to add a README), your Quilt account lacks write access to the target bucket. Use the permissions tool to inspect your current access and share the diagnostic output with an administrator:
+
+```json
+{
+  "name": "permissions",
+  "arguments": {
+    "action": "discover",
+    "params": { "check_buckets": ["my-team-bucket"] }
+  }
+}
+```
+
+The result highlights whether you have `read_access` or `write_access`. If you need an upgrade, request it through your standard Quilt governance process (catalog UI request or admin ticket). The MCP server cannot bypass AWS permissions; it relies on the same short-lived credentials issued by the catalog.
+
 ## Comparison with Other Tools
 
 | Tool | Can Upload Files? | Why? |
@@ -127,17 +141,15 @@ This would require:
 | **Quilt Web UI** | ✅ Yes | Frontend uploads directly to S3 using presigned URLs from registry |
 | **Quilt Python SDK** | ✅ Yes | Uses local AWS credentials (ambient or configured) |
 | **AWS CLI** | ✅ Yes | Uses local AWS credentials |
-| **MCP Server** | ❌ No | JWT is auth-only; registry handles credentials server-side |
+| **MCP Server** | ✅ Yes | Requests temporary AWS credentials from `/api/auth/get_credentials` and uploads via `bucket_objects_put` |
 
 ## Summary
 
-**Key takeaway**: The MCP server orchestrates package creation via GraphQL but **cannot upload files**. Files must be uploaded through other means (web UI, AWS CLI, Python SDK) before creating packages via MCP.
+**Key takeaway**: The MCP server now supports end-to-end package creation. Use `bucket_objects_put` to upload files with Quilt-issued credentials, then call `packaging.create` to assemble the package manifest.
 
-This architecture ensures:
-- ✅ Centralized credential management in the registry
-- ✅ Consistent security model across all Quilt tools
-- ✅ JWT tokens remain lightweight (auth only)
-- ✅ No need to distribute AWS credentials to clients
+The architecture still keeps sensitive AWS access centralized:
+- ✅ Credentials are short-lived and issued per request
+- ✅ Catalog policy continues to enforce IAM roles and auditing
+- ✅ Ambient credentials remain an optional fallback for automated testing
 
 For questions or feature requests, please contact the Quilt team or file an issue in the appropriate repository.
-

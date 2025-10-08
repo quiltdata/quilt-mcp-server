@@ -575,6 +575,16 @@ async def search(
             if "count_only" in params:
                 mapped_params["count_only"] = params["count_only"]
 
+            # Lightweight intent detection when caller does not specify a search type explicitly
+            if "search_type" not in mapped_params:
+                query_text = str(mapped_params.get("query") or "").lower()
+                file_keywords = (" file", " files", "object", "objects", "readme", "how many files", "how many objects")
+                package_keywords = ("package", "packages", "dataset", "datasets", "collection", "collections")
+                if any(keyword in query_text for keyword in file_keywords):
+                    mapped_params["search_type"] = "objects"
+                elif any(keyword in query_text for keyword in package_keywords):
+                    mapped_params["search_type"] = "packages"
+
             # Apply navigation context for smart defaults
             if _context:
                 # Auto-detect scope and target if not specified

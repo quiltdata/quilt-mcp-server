@@ -525,3 +525,4 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Unified search responses expose `available_extensions`, `object_total`, and `next_cursor` derived from GraphQL `stats.ext`; use those facets to drive follow-up prompts instead of hardcoding suffixes.
 - Unified search auto-routing now defaults ambiguous queries (e.g., "glioblastoma") to the package path; update tests to `await search.search(...)` and patch async helpers with `AsyncMock` when stubbing `_unified_search`.
 - `EnterpriseGraphQLBackend._search_packages_global` paginates via `searchMorePackages`; use the returned `PackageSearchResponse`'s `total` and `next_cursor` to drive pagination-aware assertions or follow-up calls.
+- Metadata-only updates must call `catalog_package_update` with `copy_mode="metadata"` so the registry emits a new revision that preserves existing objects; see `test_metadata_update_*` for the regression harness.

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Dict, List, Optional
 
 from ..clients import catalog as catalog_client
 from ..formatting import format_tabulator_results_as_table
 from ..runtime import get_active_token
 from ..utils import format_error_response, resolve_catalog_url
+from ..types.navigation import NavigationContext, get_context_bucket
 
 import logging
 
@@ -263,7 +265,11 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     return _success({"open_query_enabled": current, "message": message})
 
 
-def tabulator(action: Optional[str] = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def tabulator(
+    action: Optional[str] = None,
+    params: Optional[Dict[str, Any]] = None,
+    _context: Optional[NavigationContext] = None,
+) -> Dict[str, Any]:
     if action is None:
         return {
             "module": "tabulator",
@@ -278,7 +284,7 @@ def tabulator(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
             ],
         }
 
-    params = params or {}
+    params = dict(params or {})
     dispatch_map = {
         "tables_list": tabulator_tables_list,
         "table_create": tabulator_table_create,
@@ -294,11 +300,22 @@ def tabulator(action: Optional[str] = None, params: Optional[Dict[str, Any]] = N
         return format_error_response(f"Unknown tabulator action: {action}")
 
     try:
-        if getattr(func, "__code__", None) and func.__code__.co_flags & 0x80:
-            import asyncio
+        # Auto-infer bucket from navigation context when possible
+        if action in {
+            "tables_list",
+            "table_create",
+            "table_delete",
+            "table_rename",
+            "table_get",
+        } and not params.get("bucket_name") and isinstance(_context, NavigationContext):
+            inferred_bucket = get_context_bucket(_context)
+            if inferred_bucket:
+                params["bucket_name"] = inferred_bucket
 
-            return asyncio.get_event_loop().run_until_complete(func(**params))
-        return func(**params)
+        result = func(**params)
+        if inspect.isawaitable(result):
+            return await result
+        return result
     except Exception as exc:  # pragma: no cover - defensive
         logger.exception("Tabulator action %s failed", action)
         return format_error_response(f"Tabulator action failed: {exc}")

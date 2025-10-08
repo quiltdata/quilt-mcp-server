@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers curl-based testing for the core packaging actions: **browse** and **create**.
+This guide covers curl-based testing for the core packaging actions: **browse**, **create**, and **delete**.
 
 > **Note**: `discover` and `list` actions have been removed. Use `search.unified_search()` instead.
 
@@ -190,6 +190,53 @@ curl -s -X POST http://127.0.0.1:8001/mcp/ \
           "description": "My new package",
           "metadata": {"version": "1.0.0"},
           "dry_run": false
+        }
+      }
+    }
+  }' | python3 -m json.tool
+```
+
+### Delete Package (Requires Confirmation)
+Use a dry run first to verify which package will be removed, then add `confirm: true` to execute the deletion.
+
+```bash
+# Preview deletion
+curl -s -X POST http://127.0.0.1:8001/mcp/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $QUILT_TEST_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "name": "packaging",
+      "arguments": {
+        "action": "delete",
+        "params": {
+          "name": "your-bucket/your-package",
+          "bucket": "your-bucket",
+          "dry_run": true
+        }
+      }
+    }
+  }' | python3 -m json.tool
+
+# Execute deletion (irreversible)
+curl -s -X POST http://127.0.0.1:8001/mcp/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $QUILT_TEST_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 5,
+    "method": "tools/call",
+    "params": {
+      "name": "packaging",
+      "arguments": {
+        "action": "delete",
+        "params": {
+          "name": "your-bucket/your-package",
+          "bucket": "your-bucket",
+          "confirm": true
         }
       }
     }

@@ -129,6 +129,12 @@ class UnifiedSearchEngine:
         # Generate search result links and navigation context
         search_links = self._generate_search_result_links(query, scope, target, search_type, limit, offset)
         
+        total_results = len(truncated_results)
+        if object_total is not None:
+            total_results = object_total
+        elif package_total is not None:
+            total_results = package_total
+
         response = {
             "success": True,
             "query": query,
@@ -136,7 +142,7 @@ class UnifiedSearchEngine:
             "target": target,
             "search_type": search_type,
             "results": truncated_results,
-            "total_results": len(truncated_results),
+            "total_results": total_results,
             "limit": limit,
             "offset": offset,
             "has_more": len(truncated_results) == limit,  # Indicate if there might be more results
@@ -156,6 +162,14 @@ class UnifiedSearchEngine:
                 else None
             ),
         }
+
+        warnings: List[str] = []
+        if isinstance(raw_metadata, dict):
+            objects_meta = raw_metadata.get("objects")
+            if isinstance(objects_meta, dict) and objects_meta.get("warning"):
+                warnings.append(objects_meta["warning"])
+        if warnings:
+            response["warnings"] = warnings
 
         if extension_counter:
             sorted_exts = sorted(extension_counter.items(), key=lambda item: item[1], reverse=True)

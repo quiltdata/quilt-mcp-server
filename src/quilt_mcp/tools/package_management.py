@@ -437,7 +437,7 @@ def package_update_metadata(
                 s3_uris=[],
                 metadata=final_metadata,
                 message=f"Updated metadata for {package_name}",
-                copy_mode="none",
+                copy_mode="metadata",
                 flatten=True,
             )
         except Exception as exc:
