@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, Optional
 
 from ..clients import catalog as catalog_client
 from ..formatting import format_tabulator_results_as_table
@@ -321,6 +322,14 @@ async def tabulator(
                 "open_query_toggle",
             ],
         }
+
+    # Handle case where params is a JSON string instead of a dict
+    # This can happen when the MCP client/LLM serializes the params
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+        except json.JSONDecodeError as exc:
+            return format_error_response(f"Invalid JSON in params: {exc}")
 
     params = dict(params or {})
     dispatch_map = {

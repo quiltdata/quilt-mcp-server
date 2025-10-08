@@ -273,3 +273,74 @@ async def test_tabulator_open_query_toggle_requires_bool():
     result = await tabulator.tabulator_open_query_toggle("yes")
     assert result["success"] is False
     assert "boolean" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_tabulator_dispatcher_handles_json_string_params(monkeypatch):
+    """Test that the dispatcher can handle params as a JSON string (issue #207)."""
+    import json
+    
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
+    
+    def fake_list(**kwargs):
+        return {
+            "name": "test-bucket",
+            "tabulatorTables": [{"name": "table1", "config": "config: value"}],
+        }
+    
+    monkeypatch.setattr(
+        "quilt_mcp.clients.catalog.catalog_tabulator_tables_list",
+        fake_list,
+    )
+    
+    # Create params as a JSON string (simulating what the LLM/MCP client might do)
+    params_as_json_string = json.dumps({"bucket_name": "test-bucket"})
+    
+    with runtime_token("token"):
+        result = await tabulator.tabulator(
+            action="tables_list",
+            params=params_as_json_string,  # Pass as string instead of dict
+        )
+    
+    assert result["success"] is True
+    assert result["bucket_name"] == "test-bucket"
+    assert result["table_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_tabulator_dispatcher_handles_invalid_json_string():
+    """Test that invalid JSON in params returns a clear error."""
+    result = await tabulator.tabulator(
+        action="tables_list",
+        params='{"invalid json',  # Invalid JSON string
+    )
+    
+    assert result["success"] is False
+    assert "Invalid JSON in params" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_tabulator_dispatcher_still_handles_dict_params(monkeypatch):
+    """Test that normal dict params still work (backwards compatibility)."""
+    monkeypatch.setenv("QUILT_CATALOG_URL", "https://catalog.example.com")
+    
+    def fake_list(**kwargs):
+        return {
+            "name": "test-bucket",
+            "tabulatorTables": [{"name": "table1", "config": "config: value"}],
+        }
+    
+    monkeypatch.setattr(
+        "quilt_mcp.clients.catalog.catalog_tabulator_tables_list",
+        fake_list,
+    )
+    
+    with runtime_token("token"):
+        result = await tabulator.tabulator(
+            action="tables_list",
+            params={"bucket_name": "test-bucket"},  # Pass as dict (normal case)
+        )
+    
+    assert result["success"] is True
+    assert result["bucket_name"] == "test-bucket"
+    assert result["table_count"] == 1
