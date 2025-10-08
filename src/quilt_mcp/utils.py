@@ -8,11 +8,12 @@ import io
 import os
 import re
 import sys
-from typing import Any, Callable, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional, Tuple
 import logging
 from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
+import requests
 from starlette.requests import Request
 from fastmcp import FastMCP
 
@@ -85,6 +86,71 @@ def generate_signed_url(s3_uri: str, expiration: int = 3600) -> str | None:
         return None
 
 
+def fetch_catalog_session_for_request(timeout: Optional[float] = None) -> Tuple[boto3.Session, Dict[str, Any]]:
+    """Request temporary AWS credentials from the Quilt catalog for the active request.
+
+    Returns:
+        Tuple of (boto3.Session, metadata)
+    """
+    token = get_active_token()
+    if not token:
+        raise RuntimeError("Authorization token required to request catalog credentials")
+
+    catalog_url = resolve_catalog_url()
+    if not catalog_url:
+        raise RuntimeError("Catalog URL not configured")
+
+    url = f"{catalog_url.rstrip('/')}/api/auth/get_credentials"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "Quilt-MCP-Server/Stateless",
+    }
+    request_timeout = timeout if timeout is not None else float(os.getenv("QUILT_CREDENTIALS_TIMEOUT", "15"))
+
+    response = requests.get(url, headers=headers, timeout=request_timeout)
+    status_code = response.status_code
+    body_text = response.text.strip()
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        raise RuntimeError(f"Catalog credential request failed (status {status_code}): {body_text[:200]}") from exc
+
+    if not body_text:
+        raise RuntimeError("Catalog credential endpoint returned an empty response")
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError(f"Catalog credential endpoint returned non-JSON response: {body_text[:200]}") from exc
+
+    access_key = data.get("AccessKeyId")
+    secret_key = data.get("SecretAccessKey")
+    session_token = data.get("SessionToken")
+    if not access_key or not secret_key:
+        raise RuntimeError("Catalog get_credentials response missing access key or secret key")
+
+    region = (
+        data.get("Region")
+        or data.get("region")
+        or os.getenv("AWS_REGION")
+        or os.getenv("AWS_DEFAULT_REGION")
+        or "us-east-1"
+    )
+
+    session = boto3.Session(
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        aws_session_token=session_token,
+        region_name=region,
+    )
+
+    return session, {
+        "source": "catalog",
+        "expiration": data.get("Expiration"),
+    }
+
+
 def create_mcp_server() -> FastMCP:
     """Create and configure the FastMCP server instance."""
     return FastMCP("quilt-mcp-server")
@@ -101,6 +167,7 @@ def get_tool_modules() -> list[Any]:
         quilt_summary,
         search,
         athena_glue,
+        package_visualization,
         tabulator,
         workflow_orchestration,
         governance,
@@ -242,7 +309,32 @@ def _build_request_scoped_session() -> boto3.Session:
 
     auth_service = _get_bearer_auth_service()
     result = auth_service.authenticate_header(f"Bearer {token}")
-    return auth_service.build_boto3_session(result)
+
+    try:
+        return auth_service.build_boto3_session(result)
+    except Exception as exc:
+        try:
+            from .services.bearer_auth_service import JwtAuthError  # Local import to avoid circular dependency
+        except Exception:  # pragma: no cover - defensive, should never happen
+            JwtAuthError = None  # type: ignore
+
+        if JwtAuthError is not None and isinstance(exc, JwtAuthError) and getattr(exc, "code", "") == "missing_credentials":
+            logger.warning("JWT missing AWS credentials; attempting catalog credential fetch")
+            try:
+                session, metadata = fetch_catalog_session_for_request()
+                logger.info("Catalog-provided AWS credentials acquired (source=%s)", metadata.get("source", "catalog"))
+                return session
+            except Exception as catalog_exc:
+                logger.warning("Catalog credential fetch failed: %s; attempting ambient fallback", catalog_exc)
+            ambient_session = boto3.Session()
+            credentials = ambient_session.get_credentials()
+            if credentials is None:
+                raise RuntimeError(
+                    "Active JWT did not include AWS credentials and neither catalog-supplied nor ambient AWS credentials are available"
+                ) from exc
+            logger.info("Ambient AWS credentials in use due to catalog credential gap")
+            return ambient_session
+        raise
 
 
 def get_s3_client(_use_quilt_auth: bool = True):
