@@ -86,7 +86,7 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
     POLICY ACTIONS (use these to define bucket access permissions):
     - policies_list: List all policies in the catalog
     - policy_get: Get details about a specific policy (requires policy_id)
-    - policy_create_managed: **USE THIS to create bucket access policies** (requires name, permissions list)
+    - policy_create_managed: **USE THIS to create bucket access policies** (requires title, permissions list)
     - policy_create_unmanaged: Create policy from existing IAM policy ARN
     - policy_update_managed: Update an existing managed policy
     - policy_update_unmanaged: Update an existing unmanaged policy
@@ -137,8 +137,7 @@ async def admin(action: Optional[str] = None, params: Optional[Dict[str, Any]] =
         # === POLICY MANAGEMENT ===
         # Create a managed policy with bucket permissions
         result = admin(action="policy_create_managed", params={
-            "name": "DataSciencePolicy",
-            "title": "Data Science Team Access",
+            "title": "DataSciencePolicy",
             "permissions": [
                 {"bucket_name": "my-data-bucket", "level": "READ_WRITE"},
                 {"bucket_name": "shared-bucket", "level": "READ"}

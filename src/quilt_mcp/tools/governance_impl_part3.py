@@ -25,7 +25,8 @@ def _build_permissions_input(permissions: List[Dict[str, Any]]) -> List[Dict[str
             raise ValueError("Each permission must include a bucket_name value")
         if level not in VALID_PERMISSION_LEVELS:
             raise ValueError("Permission level must be READ or READ_WRITE")
-        converted.append({"bucketName": bucket_name, "level": level})
+        # GraphQL schema uses "bucket", not "bucketName"
+        converted.append({"bucket": bucket_name, "level": level})
     if not converted:
         raise ValueError("Managed policies require at least one permission entry")
     return converted
@@ -157,12 +158,19 @@ async def admin_policy_get(policy_id: str) -> Dict[str, Any]:
 
 
 async def admin_policy_create_managed(
-    name: str,
+    title: str,
     permissions: Optional[List[Dict[str, Any]]] = None,
-    title: Optional[str] = None,
+    roles: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    if not name or not name.strip():
-        return format_error_response("Policy name cannot be empty")
+    """Create a managed policy with bucket permissions.
+    
+    Args:
+        title: Policy title (required by GraphQL schema)
+        permissions: List of bucket permissions (optional, defaults to empty)
+        roles: List of role IDs to assign this policy to (optional, defaults to empty)
+    """
+    if not title or not title.strip():
+        return format_error_response("Policy title cannot be empty")
 
     try:
         permissions_input = _build_permissions_input(permissions or [])
@@ -174,12 +182,12 @@ async def admin_policy_create_managed(
     except ValueError as exc:
         return format_error_response(str(exc))
 
+    # GraphQL schema requires: title, permissions, roles (all required!)
     input_payload: Dict[str, Any] = {
-        "name": name.strip(),
+        "title": title.strip(),
         "permissions": permissions_input,
+        "roles": roles or [],  # Empty array if not provided
     }
-    if title:
-        input_payload["title"] = title
 
     mutation = """
     mutation PolicyCreateManaged($input: ManagedPolicyInput!) {
@@ -187,9 +195,9 @@ async def admin_policy_create_managed(
         __typename
         ... on Policy {
           id
-          name
           arn
           title
+          managed
           permissions {
             bucket { name }
             level
@@ -202,7 +210,6 @@ async def admin_policy_create_managed(
         ... on OperationError {
           __typename
           message
-          name
         }
       }
     }
