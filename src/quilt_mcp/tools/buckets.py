@@ -17,7 +17,7 @@ from ..runtime import get_active_token
 from ..utils import (
     format_error_response,
     resolve_catalog_url,
-    fetch_catalog_session_for_request,
+    get_s3_client,
 )
 from ..types.navigation import (
     NavigationContext,
@@ -58,41 +58,43 @@ def _aws_credentials_unavailable(action_name: str, s3_uri_or_bucket: str = "") -
         "requested_resource": s3_uri_or_bucket or "unknown",
     }
 def _build_s3_client_for_upload(bucket_name: str) -> Tuple[Optional[Any], Dict[str, Any]]:
-    """Build an S3 client using catalog-provided credentials with ambient fallback."""
+    """Build an S3 client using JWT-embedded credentials first, with fallback to ambient."""
 
     metadata: Dict[str, Any] = {"bucket": bucket_name}
     attempts: list[str] = []
-    session: Optional[boto3.Session] = None
 
+    # Try JWT-embedded credentials first (via get_s3_client)
+    # This properly extracts AWS credentials from the JWT token
     try:
-        session, session_meta = fetch_catalog_session_for_request()
-        metadata.update(session_meta)
-    except Exception as exc:  # pragma: no cover - catalog may be unreachable in tests
-        attempts.append(f"catalog_credentials: {exc}")
+        client = get_s3_client()
+        metadata["source"] = "jwt"
+        return client, metadata
+    except Exception as jwt_exc:
+        attempts.append(f"jwt_credentials: {jwt_exc}")
+        logger.debug("JWT credential extraction failed, falling back to ambient: %s", jwt_exc)
 
-    if session is None:
-        try:
-            session = boto3.Session()
-            credentials = session.get_credentials()
-            if credentials is None:
-                raise RuntimeError("No AWS credentials available in the default boto3 session")
-            metadata.setdefault("source", "ambient")
-        except Exception as exc:  # pragma: no cover - only hit when no ambient creds
-            attempts.append(f"ambient_credentials: {exc}")
+    # Fall back to ambient credentials (ECS task role, environment, etc.)
+    try:
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        if credentials is None:
             metadata["credential_attempts"] = attempts
             return None, metadata
-
-    proxy_url = os.getenv("QUILT_S3_PROXY_URL") or os.getenv("S3_PROXY_URL")
-    client_kwargs: Dict[str, Any] = {}
-    if proxy_url:
-        client_kwargs["endpoint_url"] = proxy_url.rstrip("/")
-        metadata["proxy_endpoint"] = proxy_url.rstrip("/")
-
-    if attempts:
+        
+        proxy_url = os.getenv("QUILT_S3_PROXY_URL") or os.getenv("S3_PROXY_URL")
+        client_kwargs: Dict[str, Any] = {}
+        if proxy_url:
+            client_kwargs["endpoint_url"] = proxy_url.rstrip("/")
+            metadata["proxy_endpoint"] = proxy_url.rstrip("/")
+        
+        client = session.client("s3", config=Config(signature_version="s3v4"), **client_kwargs)
+        metadata["source"] = "ambient"
         metadata["credential_attempts"] = attempts
-
-    client = session.client("s3", config=Config(signature_version="s3v4"), **client_kwargs)
-    return client, metadata
+        return client, metadata
+    except Exception as ambient_exc:
+        attempts.append(f"ambient_credentials: {ambient_exc}")
+        metadata["credential_attempts"] = attempts
+        return None, metadata
 
 
 def _prepare_upload_body(item: Dict[str, Any]) -> bytes:
