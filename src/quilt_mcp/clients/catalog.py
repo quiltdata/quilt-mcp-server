@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 import requests
 
@@ -342,6 +342,56 @@ def catalog_tabulator_open_query_set(
         raise RuntimeError("Invalid tabulator open query response")
 
     return bool(result.get("tabulatorOpenQuery"))
+
+
+def catalog_tabulator_query(
+    *,
+    registry_url: str,
+    bucket_name: str,
+    table_name: str,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+    filters: Optional[Mapping[str, Any]] = None,
+    order_by: Optional[str] = None,
+    selects: Optional[Sequence[str]] = None,
+    auth_token: Optional[str],
+    session: Optional[requests.Session] = None,
+) -> Dict[str, Any]:
+    if not bucket_name:
+        raise ValueError("Bucket name is required for tabulator queries")
+    if not table_name:
+        raise ValueError("Table name is required for tabulator queries")
+
+    url = registry_url.rstrip("/") + "/api/tabulator/query"
+
+    payload: Dict[str, Any] = {
+        "bucket": bucket_name,
+        "table": table_name,
+    }
+
+    if limit is not None:
+        payload["limit"] = int(limit)
+    if offset is not None:
+        payload["offset"] = max(0, int(offset))
+    if filters:
+        payload["filters"] = filters
+    if order_by:
+        payload["order_by"] = order_by
+    if selects:
+        payload["selects"] = list(selects)
+
+    data = catalog_rest_request(
+        method="POST",
+        url=url,
+        auth_token=auth_token,
+        json_body=payload,
+        session=session,
+    )
+
+    if not isinstance(data, dict):
+        raise RuntimeError("Invalid tabulator query response")
+
+    return data
 
 
 def catalog_packages_list(

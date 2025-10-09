@@ -1022,24 +1022,61 @@ result = await mcp_client.call_tool(\"tabulator_tables_list\", {
 
 #### `tabulator_table_create`
 
-Create new Tabulator tables for aggregating package data.
+Create or update Tabulator tables by supplying the YAML configuration used by Quilt.
 
 ```python
-result = await mcp_client.call_tool(\"tabulator_table_create\", {
-    \"bucket_name\": \"quilt-example\",
-    \"table_name\": \"rna_seq_results\",
-    \"schema\": [
-        {\"name\": \"sample_id\", \"type\": \"STRING\"},
-        {\"name\": \"gene_id\", \"type\": \"STRING\"},
-        {\"name\": \"expression_level\", \"type\": \"FLOAT\"},
-        {\"name\": \"p_value\", \"type\": \"FLOAT\"}
-    ],
-    \"package_pattern\": \"genomics/rna-seq-.*\",
-    \"logical_key_pattern\": \"results\\\\.csv$\",
-    \"parser_format\": \"csv\",
-    \"parser_header\": true,
-    \"description\": \"RNA-seq analysis results across all studies\"
+yaml_config = """
+parser:
+  format: csv
+  header: true
+  delimiter: "\t"
+schema:
+  - name: sample_id
+    type: STRING
+  - name: gene
+    type: STRING
+  - name: tpm
+    type: FLOAT
+source:
+  type: quilt-packages
+  package_name: ^nextflow/(?P<study_id>.+)$
+  logical_key: quantification/genes/(?P<sample_id>[^/]+)_genes\.sf
+"""
+
+result = await mcp_client.call_tool("tabulator_table_create", {
+    "bucket_name": "nextflowtower",
+    "table_name": "sail-nextflow",
+    "config_yaml": yaml_config,
 })
+```
+
+#### `tabulator_table_query`
+
+Run a tabulator query and return formatted rows. Supports optional filters, column selection, and pagination controls (`limit`, `offset`).
+
+```python
+result = await mcp_client.call_tool("tabulator_table_query", {
+    "bucket_name": "nextflowtower",
+    "table_name": "sail-nextflow",
+    "limit": 20,
+    "filters": {"sample_id": "22008R-31-01_S28"}
+})
+
+print(result["formatted_table"])
+```
+
+#### `tabulator_table_preview`
+
+Preview the first N rows (default 10) of a tabulator table.
+
+```python
+preview = await mcp_client.call_tool("tabulator_table_preview", {
+    "bucket_name": "nextflowtower",
+    "table_name": "sail-nextflow",
+    "limit": 5
+})
+
+print(preview["preview_table"])
 ```
 
 #### `tabulator_open_query_status` / `tabulator_open_query_toggle`

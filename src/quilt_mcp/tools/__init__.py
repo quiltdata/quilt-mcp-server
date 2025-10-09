@@ -1,55 +1,14 @@
-"""MCP tools for Quilt data access.
+"""Tool package with lazy sub-module loading."""
 
-This package contains all the MCP tool implementations organized by functionality:
-- auth: Authentication and filesystem checks
-- buckets: S3 bucket operations
-- packages: Package browsing and search
-- package_ops: Package creation, update, and deletion
-- s3_package: S3-to-package creation functionality
-- permissions: AWS permissions discovery and bucket recommendations
-- unified_package: Simplified, intelligent package creation interface
-- metadata_templates: Metadata templates and validation utilities
-- package_management: Enhanced package management with better UX
-- athena_glue: AWS Athena queries and Glue Data Catalog discovery
-- tabulator: Quilt tabulator table management for SQL querying across packages
+from __future__ import annotations
 
-These tools are pure functions that are registered by the tools module.
-
-Example usage:
-    from quilt_mcp.tools import auth, buckets, packaging
-
-    # Use auth tools
-    status = auth.auth_status()
-
-    # Use bucket tools
-    objects = buckets.bucket_objects_list("my-bucket")
-
-    # Use packaging tools
-    pkg_list = packaging.packaging(action="list")
-"""
-
-from . import (
-    auth,
-    buckets,
-    packaging,  # New unified packaging module (includes metadata_templates)
-    permissions,
-    metadata_examples,
-    quilt_summary,
-    graphql,
-    search,
-    athena_glue,
-    tabulator,
-    workflow_orchestration,
-    package_visualization,
-    governance,
-)
-
-# error_recovery temporarily disabled due to Callable parameter issues
+import importlib
+from typing import Any
 
 __all__ = [
     "auth",
     "buckets",
-    "packaging",  # New unified packaging module (includes metadata_templates)
+    "packaging",
     "permissions",
     "metadata_examples",
     "quilt_summary",
@@ -61,3 +20,33 @@ __all__ = [
     "package_visualization",
     "governance",
 ]
+
+_LAZY_IMPORTS = {
+    "auth": ".auth",
+    "buckets": ".buckets",
+    "packaging": ".packaging",
+    "permissions": ".permissions",
+    "metadata_examples": ".metadata_examples",
+    "quilt_summary": ".quilt_summary",
+    "graphql": ".graphql",
+    "search": ".search",
+    "athena_glue": ".athena_glue",
+    "tabulator": ".tabulator",
+    "workflow_orchestration": ".workflow_orchestration",
+    "package_visualization": ".package_visualization",
+    "governance": ".governance",
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _LAZY_IMPORTS:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+    module = importlib.import_module(_LAZY_IMPORTS[name], __name__)
+    globals()[name] = module
+    return module
+
+
+def __dir__() -> list[str]:
+    dynamic = [attr for attr in globals() if not attr.startswith("_")]
+    return sorted(set(__all__ + dynamic))

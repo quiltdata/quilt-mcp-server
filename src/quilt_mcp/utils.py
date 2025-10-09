@@ -18,6 +18,7 @@ from starlette.requests import Request
 from fastmcp import FastMCP
 
 from .runtime import get_active_token, request_context
+from .proxy import setup_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +415,11 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     mcp = create_mcp_server()
     tools_count = register_tools(mcp, verbose=verbose)
 
+    try:
+        setup_proxy(mcp)
+    except Exception as exc:  # pragma: no cover - proxy optional at startup
+        logger.warning("Failed to configure proxy routing: %s", exc)
+
     # Register health check endpoint for HTTP transport
     transport = os.environ.get("FASTMCP_TRANSPORT", "stdio")
     if transport in ["http", "sse", "streamable-http"]:
@@ -477,7 +483,16 @@ def _wrap_http_app(mcp: FastMCP):
             session_id=request.headers.get("X-Session-ID"),
         )
 
-        with request_context(token, {"path": str(request.url.path)}):
+        metadata = {"path": str(request.url.path)}
+        session_id = request.headers.get("X-Session-ID")
+        if session_id:
+            metadata["session_id"] = session_id
+
+        benchling_key = request.headers.get("X-Benchling-API-Key")
+        if benchling_key:
+            metadata["benchling_api_key"] = benchling_key
+
+        with request_context(token, metadata):
             response = await call_next(request)
         return response
 

@@ -529,3 +529,46 @@ NEVER proactively create documentation files (*.md) or README files. Only create
 - Unified search auto-routing now defaults ambiguous queries (e.g., "glioblastoma") to the package path; update tests to `await search.search(...)` and patch async helpers with `AsyncMock` when stubbing `_unified_search`.
 - `EnterpriseGraphQLBackend._search_packages_global` paginates via `searchMorePackages`; use the returned `PackageSearchResponse`'s `total` and `next_cursor` to drive pagination-aware assertions or follow-up calls.
 - Metadata-only updates must call `catalog_package_update` with `copy_mode="metadata"` so the registry emits a new revision that preserves existing objects; see `test_metadata_update_*` for the regression harness.
+
+### Quilt Summary Multi-Format Notes (2025-10-09)
+
+- `quilt_summary.generate_multi_viz` depends on the new `MultiFormatVisualizationGenerator`; the action is exposed via `quilt_summary(action="generate_multi_viz", params=...)` and returns `visualizations`, `files`, and `quilt_summarize_entries` keys.
+- Legacy Matplotlib visualizations are now lazily imported. Tests that touch `generate_package_visualizations` should patch `quilt_mcp.tools.quilt_summary._ensure_matplotlib` or `generate_package_visualizations` itself to avoid importing heavy GUI backends.
+- Import-time dependencies inside `quilt_mcp` and `quilt_mcp.visualization` are lazy to prevent pandas/numpy from loading unless explicitly requested.
+- When running pytest locally, export `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` to keep third-party plugins from importing system-wide packages that require unavailable native libraries.
+
+### Tabulator Query Enhancements (2025-10-09)
+
+- `tabulator_table_query` and `tabulator_table_preview` actions now call the catalog `/api/tabulator/query` endpoint and return normalized row dictionaries with `formatted_table`/`preview_table` helpers.
+- `catalog_tabulator_query` handles limit/offset, filters, ordering, and column selection; patches should stub this helper instead of mocking admin tools.
+- Table formatting no longer relies on pandas—`format_as_table` works with plain lists/dicts, so avoid passing raw DataFrames unless you convert via `df.to_dict(orient="records")` in tests.
+
+### Bucket Filtering Fix (2025-10-09)
+
+- Package search bucket filtering was broken: the search wrapper passed `filters: {bucket: "name"}` (singular) but the GraphQL backend expected `filters: {buckets: ["name"]}` (plural, as a list).
+- **Fixed**: Updated `_search_packages_global` in `src/quilt_mcp/search/backends/graphql.py` to accept both `bucket` (singular string or list) and `buckets` (list) parameters, normalizing them to a list for the GraphQL query.
+- **Tests**: Added comprehensive tests in `tests/unit/test_bucket_filtering.py` covering singular, plural, and list variations.
+- **Impact**: Search results will now correctly filter to the requested bucket instead of returning all packages from all buckets.
+
+### JWT Credential Extraction Regression (2025-10-09)
+
+- **CRITICAL BUG**: Commit `1621fb7` (Oct 8) introduced regression where `_build_s3_client_for_upload()` in `buckets.py` used wrong credential function.
+- **Symptom**: Users with write permissions got AccessDenied errors; ECS task role (read-only) was used instead of JWT credentials.
+- **Root Cause**: Refactored to use `fetch_catalog_session_for_request()` which skips JWT extraction and goes directly to `/api/auth/get_credentials` endpoint (returns HTML on demo.quiltdata.com).
+- **Fix (v0.6.75)**: Changed to use `get_s3_client()` which properly extracts AWS credentials from JWT token first, then falls back to ambient credentials.
+- **Credential Chain (Correct)**: JWT → Ambient (ECS task role fallback)
+- **Impact**: Package creation and all S3 write operations now work correctly with user's actual permissions.
+- **Key Learning**: ALWAYS use `get_s3_client()` for S3 operations requiring user credentials, NEVER use `fetch_catalog_session_for_request()` as the primary method.
+
+### Tabulator Documentation Enhancement (2025-10-09)
+
+- Enhanced `tabulator` tool docstring with comprehensive documentation based on official Quilt docs ([https://docs.quilt.bio/quilt-platform-administrator/advanced/tabulator](https://docs.quilt.bio/quilt-platform-administrator/advanced/tabulator)).
+- Added detailed YAML configuration examples with named capture groups, parser settings, and error handling.
+- Documented common configuration errors with causes and fixes:
+  - "INVALID_FUNCTION_ARGUMENT: undefined group option" → Lambda DataFusion version issue
+  - Schema mismatch errors → Column name requirements and header settings
+  - Named capture group syntax → `(?P<column_name>pattern)` format
+  - Memory/size limits → File size constraints and `continue_on_error` option
+- Included SQL query examples for accessing Tabulator tables via Athena.
+- Added auto-added columns documentation: `$pkg_name`, `$logical_key`, `$physical_key`, `$top_hash`, `$issue`.
+- Key takeaway: When users report Tabulator errors, check if it's a DataFusion version issue (requires Quilt support) or a configuration problem (can be fixed with better YAML).

@@ -6,15 +6,15 @@ with a focus on making tabular data more readable and user-friendly.
 
 from __future__ import annotations
 
-import pandas as pd
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence
 import logging
+from itertools import islice
 
 logger = logging.getLogger(__name__)
 
 
 def format_as_table(
-    data: pd.DataFrame | List[Dict[str, Any]] | Dict[str, Any],
+    data: Any,
     max_width: int = 120,
     max_rows: Optional[int] = None,
 ) -> str:
@@ -29,52 +29,20 @@ def format_as_table(
         Formatted table string
     """
     try:
-        # Convert input to DataFrame
-        if isinstance(data, pd.DataFrame):
-            df = data
-        elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-            df = pd.DataFrame(data)
-        elif isinstance(data, dict):
-            # Handle single record or nested structure
-            if all(isinstance(v, (str, int, float, bool, type(None))) for v in data.values()):
-                # Single record
-                df = pd.DataFrame([data])
-            else:
-                # Try to flatten or convert to records
-                df = pd.DataFrame(data)
-        else:
-            return str(data)  # Fallback to string representation
+        rows, columns = _normalize_tabular_data(data)
+        if not rows or not columns:
+            return str(data)
 
-        if df.empty:
-            return "No data to display"
-
-        # Limit rows if specified
-        if max_rows and len(df) > max_rows:
-            df_display = df.head(max_rows)
-            truncated_msg = f"\n... ({len(df) - max_rows} more rows)"
+        if max_rows is not None and len(rows) > max_rows:
+            display_rows = list(islice(rows, max_rows))
+            truncated_msg = f"\n... ({len(rows) - max_rows} more rows)"
         else:
-            df_display = df
+            display_rows = rows
             truncated_msg = ""
 
-        # Format the table with pandas styling
-        try:
-            # Create a copy of the dataframe and sanitize string values
-            df_safe = df_display.copy()
-            for col in df_safe.columns:
-                if df_safe[col].dtype == "object":  # String columns
-                    df_safe[col] = df_safe[col].astype(str).str.replace("%", "%%", regex=False)
+        formatted_rows = _stringify_rows(display_rows, columns)
+        table_str = _render_ascii_table(formatted_rows, columns, max_width=max_width)
 
-            table_str = df_safe.to_string(index=False, max_cols=None, max_colwidth=30, justify="left")
-        except (ValueError, TypeError) as e:
-            # Handle formatting issues with special characters
-            logger.warning(f"Table formatting failed, using simple representation: {e}")
-            try:
-                # Fallback: convert to simple string representation
-                table_str = str(df_display.values.tolist())
-            except Exception:
-                table_str = f"[Data display error: {len(df_display)} rows x {len(df_display.columns)} columns]"
-
-        # Add truncation message if needed
         if truncated_msg:
             table_str += truncated_msg
 
@@ -103,22 +71,112 @@ def should_use_table_format(data: Any, output_format: str = "auto", min_rows: in
         return False
 
     try:
-        # Check if data is tabular
-        if isinstance(data, pd.DataFrame):
-            return len(data) >= min_rows and len(data.columns) <= max_cols
-        elif isinstance(data, list) and len(data) >= min_rows:
-            if all(isinstance(item, dict) for item in data):
-                # Check if all dicts have similar structure
-                if len(data) > 0:
-                    first_keys = set(data[0].keys())
-                    return len(first_keys) <= max_cols and all(
-                        set(item.keys()) == first_keys for item in data[:5]
-                    )  # Check first 5
+        rows, columns = _normalize_tabular_data(data)
+        if not rows or not columns:
+            return False
 
-        return False
+        if len(rows) < min_rows or len(columns) > max_cols:
+            return False
+
+        return True
 
     except Exception:
         return False
+
+
+def _normalize_tabular_data(data: Any) -> tuple[List[Dict[str, Any]], List[str]]:
+    """
+    Convert supported data structures into a list of dict rows and column names.
+    """
+    # Handle objects that look like DataFrames without importing pandas directly
+    if hasattr(data, "to_dict") and callable(getattr(data, "to_dict")):
+        try:
+            records = data.to_dict(orient="records")  # type: ignore[call-arg]
+            columns = list(getattr(data, "columns", [])) or (list(records[0].keys()) if records else [])
+            return _ensure_record_dicts(records, columns), columns
+        except Exception:
+            pass
+
+    if isinstance(data, list):
+        if len(data) == 0:
+            return [], []
+
+        if all(isinstance(item, dict) for item in data):
+            columns = list(data[0].keys())
+            return _ensure_record_dicts(data, columns), columns
+
+        if all(isinstance(item, (list, tuple)) for item in data):
+            columns = [f"col_{index+1}" for index in range(len(data[0]))]
+            records = [dict(zip(columns, row)) for row in data]
+            return records, columns
+
+    if isinstance(data, dict):
+        columns = list(data.keys())
+        return [dict(data)], columns
+
+    return [], []
+
+
+def _ensure_record_dicts(rows: Sequence[Dict[str, Any]], columns: List[str]) -> List[Dict[str, Any]]:
+    """
+    Ensure all rows are dictionaries with consistent keys.
+    """
+    normalized: List[Dict[str, Any]] = []
+    for row in rows:
+        normalized.append({col: row.get(col) for col in columns})
+    return normalized
+
+
+def _stringify_rows(rows: List[Dict[str, Any]], columns: List[str]) -> List[List[str]]:
+    """Convert rows into string matrix for rendering."""
+    matrix: List[List[str]] = []
+    for row in rows:
+        matrix.append([_stringify_cell(row.get(col)) for col in columns])
+    return matrix
+
+
+def _stringify_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return str(value)
+
+
+def _render_ascii_table(rows: List[List[str]], columns: List[str], max_width: int) -> str:
+    if not rows:
+        return "No data to display"
+
+    col_widths = [len(col) for col in columns]
+    for row in rows:
+        for idx, cell in enumerate(row):
+            col_widths[idx] = max(col_widths[idx], len(cell))
+
+    total_width = sum(col_widths) + 3 * (len(columns) - 1)
+    if total_width > max_width:
+        # Compute maximum width per column with a reasonable minimum
+        available = max_width - 3 * (len(columns) - 1)
+        max_col_width = max(8, available // len(columns))
+        col_widths = [min(width, max_col_width) for width in col_widths]
+        rows = [
+            [
+                cell if len(cell) <= col_widths[idx] else cell[: col_widths[idx] - 1] + "…"
+                for idx, cell in enumerate(row)
+            ]
+            for row in rows
+        ]
+        columns = [
+            col if len(col) <= col_widths[idx] else col[: col_widths[idx] - 1] + "…"
+            for idx, col in enumerate(columns)
+        ]
+
+    header = " | ".join(col.ljust(col_widths[idx]) for idx, col in enumerate(columns))
+    separator = "-+-".join("-" * col_widths[idx] for idx in range(len(columns)))
+    body_lines = [
+        " | ".join(cell.ljust(col_widths[idx]) for idx, cell in enumerate(row)) for row in rows
+    ]
+
+    return "\n".join([header, separator, *body_lines])
 
 
 def enhance_result_with_table_format(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -181,11 +239,16 @@ def format_athena_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
         # If it's CSV format, convert to table
         if isinstance(data, str) and result.get("format") == "csv":
             try:
-                # Parse CSV string back to DataFrame for table formatting
                 import io
 
+                try:
+                    import pandas as pd  # type: ignore
+                except Exception:
+                    logger.warning("pandas not available; displaying raw CSV string")
+                    return result
+
                 df = pd.read_csv(io.StringIO(data))
-                table_str = format_as_table(df)
+                table_str = format_as_table(df.to_dict(orient="records"))
                 result["formatted_data_table"] = table_str
                 result["display_format"] = "table"
             except Exception as e:
@@ -307,5 +370,14 @@ def format_tabulator_results_as_table(result: Dict[str, Any]) -> Dict[str, Any]:
             table_str = format_as_table(result["tables"])
             result["tables_table"] = table_str
             result["display_format"] = "table"
+
+    # Format query rows
+    if "rows" in result and isinstance(result["rows"], list):
+        if should_use_table_format(result["rows"]):
+            result["formatted_table"] = format_as_table(result["rows"])
+            result.setdefault("display_format", "table")
+
+    if "preview" in result and result.get("preview") and "formatted_table" in result:
+        result.setdefault("preview_table", result["formatted_table"])
 
     return result

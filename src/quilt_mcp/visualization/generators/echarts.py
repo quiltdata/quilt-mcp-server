@@ -5,16 +5,15 @@ This module generates ECharts chart configurations for various data types
 including bar charts, line charts, scatter plots, and heatmaps.
 """
 
-import pandas as pd
-from typing import Dict, List, Any, Optional
-import json
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
 class EChartsGenerator:
     """Generates ECharts chart configurations for data visualization."""
 
-    def __init__(self):
-        """Initialize the ECharts generator."""
+    def __init__(self) -> None:
         self.default_colors = [
             "#1f77b4",
             "#ff7f0e",
@@ -28,43 +27,163 @@ class EChartsGenerator:
             "#17becf",
         ]
 
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _create_empty_chart(self, chart_type: str) -> Dict[str, Any]:
+        """Return a placeholder chart when no data is available."""
+        return {
+            "title": {
+                "text": f"{chart_type} - No Data Available",
+                "left": "center",
+                "textStyle": {"fontSize": 16, "fontWeight": "bold", "color": "#999"},
+            },
+            "graphic": [
+                {
+                    "type": "text",
+                    "left": "center",
+                    "top": "middle",
+                    "style": {
+                        "text": "No data available for visualization",
+                        "fontSize": 14,
+                        "fill": "#999",
+                    },
+                }
+            ],
+        }
+
+    def _to_records(
+        self,
+        data: Any,
+        required_fields: Optional[Sequence[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Convert common tabular structures into a list of dictionaries.
+
+        Supports:
+        - list[dict]
+        - dict -> single record
+        - objects with to_dict() (e.g. pandas DataFrame / Series)
+        """
+        if data is None:
+            return []
+
+        records: List[Dict[str, Any]]
+        if isinstance(data, list):
+            records = [dict(row) for row in data]
+        elif isinstance(data, dict):
+            records = [dict(data)]
+        elif hasattr(data, "to_dict"):
+            to_dict = getattr(data, "to_dict")
+            try:
+                converted = to_dict(orient="records")
+            except TypeError:
+                converted = to_dict("records")
+            records = [dict(row) for row in converted]
+        else:
+            raise TypeError("Unsupported data type for ECharts generation")
+
+        if required_fields:
+            filtered: List[Dict[str, Any]] = []
+            for record in records:
+                if all(field in record and record[field] is not None for field in required_fields):
+                    filtered.append(record)
+            return filtered
+        return records
+
+    def _aggregate_kv(
+        self,
+        records: Iterable[Dict[str, Any]],
+        key_field: str,
+        value_field: str,
+    ) -> List[Tuple[Any, float]]:
+        totals: Dict[Any, float] = {}
+        for record in records:
+            key = record.get(key_field)
+            if key is None:
+                continue
+            try:
+                value = float(record.get(value_field, 0) or 0)
+            except (TypeError, ValueError):
+                continue
+            totals[key] = totals.get(key, 0.0) + value
+        return sorted(totals.items(), key=lambda item: item[1], reverse=True)
+
+    def _limit(self, items: Sequence[Any], limit: int) -> List[Any]:
+        return list(items[:limit]) if len(items) > limit else list(items)
+
+    @staticmethod
+    def _format_axis_value(value: Any) -> Any:
+        """Format axis values to be ECharts-friendly."""
+        if value is None:
+            return ""
+        if isinstance(value, (int, float)):
+            return value
+        return str(value)
+
+    def _coerce_expression_data(
+        self,
+        gene_data: Any,
+        samples: Sequence[str],
+    ) -> List[Dict[str, Any]]:
+        if gene_data is None:
+            return []
+
+        if isinstance(gene_data, dict):
+            iterable = gene_data.items()
+        elif isinstance(gene_data, list):
+            iterable = [
+                (row.get("gene") or row.get("name"), {sample: row.get(sample) for sample in samples})
+                for row in gene_data
+            ]
+        elif hasattr(gene_data, "to_dict"):
+            try:
+                converted = gene_data.to_dict(orient="index")
+            except TypeError:
+                converted = gene_data.to_dict("index")
+            iterable = converted.items()
+        else:
+            return []
+
+        result: List[Dict[str, Any]] = []
+        for gene, values in iterable:
+            if gene is None:
+                continue
+            value_map: Dict[str, float] = {}
+            if isinstance(values, dict):
+                for sample in samples:
+                    raw = values.get(sample, 0)
+                    try:
+                        value_map[sample] = float(raw or 0)
+                    except (TypeError, ValueError):
+                        value_map[sample] = 0.0
+            result.append({"gene": str(gene), "values": value_map})
+        return result
+
+    # ------------------------------------------------------------------
+    # Chart creation
+    # ------------------------------------------------------------------
     def create_bar_chart(
         self,
-        data: pd.DataFrame,
+        data: Any,
         categories: str,
         values: str,
         title: Optional[str] = None,
         color_scheme: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a bar chart configuration.
-
-        Args:
-            data: Pandas DataFrame with data
-            categories: Column name for categories
-            values: Column name for values
-            title: Chart title
-            color_scheme: List of colors for bars
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if data is None or data.empty:
+        records = self._to_records(data, required_fields=[categories, values])
+        if not records:
             return self._create_empty_chart("Bar Chart")
 
-        # Prepare data
-        chart_data = data.groupby(categories)[values].sum().reset_index()
-        chart_data = chart_data.sort_values(values, ascending=False)
+        aggregated = self._aggregate_kv(records, categories, values)
+        if not aggregated:
+            return self._create_empty_chart("Bar Chart")
 
-        # Limit to top 20 categories for readability
-        if len(chart_data) > 20:
-            chart_data = chart_data.head(20)
+        limited = self._limit(aggregated, 20)
+        categories_list = [str(item[0]) for item in limited]
+        values_list = [item[1] for item in limited]
 
-        categories_list = chart_data[categories].tolist()
-        values_list = chart_data[values].tolist()
-
-        # Create chart configuration
-        config = {
+        return {
             "title": {
                 "text": title or f"{values} by {categories}",
                 "left": "center",
@@ -82,51 +201,48 @@ class EChartsGenerator:
                     "name": values,
                     "type": "bar",
                     "data": values_list,
-                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
+                    "itemStyle": {"color": (color_scheme or self.default_colors)[0]},
                     "barWidth": "60%",
                 }
             ],
             "grid": {"left": "10%", "right": "10%", "bottom": "20%"},
         }
 
-        return config
-
     def create_line_chart(
         self,
-        data: pd.DataFrame,
+        data: Any,
         x_col: str,
         y_col: str,
         title: Optional[str] = None,
         color_scheme: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a line chart configuration.
-
-        Args:
-            data: Pandas DataFrame with data
-            x_col: Column name for x-axis
-            y_col: Column name for y-axis
-            title: Chart title
-            color_scheme: List of colors for lines
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if data is None or data.empty:
+        records = self._to_records(data, required_fields=[x_col, y_col])
+        if not records:
             return self._create_empty_chart("Line Chart")
 
-        # Prepare data
-        chart_data = data.sort_values(x_col)
+        filtered: List[Tuple[Any, float]] = []
+        for record in records:
+            x_value = record.get(x_col)
+            y_value = record.get(y_col)
+            try:
+                y_numeric = float(y_value)
+            except (TypeError, ValueError):
+                continue
+            filtered.append((x_value, y_numeric))
 
-        # Limit data points for performance
-        if len(chart_data) > 1000:
-            chart_data = chart_data.sample(n=1000).sort_values(x_col)
+        if not filtered:
+            return self._create_empty_chart("Line Chart")
 
-        x_values = chart_data[x_col].tolist()
-        y_values = chart_data[y_col].tolist()
+        try:
+            filtered.sort(key=lambda item: item[0])
+        except TypeError:
+            filtered.sort(key=lambda item: str(item[0]))
 
-        # Create chart configuration
-        config = {
+        limited = self._limit(filtered, 1000)
+        x_values = [self._format_axis_value(item[0]) for item in limited]
+        y_values = [item[1] for item in limited]
+
+        return {
             "title": {
                 "text": title or f"{y_col} over {x_col}",
                 "left": "center",
@@ -144,7 +260,7 @@ class EChartsGenerator:
                     "name": y_col,
                     "type": "line",
                     "data": y_values,
-                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
+                    "itemStyle": {"color": (color_scheme or self.default_colors)[0]},
                     "lineStyle": {"width": 2},
                     "symbol": "circle",
                     "symbolSize": 4,
@@ -153,47 +269,27 @@ class EChartsGenerator:
             "grid": {"left": "10%", "right": "10%", "bottom": "15%"},
         }
 
-        return config
-
     def create_scatter_plot(
         self,
-        data: pd.DataFrame,
+        data: Any,
         x_col: str,
         y_col: str,
         title: Optional[str] = None,
         color_scheme: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a scatter plot configuration.
-
-        Args:
-            data: Pandas DataFrame with data
-            x_col: Column name for x-axis
-            y_col: Column name for y-axis
-            title: Chart title
-            color_scheme: List of colors for points
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if data is None or data.empty:
+        records = self._to_records(data, required_fields=[x_col, y_col])
+        if not records:
             return self._create_empty_chart("Scatter Plot")
 
-        # Prepare data
-        chart_data = data.dropna(subset=[x_col, y_col])
+        scatter_data: List[Tuple[Any, Any]] = []
+        for record in records:
+            scatter_data.append((record.get(x_col), record.get(y_col)))
 
-        # Limit data points for performance
-        if len(chart_data) > 2000:
-            chart_data = chart_data.sample(n=2000)
+        limited = self._limit(scatter_data, 2000)
+        if not limited:
+            return self._create_empty_chart("Scatter Plot")
 
-        x_values = chart_data[x_col].tolist()
-        y_values = chart_data[y_col].tolist()
-
-        # Create scatter data
-        scatter_data = list(zip(x_values, y_values))
-
-        # Create chart configuration
-        config = {
+        return {
             "title": {
                 "text": title or f"{y_col} vs {x_col}",
                 "left": "center",
@@ -209,69 +305,54 @@ class EChartsGenerator:
                 {
                     "name": f"{y_col} vs {x_col}",
                     "type": "scatter",
-                    "data": scatter_data,
-                    "itemStyle": {"color": (color_scheme[0] if color_scheme else self.default_colors[0])},
+                    "data": [[item[0], item[1]] for item in limited],
+                    "itemStyle": {"color": (color_scheme or self.default_colors)[0]},
                     "symbolSize": 6,
                 }
             ],
             "grid": {"left": "10%", "right": "10%", "bottom": "15%"},
         }
 
-        return config
-
     def create_heatmap(
         self,
-        data: pd.DataFrame,
+        data: Any,
         x_col: str,
         y_col: str,
         value_col: str,
         title: Optional[str] = None,
         color_scheme: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a heatmap configuration.
-
-        Args:
-            data: Pandas DataFrame with data
-            x_col: Column name for x-axis
-            y_col: Column name for y-axis
-            value_col: Column name for values
-            title: Chart title
-            color_scheme: List of colors for heatmap
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if data is None or data.empty:
+        records = self._to_records(data, required_fields=[x_col, y_col, value_col])
+        if not records:
             return self._create_empty_chart("Heatmap")
 
-        # Prepare data
-        chart_data = data.dropna(subset=[x_col, y_col, value_col])
+        x_labels: List[str] = []
+        y_labels: List[str] = []
+        value_map: Dict[Tuple[str, str], float] = {}
 
-        # Pivot data for heatmap
-        try:
-            pivot_data = chart_data.pivot_table(values=value_col, index=y_col, columns=x_col, aggfunc="mean").fillna(0)
-        except Exception:
-            return self._create_empty_chart("Heatmap - Data not suitable for heatmap")
+        for record in records:
+            x_value = str(record.get(x_col))
+            y_value = str(record.get(y_col))
+            try:
+                value = float(record.get(value_col, 0) or 0)
+            except (TypeError, ValueError):
+                value = 0.0
 
-        # Limit dimensions for readability
-        if pivot_data.shape[0] > 50:
-            pivot_data = pivot_data.head(50)
-        if pivot_data.shape[1] > 50:
-            pivot_data = pivot_data.iloc[:, :50]
+            value_map[(x_value, y_value)] = value
+            if x_value not in x_labels:
+                x_labels.append(x_value)
+            if y_value not in y_labels:
+                y_labels.append(y_value)
 
-        x_categories = pivot_data.columns.tolist()
-        y_categories = pivot_data.index.tolist()
+        if not x_labels or not y_labels:
+            return self._create_empty_chart("Heatmap")
 
-        # Create heatmap data
-        heatmap_data = []
-        for i, y_cat in enumerate(y_categories):
-            for j, x_cat in enumerate(x_categories):
-                value = pivot_data.iloc[i, j]
-                heatmap_data.append([j, i, value])
+        heatmap_data: List[List[Any]] = []
+        for y_index, y_value in enumerate(y_labels):
+            for x_index, x_value in enumerate(x_labels):
+                heatmap_data.append([x_index, y_index, value_map.get((x_value, y_value), 0)])
 
-        # Create chart configuration
-        config = {
+        return {
             "title": {
                 "text": title or f"Heatmap: {value_col}",
                 "left": "center",
@@ -283,13 +364,13 @@ class EChartsGenerator:
             },
             "xAxis": {
                 "type": "category",
-                "data": x_categories,
+                "data": x_labels,
                 "axisLabel": {"rotate": 45},
             },
-            "yAxis": {"type": "category", "data": y_categories},
+            "yAxis": {"type": "category", "data": y_labels},
             "visualMap": {
-                "min": pivot_data.min().min(),
-                "max": pivot_data.max().max(),
+                "min": min(value_map.values()) if value_map else 0,
+                "max": max(value_map.values()) if value_map else 1,
                 "calculable": True,
                 "orient": "horizontal",
                 "left": "center",
@@ -312,46 +393,26 @@ class EChartsGenerator:
             "grid": {"left": "10%", "right": "10%", "bottom": "20%"},
         }
 
-        return config
-
     def create_pie_chart(
         self,
-        data: pd.DataFrame,
+        data: Any,
         labels: str,
         values: str,
         title: Optional[str] = None,
         color_scheme: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a pie chart configuration.
-
-        Args:
-            data: Pandas DataFrame with data
-            labels: Column name for labels
-            values: Column name for values
-            title: Chart title
-            color_scheme: List of colors for slices
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if data is None or data.empty:
+        records = self._to_records(data, required_fields=[labels, values])
+        if not records:
             return self._create_empty_chart("Pie Chart")
 
-        # Prepare data
-        chart_data = data.groupby(labels)[values].sum().reset_index()
-        chart_data = chart_data.sort_values(values, ascending=False)
+        aggregated = self._aggregate_kv(records, labels, values)
+        if not aggregated:
+            return self._create_empty_chart("Pie Chart")
 
-        # Limit to top 10 categories for readability
-        if len(chart_data) > 10:
-            chart_data = chart_data.head(10)
+        limited = self._limit(aggregated, 10)
+        pie_data = [{"name": str(label), "value": float(value)} for label, value in limited]
 
-        pie_data = []
-        for _, row in chart_data.iterrows():
-            pie_data.append({"name": str(row[labels]), "value": float(row[values])})
-
-        # Create chart configuration
-        config = {
+        return {
             "title": {
                 "text": title or f"Distribution of {values}",
                 "left": "center",
@@ -376,30 +437,16 @@ class EChartsGenerator:
             ],
         }
 
-        return config
-
     def create_genomic_heatmap(
         self,
         genomic_data: Dict[str, Any],
         regions: List[str],
         title: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a genomic heatmap configuration.
-
-        Args:
-            genomic_data: Dictionary with genomic data
-            regions: List of genomic regions
-            title: Chart title
-
-        Returns:
-            ECharts configuration dictionary
-        """
         if not genomic_data or not regions:
             return self._create_empty_chart("Genomic Heatmap")
 
-        # Create chart configuration
-        config = {
+        return {
             "title": {
                 "text": title or "Genomic Data Heatmap",
                 "left": "center",
@@ -423,7 +470,7 @@ class EChartsGenerator:
                 {
                     "name": "Genomic Data",
                     "type": "heatmap",
-                    "data": [[i, 0, 50] for i in range(len(regions))],  # Placeholder data
+                    "data": [[i, 0, genomic_data.get(region, 50)] for i, region in enumerate(regions)],
                     "label": {"show": False},
                     "emphasis": {
                         "itemStyle": {
@@ -436,30 +483,31 @@ class EChartsGenerator:
             "grid": {"left": "10%", "right": "10%", "bottom": "20%"},
         }
 
-        return config
-
     def create_expression_plot(
-        self, gene_data: pd.DataFrame, samples: List[str], title: Optional[str] = None
+        self,
+        gene_data: Any,
+        samples: List[str],
+        title: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Create a gene expression plot configuration.
-
-        Args:
-            gene_data: Pandas DataFrame with gene expression data
-            samples: List of sample names
-            title: Chart title
-
-        Returns:
-            ECharts configuration dictionary
-        """
-        if gene_data is None or gene_data.empty or not samples:
+        records = self._coerce_expression_data(gene_data, samples)
+        if not records or not samples:
             return self._create_empty_chart("Gene Expression Plot")
 
-        # Prepare data
-        chart_data = gene_data.head(20)  # Limit to top 20 genes
+        limited_records = records[:20]
+        genes = [record["gene"] for record in limited_records]
 
-        # Create chart configuration
-        config = {
+        series = []
+        for i, sample in enumerate(samples):
+            series.append(
+                {
+                    "name": sample,
+                    "type": "bar",
+                    "data": [record["values"].get(sample, 0) for record in limited_records],
+                    "itemStyle": {"color": self.default_colors[i % len(self.default_colors)]},
+                }
+            )
+
+        return {
             "title": {
                 "text": title or "Gene Expression Across Samples",
                 "left": "center",
@@ -469,43 +517,10 @@ class EChartsGenerator:
             "legend": {"data": samples, "top": "10%"},
             "xAxis": {
                 "type": "category",
-                "data": chart_data.index.tolist(),
+                "data": genes,
                 "axisLabel": {"rotate": 45},
             },
             "yAxis": {"type": "value", "name": "Expression Level"},
-            "series": [
-                {
-                    "name": sample,
-                    "type": "bar",
-                    "data": (chart_data[sample].tolist() if sample in chart_data.columns else []),
-                    "itemStyle": {"color": self.default_colors[i % len(self.default_colors)]},
-                }
-                for i, sample in enumerate(samples)
-                if sample in gene_data.columns
-            ],
+            "series": series,
             "grid": {"left": "10%", "right": "10%", "bottom": "20%"},
-        }
-
-        return config
-
-    def _create_empty_chart(self, chart_type: str) -> Dict[str, Any]:
-        """Create an empty chart configuration when data is not available."""
-        return {
-            "title": {
-                "text": f"{chart_type} - No Data Available",
-                "left": "center",
-                "textStyle": {"fontSize": 16, "fontWeight": "bold", "color": "#999"},
-            },
-            "graphic": [
-                {
-                    "type": "text",
-                    "left": "center",
-                    "top": "middle",
-                    "style": {
-                        "text": "No data available for visualization",
-                        "fontSize": 14,
-                        "fill": "#999",
-                    },
-                }
-            ],
         }

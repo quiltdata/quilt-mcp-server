@@ -1,22 +1,9 @@
-"""
-Automatic Visualization Generation for Quilt Packages
+"""Visualization package with lazy exports."""
 
-This module provides automatic visualization generation for Quilt packages,
-including support for ECharts, Vega-Lite, IGV, and other visualization types.
-"""
+from __future__ import annotations
 
-from .engine import VisualizationEngine
-from .generators.echarts import EChartsGenerator
-from .generators.vega_lite import VegaLiteGenerator
-from .generators.igv import IGVGenerator
-from .generators.matplotlib import MatplotlibGenerator
-from .generators.perspective import PerspectiveGenerator
-from .analyzers.data_analyzer import DataAnalyzer
-from .analyzers.file_analyzer import FileAnalyzer
-from .analyzers.genomic_analyzer import GenomicAnalyzer
-from .layouts.grid_layout import GridLayout
-from .utils.data_processing import DataProcessor
-from .utils.file_utils import FileUtils
+import importlib
+from typing import Any
 
 __all__ = [
     "VisualizationEngine",
@@ -32,5 +19,35 @@ __all__ = [
     "DataProcessor",
     "FileUtils",
 ]
+
+_LAZY_IMPORTS = {
+    "VisualizationEngine": ".engine",
+    "EChartsGenerator": ".generators.echarts",
+    "VegaLiteGenerator": ".generators.vega_lite",
+    "IGVGenerator": ".generators.igv",
+    "MatplotlibGenerator": ".generators.matplotlib",
+    "PerspectiveGenerator": ".generators.perspective",
+    "DataAnalyzer": ".analyzers.data_analyzer",
+    "FileAnalyzer": ".analyzers.file_analyzer",
+    "GenomicAnalyzer": ".analyzers.genomic_analyzer",
+    "GridLayout": ".layouts.grid_layout",
+    "DataProcessor": ".utils.data_processing",
+    "FileUtils": ".utils.file_utils",
+}
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _LAZY_IMPORTS:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+    module = importlib.import_module(_LAZY_IMPORTS[name], __name__)
+    attr = getattr(module, name)
+    globals()[name] = attr
+    return attr
+
+
+def __dir__() -> list[str]:
+    return sorted(list(__all__) + [attr for attr in globals() if not attr.startswith("_")])
+
 
 __version__ = "0.1.0"

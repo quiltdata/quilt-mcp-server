@@ -1,13 +1,14 @@
 """Tests for the quilt_summary module."""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from datetime import datetime, timezone
 
 from quilt_mcp.tools.quilt_summary import (
     generate_quilt_summarize_json,
     generate_package_visualizations,
     create_quilt_summary_files,
+    quilt_summary,
 )
 
 
@@ -75,10 +76,8 @@ class TestQuiltSummary:
         assert result["package_info"]["namespace"] == "invalid"
         assert result["package_info"]["package_name"] == "package"
 
-    @patch("matplotlib.pyplot.savefig")
-    @patch("matplotlib.pyplot.close")
-    def test_generate_package_visualizations(self, mock_close, mock_savefig):
-        """Test package visualization generation."""
+    def test_generate_package_visualizations_handles_missing_matplotlib(self):
+        """Legacy visualization path should surface a clear error without matplotlib."""
         package_name = "test/package"
         organized_structure = {
             "data": [
@@ -89,18 +88,16 @@ class TestQuiltSummary:
         }
         file_types = {"csv": 2, "md": 1}
 
-        result = generate_package_visualizations(
-            package_name=package_name,
-            organized_structure=organized_structure,
-            file_types=file_types,
-            metadata_template="standard",
-        )
+        with patch("quilt_mcp.tools.quilt_summary._ensure_matplotlib", side_effect=ImportError("Matplotlib missing")):
+            result = generate_package_visualizations(
+                package_name=package_name,
+                organized_structure=organized_structure,
+                file_types=file_types,
+                metadata_template="standard",
+            )
 
-        assert result["success"] is True
-        assert result["count"] > 0
-        assert "file_type_distribution" in result["types"]
-        assert "folder_structure" in result["types"]
-        assert "package_dashboard" in result["types"]
+        assert result["success"] is False
+        assert "Matplotlib" in result["error"]
 
     def test_create_quilt_summary_files(self):
         """Test complete quilt summary file creation."""
@@ -121,14 +118,15 @@ class TestQuiltSummary:
         readme_content = "# Test Package\n\nTest content"
         source_info = {"type": "s3_bucket", "bucket": "test-bucket"}
 
-        result = create_quilt_summary_files(
-            package_name=package_name,
-            package_metadata=package_metadata,
-            organized_structure=organized_structure,
-            readme_content=readme_content,
-            source_info=source_info,
-            metadata_template="standard",
-        )
+        with patch("quilt_mcp.tools.quilt_summary.generate_package_visualizations", return_value={"success": False, "count": 0, "types": []}):
+            result = create_quilt_summary_files(
+                package_name=package_name,
+                package_metadata=package_metadata,
+                organized_structure=organized_structure,
+                readme_content=readme_content,
+                source_info=source_info,
+                metadata_template="standard",
+            )
 
         assert result["success"] is True
         assert result["files_generated"]["quilt_summarize.json"] is True
@@ -138,21 +136,59 @@ class TestQuiltSummary:
         assert "quilt_summarize.json" in result["summary_package"]
         assert "README.md" in result["summary_package"]
         assert "visualizations" in result["summary_package"]
+        visualizations = result["summary_package"]["visualizations"]
+        assert visualizations["multi_format"]["success"] is True
+        assert "legacy" in visualizations
+        assert result["summary_package"]["quilt_summarize_entries"]
+        assert result["summary_package"]["visualization_files"]
 
     def test_create_quilt_summary_files_with_errors(self):
         """Test quilt summary creation with invalid data."""
-        result = create_quilt_summary_files(
-            package_name="",
-            package_metadata={},
-            organized_structure={},
-            readme_content="",
-            source_info={},
-            metadata_template="invalid",
-        )
+        with patch("quilt_mcp.tools.quilt_summary.generate_package_visualizations", return_value={"success": False, "count": 0, "types": []}):
+            result = create_quilt_summary_files(
+                package_name="",
+                package_metadata={},
+                organized_structure={},
+                readme_content="",
+                source_info={},
+                metadata_template="invalid",
+            )
 
         # Function handles invalid input gracefully, not as an error
         assert result["success"] is True
         assert "summary_package" in result
+
+    def test_quilt_summary_discovery_includes_multi_viz(self):
+        """The module should advertise the new multi-format action."""
+        result = quilt_summary()
+        assert "generate_multi_viz" in result["actions"]
+
+    def test_generate_multi_viz_action_returns_multi_format_visualizations(self):
+        """generate_multi_viz should surface multi-format outputs."""
+        organized_structure = {
+            "data": [
+                {"Key": "data/customers.csv", "Size": 4096},
+                {"Key": "data/metrics.json", "Size": 2048},
+            ],
+            "genomics": [{"Key": "genomics/sample.vcf", "Size": 102400}],
+        }
+
+        params = {
+            "package_name": "team/example",
+            "organized_structure": organized_structure,
+            "file_types": {"csv": 1, "json": 1, "vcf": 1},
+        }
+
+        result = quilt_summary(action="generate_multi_viz", params=params)
+
+        assert result["success"] is True
+        assert result["count"] == len(result["visualizations"])
+        formats = {viz["format"] for viz in result["visualizations"].values()}
+        assert "echarts" in formats
+        assert "perspective" in formats
+        assert "igv" in formats
+        assert len(result["quilt_summarize_entries"]) == result["count"]
+        assert all(entry["path"] in result["files"] for entry in result["quilt_summarize_entries"])
 
 
 if __name__ == "__main__":

@@ -12,15 +12,11 @@ import io
 import base64
 from datetime import datetime, timezone
 from pathlib import Path
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
 from collections import defaultdict
 
-logger = logging.getLogger(__name__)
+from quilt_mcp.visualization.multi_format import MultiFormatVisualizationGenerator
 
-# Configure matplotlib for non-interactive backend
-matplotlib.use("Agg")
+logger = logging.getLogger(__name__)
 
 # Color schemes for visualizations
 COLOR_SCHEMES = {
@@ -30,6 +26,43 @@ COLOR_SCHEMES = {
     "research": ["#6C5CE7", "#A29BFE", "#FD79A8", "#FDCB6E", "#E17055"],
     "analytics": ["#00B894", "#00CEC9", "#74B9FF", "#FDCB6E", "#E17055"],
 }
+
+MULTI_FORMAT_GENERATOR = MultiFormatVisualizationGenerator()
+
+_MATPLOTLIB_CONFIGURED = False
+_MATPLOTLIB_PYLOT = None
+_NUMPY_LIB = None
+
+
+def _ensure_matplotlib():
+    """Lazily import matplotlib so environments without it can still use multi-format flows."""
+    global _MATPLOTLIB_CONFIGURED, _MATPLOTLIB_PYLOT  # pylint: disable=global-statement
+
+    if _MATPLOTLIB_PYLOT is not None:
+        return _MATPLOTLIB_PYLOT
+
+    import matplotlib  # type: ignore import-error
+
+    if not _MATPLOTLIB_CONFIGURED:
+        matplotlib.use("Agg")
+        _MATPLOTLIB_CONFIGURED = True
+
+    import matplotlib.pyplot as plt  # type: ignore import-error
+
+    _MATPLOTLIB_PYLOT = plt
+    return _MATPLOTLIB_PYLOT
+
+
+def _ensure_numpy():
+    """Lazy import for numpy to keep legacy visualizations optional."""
+    global _NUMPY_LIB  # pylint: disable=global-statement
+
+    if _NUMPY_LIB is None:
+        import numpy as np  # type: ignore import-error
+
+        _NUMPY_LIB = np
+
+    return _NUMPY_LIB
 
 
 def generate_quilt_summarize_json(
@@ -265,6 +298,28 @@ def generate_package_visualizations(
             for entry in (files or [])
         )
         total_size_mb = total_bytes / (1024 * 1024) if total_bytes else 0
+
+        try:
+            plt = _ensure_matplotlib()
+        except Exception as exc:  # pragma: no cover - depends on optional dependency
+            logger.error("Matplotlib unavailable for legacy visualizations: %s", exc)
+            return {
+                "success": False,
+                "error": f"Matplotlib is required for legacy visualizations: {exc}",
+                "visualizations": {},
+                "count": 0,
+            }
+
+        try:
+            np = _ensure_numpy()
+        except Exception as exc:  # pragma: no cover - depends on optional dependency
+            logger.error("NumPy unavailable for legacy visualizations: %s", exc)
+            return {
+                "success": False,
+                "error": f"NumPy is required for legacy visualizations: {exc}",
+                "visualizations": {},
+                "count": 0,
+            }
 
         visualizations = {}
 
@@ -590,6 +645,50 @@ Template: {metadata_template}
         }
 
 
+def generate_multi_format_visualizations(
+    package_name: str,
+    organized_structure: Dict[str, List[Dict[str, Any]]],
+    file_types: Dict[str, Any],
+    metadata_template: str = "standard",
+    viz_preferences: Optional[Dict[str, Any]] = None,
+    **_extra: Any,
+) -> Dict[str, Any]:
+    """
+    Generate multi-format visualizations using the intelligent selector.
+
+    Args:
+        package_name: Package identifier in namespace/name format.
+        organized_structure: Organized file structure by folder.
+        file_types: File type counts or descriptors.
+        metadata_template: Template name used for color schemes (reserved).
+        viz_preferences: Optional preferences (e.g. Perspective plugin selection).
+
+    Returns:
+        Visualization payload containing Quilt-ready configs and metadata.
+    """
+    try:
+        result = MULTI_FORMAT_GENERATOR.generate(
+            package_name=package_name,
+            organized_structure=organized_structure,
+            file_types=file_types,
+            metadata_template=metadata_template,
+            viz_preferences=viz_preferences,
+        )
+        result.setdefault("metadata", {})["metadata_template"] = metadata_template
+        return result
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Failed to generate multi-format visualizations: %s", exc)
+        return {
+            "success": False,
+            "error": f"Failed to generate multi-format visualizations: {exc}",
+            "count": 0,
+            "visualizations": {},
+            "quilt_summarize_entries": [],
+            "files": {},
+            "metadata": {"package_name": package_name, "metadata_template": metadata_template},
+        }
+
+
 def create_quilt_summary_files(
     package_name: str,
     package_metadata: Dict[str, Any],
@@ -636,8 +735,14 @@ def create_quilt_summary_files(
                 if ext:
                     file_types[ext] = file_types.get(ext, 0) + 1
 
-        # Generate visualizations
-        visualizations = generate_package_visualizations(
+        # Generate visualizations (multi-format + legacy PNG dashboards)
+        multi_format_visualizations = generate_multi_format_visualizations(
+            package_name=package_name,
+            organized_structure=organized_structure,
+            file_types=file_types,
+            metadata_template=metadata_template,
+        )
+        legacy_visualizations = generate_package_visualizations(
             package_name=package_name,
             organized_structure=organized_structure,
             file_types=file_types,
@@ -648,7 +753,12 @@ def create_quilt_summary_files(
         summary_package = {
             "quilt_summarize.json": summary_json,
             "README.md": readme_content,
-            "visualizations": visualizations,
+            "visualizations": {
+                "multi_format": multi_format_visualizations,
+                "legacy": legacy_visualizations,
+            },
+            "quilt_summarize_entries": multi_format_visualizations.get("quilt_summarize_entries", []),
+            "visualization_files": multi_format_visualizations.get("files", {}),
             "generation_info": {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "generator": "quilt-mcp-server",
@@ -668,9 +778,9 @@ def create_quilt_summary_files(
             "files_generated": {
                 "quilt_summarize.json": bool(summary_json),
                 "README.md": bool(readme_content),
-                "visualizations": visualizations.get("success", False),
+                "visualizations": multi_format_visualizations.get("success", False),
             },
-            "visualization_count": visualizations.get("count", 0),
+            "visualization_count": multi_format_visualizations.get("count", 0),
             "next_steps": [
                 "Add these files to your Quilt package",
                 "Use quilt_summarize.json for automated processing",
@@ -690,39 +800,94 @@ def create_quilt_summary_files(
 
 def quilt_summary(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    Quilt package summary and visualization generation.
+    Quilt package summary and visualization generation with multi-format support.
+
+    VISUALIZATION FORMAT SELECTION GUIDE:
+    =====================================
+
+    The tool intelligently selects the optimal visualization format based on your data:
+
+    1. **IGV (Integrative Genomics Viewer)** - For genomic data
+       - File types: .bam, .vcf, .bed, .gff, .gtf, .bigwig, .bw
+       - Use for: Genome tracks, variant visualization, alignment viewing
+       - Output: JSON config with track definitions
+
+    2. **Perspective** - For large tabular data requiring exploration
+       - File types: .csv, .tsv, .xlsx, .xls, .parquet, .jsonl
+       - Use for: Interactive data grids, pivot tables, data analysis
+       - Features: Filter, sort, group, aggregate, multiple view types
+       - Handles: Up to 6MB compressed data
+
+    3. **Vega-Lite** - For statistical and analytical charts
+       - Best for: Statistical analysis, publication-quality charts
+       - Chart types: Box plots, histograms, scatter (with regression), faceted plots
+       - Use when: Need data binning, aggregation, or statistical transforms
+       - Output: Declarative JSON specification
+
+    4. **ECharts** - For interactive, animated charts
+       - Best for: Interactive dashboards, hierarchical data, mobile
+       - Chart types: Pie, tree, treemap, sunburst, graph, gauge, sankey
+       - Use when: Need rich interactivity, animations, or custom styling
+       - Output: ECharts option JSON
+
+    5. **Voila** - For interactive Jupyter notebooks
+       - Use for: Custom Python-driven dashboards
+       - Features: Full Jupyter kernel, ipywidgets, live computation
+       - Note: Requires separate notebook file in package
+
+    AUTOMATIC SELECTION LOGIC:
+    =========================
+
+    File Extension → Format:
+    - .bam, .vcf, .bed, .gff → IGV
+    - .csv, .parquet (>100 rows) → Perspective
+    - .csv (statistical analysis) → Vega-Lite
+    - Hierarchical .json → ECharts
+    - .ipynb → Voila
+
+    Visualization Type → Format:
+    - Bar chart → ECharts (for interactivity) or Vega-Lite (for simplicity)
+    - Scatter plot → Vega-Lite (statistical features)
+    - Pie chart → ECharts (better animations)
+    - Box plot → Vega-Lite (native support)
+    - Treemap/Sunburst → ECharts (only option)
+    - Data grid → Perspective (only option)
+    - Genome tracks → IGV (only option)
 
     Available actions:
-    - create_files: Create all Quilt summary files for a package
-    - generate_viz: Generate comprehensive visualizations for the package
-    - generate_json: Generate a comprehensive quilt_summarize.json file
-
-    Args:
-        action: The operation to perform. If None, returns available actions.
-        **kwargs: Action-specific parameters
-
-    Returns:
-        Action-specific response dictionary
+    - create_files: Create all summary files (README, quilt_summarize.json, visualizations)
+    - generate_viz: Generate visualizations (legacy, matplotlib PNGs)
+    - generate_multi_viz: Generate multi-format visualizations (recommended)
+    - generate_json: Generate quilt_summarize.json
 
     Examples:
-        # Discovery mode
-        result = quilt_summary()
 
-        # Create summary files
-        result = quilt_summary(
-            action="create_files",
-            package_name="user/dataset",
-            package_metadata={},
-            organized_structure={},
-            readme_content="",
-            source_info={}
-        )
+    # Generate multi-format visualizations automatically
+    result = quilt_summary(
+        action="generate_multi_viz",
+        params={
+            "package_name": "genomics/study",
+            "organized_structure": {
+                "data": [
+                    {"Key": "alignments.bam", "Size": 1024000},
+                    {"Key": "variants.vcf", "Size": 512000},
+                    {"Key": "results.csv", "Size": 8192}
+                ]
+            },
+            "file_types": {"bam": 1, "vcf": 1, "csv": 1}
+        }
+    )
 
-    For detailed parameter documentation, see individual action functions.
+    # Result includes:
+    # - IGV config for BAM/VCF files
+    # - Perspective grid for CSV
+    # - quilt_summarize.json entries
+    # - Visualization files ready to add to the package
     """
     actions = {
         "create_files": create_quilt_summary_files,
         "generate_viz": generate_package_visualizations,
+        "generate_multi_viz": generate_multi_format_visualizations,
         "generate_json": generate_quilt_summarize_json,
     }
 
