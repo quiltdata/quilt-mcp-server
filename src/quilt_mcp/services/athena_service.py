@@ -336,38 +336,22 @@ class AthenaQueryService:
     def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
-            # Set database context if provided by creating a scoped engine with schema parameter
-            # This avoids the buggy USE statement that fails with hyphenated database names
-            engine_to_use = self.engine
-            
+            # Set database context if provided
+            # For databases with hyphens, we need to use fully-qualified table names
+            # instead of the buggy USE statement that fails with quoted identifiers
             if database_name:
-                # Create a connection-specific engine with schema parameter
-                # PyAthena supports schema_name in the connection string
-                from urllib.parse import quote_plus
-                
-                # Get the base connection string from existing engine
-                base_url = str(self.engine.url)
-                
-                # Add schema parameter to the connection string
-                schema_param = f"&schema_name={quote_plus(database_name)}"
-                if "?" in base_url:
-                    # Already has parameters
-                    if base_url.endswith("?"):
-                        schema_param = f"schema_name={quote_plus(database_name)}"
-                    new_url = base_url + schema_param
-                else:
-                    # No parameters yet
-                    new_url = base_url + "?" + schema_param.lstrip("&")
-                
-                # Create a scoped engine with the schema set
-                engine_to_use = create_engine(new_url, echo=False)
-                logger.info(f"Using database context: {database_name}")
+                logger.info(f"Database context requested: {database_name}")
+                # Modify the query to use fully-qualified table names if not already present
+                # This is a workaround since Athena doesn't support USE with quoted identifiers
+                safe_query = self._ensure_qualified_table_names(query, database_name)
+            else:
+                safe_query = query
 
             # Execute query and load results into pandas DataFrame
             # Sanitize query to prevent string formatting issues
-            safe_query = self._sanitize_query_for_pandas(query)
+            safe_query = self._sanitize_query_for_pandas(safe_query)
             with suppress_stdout():
-                df = pd.read_sql_query(safe_query, engine_to_use)
+                df = pd.read_sql_query(safe_query, self.engine)
 
             # Apply result limit
             truncated = False
@@ -393,6 +377,47 @@ class AthenaQueryService:
             logger.error(f"Failed to execute query: {e}")
             return format_error_response(f"Query execution failed: {str(e)}")
 
+    def _ensure_qualified_table_names(self, query: str, database_name: str) -> str:
+        """Ensure table names in query are fully qualified with database name.
+        
+        For databases with hyphens, we need to use "database-name".table_name format
+        since Athena doesn't support USE with quoted identifiers.
+        """
+        import re
+        
+        # Check if database name needs quoting (has hyphens or special characters)
+        needs_quoting = "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"])
+        
+        if needs_quoting:
+            qualified_db = f'"{database_name}"'
+        else:
+            qualified_db = database_name
+        
+        # Pattern to match FROM/JOIN clauses with unqualified table names
+        # This matches table names that don't already have a database prefix
+        # Handles both regular and quoted table names
+        def qualify_table(match):
+            full_match = match.group(0)
+            keyword = match.group(1)  # FROM or JOIN
+            table_ref = match.group(2)
+            
+            # Skip if already qualified (contains a dot before any quotes)
+            if "." in table_ref.split('"')[0] if '"' in table_ref else "." in table_ref:
+                return full_match
+            
+            # Add database qualification
+            return f"{keyword} {qualified_db}.{table_ref}"
+        
+        # Pattern matches: (FROM|JOIN) + whitespace + table_name
+        # Handles quoted and unquoted table names, including $ character
+        pattern = r'\b(FROM|JOIN)\s+((?:"[^"]+"|[\w$]+))'
+        qualified_query = re.sub(pattern, qualify_table, query, flags=re.IGNORECASE)
+        
+        logger.debug(f"Original query: {query}")
+        logger.debug(f"Qualified query: {qualified_query}")
+        
+        return qualified_query
+    
     def _sanitize_query_for_pandas(self, query: str) -> str:
         """Sanitize query to prevent string formatting issues with pandas/SQLAlchemy."""
         # This is a conservative approach - we don't modify the actual SQL
