@@ -106,18 +106,22 @@ class TestPackagesBackendIntegration:
     """Test integration between packages.py and backend abstraction."""
 
     def test_no_direct_quilt_service_instantiation(self):
-        """Test that QuiltService is not directly instantiated in packages_list."""
+        """Test that QuiltService is not directly imported or used in packages_list."""
+        import quilt_mcp.tools.packages as packages_module
+
+        # Verify QuiltService is not imported in packages module
+        assert not hasattr(packages_module, 'QuiltService'), \
+            "packages.py should not import QuiltService"
+
+        # Verify get_backend is used instead
         mock_backend = Mock()
         mock_backend.list_packages.return_value = iter([])
 
         with patch("quilt_mcp.tools.packages.get_backend", return_value=mock_backend) as mock_get_backend:
-            with patch("quilt_mcp.tools.packages.QuiltService") as mock_quilt_service_class:
-                packages_list(registry="s3://test-bucket")
+            packages_list(registry="s3://test-bucket")
 
-                # QuiltService class should NOT be instantiated
-                mock_quilt_service_class.assert_not_called()
-                # get_backend SHOULD be called
-                mock_get_backend.assert_called_once()
+            # get_backend SHOULD be called
+            mock_get_backend.assert_called_once()
 
     def test_backend_list_packages_error_propagates(self):
         """Test that errors from backend.list_packages propagate correctly."""

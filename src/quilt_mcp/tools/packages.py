@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..constants import DEFAULT_REGISTRY
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 from ..utils import generate_signed_url
 
 # Helpers
@@ -34,14 +34,14 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
     Returns:
         Dict with list of package names.
     """
-    # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
+    # Normalize registry and pass to backend.list_packages(), then apply filtering
     normalized_registry = _normalize_registry(registry)
     # Suppress stdout during list_packages to avoid JSON-RPC interference
     from ..utils import suppress_stdout
 
-    quilt_service = QuiltService()
+    backend = get_backend()
     with suppress_stdout():
-        pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
+        pkgs = list(backend.list_packages(registry=normalized_registry))  # Convert generator to list
 
     # Apply prefix filtering if specified
     if prefix:
@@ -80,8 +80,8 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
         with suppress_stdout():
             # UNIFIED SEARCH: Try advanced search API first, but scoped to specific registry
             try:
-                quilt_service = QuiltService()
-                search_api = quilt_service.get_search_api()
+                backend = get_backend()
+                search_api = backend.get_search_api()
 
                 # For count queries (limit=0), use a simple DSL query with size=0
                 if effective_limit == 0:
@@ -146,7 +146,7 @@ def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 1
 
             except Exception as search_api_error:
                 # FALLBACK: Use bucket-specific search if advanced API fails
-                bucket_obj = quilt_service.create_bucket(normalized_registry)
+                bucket_obj = backend.create_bucket(normalized_registry)
                 results = bucket_obj.search(query, limit=effective_limit)
 
                 return {
@@ -224,9 +224,9 @@ def package_browse(
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
+        backend = get_backend()
         with suppress_stdout():
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
+            pkg = backend.browse_package(package_name, registry=normalized_registry)
 
     except Exception as e:
         return {
@@ -422,10 +422,10 @@ def package_contents_search(
     # Suppress stdout during browse to avoid JSON-RPC interference
     from ..utils import suppress_stdout
 
-    quilt_service = QuiltService()
+    backend = get_backend()
     with suppress_stdout():
         try:
-            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
+            pkg = backend.browse_package(package_name, registry=normalized_registry)
         except Exception as e:
             # Return empty result for nonexistent or inaccessible packages
             return {
@@ -501,21 +501,21 @@ def package_diff(
         # Suppress stdout during browse operations to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
+        backend = get_backend()
         with suppress_stdout():
             if package1_hash:
-                pkg1 = quilt_service.browse_package(
+                pkg1 = backend.browse_package(
                     package1_name, registry=normalized_registry, top_hash=package1_hash
                 )
             else:
-                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
+                pkg1 = backend.browse_package(package1_name, registry=normalized_registry)
 
             if package2_hash:
-                pkg2 = quilt_service.browse_package(
+                pkg2 = backend.browse_package(
                     package2_name, registry=normalized_registry, top_hash=package2_hash
                 )
             else:
-                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
+                pkg2 = backend.browse_package(package2_name, registry=normalized_registry)
 
     except Exception as e:
         return {"error": f"Failed to browse packages: {e}"}
