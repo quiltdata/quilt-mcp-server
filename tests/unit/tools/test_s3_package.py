@@ -79,7 +79,8 @@ class TestPackageCreateFromS3BackendUsage:
             with patch("quilt_mcp.tools.s3_package.bucket_access_check") as mock_access:
                 mock_access.return_value = {"success": True, "access_summary": {"can_write": True}}
 
-                with patch("quilt_mcp.tools.s3_package.create_quilt_summary_files") as mock_summary:
+                # Import is inside package_create_from_s3, patch at module level
+                with patch("quilt_mcp.tools.quilt_summary.create_quilt_summary_files") as mock_summary:
                     mock_summary.return_value = {
                         "success": True,
                         "summary_package": {},
