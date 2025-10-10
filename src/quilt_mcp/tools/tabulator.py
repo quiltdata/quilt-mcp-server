@@ -15,12 +15,12 @@ from ..utils import format_error_response
 
 logger = logging.getLogger(__name__)
 
-# QuiltService provides admin module access
-from ..services.quilt_service import QuiltService
+# Backend provides admin module access
+from ..backends.factory import get_backend
 
-# Initialize service and check availability
-quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
+# Initialize backend and check availability
+_backend = get_backend()
+ADMIN_AVAILABLE = _backend.is_admin_available()
 
 if not ADMIN_AVAILABLE:
     logger.warning("quilt3.admin not available - tabulator functionality disabled")
@@ -144,7 +144,7 @@ class TabulatorService:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
             # Use the direct API to list tabulator tables
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             tables = admin_tabulator.list_tables(bucket_name)
 
             # Parse and enrich table information
@@ -224,7 +224,7 @@ class TabulatorService:
             config_yaml = self._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)
 
             # Execute GraphQL mutation to create table
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=config_yaml)
 
             if hasattr(response, "__typename"):
@@ -269,7 +269,7 @@ class TabulatorService:
                 return format_error_response("Table name cannot be empty")
 
             # Delete by setting config to None
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=None)
 
             if hasattr(response, "__typename"):
@@ -310,7 +310,7 @@ class TabulatorService:
                 return format_error_response("New table name cannot be empty")
 
             # Execute GraphQL mutation to rename table
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             response = admin_tabulator.rename_table(
                 bucket_name=bucket_name,
                 table_name=table_name,
@@ -348,7 +348,7 @@ class TabulatorService:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             response = admin_tabulator.get_open_query()
 
             return {
@@ -366,7 +366,7 @@ class TabulatorService:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
+            admin_tabulator = _backend.get_tabulator_admin()
             response = admin_tabulator.set_open_query(enabled=enabled)
 
             return {
