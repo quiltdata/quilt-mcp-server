@@ -66,7 +66,7 @@ class TestQuiltServiceAuthentication:
             assert result == expected_config
 
     def test_get_catalog_config_filters_and_derives_stack_prefix(self):
-        """Test get_catalog_config returns only essential keys and derives stackPrefix."""
+        """Test get_catalog_config returns only essential keys (snake_case) and derives stack_prefix and tabulator_data_catalog."""
         service = QuiltService()
 
         # Full config.json response from catalog
@@ -107,15 +107,20 @@ class TestQuiltServiceAuthentication:
 
             # Verify only essential keys are returned
             assert result is not None
-            assert len(result) == 4  # Only 4 keys: region, apiGatewayEndpoint, analyticsBucket, stackPrefix
+            assert (
+                len(result) == 5
+            )  # 5 keys: region, api_gateway_endpoint, analytics_bucket, stack_prefix, tabulator_data_catalog
 
-            # Verify the essential keys are present
+            # Verify the essential keys are present (snake_case)
             assert result["region"] == "us-east-1"
-            assert result["apiGatewayEndpoint"] == "https://0xrvxq2hb8.execute-api.us-east-1.amazonaws.com/prod"
-            assert result["analyticsBucket"] == "quilt-staging-analyticsbucket-10ort3e91tnoa"
+            assert result["api_gateway_endpoint"] == "https://0xrvxq2hb8.execute-api.us-east-1.amazonaws.com/prod"
+            assert result["analytics_bucket"] == "quilt-staging-analyticsbucket-10ort3e91tnoa"
 
-            # Verify stackPrefix was derived correctly
-            assert result["stackPrefix"] == "quilt-staging"
+            # Verify stack_prefix was derived correctly
+            assert result["stack_prefix"] == "quilt-staging"
+
+            # Verify tabulator_data_catalog was derived correctly
+            assert result["tabulator_data_catalog"] == "quilt-quilt-staging-tabulator"
 
             # Verify unwanted keys are NOT present
             assert "intercomAppId" not in result

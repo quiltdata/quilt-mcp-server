@@ -73,17 +73,18 @@ class QuiltService:
         """Get catalog configuration from <catalog>/config.json.
 
         Fetches and filters the catalog configuration to return only essential
-        AWS infrastructure keys, plus derives the stack prefix.
+        AWS infrastructure keys, plus derives the stack prefix and tabulator catalog name.
 
         Args:
             catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
 
         Returns:
-            Filtered catalog configuration dictionary with keys:
+            Filtered catalog configuration dictionary with keys (snake_case):
             - region: AWS region for S3 operations
-            - apiGatewayEndpoint: API endpoint for catalog operations
-            - analyticsBucket: Analytics bucket name
-            - stackPrefix: Stack prefix derived from analyticsBucket (part before '-analyticsbucket')
+            - api_gateway_endpoint: API endpoint for catalog operations
+            - analytics_bucket: Analytics bucket name
+            - stack_prefix: Stack prefix derived from analytics_bucket (part before '-analyticsbucket')
+            - tabulator_data_catalog: Tabulator data catalog name (format: 'quilt-<stack-prefix>-tabulator')
             Returns None if not available.
 
         Raises:
@@ -105,24 +106,28 @@ class QuiltService:
 
             full_config = response.json()
 
-            # Extract only the keys we need
+            # Extract only the keys we need (converting to snake_case)
             filtered_config: dict[str, Any] = {}
 
             if "region" in full_config:
                 filtered_config["region"] = full_config["region"]
 
             if "apiGatewayEndpoint" in full_config:
-                filtered_config["apiGatewayEndpoint"] = full_config["apiGatewayEndpoint"]
+                filtered_config["api_gateway_endpoint"] = full_config["apiGatewayEndpoint"]
 
             if "analyticsBucket" in full_config:
                 analytics_bucket = full_config["analyticsBucket"]
-                filtered_config["analyticsBucket"] = analytics_bucket
+                filtered_config["analytics_bucket"] = analytics_bucket
 
                 # Derive stack prefix from analytics bucket name
                 # Example: "quilt-staging-analyticsbucket-10ort3e91tnoa" -> "quilt-staging"
                 if "-analyticsbucket" in analytics_bucket.lower():
                     stack_prefix = analytics_bucket.split("-analyticsbucket")[0]
-                    filtered_config["stackPrefix"] = stack_prefix
+                    filtered_config["stack_prefix"] = stack_prefix
+
+                    # Derive tabulator data catalog name from stack prefix
+                    # Example: "quilt-staging" -> "quilt-quilt-staging-tabulator"
+                    filtered_config["tabulator_data_catalog"] = f"quilt-{stack_prefix}-tabulator"
 
             return filtered_config if filtered_config else None
         except Exception as e:
