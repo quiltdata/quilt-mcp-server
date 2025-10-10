@@ -57,7 +57,8 @@ def athena_databases_list(
         List of databases with metadata
     """
     try:
-        service = service or AthenaQueryService()
+        if service is None:
+            service = AthenaQueryService()
         return service.discover_databases(catalog_name)
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
@@ -82,7 +83,8 @@ def athena_tables_list(
         List of tables with metadata and schemas
     """
     try:
-        service = service or AthenaQueryService()
+        if service is None:
+            service = AthenaQueryService()
         return service.discover_tables(database_name, catalog_name, table_pattern)
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
@@ -107,7 +109,8 @@ def athena_table_schema(
         Detailed table schema including columns, types, partitions
     """
     try:
-        service = service or AthenaQueryService()
+        if service is None:
+            service = AthenaQueryService()
         return service.get_table_metadata(database_name, table_name, catalog_name)
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
@@ -129,7 +132,8 @@ def athena_workgroups_list(
     """
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
 
         # Get workgroups using the service's consolidated method
         workgroups = service.list_workgroups()
@@ -217,7 +221,8 @@ def athena_query_execute(
             return format_error_response("output_format must be one of: json, csv, parquet, table")
 
         # Execute query
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):
@@ -299,7 +304,8 @@ def athena_query_history(
         from datetime import datetime, timedelta
 
         # Create Athena client
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
         athena_client = boto3.client("athena")
 
         # Set default time range if not provided
