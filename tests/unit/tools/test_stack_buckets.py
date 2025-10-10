@@ -104,7 +104,9 @@ class TestStackInfoBackendUsage:
     def test_stack_info_calls_get_stack_buckets(self):
         """Test that stack_info calls get_stack_buckets which uses backend."""
         with patch("quilt_mcp.tools.stack_buckets.get_stack_buckets", return_value=["bucket1", "bucket2"]):
-            with patch("quilt_mcp.tools.stack_buckets._get_stack_buckets_via_graphql", return_value={"bucket1", "bucket2"}):
+            with patch(
+                "quilt_mcp.tools.stack_buckets._get_stack_buckets_via_graphql", return_value={"bucket1", "bucket2"}
+            ):
                 with patch("quilt_mcp.tools.stack_buckets._get_stack_buckets_via_permissions", return_value=set()):
                     result = stack_info()
 
@@ -159,12 +161,12 @@ class TestStackBucketsBackendIntegration:
         source_code = open(stack_module.__file__).read()
 
         # Check that direct instantiation pattern is not present
-        assert "QuiltService()" not in source_code, \
-            "stack_buckets.py should not directly instantiate QuiltService"
+        assert "QuiltService()" not in source_code, "stack_buckets.py should not directly instantiate QuiltService"
 
         # Verify get_backend is imported
-        assert "from ..backends.factory import get_backend" in source_code, \
+        assert "from ..backends.factory import get_backend" in source_code, (
             "stack_buckets.py should import get_backend"
+        )
 
     def test_backend_error_propagates_in_graphql_discovery(self):
         """Test that errors from backend propagate correctly in GraphQL discovery."""

@@ -181,12 +181,10 @@ class TestS3PackageBackendIntegration:
         source_code = open(s3_package_module.__file__).read()
 
         # Check that direct instantiation pattern is not present
-        assert "QuiltService()" not in source_code, \
-            "s3_package.py should not directly instantiate QuiltService"
+        assert "QuiltService()" not in source_code, "s3_package.py should not directly instantiate QuiltService"
 
         # Verify get_backend is imported
-        assert "from ..backends.factory import get_backend" in source_code, \
-            "s3_package.py should import get_backend"
+        assert "from ..backends.factory import get_backend" in source_code, "s3_package.py should import get_backend"
 
     def test_backend_error_propagates_in_create_enhanced(self):
         """Test that errors from backend.create_package_revision propagate correctly."""

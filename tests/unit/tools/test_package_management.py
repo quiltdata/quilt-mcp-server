@@ -193,12 +193,14 @@ class TestPackageManagementBackendIntegration:
         source_code = open(pm_module.__file__).read()
 
         # Check that direct instantiation patterns are not present
-        assert "QuiltService()" not in source_code, \
+        assert "QuiltService()" not in source_code, (
             "package_management.py should not directly instantiate QuiltService"
+        )
 
         # Verify get_backend is imported
-        assert "from ..backends.factory import get_backend" in source_code, \
+        assert "from ..backends.factory import get_backend" in source_code, (
             "package_management.py should import get_backend"
+        )
 
     def test_backend_error_propagates_in_update_metadata(self):
         """Test that errors from backend propagate correctly in update_metadata."""

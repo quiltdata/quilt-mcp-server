@@ -40,11 +40,7 @@ class TestPackagesListBackendUsage:
     def test_packages_list_applies_prefix_filter(self):
         """Test that packages_list filters by prefix correctly."""
         mock_backend = Mock()
-        mock_backend.list_packages.return_value = iter([
-            "user/package-a",
-            "user/package-b",
-            "other/package-c"
-        ])
+        mock_backend.list_packages.return_value = iter(["user/package-a", "user/package-b", "other/package-c"])
 
         with patch("quilt_mcp.tools.packages.get_backend", return_value=mock_backend):
             result = packages_list(registry="s3://test-bucket", prefix="user/")
@@ -54,9 +50,7 @@ class TestPackagesListBackendUsage:
     def test_packages_list_applies_limit(self):
         """Test that packages_list limits results correctly."""
         mock_backend = Mock()
-        mock_backend.list_packages.return_value = iter([
-            "pkg1/test", "pkg2/test", "pkg3/test", "pkg4/test"
-        ])
+        mock_backend.list_packages.return_value = iter(["pkg1/test", "pkg2/test", "pkg3/test", "pkg4/test"])
 
         with patch("quilt_mcp.tools.packages.get_backend", return_value=mock_backend):
             result = packages_list(registry="s3://test-bucket", limit=2)
@@ -72,10 +66,7 @@ class TestPackagesSearchBackendUsage:
         mock_backend = Mock()
         mock_search_api = Mock()
         mock_search_api.search.return_value = {
-            "hits": {
-                "total": {"value": 1},
-                "hits": [{"_source": {"key": "user/test-package"}}]
-            }
+            "hits": {"total": {"value": 1}, "hits": [{"_source": {"key": "user/test-package"}}]}
         }
         mock_backend.get_search_api.return_value = mock_search_api
 
@@ -90,9 +81,7 @@ class TestPackagesSearchBackendUsage:
         """Test that packages_search normalizes registry before using it."""
         mock_backend = Mock()
         mock_search_api = Mock()
-        mock_search_api.search.return_value = {
-            "hits": {"total": {"value": 0}, "hits": []}
-        }
+        mock_search_api.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
         mock_backend.get_search_api.return_value = mock_search_api
 
         with patch("quilt_mcp.tools.packages.get_backend", return_value=mock_backend):
@@ -110,8 +99,7 @@ class TestPackagesBackendIntegration:
         import quilt_mcp.tools.packages as packages_module
 
         # Verify QuiltService is not imported in packages module
-        assert not hasattr(packages_module, 'QuiltService'), \
-            "packages.py should not import QuiltService"
+        assert not hasattr(packages_module, 'QuiltService'), "packages.py should not import QuiltService"
 
         # Verify get_backend is used instead
         mock_backend = Mock()

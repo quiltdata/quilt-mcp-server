@@ -504,16 +504,12 @@ def package_diff(
         backend = get_backend()
         with suppress_stdout():
             if package1_hash:
-                pkg1 = backend.browse_package(
-                    package1_name, registry=normalized_registry, top_hash=package1_hash
-                )
+                pkg1 = backend.browse_package(package1_name, registry=normalized_registry, top_hash=package1_hash)
             else:
                 pkg1 = backend.browse_package(package1_name, registry=normalized_registry)
 
             if package2_hash:
-                pkg2 = backend.browse_package(
-                    package2_name, registry=normalized_registry, top_hash=package2_hash
-                )
+                pkg2 = backend.browse_package(package2_name, registry=normalized_registry, top_hash=package2_hash)
             else:
                 pkg2 = backend.browse_package(package2_name, registry=normalized_registry)
 

@@ -17,10 +17,7 @@ class TestBucketObjectsSearchBackendUsage:
         """Test that bucket_objects_search calls get_backend() instead of QuiltService()."""
         mock_backend = Mock()
         mock_bucket = Mock()
-        mock_bucket.search.return_value = [
-            {"key": "test.csv", "size": 1024},
-            {"key": "data.json", "size": 2048}
-        ]
+        mock_bucket.search.return_value = [{"key": "test.csv", "size": 1024}, {"key": "data.json", "size": 2048}]
         mock_backend.create_bucket.return_value = mock_bucket
 
         with patch("quilt_mcp.tools.buckets.get_backend", return_value=mock_backend):
@@ -124,9 +121,7 @@ class TestBucketObjectsSearchGraphQLBackendUsage:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}
-        }
+        mock_response.json.return_value = {"data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}}
         mock_session.post.return_value = mock_response
         mock_backend.get_session.return_value = mock_session
         mock_backend.get_registry_url.return_value = "https://test.example.com"
@@ -171,9 +166,7 @@ class TestBucketObjectsSearchGraphQLBackendUsage:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}
-        }
+        mock_response.json.return_value = {"data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}}
         mock_session.post.return_value = mock_response
         mock_backend.get_session.return_value = mock_session
         mock_backend.get_registry_url.return_value = "https://test.example.com"

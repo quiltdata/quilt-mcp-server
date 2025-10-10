@@ -182,12 +182,12 @@ class TestPackageOpsBackendIntegration:
         source_code = open(ops_module.__file__).read()
 
         # Check that direct instantiation pattern is not present
-        assert "quilt_service = QuiltService()" not in source_code, \
+        assert "quilt_service = QuiltService()" not in source_code, (
             "package_ops.py should not directly instantiate QuiltService singleton"
+        )
 
         # Verify get_backend is imported
-        assert "from ..backends.factory import get_backend" in source_code, \
-            "package_ops.py should import get_backend"
+        assert "from ..backends.factory import get_backend" in source_code, "package_ops.py should import get_backend"
 
     def test_backend_error_propagates_in_create(self):
         """Test that errors from backend.create_package_revision propagate correctly."""
@@ -210,10 +210,10 @@ class TestPackageOpsBackendIntegration:
         import quilt_mcp.tools.package_ops as ops_module
 
         # The module should have a quilt3 attribute
-        assert hasattr(ops_module, 'quilt3'), \
-            "package_ops.py should export quilt3 module"
+        assert hasattr(ops_module, 'quilt3'), "package_ops.py should export quilt3 module"
 
         # Read source to verify it comes from backend
         source_code = open(ops_module.__file__).read()
-        assert "quilt_service.get_quilt3_module()" in source_code or "backend.get_quilt3_module()" in source_code, \
+        assert "quilt_service.get_quilt3_module()" in source_code or "backend.get_quilt3_module()" in source_code, (
             "quilt3 should be obtained from backend service"
+        )

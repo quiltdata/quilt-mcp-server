@@ -115,7 +115,7 @@ class TestTabulatorUsesBackend:
             schema=schema,
             package_pattern=".*",
             logical_key_pattern=".*",
-            parser_config=parser_config
+            parser_config=parser_config,
         )
 
         # Verify backend was used
@@ -231,7 +231,7 @@ class TestTabulatorBackendIntegration:
             schema=[],  # Empty schema should fail validation
             package_pattern=".*",
             logical_key_pattern=".*",
-            parser_config={"format": "csv"}
+            parser_config={"format": "csv"},
         )
 
         # Verify validation error

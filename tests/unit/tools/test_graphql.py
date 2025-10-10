@@ -192,9 +192,7 @@ class TestObjectsSearchGraphQLBackendUsage:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}
-        }
+        mock_response.json.return_value = {"data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}}
         mock_session.post.return_value = mock_response
         mock_backend.get_session.return_value = mock_session
         mock_backend.get_registry_url.return_value = "https://test.example.com"
@@ -213,9 +211,7 @@ class TestObjectsSearchGraphQLBackendUsage:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}
-        }
+        mock_response.json.return_value = {"data": {"objects": {"edges": [], "pageInfo": {"hasNextPage": False}}}}
         mock_session.post.return_value = mock_response
         mock_backend.get_session.return_value = mock_session
         mock_backend.get_registry_url.return_value = "https://test.example.com"

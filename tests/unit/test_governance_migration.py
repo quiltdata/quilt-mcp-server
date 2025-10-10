@@ -249,11 +249,7 @@ class TestGovernanceBackendIntegration:
         mock_backend.get_users_admin.return_value = mock_admin_users
 
         # Call the function
-        result = asyncio.run(governance.admin_user_create(
-            name="new_user",
-            email="new@example.com",
-            role="admin"
-        ))
+        result = asyncio.run(governance.admin_user_create(name="new_user", email="new@example.com", role="admin"))
 
         # Verify backend was used
         assert result['success'] is True
