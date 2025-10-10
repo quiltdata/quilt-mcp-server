@@ -149,7 +149,8 @@ class QuiltService:
 
         Returns:
             Dict with catalog_name, navigator_url, registry_url,
-            logged_in_url, and is_authenticated
+            logged_in_url, is_authenticated, region (if authenticated),
+            and tabulator_data_catalog (if authenticated)
         """
         catalog_info: dict[str, Any] = {
             "catalog_name": None,
@@ -157,6 +158,8 @@ class QuiltService:
             "registry_url": None,
             "logged_in_url": None,
             "is_authenticated": False,
+            "region": None,
+            "tabulator_data_catalog": None,
         }
 
         try:
@@ -166,6 +169,16 @@ class QuiltService:
                 catalog_info["logged_in_url"] = logged_in_url
                 catalog_info["is_authenticated"] = True
                 catalog_info["catalog_name"] = self._extract_catalog_name_from_url(logged_in_url)
+
+                # Fetch additional catalog config when authenticated
+                try:
+                    catalog_config = self.get_catalog_config(logged_in_url)
+                    if catalog_config:
+                        catalog_info["region"] = catalog_config.get("region")
+                        catalog_info["tabulator_data_catalog"] = catalog_config.get("tabulator_data_catalog")
+                except Exception:
+                    # Don't fail if catalog config fetch fails
+                    pass
         except Exception:
             pass
 

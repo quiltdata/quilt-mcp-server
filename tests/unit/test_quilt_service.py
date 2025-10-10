@@ -178,14 +178,25 @@ class TestQuiltServicePackageOperations:
             assert result == expected_packages
 
     def test_get_catalog_info_when_authenticated(self):
-        """Test get_catalog_info returns comprehensive info when authenticated."""
+        """Test get_catalog_info returns comprehensive info including region and tabulator_data_catalog when authenticated."""
         service = QuiltService()
+
+        # Mock catalog config response
+        mock_catalog_config = {
+            "region": "us-east-1",
+            "api_gateway_endpoint": "https://api.example.com",
+            "analytics_bucket": "example-analyticsbucket-abc",
+            "stack_prefix": "example",
+            "tabulator_data_catalog": "quilt-example-tabulator",
+        }
+
         with (
             patch('quilt3.logged_in', return_value='https://example.quiltdata.com'),
             patch(
                 'quilt3.config',
                 return_value={'navigator_url': 'https://example.quiltdata.com', 'registryUrl': 's3://example-bucket'},
             ),
+            patch.object(service, 'get_catalog_config', return_value=mock_catalog_config),
         ):
             result = service.get_catalog_info()
             assert result['is_authenticated'] is True
@@ -193,6 +204,29 @@ class TestQuiltServicePackageOperations:
             assert result['logged_in_url'] == 'https://example.quiltdata.com'
             assert result['navigator_url'] == 'https://example.quiltdata.com'
             assert result['registry_url'] == 's3://example-bucket'
+
+            # Verify new keys from catalog config
+            assert result['region'] == 'us-east-1'
+            assert result['tabulator_data_catalog'] == 'quilt-example-tabulator'
+
+    def test_get_catalog_info_when_not_authenticated(self):
+        """Test get_catalog_info returns None for region and tabulator_data_catalog when not authenticated."""
+        service = QuiltService()
+
+        with (
+            patch('quilt3.logged_in', return_value=None),
+            patch(
+                'quilt3.config',
+                return_value={'navigator_url': 'https://example.quiltdata.com', 'registryUrl': 's3://example-bucket'},
+            ),
+        ):
+            result = service.get_catalog_info()
+            assert result['is_authenticated'] is False
+            assert result['logged_in_url'] is None
+
+            # Verify new keys are None when not authenticated
+            assert result['region'] is None
+            assert result['tabulator_data_catalog'] is None
 
     def test_set_config_calls_quilt3_config(self):
         """Test set_config calls quilt3.config with catalog URL."""
