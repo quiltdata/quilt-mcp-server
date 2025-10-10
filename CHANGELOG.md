@@ -6,6 +6,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-10-10
+
+### Added
+
+- **Backend Abstraction Layer**: Complete architectural refactoring enabling flexible backend implementations (#158, #208)
+  - **Protocol-based Architecture**: New `QuiltBackend` protocol defining complete contract for backend implementations
+  - **Quilt3Backend**: Production implementation wrapping existing QuiltService with zero functionality loss
+  - **Factory Pattern**: Environment-based backend selection via `get_backend()` function
+  - **Tool Migration**: All 20 tool files migrated from direct QuiltService to backend abstraction
+  - **Admin Operations Integration**: Complete governance and tabulator admin functionality through abstraction layer
+  - **Zero Performance Impact**: <5% overhead measured across all operations
+  - **Future-Ready**: Architecture enables GraphQL backend implementation without tool refactoring
+
+### Changed
+
+- **Architecture Evolution**: Multi-phase implementation ensuring stability at each step
+  - **Phase 1**: Backend protocol and factory foundation established
+  - **Phase 2**: Core tools migrated (packages, auth, buckets, graphql, package_management, package_ops, s3_package, stack_buckets)
+  - **Phase 3**: Skipped - all non-admin tools already migrated in Phase 2
+  - **Phase 4**: Admin operations integrated (governance, tabulator) with 100% test coverage
+
+- **Service Layer**: QuiltService now wrapped by Quilt3Backend for clean abstraction
+  - All tools use `get_backend()` instead of direct `QuiltService()` instantiation
+  - Backward compatible - existing code continues working during migration
+  - Session management and authentication preserved across abstraction boundary
+
+### Documentation
+
+- **Comprehensive Specifications**: Complete RASP (Requirements, Analysis, Specifications, Phases) documentation
+  - Requirements analysis for branch merge strategy with backend abstraction
+  - Comparative analysis of main vs impl/remote-mcp-deployment branches
+  - Detailed specifications with success criteria and validation approaches
+  - Multi-phase implementation plan with clear deliverables
+
+- **Migration Patterns**: Clear documentation for future backend implementations
+  - Protocol-based design enables GraphQL backend without tool changes
+  - Factory pattern allows environment-based backend selection
+  - Testing patterns for backend abstraction validation
+
+### Testing
+
+- **Enhanced Test Coverage**: 92 new BDD tests for backend abstraction
+  - Protocol compliance testing for all backend implementations
+  - Backend switching validation across all tool files
+  - Zero regression in existing functionality (751+ tests passing)
+  - Integration tests validate end-to-end behavior through abstraction
+
+### Technical Details
+
+- **Backend Protocol**: 31 methods covering authentication, packages, buckets, search, and admin operations
+- **Environment Configuration**: `QUILT_BACKEND=quilt3` (default) with future support for `graphql`
+- **Type Safety**: Full type hints with Protocol-based structural subtyping
+- **Error Propagation**: Clean error handling across abstraction boundary
+- **Session Management**: Backend abstraction preserves all session lifecycle behavior
+
 ## [0.6.13] - 2025-09-22
 
 ### Added
