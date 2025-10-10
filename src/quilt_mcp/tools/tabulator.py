@@ -18,12 +18,8 @@ logger = logging.getLogger(__name__)
 # QuiltService provides admin module access
 from ..services.quilt_service import QuiltService
 
-# Initialize service and check availability
+# Initialize service
 quilt_service = QuiltService()
-ADMIN_AVAILABLE = quilt_service.is_admin_available()
-
-if not ADMIN_AVAILABLE:
-    logger.warning("quilt3.admin not available - tabulator functionality disabled")
 
 
 class TabulatorService:
@@ -31,7 +27,6 @@ class TabulatorService:
 
     def __init__(self, use_quilt_auth: bool = True):
         self.use_quilt_auth = use_quilt_auth
-        self.admin_available = ADMIN_AVAILABLE and use_quilt_auth
 
     def _build_tabulator_config(
         self,
@@ -140,19 +135,15 @@ class TabulatorService:
     def list_tables(self, bucket_name: str) -> Dict[str, Any]:
         """List all tabulator tables for a bucket."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
-
-            # Use the direct API to list tabulator tables
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            tables = admin_tabulator.list_tables(bucket_name)
+            # Use QuiltService to list tabulator tables
+            tables = quilt_service.list_tabulator_tables(bucket_name)
 
             # Parse and enrich table information
             enriched_tables = []
             for table in tables:
                 table_info = {
-                    "name": table.name,
-                    "config_yaml": table.config,
+                    "name": table["name"],
+                    "config_yaml": table["config"],
                 }
 
                 # Parse YAML config to extract schema and patterns
@@ -198,9 +189,6 @@ class TabulatorService:
     ) -> Dict[str, Any]:
         """Create a new tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
-
             # Validate inputs
             validation_errors = []
 
@@ -223,35 +211,23 @@ class TabulatorService:
             # Build tabulator configuration
             config_yaml = self._build_tabulator_config(schema, package_pattern, logical_key_pattern, parser_config)
 
-            # Execute GraphQL mutation to create table
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=config_yaml)
+            # Use QuiltService to create table
+            result = quilt_service.create_tabulator_table(bucket=bucket_name, name=table_name, config=config_yaml)
 
-            if hasattr(response, "__typename"):
-                if response.__typename == "InvalidInput":
-                    errors = (
-                        [error.message for error in response.errors]
-                        if hasattr(response, "errors")
-                        else ["Invalid input"]
-                    )
-                    return format_error_response(f"Invalid input: {'; '.join(errors)}")
-                elif response.__typename == "OperationError":
-                    return format_error_response(
-                        f"Operation error: {response.message if hasattr(response, 'message') else 'Unknown error'}"
-                    )
+            # Enhance result with additional details
+            result.update(
+                {
+                    "success": True,
+                    "config": config_yaml,
+                    "schema": schema,
+                    "package_pattern": package_pattern,
+                    "logical_key_pattern": logical_key_pattern,
+                    "parser_config": parser_config,
+                    "description": description or f"Tabulator table for {bucket_name}",
+                }
+            )
 
-            return {
-                "success": True,
-                "table_name": table_name,
-                "bucket_name": bucket_name,
-                "config": config_yaml,
-                "schema": schema,
-                "package_pattern": package_pattern,
-                "logical_key_pattern": logical_key_pattern,
-                "parser_config": parser_config,
-                "description": description or f"Tabulator table for {bucket_name}",
-                "message": f"Tabulator table '{table_name}' created successfully",
-            }
+            return result
 
         except Exception as e:
             logger.error(f"Failed to create tabulator table: {e}")
@@ -260,30 +236,13 @@ class TabulatorService:
     def delete_table(self, bucket_name: str, table_name: str) -> Dict[str, Any]:
         """Delete a tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
-
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
             if not table_name:
                 return format_error_response("Table name cannot be empty")
 
-            # Delete by setting config to None
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            response = admin_tabulator.set_table(bucket_name=bucket_name, table_name=table_name, config=None)
-
-            if hasattr(response, "__typename"):
-                if response.__typename == "InvalidInput":
-                    errors = (
-                        [error.message for error in response.errors]
-                        if hasattr(response, "errors")
-                        else ["Invalid input"]
-                    )
-                    return format_error_response(f"Invalid input: {'; '.join(errors)}")
-                elif response.__typename == "OperationError":
-                    return format_error_response(
-                        f"Operation error: {response.message if hasattr(response, 'message') else 'Unknown error'}"
-                    )
+            # Use QuiltService to delete table
+            quilt_service.delete_tabulator_table(bucket=bucket_name, name=table_name)
 
             return {
                 "success": True,
@@ -299,9 +258,6 @@ class TabulatorService:
     def rename_table(self, bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
         """Rename a tabulator table."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
-
             if not bucket_name:
                 return format_error_response("Bucket name cannot be empty")
             if not table_name:
@@ -309,34 +265,22 @@ class TabulatorService:
             if not new_table_name:
                 return format_error_response("New table name cannot be empty")
 
-            # Execute GraphQL mutation to rename table
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            response = admin_tabulator.rename_table(
-                bucket_name=bucket_name,
-                table_name=table_name,
-                new_table_name=new_table_name,
+            # Use QuiltService to rename table
+            result = quilt_service.rename_tabulator_table(
+                bucket=bucket_name, old_name=table_name, new_name=new_table_name
             )
 
-            if hasattr(response, "__typename"):
-                if response.__typename == "InvalidInput":
-                    errors = (
-                        [error.message for error in response.errors]
-                        if hasattr(response, "errors")
-                        else ["Invalid input"]
-                    )
-                    return format_error_response(f"Invalid input: {'; '.join(errors)}")
-                elif response.__typename == "OperationError":
-                    return format_error_response(
-                        f"Operation error: {response.message if hasattr(response, 'message') else 'Unknown error'}"
-                    )
+            # Enhance result with additional details
+            result.update(
+                {
+                    "success": True,
+                    "old_table_name": table_name,
+                    "new_table_name": new_table_name,
+                    "bucket_name": bucket_name,
+                }
+            )
 
-            return {
-                "success": True,
-                "old_table_name": table_name,
-                "new_table_name": new_table_name,
-                "bucket_name": bucket_name,
-                "message": f"Tabulator table renamed from '{table_name}' to '{new_table_name}'",
-            }
+            return result
 
         except Exception as e:
             logger.error(f"Failed to rename tabulator table: {e}")
@@ -345,15 +289,12 @@ class TabulatorService:
     def get_open_query_status(self) -> Dict[str, Any]:
         """Get tabulator open query status."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
-
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            response = admin_tabulator.get_open_query()
+            # Use QuiltService to get tabulator access status
+            enabled = quilt_service.get_tabulator_access()
 
             return {
                 "success": True,
-                "open_query_enabled": (response.admin.tabulator_open_query if hasattr(response, "admin") else False),
+                "open_query_enabled": enabled,
             }
 
         except Exception as e:
@@ -363,17 +304,18 @@ class TabulatorService:
     def set_open_query(self, enabled: bool) -> Dict[str, Any]:
         """Set tabulator open query status."""
         try:
-            if not self.admin_available:
-                return format_error_response("Admin functionality not available - check Quilt authentication")
+            # Use QuiltService to set tabulator access status
+            result = quilt_service.set_tabulator_access(enabled=enabled)
 
-            admin_tabulator = quilt_service.get_tabulator_admin()
-            response = admin_tabulator.set_open_query(enabled=enabled)
+            # Enhance result with consistent field names
+            result.update(
+                {
+                    "success": True,
+                    "open_query_enabled": result.get("enabled", enabled),
+                }
+            )
 
-            return {
-                "success": True,
-                "open_query_enabled": (response.admin.tabulator_open_query if hasattr(response, "admin") else enabled),
-                "message": f"Open query {'enabled' if enabled else 'disabled'}",
-            }
+            return result
 
         except Exception as e:
             logger.error(f"Failed to set open query status: {e}")
@@ -393,31 +335,6 @@ def get_tabulator_service() -> TabulatorService:
 
 
 # MCP Tool Functions
-
-
-async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
-    """
-    List all tabulator tables configured for a bucket.
-
-    Tabulator tables enable SQL querying across multiple Quilt packages,
-    aggregating data based on configurable patterns and schemas.
-
-    Args:
-        bucket_name: Name of the S3 bucket to list tables for
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - tables: List of tabulator tables with their configurations
-        - bucket_name: The bucket name that was queried
-        - count: Number of tables found
-    """
-    try:
-        service = get_tabulator_service()
-        return service.list_tables(bucket_name)
-    except Exception as e:
-        logger.error(f"Error in tabulator_tables_list: {e}")
-        return format_error_response(f"Failed to list tabulator tables: {str(e)}")
 
 
 async def tabulator_table_create(
@@ -519,43 +436,3 @@ async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_na
     except Exception as e:
         logger.error(f"Error in tabulator_table_rename: {e}")
         return format_error_response(f"Failed to rename tabulator table: {str(e)}")
-
-
-async def tabulator_open_query_status() -> Dict[str, Any]:
-    """
-    Get the current status of tabulator open query feature.
-
-    The open query feature allows broader access to tabulator functionality.
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - open_query_enabled: Current status of the open query feature
-    """
-    try:
-        service = get_tabulator_service()
-        return service.get_open_query_status()
-    except Exception as e:
-        logger.error(f"Error in tabulator_open_query_status: {e}")
-        return format_error_response(f"Failed to get open query status: {str(e)}")
-
-
-async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
-    """
-    Enable or disable tabulator open query feature.
-
-    Args:
-        enabled: Whether to enable (True) or disable (False) open query
-
-    Returns:
-        Dict containing:
-        - success: Whether the operation succeeded
-        - open_query_enabled: Updated status of the open query feature
-        - message: Confirmation message
-    """
-    try:
-        service = get_tabulator_service()
-        return service.set_open_query(enabled)
-    except Exception as e:
-        logger.error(f"Error in tabulator_open_query_toggle: {e}")
-        return format_error_response(f"Failed to set open query status: {str(e)}")

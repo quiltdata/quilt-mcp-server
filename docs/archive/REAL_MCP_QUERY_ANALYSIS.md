@@ -45,7 +45,7 @@ After running actual user queries against the real MCP server, I've discovered s
 ---
 
 ### **R003: "Create a new package with metadata and validate the metadata structure"**
-**MCP Decision**: `get_metadata_template` + `validate_metadata_structure`
+**MCP Decision**: `metadata_template_get` + `validate_metadata_structure`
 **Actual Result**: ✅ **GOOD**
 - Retrieved genomics metadata template
 - Validated custom metadata structure successfully

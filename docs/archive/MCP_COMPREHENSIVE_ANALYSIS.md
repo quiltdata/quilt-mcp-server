@@ -38,7 +38,7 @@ After running comprehensive testing against 40 realistic test cases, the MCP ser
 **Affected Tools**:
 - `mcp_quilt_package_validate`
 - `mcp_quilt_package_update_metadata`
-- `mcp_quilt_create_metadata_from_template`
+- `mcp_quilt_metadata_template_create`
 - `mcp_quilt_fix_metadata_validation_issues`
 - `mcp_quilt_show_metadata_examples`
 - `mcp_quilt_bucket_recommendations_get`

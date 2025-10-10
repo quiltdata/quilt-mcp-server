@@ -48,7 +48,7 @@
       "metadata"
     ],
     "success_criteria": "Package created from S3 objects with metadata attached.",
-    "mcp_tools": ["mcp_quilt_package_create_from_s3", "mcp_quilt_create_metadata_from_template"],
+    "mcp_tools": ["mcp_quilt_package_create_from_s3", "mcp_quilt_metadata_template_create"],
     "realistic_changes": "Removed workflow/approval concepts - Quilt doesn't have built-in approval workflows"
   },
   {
@@ -73,7 +73,7 @@
       "metadata"
     ],
     "success_criteria": "Creates package with metadata linking to input packages.",
-    "mcp_tools": ["mcp_quilt_create_package", "mcp_quilt_create_metadata_from_template"],
+    "mcp_tools": ["mcp_quilt_create_package", "mcp_quilt_metadata_template_create"],
     "realistic_changes": "Removed Nextflow-specific integration - Quilt doesn't have built-in Nextflow integration, but can reference other packages in metadata"
   },
   {
@@ -193,7 +193,7 @@
       "package_creation"
     ],
     "success_criteria": "Package created with well-structured metadata from template.",
-    "mcp_tools": ["mcp_quilt_create_package_enhanced", "mcp_quilt_get_metadata_template"],
+    "mcp_tools": ["mcp_quilt_create_package_enhanced", "mcp_quilt_metadata_template_get"],
     "realistic_changes": "Removed Benchling integration - changed to generic metadata templating which Quilt supports"
   },
   {

@@ -6,10 +6,23 @@ isolating the 84+ MCP tools from direct quilt3 dependencies.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Dict, List, Optional
+from typing import Any, Iterator, Dict, List, Optional, TYPE_CHECKING
 from pathlib import Path
 
 import quilt3
+
+from .exceptions import (
+    UserNotFoundError,
+    UserAlreadyExistsError,
+    RoleNotFoundError,
+    RoleAlreadyExistsError,
+    BucketNotFoundError,
+    PackageNotFoundError,
+)
+
+if TYPE_CHECKING:
+    import boto3
+    import requests
 
 
 class QuiltService:
@@ -37,15 +50,6 @@ class QuiltService:
 
     # Authentication & Configuration Methods
     # Based on usage analysis: 19 calls across auth.py, utils.py, permission_discovery.py
-
-    def is_authenticated(self) -> bool:
-        """Check if user is currently authenticated with Quilt.
-
-        Returns:
-            True if authenticated, False otherwise
-        """
-        logged_in_url = self.get_logged_in_url()
-        return bool(logged_in_url)
 
     def get_logged_in_url(self) -> str | None:
         """Get the URL of the catalog the user is logged into.
@@ -76,6 +80,17 @@ class QuiltService:
             catalog_url: URL of the catalog to configure
         """
         quilt3.config(catalog_url)
+
+    def get_navigator_url(self) -> str | None:
+        """Get navigator_url from Quilt configuration.
+
+        Returns:
+            Navigator URL or None if not available
+        """
+        config = self.get_config()
+        if config:
+            return config.get("navigator_url")
+        return None
 
     def get_catalog_info(self) -> dict[str, Any]:
         """Get comprehensive catalog information.
@@ -166,7 +181,7 @@ class QuiltService:
         except Exception:
             return False
 
-    def get_session(self) -> Any:
+    def get_session(self) -> requests.Session | None:
         """Get authenticated requests session.
 
         Returns:
@@ -192,7 +207,7 @@ class QuiltService:
         except Exception:
             return None
 
-    def create_botocore_session(self) -> Any:
+    def create_botocore_session(self) -> boto3.Session:
         """Create authenticated botocore session.
 
         Returns:
@@ -264,7 +279,9 @@ class QuiltService:
         # Return dictionary result - NEVER expose quilt3.Package objects
         return self._build_creation_result(package_name, top_hash, normalized_registry, message)
 
-    def browse_package(self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any) -> Any:
+    def browse_package(
+        self, package_name: str, registry: str, top_hash: str | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """Browse an existing package.
 
         Args:
@@ -294,10 +311,33 @@ class QuiltService:
         """
         return quilt3.list_packages(registry=registry)
 
+    def delete_package(self, name: str, registry: str | None = None) -> None:
+        """Delete a package from the registry.
+
+        Args:
+            name: Package name in format "namespace/package"
+            registry: Registry URL (optional, uses quilt3 default if not provided)
+
+        Raises:
+            PackageNotFoundError: If package doesn't exist
+        """
+        try:
+            # Normalize registry if provided
+            normalized_registry = self._normalize_registry(registry) if registry else None
+
+            # Call quilt3.delete_package with appropriate arguments
+            if normalized_registry:
+                quilt3.delete_package(name, registry=normalized_registry)
+            else:
+                quilt3.delete_package(name)
+        except Exception as e:
+            # Wrap any exception as PackageNotFoundError
+            raise PackageNotFoundError(f"Package '{name}' not found") from e
+
     # Bucket Operations Methods
     # Based on usage analysis: 4 calls in packages.py and buckets.py
 
-    def create_bucket(self, bucket_uri: str) -> Any:
+    def create_bucket(self, bucket_uri: str) -> dict[str, Any]:
         """Create a Bucket instance for S3 operations.
 
         Args:
@@ -311,95 +351,33 @@ class QuiltService:
     # Search Operations Methods
     # Based on usage analysis: 1 call in packages.py
 
-    def get_search_api(self) -> Any:
-        """Get search API for package searching.
+    # Admin Operations Methods
+    # quilt3.admin is always available as a required dependency
+
+    def has_admin_credentials(self) -> bool:
+        """Check if current user has admin credentials in the catalog.
+
+        This performs a lightweight admin operation to test if the user
+        has admin privileges. Used for filtering admin tools in MCP.
 
         Returns:
-            Search API module
-        """
-        from quilt3.search_util import search_api
-
-        return search_api
-
-    # Admin Operations Methods (Conditional)
-    # Based on usage analysis: 11 calls in tabulator.py and governance.py
-
-    def is_admin_available(self) -> bool:
-        """Check if quilt3.admin modules are available.
-
-        Returns:
-            True if admin functionality is available
+            True if user has admin credentials, False otherwise
         """
         try:
-            import quilt3.admin.users
-            import quilt3.admin.roles
-            import quilt3.admin.sso_config
-            import quilt3.admin.tabulator
-
+            # Try to list roles - minimal operation that requires admin credentials
+            # Do NOT check if module exists - that's always True and was the anti-pattern
+            # we're trying to eliminate per spec/Archive/155-isolate-quilt3/a1-requirements.md
+            self.list_roles()
             return True
-        except ImportError:
+        except Exception:
+            # Any error (auth, permissions, network) means no admin access
             return False
 
-    def get_tabulator_admin(self) -> Any:
-        """Get tabulator admin module.
-
-        Returns:
-            quilt3.admin.tabulator module
-
-        Raises:
-            ImportError: If admin modules not available
-        """
-        import quilt3.admin.tabulator
-
-        return quilt3.admin.tabulator
-
-    def get_users_admin(self) -> Any:
-        """Get users admin module.
-
-        Returns:
-            quilt3.admin.users module
-
-        Raises:
-            ImportError: If admin modules not available
-        """
-        import quilt3.admin.users
-
-        return quilt3.admin.users
-
-    def get_roles_admin(self) -> Any:
-        """Get roles admin module.
-
-        Returns:
-            quilt3.admin.roles module
-
-        Raises:
-            ImportError: If admin modules not available
-        """
-        import quilt3.admin.roles
-
-        return quilt3.admin.roles
-
-    def get_sso_config_admin(self) -> Any:
-        """Get SSO config admin module.
-
-        Returns:
-            quilt3.admin.sso_config module
-
-        Raises:
-            ImportError: If admin modules not available
-        """
-        import quilt3.admin.sso_config
-
-        return quilt3.admin.sso_config
-
-    def get_admin_exceptions(self) -> dict[str, type]:
-        """Get admin exception classes.
+    def _get_admin_exceptions(self) -> dict[str, type]:
+        """Get admin exception classes from quilt3.admin.
 
         Returns:
             Dict mapping exception names to exception classes
-
-        Raises:
-            ImportError: If admin modules not available
         """
         import quilt3.admin.exceptions
 
@@ -409,13 +387,628 @@ class QuiltService:
             'BucketNotFoundError': quilt3.admin.exceptions.BucketNotFoundError,
         }
 
-    def get_quilt3_module(self) -> Any:
-        """Get the quilt3 module for backward compatibility.
+    def get_admin_exceptions(self) -> dict[str, type]:
+        """Get admin exception classes.
+
+        DEPRECATED: Use _get_admin_exceptions() for internal use.
 
         Returns:
-            The quilt3 module
+            Dict mapping exception names to exception classes
+
+        Raises:
         """
-        return quilt3
+        return self._get_admin_exceptions()
+
+    # User Management Methods (Phase 2.1)
+
+    def _get_users_admin_module(self) -> Any:
+        """Get the users admin module.
+
+        Returns:
+            quilt3.admin.users module
+        """
+        import quilt3.admin.users
+
+        return quilt3.admin.users
+
+    def _handle_user_operation_error(self, error: Exception, username: str) -> None:
+        """Handle errors from user management operations.
+
+        This helper centralizes the error handling pattern used across
+        user management methods that reference a specific username.
+
+        Args:
+            error: The exception caught from quilt3.admin.users operation
+            username: The username that was being operated on
+
+        Raises:
+            UserNotFoundError: If the error is a quilt3 UserNotFoundError
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_user_not_found = admin_exceptions.get('UserNotFoundError')
+
+        # Check if this is a UserNotFoundError from quilt3.admin
+        if quilt3_user_not_found and isinstance(error, quilt3_user_not_found):
+            raise UserNotFoundError(f"User '{username}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
+    def list_users(self) -> list[dict[str, Any]]:
+        """List all users in the catalog.
+
+        Returns:
+            List of user dictionaries with user information
+
+        Raises:
+        """
+        users_admin = self._get_users_admin_module()
+        return users_admin.list()
+
+    def get_user(self, name: str) -> dict[str, Any]:
+        """Get detailed information about a specific user.
+
+        Args:
+            name: Username to retrieve
+
+        Returns:
+            User dictionary with detailed information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.get(name)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def create_user(self, name: str, email: str, role: str, extra_roles: Optional[list[str]]) -> dict[str, Any]:
+        """Create a new user in the catalog.
+
+        Args:
+            name: Username for the new user
+            email: Email address for the new user
+            role: Primary role for the user
+            extra_roles: Additional roles to assign to the user (optional)
+
+        Returns:
+            User dictionary with created user information
+
+        Raises:
+            UserAlreadyExistsError: If user already exists
+        """
+        users_admin = self._get_users_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        try:
+            return users_admin.create(
+                name=name,
+                email=email,
+                role=role,
+                extra_roles=extra_roles,
+            )
+        except Exception as e:
+            # Check if this is a Quilt3AdminError indicating user already exists
+            if quilt3_admin_error and isinstance(e, quilt3_admin_error):
+                if "already exists" in str(e):
+                    raise UserAlreadyExistsError(f"User '{name}' already exists") from e
+            # Re-raise any other exceptions
+            raise
+
+    def delete_user(self, name: str) -> None:
+        """Delete a user from the catalog.
+
+        Args:
+            name: Username to delete
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            users_admin.delete(name)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def set_user_email(self, name: str, email: str) -> dict[str, Any]:
+        """Update a user's email address.
+
+        Args:
+            name: Username to update
+            email: New email address
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.set_email(name, email)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def set_user_role(self, name: str, role: str, extra_roles: Optional[list[str]], append: bool) -> dict[str, Any]:
+        """Update a user's role and extra roles.
+
+        Args:
+            name: Username to update
+            role: Primary role to assign
+            extra_roles: Additional roles to assign (optional)
+            append: Whether to append extra_roles to existing ones (True) or replace them (False)
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.set_role(name, role, extra_roles, append)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def set_user_active(self, name: str, active: bool) -> dict[str, Any]:
+        """Update a user's active status.
+
+        Args:
+            name: Username to update
+            active: Whether the user should be active
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.set_active(name, active)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def set_user_admin(self, name: str, admin: bool) -> dict[str, Any]:
+        """Update a user's admin status.
+
+        Args:
+            name: Username to update
+            admin: Whether the user should have admin privileges
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.set_admin(name, admin)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def add_user_roles(self, name: str, roles: list[str]) -> dict[str, Any]:
+        """Add roles to a user.
+
+        Args:
+            name: Username to update
+            roles: List of roles to add to the user
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.add_roles(name, roles)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def remove_user_roles(self, name: str, roles: list[str], fallback: Optional[str]) -> dict[str, Any]:
+        """Remove roles from a user.
+
+        Args:
+            name: Username to update
+            roles: List of roles to remove from the user
+            fallback: Fallback role if the primary role is removed (optional)
+
+        Returns:
+            User dictionary with updated information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.remove_roles(name, roles, fallback)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    def reset_user_password(self, name: str) -> dict[str, Any]:
+        """Reset a user's password.
+
+        Args:
+            name: Username to reset password for
+
+        Returns:
+            Dictionary with password reset status information
+
+        Raises:
+            UserNotFoundError: If user does not exist
+        """
+        users_admin = self._get_users_admin_module()
+
+        try:
+            return users_admin.reset_password(name)
+        except Exception as e:
+            self._handle_user_operation_error(e, name)
+
+    # Role Management Methods (Phase 3.1)
+
+    def _get_roles_admin_module(self) -> Any:
+        """Get the roles admin module.
+
+        Returns:
+            quilt3.admin.roles module
+
+        """
+        import quilt3.admin.roles
+
+        return quilt3.admin.roles
+
+    def _handle_role_operation_error(self, error: Exception, rolename: str) -> None:
+        """Handle errors from role management operations.
+
+        This helper centralizes the error handling pattern used across
+        role management methods that reference a specific role name.
+
+        Args:
+            error: The exception caught from quilt3.admin.roles operation
+            rolename: The role name that was being operated on
+
+        Raises:
+            RoleNotFoundError: If the error indicates role not found
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        # Check if this is a Quilt3AdminError indicating role not found
+        if quilt3_admin_error and isinstance(error, quilt3_admin_error):
+            error_msg = str(error).lower()
+            if "not found" in error_msg or "does not exist" in error_msg:
+                raise RoleNotFoundError(f"Role '{rolename}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
+    def list_roles(self) -> list[dict[str, Any]]:
+        """List all roles in the catalog.
+
+        Returns:
+            List of role dictionaries with role information
+
+        Raises:
+        """
+        roles_admin = self._get_roles_admin_module()
+        return roles_admin.list()
+
+    def get_role(self, name: str) -> dict[str, Any]:
+        """Get detailed information about a specific role.
+
+        Args:
+            name: Role name to retrieve
+
+        Returns:
+            Role dictionary with detailed information
+
+        Raises:
+            RoleNotFoundError: If role does not exist
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        try:
+            return roles_admin.get(name)
+        except Exception as e:
+            self._handle_role_operation_error(e, name)
+
+    def create_role(self, name: str, permissions: dict[str, Any]) -> dict[str, Any]:
+        """Create a new role in the catalog.
+
+        Args:
+            name: Role name for the new role
+            permissions: Permissions dictionary for the role
+
+        Returns:
+            Role dictionary with created role information
+
+        Raises:
+            RoleAlreadyExistsError: If role already exists
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        # Get admin exceptions for proper error handling
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_admin_error = admin_exceptions.get('Quilt3AdminError')
+
+        try:
+            return roles_admin.create(name, permissions)
+        except Exception as e:
+            # Check if this is a Quilt3AdminError indicating role already exists
+            if quilt3_admin_error and isinstance(e, quilt3_admin_error):
+                if "already exists" in str(e):
+                    raise RoleAlreadyExistsError(f"Role '{name}' already exists") from e
+            # Re-raise any other exceptions
+            raise
+
+    def delete_role(self, name: str) -> None:
+        """Delete a role from the catalog.
+
+        Args:
+            name: Role name to delete
+
+        Raises:
+            RoleNotFoundError: If role does not exist
+        """
+        roles_admin = self._get_roles_admin_module()
+
+        try:
+            roles_admin.delete(name)
+        except Exception as e:
+            self._handle_role_operation_error(e, name)
+
+    # SSO Configuration Methods
+    # Phase 3.2: SSO configuration operations
+
+    def _get_sso_admin_module(self) -> Any:
+        """Get the SSO configuration admin module.
+
+        Returns:
+            quilt3.admin.sso_config module
+
+        Raises:
+        """
+        import quilt3.admin.sso_config
+
+        return quilt3.admin.sso_config
+
+    def get_sso_config(self) -> str | None:
+        """Get current SSO configuration.
+
+        Returns:
+            SSO configuration string if configured, None otherwise
+
+        Raises:
+        """
+        sso_admin = self._get_sso_admin_module()
+        return sso_admin.get()
+
+    def set_sso_config(self, config: str) -> dict[str, Any]:
+        """Set SSO configuration.
+
+        Args:
+            config: SSO configuration string (typically YAML format)
+
+        Returns:
+            SSO config object (despite type annotation saying dict - matches pattern of user methods)
+
+        Raises:
+        """
+        sso_admin = self._get_sso_admin_module()
+        # Return the config object directly, matching the pattern used by user management methods
+        # Type annotation is incorrect but maintained for API consistency
+        return sso_admin.set(config)
+
+    def remove_sso_config(self) -> dict[str, Any]:
+        """Remove SSO configuration.
+
+        Returns:
+            Result of remove operation (type annotation is dict but may vary)
+
+        Raises:
+        """
+        sso_admin = self._get_sso_admin_module()
+        # The module's remove() method may call set(None), so just pass through the result
+        return sso_admin.set(None)
+
+    # Tabulator Administration Methods
+    # Phase 3.3: Tabulator administration operations
+
+    def _get_tabulator_admin_module(self) -> Any:
+        """Get the tabulator admin module.
+
+        Returns:
+            quilt3.admin.tabulator module
+
+        Raises:
+        """
+        import quilt3.admin.tabulator
+
+        return quilt3.admin.tabulator
+
+    def _handle_tabulator_operation_error(self, error: Exception, bucket_name: str) -> None:
+        """Handle errors from tabulator operations.
+
+        This helper centralizes the error handling pattern used across
+        tabulator methods that reference a specific bucket.
+
+        Args:
+            error: The exception caught from quilt3.admin.tabulator operation
+            bucket_name: The bucket name that was being operated on
+
+        Raises:
+            BucketNotFoundError: If the error indicates bucket not found
+            Exception: Re-raises any other exceptions unchanged
+        """
+        admin_exceptions = self._get_admin_exceptions()
+        quilt3_bucket_not_found = admin_exceptions.get('BucketNotFoundError')
+
+        # Check if this is a BucketNotFoundError from quilt3.admin
+        if quilt3_bucket_not_found and isinstance(error, quilt3_bucket_not_found):
+            raise BucketNotFoundError(f"Bucket '{bucket_name}' not found") from error
+
+        # Re-raise any other exceptions
+        raise
+
+    def get_tabulator_access(self) -> bool:
+        """Get current tabulator access status (open query).
+
+        Returns:
+            True if tabulator access is enabled, False otherwise
+
+        Raises:
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+        return tabulator_admin.get_open_query()
+
+    def set_tabulator_access(self, enabled: bool) -> dict[str, Any]:
+        """Set tabulator access status (open query).
+
+        Args:
+            enabled: Whether to enable or disable tabulator access
+
+        Returns:
+            Dict with operation status and enabled state
+
+        Raises:
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+        tabulator_admin.set_open_query(enabled)
+
+        return {
+            "status": "success",
+            "enabled": enabled,
+            "message": f"Tabulator access {'enabled' if enabled else 'disabled'}",
+        }
+
+    def list_tabulator_tables(self, bucket: str) -> list[dict[str, Any]]:
+        """List all tabulator tables in a bucket.
+
+        Args:
+            bucket: Bucket name to list tables from
+
+        Returns:
+            List of table dictionaries with table information
+
+        Raises:
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            tables = tabulator_admin.list_tables(bucket)
+
+            # Convert table objects to dictionaries
+            result = []
+            for table in tables:
+                table_dict = {
+                    "name": table.name,
+                    "config": table.config,
+                }
+                result.append(table_dict)
+
+            return result
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def create_tabulator_table(self, bucket: str, name: str, config: dict[str, Any] | str) -> dict[str, Any]:
+        """Create a new tabulator table.
+
+        Args:
+            bucket: Bucket name to create table in
+            name: Name for the new table
+            config: Table configuration (dict or YAML string)
+
+        Returns:
+            Dict with table creation status and details
+
+        Raises:
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        # Convert dict config to YAML string if needed
+        if isinstance(config, dict):
+            import yaml
+
+            config_str = yaml.dump(config)
+        else:
+            config_str = config
+
+        try:
+            tabulator_admin.set_table(bucket_name=bucket, table_name=name, config=config_str)
+
+            return {
+                "status": "success",
+                "table_name": name,
+                "bucket_name": bucket,
+                "message": f"Tabulator table '{name}' created successfully",
+            }
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def delete_tabulator_table(self, bucket: str, name: str) -> None:
+        """Delete a tabulator table.
+
+        Args:
+            bucket: Bucket name containing the table
+            name: Name of the table to delete
+
+        Raises:
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            # Delete by setting config to None
+            tabulator_admin.set_table(bucket_name=bucket, table_name=name, config=None)
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
+
+    def rename_tabulator_table(self, bucket: str, old_name: str, new_name: str) -> dict[str, Any]:
+        """Rename a tabulator table.
+
+        Args:
+            bucket: Bucket name containing the table
+            old_name: Current name of the table
+            new_name: New name for the table
+
+        Returns:
+            Dict with rename status and details
+
+        Raises:
+            BucketNotFoundError: If bucket does not exist
+        """
+        tabulator_admin = self._get_tabulator_admin_module()
+
+        try:
+            tabulator_admin.rename_table(bucket_name=bucket, table_name=old_name, new_table_name=new_name)
+
+            return {
+                "status": "success",
+                "old_name": old_name,
+                "new_name": new_name,
+                "bucket_name": bucket,
+                "message": f"Tabulator table renamed from '{old_name}' to '{new_name}'",
+            }
+        except Exception as e:
+            self._handle_tabulator_operation_error(e, bucket)
 
     # Helper methods for create_package_revision
 

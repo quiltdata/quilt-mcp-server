@@ -6,10 +6,12 @@ import pandas as pd
 
 from quilt_mcp.tools.athena_glue import (
     athena_query_execute,
-    athena_workgroups_list,
-    athena_databases_list,
 )
-from quilt_mcp.tools.tabulator import tabulator_tables_list
+
+# athena_workgroups_list, athena_databases_list, and tabulator_tables_list replaced by MCP resources:
+# - athena://workgroups (AthenaWorkgroupsResource)
+# - athena://databases (AthenaDatabasesResource)
+# - tabulator://{bucket}/tables (TabulatorTablesResource)
 
 
 class TestAthenaTableFormatIntegration:
@@ -106,9 +108,12 @@ class TestAthenaTableFormatIntegration:
         assert result["display_format"] == "table"
         assert "database_name" in result["formatted_data_table"]
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
-    def test_athena_workgroups_list_with_table_format(self, mock_service_class):
-        """Test athena_workgroups_list with table formatting enhancement."""
+    @pytest.mark.asyncio
+    @patch("quilt_mcp.resources.athena.AthenaQueryService")
+    async def test_athena_workgroups_resource_with_table_format(self, mock_service_class):
+        """Test AthenaWorkgroupsResource with table formatting enhancement."""
+        from quilt_mcp.resources.athena import AthenaWorkgroupsResource
+
         mock_service = Mock()
         mock_service_class.return_value = mock_service
 
@@ -130,7 +135,8 @@ class TestAthenaTableFormatIntegration:
             },
         ]
 
-        result = athena_workgroups_list()
+        resource = AthenaWorkgroupsResource()
+        result = await resource.list_items()
 
         assert result["success"] is True
         assert "workgroups" in result
@@ -143,9 +149,12 @@ class TestAthenaTableFormatIntegration:
         # Note: The actual implementation may not have this yet
         # This test verifies the integration works without errors
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
-    def test_athena_databases_list_with_table_format(self, mock_service_class):
-        """Test athena_databases_list with table formatting."""
+    @pytest.mark.asyncio
+    @patch("quilt_mcp.resources.athena.AthenaQueryService")
+    async def test_athena_databases_resource_with_table_format(self, mock_service_class):
+        """Test AthenaDatabasesResource with table formatting."""
+        from quilt_mcp.resources.athena import AthenaDatabasesResource
+
         mock_service = Mock()
         mock_service_class.return_value = mock_service
 
@@ -159,7 +168,8 @@ class TestAthenaTableFormatIntegration:
             "count": 2,
         }
 
-        result = athena_databases_list()
+        resource = AthenaDatabasesResource()
+        result = await resource.list_items()
 
         assert result["success"] is True
         assert "databases" in result
@@ -234,6 +244,7 @@ class TestTableFormatErrorHandling:
         assert "error" in result
         assert "Query execution failed" in result["error"]
 
+    @pytest.mark.skip(reason="athena_workgroups_list replaced by athena://workgroups resource")
     @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
     def test_athena_workgroups_list_format_error_handling(self, mock_service_class):
         """Test error handling in workgroups list formatting."""
@@ -258,7 +269,7 @@ class TestTableFormatErrorHandling:
             with patch("quilt_mcp.formatting.enhance_result_with_table_format") as mock_enhance:
                 mock_enhance.side_effect = Exception("Table formatting error")
 
-                result = athena_workgroups_list()
+                # result = athena_workgroups_list()  # Function removed
 
                 # The error handling should prevent the function from failing
                 # but in this test case, the error propagates up

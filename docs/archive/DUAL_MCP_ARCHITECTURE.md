@@ -118,7 +118,7 @@ This document describes the implementation of a dual MCP (Model Context Protocol
 **Workflow**:
 1. `benchling_search_entities` - Validate Library L-789 exists
 2. `mcp_quilt_package_create_from_s3` - Create Quilt package from FASTQ files
-3. `mcp_quilt_create_metadata_from_template` - Add Benchling entity links to metadata
+3. `mcp_quilt_metadata_template_create` - Add Benchling entity links to metadata
 4. `benchling_get_projects` - Update project with package reference
 
 ### 3. Protocol Awareness (SB010)
