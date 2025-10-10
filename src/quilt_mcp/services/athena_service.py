@@ -31,6 +31,7 @@ class AthenaQueryService:
         use_quilt_auth: bool = True,
         quilt_service: Optional[QuiltService] = None,
         workgroup_name: Optional[str] = None,
+        data_catalog_name: Optional[str] = None,
     ):
         """Initialize the Athena service.
 
@@ -38,10 +39,12 @@ class AthenaQueryService:
             use_quilt_auth: Whether to use quilt3 authentication
             quilt_service: Optional QuiltService instance for dependency injection
             workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
+            data_catalog_name: Optional data catalog name (defaults to "AwsDataCatalog")
         """
         self.use_quilt_auth = use_quilt_auth
         self.quilt_service = quilt_service
         self.workgroup_name = workgroup_name
+        self.data_catalog_name = data_catalog_name or "AwsDataCatalog"
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
@@ -344,7 +347,7 @@ class AthenaQueryService:
             logger.error(f"Failed to get table metadata: {e}")
             return format_error_response(f"Failed to get table metadata: {str(e)}")
 
-    def execute_query(self, query: str, database_name: str|None = None, max_results: int = 1000) -> Dict[str, Any]:
+    def execute_query(self, query: str, database_name: str | None = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
             # Set database context if provided

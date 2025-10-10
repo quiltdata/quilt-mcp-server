@@ -58,7 +58,7 @@ def athena_databases_list(
     """
     try:
         if service is None:
-            service = AthenaQueryService()
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
         return service.discover_databases(data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
@@ -76,7 +76,7 @@ def athena_tables_list(
 
     Args:
         database_name: Name of the database
-        data_catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
         table_pattern: Optional pattern to filter table names
 
     Returns:
@@ -84,7 +84,7 @@ def athena_tables_list(
     """
     try:
         if service is None:
-            service = AthenaQueryService()
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
         return service.discover_tables(database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern)
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
@@ -103,14 +103,14 @@ def athena_table_schema(
     Args:
         database_name: Name of the database
         table_name: Name of the table
-        data_catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
 
     Returns:
         Detailed table schema including columns, types, partitions
     """
     try:
         if service is None:
-            service = AthenaQueryService()
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
         return service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
@@ -164,6 +164,7 @@ def athena_query_execute(
     query: str,
     database_name: Optional[str] = None,
     workgroup_name: Optional[str] = None,
+    data_catalog_name: str = "AwsDataCatalog",
     max_results: int = 1000,
     output_format: str = "json",
     use_quilt_auth: bool = True,
@@ -182,6 +183,7 @@ def athena_query_execute(
         query: SQL query to execute (must use double quotes, not backticks)
         database_name: Default database for query context (optional)
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        data_catalog_name: Data catalog to use (default: AwsDataCatalog)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
         use_quilt_auth: Use quilt3 assumed role credentials if available
@@ -222,7 +224,11 @@ def athena_query_execute(
 
         # Execute query
         if service is None:
-            service = AthenaQueryService(use_quilt_auth=use_quilt_auth, workgroup_name=workgroup_name)
+            service = AthenaQueryService(
+                use_quilt_auth=use_quilt_auth,
+                workgroup_name=workgroup_name,
+                data_catalog_name=data_catalog_name,
+            )
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):
