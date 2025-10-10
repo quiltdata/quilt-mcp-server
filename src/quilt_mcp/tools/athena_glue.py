@@ -44,14 +44,14 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
 
 
 def athena_databases_list(
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     List available databases in AWS Glue Data Catalog.
 
     Args:
-        catalog_name: Name of the data catalog (default: AwsDataCatalog)
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
 
     Returns:
         List of databases with metadata
@@ -59,7 +59,7 @@ def athena_databases_list(
     try:
         if service is None:
             service = AthenaQueryService()
-        return service.discover_databases(catalog_name)
+        return service.discover_databases(data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
         return format_error_response(f"Failed to list databases: {str(e)}")
@@ -67,7 +67,7 @@ def athena_databases_list(
 
 def athena_tables_list(
     database_name: str,
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     table_pattern: Optional[str] = None,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
@@ -76,7 +76,7 @@ def athena_tables_list(
 
     Args:
         database_name: Name of the database
-        catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog
         table_pattern: Optional pattern to filter table names
 
     Returns:
@@ -85,7 +85,7 @@ def athena_tables_list(
     try:
         if service is None:
             service = AthenaQueryService()
-        return service.discover_tables(database_name, catalog_name, table_pattern)
+        return service.discover_tables(database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern)
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
         return format_error_response(f"Failed to list tables: {str(e)}")
@@ -94,7 +94,7 @@ def athena_tables_list(
 def athena_table_schema(
     database_name: str,
     table_name: str,
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
@@ -103,7 +103,7 @@ def athena_table_schema(
     Args:
         database_name: Name of the database
         table_name: Name of the table
-        catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog
 
     Returns:
         Detailed table schema including columns, types, partitions
@@ -111,7 +111,7 @@ def athena_table_schema(
     try:
         if service is None:
             service = AthenaQueryService()
-        return service.get_table_metadata(database_name, table_name, catalog_name)
+        return service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
         return format_error_response(f"Failed to get table schema: {str(e)}")
@@ -222,7 +222,7 @@ def athena_query_execute(
 
         # Execute query
         if service is None:
-            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth, workgroup_name=workgroup_name)
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):

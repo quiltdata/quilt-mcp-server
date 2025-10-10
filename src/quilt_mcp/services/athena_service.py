@@ -26,15 +26,22 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
-    def __init__(self, use_quilt_auth: bool = True, quilt_service: Optional[QuiltService] = None):
+    def __init__(
+        self,
+        use_quilt_auth: bool = True,
+        quilt_service: Optional[QuiltService] = None,
+        workgroup_name: Optional[str] = None,
+    ):
         """Initialize the Athena service.
 
         Args:
             use_quilt_auth: Whether to use quilt3 authentication
             quilt_service: Optional QuiltService instance for dependency injection
+            workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
         """
         self.use_quilt_auth = use_quilt_auth
         self.quilt_service = quilt_service
+        self.workgroup_name = workgroup_name
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
@@ -76,8 +83,8 @@ class AthenaQueryService:
                 # The QuiltUserAthena workgroup and permissions are configured in us-east-1
                 region = "us-east-1"
 
-                # Discover available workgroups dynamically
-                workgroup = self._discover_workgroup(credentials, region)
+                # Use provided workgroup or discover available workgroups dynamically
+                workgroup = self.workgroup_name or self._discover_workgroup(credentials, region)
 
                 # Create connection string with explicit credentials
                 # URL encode the credentials to handle special characters
@@ -103,8 +110,12 @@ class AthenaQueryService:
                 # Use default AWS credentials
                 region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
-                # Discover available workgroups dynamically or fall back to environment
-                workgroup = self._discover_workgroup(None, region) or os.environ.get("ATHENA_WORKGROUP", "primary")
+                # Use provided workgroup, or discover dynamically, or fall back to environment
+                workgroup = (
+                    self.workgroup_name
+                    or self._discover_workgroup(None, region)
+                    or os.environ.get("ATHENA_WORKGROUP", "primary")
+                )
 
                 connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
 
@@ -181,11 +192,11 @@ class AthenaQueryService:
         """Get S3 staging directory for query results."""
         return os.environ.get("ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/")
 
-    def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
+    def discover_databases(self, data_catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
         try:
             # Use Athena SQL to list schemas (databases) with explicit catalog name
-            query = f"SHOW DATABASES IN `{catalog_name}`"
+            query = f"SHOW DATABASES IN `{data_catalog_name}`"
             with suppress_stdout():
                 df = pd.read_sql_query(query, self.engine)
 
@@ -205,7 +216,7 @@ class AthenaQueryService:
             return {
                 "success": True,
                 "databases": databases,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "count": len(databases),
             }
 
@@ -216,8 +227,8 @@ class AthenaQueryService:
     def discover_tables(
         self,
         database_name: str,
-        catalog_name: str = "AwsDataCatalog",
-        table_pattern: str = None,
+        data_catalog_name: str = "AwsDataCatalog",
+        table_pattern: str = '*',
     ) -> Dict[str, Any]:
         """Discover tables using Athena SQL queries."""
         try:
@@ -262,7 +273,7 @@ class AthenaQueryService:
                 "success": True,
                 "tables": tables,
                 "database_name": database_name,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "count": len(tables),
             }
 
@@ -271,7 +282,7 @@ class AthenaQueryService:
             return format_error_response(f"Failed to discover tables: {str(e)}")
 
     def get_table_metadata(
-        self, database_name: str, table_name: str, catalog_name: str = "AwsDataCatalog"
+        self, database_name: str, table_name: str, data_catalog_name: str = "AwsDataCatalog"
     ) -> Dict[str, Any]:
         """Get comprehensive table metadata using Athena DESCRIBE."""
         try:
@@ -311,7 +322,7 @@ class AthenaQueryService:
                 "success": True,
                 "table_name": table_name,
                 "database_name": database_name,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "columns": columns,
                 "partitions": partitions,
                 "table_type": "",  # Not available through DESCRIBE
@@ -333,7 +344,7 @@ class AthenaQueryService:
             logger.error(f"Failed to get table metadata: {e}")
             return format_error_response(f"Failed to get table metadata: {str(e)}")
 
-    def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
+    def execute_query(self, query: str, database_name: str|None = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
             # Set database context if provided
