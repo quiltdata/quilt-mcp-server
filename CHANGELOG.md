@@ -6,6 +6,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Catalog Configuration Access**: New `get_catalog_config()` method in QuiltService
+  - Fetches and filters catalog configuration from `<catalog>/config.json` endpoint
+  - Returns essential AWS infrastructure keys: `region`, `api_gateway_endpoint`, `analytics_bucket`
+  - Derives `stack_prefix` from analytics bucket name (part before '-analyticsbucket')
+  - Derives `tabulator_data_catalog` as `quilt-<stack-prefix>-tabulator`
+  - Smart error handling with authentication checks and graceful degradation
+  - All returned keys use snake_case for consistency with existing patterns
+
+- **Enhanced Catalog Info**: Extended `catalog_info` tool and `get_catalog_info()` method
+  - Now includes `region` and `tabulator_data_catalog` when user is authenticated
+  - Fetches additional metadata from catalog config endpoint automatically
+  - Fields remain `None` when not authenticated
+  - Comprehensive test coverage for authenticated and non-authenticated scenarios
+
 ## [0.6.14] - 2025-09-24
 
 ### Added
