@@ -402,6 +402,75 @@ The following permissions are granted for this repository:
 - Complete build pipeline tested as part of standard workflow
 - Ensures deliverable packages are always validated
 
+### Backend Abstraction (Phase 1 & 2 Complete - 2025-10-10)
+
+**Implementation Pattern:**
+
+All tool files now use `get_backend()` instead of direct `QuiltService()` instantiation. This enables future backend flexibility (GraphQL, REST API, etc.) without changing tool code.
+
+**Migration Pattern (3 steps):**
+
+```python
+# Step 1: Import change
+from ..services.quilt_service import QuiltService  # Before
+from ..backends.factory import get_backend          # After
+
+# Step 2: Instantiation change
+service = QuiltService()  # Before
+backend = get_backend()   # After
+
+# Step 3: Method calls (no change - same interface)
+backend.list_packages(registry)  # Works identically
+```
+
+**Key Learnings:**
+
+1. **Module-Level Singletons:** If code has `quilt_service = QuiltService()` at module level, convert to `_backend = get_backend()` for consistency.
+
+2. **BDD Test Mocking:** Mock `get_backend()` at the module level where it's imported:
+   ```python
+   with patch("quilt_mcp.tools.packages.get_backend", return_value=mock_backend):
+       # Test code here
+   ```
+
+3. **Error Propagation:** Backend errors propagate cleanly - no wrapping needed. All exception handling remains unchanged.
+
+4. **Session Management:** Backend abstraction preserves all session lifecycle behavior from QuiltService.
+
+5. **Zero Logic Changes:** Migration only changes backend access - all business logic stays identical.
+
+6. **Test Coverage:** Every migrated file has comprehensive BDD tests verifying:
+   - Backend usage instead of QuiltService
+   - Method delegation works correctly
+   - Registry normalization (where applicable)
+   - Error propagation from backend
+   - Confirms QuiltService is not imported
+
+**Files Migrated (Phase 2):**
+- `src/quilt_mcp/tools/packages.py` (8 tests)
+- `src/quilt_mcp/tools/auth.py` (14 tests)
+- `src/quilt_mcp/tools/buckets.py` (12 tests)
+- `src/quilt_mcp/tools/graphql.py` (14 tests)
+- `src/quilt_mcp/tools/package_management.py` (11 tests)
+- `src/quilt_mcp/tools/package_ops.py` (12 tests)
+- `src/quilt_mcp/tools/s3_package.py` (9 tests)
+- `src/quilt_mcp/tools/stack_buckets.py` (12 tests)
+
+**Total: 92 tool tests passing, zero regressions**
+
+**Deferred to Phase 4:**
+- `src/quilt_mcp/tools/governance.py` (admin operations)
+- `src/quilt_mcp/tools/tabulator.py` (admin operations)
+
+**Backend Structure:**
+- Protocol: `src/quilt_mcp/backends/protocol.py` (31 methods)
+- Implementation: `src/quilt_mcp/backends/quilt3_backend.py` (wraps QuiltService)
+- Factory: `src/quilt_mcp/backends/factory.py` (get_backend() function)
+
+**Environment Variable:**
+- `QUILT_BACKEND=quilt3` (default) - Uses Quilt3Backend
+- `QUILT_BACKEND=graphql` - Reserved for future GraphQL backend
+
 ### Athena test caching
 
 - Integration tests now share a cached `AthenaQueryService` via fixtures (`tests/integration/conftest.py`) to avoid repeated STS/session setup; reuse the factory when adding new slow tests instead of instantiating services directly.
