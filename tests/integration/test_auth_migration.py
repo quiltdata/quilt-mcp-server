@@ -1,4 +1,4 @@
-"""Tests for auth.py migration to QuiltService - TDD Implementation."""
+"""Tests for auth.py migration to backend abstraction - TDD Implementation."""
 
 from __future__ import annotations
 
@@ -10,27 +10,27 @@ from quilt_mcp.tools.auth import auth_status, _get_catalog_info
 
 
 class TestAuthMigrationToQuiltService:
-    """Test migration of auth.py functions to use QuiltService instead of direct quilt3."""
+    """Test migration of auth.py functions to use backend abstraction instead of direct quilt3."""
 
-    def test_auth_status_uses_quilt_service_when_authenticated(self):
-        """Test that auth_status function uses QuiltService instead of direct quilt3 calls."""
+    def test_auth_status_uses_backend_when_authenticated(self):
+        """Test that auth_status function uses backend abstraction instead of direct quilt3 calls."""
 
-        # Mock the QuiltService responses
-        mock_service = Mock()
-        mock_service.get_logged_in_url.return_value = 'https://example.quiltdata.com'
-        mock_service.get_config.return_value = {
+        # Mock the backend responses
+        mock_backend = Mock()
+        mock_backend.get_logged_in_url.return_value = 'https://example.quiltdata.com'
+        mock_backend.get_config.return_value = {
             'registryUrl': 's3://example-bucket',
             'navigator_url': 'https://example.quiltdata.com',
         }
-        mock_service.get_catalog_info.return_value = {
+        mock_backend.get_catalog_info.return_value = {
             'catalog_name': 'example.quiltdata.com',
             'is_authenticated': True,
             'logged_in_url': 'https://example.quiltdata.com',
             'registry_url': 's3://example-bucket',
         }
 
-        # Patch QuiltService to return our mock
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
+        # Patch get_backend to return our mock
+        with patch('quilt_mcp.tools.auth.get_backend', return_value=mock_backend):
             result = auth_status()
 
             # Verify the result structure
@@ -41,17 +41,17 @@ class TestAuthMigrationToQuiltService:
             assert 'suggested_actions' in result
             assert 'message' in result
 
-            # Verify QuiltService methods were called
-            mock_service.get_logged_in_url.assert_called_once()
-            mock_service.get_config.assert_called_once()
-            mock_service.get_catalog_info.assert_called_once()
+            # Verify backend methods were called
+            mock_backend.get_logged_in_url.assert_called_once()
+            mock_backend.get_config.assert_called_once()
+            mock_backend.get_catalog_info.assert_called_once()
 
-    def test_get_catalog_info_uses_quilt_service(self):
-        """Test that _get_catalog_info function uses QuiltService instead of direct quilt3 calls."""
+    def test_get_catalog_info_uses_backend(self):
+        """Test that _get_catalog_info function uses backend abstraction instead of direct quilt3 calls."""
 
-        # Mock the QuiltService
-        mock_service = Mock()
-        mock_service.get_catalog_info.return_value = {
+        # Mock the backend
+        mock_backend = Mock()
+        mock_backend.get_catalog_info.return_value = {
             'catalog_name': 'test.quiltdata.com',
             'is_authenticated': True,
             'logged_in_url': 'https://test.quiltdata.com',
@@ -59,8 +59,8 @@ class TestAuthMigrationToQuiltService:
             'registry_url': 's3://test-bucket',
         }
 
-        # Patch QuiltService in the _get_catalog_info function
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
+        # Patch get_backend in the _get_catalog_info function
+        with patch('quilt_mcp.tools.auth.get_backend', return_value=mock_backend):
             result = _get_catalog_info()
 
             # Verify the result
@@ -68,8 +68,8 @@ class TestAuthMigrationToQuiltService:
             assert result['is_authenticated'] is True
             assert result['logged_in_url'] == 'https://test.quiltdata.com'
 
-            # Verify QuiltService was used
-            mock_service.get_catalog_info.assert_called_once()
+            # Verify backend was used
+            mock_backend.get_catalog_info.assert_called_once()
 
     def test_no_direct_quilt3_imports_after_migration(self):
         """Test that auth.py has no direct quilt3 imports after migration."""
