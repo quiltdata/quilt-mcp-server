@@ -94,6 +94,10 @@ class TestPackageUpdateBackendUsage:
         mock_pkg = Mock()
         mock_pkg.meta = {}
         mock_pkg.push = Mock(return_value="test-hash-123")
+        # Mock the __contains__ method for 'in' operator in _collect_objects_into_package
+        mock_pkg.__contains__ = Mock(return_value=False)
+        # Mock the set method for adding objects
+        mock_pkg.set = Mock()
         mock_backend.browse_package.return_value = mock_pkg
 
         with patch("quilt_mcp.tools.package_ops.get_backend", return_value=mock_backend):
@@ -104,6 +108,8 @@ class TestPackageUpdateBackendUsage:
 
         # Verify get_backend was called and browse_package was invoked
         mock_backend.browse_package.assert_called_once()
+        # Verify result is successful
+        assert result["status"] == "success"
 
     def test_package_update_validates_inputs(self):
         """Test that package_update validates inputs."""

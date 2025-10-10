@@ -16,13 +16,11 @@ import os
 from typing import Any
 
 from ..constants import DEFAULT_REGISTRY
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 
-# Initialize service
-quilt_service = QuiltService()
-
-# Export quilt3 module for backward compatibility with tests
-quilt3 = quilt_service.get_quilt3_module()
+# Initialize backend and export quilt3 module for backward compatibility with tests
+_backend = get_backend()
+quilt3 = _backend.get_quilt3_module()
 
 # Helpers
 
@@ -209,7 +207,8 @@ def package_create(
     try:
         # Use the new create_package_revision method with auto_organize=False
         # to preserve the existing flattening behavior
-        result = quilt_service.create_package_revision(
+        backend = get_backend()
+        result = backend.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,
@@ -321,8 +320,8 @@ def package_update(
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            quilt_service = QuiltService()
-            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
+            backend = get_backend()
+            existing_pkg = backend.browse_package(package_name, registry=normalized_registry)
     except Exception as e:
         return {
             "error": f"Failed to browse existing package '{package_name}': {e}",
