@@ -25,11 +25,13 @@ quilt-mcp
 2. Double-click to install or drag to Claude Desktop
 3. Configure catalog in Settings → Extensions → Quilt MCP
 
-### 3. Claude CLI
+### 3. Claude Code CLI
 
 ```bash
-# One-liner setup
-npx @anthropic/claude-cli mcp add quilt-mcp
+# Add to Claude Code CLI with environment variables
+npx @anthropic-ai/claude-code mcp add quilt-mcp uvx quilt-mcp \
+  -e QUILT_CATALOG_DOMAIN=your-catalog.quiltdata.com \
+  -e AWS_PROFILE=your-profile
 ```
 
 ### 4. Custom MCP Clients
@@ -52,11 +54,30 @@ Add to your `mcp.json`:
 
 ## Configuration
 
-Set via environment or MCP config:
+### Authentication
 
-- `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL
-- `QUILT_DEFAULT_BUCKET` - Default S3 bucket
-- `AWS_PROFILE` - AWS credentials profile
+**quilt-mcp uses quilt3 for authentication.** Configure once, use everywhere:
+
+```bash
+# Configure catalog and authenticate (interactive)
+quilt3 config
+
+# Or set directly
+quilt3 config https://your-catalog.quiltdata.com
+
+# Login (opens browser for SSO, or prompts for credentials)
+quilt3 login
+```
+
+Your credentials are stored in `~/.quilt/` and automatically used by quilt-mcp.
+
+### Environment Variables
+
+Override defaults via environment or MCP config:
+
+- `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL (e.g., `your-catalog.quiltdata.com`)
+- `QUILT_DEFAULT_BUCKET` - Default S3 bucket (e.g., `s3://your-bucket`)
+- `AWS_PROFILE` - AWS credentials profile for S3 access
 
 ## Development
 
@@ -79,6 +100,19 @@ make test
 - [Quilt Documentation](https://docs.quiltdata.com)
 - [API Reference](./docs/api.md)
 - [Contributing](./docs/developer/CONTRIBUTING.md)
+
+## Troubleshooting
+
+### SyntaxWarning from jsonlines
+
+You may see this warning during installation:
+
+```text
+SyntaxWarning: invalid escape sequence '\*'
+```
+
+**This is harmless.** It's from the `jsonlines` dependency (via `quilt3`) and doesn't affect functionality.
+The warning appears on Python 3.12+ due to deprecated escape sequences in the library's docstrings.
 
 ## Support
 
