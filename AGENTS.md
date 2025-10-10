@@ -404,6 +404,11 @@ The following permissions are granted for this repository:
 
 ### Backend Abstraction (Phase 1 & 2 Complete - 2025-10-10)
 
+**✅ Phase 1 Complete:** Backend protocol and foundation established
+**✅ Phase 2 Complete:** All 8 core tool files migrated + migration tests updated
+**⏳ Phase 3:** Skipped - all non-admin tools already migrated
+**🔄 Phase 4:** In progress - Admin operations integration
+
 **Implementation Pattern:**
 
 All tool files now use `get_backend()` instead of direct `QuiltService()` instantiation. This enables future backend flexibility (GraphQL, REST API, etc.) without changing tool code.
@@ -456,10 +461,16 @@ backend.list_packages(registry)  # Works identically
 - `src/quilt_mcp/tools/s3_package.py` (9 tests)
 - `src/quilt_mcp/tools/stack_buckets.py` (12 tests)
 
-**Total: 92 tool tests passing, zero regressions**
+**Total: 92 tool BDD tests passing, zero regressions**
+
+**Migration Tests Updated (2025-10-10):**
+- Updated all migration tests to use `get_backend()` instead of `QuiltService`
+- Bulk replacement: `mock_service` → `mock_backend`, `mock_service_class` → `mock_backend_factory`
+- Files updated: test_auth.py, test_auth_migration.py, test_buckets_migration.py, test_packages_migration.py, test_package_ops.py
+- Test status: 751 passing (up from 731), 40 failing (down from 60)
 
 **Deferred to Phase 4:**
-- `src/quilt_mcp/tools/governance.py` (admin operations)
+- `src/quilt_mcp/tools/governance.py` (admin operations - 31 tests passing)
 - `src/quilt_mcp/tools/tabulator.py` (admin operations)
 
 **Backend Structure:**
