@@ -79,13 +79,9 @@ class QuiltService:
             catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
 
         Returns:
-            Filtered catalog configuration dictionary with keys (snake_case):
-            - region: AWS region for S3 operations
-            - api_gateway_endpoint: API endpoint for catalog operations
-            - analytics_bucket: Analytics bucket name
-            - stack_prefix: Stack prefix derived from analytics_bucket (part before '-analyticsbucket')
-            - tabulator_data_catalog: Tabulator data catalog name (format: 'quilt-<stack-prefix>-tabulator')
-            Returns None if not available.
+            Filtered catalog configuration dict with keys: region, api_gateway_endpoint,
+            analytics_bucket, stack_prefix (from analytics_bucket), and tabulator_data_catalog
+            (format: 'quilt-<stack-prefix>-tabulator'). Returns None if not available.
 
         Raises:
             Exception: If session is not available (not authenticated)
@@ -148,16 +144,21 @@ class QuiltService:
         """Get comprehensive catalog information.
 
         Returns:
-            Dict with catalog_name, navigator_url, registry_url,
-            logged_in_url, is_authenticated, region (if authenticated),
-            and tabulator_data_catalog (if authenticated)
+            Dict with the following keys (all keys always present, values may be None):
+            - catalog_name: Catalog name or "unknown"
+            - navigator_url: Navigator URL if configured
+            - registry_url: Registry URL if configured
+            - is_authenticated: Boolean authentication status
+            - logged_in_url: Login URL if authenticated
+            - region: AWS region if authenticated and available
+            - tabulator_data_catalog: Tabulator catalog name if authenticated and available
         """
         catalog_info: dict[str, Any] = {
             "catalog_name": None,
             "navigator_url": None,
             "registry_url": None,
-            "logged_in_url": None,
             "is_authenticated": False,
+            "logged_in_url": None,
             "region": None,
             "tabulator_data_catalog": None,
         }
