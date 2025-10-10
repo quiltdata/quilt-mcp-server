@@ -83,13 +83,16 @@ class TestGetStackBucketsBackendUsage:
 
                     result = get_stack_buckets()
 
-        assert result == ["bucket-a", "bucket-b"]
+        # Set order is non-deterministic, so check membership instead of exact order
+        assert set(result) == {"bucket-a", "bucket-b"}
+        assert len(result) == 2
 
     def test_get_stack_buckets_falls_back_to_default_registry(self):
         """Test that get_stack_buckets falls back to DEFAULT_REGISTRY when all discovery fails."""
         with patch("quilt_mcp.tools.stack_buckets._get_stack_buckets_via_graphql", return_value=set()):
             with patch("quilt_mcp.tools.stack_buckets._get_stack_buckets_via_permissions", return_value=set()):
-                with patch("quilt_mcp.tools.stack_buckets.DEFAULT_REGISTRY", "s3://default-bucket"):
+                # Patch at the constants module level, not the stack_buckets module
+                with patch("quilt_mcp.constants.DEFAULT_REGISTRY", "s3://default-bucket"):
                     result = get_stack_buckets()
 
         assert result == ["default-bucket"]
