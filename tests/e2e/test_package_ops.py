@@ -635,9 +635,9 @@ class TestPackageUpdate:
     @patch("quilt_mcp.utils.suppress_stdout")
     def test_package_update_browse_package_failure(self, mock_suppress, mock_quilt_service_class):
         """Test package_update when browsing existing package fails."""
-        mock_service = Mock()
-        mock_service.browse_package.side_effect = Exception("Package not found")
-        mock_quilt_service_class.return_value = mock_service
+        mock_backend = Mock()
+        mock_backend.browse_package.side_effect = Exception("Package not found")
+        mock_quilt_service_class.return_value = mock_backend
 
         result = package_update(
             package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"

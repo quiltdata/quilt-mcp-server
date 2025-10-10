@@ -42,4 +42,3 @@ def test_main_defaults_to_stdio():
 
     assert called is True
     assert transport == "stdio"
-

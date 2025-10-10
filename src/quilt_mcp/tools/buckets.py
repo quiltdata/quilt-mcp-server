@@ -5,7 +5,7 @@ from typing import Any
 import boto3
 
 from ..constants import DEFAULT_BUCKET
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 from ..utils import generate_signed_url, get_s3_client, parse_s3_uri
 
 # Helpers
@@ -411,9 +411,9 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
         # Suppress stdout during bucket operations to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
-        quilt_service = QuiltService()
+        backend = get_backend()
         with suppress_stdout():
-            bucket_obj = quilt_service.create_bucket(bucket_uri)
+            bucket_obj = backend.create_bucket(bucket_uri)
             results = bucket_obj.search(query, limit=limit)
         return {"bucket": bkt, "query": query, "limit": limit, "results": results}
     except Exception as e:
@@ -450,23 +450,31 @@ def bucket_objects_search_graphql(
     from urllib.parse import urljoin
 
     bkt = _normalize_bucket(bucket)
-    # Acquire authenticated session and registry from QuiltService
-    quilt_service = QuiltService()
+    # Acquire authenticated session and registry from backend
+    try:
+        backend = get_backend()
 
-    if not quilt_service.has_session_support():
+        if not backend.has_session_support():
+            return {
+                "success": False,
+                "error": "quilt3 session not available for GraphQL",
+                "bucket": bkt,
+                "objects": [],
+            }
+
+        session = backend.get_session()
+        registry_url = backend.get_registry_url()
+        if not registry_url:
+            return {
+                "success": False,
+                "error": "Registry URL not configured for GraphQL",
+                "bucket": bkt,
+                "objects": [],
+            }
+    except Exception as e:
         return {
             "success": False,
-            "error": "quilt3 session not available for GraphQL",
-            "bucket": bkt,
-            "objects": [],
-        }
-
-    session = quilt_service.get_session()
-    registry_url = quilt_service.get_registry_url()
-    if not registry_url:
-        return {
-            "success": False,
-            "error": "Registry URL not configured for GraphQL",
+            "error": f"GraphQL request failed: {e}",
             "bucket": bkt,
             "objects": [],
         }

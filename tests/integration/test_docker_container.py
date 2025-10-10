@@ -68,4 +68,3 @@ def test_docker_image_serves_http():
         subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
         if container_id:
             subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
-

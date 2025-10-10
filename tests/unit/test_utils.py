@@ -178,7 +178,8 @@ class TestUtils(unittest.TestCase):
         app = build_http_app(server, transport="http")
 
         with TestClient(app) as client:
-            response = client.get("/healthz")
+            # CORS middleware only adds headers when Origin header is present in request
+            response = client.get("/healthz", headers={"Origin": "http://localhost:3000"})
 
         assert response.headers.get("Access-Control-Expose-Headers")
         assert "mcp-session-id" in response.headers["Access-Control-Expose-Headers"]

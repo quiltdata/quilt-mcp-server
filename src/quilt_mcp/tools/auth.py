@@ -7,7 +7,7 @@ import tempfile
 from typing import Any
 from urllib.parse import quote, urlparse
 
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 
 
 def _extract_catalog_name_from_url(url: str) -> str:
@@ -41,8 +41,8 @@ def _get_catalog_info() -> dict[str, Any]:
     Returns:
         Dict with catalog name, URLs, and configuration details.
     """
-    service = QuiltService()
-    return service.get_catalog_info()
+    backend = get_backend()
+    return backend.get_catalog_info()
 
 
 def _extract_bucket_from_registry(registry: str) -> str:
@@ -66,17 +66,17 @@ def _get_catalog_host_from_config() -> str | None:
         Catalog hostname or None if not found
     """
     try:
-        service = QuiltService()
+        backend = get_backend()
 
         # Try authenticated URL first
-        logged_in_url = service.get_logged_in_url()
+        logged_in_url = backend.get_logged_in_url()
         if logged_in_url:
             parsed = urlparse(logged_in_url)
             hostname = parsed.hostname
             return hostname if hostname else None
 
         # Fall back to navigator_url from config
-        config = service.get_config()
+        config = backend.get_config()
         if config and config.get("navigator_url"):
             nav_url = config.get("navigator_url")
             if nav_url:
@@ -316,15 +316,15 @@ def auth_status() -> dict[str, Any]:
     """
     try:
         # Get comprehensive catalog information
-        service = QuiltService()
-        catalog_info = service.get_catalog_info()
-        logged_in_url = service.get_logged_in_url()
+        backend = get_backend()
+        catalog_info = backend.get_catalog_info()
+        logged_in_url = backend.get_logged_in_url()
 
         if logged_in_url:
             # Get registry bucket information
             registry_bucket = None
             try:
-                config = service.get_config()
+                config = backend.get_config()
                 if config and config.get("registryUrl"):
                     registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
             except Exception:
@@ -537,11 +537,11 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
             }
 
         # Configure the catalog
-        service = QuiltService()
-        service.set_config(catalog_url)
+        backend = get_backend()
+        backend.set_config(catalog_url)
 
         # Verify configuration
-        config = service.get_config()
+        config = backend.get_config()
         configured_url = config.get("navigator_url") if config else None
 
         return {

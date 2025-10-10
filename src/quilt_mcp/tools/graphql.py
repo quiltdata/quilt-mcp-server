@@ -11,24 +11,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 
 
 def _get_graphql_endpoint():
-    """Return (session, graphql_url) from QuiltService context or (None, None).
+    """Return (session, graphql_url) from backend context or (None, None).
 
-    Uses QuiltService to acquire the authenticated requests session and
+    Uses backend to acquire the authenticated requests session and
     the active registry URL, then constructs the GraphQL endpoint.
     """
     try:
         from urllib.parse import urljoin
 
-        quilt_service = QuiltService()
+        backend = get_backend()
 
-        if not quilt_service.has_session_support():
+        if not backend.has_session_support():
             return None, None
-        session = quilt_service.get_session()
-        registry_url = quilt_service.get_registry_url()
+        session = backend.get_session()
+        registry_url = backend.get_registry_url()
         if not registry_url:
             return None, None
         graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")

@@ -22,7 +22,7 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..utils import get_s3_client, validate_package_name, format_error_response
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 from .permissions import bucket_recommendations_get, bucket_access_check
 
 logger = logging.getLogger(__name__)
@@ -773,8 +773,8 @@ def _create_enhanced_package(
 
         # Create package using create_package_revision with auto_organize=True
         # This preserves the smart organization behavior of s3_package.py
-        quilt_service = QuiltService()
-        result = quilt_service.create_package_revision(
+        backend = get_backend()
+        result = backend.create_package_revision(
             package_name=package_name,
             s3_uris=s3_uris,
             metadata=processed_metadata,

@@ -340,7 +340,7 @@ def run_server() -> None:
 
             import uvicorn
 
-            host = os.environ.get("FASTMCP_HOST", "0.0.0.0")
+            host = os.environ.get("FASTMCP_HOST", "0.0.0.0")  # noqa: S104
             port = int(os.environ.get("FASTMCP_PORT", "8000"))
             uvicorn.run(app, host=host, port=port, log_level="info")
             return

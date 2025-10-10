@@ -26,7 +26,7 @@ def ensure_admin_enabled(monkeypatch: pytest.MonkeyPatch):
     service.admin_available = True
     monkeypatch.setattr(
         tabulator,
-        "quilt_service",
+        "_backend",
         SimpleNamespace(get_tabulator_admin=lambda: None),
     )
     yield
@@ -37,7 +37,7 @@ def test_create_table_normalizes_parser_format(monkeypatch: pytest.MonkeyPatch):
     service.admin_available = True
 
     dummy_admin = DummyTabulatorAdmin()
-    monkeypatch.setattr(tabulator.quilt_service, "get_tabulator_admin", lambda: dummy_admin)
+    monkeypatch.setattr(tabulator._backend, "get_tabulator_admin", lambda: dummy_admin)
 
     result = service.create_table(
         bucket_name="demo-bucket",
