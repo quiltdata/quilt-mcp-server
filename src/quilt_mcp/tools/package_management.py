@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
-from ..services.quilt_service import QuiltService
+from ..backends.factory import get_backend
 from .metadata_templates import (
     get_metadata_template,
     validate_metadata_structure,
@@ -405,9 +405,9 @@ def package_update_metadata(
             # Suppress stdout during browse to avoid JSON-RPC interference
             from ..utils import suppress_stdout
 
-            quilt_service = QuiltService()
+            backend = get_backend()
             with suppress_stdout():
-                pkg = quilt_service.browse_package(package_name, registry=registry)
+                pkg = backend.browse_package(package_name, registry=registry)
 
             # Get current metadata
             current_metadata = {}

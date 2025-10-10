@@ -83,7 +83,8 @@ class TestCreatePackageEnhancedBackendUsage:
 
     def test_create_package_enhanced_handles_dry_run(self):
         """Test that create_package_enhanced handles dry_run mode."""
-        with patch("quilt_mcp.tools.package_management.create_quilt_summary_files") as mock_summary:
+        # Import is inside the function, need to patch at the module level where it's imported
+        with patch("quilt_mcp.tools.quilt_summary.create_quilt_summary_files") as mock_summary:
             mock_summary.return_value = {
                 "success": True,
                 "summary_package": {},
