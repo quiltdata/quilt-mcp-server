@@ -15,7 +15,7 @@ inputs:
   build-docker:
     description: 'Build and push Docker image (true/false)'
     required: false
-    default: 'true'
+    default: 'false'
 
 outputs:
   release-id:
