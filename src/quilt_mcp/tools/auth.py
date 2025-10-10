@@ -239,7 +239,8 @@ def catalog_info() -> dict[str, Any]:
     """Get information about the current Quilt catalog configuration.
 
     Returns:
-        Dict with catalog name, URLs, authentication status, and configuration details.
+        Dict with catalog name, URLs, authentication status, AWS region (if authenticated),
+        tabulator data catalog (if authenticated), and configuration details.
     """
     try:
         info = _get_catalog_info()
@@ -257,6 +258,12 @@ def catalog_info() -> dict[str, Any]:
             result["registry_url"] = info["registry_url"]
         if info["logged_in_url"]:
             result["logged_in_url"] = info["logged_in_url"]
+
+        # Add AWS region and tabulator catalog if authenticated
+        if info["region"]:
+            result["region"] = info["region"]
+        if info["tabulator_data_catalog"]:
+            result["tabulator_data_catalog"] = info["tabulator_data_catalog"]
 
         # Add helpful context
         if info["is_authenticated"]:
