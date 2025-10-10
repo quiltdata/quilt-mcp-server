@@ -99,5 +99,10 @@ jobs:
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
         pypi-repository-url: https://test.pypi.org/legacy/
-        build-docker: false
+        build-docker: true  # TEMPORARY: Testing Docker push fix
         skip-existing: true
+      env:
+        # AWS credentials for Docker ECR push (testing)
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
