@@ -69,6 +69,68 @@ class QuiltService:
         except Exception:
             return None
 
+    def get_catalog_config(self, catalog_url: str) -> dict[str, Any] | None:
+        """Get catalog configuration from <catalog>/config.json.
+
+        Fetches and filters the catalog configuration to return only essential
+        AWS infrastructure keys, plus derives the stack prefix.
+
+        Args:
+            catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
+
+        Returns:
+            Filtered catalog configuration dictionary with keys:
+            - region: AWS region for S3 operations
+            - apiGatewayEndpoint: API endpoint for catalog operations
+            - analyticsBucket: Analytics bucket name
+            - stackPrefix: Stack prefix derived from analyticsBucket (part before '-analyticsbucket')
+            Returns None if not available.
+
+        Raises:
+            Exception: If session is not available (not authenticated)
+        """
+        # Check if session support is available before attempting to use it
+        if not self.has_session_support():
+            raise Exception("quilt3 session not available - user may not be authenticated")
+
+        try:
+            # Use requests session to fetch config.json from catalog
+            session = self.get_session()
+            # Normalize URL - ensure no trailing slash
+            normalized_url = catalog_url.rstrip("/")
+            config_url = f"{normalized_url}/config.json"
+
+            response = session.get(config_url, timeout=10)
+            response.raise_for_status()
+
+            full_config = response.json()
+
+            # Extract only the keys we need
+            filtered_config: dict[str, Any] = {}
+
+            if "region" in full_config:
+                filtered_config["region"] = full_config["region"]
+
+            if "apiGatewayEndpoint" in full_config:
+                filtered_config["apiGatewayEndpoint"] = full_config["apiGatewayEndpoint"]
+
+            if "analyticsBucket" in full_config:
+                analytics_bucket = full_config["analyticsBucket"]
+                filtered_config["analyticsBucket"] = analytics_bucket
+
+                # Derive stack prefix from analytics bucket name
+                # Example: "quilt-staging-analyticsbucket-10ort3e91tnoa" -> "quilt-staging"
+                if "-analyticsbucket" in analytics_bucket.lower():
+                    stack_prefix = analytics_bucket.split("-analyticsbucket")[0]
+                    filtered_config["stackPrefix"] = stack_prefix
+
+            return filtered_config if filtered_config else None
+        except Exception as e:
+            # Re-raise with context if it's a session-related error
+            if "session" in str(e).lower() or "auth" in str(e).lower():
+                raise Exception(f"Failed to fetch catalog config: {e}") from e
+            return None
+
     def set_config(self, catalog_url: str) -> None:
         """Set Quilt catalog configuration.
 
