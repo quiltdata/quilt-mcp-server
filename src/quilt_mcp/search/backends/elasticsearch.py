@@ -143,21 +143,16 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         return []
 
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Global search across all stack buckets using catalog search."""
+        """Global search across all stack buckets using the packages search API."""
+        from ...tools.packages import packages_search
         from ...tools.stack_buckets import get_stack_buckets
 
         # Get all buckets in the stack for comprehensive search
         stack_buckets = get_stack_buckets()
         logger.debug(f"Searching across {len(stack_buckets)} stack buckets: {stack_buckets}")
 
-        from ...tools.search import catalog_search
-
-        search_result = catalog_search(
-            query=query,
-            scope="catalog",
-            limit=limit,
-            filters=filters,
-        )
+        # Use existing packages_search tool (now updated to search across stack)
+        search_result = packages_search(query, limit=limit)
 
         if "error" in search_result:
             raise Exception(search_result["error"])
@@ -166,15 +161,11 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
     def get_total_count(self, query: str, filters: Optional[Dict[str, Any]] = None) -> int:
         """Get total count of matching documents using Elasticsearch size=0 query."""
-        try:
-            from ...tools.search import catalog_search
+        from ...tools.packages import packages_search
 
-            search_result = catalog_search(
-                query=query,
-                scope="catalog",
-                filters=filters,
-                count_only=True,
-            )
+        try:
+            # Use size=0 approach like the catalog UI for instant counts
+            search_result = packages_search(query, limit=0)  # size=0 in Elasticsearch
 
             if "error" in search_result:
                 raise Exception(f"Count query failed: {search_result['error']}")
@@ -271,7 +262,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         return results
 
     def _convert_packages_results(self, raw_results: List[Dict[str, Any]]) -> List[SearchResult]:
-        """Convert catalog_search results to standard format."""
+        """Convert packages_search results to standard format."""
         results = []
 
         for hit in raw_results:

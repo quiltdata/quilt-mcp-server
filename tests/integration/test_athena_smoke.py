@@ -7,13 +7,12 @@ into the MCP server without requiring actual AWS resources.
 """
 
 import pytest
-import asyncio
 from unittest.mock import Mock, patch
 from quilt_mcp.tools.athena_glue import (
+    athena_databases_list,
     athena_query_execute,
     athena_query_validate,
 )
-from quilt_mcp.resources.athena import AthenaDatabasesResource
 
 
 def test_athena_tools_basic_functionality():
@@ -31,7 +30,7 @@ def test_athena_tools_basic_functionality():
     assert "dangerous" in result["error"]
 
 
-@patch("quilt_mcp.resources.athena.AthenaQueryService")
+@patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
 def test_athena_database_listing_smoke(mock_service_class):
     """Smoke test for database listing."""
     mock_service = Mock()
@@ -42,8 +41,7 @@ def test_athena_database_listing_smoke(mock_service_class):
         "count": 1,
     }
 
-    resource = AthenaDatabasesResource()
-    result = asyncio.run(resource.list_items())
+    result = athena_databases_list()
     assert result["success"] is True
     assert len(result["databases"]) == 1
 
@@ -116,12 +114,12 @@ def test_mcp_tool_registration():
     ]
 
     expected_functions = [
-        # "athena_databases_list",  # Replaced by AthenaDatabasesResource
+        "athena_databases_list",
         "athena_tables_list",
         "athena_table_schema",
         "athena_query_execute",
         "athena_query_history",
-        # "athena_workgroups_list",  # Replaced by AthenaWorkgroupsResource
+        "athena_workgroups_list",
         "athena_query_validate",
     ]
 

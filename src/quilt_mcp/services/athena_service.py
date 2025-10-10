@@ -336,38 +336,22 @@ class AthenaQueryService:
     def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
-            # Set database context if provided by creating a scoped engine with schema parameter
-            # This avoids the buggy USE statement that fails with hyphenated database names
-            engine_to_use = self.engine
-            
+            # Set database context if provided
             if database_name:
-                # Create a connection-specific engine with schema parameter
-                # PyAthena supports schema_name in the connection string
-                from urllib.parse import quote_plus
-                
-                # Get the base connection string from existing engine
-                base_url = str(self.engine.url)
-                
-                # Add schema parameter to the connection string
-                schema_param = f"&schema_name={quote_plus(database_name)}"
-                if "?" in base_url:
-                    # Already has parameters
-                    if base_url.endswith("?"):
-                        schema_param = f"schema_name={quote_plus(database_name)}"
-                    new_url = base_url + schema_param
+                # Properly escape database name for USE statement
+                if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
+                    escaped_db = f'"{database_name}"'
                 else:
-                    # No parameters yet
-                    new_url = base_url + "?" + schema_param.lstrip("&")
-                
-                # Create a scoped engine with the schema set
-                engine_to_use = create_engine(new_url, echo=False)
-                logger.info(f"Using database context: {database_name}")
+                    escaped_db = database_name
+
+                with self.engine.connect() as conn:
+                    conn.execute(text(f"USE {escaped_db}"))
 
             # Execute query and load results into pandas DataFrame
             # Sanitize query to prevent string formatting issues
             safe_query = self._sanitize_query_for_pandas(query)
             with suppress_stdout():
-                df = pd.read_sql_query(safe_query, engine_to_use)
+                df = pd.read_sql_query(safe_query, self.engine)
 
             # Apply result limit
             truncated = False
@@ -460,6 +444,8 @@ class AthenaQueryService:
     def list_workgroups(self) -> List[Dict[str, Any]]:
         """List available Athena workgroups using the service's authentication patterns."""
         try:
+            import boto3
+
             # Use the same auth pattern as other service methods
             if self.use_quilt_auth:
                 # Use QuiltService for complete abstraction

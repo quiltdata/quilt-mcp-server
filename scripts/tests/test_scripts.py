@@ -262,7 +262,7 @@ class TestScriptExecution:
             text=True
         )
         assert result.returncode == 0
-        assert "Post release status to GitHub releases and PRs" in result.stdout
+        assert "Post release status to GitHub PRs" in result.stdout
 
     def test_post_release_status_dry_run(self):
         """Test post_release_status.py dry run mode."""
@@ -295,7 +295,6 @@ class TestScriptExecution:
                 "--version", "1.2.3-dev-20250101120000",
                 "--release-url", "https://github.com/owner/repo/releases/v1.2.3-dev",
                 "--pypi-url", "https://test.pypi.org/project/quilt-mcp-server/1.2.3-dev/",
-                "--is-production", "false",
                 "--dry-run"
             ],
             capture_output=True,

@@ -1,4 +1,4 @@
-"""Catalog configuration, status, and onboarding tools."""
+"""Authentication and filesystem access tools."""
 
 from __future__ import annotations
 
@@ -76,11 +76,13 @@ def _get_catalog_host_from_config() -> str | None:
             return hostname if hostname else None
 
         # Fall back to navigator_url from config
-        nav_url = service.get_navigator_url()
-        if nav_url:
-            parsed = urlparse(nav_url)
-            hostname = parsed.hostname
-            return hostname if hostname else None
+        config = service.get_config()
+        if config and config.get("navigator_url"):
+            nav_url = config.get("navigator_url")
+            if nav_url:
+                parsed = urlparse(nav_url)
+                hostname = parsed.hostname
+                return hostname if hostname else None
     except Exception:
         pass
     return None
@@ -272,7 +274,41 @@ def catalog_info() -> dict[str, Any]:
         }
 
 
-def catalog_status() -> dict[str, Any]:
+def catalog_name() -> dict[str, Any]:
+    """Get the name of the current Quilt catalog.
+
+    Returns:
+        Dict with the catalog name and detection method.
+    """
+    try:
+        info = _get_catalog_info()
+
+        # Determine how the catalog name was detected
+        detection_method = "unknown"
+        if info["logged_in_url"]:
+            detection_method = "authentication"
+        elif info["navigator_url"]:
+            detection_method = "navigator_config"
+        elif info["registry_url"]:
+            detection_method = "registry_config"
+
+        return {
+            "catalog_name": info["catalog_name"],
+            "detection_method": detection_method,
+            "is_authenticated": info["is_authenticated"],
+            "status": "success",
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to detect catalog name: {e}",
+            "catalog_name": "unknown",
+            "detection_method": "error",
+        }
+
+
+def auth_status() -> dict[str, Any]:
     """Check Quilt authentication status with rich information and actionable suggestions.
 
     Returns:
@@ -288,9 +324,9 @@ def catalog_status() -> dict[str, Any]:
             # Get registry bucket information
             registry_bucket = None
             try:
-                registry_url = service.get_registry_url()
-                if registry_url:
-                    registry_bucket = _extract_bucket_from_registry(registry_url)
+                config = service.get_config()
+                if config and config.get("registryUrl"):
+                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
             except Exception:
                 pass
 
@@ -308,10 +344,10 @@ def catalog_status() -> dict[str, Any]:
 
             # Generate suggested actions based on status
             suggested_actions = [
-                "Search for packages with: catalog_search(query)",
+                "Try listing packages with: packages_list()",
                 "Test bucket permissions with: bucket_access_check(bucket_name)",
                 "Discover your writable buckets with: aws_permissions_discover()",
-                "Create your first package with: create_package()",
+                "Create your first package with: package_create_from_s3()",
             ]
 
             return {
@@ -326,8 +362,8 @@ def catalog_status() -> dict[str, Any]:
                 "search_available": True,
                 "next_steps": {
                     "immediate": "Try: aws_permissions_discover() to see your bucket access",
-                    "package_creation": "Try: create_package() to create your first package",
-                    "exploration": "Try: catalog_search(query) to find packages",
+                    "package_creation": "Try: package_create_from_s3() to create your first package",
+                    "exploration": "Try: packages_list() to browse existing packages",
                 },
             }
         else:
@@ -412,7 +448,9 @@ def filesystem_status() -> dict[str, Any]:
 
     # Test temp directory write access
     try:
-        with tempfile.NamedTemporaryFile(delete=True) as f:
+        import tempfile as _tf
+
+        with _tf.NamedTemporaryFile(delete=True) as f:
             f.write(b"test")
         result["temp_writable"] = True
     except Exception as e:
@@ -432,10 +470,11 @@ def filesystem_status() -> dict[str, Any]:
                 "catalog_uri",
                 "filesystem_status",
                 "packages_list",
-                "catalog_search",
+                "packages_search",
                 "package_browse",
                 "package_contents_search",
-                "create_package",
+                "package_create",
+                "package_update",
                 "bucket_objects_list",
                 "bucket_object_info",
                 "bucket_object_text",
@@ -477,7 +516,72 @@ def filesystem_status() -> dict[str, Any]:
     return result
 
 
-def catalog_set(catalog_name: str) -> dict[str, Any]:
+def configure_catalog(catalog_url: str) -> dict[str, Any]:
+    """Configure Quilt catalog URL.
+
+    Args:
+        catalog_url: Quilt catalog URL (e.g., 'https://demo.quiltdata.com')
+
+    Returns:
+        Dict with configuration result and next steps.
+    """
+    try:
+        # Validate URL format
+        if not catalog_url.startswith(("http://", "https://")):
+            return {
+                "status": "error",
+                "error": "Invalid catalog URL format",
+                "provided": catalog_url,
+                "expected": "URL starting with http:// or https://",
+                "example": "https://demo.quiltdata.com",
+            }
+
+        # Configure the catalog
+        service = QuiltService()
+        service.set_config(catalog_url)
+
+        # Verify configuration
+        config = service.get_config()
+        configured_url = config.get("navigator_url") if config else None
+
+        return {
+            "status": "success",
+            "catalog_url": catalog_url,
+            "configured_url": configured_url,
+            "message": f"Successfully configured catalog: {_extract_catalog_name_from_url(catalog_url)}",
+            "next_steps": [
+                "Login with: quilt3 login",
+                "Verify with: auth_status()",
+                "Start exploring with: packages_list()",
+            ],
+            "help": {
+                "login_command": "quilt3 login",
+                "verify_command": "auth_status()",
+                "documentation": "https://docs.quiltdata.com/",
+            },
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": f"Failed to configure catalog: {e}",
+            "catalog_url": catalog_url,
+            "troubleshooting": {
+                "common_issues": [
+                    "Invalid catalog URL",
+                    "Network connectivity problems",
+                    "Quilt configuration file permissions",
+                ],
+                "suggested_fixes": [
+                    "Verify the catalog URL is correct and accessible",
+                    "Check network connectivity",
+                    "Ensure write permissions to Quilt config directory",
+                ],
+            },
+        }
+
+
+def switch_catalog(catalog_name: str) -> dict[str, Any]:
     """Switch to a different Quilt catalog by name.
 
     Args:
@@ -507,33 +611,21 @@ def catalog_set(catalog_name: str) -> dict[str, Any]:
             target_url = f"https://{catalog_name}"
             friendly_name = catalog_name
 
-        # Configure the catalog
-        service = QuiltService()
-        service.set_config(target_url)
+        # Configure the new catalog
+        result = configure_catalog(target_url)
 
-        # Verify configuration
-        configured_url = service.get_navigator_url()
+        if result.get("status") == "success":
+            result.update(
+                {
+                    "action": "switched",
+                    "from_catalog": "previous",  # Could track previous if needed
+                    "to_catalog": friendly_name,
+                    "message": f"Successfully switched to catalog: {friendly_name}",
+                    "warning": "You may need to login again with: quilt3 login",
+                }
+            )
 
-        return {
-            "status": "success",
-            "catalog_url": target_url,
-            "configured_url": configured_url,
-            "action": "switched",
-            "from_catalog": "previous",
-            "to_catalog": friendly_name,
-            "message": f"Successfully switched to catalog: {friendly_name}",
-            "warning": "You may need to login again with: quilt3 login",
-            "next_steps": [
-                "Login with: quilt3 login",
-                "Verify with: auth_status()",
-                "Start exploring with: catalog_search(query)",
-            ],
-            "help": {
-                "login_command": "quilt3 login",
-                "verify_command": "auth_status()",
-                "documentation": "https://docs.quiltdata.com/",
-            },
-        }
+        return result
 
     except Exception as e:
         return {
@@ -542,137 +634,4 @@ def catalog_set(catalog_name: str) -> dict[str, Any]:
             "catalog_name": catalog_name,
             "available_catalogs": list(catalog_mappings.keys()),
             "help": "Use one of the available catalog names or provide a full URL",
-            "troubleshooting": {
-                "common_issues": [
-                    "Invalid catalog URL",
-                    "Network connectivity problems",
-                    "Quilt configuration file permissions",
-                ],
-                "suggested_fixes": [
-                    "Verify the catalog URL is correct and accessible",
-                    "Check network connectivity",
-                    "Ensure write permissions to Quilt config directory",
-                ],
-            },
-        }
-
-
-def quick_start() -> dict[str, Any]:
-    """Provide guided onboarding and setup assistance.
-
-    Returns:
-        Step-by-step setup guide with current status and next actions.
-    """
-    try:
-        auth_result = catalog_status()
-
-        if auth_result.get("status") == "authenticated":
-            return {
-                "status": "ready",
-                "current_step": "package_creation",
-                "message": "✅ You're authenticated and ready to create packages!",
-                "next_actions": [
-                    {
-                        "action": "Discover your bucket permissions",
-                        "command": "aws_permissions_discover()",
-                        "description": "See which buckets you can read from and write to",
-                    },
-                    {
-                        "action": "Create your first package",
-                        "command": "package_create(name='my-team/first-package', files=['s3://bucket/file.csv'])",
-                        "description": "Create a package from S3 data with smart organization",
-                    },
-                    {
-                        "action": "Explore existing packages",
-                        "command": "catalog_search(query)",
-                        "description": "Search for packages in your catalog",
-                    },
-                ],
-                "tips": [
-                    "Use dry_run=True to preview package structure before creating",
-                    "The system will automatically suggest the best target bucket",
-                    "All packages get auto-generated README.md files",
-                ],
-            }
-        elif auth_result.get("status") == "not_authenticated":
-            return {
-                "status": "setup_needed",
-                "current_step": "authentication",
-                "message": "Let's get you set up with Quilt!",
-                "setup_flow": [
-                    {
-                        "step": 1,
-                        "action": "Configure catalog",
-                        "command": "catalog_set('demo')",
-                        "description": "Connect to Quilt demo catalog",
-                        "alternatives": [
-                            "catalog_set('open') for open.quiltdata.com",
-                            "catalog_set('https://your-org.quiltdata.com') for enterprise",
-                        ],
-                    },
-                    {
-                        "step": 2,
-                        "action": "Login to catalog",
-                        "command": "Run: quilt3 login",
-                        "description": "Authenticate with your Quilt account (opens browser)",
-                        "note": "This step happens outside the MCP - run in terminal",
-                    },
-                    {
-                        "step": 3,
-                        "action": "Verify authentication",
-                        "command": "catalog_status()",
-                        "description": "Confirm you're logged in successfully",
-                    },
-                    {
-                        "step": 4,
-                        "action": "Check permissions",
-                        "command": "aws_permissions_discover()",
-                        "description": "Discover your S3 bucket access levels",
-                    },
-                ],
-                "quick_commands": [
-                    "catalog_set('demo')",
-                    "# Then run in terminal: quilt3 login",
-                    "catalog_status()",
-                    "aws_permissions_discover()",
-                ],
-            }
-        else:
-            return {
-                "status": "error",
-                "current_step": "troubleshooting",
-                "message": "There's an issue with your Quilt setup",
-                "error": auth_result.get("error", "Unknown authentication error"),
-                "troubleshooting_steps": [
-                    {
-                        "issue": "AWS credentials not configured",
-                        "check": "Run: aws sts get-caller-identity",
-                        "fix": "Configure AWS credentials with: aws configure",
-                    },
-                    {
-                        "issue": "Quilt not installed",
-                        "check": "Run: python -c 'import quilt3; print(quilt3.__version__)'",
-                        "fix": "Install with: pip install quilt3",
-                    },
-                    {
-                        "issue": "Network connectivity",
-                        "check": "Try: curl https://open.quiltdata.com",
-                        "fix": "Check your internet connection and firewall settings",
-                    },
-                ],
-                "recovery_actions": [
-                    "test_permissions('quilt-example') to test basic connectivity",
-                    "catalog_set('open') to reset configuration",
-                ],
-            }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"Quick start failed: {e}",
-            "fallback_actions": [
-                "Try: catalog_status() to check authentication",
-                "Try: catalog_set('demo') to setup catalog",
-                "Visit: https://docs.quiltdata.com/ for detailed setup instructions",
-            ],
         }

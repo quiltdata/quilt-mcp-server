@@ -65,7 +65,7 @@ METADATA_TEMPLATES = {
 }
 
 
-def metadata_template_get(template_name: str, custom_fields: Dict[str, Any] = None) -> Dict[str, Any]:
+def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Get a metadata template with optional custom fields.
 
@@ -92,7 +92,36 @@ def metadata_template_get(template_name: str, custom_fields: Dict[str, Any] = No
     return metadata
 
 
-def metadata_validate_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
+def list_metadata_templates() -> Dict[str, Any]:
+    """
+    List available metadata templates with descriptions.
+
+    Returns:
+        Dictionary with template information and usage examples
+    """
+    templates_info = {}
+
+    for template_name, template_data in METADATA_TEMPLATES.items():
+        templates_info[template_name] = {
+            "description": template_data.get("description", ""),
+            "package_type": template_data.get("package_type", ""),
+            "data_type": template_data.get("data_type", ""),
+            "fields": list(template_data.keys()),
+            "example_usage": f'get_metadata_template("{template_name}", {{"custom_field": "value"}})',
+        }
+
+    return {
+        "available_templates": templates_info,
+        "usage_examples": [
+            'metadata = get_metadata_template("genomics", {"organism": "human", "genome_build": "GRCh38"})',
+            'metadata = get_metadata_template("ml", {"features_count": 150, "target_variable": "price"})',
+            'metadata = get_metadata_template("research", {"study_type": "clinical_trial"})',
+        ],
+        "custom_template_tip": "You can also pass any custom metadata dict directly to package creation functions",
+    }
+
+
+def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
     """
     Validate metadata structure and provide suggestions.
 

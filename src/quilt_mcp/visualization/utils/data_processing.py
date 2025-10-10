@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 import json
 
-import pandas as pd
-import numpy as np
-
 
 class DataProcessor:
     """Handles data loading and preprocessing for visualization."""
@@ -42,6 +39,8 @@ class DataProcessor:
             Pandas DataFrame or None if loading fails
         """
         try:
+            import pandas as pd
+
             return pd.read_csv(file_path)
         except ImportError:
             print("pandas not available for CSV loading", file=sys.stderr)
@@ -78,6 +77,8 @@ class DataProcessor:
             Pandas DataFrame or None if loading fails
         """
         try:
+            import pandas as pd
+
             return pd.read_excel(file_path)
         except ImportError:
             print("pandas not available for Excel loading", file=sys.stderr)
@@ -97,6 +98,8 @@ class DataProcessor:
             Pandas DataFrame or None if loading fails
         """
         try:
+            import pandas as pd
+
             return pd.read_parquet(file_path)
         except ImportError:
             print("pandas not available for Parquet loading", file=sys.stderr)
@@ -186,6 +189,8 @@ class DataProcessor:
             return None
 
         try:
+            import pandas as pd
+
             if isinstance(data, pd.DataFrame):
                 # Limit rows for performance
                 if len(data) > max_rows:
@@ -227,6 +232,8 @@ class DataProcessor:
             return None
 
         try:
+            import pandas as pd
+
             if isinstance(data, pd.DataFrame):
                 if len(data) > sample_size:
                     return data.sample(n=sample_size, random_state=42)
@@ -255,6 +262,8 @@ class DataProcessor:
             return {"error": "No data provided"}
 
         try:
+            import pandas as pd
+
             if isinstance(data, pd.DataFrame):
                 summary = {
                     "shape": data.shape,
@@ -305,6 +314,8 @@ class DataProcessor:
             return validation
 
         try:
+            import pandas as pd
+
             if isinstance(data, pd.DataFrame):
                 # Check if DataFrame is empty
                 if data.empty:
@@ -363,6 +374,7 @@ class DataProcessor:
         """
         try:
             import pandas as pd
+            import numpy as np
 
             # Generate sample data
             np.random.seed(42)

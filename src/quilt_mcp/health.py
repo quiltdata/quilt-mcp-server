@@ -12,7 +12,6 @@ def get_server_info() -> dict:
     try:
         # Try to get version from package metadata
         from importlib.metadata import version
-
         server_version = version("quilt-mcp")
     except Exception:
         # Fallback to hardcoded version if metadata not available

@@ -10,7 +10,7 @@ include make.deploy
 # Load environment variables from .env if it exists
 sinclude .env
 
-.PHONY: help clean release-local update-cursor-rules config-claude
+.PHONY: help clean release-local test-readme update-cursor-rules config-claude
 
 # Default target - show organized help
 help:
@@ -54,6 +54,7 @@ help:
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
 	@echo "  make release-local    - Full local workflow (test → deploy-build → mcpb → validate → zip)"
+	@echo "  make test-readme      - Test README installation commands"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
 	@echo "📖 For detailed target information, see:"
@@ -78,6 +79,12 @@ release: release-tag
 release-dev: release-dev-tag
 
 # Utilities
+test-readme:
+	@echo "Validating README bash code blocks..."
+	@uv sync --group test
+	@uv run python -m pytest tests/test_readme.py -v
+	@echo "✅ README bash validation complete"
+
 update-cursor-rules:
 	@echo "📝 Updating Cursor IDE rules..."
 	@mkdir -p .cursor/rules

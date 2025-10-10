@@ -173,9 +173,10 @@ def test_mcp_tools():
     print("=" * 60)
 
     try:
-        from quilt_mcp.tools.athena_glue import athena_query_validate
-        from quilt_mcp.resources.athena import AthenaDatabasesResource, AthenaWorkgroupsResource
-        import asyncio
+        from quilt_mcp.tools.athena_glue import (
+            athena_databases_list,
+            athena_query_validate,
+        )
 
         print("✅ Athena tools imported successfully")
 
@@ -183,17 +184,17 @@ def test_mcp_tools():
         result = athena_query_validate("SELECT 1 as test")
         print(f"✅ Query validation: {result.get('valid', False)}")
 
-        # Test database listing using resource
-        resource = AthenaDatabasesResource()
-        result = asyncio.run(resource.list_items())
+        # Test database listing
+        result = athena_databases_list()
         if result.get("success"):
             print(f"✅ Database listing successful: {result.get('count', 0)} databases")
         else:
             print(f"❌ Database listing failed: {result.get('error', 'Unknown error')}")
 
-        # Test workgroups listing using resource
-        workgroups_resource = AthenaWorkgroupsResource()
-        workgroups_result = asyncio.run(workgroups_resource.list_items())
+        # Test workgroups listing
+        from quilt_mcp.tools.athena_glue import athena_workgroups_list
+
+        workgroups_result = athena_workgroups_list()
         if workgroups_result.get("success"):
             total = workgroups_result.get("count", 0)
             print(f"✅ Workgroups listing successful: {total} workgroups found")

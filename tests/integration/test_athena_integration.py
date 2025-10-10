@@ -13,13 +13,13 @@ from unittest.mock import patch, Mock
 PYTEST_TIMEOUT = float(os.getenv('PYTEST_TIMEOUT', '120'))
 
 from quilt_mcp.tools.athena_glue import (
+    athena_databases_list,
     athena_tables_list,
     athena_table_schema,
     athena_query_execute,
+    athena_workgroups_list,
 )
-from quilt_mcp.resources.athena import AthenaDatabasesResource, AthenaWorkgroupsResource
 from quilt_mcp.services.athena_service import AthenaQueryService
-import asyncio
 
 
 @pytest.fixture(scope="module")
@@ -50,15 +50,13 @@ class TestAthenaIntegration:
     def databases_response(self, athena_service):
         """Fetch databases once per class to avoid duplicate calls."""
 
-        resource = AthenaDatabasesResource()
-        return asyncio.run(resource.list_items(service=athena_service))
+        return athena_databases_list(service=athena_service)
 
     @pytest.fixture(scope="class")
     def workgroups_response(self, athena_service):
         """Fetch workgroups once per class to avoid duplicate calls."""
 
-        resource = AthenaWorkgroupsResource()
-        return asyncio.run(resource.list_items(use_quilt_auth=False, service=athena_service))
+        return athena_workgroups_list(use_quilt_auth=False, service=athena_service)
 
     def test_list_databases_integration(self, databases_response):
         """Test listing databases with real AWS connection."""
@@ -259,8 +257,7 @@ class TestAthenaPerformance:
 
             def discover_databases():
                 try:
-                    resource = AthenaDatabasesResource()
-                    result = asyncio.run(resource.list_items())
+                    result = athena_databases_list()
                     results.append(result)
                 except Exception as e:
                     errors.append(e)
@@ -302,8 +299,7 @@ class TestAthenaPerformance:
 
         def discover_databases():
             try:
-                resource = AthenaDatabasesResource()
-                result = asyncio.run(resource.list_items())
+                result = athena_databases_list()
                 results.append(result)
             except Exception as e:
                 errors.append(e)
@@ -354,8 +350,7 @@ class TestAthenaErrorHandling:
         skip_if_no_aws_credentials()
 
         # Try to access a non-existent catalog to trigger an error
-        resource = AthenaDatabasesResource()
-        result = asyncio.run(resource.list_items(catalog_name="nonexistent-catalog-12345"))
+        result = athena_databases_list(catalog_name="nonexistent-catalog-12345")
 
         # Should handle the error gracefully
         assert "success" in result

@@ -7,10 +7,12 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 from quilt_mcp.tools.tabulator import (
-    # tabulator_tables_list removed - replaced by TabulatorTablesResource
+    tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
     tabulator_table_rename,
+    tabulator_open_query_status,
+    tabulator_open_query_toggle,
     TabulatorService,
     get_tabulator_service,
 )
@@ -19,15 +21,19 @@ from quilt_mcp.tools.tabulator import (
 class TestTabulatorService:
     """Test TabulatorService class."""
 
-    def test_service_initialization_with_quilt_auth(self):
-        """Test service initialization with quilt auth enabled."""
-        service = TabulatorService(use_quilt_auth=True)
-        assert service.use_quilt_auth is True
+    def test_service_initialization_without_admin(self):
+        """Test service initialization when admin client is not available."""
+        with patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", False):
+            service = TabulatorService(use_quilt_auth=True)
+            assert service.admin_available is False
+            assert service.use_quilt_auth is True
 
-    def test_service_initialization_without_quilt_auth(self):
-        """Test service initialization with quilt auth disabled."""
-        service = TabulatorService(use_quilt_auth=False)
-        assert service.use_quilt_auth is False
+    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
+    def test_service_initialization_with_admin(self):
+        """Test service initialization with admin client."""
+        service = TabulatorService(use_quilt_auth=True)
+        assert service.admin_available is True
+        assert service.use_quilt_auth is True
 
     def test_validate_schema_valid(self):
         """Test schema validation with valid schema."""
@@ -190,10 +196,40 @@ class TestTabulatorService:
         assert "parser:" in config_yaml
         assert "quilt-packages" in config_yaml
 
-    # Add tests for service methods
+    # Add tests for service methods without mocking AWS responses
+    def test_service_methods_no_admin_available(self):
+        """Test all service methods when admin not available."""
+        service = TabulatorService(use_quilt_auth=False)
+
+        # Test all methods return appropriate error when admin not available
+        result = service.list_tables("test-bucket")
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+        result = service.create_table("bucket", "table", [], "pattern", "pattern", {})
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+        result = service.delete_table("bucket", "table")
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+        result = service.rename_table("bucket", "old", "new")
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+        result = service.get_open_query_status()
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+        result = service.set_open_query(True)
+        assert result["success"] is False
+        assert "Admin functionality not available" in result["error"]
+
+    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
     def test_create_table_validation_errors(self):
         """Test TabulatorService.create_table with validation errors."""
-        service = TabulatorService(use_quilt_auth=False)
+        service = TabulatorService(use_quilt_auth=True)
 
         # Empty inputs should trigger validation errors
         result = service.create_table("", "", [], "", "", {})
@@ -212,17 +248,50 @@ class TestGetTabulatorService:
         assert service.use_quilt_auth is True
 
 
-@pytest.mark.skip(reason="tabulator_tables_list removed - replaced by TabulatorTablesResource")
 class TestTabulatorTablesList:
     """Test tabulator_tables_list function."""
 
-    def test_list_tables_success(self):
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_list_tables_success(self, mock_get_service):
         """Test successful table listing."""
-        pass
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
 
-    def test_list_tables_error(self):
+        mock_service.list_tables.return_value = {
+            "success": True,
+            "tables": [
+                {
+                    "name": "test_table",
+                    "config_yaml": "schema:\n- name: col1\n  type: STRING\n",
+                    "schema": [{"name": "col1", "type": "STRING"}],
+                    "column_count": 1,
+                }
+            ],
+            "bucket_name": "test-bucket",
+            "count": 1,
+        }
+
+        result = await tabulator_tables_list("test-bucket")
+
+        assert result["success"] is True
+        assert len(result["tables"]) == 1
+        assert result["tables"][0]["name"] == "test_table"
+        assert result["bucket_name"] == "test-bucket"
+        mock_service.list_tables.assert_called_once_with("test-bucket")
+
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_list_tables_error(self, mock_get_service):
         """Test table listing error handling."""
-        pass
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.list_tables.side_effect = Exception("Connection failed")
+
+        result = await tabulator_tables_list("test-bucket")
+
+        assert result["success"] is False
+        assert "Connection failed" in result["error"]
 
 
 class TestTabulatorTableCreate:
@@ -378,6 +447,74 @@ class TestTabulatorTableRename:
 
         assert result["success"] is False
         assert "Rename failed" in result["error"]
+
+
+class TestTabulatorOpenQuery:
+    """Test tabulator open query functions."""
+
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_open_query_status(self, mock_get_service):
+        """Test getting open query status."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+
+        mock_service.get_open_query_status.return_value = {
+            "success": True,
+            "open_query_enabled": True,
+        }
+
+        result = await tabulator_open_query_status()
+
+        assert result["success"] is True
+        assert result["open_query_enabled"] is True
+        mock_service.get_open_query_status.assert_called_once()
+
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_open_query_toggle(self, mock_get_service):
+        """Test toggling open query status."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+
+        mock_service.set_open_query.return_value = {
+            "success": True,
+            "open_query_enabled": False,
+            "message": "Open query disabled",
+        }
+
+        result = await tabulator_open_query_toggle(False)
+
+        assert result["success"] is True
+        assert result["open_query_enabled"] is False
+        assert "disabled" in result["message"]
+        mock_service.set_open_query.assert_called_once_with(False)
+
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_open_query_status_error_handling(self, mock_get_service):
+        """Test open query status error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.get_open_query_status.side_effect = Exception("Status check failed")
+
+        result = await tabulator_open_query_status()
+
+        assert result["success"] is False
+        assert "Status check failed" in result["error"]
+
+    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @pytest.mark.asyncio
+    async def test_open_query_toggle_error_handling(self, mock_get_service):
+        """Test open query toggle error handling."""
+        mock_service = Mock()
+        mock_get_service.return_value = mock_service
+        mock_service.set_open_query.side_effect = Exception("Toggle failed")
+
+        result = await tabulator_open_query_toggle(True)
+
+        assert result["success"] is False
+        assert "Toggle failed" in result["error"]
 
 
 if __name__ == "__main__":

@@ -142,7 +142,7 @@
         "benchling_search_entities",
         "mcp_quilt_package_create_from_s3",
         "mcp_quilt_create_package_enhanced",
-        "mcp_quilt_metadata_template_create"
+        "mcp_quilt_create_metadata_from_template"
       ],
       "expected_features": [
         "Versioned package with sample-sheet artifact",

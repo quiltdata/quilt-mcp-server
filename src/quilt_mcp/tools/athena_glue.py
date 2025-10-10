@@ -11,9 +11,6 @@ import os
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
-
-import boto3
-
 from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
 
@@ -44,6 +41,27 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
     if suggestions:
         return " Suggestions: " + "; ".join(suggestions)
     return ""
+
+
+def athena_databases_list(
+    catalog_name: str = "AwsDataCatalog",
+    service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    List available databases in AWS Glue Data Catalog.
+
+    Args:
+        catalog_name: Name of the data catalog (default: AwsDataCatalog)
+
+    Returns:
+        List of databases with metadata
+    """
+    try:
+        service = service or AthenaQueryService()
+        return service.discover_databases(catalog_name)
+    except Exception as e:
+        logger.error(f"Failed to list databases: {e}")
+        return format_error_response(f"Failed to list databases: {str(e)}")
 
 
 def athena_tables_list(
@@ -94,6 +112,48 @@ def athena_table_schema(
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
         return format_error_response(f"Failed to get table schema: {str(e)}")
+
+
+def athena_workgroups_list(
+    use_quilt_auth: bool = True,
+    service: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    List available Athena workgroups that the user can access.
+
+    Args:
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        List of accessible workgroups with their configurations
+    """
+    try:
+        # Use consolidated AthenaQueryService for consistent authentication patterns
+        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+
+        # Get workgroups using the service's consolidated method
+        workgroups = service.list_workgroups()
+
+        # Determine region for response metadata
+        region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+
+        result = {
+            "success": True,
+            "workgroups": workgroups,
+            "region": region,
+            "count": len(workgroups),
+        }
+
+        # Enhance with table formatting for better readability
+        from ..formatting import enhance_result_with_table_format
+
+        result = enhance_result_with_table_format(result)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to list workgroups: {e}")
+        return format_error_response(f"Failed to list workgroups: {str(e)}")
 
 
 def athena_query_execute(
@@ -235,6 +295,9 @@ def athena_query_history(
         List of historical query executions
     """
     try:
+        import boto3
+        from datetime import datetime, timedelta
+
         # Create Athena client
         service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
         athena_client = boto3.client("athena")

@@ -413,25 +413,21 @@ result = await mcp_client.call_tool(\"package_contents_search\", {
 }
 ```
 
-#### Creating New Package Versions for Metadata Updates
+#### `package_update_metadata`
 
-Instead of modifying package metadata in-place (which breaks immutability), create new package versions:
+Update package metadata without recreating the entire package.
 
 ```python
-# Create a new version with updated metadata
-result = await mcp_client.call_tool(\"package_create\", {
-    \"name\": \"genomics/study-001\",
-    \"files\": [\"s3://bucket/existing/files.csv\"],  # Same files
+result = await mcp_client.call_tool(\"package_update_metadata\", {
+    \"package_name\": \"genomics/study-001\",
     \"metadata\": {
         \"analysis_complete\": true,
         \"results_published\": \"2024-08-27\",
         \"doi\": \"10.1234/example.2024\"
     },
-    \"description\": \"Updated with analysis results\"
+    \"merge_with_existing\": true
 })
 ```
-
-This preserves version history and maintains Quilt's immutability principles.
 
 ## 🗄️ S3 Operations
 
@@ -1113,12 +1109,12 @@ result = await mcp_client.call_tool(\"workflow_create\", {
 }
 ```
 
-#### `workflow_step_add`
+#### `workflow_add_step`
 
 Add steps to existing workflows.
 
 ```python
-result = await mcp_client.call_tool(\"workflow_step_add\", {
+result = await mcp_client.call_tool(\"workflow_add_step\", {
     \"workflow_id\": \"genomics-processing-001\",
     \"step_id\": \"quality_control\",
     \"description\": \"Run FastQC on raw sequencing data\",
@@ -1131,7 +1127,7 @@ result = await mcp_client.call_tool(\"workflow_step_add\", {
 })
 
 # Add dependent step
-result = await mcp_client.call_tool(\"workflow_step_add\", {
+result = await mcp_client.call_tool(\"workflow_add_step\", {
     \"workflow_id\": \"genomics-processing-001\",
     \"step_id\": \"alignment\",
     \"description\": \"Align reads to reference genome\",
@@ -1144,12 +1140,12 @@ result = await mcp_client.call_tool(\"workflow_step_add\", {
 })
 ```
 
-#### `workflow_step_update`
+#### `workflow_update_step`
 
 Update step status and results.
 
 ```python
-result = await mcp_client.call_tool(\"workflow_step_update\", {
+result = await mcp_client.call_tool(\"workflow_update_step\", {
     \"workflow_id\": \"genomics-processing-001\",
     \"step_id\": \"quality_control\",
     \"status\": \"completed\",
@@ -1161,12 +1157,12 @@ result = await mcp_client.call_tool(\"workflow_step_update\", {
 })
 ```
 
-#### `workflow_status_get`
+#### `workflow_get_status`
 
 Get comprehensive workflow status.
 
 ```python
-result = await mcp_client.call_tool(\"workflow_status_get\", {
+result = await mcp_client.call_tool(\"workflow_get_status\", {
     \"workflow_id\": \"genomics-processing-001\"
 })
 
@@ -1193,12 +1189,12 @@ result = await mcp_client.call_tool(\"workflow_status_get\", {
 }
 ```
 
-#### `workflow_list`
+#### `workflow_list_all`
 
 List all workflows with summary information.
 
 ```python
-result = await mcp_client.call_tool(\"workflow_list\", {})
+result = await mcp_client.call_tool(\"workflow_list_all\", {})
 
 # Response includes workflow summaries
 {
@@ -1277,13 +1273,13 @@ result = await mcp_client.call_tool(\"list_metadata_templates\", {})
 }
 ```
 
-#### `metadata_template_get`
+#### `get_metadata_template`
 
 Get a specific metadata template with optional custom fields.
 
 ```python
 # Get genomics template
-result = await mcp_client.call_tool(\"metadata_template_get\", {
+result = await mcp_client.call_tool(\"get_metadata_template\", {
     \"template_name\": \"genomics\",
     \"custom_fields\": {
         \"study_id\": \"CCLE_2024\",
@@ -1310,12 +1306,12 @@ result = await mcp_client.call_tool(\"metadata_template_get\", {
 }
 ```
 
-#### `metadata_template_create`
+#### `create_metadata_from_template`
 
 Create metadata using a template - simplified interface.
 
 ```python
-result = await mcp_client.call_tool(\"metadata_template_create\", {
+result = await mcp_client.call_tool(\"create_metadata_from_template\", {
     \"template_name\": \"genomics\",
     \"description\": \"Human RNA-seq data from CCLE cell lines\",
     \"custom_fields\": {
@@ -2050,14 +2046,14 @@ workflow = await mcp_client.call_tool(\"workflow_create\", {
 })
 
 # Add processing steps
-qc_step = await mcp_client.call_tool(\"workflow_step_add\", {
+qc_step = await mcp_client.call_tool(\"workflow_add_step\", {
     \"workflow_id\": \"data-processing-pipeline\",
     \"step_id\": \"quality_control\",
     \"description\": \"Quality control analysis\",
     \"step_type\": \"automated\"
 })
 
-alignment_step = await mcp_client.call_tool(\"workflow_step_add\", {
+alignment_step = await mcp_client.call_tool(\"workflow_add_step\", {
     \"workflow_id\": \"data-processing-pipeline\",
     \"step_id\": \"alignment\",
     \"description\": \"Read alignment to reference\",
@@ -2065,7 +2061,7 @@ alignment_step = await mcp_client.call_tool(\"workflow_step_add\", {
 })
 
 # Monitor workflow progress
-status = await mcp_client.call_tool(\"workflow_status_get\", {
+status = await mcp_client.call_tool(\"workflow_get_status\", {
     \"workflow_id\": \"data-processing-pipeline\"
 })
 ```
@@ -2079,8 +2075,8 @@ status = await mcp_client.call_tool(\"workflow_status_get\", {
 | **S3 Operations** | `bucket_objects_list`, `bucket_object_info`, `unified_search` | Direct data access, file operations |
 | **Search & Discovery** | `unified_search`, `search_suggest`, `packages_search` | Finding data, content discovery |
 | **Analytics** | `athena_query_execute`, `tabulator_tables_list` | Data analysis, SQL queries |
-| **Workflows** | `workflow_create`, `workflow_step_add`, `workflow_status_get` | Process orchestration, automation |
-| **Metadata** | `metadata_template_get`, `validate_metadata_structure` | Data documentation, standardization |
+| **Workflows** | `workflow_create`, `workflow_add_step`, `workflow_get_status` | Process orchestration, automation |
+| **Metadata** | `get_metadata_template`, `validate_metadata_structure` | Data documentation, standardization |
 | **Permissions** | `aws_permissions_discover`, `bucket_access_check` | Security, access validation |
 | **Administration** | `admin_users_list`, `admin_user_create`, `admin_roles_list` | User management, role management |
 

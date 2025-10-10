@@ -345,9 +345,9 @@ def health_check_with_recovery() -> Dict[str, Any]:
 def _check_auth_status() -> Dict[str, Any]:
     """Check authentication status."""
     try:
-        from .catalog import catalog_status
+        from .auth import auth_status
 
-        return catalog_status()
+        return auth_status()
     except Exception as e:
         raise Exception(f"Auth check failed: {e}")
 
@@ -384,12 +384,11 @@ def _check_athena_connectivity() -> Dict[str, Any]:
 def _check_package_operations() -> Dict[str, Any]:
     """Check package operations functionality."""
     try:
-        from ..services.quilt_service import QuiltService
-        from ..constants import DEFAULT_REGISTRY
+        from .packages import packages_list
 
-        quilt_service = QuiltService()
-        # Just try to list one package to verify functionality
-        pkgs = list(quilt_service.list_packages(registry=DEFAULT_REGISTRY))
+        result = packages_list(limit=1)
+        if not result.get("success"):
+            raise Exception(result.get("error", "Package operations failed"))
         return {"package_ops_available": True}
     except Exception as e:
         raise Exception(f"Package operations failed: {e}")
@@ -434,7 +433,7 @@ def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str
             [
                 "Check if the registry is accessible",
                 "Verify package names and registry URLs",
-                "Try: catalog_search() to test basic connectivity",
+                "Try: packages_search() to test basic connectivity",
             ]
         )
 
@@ -486,7 +485,7 @@ def _safe_package_operation_internal(operation_func: Callable, package_name: str
             "suggestions": [
                 f"Verify package '{package_name}' exists",
                 "Check registry access permissions",
-                "Try: catalog_search() to test connectivity",
+                "Try: packages_search() to test connectivity",
             ],
         }
 
