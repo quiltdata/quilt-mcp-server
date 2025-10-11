@@ -10,7 +10,7 @@ include make.deploy
 # Load environment variables from .env if it exists
 sinclude .env
 
-.PHONY: help clean release-local update-cursor-rules config-claude
+.PHONY: help clean release-local build-all update-cursor-rules config-claude
 
 # Default target - show organized help
 help:
@@ -18,12 +18,15 @@ help:
 	@echo ""
 	@echo "🚀 Development Workflow (make.dev):"
 	@echo "  make run              - Start local MCP server"
-	@echo "  make test             - Run all tests"
-	@echo "  make test-unit        - Run unit tests only (fast)"
+	@echo "  make test             - Run unit tests only (default, fast)"
+	@echo "  make test-all         - Run ALL tests (unit, integration, e2e, scripts, mcpb)"
+	@echo "  make test-unit        - Run unit tests only (fast, mocked)"
 	@echo "  make test-integration - Run integration tests (with AWS)"
-	@echo "  make test-ci          - Run CI-optimized tests"
+	@echo "  make test-e2e         - Run end-to-end workflow tests"
+	@echo "  make test-scripts     - Run script validation tests"
+	@echo "  make test-ci          - Run CI-optimized tests (excludes slow/search)"
 	@echo "  make lint             - Code formatting and type checking"
-	@echo "  make coverage         - Run tests with coverage report"
+	@echo "  make coverage         - Generate combined coverage analysis report"
 	@echo "  make coverage-html    - Generate HTML coverage report for local viewing"
 	@echo "  make run-inspector    - Launch MCP Inspector for testing"
 	@echo "  make config-claude    - Configure Claude CLI to use local MCP server"
@@ -53,6 +56,7 @@ help:
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean            - Clean all artifacts (dev + deploy)"
+	@echo "  make build-all        - Pre-flight all release artifacts (test-all → build → docker)"
 	@echo "  make release-local    - Full local workflow (test → deploy-build → mcpb → validate → zip)"
 	@echo "  make update-cursor-rules - Update Cursor IDE rules from CLAUDE.md"
 	@echo ""
@@ -67,6 +71,12 @@ help:
 # Coordination targets
 clean: dev-clean deploy-clean
 	@echo "✅ All artifacts cleaned"
+
+build-all: deploy-build python-dist docker-build release-zip
+	@echo "✅ All release artifacts validated:"
+	@echo "  - Python distribution built"
+	@echo "  - Docker image built"
+	@echo "  - Release ZIP created"
 
 release-local: clean test lint deploy-build mcpb-validate release-zip
 	@echo "✅ Full local release workflow completed"
