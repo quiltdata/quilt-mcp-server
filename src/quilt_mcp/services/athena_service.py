@@ -208,9 +208,14 @@ class AthenaQueryService:
         try:
             # Use Athena SQL to list schemas (databases) with explicit catalog name
             query = f"SHOW DATABASES IN `{data_catalog_name}`"
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
 
+            # Reuse execute_query for consistent query execution
+            result = self.execute_query(query, database_name=None)
+
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
             databases = []
             for _, row in df.iterrows():
                 db_name = row.iloc[0]  # First column should be database name
@@ -298,8 +303,13 @@ class AthenaQueryService:
             # Use Athena SQL to describe table instead of direct Glue API
             query = f"DESCRIBE {database_name}.{table_name}"
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            # Reuse execute_query for consistent query execution
+            result = self.execute_query(query, database_name=None)
+
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
 
             columns = []
             partitions = []
