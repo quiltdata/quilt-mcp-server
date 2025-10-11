@@ -117,11 +117,7 @@ class TestAthenaWorkflow:
         # Validate databases_result structure
         if not databases_result.get("success"):
             error_msg = databases_result.get("error", "Unknown error")
-            pytest.fail(
-                f"athena_databases_list() failed\n"
-                f"Error: {error_msg}\n"
-                f"Full response: {databases_result}"
-            )
+            pytest.fail(f"athena_databases_list() failed\nError: {error_msg}\nFull response: {databases_result}")
 
         # Extract databases from response
         databases = databases_result.get("databases", [])
@@ -165,8 +161,7 @@ class TestAthenaWorkflow:
 
         if not database_name or not tables or not tables_result:
             pytest.skip(
-                "Could not find a database with tables to query\n"
-                "Databases checked but no tables found in any of them"
+                "Could not find a database with tables to query\nDatabases checked but no tables found in any of them"
             )
 
         # 3. Query a row from the first table

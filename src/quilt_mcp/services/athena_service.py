@@ -125,6 +125,7 @@ class AthenaQueryService:
                 )
 
                 from urllib.parse import quote_plus
+
                 connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
 
                 # Store base connection string for creating engines with schema_name
@@ -371,6 +372,7 @@ class AthenaQueryService:
             # This avoids the USE statement which doesn't work with quoted identifiers in Athena
             if database_name:
                 from urllib.parse import quote_plus
+
                 # Ensure the base engine is created (triggers lazy initialization)
                 _ = self.engine
                 # Use stored base connection string and add schema_name
