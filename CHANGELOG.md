@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-discovers `data_catalog_name` from catalog configuration
   - Works with or without authentication (if catalog config available)
   - Fails explicitly if `tabulator_data_catalog` not configured (prevents accidental queries)
-  - Allows explicit `data_catalog_name` override when needed
   - Comprehensive test coverage for all scenarios
 
 - **Catalog Configuration Access**: New `get_catalog_config()` method in QuiltService
@@ -31,6 +30,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fetches additional metadata from catalog config endpoint automatically
   - **Does not require authentication** - works if catalog URL is configured
   - Comprehensive test coverage for authenticated and non-authenticated scenarios
+
+### Fixed
+
+- **Athena Hyphenated Database Names**: Fixed query execution failures with hyphenated database/bucket names (#c1ef59b)
+  - Replaced `USE` statement (which doesn't support quoted identifiers) with `schema_name` parameter in connection string
+  - Now correctly handles database names like "udp-spec" and "quilt-ernest-staging"
+  - Added comprehensive integration tests with real-world bucket names
+
+- **Tabulator Catalog Routing**: Fixed `data_catalog_name` parameter not being used in PyAthena connection (#1150c7c)
+  - Added `catalog_name` parameter to PyAthena connection strings
+  - Queries now correctly route to Tabulator catalog instead of defaulting to AwsDataCatalog
+  - Fixed permission errors when querying Tabulator tables
+
+- **Database Discovery**: Fixed `discover_tables` to correctly handle `data_catalog_name` parameter (#2962111)
+  - Refactored to use `execute_query()` for consistent database handling
+  - DRY improvements across `discover_databases()`, `discover_tables()`, and `get_table_metadata()`
+
+### Changed
+
+- **Test Infrastructure**: Replaced fragmented unit tests with comprehensive workflow integration tests
+  - New real-world test suite using actual bucket names (no mocking)
+  - Tests validate complete Athena workflows including catalog discovery and query execution
+  - Better coverage of edge cases and error scenarios
 
 ## [0.6.14] - 2025-09-24
 

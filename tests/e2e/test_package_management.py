@@ -1,8 +1,13 @@
 """Tests for enhanced package management functionality."""
 
+import time
+import uuid
+from contextlib import contextmanager
+
 import pytest
 from unittest.mock import Mock, patch
 
+from quilt_mcp import DEFAULT_BUCKET, DEFAULT_REGISTRY
 from quilt_mcp.tools.package_management import (
     create_package_enhanced,
     package_update_metadata,
@@ -15,6 +20,80 @@ from quilt_mcp.tools.metadata_templates import (
     validate_metadata_structure,
 )
 from quilt_mcp.tools.packages import package_browse
+from quilt_mcp.tools.package_ops import package_delete
+from quilt_mcp.tools.buckets import bucket_objects_put
+
+
+# Performance measurement utilities
+@contextmanager
+def measure_performance(operation_name: str):
+    """Context manager to measure and report operation performance."""
+    start_time = time.perf_counter()
+    metrics = {"operation": operation_name, "start_time": start_time}
+
+    try:
+        yield metrics
+    finally:
+        end_time = time.perf_counter()
+        duration = end_time - start_time
+        metrics["end_time"] = end_time
+        metrics["duration_seconds"] = duration
+
+        print(f"\n{'=' * 60}")
+        print(f"Performance Metrics: {operation_name}")
+        print(f"{'=' * 60}")
+        print(f"Duration: {duration:.3f}s")
+        print(f"{'=' * 60}\n")
+
+
+# Test fixtures
+@pytest.fixture
+def unique_package_name():
+    """Generate a unique package name for testing."""
+    return f"test/e2e-package-{uuid.uuid4().hex[:8]}"
+
+
+@pytest.fixture
+def test_s3_objects(unique_package_name):
+    """Create test S3 objects and clean them up after the test."""
+    # Normalize bucket name (remove s3:// prefix if present)
+    test_bucket = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET else ""
+    if not test_bucket:
+        pytest.skip("DEFAULT_BUCKET not configured")
+
+    test_prefix = f"test-data/e2e-{uuid.uuid4().hex[:8]}"
+
+    # Create test data
+    test_items = [
+        {
+            "key": f"{test_prefix}/data.csv",
+            "text": "id,name,value\n1,test,100\n2,sample,200\n",
+            "content_type": "text/csv",
+            "metadata": {"created_by": "e2e_test", "test": "true"},
+        },
+        {
+            "key": f"{test_prefix}/config.json",
+            "text": '{"version": "1.0", "description": "E2E test configuration"}',
+            "content_type": "application/json",
+        },
+    ]
+
+    # Upload test objects (bucket_objects_put expects bucket name without s3:// prefix)
+    result = bucket_objects_put(test_bucket, test_items)
+    if result.get("uploaded", 0) < len(test_items):
+        pytest.skip("Failed to create test S3 objects - check AWS permissions")
+
+    # Return S3 URIs (with s3:// prefix)
+    s3_uris = [f"s3://{test_bucket}/{item['key']}" for item in test_items]
+
+    yield {
+        "bucket": test_bucket,
+        "prefix": test_prefix,
+        "s3_uris": s3_uris,
+        "items": test_items,
+    }
+
+    # Cleanup is best-effort (S3 objects will be cleaned up by lifecycle policies)
 
 
 class TestCreatePackageEnhanced:
@@ -372,41 +451,357 @@ class TestToolDocumentation:
         assert "package_validate" in result["primary_tools"]
 
 
-class TestPackageManagementMigration:
-    """Test cases for package_management integration with create_package_revision."""
+@pytest.mark.aws
+class TestPackageManagementE2E:
+    """True end-to-end tests for package management with real AWS operations.
 
-    @pytest.mark.slow
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
-    def test_package_management_uses_create_package_revision_integration(self, mock_create_revision):
-        """Test that package_management integrates with create_package_revision through package_ops."""
-        # Mock successful package creation
-        mock_create_revision.return_value = {
-            "status": "success",
-            "top_hash": "test_hash_123",
-            "entries_added": 1,
-            "files": [{"logical_path": "file.csv", "source": "s3://bucket/file.csv"}],
-        }
+    These tests exercise the complete package lifecycle:
+    - Create test data in S3
+    - Create packages with metadata templates
+    - Verify package persistence and metadata
+    - Browse and validate packages
+    - Clean up test artifacts
 
-        result = create_package_enhanced(
-            name="test/package",
-            files=["s3://bucket/file.csv"],
-            description="Test package",
-            metadata_template="standard",
-        )
+    Performance is measured for regression detection.
 
-        # Verify success
-        assert result["status"] == "success"
+    Note: For fast unit tests without AWS operations,
+    see tests/unit/test_package_management_integration.py
+    """
 
-        # Verify create_package_revision was called with auto_organize=False
-        # (package_management.py uses package_ops.py which should use auto_organize=False)
-        mock_create_revision.assert_called_once()
-        call_args = mock_create_revision.call_args
+    def test_create_package_workflow_e2e(self, unique_package_name, test_s3_objects):
+        """E2E: Verify create → browse → validate workflow with metadata templates.
 
-        assert call_args[1]["package_name"] == "test/package"
-        assert not call_args[1]["auto_organize"]  # package_management uses package_ops which should use False
-        assert call_args[1]["s3_uris"] == ["s3://bucket/file.csv"]
+        This test validates the package management workflow:
+        1. Creates real S3 objects
+        2. Creates a Quilt package with genomics metadata template
+        3. Verifies the package was created successfully
+        4. Browses the package to retrieve persisted metadata
+        5. Validates that template fields were applied and persisted correctly
+        6. Validates the package structure and accessibility
+        7. Cleans up test artifacts
 
-        # Verify metadata template was processed
-        processed_metadata = call_args[1]["metadata"]
-        assert "description" in processed_metadata
-        assert "creation_date" in processed_metadata  # Should be added by template
+        This tests the core workflow: create → browse → validate.
+        Performance target: <30s for complete workflow
+        """
+        # Skip if bucket/registry not configured
+        if not DEFAULT_BUCKET or not DEFAULT_REGISTRY:
+            pytest.skip("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
+
+        # Normalize registry to ensure s3:// prefix
+        registry = DEFAULT_REGISTRY if DEFAULT_REGISTRY.startswith("s3://") else f"s3://{DEFAULT_REGISTRY}"
+
+        package_name = unique_package_name
+        s3_uris = test_s3_objects["s3_uris"]
+        workflow_metrics = {}
+
+        try:
+            # ACT 1: Create package with genomics template
+            with measure_performance("Create Package with Genomics Template") as create_metrics:
+                result = create_package_enhanced(
+                    name=package_name,
+                    files=s3_uris,
+                    description="E2E genomics metadata test",
+                    metadata_template="genomics",
+                    metadata={
+                        "organism": "human",
+                        "genome_build": "GRCh38",
+                        "study_type": "WGS",
+                        "test_type": "e2e",
+                    },
+                    registry=registry,
+                )
+
+            workflow_metrics["create"] = create_metrics
+
+            # ASSERT: Package created successfully
+            if "status" in result:
+                assert result["status"] == "success", f"Package creation failed: {result}"
+            elif "success" in result:
+                assert result["success"] is True, f"Package creation failed: {result}"
+            else:
+                pytest.fail(f"Unexpected result format (no status/success field): {result}")
+
+            # ASSERT: Entries were added
+            entries = result.get("entries_added") or result.get("entries") or 0
+            assert entries > 0, f"Expected entries to be added, got: {entries}"
+
+            # ACT 2: Browse package to retrieve metadata
+            with measure_performance("Browse Package and Retrieve Metadata") as browse_metrics:
+                browse_result = package_browse(package_name, registry=registry)
+
+            workflow_metrics["browse"] = browse_metrics
+
+            # ASSERT: Browse succeeded
+            assert browse_result.get("success") is True, f"Browse failed: {browse_result}"
+
+            # ASSERT: Package has files
+            files = browse_result.get("files", []) or browse_result.get("entries", [])
+            assert len(files) > 0, "Package should contain files"
+
+            # ACT 3: Verify metadata template was applied and persisted
+            pkg_metadata = browse_result.get("metadata", {})
+
+            # Debug output
+            print(f"\n{'=' * 60}")
+            print("Retrieved Package Metadata:")
+            print(f"{'=' * 60}")
+            import json
+            print(json.dumps(pkg_metadata, indent=2, default=str))
+            print(f"{'=' * 60}\n")
+
+            # ASSERT: Template-specific fields are present and correct
+            assert pkg_metadata.get("package_type") == "genomics", \
+                f"Expected package_type='genomics', got: {pkg_metadata.get('package_type')}"
+            assert pkg_metadata.get("organism") == "human", \
+                f"Expected organism='human', got: {pkg_metadata.get('organism')}"
+            assert pkg_metadata.get("genome_build") == "GRCh38", \
+                f"Expected genome_build='GRCh38', got: {pkg_metadata.get('genome_build')}"
+            assert pkg_metadata.get("study_type") == "WGS", \
+                f"Expected study_type='WGS', got: {pkg_metadata.get('study_type')}"
+            assert pkg_metadata.get("test_type") == "e2e", \
+                f"Expected test_type='e2e', got: {pkg_metadata.get('test_type')}"
+
+            # ASSERT: Template default fields exist
+            assert "created_by" in pkg_metadata, "Template should include 'created_by'"
+            assert "creation_date" in pkg_metadata, "Template should include 'creation_date'"
+
+            # ACT 3: Validate the package
+            with measure_performance("Validate Package") as validate_metrics:
+                validate_result = package_validate(package_name, registry=registry)
+
+            workflow_metrics["validate"] = validate_metrics
+
+            # ASSERT: Validation passed
+            assert (
+                validate_result.get("valid") is True
+                or validate_result.get("status") == "success"
+                or validate_result.get("success") is True
+            ), f"Validation failed: {validate_result}"
+
+            # Print performance metrics
+            total_duration = sum(m["duration_seconds"] for m in workflow_metrics.values())
+            print(f"\n{'=' * 60}")
+            print("Create → Browse → Validate E2E Performance")
+            print(f"{'=' * 60}")
+            print(f"Total Duration: {total_duration:.3f}s")
+            print(f"  - Create: {workflow_metrics['create']['duration_seconds']:.3f}s")
+            print(f"  - Browse: {workflow_metrics['browse']['duration_seconds']:.3f}s")
+            print(f"  - Validate: {workflow_metrics['validate']['duration_seconds']:.3f}s")
+            print(f"{'=' * 60}\n")
+
+            # ASSERT: Performance target
+            assert total_duration < 30, f"E2E workflow took {total_duration:.1f}s (target: <30s)"
+
+        finally:
+            # Cleanup: Delete the test package
+            try:
+                delete_result = package_delete(
+                    package_name=package_name,
+                    registry=registry,
+                )
+                print(f"Cleanup: Package deletion status: {delete_result.get('status', 'unknown')}")
+            except Exception as e:
+                print(f"Warning: Failed to clean up test package {package_name}: {e}")
+
+    def test_update_package_workflow_e2e(self, unique_package_name, test_s3_objects):
+        """E2E: Verify update → browse → validate workflow for existing packages.
+
+        This test validates the package UPDATE workflow:
+        1. Creates an initial package with test data
+        2. Creates additional S3 objects
+        3. Updates the existing package with new files (package_update)
+        4. Browses the updated package to verify files were added
+        5. Updates package metadata only (package_update_metadata)
+        6. Browses to verify metadata was updated
+        7. Validates the updated package structure
+        8. Cleans up test artifacts
+
+        This tests the core UPDATE workflow: update files → update metadata → validate.
+        Performance target: <40s for complete workflow
+        """
+        from quilt_mcp.tools.package_ops import package_update
+        from quilt_mcp.tools.package_management import package_update_metadata
+
+        # Skip if bucket/registry not configured
+        if not DEFAULT_BUCKET or not DEFAULT_REGISTRY:
+            pytest.skip("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
+
+        # Normalize registry and bucket
+        registry = DEFAULT_REGISTRY if DEFAULT_REGISTRY.startswith("s3://") else f"s3://{DEFAULT_REGISTRY}"
+        test_bucket = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET else ""
+
+        package_name = unique_package_name
+        initial_s3_uris = test_s3_objects["s3_uris"]
+        test_prefix = test_s3_objects["prefix"]
+        workflow_metrics = {}
+
+        try:
+            # ACT 1: Create initial package
+            with measure_performance("Create Initial Package") as create_metrics:
+                result = create_package_enhanced(
+                    name=package_name,
+                    files=initial_s3_uris,
+                    description="E2E update workflow test - initial version",
+                    metadata_template="standard",
+                    metadata={
+                        "version": "1.0",
+                        "test_type": "e2e_update",
+                        "status": "initial",
+                    },
+                    registry=registry,
+                )
+
+            workflow_metrics["create"] = create_metrics
+
+            # ASSERT: Initial package created successfully
+            if "status" in result:
+                assert result["status"] == "success", f"Initial package creation failed: {result}"
+            elif "success" in result:
+                assert result["success"] is True, f"Initial package creation failed: {result}"
+            else:
+                pytest.fail(f"Unexpected result format: {result}")
+
+            initial_entries = result.get("entries_added") or result.get("entries") or 0
+            assert initial_entries > 0, f"Expected entries in initial package, got: {initial_entries}"
+
+            # ACT 2: Create additional S3 objects to add to package
+            with measure_performance("Create Additional S3 Objects") as s3_create_metrics:
+                additional_items = [
+                    {
+                        "key": f"{test_prefix}/additional_data.json",
+                        "text": '{"additional": true, "version": "2.0"}',
+                        "content_type": "application/json",
+                    },
+                    {
+                        "key": f"{test_prefix}/extra_file.txt",
+                        "text": "This is additional content for the updated package",
+                        "content_type": "text/plain",
+                    },
+                ]
+
+                upload_result = bucket_objects_put(test_bucket, additional_items)
+                assert upload_result.get("uploaded", 0) == len(additional_items), "Failed to create additional S3 objects"
+
+                additional_s3_uris = [f"s3://{test_bucket}/{item['key']}" for item in additional_items]
+
+            workflow_metrics["s3_create"] = s3_create_metrics
+
+            # ACT 3: Update package with additional files
+            with measure_performance("Update Package with New Files") as update_metrics:
+                update_result = package_update(
+                    package_name=package_name,
+                    s3_uris=additional_s3_uris,
+                    registry=registry,
+                    metadata={"version": "2.0", "status": "updated"},
+                    message="E2E test: Added additional files",
+                )
+
+            workflow_metrics["update_files"] = update_metrics
+
+            # ASSERT: Package update succeeded
+            assert update_result.get("status") == "success", f"Package update failed: {update_result}"
+
+            files_added = update_result.get("files_added") or update_result.get("files") or []
+            files_added_count = len(files_added) if isinstance(files_added, list) else files_added
+            assert files_added_count == len(additional_s3_uris), \
+                f"Expected {len(additional_s3_uris)} files added, got: {files_added_count}"
+
+            # ACT 4: Browse updated package to verify files were added
+            with measure_performance("Browse Updated Package") as browse1_metrics:
+                browse_result = package_browse(package_name, registry=registry)
+
+            workflow_metrics["browse_after_update"] = browse1_metrics
+
+            # ASSERT: Browse succeeded and has all files
+            assert browse_result.get("success") is True, f"Browse after update failed: {browse_result}"
+
+            all_files = browse_result.get("files", []) or browse_result.get("entries", [])
+            total_expected_files = initial_entries + len(additional_s3_uris)
+            assert len(all_files) == total_expected_files, \
+                f"Expected {total_expected_files} files after update, got: {len(all_files)}"
+
+            # ACT 5: Update package metadata only (no file changes)
+            with measure_performance("Update Package Metadata Only") as metadata_update_metrics:
+                metadata_result = package_update_metadata(
+                    package_name=package_name,
+                    metadata={
+                        "analysis_complete": True,
+                        "reviewed_by": "e2e_test",
+                        "review_date": "2025-01-11",
+                    },
+                    registry=registry,
+                    merge_with_existing=True,
+                )
+
+            workflow_metrics["update_metadata"] = metadata_update_metrics
+
+            # ASSERT: Metadata update succeeded
+            assert metadata_result.get("success") is True, f"Metadata update failed: {metadata_result}"
+            assert metadata_result.get("merge_applied") is True, "Metadata should have been merged"
+
+            # ACT 6: Browse to verify metadata was updated
+            with measure_performance("Browse After Metadata Update") as browse2_metrics:
+                browse_result2 = package_browse(package_name, registry=registry)
+
+            workflow_metrics["browse_after_metadata"] = browse2_metrics
+
+            # ASSERT: Metadata fields present
+            pkg_metadata = browse_result2.get("metadata", {})
+
+            print(f"\n{'=' * 60}")
+            print("Updated Package Metadata:")
+            print(f"{'=' * 60}")
+            import json
+            print(json.dumps(pkg_metadata, indent=2, default=str))
+            print(f"{'=' * 60}\n")
+
+            # Verify new metadata fields
+            assert pkg_metadata.get("analysis_complete") is True, "Missing analysis_complete field"
+            assert pkg_metadata.get("reviewed_by") == "e2e_test", "Missing reviewed_by field"
+            assert pkg_metadata.get("review_date") == "2025-01-11", "Missing review_date field"
+
+            # Verify original metadata was preserved (merge=True)
+            assert "version" in pkg_metadata, "Original version field should be preserved"
+            assert "test_type" in pkg_metadata, "Original test_type field should be preserved"
+
+            # ACT 7: Validate the updated package
+            with measure_performance("Validate Updated Package") as validate_metrics:
+                validate_result = package_validate(package_name, registry=registry)
+
+            workflow_metrics["validate"] = validate_metrics
+
+            # ASSERT: Validation passed
+            assert (
+                validate_result.get("valid") is True
+                or validate_result.get("status") == "success"
+                or validate_result.get("success") is True
+            ), f"Validation of updated package failed: {validate_result}"
+
+            # Print performance metrics
+            total_duration = sum(m["duration_seconds"] for m in workflow_metrics.values())
+            print(f"\n{'=' * 60}")
+            print("Update → Browse → Validate E2E Performance")
+            print(f"{'=' * 60}")
+            print(f"Total Duration: {total_duration:.3f}s")
+            print(f"  - Create Initial: {workflow_metrics['create']['duration_seconds']:.3f}s")
+            print(f"  - Create S3 Objects: {workflow_metrics['s3_create']['duration_seconds']:.3f}s")
+            print(f"  - Update Files: {workflow_metrics['update_files']['duration_seconds']:.3f}s")
+            print(f"  - Browse After Update: {workflow_metrics['browse_after_update']['duration_seconds']:.3f}s")
+            print(f"  - Update Metadata: {workflow_metrics['update_metadata']['duration_seconds']:.3f}s")
+            print(f"  - Browse After Metadata: {workflow_metrics['browse_after_metadata']['duration_seconds']:.3f}s")
+            print(f"  - Validate: {workflow_metrics['validate']['duration_seconds']:.3f}s")
+            print(f"{'=' * 60}\n")
+
+            # ASSERT: Performance target
+            assert total_duration < 40, f"Update workflow took {total_duration:.1f}s (target: <40s)"
+
+        finally:
+            # Cleanup: Delete the test package
+            try:
+                delete_result = package_delete(
+                    package_name=package_name,
+                    registry=registry,
+                )
+                print(f"Cleanup: Package deletion status: {delete_result.get('status', 'unknown')}")
+            except Exception as e:
+                print(f"Warning: Failed to clean up test package {package_name}: {e}")
