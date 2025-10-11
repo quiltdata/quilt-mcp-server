@@ -13,7 +13,7 @@ from typing import Dict, List, Any, Optional
 from cachetools import TTLCache
 import boto3
 import pandas as pd
-from sqlalchemy import create_engine, MetaData, inspect, text
+from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -51,6 +51,7 @@ class AthenaQueryService:
         self._glue_client: Optional[Any] = None
         self._s3_client: Optional[Any] = None
         self._engine: Optional[Engine] = None
+        self._base_connection_string: Optional[str] = None  # Store for creating engines with schema_name
 
     @property
     def glue_client(self):
@@ -106,6 +107,9 @@ class AthenaQueryService:
                 if credentials.token:
                     connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
 
+                # Store base connection string for creating engines with schema_name
+                self._base_connection_string = connection_string
+
                 logger.info(f"Creating Athena engine with workgroup: {workgroup}")
                 return create_engine(connection_string, echo=False)
 
@@ -121,6 +125,9 @@ class AthenaQueryService:
                 )
 
                 connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
+
+                # Store base connection string for creating engines with schema_name
+                self._base_connection_string = connection_string
 
                 logger.info(f"Creating Athena engine with workgroup: {workgroup}")
                 return create_engine(connection_string, echo=False)
@@ -350,22 +357,24 @@ class AthenaQueryService:
     def execute_query(self, query: str, database_name: str | None = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
-            # Set database context if provided
+            # Determine which engine to use
+            # If database_name is provided, create a temporary engine with schema_name in connection string
+            # This avoids the USE statement which doesn't work with quoted identifiers in Athena
             if database_name:
-                # Properly escape database name for USE statement
-                if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                    escaped_db = f'"{database_name}"'
-                else:
-                    escaped_db = database_name
-
-                with self.engine.connect() as conn:
-                    conn.execute(text(f"USE {escaped_db}"))
+                from urllib.parse import quote_plus
+                # Ensure the base engine is created (triggers lazy initialization)
+                _ = self.engine
+                # Use stored base connection string and add schema_name
+                connection_string = f"{self._base_connection_string}&schema_name={quote_plus(database_name)}"
+                engine_to_use = create_engine(connection_string, echo=False)
+            else:
+                engine_to_use = self.engine
 
             # Execute query and load results into pandas DataFrame
             # Sanitize query to prevent string formatting issues
             safe_query = self._sanitize_query_for_pandas(query)
             with suppress_stdout():
-                df = pd.read_sql_query(safe_query, self.engine)
+                df = pd.read_sql_query(safe_query, engine_to_use)
 
             # Apply result limit
             truncated = False
