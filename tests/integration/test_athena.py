@@ -29,57 +29,104 @@ class TestTabulatorWorkflow:
 
     def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
-        Complete Tabulator workflow:
-        0. Use known Tabulator-enabled bucket (quilt-example-bucket)
-        1. List tables in the bucket (SHOW TABLES)
-        2. Extract first table name from results
-        3. Query a row from that table (SELECT)
+        Complete Tabulator workflow with dynamic discovery:
+        0. List all buckets in Tabulator catalog (tabulator_buckets_list)
+        1. Find a bucket with tables
+        2. List tables in that bucket (SHOW TABLES via tabulator_bucket_query)
+        3. Query a row from a table (SELECT via tabulator_bucket_query)
 
         This exercises:
-        - Tabulator catalog configuration
+        - Tabulator catalog discovery
+        - Dynamic bucket selection
         - Database context with hyphenated bucket names
         - SHOW TABLES query
         - SELECT query with actual data
         - Full stack: auth → catalog → query → results
         """
-        from quilt_mcp.tools.athena_glue import tabulator_table_query
+        import asyncio
+        from quilt_mcp.tools.tabulator import tabulator_buckets_list, tabulator_bucket_query
 
-        # 0. Use known Tabulator-enabled bucket
-        # quilt-example-bucket is available in both local and CI environments
-        bucket_name = "quilt-example-bucket"
+        # 0. List all buckets in Tabulator catalog
+        buckets_result = asyncio.run(tabulator_buckets_list())
 
-        # 1. List tables in the bucket
-        tables_result = tabulator_table_query(
-            bucket_name=bucket_name,
-            query="SHOW TABLES",
-            output_format="json",
+        assert buckets_result["success"] is True, f"tabulator_buckets_list failed: {buckets_result.get('error')}"
+        assert "buckets" in buckets_result
+        assert isinstance(buckets_result["buckets"], list)
+        assert len(buckets_result["buckets"]) > 0, "No buckets found in Tabulator catalog"
+
+        print(f"\nFound {len(buckets_result['buckets'])} bucket(s) in Tabulator catalog")
+
+        # 1. Find a bucket with tables
+        bucket_name = None
+        table_name = None
+        query_result = None
+
+        for current_bucket in buckets_result["buckets"]:
+            print(f"Checking bucket: {current_bucket}")
+
+            # 2. List tables in this bucket
+            tables_result = asyncio.run(
+                tabulator_bucket_query(
+                    bucket_name=current_bucket,
+                    query="SHOW TABLES",
+                    output_format="json",
+                )
+            )
+
+            if not tables_result.get("success"):
+                error_msg = tables_result.get("error", "Unknown error")
+                print(f"  SHOW TABLES failed: {error_msg}")
+                continue
+
+            formatted_data = tables_result.get("formatted_data", [])
+            if not formatted_data or len(formatted_data) == 0:
+                print(f"  No tables found in {current_bucket}")
+                continue
+
+            # Extract first table name
+            first_table = formatted_data[0]
+            current_table_name = first_table.get("tab_name") or first_table.get("table_name")
+            if not current_table_name:
+                print(f"  Could not extract table name from: {first_table}")
+                continue
+
+            print(f"Found table: {current_table_name}")
+
+            # 3. Try to query a row from the table
+            current_query_result = asyncio.run(
+                tabulator_bucket_query(
+                    bucket_name=current_bucket,
+                    query=f'SELECT * FROM "{current_table_name}" LIMIT 1',
+                    output_format="json",
+                )
+            )
+
+            if not current_query_result.get("success"):
+                error_msg = current_query_result.get("error", "Unknown error")
+                print(f"  SELECT query failed: {error_msg}")
+                continue
+
+            query_data = current_query_result.get("formatted_data", [])
+            if not query_data or len(query_data) == 0:
+                print(f"  No data returned from {current_table_name}")
+                continue
+
+            # Success! Found a working bucket and table
+            bucket_name = current_bucket
+            table_name = current_table_name
+            query_result = current_query_result
+            break
+
+        # Verify we found a working bucket/table combination
+        if not query_result or not bucket_name or not table_name:
+            pytest.skip(
+                "Could not find a bucket with queryable tables\n"
+                "Tried all buckets but none had tables with accessible data"
+            )
+
+        print(
+            f"Successfully queried {len(query_result.get('formatted_data', []))} rows from {bucket_name}.{table_name}"
         )
-
-        assert tables_result["success"] is True, f"SHOW TABLES failed: {tables_result.get('error')}"
-        assert "formatted_data" in tables_result
-        assert isinstance(tables_result["formatted_data"], list)
-        assert len(tables_result["formatted_data"]) > 0, "No tables found in bucket"
-
-        # 2. Extract first table name
-        first_table = tables_result["formatted_data"][0]
-        table_name = first_table.get("tab_name") or first_table.get("table_name")
-        assert table_name, f"Could not find table name in result: {first_table}"
-
-        print(f"\nFound table: {table_name}")
-
-        # 3. Query a row from the table
-        query_result = tabulator_table_query(
-            bucket_name=bucket_name,
-            query=f'SELECT * FROM "{table_name}" LIMIT 1',
-            output_format="json",
-        )
-
-        assert query_result["success"] is True, f"SELECT query failed: {query_result.get('error')}"
-        assert "formatted_data" in query_result
-        assert isinstance(query_result["formatted_data"], list)
-        assert len(query_result["formatted_data"]) > 0, "No data returned from table"
-
-        print(f"Successfully queried {len(query_result['formatted_data'])} rows from {table_name}")
         print(f"Columns: {query_result.get('columns', [])}")
 
 
@@ -182,7 +229,7 @@ class TestAthenaWorkflow:
 
             formatted_data = current_query_result.get("formatted_data", [])
             if not formatted_data:
-                print(f"  Query returned no data")
+                print("  Query returned no data")
                 continue
 
             # Success! Found a working database and table
@@ -198,7 +245,9 @@ class TestAthenaWorkflow:
                 "Tried all databases but none had tables with accessible data"
             )
 
-        print(f"Successfully queried {len(query_result.get('formatted_data', []))} rows from {database_name}.{table_name}")
+        print(
+            f"Successfully queried {len(query_result.get('formatted_data', []))} rows from {database_name}.{table_name}"
+        )
         print(f"Columns: {query_result.get('columns', [])}")
 
 

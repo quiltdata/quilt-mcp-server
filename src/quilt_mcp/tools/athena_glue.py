@@ -296,6 +296,9 @@ def tabulator_table_query(
     """
     Execute SQL query against Tabulator tables using Athena.
 
+    DEPRECATED: This function is maintained for backward compatibility.
+    For new code, use tabulator_bucket_query() from the tabulator module instead.
+
     This is a convenience wrapper around athena_query_execute that:
     1. Uses bucket_name instead of database_name (matching tabulator_tables_list convention)
     2. Automatically retrieves data_catalog_name from catalog_info if not provided
@@ -313,6 +316,12 @@ def tabulator_table_query(
         Query execution results with data, metadata, and formatting
     """
     try:
+        # Log deprecation warning
+        logger.warning(
+            "tabulator_table_query() is deprecated. "
+            "Use tabulator_bucket_query() from the tabulator module for new code."
+        )
+
         # Import here to avoid circular dependency
         from .auth import catalog_info
 

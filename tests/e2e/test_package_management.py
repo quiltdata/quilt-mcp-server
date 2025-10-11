@@ -546,20 +546,26 @@ class TestPackageManagementE2E:
             print("Retrieved Package Metadata:")
             print(f"{'=' * 60}")
             import json
+
             print(json.dumps(pkg_metadata, indent=2, default=str))
             print(f"{'=' * 60}\n")
 
             # ASSERT: Template-specific fields are present and correct
-            assert pkg_metadata.get("package_type") == "genomics", \
+            assert pkg_metadata.get("package_type") == "genomics", (
                 f"Expected package_type='genomics', got: {pkg_metadata.get('package_type')}"
-            assert pkg_metadata.get("organism") == "human", \
+            )
+            assert pkg_metadata.get("organism") == "human", (
                 f"Expected organism='human', got: {pkg_metadata.get('organism')}"
-            assert pkg_metadata.get("genome_build") == "GRCh38", \
+            )
+            assert pkg_metadata.get("genome_build") == "GRCh38", (
                 f"Expected genome_build='GRCh38', got: {pkg_metadata.get('genome_build')}"
-            assert pkg_metadata.get("study_type") == "WGS", \
+            )
+            assert pkg_metadata.get("study_type") == "WGS", (
                 f"Expected study_type='WGS', got: {pkg_metadata.get('study_type')}"
-            assert pkg_metadata.get("test_type") == "e2e", \
+            )
+            assert pkg_metadata.get("test_type") == "e2e", (
                 f"Expected test_type='e2e', got: {pkg_metadata.get('test_type')}"
+            )
 
             # ASSERT: Template default fields exist
             assert "created_by" in pkg_metadata, "Template should include 'created_by'"
@@ -620,7 +626,6 @@ class TestPackageManagementE2E:
         Performance target: <40s for complete workflow
         """
         from quilt_mcp.tools.package_ops import package_update
-        from quilt_mcp.tools.package_management import package_update_metadata
 
         # Skip if bucket/registry not configured
         if not DEFAULT_BUCKET or not DEFAULT_REGISTRY:
@@ -680,7 +685,9 @@ class TestPackageManagementE2E:
                 ]
 
                 upload_result = bucket_objects_put(test_bucket, additional_items)
-                assert upload_result.get("uploaded", 0) == len(additional_items), "Failed to create additional S3 objects"
+                assert upload_result.get("uploaded", 0) == len(additional_items), (
+                    "Failed to create additional S3 objects"
+                )
 
                 additional_s3_uris = [f"s3://{test_bucket}/{item['key']}" for item in additional_items]
 
@@ -703,8 +710,9 @@ class TestPackageManagementE2E:
 
             files_added = update_result.get("files_added") or update_result.get("files") or []
             files_added_count = len(files_added) if isinstance(files_added, list) else files_added
-            assert files_added_count == len(additional_s3_uris), \
+            assert files_added_count == len(additional_s3_uris), (
                 f"Expected {len(additional_s3_uris)} files added, got: {files_added_count}"
+            )
 
             # ACT 4: Browse updated package to verify files were added
             with measure_performance("Browse Updated Package") as browse1_metrics:
@@ -717,8 +725,9 @@ class TestPackageManagementE2E:
 
             all_files = browse_result.get("files", []) or browse_result.get("entries", [])
             total_expected_files = initial_entries + len(additional_s3_uris)
-            assert len(all_files) == total_expected_files, \
+            assert len(all_files) == total_expected_files, (
                 f"Expected {total_expected_files} files after update, got: {len(all_files)}"
+            )
 
             # ACT 5: Update package metadata only (no file changes)
             with measure_performance("Update Package Metadata Only") as metadata_update_metrics:
@@ -752,6 +761,7 @@ class TestPackageManagementE2E:
             print("Updated Package Metadata:")
             print(f"{'=' * 60}")
             import json
+
             print(json.dumps(pkg_metadata, indent=2, default=str))
             print(f"{'=' * 60}\n")
 
