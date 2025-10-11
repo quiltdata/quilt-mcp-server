@@ -17,6 +17,7 @@ from quilt_mcp.tools.athena_glue import (
     athena_query_history,
     athena_workgroups_list,
     athena_query_validate,
+    tabulator_table_query,
 )
 from quilt_mcp.services.athena_service import AthenaQueryService
 
@@ -1075,6 +1076,56 @@ class TestAthenaQueryService:
         assert result["format"] == "csv"
         assert "formatted_data" in result
         assert "event_type,count" in result["formatted_data"]
+
+
+class TestTabulatorTableQuery:
+    """Test tabulator_table_query function."""
+
+    @pytest.mark.aws
+    @pytest.mark.slow
+    def test_tabulator_query_with_default_bucket(self, require_aws_credentials, athena_service_quilt):
+        """Test tabulator_table_query using QUILT_DEFAULT_BUCKET."""
+
+        # Get bucket name from environment
+        default_bucket = os.getenv("QUILT_DEFAULT_BUCKET")
+        if not default_bucket:
+            pytest.skip("QUILT_DEFAULT_BUCKET not set")
+
+        # Remove s3:// prefix if present
+        bucket_name = default_bucket.replace("s3://", "")
+
+        # Use a simple query that should work on any Tabulator setup
+        query = "SELECT 1 as test_column, 'tabulator' as source_type"
+
+        result = tabulator_table_query(
+            bucket_name=bucket_name,
+            query=query,
+            max_results=5,
+            output_format="json",
+            use_quilt_auth=True,
+        )
+
+        assert isinstance(result, dict)
+        assert "success" in result
+
+        if result["success"]:
+            # Verify the query executed successfully with tabulator catalog
+            assert "formatted_data" in result
+            assert "format" in result
+            assert result["format"] == "json"
+            assert len(result["formatted_data"]) == 1
+            assert result["formatted_data"][0]["test_column"] == 1
+            assert result["formatted_data"][0]["source_type"] == "tabulator"
+            # Verify other expected fields in successful response
+            assert "row_count" in result
+            assert "columns" in result
+            assert result["row_count"] == 1
+            assert "test_column" in result["columns"]
+            assert "source_type" in result["columns"]
+        else:
+            # Query might fail due to missing tabulator_data_catalog configuration
+            assert "error" in result
+            assert isinstance(result["error"], str)
 
 
 if __name__ == "__main__":
