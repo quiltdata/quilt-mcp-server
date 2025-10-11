@@ -69,8 +69,8 @@ class TestAthenaIntegration:
         if result["success"]:
             assert "databases" in result
             assert isinstance(result["databases"], list)
-            assert "catalog_name" in result
-            assert result["catalog_name"] == "AwsDataCatalog"
+            assert "data_catalog_name" in result
+            assert result["data_catalog_name"] == "AwsDataCatalog"
         else:
             # Should have error message if failed
             assert "error" in result
@@ -350,7 +350,7 @@ class TestAthenaErrorHandling:
         skip_if_no_aws_credentials()
 
         # Try to access a non-existent catalog to trigger an error
-        result = athena_databases_list(catalog_name="nonexistent-catalog-12345")
+        result = athena_databases_list(data_catalog_name="nonexistent-catalog-12345")
 
         # Should handle the error gracefully
         assert "success" in result
