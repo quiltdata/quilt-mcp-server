@@ -57,13 +57,21 @@ Get detailed information about the current Quilt catalog configuration.
 ```python
 result = await mcp_client.call_tool(\"catalog_info\", {})
 
-# Response includes
+# Response always includes these keys:
 {
     \"catalog_name\": \"demo.quiltdata.com\",
-    \"catalog_url\": \"https://demo.quiltdata.com\",
+    \"is_authenticated\": true,
+    \"status\": \"success\",
+    \"message\": \"Connected to catalog: demo.quiltdata.com\"
+}
+
+# Additional keys present when available:
+{
+    \"navigator_url\": \"https://demo.quiltdata.com\",
     \"registry_url\": \"s3://quilt-example\",
-    \"authentication_status\": \"authenticated\",
-    \"configuration_source\": \"environment\"
+    \"logged_in_url\": \"https://demo.quiltdata.com\",
+    \"region\": \"us-east-1\",
+    \"tabulator_data_catalog\": \"quilt-demo-tabulator\"
 }
 ```
 

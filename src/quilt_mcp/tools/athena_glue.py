@@ -44,21 +44,22 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
 
 
 def athena_databases_list(
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     List available databases in AWS Glue Data Catalog.
 
     Args:
-        catalog_name: Name of the data catalog (default: AwsDataCatalog)
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
 
     Returns:
         List of databases with metadata
     """
     try:
-        service = service or AthenaQueryService()
-        return service.discover_databases(catalog_name)
+        if service is None:
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
+        return service.discover_databases(data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
         return format_error_response(f"Failed to list databases: {str(e)}")
@@ -66,7 +67,7 @@ def athena_databases_list(
 
 def athena_tables_list(
     database_name: str,
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     table_pattern: Optional[str] = None,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
@@ -75,15 +76,16 @@ def athena_tables_list(
 
     Args:
         database_name: Name of the database
-        catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
         table_pattern: Optional pattern to filter table names
 
     Returns:
         List of tables with metadata and schemas
     """
     try:
-        service = service or AthenaQueryService()
-        return service.discover_tables(database_name, catalog_name, table_pattern)
+        if service is None:
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
+        return service.discover_tables(database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern)
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
         return format_error_response(f"Failed to list tables: {str(e)}")
@@ -92,7 +94,7 @@ def athena_tables_list(
 def athena_table_schema(
     database_name: str,
     table_name: str,
-    catalog_name: str = "AwsDataCatalog",
+    data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
@@ -101,14 +103,15 @@ def athena_table_schema(
     Args:
         database_name: Name of the database
         table_name: Name of the table
-        catalog_name: Name of the data catalog
+        data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
 
     Returns:
         Detailed table schema including columns, types, partitions
     """
     try:
-        service = service or AthenaQueryService()
-        return service.get_table_metadata(database_name, table_name, catalog_name)
+        if service is None:
+            service = AthenaQueryService(data_catalog_name=data_catalog_name)
+        return service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
         return format_error_response(f"Failed to get table schema: {str(e)}")
@@ -129,7 +132,8 @@ def athena_workgroups_list(
     """
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
 
         # Get workgroups using the service's consolidated method
         workgroups = service.list_workgroups()
@@ -160,6 +164,7 @@ def athena_query_execute(
     query: str,
     database_name: Optional[str] = None,
     workgroup_name: Optional[str] = None,
+    data_catalog_name: str = "AwsDataCatalog",
     max_results: int = 1000,
     output_format: str = "json",
     use_quilt_auth: bool = True,
@@ -178,6 +183,7 @@ def athena_query_execute(
         query: SQL query to execute (must use double quotes, not backticks)
         database_name: Default database for query context (optional)
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        data_catalog_name: Data catalog to use (default: AwsDataCatalog)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
         use_quilt_auth: Use quilt3 assumed role credentials if available
@@ -217,7 +223,12 @@ def athena_query_execute(
             return format_error_response("output_format must be one of: json, csv, parquet, table")
 
         # Execute query
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(
+                use_quilt_auth=use_quilt_auth,
+                workgroup_name=workgroup_name,
+                data_catalog_name=data_catalog_name,
+            )
         result = service.execute_query(query, database_name, max_results)
 
         if not result.get("success"):
@@ -274,6 +285,63 @@ def athena_query_execute(
             return format_error_response(f"Query execution failed: {error_str}{suggestions}")
 
 
+def tabulator_table_query(
+    bucket_name: str,
+    query: str,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """
+    Execute SQL query against Tabulator tables using Athena.
+
+    This is a convenience wrapper around athena_query_execute that:
+    1. Uses bucket_name instead of database_name (matching tabulator_tables_list convention)
+    2. Automatically retrieves data_catalog_name from catalog_info if not provided
+    3. FAILS if tabulator_data_catalog is not configured (prevents accidental queries against wrong catalog)
+
+    Args:
+        bucket_name: Name of the S3 bucket (used as database_name)
+        query: SQL query to execute
+        workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        # Import here to avoid circular dependency
+        from .auth import catalog_info
+
+        # Auto-discover data_catalog_name
+        info = catalog_info()
+        # MUST have tabulator_data_catalog configured - this prevents accidental queries
+        if not info.get("tabulator_data_catalog"):
+            return format_error_response(
+                "tabulator_data_catalog not configured. This tool requires a Tabulator-enabled catalog. "
+                "Check catalog configuration or use athena_query_execute directly for general Athena queries."
+            )
+        data_catalog_name = info["tabulator_data_catalog"]
+
+        # Call athena_query_execute with bucket_name mapped to database_name
+        return athena_query_execute(
+            query=query,
+            database_name=bucket_name,
+            workgroup_name=workgroup_name,
+            data_catalog_name=data_catalog_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_table_query: {e}")
+        return format_error_response(f"Failed to execute tabulator query: {str(e)}")
+
+
 def athena_query_history(
     max_results: int = 50,
     status_filter: Optional[str] = None,
@@ -299,7 +367,8 @@ def athena_query_history(
         from datetime import datetime, timedelta
 
         # Create Athena client
-        service = service or AthenaQueryService(use_quilt_auth=use_quilt_auth)
+        if service is None:
+            service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
         athena_client = boto3.client("athena")
 
         # Set default time range if not provided
