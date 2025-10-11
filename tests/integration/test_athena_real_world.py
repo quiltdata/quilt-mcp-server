@@ -94,78 +94,123 @@ class TestAthenaWorkflow:
     def test_athena_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
         Complete Athena workflow:
-        0. List all databases (SHOW DATABASES)
+        0. List all databases (athena_databases_list)
         1. Find a database with tables
-        2. List tables in that database (SHOW TABLES)
-        3. Query a row from a table (SELECT)
+        2. List tables in that database (athena_tables_list)
+        3. Query a row from a table (athena_query_execute)
 
         This exercises:
-        - Database discovery
-        - SHOW DATABASES query
-        - SHOW TABLES with database context
+        - Database discovery via Glue API
+        - Table listing via Glue API
         - SELECT query with actual data
         - Full stack without Tabulator catalog
         """
-        from quilt_mcp.tools.athena_glue import athena_query_execute
-
-        # 0. List all databases
-        databases_result = athena_query_execute(
-            query="SHOW DATABASES",
-            output_format="json",
+        from quilt_mcp.tools.athena_glue import (
+            athena_databases_list,
+            athena_query_execute,
+            athena_tables_list,
         )
 
-        assert databases_result["success"] is True, f"SHOW DATABASES failed: {databases_result.get('error')}"
-        assert "formatted_data" in databases_result
-        databases = databases_result["formatted_data"]
-        assert len(databases) > 0, "No databases found"
+        # 0. List all databases using Glue API
+        databases_result = athena_databases_list()
+
+        # Validate databases_result structure
+        if not databases_result.get("success"):
+            error_msg = databases_result.get("error", "Unknown error")
+            pytest.fail(
+                f"athena_databases_list() failed\n"
+                f"Error: {error_msg}\n"
+                f"Full response: {databases_result}"
+            )
+
+        # Extract databases from response
+        databases = databases_result.get("databases", [])
+        if not databases:
+            pytest.fail(
+                f"athena_databases_list() returned no databases\n"
+                f"Response structure: {list(databases_result.keys())}\n"
+                f"Full response: {databases_result}"
+            )
 
         print(f"\nFound {len(databases)} databases")
 
         # 1. Try to find a database with tables
         database_name = None
+        tables = None
         tables_result = None
 
-        for db_row in databases:
-            db_name = db_row.get("database_name") or db_row.get("namespace_name")
+        for db_info in databases:
+            # Handle both dict and string responses
+            # Response format: {"name": "db_name", "description": "", ...}
+            db_name = db_info.get("name") if isinstance(db_info, dict) else db_info
             if not db_name or db_name in ["information_schema", "default"]:
                 continue
 
             print(f"Checking database: {db_name}")
 
-            # 2. List tables in this database
-            tables_result = athena_query_execute(
-                query=f'SHOW TABLES IN "{db_name}"',
-                output_format="json",
-            )
+            # 2. List tables using Glue API
+            tables_result = athena_tables_list(database_name=db_name)
 
-            if tables_result["success"] and tables_result.get("formatted_data"):
+            if not tables_result.get("success"):
+                error_msg = tables_result.get("error", "Unknown error")
+                print(f"  athena_tables_list({db_name}) failed: {error_msg}")
+                continue
+
+            # Extract tables from response
+            tables = tables_result.get("tables", [])
+            if tables:
                 database_name = db_name
-                print(f"Found {len(tables_result['formatted_data'])} tables in {db_name}")
+                print(f"Found {len(tables)} tables in {db_name}")
                 break
 
-        if not database_name or not tables_result:
-            pytest.skip("Could not find a database with tables to query")
+        if not database_name or not tables or not tables_result:
+            pytest.skip(
+                "Could not find a database with tables to query\n"
+                "Databases checked but no tables found in any of them"
+            )
 
         # 3. Query a row from the first table
-        tables = tables_result["formatted_data"]
-        assert len(tables) > 0, "No tables found in database"
+        # At this point, tables is guaranteed to be non-empty due to the check above
+        assert tables, f"athena_tables_list({database_name}) returned success but no tables\nResponse: {tables_result}"
 
         first_table = tables[0]
-        table_name = first_table.get("tab_name") or first_table.get("table_name")
-        assert table_name, f"Could not find table name in result: {first_table}"
+        # Handle both dict and string responses
+        # Response format: {"name": "table_name", "database_name": "db_name", ...}
+        table_name = first_table.get("name") if isinstance(first_table, dict) else first_table
+        if not table_name:
+            pytest.fail(
+                f"Could not extract table name from athena_tables_list response\n"
+                f"First table structure: {first_table}\n"
+                f"Expected 'name' key or string value"
+            )
 
         print(f"Querying table: {database_name}.{table_name}")
 
+        # Use athena_query_execute for actual data query
         query_result = athena_query_execute(
             query=f'SELECT * FROM "{database_name}"."{table_name}" LIMIT 1',
             output_format="json",
         )
 
-        assert query_result["success"] is True, f"SELECT query failed: {query_result.get('error')}"
-        assert "formatted_data" in query_result
-        assert len(query_result["formatted_data"]) > 0, "No data returned from table"
+        if not query_result.get("success"):
+            error_msg = query_result.get("error", "Unknown error")
+            pytest.fail(
+                f"athena_query_execute() failed for SELECT query\n"
+                f"Query: SELECT * FROM \"{database_name}\".\"{table_name}\" LIMIT 1\n"
+                f"Error: {error_msg}\n"
+                f"Full response: {query_result}"
+            )
 
-        print(f"Successfully queried {len(query_result['formatted_data'])} rows")
+        formatted_data = query_result.get("formatted_data", [])
+        if not formatted_data:
+            pytest.fail(
+                f"athena_query_execute() returned no data\n"
+                f"Query: SELECT * FROM \"{database_name}\".\"{table_name}\" LIMIT 1\n"
+                f"Response keys: {list(query_result.keys())}\n"
+                f"Full response: {query_result}"
+            )
+
+        print(f"Successfully queried {len(formatted_data)} rows")
         print(f"Columns: {query_result.get('columns', [])}")
 
 
