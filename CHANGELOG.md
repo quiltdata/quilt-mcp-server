@@ -10,51 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **3-Tier Tabulator Query Architecture**: Complete refactoring for flexible Tabulator queries
-  - **`_tabulator_query()`**: Private helper that auto-discovers Tabulator catalog (not exposed as MCP tool)
-  - **`tabulator_buckets_list()`**: Discover all buckets (databases) in Tabulator catalog
-  - **`tabulator_bucket_query(bucket_name, query)`**: Query specific bucket with auto-configuration
-  - Supports both catalog-level queries (SHOW DATABASES) and bucket-level queries (SELECT)
-  - Auto-discovers `tabulator_data_catalog` from catalog configuration
-  - Works with or without authentication (if catalog config available)
-  - Fails explicitly if `tabulator_data_catalog` not configured (prevents accidental queries)
+- **Tabulator Query Tools**: New MCP tools for querying Tabulator tables via Athena
+  - `tabulator_buckets_list()` - Discover all buckets (databases) in Tabulator catalog
+  - `tabulator_bucket_query(bucket_name, query)` - Query specific bucket with auto-configuration
+  - Auto-discovers `tabulator_data_catalog` from catalog configuration (works without authentication)
 
-- **Catalog Configuration Access**: New `get_catalog_config()` method in QuiltService
-  - Fetches and filters catalog configuration from `<catalog>/config.json` endpoint
-  - Returns essential AWS infrastructure keys: `region`, `api_gateway_endpoint`, `analytics_bucket`
-  - Derives `stack_prefix` from analytics bucket name (part before '-analyticsbucket')
-  - Derives `tabulator_data_catalog` as `quilt-<stack-prefix>-tabulator`
-  - Smart error handling with authentication checks and graceful degradation
-  - All returned keys use snake_case for consistency with existing patterns
-
-- **Enhanced Catalog Info**: Extended `catalog_info` tool and `get_catalog_info()` method
-  - Now includes `region` and `tabulator_data_catalog` from catalog configuration
-  - Fetches additional metadata from catalog config endpoint automatically
-  - **Does not require authentication** - works if catalog URL is configured
-  - Comprehensive test coverage for authenticated and non-authenticated scenarios
+- **Catalog Configuration**: New `get_catalog_config()` method in QuiltService
+  - Fetches catalog metadata from `<catalog>/config.json` endpoint
+  - Auto-derives `tabulator_data_catalog` as `quilt-<stack-prefix>-tabulator`
+  - Extended `catalog_info` tool to include `region` and `tabulator_data_catalog`
 
 ### Fixed
 
-- **Athena Hyphenated Database Names**: Fixed query execution failures with hyphenated database/bucket names (#c1ef59b)
-  - Replaced `USE` statement (which doesn't support quoted identifiers) with `schema_name` parameter in connection string
-  - Now correctly handles database names like "udp-spec" and "quilt-ernest-staging"
-  - Added comprehensive integration tests with real-world bucket names
-
-- **Tabulator Catalog Routing**: Fixed `data_catalog_name` parameter not being used in PyAthena connection (#1150c7c)
-  - Added `catalog_name` parameter to PyAthena connection strings
-  - Queries now correctly route to Tabulator catalog instead of defaulting to AwsDataCatalog
-  - Fixed permission errors when querying Tabulator tables
-
-- **Database Discovery**: Fixed `discover_tables` to correctly handle `data_catalog_name` parameter (#2962111)
-  - Refactored to use `execute_query()` for consistent database handling
-  - DRY improvements across `discover_databases()`, `discover_tables()`, and `get_table_metadata()`
-
-### Changed
-
-- **Test Infrastructure**: Replaced fragmented unit tests with comprehensive workflow integration tests
-  - New real-world test suite using actual bucket names (no mocking)
-  - Tests validate complete Athena workflows including catalog discovery and query execution
-  - Better coverage of edge cases and error scenarios
+- **Athena Hyphenated Database Names**: Use `schema_name` parameter instead of `USE` statement to support hyphenated database names like "udp-spec"
+- **Tabulator Catalog Routing**: Add `catalog_name` parameter to PyAthena connections to route queries to correct catalog
+- **Database Discovery**: Refactor `discover_tables()` to use `execute_query()` for consistent catalog/database handling
 
 ## [0.6.14] - 2025-09-24
 
