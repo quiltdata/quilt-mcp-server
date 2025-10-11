@@ -1,28 +1,17 @@
 #!/usr/bin/env python3
 """
-Real-world Athena integration tests using actual data and queries.
+Real-world Athena integration tests - full user workflows.
 
-These tests use real AWS infrastructure with real bucket names and queries
-that users actually run. NO MOCKING of Athena calls - we test the full stack.
+Tests the complete user journey with actual data:
+1. Discover databases
+2. List tables in a database
+3. Query data from a table
 
-Test data:
-- Uses QUILT_DEFAULT_BUCKET from environment (typically has hyphens)
-- Uses real Tabulator catalog configuration
-- Tests actual user workflows
+NO MOCKING - tests full stack with real AWS.
 """
 
 import os
 import pytest
-
-
-@pytest.fixture(scope="module")
-def real_bucket_name():
-    """Get real bucket name from environment."""
-    bucket = os.getenv("QUILT_DEFAULT_BUCKET")
-    if not bucket:
-        pytest.skip("QUILT_DEFAULT_BUCKET not set")
-    # Remove s3:// prefix if present
-    return bucket.replace("s3://", "")
 
 
 @pytest.fixture(scope="module")
@@ -35,184 +24,149 @@ def skip_if_no_aws():
 
 @pytest.mark.aws
 @pytest.mark.slow
-class TestTabulatorRealWorld:
-    """Real-world tests for tabulator_table_query with actual buckets."""
+class TestTabulatorWorkflow:
+    """Test complete Tabulator workflow with real bucket and data."""
 
-    def test_show_tables_with_hyphenated_bucket(self, skip_if_no_aws, real_bucket_name):
+    def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
-        Test SHOW TABLES with real hyphenated bucket name.
+        Complete Tabulator workflow:
+        0. Get configured bucket from environment
+        1. List tables in the bucket (SHOW TABLES)
+        2. Extract first table name from results
+        3. Query a row from that table (SELECT)
 
-        This is the most common user query and currently FAILS due to USE statement bug.
-        Real-world scenario: bucket_name='quilt-ernest-staging', query='SHOW TABLES'
+        This exercises:
+        - Tabulator catalog configuration
+        - Database context with hyphenated bucket names
+        - SHOW TABLES query
+        - SELECT query with actual data
+        - Full stack: auth → catalog → query → results
         """
         from quilt_mcp.tools.athena_glue import tabulator_table_query
 
-        # Skip if bucket name doesn't have hyphens
-        if "-" not in real_bucket_name:
-            pytest.skip("Bucket name doesn't contain hyphens, test not applicable")
+        # 0. Get bucket from environment (real bucket with hyphens)
+        bucket = os.getenv("QUILT_DEFAULT_BUCKET")
+        if not bucket:
+            pytest.skip("QUILT_DEFAULT_BUCKET not set")
+            return  # For type checker
+        bucket_name = bucket.replace("s3://", "")
 
-        result = tabulator_table_query(
-            bucket_name=real_bucket_name,
+        # 1. List tables in the bucket
+        tables_result = tabulator_table_query(
+            bucket_name=bucket_name,
             query="SHOW TABLES",
             output_format="json",
-            use_quilt_auth=True,
         )
 
-        # This should succeed but currently fails with:
-        # "SQL execution error: ... USE "bucket-name" ..."
-        assert isinstance(result, dict)
-        assert "success" in result
+        assert tables_result["success"] is True, f"SHOW TABLES failed: {tables_result.get('error')}"
+        assert "formatted_data" in tables_result
+        assert isinstance(tables_result["formatted_data"], list)
+        assert len(tables_result["formatted_data"]) > 0, "No tables found in bucket"
 
-        if not result["success"]:
-            # Document the actual error
-            error = result.get("error", "")
-            # Check if it's the old USE statement bug (should be fixed)
-            if "USE" in error and "mismatched input" in error:
-                pytest.fail(
-                    f"USE statement bug still present with bucket '{real_bucket_name}':\n"
-                    f"Error: {error[:500]}"
-                )
-            # Permission errors are expected in real environments - document but don't fail
-            elif "AccessDenied" in error or "not authorized" in error or "glue:GetDatabase" in error:
-                pytest.skip(
-                    f"Skipping due to expected AWS permission error for '{real_bucket_name}': {error[:200]}"
-                )
-            else:
-                # Unexpected error - fail the test
-                pytest.fail(
-                    f"Unexpected error with hyphenated bucket '{real_bucket_name}':\n"
-                    f"Error: {error[:500]}"
-                )
+        # 2. Extract first table name
+        first_table = tables_result["formatted_data"][0]
+        table_name = first_table.get("tab_name") or first_table.get("table_name")
+        assert table_name, f"Could not find table name in result: {first_table}"
 
-        # Verify successful response structure
-        assert "formatted_data" in result
-        assert "format" in result
-        assert result["format"] == "json"
-        assert isinstance(result["formatted_data"], list)
-        assert "row_count" in result
-        assert result["row_count"] >= 0
+        print(f"\nFound table: {table_name}")
 
-    def test_select_query_with_hyphenated_bucket(self, skip_if_no_aws, real_bucket_name):
-        """
-        Test SELECT query with real hyphenated bucket name.
-
-        Real-world scenario: querying information_schema or actual tables.
-        This requires database context and will fail with USE statement bug.
-        """
-        from quilt_mcp.tools.athena_glue import tabulator_table_query
-
-        # Skip if bucket name doesn't have hyphens
-        if "-" not in real_bucket_name:
-            pytest.skip("Bucket name doesn't contain hyphens, test not applicable")
-
-        result = tabulator_table_query(
-            bucket_name=real_bucket_name,
-            query="SELECT table_name FROM information_schema.tables LIMIT 5",
+        # 3. Query a row from the table
+        query_result = tabulator_table_query(
+            bucket_name=bucket_name,
+            query=f'SELECT * FROM "{table_name}" LIMIT 1',
             output_format="json",
-            use_quilt_auth=True,
         )
 
-        # This should succeed but currently fails with USE statement bug
-        assert isinstance(result, dict)
-        assert "success" in result
+        assert query_result["success"] is True, f"SELECT query failed: {query_result.get('error')}"
+        assert "formatted_data" in query_result
+        assert isinstance(query_result["formatted_data"], list)
+        assert len(query_result["formatted_data"]) > 0, "No data returned from table"
 
-        if not result["success"]:
-            error = result.get("error", "")
-            # Check if it's the old USE statement bug (should be fixed)
-            if "USE" in error and "mismatched input" in error:
-                pytest.fail(
-                    f"USE statement bug still present with bucket '{real_bucket_name}':\n"
-                    f"Error: {error[:500]}"
-                )
-            # Permission errors are expected in real environments
-            elif "AccessDenied" in error or "not authorized" in error or "glue:GetDatabase" in error:
-                pytest.skip(
-                    f"Skipping due to expected AWS permission error for '{real_bucket_name}': {error[:200]}"
-                )
-            else:
-                pytest.fail(
-                    f"Unexpected error with hyphenated bucket '{real_bucket_name}':\n"
-                    f"Error: {error[:500]}"
-                )
-
-        # Verify successful response structure
-        assert "formatted_data" in result
-        assert isinstance(result["formatted_data"], list)
-        assert len(result["formatted_data"]) <= 5
-        assert "row_count" in result
-
-    def test_show_tables_without_hyphens(self, skip_if_no_aws):
-        """
-        Test SHOW TABLES with bucket name without hyphens (control test).
-
-        This should work to verify our test infrastructure is correct.
-        Only runs if we have a non-hyphenated bucket available.
-        """
-        from quilt_mcp.tools.athena_glue import tabulator_table_query
-
-        # For this test, we need a bucket without hyphens
-        # Most production buckets have hyphens, so this might skip
-        bucket = os.getenv("QUILT_DEFAULT_BUCKET", "").replace("s3://", "")
-        if not bucket or "-" in bucket:
-            pytest.skip("No non-hyphenated bucket available for control test")
-
-        result = tabulator_table_query(
-            bucket_name=bucket,
-            query="SHOW TABLES",
-            output_format="json",
-            use_quilt_auth=True,
-        )
-
-        # This should always succeed (no hyphens = no USE statement escaping issues)
-        assert result["success"] is True
-        assert "formatted_data" in result
-        assert isinstance(result["formatted_data"], list)
+        print(f"Successfully queried {len(query_result['formatted_data'])} rows from {table_name}")
+        print(f"Columns: {query_result.get('columns', [])}")
 
 
 @pytest.mark.aws
 @pytest.mark.slow
-class TestAthenaQueryExecuteRealWorld:
-    """Real-world tests for athena_query_execute."""
+class TestAthenaWorkflow:
+    """Test complete Athena workflow with real databases."""
 
-    def test_simple_select_without_database(self, skip_if_no_aws):
+    def test_athena_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
-        Test simple SELECT query without database context.
+        Complete Athena workflow:
+        0. List all databases (SHOW DATABASES)
+        1. Find a database with tables
+        2. List tables in that database (SHOW TABLES)
+        3. Query a row from a table (SELECT)
 
-        This should always work as it doesn't require USE statement.
-        """
-        from quilt_mcp.tools.athena_glue import athena_query_execute
-
-        result = athena_query_execute(
-            query="SELECT 1 as test_value, 'hello' as test_string",
-            output_format="json",
-            use_quilt_auth=True,
-        )
-
-        assert result["success"] is True
-        assert "formatted_data" in result
-        assert len(result["formatted_data"]) == 1
-        assert result["formatted_data"][0]["test_value"] == 1
-        assert result["formatted_data"][0]["test_string"] == "hello"
-
-    def test_show_databases(self, skip_if_no_aws):
-        """
-        Test SHOW DATABASES query.
-
-        Real-world scenario: discovering available databases/catalogs.
+        This exercises:
+        - Database discovery
+        - SHOW DATABASES query
+        - SHOW TABLES with database context
+        - SELECT query with actual data
+        - Full stack without Tabulator catalog
         """
         from quilt_mcp.tools.athena_glue import athena_query_execute
 
-        result = athena_query_execute(
+        # 0. List all databases
+        databases_result = athena_query_execute(
             query="SHOW DATABASES",
             output_format="json",
-            use_quilt_auth=True,
         )
 
-        # Should succeed and return list of databases
-        assert result["success"] is True
-        assert "formatted_data" in result
-        assert isinstance(result["formatted_data"], list)
-        assert result["row_count"] > 0
+        assert databases_result["success"] is True, f"SHOW DATABASES failed: {databases_result.get('error')}"
+        assert "formatted_data" in databases_result
+        databases = databases_result["formatted_data"]
+        assert len(databases) > 0, "No databases found"
+
+        print(f"\nFound {len(databases)} databases")
+
+        # 1. Try to find a database with tables
+        database_name = None
+        tables_result = None
+
+        for db_row in databases:
+            db_name = db_row.get("database_name") or db_row.get("namespace_name")
+            if not db_name or db_name in ["information_schema", "default"]:
+                continue
+
+            print(f"Checking database: {db_name}")
+
+            # 2. List tables in this database
+            tables_result = athena_query_execute(
+                query=f'SHOW TABLES IN "{db_name}"',
+                output_format="json",
+            )
+
+            if tables_result["success"] and tables_result.get("formatted_data"):
+                database_name = db_name
+                print(f"Found {len(tables_result['formatted_data'])} tables in {db_name}")
+                break
+
+        if not database_name or not tables_result:
+            pytest.skip("Could not find a database with tables to query")
+
+        # 3. Query a row from the first table
+        tables = tables_result["formatted_data"]
+        assert len(tables) > 0, "No tables found in database"
+
+        first_table = tables[0]
+        table_name = first_table.get("tab_name") or first_table.get("table_name")
+        assert table_name, f"Could not find table name in result: {first_table}"
+
+        print(f"Querying table: {database_name}.{table_name}")
+
+        query_result = athena_query_execute(
+            query=f'SELECT * FROM "{database_name}"."{table_name}" LIMIT 1',
+            output_format="json",
+        )
+
+        assert query_result["success"] is True, f"SELECT query failed: {query_result.get('error')}"
+        assert "formatted_data" in query_result
+        assert len(query_result["formatted_data"]) > 0, "No data returned from table"
+
+        print(f"Successfully queried {len(query_result['formatted_data'])} rows")
+        print(f"Columns: {query_result.get('columns', [])}")
 
 
 if __name__ == "__main__":
