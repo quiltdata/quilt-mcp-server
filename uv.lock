@@ -1954,6 +1954,7 @@ deploy = [
 dev = [
     { name = "build" },
     { name = "pytest-xdist" },
+    { name = "python-dotenv" },
     { name = "wheel" },
 ]
 lint = [
@@ -1996,6 +1997,7 @@ deploy = [
 dev = [
     { name = "build", specifier = ">=1.0.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "wheel", specifier = ">=0.45.1" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.1.0" }]

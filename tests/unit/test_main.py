@@ -42,3 +42,17 @@ def test_main_defaults_to_stdio():
 
     assert called is True
     assert transport == "stdio"
+
+
+def test_main_imports_dotenv():
+    """Test that main.py imports load_dotenv for development support."""
+    import quilt_mcp.main as main_module
+
+    # Verify that load_dotenv is imported
+    assert hasattr(main_module, 'load_dotenv')
+
+    # Verify main() calls it (by checking the function is defined)
+    import inspect
+
+    source = inspect.getsource(main_module.main)
+    assert 'load_dotenv()' in source
