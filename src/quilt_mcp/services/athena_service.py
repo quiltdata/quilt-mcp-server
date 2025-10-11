@@ -100,7 +100,7 @@ class AthenaQueryService:
                 # Create connection string without hardcoded schema or workgroup
                 connection_string = (
                     f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
-                    f"?work_group={workgroup}"
+                    f"?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
                 )
 
                 # Add session token if available
@@ -110,7 +110,7 @@ class AthenaQueryService:
                 # Store base connection string for creating engines with schema_name
                 self._base_connection_string = connection_string
 
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
+                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
                 return create_engine(connection_string, echo=False)
 
             else:
@@ -124,12 +124,13 @@ class AthenaQueryService:
                     or os.environ.get("ATHENA_WORKGROUP", "primary")
                 )
 
-                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
+                from urllib.parse import quote_plus
+                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
 
                 # Store base connection string for creating engines with schema_name
                 self._base_connection_string = connection_string
 
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
+                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
                 return create_engine(connection_string, echo=False)
 
         except Exception as e:
