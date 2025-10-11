@@ -10,7 +10,7 @@ patterns and schemas, providing a powerful data discovery and analysis layer.
 
 import yaml
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from ..utils import format_error_response
 
 logger = logging.getLogger(__name__)

@@ -150,8 +150,8 @@ class QuiltService:
             - registry_url: Registry URL if configured
             - is_authenticated: Boolean authentication status
             - logged_in_url: Login URL if authenticated
-            - region: AWS region if authenticated and available
-            - tabulator_data_catalog: Tabulator catalog name if authenticated and available
+            - region: AWS region if catalog config available (does not require authentication)
+            - tabulator_data_catalog: Tabulator catalog name if catalog config available (does not require authentication)
         """
         catalog_info: dict[str, Any] = {
             "catalog_name": None,
@@ -170,16 +170,6 @@ class QuiltService:
                 catalog_info["logged_in_url"] = logged_in_url
                 catalog_info["is_authenticated"] = True
                 catalog_info["catalog_name"] = self._extract_catalog_name_from_url(logged_in_url)
-
-                # Fetch additional catalog config when authenticated
-                try:
-                    catalog_config = self.get_catalog_config(logged_in_url)
-                    if catalog_config:
-                        catalog_info["region"] = catalog_config.get("region")
-                        catalog_info["tabulator_data_catalog"] = catalog_config.get("tabulator_data_catalog")
-                except Exception:
-                    # Don't fail if catalog config fetch fails
-                    pass
         except Exception:
             pass
 
@@ -199,6 +189,18 @@ class QuiltService:
                 elif not catalog_info["catalog_name"] and registry_url:
                     catalog_info["catalog_name"] = self._extract_catalog_name_from_url(registry_url)
         except Exception:
+            pass
+
+        # Fetch catalog config (works with or without authentication)
+        try:
+            catalog_url = catalog_info.get("logged_in_url") or catalog_info.get("navigator_url") or catalog_info.get("registry_url")
+            if catalog_url:
+                catalog_config = self.get_catalog_config(catalog_url)
+                if catalog_config:
+                    catalog_info["region"] = catalog_config.get("region")
+                    catalog_info["tabulator_data_catalog"] = catalog_config.get("tabulator_data_catalog")
+        except Exception:
+            # Don't fail if catalog config fetch fails
             pass
 
         # Fallback catalog name if nothing found

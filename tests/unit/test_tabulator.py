@@ -77,9 +77,10 @@ def test_create_table_returns_validation_errors(monkeypatch: pytest.MonkeyPatch)
     assert any("Schema cannot be empty" in err for err in result["error_details"])
 
 
-@pytest.mark.asyncio
-async def test_tabulator_table_query_gets_catalog_from_catalog_info(monkeypatch: pytest.MonkeyPatch):
+def test_tabulator_table_query_gets_catalog_from_catalog_info(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_table_query retrieves data_catalog_name from catalog_info."""
+    from quilt_mcp.tools import athena_glue
+
     # Mock catalog_info to return a known data catalog
     mock_catalog_info = MagicMock(return_value={
         "status": "success",
@@ -87,18 +88,18 @@ async def test_tabulator_table_query_gets_catalog_from_catalog_info(monkeypatch:
         "tabulator_data_catalog": "quilt_example_catalog",
         "region": "us-east-1"
     })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute to capture the call
-    mock_execute = AsyncMock(return_value={
+    mock_execute = MagicMock(return_value={
         "success": True,
         "rows": [],
         "row_count": 0
     })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.athena_query_execute", mock_execute)
+    monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
 
-    # Call the wrapper
-    result = await tabulator.tabulator_table_query(
+    # Call the wrapper (now in athena_glue module)
+    result = athena_glue.tabulator_table_query(
         bucket_name="test-bucket",
         query="SELECT * FROM test_table LIMIT 10"
     )
@@ -116,63 +117,93 @@ async def test_tabulator_table_query_gets_catalog_from_catalog_info(monkeypatch:
     assert result["success"] is True
 
 
-@pytest.mark.asyncio
-async def test_tabulator_table_query_uses_default_catalog_when_not_authenticated(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_table_query uses AwsDataCatalog when not authenticated."""
-    # Mock catalog_info to return unauthenticated status
+def test_tabulator_table_query_fails_without_tabulator_catalog(monkeypatch: pytest.MonkeyPatch):
+    """Test that tabulator_table_query fails when tabulator_data_catalog is not configured."""
+    from quilt_mcp.tools import athena_glue
+
+    # Mock catalog_info to return no tabulator_data_catalog
     mock_catalog_info = MagicMock(return_value={
         "status": "success",
-        "is_authenticated": False,
+        "is_authenticated": True,
         "catalog_name": "example-catalog"
     })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
-    # Mock athena_query_execute
-    mock_execute = AsyncMock(return_value={
-        "success": True,
-        "rows": [],
-        "row_count": 0
-    })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.athena_query_execute", mock_execute)
-
-    # Call the wrapper
-    result = await tabulator.tabulator_table_query(
+    # Call the wrapper without explicit data_catalog_name
+    result = athena_glue.tabulator_table_query(
         bucket_name="test-bucket",
         query="SELECT * FROM test_table"
     )
 
-    # Verify athena_query_execute was called with default catalog
-    mock_execute.assert_called_once()
-    call_kwargs = mock_execute.call_args.kwargs
-    assert call_kwargs["data_catalog_name"] == "AwsDataCatalog"
+    # Verify it returns an error
+    assert result["success"] is False
+    assert "tabulator_data_catalog not configured" in result["error"]
+    assert "Check catalog configuration" in result["error"]
 
 
-@pytest.mark.asyncio
-async def test_tabulator_table_query_allows_catalog_override(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_table_query allows explicit data_catalog_name override."""
-    # Mock catalog_info
+def test_tabulator_table_query_works_unauthenticated_with_catalog_config(monkeypatch: pytest.MonkeyPatch):
+    """Test that tabulator_table_query works when unauthenticated but catalog config available."""
+    from quilt_mcp.tools import athena_glue
+
+    # Mock catalog_info to return tabulator_data_catalog even when not authenticated
     mock_catalog_info = MagicMock(return_value={
         "status": "success",
-        "is_authenticated": True,
-        "tabulator_data_catalog": "quilt_example_catalog"
+        "is_authenticated": False,
+        "catalog_name": "example-catalog",
+        "tabulator_data_catalog": "quilt_example_catalog"  # Config available without auth
     })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
-    mock_execute = AsyncMock(return_value={
+    mock_execute = MagicMock(return_value={
         "success": True,
         "rows": [],
         "row_count": 0
     })
-    monkeypatch.setattr("quilt_mcp.tools.tabulator.athena_query_execute", mock_execute)
+    monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
+
+    # Call the wrapper
+    result = athena_glue.tabulator_table_query(
+        bucket_name="test-bucket",
+        query="SELECT * FROM test_table"
+    )
+
+    # Verify it worked
+    assert result["success"] is True
+    call_kwargs = mock_execute.call_args.kwargs
+    assert call_kwargs["data_catalog_name"] == "quilt_example_catalog"
+
+
+def test_tabulator_table_query_allows_explicit_catalog_override(monkeypatch: pytest.MonkeyPatch):
+    """Test that tabulator_table_query allows explicit data_catalog_name override."""
+    from quilt_mcp.tools import athena_glue
+
+    # Mock catalog_info - won't be used because we provide explicit catalog
+    mock_catalog_info = MagicMock(return_value={
+        "status": "success",
+        "is_authenticated": False
+    })
+    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+
+    # Mock athena_query_execute
+    mock_execute = MagicMock(return_value={
+        "success": True,
+        "rows": [],
+        "row_count": 0
+    })
+    monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
 
     # Call with explicit override
-    result = await tabulator.tabulator_table_query(
+    result = athena_glue.tabulator_table_query(
         bucket_name="test-bucket",
         query="SELECT * FROM test_table",
         data_catalog_name="CustomCatalog"
     )
 
+    # Verify catalog_info was NOT called because we provided explicit catalog
+    mock_catalog_info.assert_not_called()
+
     # Verify the override was used
     call_kwargs = mock_execute.call_args.kwargs
     assert call_kwargs["data_catalog_name"] == "CustomCatalog"
+    assert result["success"] is True

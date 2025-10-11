@@ -285,6 +285,66 @@ def athena_query_execute(
             return format_error_response(f"Query execution failed: {error_str}{suggestions}")
 
 
+def tabulator_table_query(
+    bucket_name: str,
+    query: str,
+    workgroup_name: Optional[str] = None,
+    data_catalog_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """
+    Execute SQL query against Tabulator tables using Athena.
+
+    This is a convenience wrapper around athena_query_execute that:
+    1. Uses bucket_name instead of database_name (matching tabulator_tables_list convention)
+    2. Automatically retrieves data_catalog_name from catalog_info if not provided
+    3. FAILS if tabulator_data_catalog is not configured (prevents accidental queries against wrong catalog)
+
+    Args:
+        bucket_name: Name of the S3 bucket (used as database_name)
+        query: SQL query to execute
+        workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        data_catalog_name: Data catalog to use (optional, auto-discovered from catalog_info)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        # Import here to avoid circular dependency
+        from .auth import catalog_info
+
+        # Auto-discover data_catalog_name if not provided
+        if data_catalog_name is None:
+            info = catalog_info()
+            # MUST have tabulator_data_catalog configured - this prevents accidental queries
+            if not info.get("tabulator_data_catalog"):
+                return format_error_response(
+                    "tabulator_data_catalog not configured. This tool requires a Tabulator-enabled catalog. "
+                    "Check catalog configuration or use athena_query_execute directly for general Athena queries."
+                )
+            data_catalog_name = info["tabulator_data_catalog"]
+
+        # Call athena_query_execute with bucket_name mapped to database_name
+        return athena_query_execute(
+            query=query,
+            database_name=bucket_name,
+            workgroup_name=workgroup_name,
+            data_catalog_name=data_catalog_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_table_query: {e}")
+        return format_error_response(f"Failed to execute tabulator query: {str(e)}")
+
+
 def athena_query_history(
     max_results: int = 50,
     status_filter: Optional[str] = None,
