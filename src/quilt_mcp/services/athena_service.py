@@ -241,22 +241,20 @@ class AthenaQueryService:
         data_catalog_name: str = "AwsDataCatalog",
         table_pattern: str = '*',
     ) -> Dict[str, Any]:
-        """Discover tables using Athena SQL queries."""
+        """Discover tables using Athena SQL queries with database in connection string."""
         try:
-            # Properly escape database names with special characters
-            if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                escaped_db = f'"{database_name}"'
-            else:
-                escaped_db = database_name
-
-            # Use Athena SQL to list tables instead of direct Glue API
-            query = f"SHOW TABLES IN {escaped_db}"
-            if table_pattern:
+            # Use simple SHOW TABLES (database context set via execute_query's schema_name)
+            query = "SHOW TABLES"
+            if table_pattern and table_pattern != '*':
                 query += f" LIKE '{table_pattern}'"
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            # Reuse execute_query which handles database_name in connection string
+            result = self.execute_query(query, database_name=database_name)
 
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
             tables = []
             for _, row in df.iterrows():
                 table_name = row.iloc[0]  # First column should be table name
@@ -359,7 +357,7 @@ class AthenaQueryService:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
             # Determine which engine to use
-            # If database_name is provided, create a temporary engine with schema_name in connection string
+            # If database_name is provided, create engine with schema_name in connection string
             # This avoids the USE statement which doesn't work with quoted identifiers in Athena
             if database_name:
                 from urllib.parse import quote_plus
