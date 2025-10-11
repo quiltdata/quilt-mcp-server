@@ -392,6 +392,65 @@ def get_tabulator_service() -> TabulatorService:
     return _tabulator_service
 
 
+# PRIVATE HELPER FUNCTIONS (not exposed as MCP tools)
+
+
+def _tabulator_query(
+    query: str,
+    database_name: Optional[str] = None,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """
+    PRIVATE helper for executing queries against Tabulator catalog.
+
+    Auto-discovers tabulator_data_catalog from catalog_info() and executes
+    query using athena_query_execute. This function is NOT exposed as an MCP tool.
+
+    Args:
+        query: SQL query to execute
+        database_name: Optional database name (None for catalog-level queries like SHOW DATABASES)
+        workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        # Import here to avoid circular dependency
+        from .auth import catalog_info
+        from .athena_glue import athena_query_execute
+
+        # Auto-discover data_catalog_name from catalog_info
+        info = catalog_info()
+        if not info.get("tabulator_data_catalog"):
+            return format_error_response(
+                "tabulator_data_catalog not configured. This requires a Tabulator-enabled catalog. "
+                "Check catalog configuration."
+            )
+
+        data_catalog_name = info["tabulator_data_catalog"]
+
+        # Execute query using athena_query_execute
+        return athena_query_execute(
+            query=query,
+            database_name=database_name,
+            workgroup_name=workgroup_name,
+            data_catalog_name=data_catalog_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in _tabulator_query: {e}")
+        return format_error_response(f"Failed to execute tabulator query: {str(e)}")
+
+
 # MCP Tool Functions
 
 
@@ -559,3 +618,93 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error in tabulator_open_query_toggle: {e}")
         return format_error_response(f"Failed to set open query status: {str(e)}")
+
+
+async def tabulator_buckets_list() -> Dict[str, Any]:
+    """
+    List all buckets (databases) available in the Tabulator catalog.
+
+    This discovers all Quilt buckets that have Tabulator tables configured,
+    enabling exploration of the Tabulator catalog without knowing bucket names.
+
+    Returns:
+        Dict containing:
+        - success: Whether the operation succeeded
+        - buckets: List of bucket names (database names)
+        - count: Number of buckets found
+    """
+    try:
+        # Execute SHOW DATABASES query to discover buckets
+        result = _tabulator_query("SHOW DATABASES")
+
+        if not result.get("success"):
+            return result
+
+        # Extract bucket names from query results
+        buckets = []
+        formatted_data = result.get("formatted_data", [])
+
+        for row in formatted_data:
+            # Handle different response formats from Athena
+            bucket_name = row.get("database_name") or row.get("db_name") or row.get("name")
+            if bucket_name:
+                buckets.append(bucket_name)
+
+        return {
+            "success": True,
+            "buckets": buckets,
+            "count": len(buckets),
+            "message": f"Found {len(buckets)} bucket(s) in Tabulator catalog",
+        }
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_buckets_list: {e}")
+        return format_error_response(f"Failed to list tabulator buckets: {str(e)}")
+
+
+async def tabulator_bucket_query(
+    bucket_name: str,
+    query: str,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """
+    Execute SQL query against a specific bucket in the Tabulator catalog.
+
+    This is the recommended way to query Tabulator tables. It auto-discovers
+    the Tabulator catalog and sets the database context to the specified bucket.
+
+    Args:
+        bucket_name: Name of the S3 bucket (database) to query
+        query: SQL query to execute (e.g., "SELECT * FROM table_name LIMIT 10")
+        workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
+        max_results: Maximum number of results to return
+        output_format: Output format (json, csv, parquet, table)
+        use_quilt_auth: Use quilt3 assumed role credentials if available
+
+    Returns:
+        Query execution results with data, metadata, and formatting
+    """
+    try:
+        # Validate inputs
+        if not bucket_name or not bucket_name.strip():
+            return format_error_response("bucket_name cannot be empty")
+
+        if not query or not query.strip():
+            return format_error_response("query cannot be empty")
+
+        # Execute query using _tabulator_query with database context
+        return _tabulator_query(
+            query=query,
+            database_name=bucket_name,
+            workgroup_name=workgroup_name,
+            max_results=max_results,
+            output_format=output_format,
+            use_quilt_auth=use_quilt_auth,
+        )
+
+    except Exception as e:
+        logger.error(f"Error in tabulator_bucket_query: {e}")
+        return format_error_response(f"Failed to execute bucket query: {str(e)}")

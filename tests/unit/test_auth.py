@@ -281,13 +281,15 @@ class TestCatalogInfo:
     """Test catalog_info function - targeting missing exception handling."""
 
     def test_catalog_info_success_authenticated(self):
-        """Test catalog_info success when authenticated - covers lines 247-267."""
+        """Test catalog_info success when authenticated - includes region and tabulator_data_catalog."""
         mock_info = {
             "catalog_name": "demo.quiltdata.com",
             "is_authenticated": True,
             "navigator_url": "https://demo.quiltdata.com",
             "registry_url": "s3://registry-bucket",
             "logged_in_url": "https://demo.quiltdata.com",
+            "region": "us-east-1",
+            "tabulator_data_catalog": "quilt-demo-tabulator",
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -299,16 +301,20 @@ class TestCatalogInfo:
             assert result["navigator_url"] == "https://demo.quiltdata.com"
             assert result["registry_url"] == "s3://registry-bucket"
             assert result["logged_in_url"] == "https://demo.quiltdata.com"
+            assert result["region"] == "us-east-1"
+            assert result["tabulator_data_catalog"] == "quilt-demo-tabulator"
             assert "Connected to catalog" in result["message"]
 
     def test_catalog_info_success_not_authenticated(self):
-        """Test catalog_info success when not authenticated - covers lines 262-265."""
+        """Test catalog_info success when not authenticated - region and tabulator_data_catalog should not be present."""
         mock_info = {
             "catalog_name": "demo.quiltdata.com",
             "is_authenticated": False,
             "navigator_url": "https://demo.quiltdata.com",
             "registry_url": None,
             "logged_in_url": None,
+            "region": None,
+            "tabulator_data_catalog": None,
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -320,6 +326,8 @@ class TestCatalogInfo:
             assert result["navigator_url"] == "https://demo.quiltdata.com"
             assert "registry_url" not in result  # Should not be present when None
             assert "logged_in_url" not in result  # Should not be present when None
+            assert "region" not in result  # Should not be present when None
+            assert "tabulator_data_catalog" not in result  # Should not be present when None
             assert "not authenticated" in result["message"]
 
     def test_catalog_info_with_partial_urls(self):
@@ -330,6 +338,8 @@ class TestCatalogInfo:
             "navigator_url": None,
             "registry_url": "s3://registry-bucket",
             "logged_in_url": None,
+            "region": None,
+            "tabulator_data_catalog": None,
         }
 
         with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
@@ -339,6 +349,8 @@ class TestCatalogInfo:
             assert "navigator_url" not in result
             assert result["registry_url"] == "s3://registry-bucket"
             assert "logged_in_url" not in result
+            assert "region" not in result
+            assert "tabulator_data_catalog" not in result
 
     def test_catalog_info_with_exception(self):
         """Test exception handling in catalog_info - covers lines 269-274."""

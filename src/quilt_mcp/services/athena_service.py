@@ -13,7 +13,7 @@ from typing import Dict, List, Any, Optional
 from cachetools import TTLCache
 import boto3
 import pandas as pd
-from sqlalchemy import create_engine, MetaData, inspect, text
+from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -26,21 +26,32 @@ logger = logging.getLogger(__name__)
 class AthenaQueryService:
     """Core service for Athena query execution and Glue catalog operations."""
 
-    def __init__(self, use_quilt_auth: bool = True, quilt_service: Optional[QuiltService] = None):
+    def __init__(
+        self,
+        use_quilt_auth: bool = True,
+        quilt_service: Optional[QuiltService] = None,
+        workgroup_name: Optional[str] = None,
+        data_catalog_name: Optional[str] = None,
+    ):
         """Initialize the Athena service.
 
         Args:
             use_quilt_auth: Whether to use quilt3 authentication
             quilt_service: Optional QuiltService instance for dependency injection
+            workgroup_name: Optional Athena workgroup name (auto-discovered if not provided)
+            data_catalog_name: Optional data catalog name (defaults to "AwsDataCatalog")
         """
         self.use_quilt_auth = use_quilt_auth
         self.quilt_service = quilt_service
+        self.workgroup_name = workgroup_name
+        self.data_catalog_name = data_catalog_name or "AwsDataCatalog"
         self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
         self._glue_client: Optional[Any] = None
         self._s3_client: Optional[Any] = None
         self._engine: Optional[Engine] = None
+        self._base_connection_string: Optional[str] = None  # Store for creating engines with schema_name
 
     @property
     def glue_client(self):
@@ -76,8 +87,8 @@ class AthenaQueryService:
                 # The QuiltUserAthena workgroup and permissions are configured in us-east-1
                 region = "us-east-1"
 
-                # Discover available workgroups dynamically
-                workgroup = self._discover_workgroup(credentials, region)
+                # Use provided workgroup or discover available workgroups dynamically
+                workgroup = self.workgroup_name or self._discover_workgroup(credentials, region)
 
                 # Create connection string with explicit credentials
                 # URL encode the credentials to handle special characters
@@ -89,26 +100,38 @@ class AthenaQueryService:
                 # Create connection string without hardcoded schema or workgroup
                 connection_string = (
                     f"awsathena+rest://{access_key}:{secret_key}@athena.{region}.amazonaws.com:443/"
-                    f"?work_group={workgroup}"
+                    f"?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
                 )
 
                 # Add session token if available
                 if credentials.token:
                     connection_string += f"&aws_session_token={quote_plus(credentials.token)}"
 
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
+                # Store base connection string for creating engines with schema_name
+                self._base_connection_string = connection_string
+
+                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
                 return create_engine(connection_string, echo=False)
 
             else:
                 # Use default AWS credentials
                 region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
-                # Discover available workgroups dynamically or fall back to environment
-                workgroup = self._discover_workgroup(None, region) or os.environ.get("ATHENA_WORKGROUP", "primary")
+                # Use provided workgroup, or discover dynamically, or fall back to environment
+                workgroup = (
+                    self.workgroup_name
+                    or self._discover_workgroup(None, region)
+                    or os.environ.get("ATHENA_WORKGROUP", "primary")
+                )
 
-                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}"
+                from urllib.parse import quote_plus
 
-                logger.info(f"Creating Athena engine with workgroup: {workgroup}")
+                connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com:443/?work_group={workgroup}&catalog_name={quote_plus(self.data_catalog_name)}"
+
+                # Store base connection string for creating engines with schema_name
+                self._base_connection_string = connection_string
+
+                logger.info(f"Creating Athena engine with workgroup: {workgroup}, catalog: {self.data_catalog_name}")
                 return create_engine(connection_string, echo=False)
 
         except Exception as e:
@@ -181,14 +204,19 @@ class AthenaQueryService:
         """Get S3 staging directory for query results."""
         return os.environ.get("ATHENA_QUERY_RESULT_LOCATION", "s3://aws-athena-query-results/")
 
-    def discover_databases(self, catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
+    def discover_databases(self, data_catalog_name: str = "AwsDataCatalog") -> Dict[str, Any]:
         """Discover all databases using Athena SQL queries."""
         try:
             # Use Athena SQL to list schemas (databases) with explicit catalog name
-            query = f"SHOW DATABASES IN `{catalog_name}`"
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            query = f"SHOW DATABASES IN `{data_catalog_name}`"
 
+            # Reuse execute_query for consistent query execution
+            result = self.execute_query(query, database_name=None)
+
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
             databases = []
             for _, row in df.iterrows():
                 db_name = row.iloc[0]  # First column should be database name
@@ -205,7 +233,7 @@ class AthenaQueryService:
             return {
                 "success": True,
                 "databases": databases,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "count": len(databases),
             }
 
@@ -216,25 +244,23 @@ class AthenaQueryService:
     def discover_tables(
         self,
         database_name: str,
-        catalog_name: str = "AwsDataCatalog",
-        table_pattern: str = None,
+        data_catalog_name: str = "AwsDataCatalog",
+        table_pattern: str = '*',
     ) -> Dict[str, Any]:
-        """Discover tables using Athena SQL queries."""
+        """Discover tables using Athena SQL queries with database in connection string."""
         try:
-            # Properly escape database names with special characters
-            if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                escaped_db = f'"{database_name}"'
-            else:
-                escaped_db = database_name
-
-            # Use Athena SQL to list tables instead of direct Glue API
-            query = f"SHOW TABLES IN {escaped_db}"
-            if table_pattern:
+            # Use simple SHOW TABLES (database context set via execute_query's schema_name)
+            query = "SHOW TABLES"
+            if table_pattern and table_pattern != '*':
                 query += f" LIKE '{table_pattern}'"
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            # Reuse execute_query which handles database_name in connection string
+            result = self.execute_query(query, database_name=database_name)
 
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
             tables = []
             for _, row in df.iterrows():
                 table_name = row.iloc[0]  # First column should be table name
@@ -262,7 +288,7 @@ class AthenaQueryService:
                 "success": True,
                 "tables": tables,
                 "database_name": database_name,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "count": len(tables),
             }
 
@@ -271,15 +297,20 @@ class AthenaQueryService:
             return format_error_response(f"Failed to discover tables: {str(e)}")
 
     def get_table_metadata(
-        self, database_name: str, table_name: str, catalog_name: str = "AwsDataCatalog"
+        self, database_name: str, table_name: str, data_catalog_name: str = "AwsDataCatalog"
     ) -> Dict[str, Any]:
         """Get comprehensive table metadata using Athena DESCRIBE."""
         try:
             # Use Athena SQL to describe table instead of direct Glue API
             query = f"DESCRIBE {database_name}.{table_name}"
 
-            with suppress_stdout():
-                df = pd.read_sql_query(query, self.engine)
+            # Reuse execute_query for consistent query execution
+            result = self.execute_query(query, database_name=None)
+
+            if not result.get("success"):
+                return result
+
+            df = result["data"]
 
             columns = []
             partitions = []
@@ -311,7 +342,7 @@ class AthenaQueryService:
                 "success": True,
                 "table_name": table_name,
                 "database_name": database_name,
-                "catalog_name": catalog_name,
+                "data_catalog_name": data_catalog_name,
                 "columns": columns,
                 "partitions": partitions,
                 "table_type": "",  # Not available through DESCRIBE
@@ -333,25 +364,28 @@ class AthenaQueryService:
             logger.error(f"Failed to get table metadata: {e}")
             return format_error_response(f"Failed to get table metadata: {str(e)}")
 
-    def execute_query(self, query: str, database_name: str = None, max_results: int = 1000) -> Dict[str, Any]:
+    def execute_query(self, query: str, database_name: str | None = None, max_results: int = 1000) -> Dict[str, Any]:
         """Execute query using SQLAlchemy with PyAthena and return results as DataFrame."""
         try:
-            # Set database context if provided
+            # Determine which engine to use
+            # If database_name is provided, create engine with schema_name in connection string
+            # This avoids the USE statement which doesn't work with quoted identifiers in Athena
             if database_name:
-                # Properly escape database name for USE statement
-                if "-" in database_name or any(c in database_name for c in [" ", ".", "@", "/"]):
-                    escaped_db = f'"{database_name}"'
-                else:
-                    escaped_db = database_name
+                from urllib.parse import quote_plus
 
-                with self.engine.connect() as conn:
-                    conn.execute(text(f"USE {escaped_db}"))
+                # Ensure the base engine is created (triggers lazy initialization)
+                _ = self.engine
+                # Use stored base connection string and add schema_name
+                connection_string = f"{self._base_connection_string}&schema_name={quote_plus(database_name)}"
+                engine_to_use = create_engine(connection_string, echo=False)
+            else:
+                engine_to_use = self.engine
 
             # Execute query and load results into pandas DataFrame
             # Sanitize query to prevent string formatting issues
             safe_query = self._sanitize_query_for_pandas(query)
             with suppress_stdout():
-                df = pd.read_sql_query(safe_query, self.engine)
+                df = pd.read_sql_query(safe_query, engine_to_use)
 
             # Apply result limit
             truncated = False

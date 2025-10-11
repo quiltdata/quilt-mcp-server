@@ -351,6 +351,15 @@ def package_browse(
         "view_type": "recursive" if recursive else "flat",
     }
 
+    # Get package metadata if available
+    try:
+        pkg_metadata = dict(pkg.meta) if hasattr(pkg, "meta") else {}
+        if pkg_metadata:
+            response["metadata"] = pkg_metadata
+    except Exception:
+        # Don't fail if we can't get metadata
+        pass
+
     if recursive and file_tree:
         response["file_tree"] = file_tree
 

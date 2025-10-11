@@ -145,6 +145,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     excluded_tools = {
         "packages_list",  # Prefer packages_search
         "athena_tables_list",  # Prefer athena_query_execute
+        "get_tabulator_service",  # Internal use only
     }
 
     tools_registered = 0
