@@ -4,6 +4,7 @@ This module provides comprehensive examples and guidance for using metadata
 with Quilt packages, addressing common user confusion and validation issues.
 """
 
+from typing import Optional, Dict, Any
 from typing import Dict, Any, List
 from .metadata_templates import get_metadata_template, list_metadata_templates
 
@@ -275,3 +276,76 @@ def fix_metadata_validation_issues() -> Dict[str, Any]:
             "5. Validate with package_validate() after creation",
         ],
     }
+
+
+def metadata_examples(action: str | None = None, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Metadata usage examples and troubleshooting guidance.
+    
+    Available actions:
+    - from_template: Create metadata using a template with custom fields - simplified interface
+    - fix_issues: Provide specific guidance for fixing metadata validation issues
+    - show_examples: Show comprehensive metadata usage examples with working patterns
+    
+    Args:
+        action: The operation to perform. If None, returns available actions.
+        **kwargs: Action-specific parameters
+    
+    Returns:
+        Action-specific response dictionary
+    
+    Examples:
+        # Discovery mode
+        result = metadata_examples()
+        
+        # Create from template
+        result = metadata_examples(action="from_template", template_name="standard")
+        
+        # Show examples
+        result = metadata_examples(action="show_examples")
+    
+    For detailed parameter documentation, see individual action functions.
+    """
+    actions = {
+        "from_template": create_metadata_from_template,
+        "fix_issues": fix_metadata_validation_issues,
+        "show_examples": show_metadata_examples,
+    }
+    
+    # Discovery mode
+    if action is None:
+        return {
+            "success": True,
+            "module": "metadata_examples",
+            "actions": list(actions.keys()),
+            "usage": "Call with action='<action_name>' to execute",
+        }
+    
+    # Validate action
+    if action not in actions:
+        available = ", ".join(sorted(actions.keys()))
+        return {
+            "success": False,
+            "error": f"Unknown action '{action}' for module 'metadata_examples'. Available actions: {available}",
+        }
+    
+    # Dispatch
+    try:
+        func = actions[action]
+        params = params or {}
+        return func(**params)
+    except TypeError as e:
+        import inspect
+        sig = inspect.signature(func)
+        expected_params = list(sig.parameters.keys())
+        return {
+            "success": False,
+            "error": f"Invalid parameters for action '{action}'. Expected: {expected_params}. Error: {str(e)}",
+        }
+    except Exception as e:
+        if isinstance(e, dict) and not e.get("success"):
+            return e
+        return {
+            "success": False,
+            "error": f"Error executing action '{action}': {str(e)}",
+        }
