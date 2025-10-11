@@ -6,6 +6,8 @@ WORKDIR /app
 # Copy project metadata and lockfile first for better caching
 COPY pyproject.toml uv.lock ./
 COPY Makefile make.dev make.deploy ./
+# Copy metadata files required by setuptools (referenced in pyproject.toml)
+COPY README.md LICENSE.txt ./
 
 # Install build dependencies required for native extensions (e.g., pybigwig)
 RUN apt-get update \
@@ -15,13 +17,18 @@ RUN apt-get update \
         zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source and supporting files
+# Install dependencies without the project itself for better layer caching
+# This layer only rebuilds if pyproject.toml, uv.lock, or metadata files change
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy source and supporting files after dependencies are installed
+# Changes to application code won't invalidate the dependency layer
 COPY src ./src
 COPY scripts ./scripts
 COPY docs ./docs
 COPY spec ./spec
 
-# Install project dependencies into a virtual environment
+# Install the project itself (fast since dependencies are already installed)
 RUN uv sync --frozen --no-dev
 
 FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS runtime
