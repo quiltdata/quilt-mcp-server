@@ -17,7 +17,7 @@ from typing import Iterable, Optional
 
 
 # Configuration
-DEFAULT_IMAGE_NAME = "quilt-mcp-server"
+DEFAULT_IMAGE_NAME = "quiltdata/mcp"  # Used as fallback for build/info commands
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
 
@@ -236,7 +236,7 @@ ENVIRONMENT VARIABLES:
     push_parser = subparsers.add_parser("push", help="Build and push Docker image to registry")
     push_parser.add_argument("--version", required=True, help="Version tag for the image")
     push_parser.add_argument("--registry", help="ECR registry URL")
-    push_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    push_parser.add_argument("--image", required=True, help="Image name (required)")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")

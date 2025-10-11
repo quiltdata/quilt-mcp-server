@@ -10,6 +10,7 @@ DIST_DIR := dist
 
 # Variables
 PACKAGE_NAME := quilt-mcp
+DOCKER_IMAGE_NAME := quiltdata/mcp
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
@@ -127,8 +128,8 @@ docker-tools:
 	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
 	@echo "✅ Docker tools available"
 	@echo "🔍 Checking ECR repository..."
-	@aws ecr describe-repositories --repository-names quilt-mcp-server --region us-east-1 >/dev/null 2>&1 || \
-		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name quilt-mcp-server --region us-east-1 >/dev/null; }
+	@aws ecr describe-repositories --repository-names $(DOCKER_IMAGE_NAME) --region us-east-1 >/dev/null 2>&1 || \
+		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name $(DOCKER_IMAGE_NAME) --region us-east-1 >/dev/null; }
 	@echo "✅ ECR repository ready"
 	@echo "🔐 Authenticating with ECR..."
 	@aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 712023778557.dkr.ecr.us-east-1.amazonaws.com >/dev/null 2>&1
@@ -136,19 +137,19 @@ docker-tools:
 
 docker-build: docker-tools
 	@echo "🐳 Building Docker image locally..."
-	@uv run python scripts/docker.py build
+	@uv run python scripts/docker.py build --image $(DOCKER_IMAGE_NAME)
 	@echo "✅ Docker build completed"
 
 docker-push: docker-tools
 	@echo "🐳 Building and pushing Docker image..."
-	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION)
+	@VERSION=$(PACKAGE_VERSION) uv run python scripts/docker.py push --version $(PACKAGE_VERSION) --image $(DOCKER_IMAGE_NAME)
 	@echo "✅ Docker push completed"
 
 docker-push-dev: docker-tools
 	@echo "🐳 Building and pushing development Docker image..."
 	@DEV_VERSION="$(PACKAGE_VERSION)-dev-$(shell date +%Y%m%d%H%M%S)" && \
 	echo "Using development version: $$DEV_VERSION" && \
-	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
+	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --image $(DOCKER_IMAGE_NAME) --no-latest
 	@echo "✅ Development Docker push completed"
 
 # Release Tagging Targets
