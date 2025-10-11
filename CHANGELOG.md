@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Tabulator Query Tool**: New `tabulator_table_query` convenience wrapper for Athena queries
-  - Uses `bucket_name` instead of `database_name` for consistency with `tabulator_tables_list`
-  - Auto-discovers `data_catalog_name` from catalog configuration
+- **3-Tier Tabulator Query Architecture**: Complete refactoring for flexible Tabulator queries
+  - **`_tabulator_query()`**: Private helper that auto-discovers Tabulator catalog (not exposed as MCP tool)
+  - **`tabulator_buckets_list()`**: Discover all buckets (databases) in Tabulator catalog
+  - **`tabulator_bucket_query(bucket_name, query)`**: Query specific bucket with auto-configuration
+  - Supports both catalog-level queries (SHOW DATABASES) and bucket-level queries (SELECT)
+  - Auto-discovers `tabulator_data_catalog` from catalog configuration
   - Works with or without authentication (if catalog config available)
   - Fails explicitly if `tabulator_data_catalog` not configured (prevents accidental queries)
-  - Comprehensive test coverage for all scenarios
 
 - **Catalog Configuration Access**: New `get_catalog_config()` method in QuiltService
   - Fetches and filters catalog configuration from `<catalog>/config.json` endpoint
