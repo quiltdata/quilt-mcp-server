@@ -15,7 +15,7 @@ inputs:
   build-docker:
     description: 'Build and push Docker image (true/false)'
     required: false
-    default: 'true'
+    default: 'false'
 
 outputs:
   release-id:
@@ -84,12 +84,9 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.package-version }}
-        ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
-        AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
-        AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
       run: |
-        echo "🐳 Building and pushing Docker image with scripts/docker.py"
-        uv run python scripts/docker.py push --version "$VERSION"
+        echo "🐳 Building and pushing Docker image via Makefile"
+        make docker-push
 
     - name: Capture Docker image info
       id: docker-info
@@ -97,11 +94,8 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.package-version }}
-        ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
-        AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
-        AWS_DEFAULT_REGION: ${{ env.AWS_DEFAULT_REGION }}
       run: |
-        # Use docker.py to get image info for consistency
+        # Get image info using docker.py info command
         IMAGE_URI=$(uv run python scripts/docker.py info --version "$VERSION" --output github)
         echo "${IMAGE_URI}" >> $GITHUB_OUTPUT
         echo "🐳 Docker Image: ${IMAGE_URI#image-uri=}"
