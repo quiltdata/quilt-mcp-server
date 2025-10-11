@@ -98,8 +98,14 @@ mcpb-validate: check-tools mcpb
 	@grep -q '"args": \["quilt-mcp"\]' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid args in manifest"; exit 1; }
 	@echo "✅ Manifest content validation passed"
 	@echo "\n5. Testing UVX execution compatibility..."
-	@uvx --from . quilt-mcp --help >/dev/null 2>&1 || { echo "❌ UVX execution test failed"; exit 1; }
-	@echo "✅ UVX execution test passed"
+	@timeout 3 uvx --from . quilt-mcp >/dev/null 2>&1; \
+	EXIT_CODE=$$?; \
+	if [ $$EXIT_CODE -eq 124 ]; then \
+		echo "✅ UVX execution test passed (server started successfully)"; \
+	else \
+		echo "❌ UVX execution test failed (exit code $$EXIT_CODE - server crashed or failed to start)"; \
+		exit 1; \
+	fi
 	@echo "\n6. Running prerequisites validation..."
 	@bash $(ASSETS_DIR)/check-mcpb.sh >/dev/null 2>&1 || { echo "❌ Prerequisites validation failed"; exit 1; }
 	@echo "✅ Prerequisites validation passed"

@@ -17,7 +17,7 @@ from typing import Iterable, Optional
 
 
 # Configuration
-DEFAULT_IMAGE_NAME = "quilt-mcp-server"
+DOCKER_IMAGE_NAME = "quiltdata/mcp"
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
 
@@ -41,7 +41,7 @@ class DockerManager:
     def __init__(
         self,
         registry: Optional[str] = None,
-        image_name: str = DEFAULT_IMAGE_NAME,
+        image_name: str = DOCKER_IMAGE_NAME,
         region: str = DEFAULT_REGION,
         dry_run: bool = False,
     ):
@@ -222,7 +222,7 @@ ENVIRONMENT VARIABLES:
     tags_parser = subparsers.add_parser("tags", help="Generate Docker image tags")
     tags_parser.add_argument("--version", required=True, help="Version tag for the image")
     tags_parser.add_argument("--registry", help="ECR registry URL")
-    tags_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    tags_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     tags_parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
     tags_parser.add_argument("--no-latest", action="store_true", help="Don't include latest tag")
 
@@ -230,13 +230,13 @@ ENVIRONMENT VARIABLES:
     build_parser = subparsers.add_parser("build", help="Build Docker image locally")
     build_parser.add_argument("--version", default="dev", help="Version tag (default: dev)")
     build_parser.add_argument("--registry", help="Registry URL")
-    build_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    build_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
 
     # Push command
     push_parser = subparsers.add_parser("push", help="Build and push Docker image to registry")
     push_parser.add_argument("--version", required=True, help="Version tag for the image")
     push_parser.add_argument("--registry", help="ECR registry URL")
-    push_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    push_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
@@ -245,7 +245,7 @@ ENVIRONMENT VARIABLES:
     info_parser = subparsers.add_parser("info", help="Get Docker image URI for a version")
     info_parser.add_argument("--version", required=True, help="Version tag for the image")
     info_parser.add_argument("--registry", help="ECR registry URL")
-    info_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
+    info_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
 
     return parser.parse_args(list(argv))

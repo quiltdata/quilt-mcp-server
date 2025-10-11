@@ -65,6 +65,106 @@ class TestQuiltServiceAuthentication:
             result = service.get_config()
             assert result == expected_config
 
+    def test_get_catalog_config_filters_and_derives_stack_prefix(self):
+        """Test get_catalog_config returns only essential keys (snake_case) and derives stack_prefix and tabulator_data_catalog."""
+        service = QuiltService()
+
+        # Full config.json response from catalog
+        full_catalog_config = {
+            "region": "us-east-1",
+            "apiGatewayEndpoint": "https://0xrvxq2hb8.execute-api.us-east-1.amazonaws.com/prod",
+            "alwaysRequiresAuth": True,
+            "noDownload": False,
+            "s3Proxy": "https://nightly-s3-proxy.quilttest.com",
+            "intercomAppId": "eprutqnr",
+            "registryUrl": "https://nightly-registry.quilttest.com",
+            "passwordAuth": "SIGN_IN_ONLY",
+            "ssoAuth": "ENABLED",
+            "ssoProviders": "google okta onelogin azure",
+            "sentryDSN": "https://cfde44007c3844aab3d1ee3f0ba53a1a@sentry.io/1410550",
+            "mixpanelToken": "e3385877c980efdce0a7eaec5a8a8277",
+            "analyticsBucket": "quilt-staging-analyticsbucket-10ort3e91tnoa",
+            "serviceBucket": "quilt-staging-servicebucket-tnfuvenij1mq",
+            "mode": "PRODUCT",
+            "chunkedChecksums": True,
+            "qurator": True,
+            "stackVersion": "1.63.0-11-ge1d2d62",
+            "packageRoot": "",
+        }
+
+        # Mock session and HTTP response
+        mock_session = Mock()
+        mock_response = Mock()
+        mock_response.json.return_value = full_catalog_config
+        mock_response.raise_for_status = Mock()
+        mock_session.get.return_value = mock_response
+
+        with (
+            patch.object(service, 'has_session_support', return_value=True),
+            patch.object(service, 'get_session', return_value=mock_session),
+        ):
+            result = service.get_catalog_config('https://nightly.quilttest.com')
+
+            # Verify only essential keys are returned
+            assert result is not None
+            assert (
+                len(result) == 5
+            )  # 5 keys: region, api_gateway_endpoint, analytics_bucket, stack_prefix, tabulator_data_catalog
+
+            # Verify the essential keys are present (snake_case)
+            assert result["region"] == "us-east-1"
+            assert result["api_gateway_endpoint"] == "https://0xrvxq2hb8.execute-api.us-east-1.amazonaws.com/prod"
+            assert result["analytics_bucket"] == "quilt-staging-analyticsbucket-10ort3e91tnoa"
+
+            # Verify stack_prefix was derived correctly
+            assert result["stack_prefix"] == "quilt-staging"
+
+            # Verify tabulator_data_catalog was derived correctly
+            assert result["tabulator_data_catalog"] == "quilt-quilt-staging-tabulator"
+
+            # Verify unwanted keys are NOT present
+            assert "intercomAppId" not in result
+            assert "sentryDSN" not in result
+            assert "mixpanelToken" not in result
+            assert "serviceBucket" not in result
+            assert "registryUrl" not in result
+            assert "s3Proxy" not in result
+            assert "alwaysRequiresAuth" not in result
+            assert "noDownload" not in result
+            assert "passwordAuth" not in result
+            assert "ssoAuth" not in result
+            assert "ssoProviders" not in result
+            assert "mode" not in result
+            assert "chunkedChecksums" not in result
+            assert "qurator" not in result
+            assert "stackVersion" not in result
+            assert "packageRoot" not in result
+
+            # Verify the HTTP request was made correctly
+            mock_session.get.assert_called_once_with("https://nightly.quilttest.com/config.json", timeout=10)
+
+    def test_get_catalog_config_raises_when_session_unavailable(self):
+        """Test get_catalog_config raises exception when session is not available."""
+        service = QuiltService()
+
+        with patch.object(service, 'has_session_support', return_value=False):
+            with pytest.raises(Exception, match="quilt3 session not available"):
+                service.get_catalog_config('https://example.quiltdata.com')
+
+    def test_get_catalog_config_returns_none_on_network_error(self):
+        """Test get_catalog_config returns None on network errors."""
+        service = QuiltService()
+
+        mock_session = Mock()
+        mock_session.get.side_effect = Exception("Network error")
+
+        with (
+            patch.object(service, 'has_session_support', return_value=True),
+            patch.object(service, 'get_session', return_value=mock_session),
+        ):
+            result = service.get_catalog_config('https://example.quiltdata.com')
+            assert result is None
+
 
 class TestQuiltServicePackageOperations:
     """Test package operation methods."""
@@ -78,14 +178,25 @@ class TestQuiltServicePackageOperations:
             assert result == expected_packages
 
     def test_get_catalog_info_when_authenticated(self):
-        """Test get_catalog_info returns comprehensive info when authenticated."""
+        """Test get_catalog_info returns comprehensive info including region and tabulator_data_catalog when authenticated."""
         service = QuiltService()
+
+        # Mock catalog config response
+        mock_catalog_config = {
+            "region": "us-east-1",
+            "api_gateway_endpoint": "https://api.example.com",
+            "analytics_bucket": "example-analyticsbucket-abc",
+            "stack_prefix": "example",
+            "tabulator_data_catalog": "quilt-example-tabulator",
+        }
+
         with (
             patch('quilt3.logged_in', return_value='https://example.quiltdata.com'),
             patch(
                 'quilt3.config',
                 return_value={'navigator_url': 'https://example.quiltdata.com', 'registryUrl': 's3://example-bucket'},
             ),
+            patch.object(service, 'get_catalog_config', return_value=mock_catalog_config),
         ):
             result = service.get_catalog_info()
             assert result['is_authenticated'] is True
@@ -93,6 +204,29 @@ class TestQuiltServicePackageOperations:
             assert result['logged_in_url'] == 'https://example.quiltdata.com'
             assert result['navigator_url'] == 'https://example.quiltdata.com'
             assert result['registry_url'] == 's3://example-bucket'
+
+            # Verify new keys from catalog config
+            assert result['region'] == 'us-east-1'
+            assert result['tabulator_data_catalog'] == 'quilt-example-tabulator'
+
+    def test_get_catalog_info_when_not_authenticated(self):
+        """Test get_catalog_info returns None for region and tabulator_data_catalog when not authenticated."""
+        service = QuiltService()
+
+        with (
+            patch('quilt3.logged_in', return_value=None),
+            patch(
+                'quilt3.config',
+                return_value={'navigator_url': 'https://example.quiltdata.com', 'registryUrl': 's3://example-bucket'},
+            ),
+        ):
+            result = service.get_catalog_info()
+            assert result['is_authenticated'] is False
+            assert result['logged_in_url'] is None
+
+            # Verify new keys are None when not authenticated
+            assert result['region'] is None
+            assert result['tabulator_data_catalog'] is None
 
     def test_set_config_calls_quilt3_config(self):
         """Test set_config calls quilt3.config with catalog URL."""

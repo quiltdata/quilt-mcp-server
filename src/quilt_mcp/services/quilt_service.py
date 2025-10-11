@@ -69,6 +69,69 @@ class QuiltService:
         except Exception:
             return None
 
+    def get_catalog_config(self, catalog_url: str) -> dict[str, Any] | None:
+        """Get catalog configuration from <catalog>/config.json.
+
+        Fetches and filters the catalog configuration to return only essential
+        AWS infrastructure keys, plus derives the stack prefix and tabulator catalog name.
+
+        Args:
+            catalog_url: URL of the catalog (e.g., 'https://example.quiltdata.com')
+
+        Returns:
+            Filtered catalog configuration dict with keys: region, api_gateway_endpoint,
+            analytics_bucket, stack_prefix (from analytics_bucket), and tabulator_data_catalog
+            (format: 'quilt-<stack-prefix>-tabulator'). Returns None if not available.
+
+        Raises:
+            Exception: If session is not available (not authenticated)
+        """
+        # Check if session support is available before attempting to use it
+        if not self.has_session_support():
+            raise Exception("quilt3 session not available - user may not be authenticated")
+
+        try:
+            # Use requests session to fetch config.json from catalog
+            session = self.get_session()
+            # Normalize URL - ensure no trailing slash
+            normalized_url = catalog_url.rstrip("/")
+            config_url = f"{normalized_url}/config.json"
+
+            response = session.get(config_url, timeout=10)
+            response.raise_for_status()
+
+            full_config = response.json()
+
+            # Extract only the keys we need (converting to snake_case)
+            filtered_config: dict[str, Any] = {}
+
+            if "region" in full_config:
+                filtered_config["region"] = full_config["region"]
+
+            if "apiGatewayEndpoint" in full_config:
+                filtered_config["api_gateway_endpoint"] = full_config["apiGatewayEndpoint"]
+
+            if "analyticsBucket" in full_config:
+                analytics_bucket = full_config["analyticsBucket"]
+                filtered_config["analytics_bucket"] = analytics_bucket
+
+                # Derive stack prefix from analytics bucket name
+                # Example: "quilt-staging-analyticsbucket-10ort3e91tnoa" -> "quilt-staging"
+                if "-analyticsbucket" in analytics_bucket.lower():
+                    stack_prefix = analytics_bucket.split("-analyticsbucket")[0]
+                    filtered_config["stack_prefix"] = stack_prefix
+
+                    # Derive tabulator data catalog name from stack prefix
+                    # Example: "quilt-staging" -> "quilt-quilt-staging-tabulator"
+                    filtered_config["tabulator_data_catalog"] = f"quilt-{stack_prefix}-tabulator"
+
+            return filtered_config if filtered_config else None
+        except Exception as e:
+            # Re-raise with context if it's a session-related error
+            if "session" in str(e).lower() or "auth" in str(e).lower():
+                raise Exception(f"Failed to fetch catalog config: {e}") from e
+            return None
+
     def set_config(self, catalog_url: str) -> None:
         """Set Quilt catalog configuration.
 
@@ -81,15 +144,23 @@ class QuiltService:
         """Get comprehensive catalog information.
 
         Returns:
-            Dict with catalog_name, navigator_url, registry_url,
-            logged_in_url, and is_authenticated
+            Dict with the following keys (all keys always present, values may be None):
+            - catalog_name: Catalog name or "unknown"
+            - navigator_url: Navigator URL if configured
+            - registry_url: Registry URL if configured
+            - is_authenticated: Boolean authentication status
+            - logged_in_url: Login URL if authenticated
+            - region: AWS region if catalog config available (does not require authentication)
+            - tabulator_data_catalog: Tabulator catalog name if catalog config available (does not require authentication)
         """
         catalog_info: dict[str, Any] = {
             "catalog_name": None,
             "navigator_url": None,
             "registry_url": None,
-            "logged_in_url": None,
             "is_authenticated": False,
+            "logged_in_url": None,
+            "region": None,
+            "tabulator_data_catalog": None,
         }
 
         try:
@@ -118,6 +189,22 @@ class QuiltService:
                 elif not catalog_info["catalog_name"] and registry_url:
                     catalog_info["catalog_name"] = self._extract_catalog_name_from_url(registry_url)
         except Exception:
+            pass
+
+        # Fetch catalog config (works with or without authentication)
+        try:
+            catalog_url = (
+                catalog_info.get("logged_in_url")
+                or catalog_info.get("navigator_url")
+                or catalog_info.get("registry_url")
+            )
+            if catalog_url:
+                catalog_config = self.get_catalog_config(catalog_url)
+                if catalog_config:
+                    catalog_info["region"] = catalog_config.get("region")
+                    catalog_info["tabulator_data_catalog"] = catalog_config.get("tabulator_data_catalog")
+        except Exception:
+            # Don't fail if catalog config fetch fails
             pass
 
         # Fallback catalog name if nothing found

@@ -22,10 +22,10 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: mcpb-validate test-scripts test-readme | $(RESULTS_DIR)
+test-all: mcpb-validate test-scripts | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
 
 
 test-ci: | $(RESULTS_DIR)

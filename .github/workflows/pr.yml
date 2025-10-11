@@ -1,6 +1,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Pull Request Validation
 
+# Workflow Behavior:
+# - PRs: Fast CI tests (test-ci) on Python 3.11 only (15min timeout)
+# - Dev tags (v*-dev-*): Comprehensive tests (coverage) on Python 3.11, 3.12, 3.13 (30min timeout)
+#
+# To trigger comprehensive tests on-demand:
+#   make release-dev    # Creates and pushes v{version}-dev-{timestamp} tag
+#
+# This allows thorough testing before merging without slowing down regular PR development.
+
 on:
   pull_request:
     branches: ['**']
@@ -9,10 +18,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Increase timeout for comprehensive tests on dev tags
+    timeout-minutes: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') && 30 || 15 }}
     strategy:
       matrix:
-        python-version: ["3.11"]
+        # Run comprehensive tests on multiple Python versions for dev tags
+        python-version: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') && fromJSON('["3.13", "3.12", "3.11"]') || fromJSON('["3.11"]') }}
 
     steps:
     - name: Checkout code
@@ -23,12 +34,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Run PR tests
+    - name: Run tests
       uses: ./.github/actions/run-tests
       with:
-        test-target: 'test-ci'
-        artifact-name: 'test-results-pr'
-        python-version: '3.11'
+        # Use comprehensive tests (coverage) for dev tags, fast tests (test-ci) for PRs
+        test-target: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') && 'coverage' || 'test-ci' }}
+        artifact-name: ${{ startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-dev-') && 'test-results-dev-comprehensive' || 'test-results-pr' }}
+        python-version: ${{ matrix.python-version }}
       env:
         # AWS credentials for tests that need them
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

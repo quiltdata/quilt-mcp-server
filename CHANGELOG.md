@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Tabulator Query Tools**: New MCP tools for querying Tabulator tables via Athena
+  - `tabulator_buckets_list()` - Discover all buckets (databases) in Tabulator catalog
+  - `tabulator_bucket_query(bucket_name, query)` - Query specific bucket with auto-configuration
+  - Auto-discovers `tabulator_data_catalog` from catalog configuration (works without authentication)
+
+- **Catalog Configuration**: New `get_catalog_config()` method in QuiltService
+  - Fetches catalog metadata from `<catalog>/config.json` endpoint
+  - Auto-derives `tabulator_data_catalog` as `quilt-<stack-prefix>-tabulator`
+  - Extended `catalog_info` tool to include `region` and `tabulator_data_catalog`
+
+### Fixed
+
+- **Athena Hyphenated Database Names**: Use `schema_name` parameter instead of `USE` statement to support hyphenated database names like "udp-spec"
+- **Tabulator Catalog Routing**: Add `catalog_name` parameter to PyAthena connections to route queries to correct catalog
+- **Database Discovery**: Refactor `discover_tables()` to use `execute_query()` for consistent catalog/database handling
+
 ## [0.6.14] - 2025-09-24
 
 ### Added

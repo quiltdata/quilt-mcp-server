@@ -17,13 +17,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 from quilt_mcp.tools import governance
 
 
-# Skip integration tests if admin functionality is not available
-pytestmark = pytest.mark.skipif(
-    not governance.ADMIN_AVAILABLE,
-    reason="quilt3.admin not available - skipping integration tests",
-)
-
-
 class TestGovernanceIntegration:
     """Integration tests for governance functionality."""
 
