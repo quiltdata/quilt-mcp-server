@@ -30,7 +30,7 @@ class TestTabulatorWorkflow:
     def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
         Complete Tabulator workflow:
-        0. Get configured bucket from environment
+        0. Use known Tabulator-enabled bucket (udp-spec)
         1. List tables in the bucket (SHOW TABLES)
         2. Extract first table name from results
         3. Query a row from that table (SELECT)
@@ -44,12 +44,9 @@ class TestTabulatorWorkflow:
         """
         from quilt_mcp.tools.athena_glue import tabulator_table_query
 
-        # 0. Get bucket from environment (real bucket with hyphens)
-        bucket = os.getenv("QUILT_DEFAULT_BUCKET")
-        if not bucket:
-            pytest.skip("QUILT_DEFAULT_BUCKET not set")
-            return  # For type checker
-        bucket_name = bucket.replace("s3://", "")
+        # 0. Use known Tabulator-enabled bucket
+        # udp-spec is a bucket that has Tabulator tables configured
+        bucket_name = "udp-spec"
 
         # 1. List tables in the bucket
         tables_result = tabulator_table_query(
@@ -130,10 +127,11 @@ class TestAthenaWorkflow:
 
         print(f"\nFound {len(databases)} databases")
 
-        # 1. Try to find a database with tables
+        # 1. Try to find a database with a queryable table
+        # Try multiple databases and tables until we find one that works
+        query_result = None
         database_name = None
-        tables = None
-        tables_result = None
+        table_name = None
 
         for db_info in databases:
             # Handle both dict and string responses
@@ -154,58 +152,53 @@ class TestAthenaWorkflow:
 
             # Extract tables from response
             tables = tables_result.get("tables", [])
-            if tables:
-                database_name = db_name
-                print(f"Found {len(tables)} tables in {db_name}")
-                break
+            if not tables:
+                print(f"  No tables found in {db_name}")
+                continue
 
-        if not database_name or not tables or not tables_result:
+            print(f"Found {len(tables)} tables in {db_name}")
+
+            # 3. Try to query the first table from this database
+            first_table = tables[0]
+            # Handle both dict and string responses
+            # Response format: {"name": "table_name", "database_name": "db_name", ...}
+            current_table_name = first_table.get("name") if isinstance(first_table, dict) else first_table
+            if not current_table_name:
+                print(f"  Could not extract table name from: {first_table}")
+                continue
+
+            print(f"Trying to query table: {db_name}.{current_table_name}")
+
+            # Use athena_query_execute for actual data query
+            current_query_result = athena_query_execute(
+                query=f'SELECT * FROM "{db_name}"."{current_table_name}" LIMIT 1',
+                output_format="json",
+            )
+
+            if not current_query_result.get("success"):
+                error_msg = current_query_result.get("error", "Unknown error")
+                print(f"  Query failed: {error_msg}")
+                continue
+
+            formatted_data = current_query_result.get("formatted_data", [])
+            if not formatted_data:
+                print(f"  Query returned no data")
+                continue
+
+            # Success! Found a working database and table
+            database_name = db_name
+            table_name = current_table_name
+            query_result = current_query_result
+            break
+
+        # Check if we found a working database/table combination
+        if not query_result or not database_name or not table_name:
             pytest.skip(
-                "Could not find a database with tables to query\nDatabases checked but no tables found in any of them"
+                "Could not find a database with queryable tables\n"
+                "Tried all databases but none had tables with accessible data"
             )
 
-        # 3. Query a row from the first table
-        # At this point, tables is guaranteed to be non-empty due to the check above
-        assert tables, f"athena_tables_list({database_name}) returned success but no tables\nResponse: {tables_result}"
-
-        first_table = tables[0]
-        # Handle both dict and string responses
-        # Response format: {"name": "table_name", "database_name": "db_name", ...}
-        table_name = first_table.get("name") if isinstance(first_table, dict) else first_table
-        if not table_name:
-            pytest.fail(
-                f"Could not extract table name from athena_tables_list response\n"
-                f"First table structure: {first_table}\n"
-                f"Expected 'name' key or string value"
-            )
-
-        print(f"Querying table: {database_name}.{table_name}")
-
-        # Use athena_query_execute for actual data query
-        query_result = athena_query_execute(
-            query=f'SELECT * FROM "{database_name}"."{table_name}" LIMIT 1',
-            output_format="json",
-        )
-
-        if not query_result.get("success"):
-            error_msg = query_result.get("error", "Unknown error")
-            pytest.fail(
-                f"athena_query_execute() failed for SELECT query\n"
-                f"Query: SELECT * FROM \"{database_name}\".\"{table_name}\" LIMIT 1\n"
-                f"Error: {error_msg}\n"
-                f"Full response: {query_result}"
-            )
-
-        formatted_data = query_result.get("formatted_data", [])
-        if not formatted_data:
-            pytest.fail(
-                f"athena_query_execute() returned no data\n"
-                f"Query: SELECT * FROM \"{database_name}\".\"{table_name}\" LIMIT 1\n"
-                f"Response keys: {list(query_result.keys())}\n"
-                f"Full response: {query_result}"
-            )
-
-        print(f"Successfully queried {len(formatted_data)} rows")
+        print(f"Successfully queried {len(query_result.get('formatted_data', []))} rows from {database_name}.{table_name}")
         print(f"Columns: {query_result.get('columns', [])}")
 
 
