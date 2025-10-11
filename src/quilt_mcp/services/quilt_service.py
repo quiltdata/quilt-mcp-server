@@ -193,7 +193,11 @@ class QuiltService:
 
         # Fetch catalog config (works with or without authentication)
         try:
-            catalog_url = catalog_info.get("logged_in_url") or catalog_info.get("navigator_url") or catalog_info.get("registry_url")
+            catalog_url = (
+                catalog_info.get("logged_in_url")
+                or catalog_info.get("navigator_url")
+                or catalog_info.get("registry_url")
+            )
             if catalog_url:
                 catalog_config = self.get_catalog_config(catalog_url)
                 if catalog_config:

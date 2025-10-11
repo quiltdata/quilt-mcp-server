@@ -82,27 +82,22 @@ def test_tabulator_table_query_gets_catalog_from_catalog_info(monkeypatch: pytes
     from quilt_mcp.tools import athena_glue
 
     # Mock catalog_info to return a known data catalog
-    mock_catalog_info = MagicMock(return_value={
-        "status": "success",
-        "is_authenticated": True,
-        "tabulator_data_catalog": "quilt_example_catalog",
-        "region": "us-east-1"
-    })
+    mock_catalog_info = MagicMock(
+        return_value={
+            "status": "success",
+            "is_authenticated": True,
+            "tabulator_data_catalog": "quilt_example_catalog",
+            "region": "us-east-1",
+        }
+    )
     monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute to capture the call
-    mock_execute = MagicMock(return_value={
-        "success": True,
-        "rows": [],
-        "row_count": 0
-    })
+    mock_execute = MagicMock(return_value={"success": True, "rows": [], "row_count": 0})
     monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
 
     # Call the wrapper (now in athena_glue module)
-    result = athena_glue.tabulator_table_query(
-        bucket_name="test-bucket",
-        query="SELECT * FROM test_table LIMIT 10"
-    )
+    result = athena_glue.tabulator_table_query(bucket_name="test-bucket", query="SELECT * FROM test_table LIMIT 10")
 
     # Verify catalog_info was called
     mock_catalog_info.assert_called_once()
@@ -122,18 +117,13 @@ def test_tabulator_table_query_fails_without_tabulator_catalog(monkeypatch: pyte
     from quilt_mcp.tools import athena_glue
 
     # Mock catalog_info to return no tabulator_data_catalog
-    mock_catalog_info = MagicMock(return_value={
-        "status": "success",
-        "is_authenticated": True,
-        "catalog_name": "example-catalog"
-    })
+    mock_catalog_info = MagicMock(
+        return_value={"status": "success", "is_authenticated": True, "catalog_name": "example-catalog"}
+    )
     monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Call the wrapper without explicit data_catalog_name
-    result = athena_glue.tabulator_table_query(
-        bucket_name="test-bucket",
-        query="SELECT * FROM test_table"
-    )
+    result = athena_glue.tabulator_table_query(bucket_name="test-bucket", query="SELECT * FROM test_table")
 
     # Verify it returns an error
     assert result["success"] is False
@@ -146,27 +136,22 @@ def test_tabulator_table_query_works_unauthenticated_with_catalog_config(monkeyp
     from quilt_mcp.tools import athena_glue
 
     # Mock catalog_info to return tabulator_data_catalog even when not authenticated
-    mock_catalog_info = MagicMock(return_value={
-        "status": "success",
-        "is_authenticated": False,
-        "catalog_name": "example-catalog",
-        "tabulator_data_catalog": "quilt_example_catalog"  # Config available without auth
-    })
+    mock_catalog_info = MagicMock(
+        return_value={
+            "status": "success",
+            "is_authenticated": False,
+            "catalog_name": "example-catalog",
+            "tabulator_data_catalog": "quilt_example_catalog",  # Config available without auth
+        }
+    )
     monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
-    mock_execute = MagicMock(return_value={
-        "success": True,
-        "rows": [],
-        "row_count": 0
-    })
+    mock_execute = MagicMock(return_value={"success": True, "rows": [], "row_count": 0})
     monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
 
     # Call the wrapper
-    result = athena_glue.tabulator_table_query(
-        bucket_name="test-bucket",
-        query="SELECT * FROM test_table"
-    )
+    result = athena_glue.tabulator_table_query(bucket_name="test-bucket", query="SELECT * FROM test_table")
 
     # Verify it worked
     assert result["success"] is True
@@ -179,25 +164,16 @@ def test_tabulator_table_query_allows_explicit_catalog_override(monkeypatch: pyt
     from quilt_mcp.tools import athena_glue
 
     # Mock catalog_info - won't be used because we provide explicit catalog
-    mock_catalog_info = MagicMock(return_value={
-        "status": "success",
-        "is_authenticated": False
-    })
+    mock_catalog_info = MagicMock(return_value={"status": "success", "is_authenticated": False})
     monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
-    mock_execute = MagicMock(return_value={
-        "success": True,
-        "rows": [],
-        "row_count": 0
-    })
+    mock_execute = MagicMock(return_value={"success": True, "rows": [], "row_count": 0})
     monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
 
     # Call with explicit override
     result = athena_glue.tabulator_table_query(
-        bucket_name="test-bucket",
-        query="SELECT * FROM test_table",
-        data_catalog_name="CustomCatalog"
+        bucket_name="test-bucket", query="SELECT * FROM test_table", data_catalog_name="CustomCatalog"
     )
 
     # Verify catalog_info was NOT called because we provided explicit catalog
