@@ -30,7 +30,7 @@ class TestTabulatorWorkflow:
     def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
         """
         Complete Tabulator workflow:
-        0. Use known Tabulator-enabled bucket (udp-spec)
+        0. Use known Tabulator-enabled bucket (quilt-example-bucket)
         1. List tables in the bucket (SHOW TABLES)
         2. Extract first table name from results
         3. Query a row from that table (SELECT)
@@ -45,8 +45,8 @@ class TestTabulatorWorkflow:
         from quilt_mcp.tools.athena_glue import tabulator_table_query
 
         # 0. Use known Tabulator-enabled bucket
-        # udp-spec is a bucket that has Tabulator tables configured
-        bucket_name = "udp-spec"
+        # quilt-example-bucket is available in both local and CI environments
+        bucket_name = "quilt-example-bucket"
 
         # 1. List tables in the bucket
         tables_result = tabulator_table_query(
