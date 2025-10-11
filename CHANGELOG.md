@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Tabulator Query Tool**: New `tabulator_table_query` convenience wrapper for Athena queries
+  - Uses `bucket_name` instead of `database_name` for consistency with `tabulator_tables_list`
+  - Auto-discovers `data_catalog_name` from catalog configuration
+  - Works with or without authentication (if catalog config available)
+  - Fails explicitly if `tabulator_data_catalog` not configured (prevents accidental queries)
+  - Allows explicit `data_catalog_name` override when needed
+  - Comprehensive test coverage for all scenarios
+
 - **Catalog Configuration Access**: New `get_catalog_config()` method in QuiltService
   - Fetches and filters catalog configuration from `<catalog>/config.json` endpoint
   - Returns essential AWS infrastructure keys: `region`, `api_gateway_endpoint`, `analytics_bucket`
@@ -19,9 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All returned keys use snake_case for consistency with existing patterns
 
 - **Enhanced Catalog Info**: Extended `catalog_info` tool and `get_catalog_info()` method
-  - Now includes `region` and `tabulator_data_catalog` when user is authenticated
+  - Now includes `region` and `tabulator_data_catalog` from catalog configuration
   - Fetches additional metadata from catalog config endpoint automatically
-  - Fields remain `None` when not authenticated
+  - **Does not require authentication** - works if catalog URL is configured
   - Comprehensive test coverage for authenticated and non-authenticated scenarios
 
 ## [0.6.14] - 2025-09-24
