@@ -289,7 +289,6 @@ def tabulator_table_query(
     bucket_name: str,
     query: str,
     workgroup_name: Optional[str] = None,
-    data_catalog_name: Optional[str] = None,
     max_results: int = 1000,
     output_format: str = "json",
     use_quilt_auth: bool = True,
@@ -306,7 +305,6 @@ def tabulator_table_query(
         bucket_name: Name of the S3 bucket (used as database_name)
         query: SQL query to execute
         workgroup_name: Athena workgroup to use (optional, auto-discovered if not provided)
-        data_catalog_name: Data catalog to use (optional, auto-discovered from catalog_info)
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
         use_quilt_auth: Use quilt3 assumed role credentials if available
@@ -318,16 +316,15 @@ def tabulator_table_query(
         # Import here to avoid circular dependency
         from .auth import catalog_info
 
-        # Auto-discover data_catalog_name if not provided
-        if data_catalog_name is None:
-            info = catalog_info()
-            # MUST have tabulator_data_catalog configured - this prevents accidental queries
-            if not info.get("tabulator_data_catalog"):
-                return format_error_response(
-                    "tabulator_data_catalog not configured. This tool requires a Tabulator-enabled catalog. "
-                    "Check catalog configuration or use athena_query_execute directly for general Athena queries."
-                )
-            data_catalog_name = info["tabulator_data_catalog"]
+        # Auto-discover data_catalog_name
+        info = catalog_info()
+        # MUST have tabulator_data_catalog configured - this prevents accidental queries
+        if not info.get("tabulator_data_catalog"):
+            return format_error_response(
+                "tabulator_data_catalog not configured. This tool requires a Tabulator-enabled catalog. "
+                "Check catalog configuration or use athena_query_execute directly for general Athena queries."
+            )
+        data_catalog_name = info["tabulator_data_catalog"]
 
         # Call athena_query_execute with bucket_name mapped to database_name
         return athena_query_execute(
