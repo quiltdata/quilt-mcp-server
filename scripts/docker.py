@@ -287,6 +287,80 @@ class DockerManager:
         )
         return result.stdout.strip()
 
+    def _get_latest_git_tag(self) -> Optional[str]:
+        """Get the most recent git tag from the repository.
+
+        Looks for the latest tag pointing to HEAD or recent commits.
+        Returns the version without the 'v' prefix.
+        Returns None if not found or on error.
+        """
+        try:
+            # Get the latest tag from git log (tags pointing to HEAD or recent commits)
+            result = subprocess.run(
+                ["git", "describe", "--tags", "--abbrev=0", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=self.project_root,
+            )
+
+            if result.returncode != 0:
+                print(f"INFO: No git tag found on current commit", file=sys.stderr)
+                return None
+
+            tag_name = result.stdout.strip()
+
+            # Remove 'v' prefix if present (e.g., v0.6.17-dev-20251011232530 -> 0.6.17-dev-20251011232530)
+            if tag_name.startswith("v"):
+                version = tag_name[1:]
+            else:
+                version = tag_name
+
+            print(f"INFO: Found git tag: {tag_name} (version: {version})", file=sys.stderr)
+            return version
+
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            print(f"INFO: Error getting git tag: {exc}", file=sys.stderr)
+            return None
+
+    def _ecr_login(self) -> bool:
+        """Login to ECR registry if needed."""
+        # Check if registry is ECR
+        if ".ecr." not in self.registry or ".amazonaws.com" not in self.registry:
+            return True  # Not ECR, no login needed
+
+        print(f"INFO: Logging in to ECR registry...", file=sys.stderr)
+
+        # Use AWS CLI to get ECR login password
+        result = subprocess.run(
+            ["aws", "ecr", "get-login-password", "--region", self.region],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            print(f"ERROR: Failed to get ECR login password: {result.stderr}", file=sys.stderr)
+            return False
+
+        password = result.stdout.strip()
+
+        # Login to Docker registry
+        login_result = subprocess.run(
+            ["docker", "login", "--username", "AWS", "--password-stdin", self.registry],
+            input=password,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if login_result.returncode != 0:
+            print(f"ERROR: Failed to login to ECR: {login_result.stderr}", file=sys.stderr)
+            return False
+
+        print(f"INFO: Successfully logged in to ECR", file=sys.stderr)
+        return True
+
     def _get_image_info(self, tag: str) -> dict[str, Any]:
         """Get image metadata from registry using docker manifest inspect."""
         full_uri = f"{self.registry}/{self.image_name}:{tag}"
@@ -308,15 +382,29 @@ class DockerManager:
         """Validate pushed Docker images in registry.
 
         Args:
-            version: Specific version to validate (defaults to current pyproject.toml version)
+            version: Specific version to validate (defaults to latest git tag, then pyproject.toml)
             check_latest: Whether to verify latest tag matches expected version
 
         Returns:
             True if validation passes, False otherwise
         """
         try:
-            # Get expected version from pyproject.toml
-            expected_version = version or self._get_project_version()
+            # Login to ECR if needed
+            if not self._ecr_login():
+                print(f"ERROR: ECR login failed", file=sys.stderr)
+                return False
+
+            # Get expected version:
+            # 1. Use explicit version if provided
+            # 2. Try to get from latest git tag
+            # 3. Fall back to pyproject.toml version
+            if version:
+                expected_version = version
+            else:
+                expected_version = self._get_latest_git_tag()
+                if not expected_version:
+                    print(f"INFO: No git tag found, using version from pyproject.toml", file=sys.stderr)
+                    expected_version = self._get_project_version()
 
             print(f"INFO: Validating Docker images for version {expected_version}", file=sys.stderr)
             print(f"INFO: Registry: {self.registry}", file=sys.stderr)
@@ -324,7 +412,8 @@ class DockerManager:
             print("", file=sys.stderr)
 
             # Validate versioned image
-            print(f"INFO: Checking version tag: {expected_version}", file=sys.stderr)
+            full_image_uri = f"{self.registry}/{self.image_name}:{expected_version}"
+            print(f"INFO: Checking image: {full_image_uri}", file=sys.stderr)
             version_info = self._get_image_info(expected_version)
 
             # Extract digest and architecture info
@@ -371,41 +460,59 @@ class DockerManager:
                 print(f"   Digest: {digest}", file=sys.stderr)
                 print(f"   Size: {size_mb:.1f} MB", file=sys.stderr)
 
-                # Pull image and inspect to get actual architecture
+                # Get architecture from config blob using docker buildx imagetools
                 full_uri = f"{self.registry}/{self.image_name}:{expected_version}"
-                print(f"INFO: Pulling image to verify architecture...", file=sys.stderr)
-                pull_result = subprocess.run(
-                    ["docker", "pull", full_uri],
+                print(f"INFO: Getting architecture from image config...", file=sys.stderr)
+
+                # Get the config digest from manifest
+                config_digest_result = subprocess.run(
+                    ["docker", "buildx", "imagetools", "inspect", "--raw", full_uri],
                     capture_output=True,
                     text=True,
                     check=False,
                 )
-                if pull_result.returncode != 0:
-                    print(f"⚠️  Failed to pull image for architecture verification", file=sys.stderr)
+
+                if config_digest_result.returncode != 0:
+                    print(f"⚠️  Failed to get image manifest", file=sys.stderr)
                     print(f"⚠️  Single-arch images should be linux/amd64 for production", file=sys.stderr)
                 else:
-                    # Inspect the pulled image to get architecture
-                    inspect_result = subprocess.run(
-                        ["docker", "image", "inspect", full_uri, "--format={{.Architecture}}/{{.Os}}"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    if inspect_result.returncode == 0:
-                        arch_info = inspect_result.stdout.strip()
-                        if not arch_info or arch_info == "/":
-                            print(f"❌ CRITICAL: Image has NO architecture metadata!", file=sys.stderr)
-                            print(f"   This indicates the image was built/pushed incorrectly", file=sys.stderr)
-                            return False
+                    try:
+                        manifest_data = json.loads(config_digest_result.stdout)
+                        config_digest = manifest_data.get("config", {}).get("digest", "")
+
+                        if config_digest:
+                            # Get config blob to extract architecture
+                            config_uri = f"{self.registry}/{self.image_name}@{config_digest}"
+                            config_result = subprocess.run(
+                                ["docker", "buildx", "imagetools", "inspect", "--raw", config_uri],
+                                capture_output=True,
+                                text=True,
+                                check=False,
+                            )
+
+                            if config_result.returncode == 0:
+                                config_data = json.loads(config_result.stdout)
+                                arch = config_data.get("architecture", "")
+                                os_name = config_data.get("os", "")
+
+                                if arch and os_name:
+                                    arch_info = f"{arch}/{os_name}"
+                                    print(f"   Architecture: {arch_info}", file=sys.stderr)
+
+                                    if arch == "amd64" and os_name == "linux":
+                                        has_amd64 = True
+                                    else:
+                                        print(f"❌ Invalid architecture: {arch_info}", file=sys.stderr)
+                                        print(f"   Production images MUST be linux/amd64", file=sys.stderr)
+                                        return False
+                                else:
+                                    print(f"⚠️  Architecture metadata not found in config", file=sys.stderr)
+                            else:
+                                print(f"⚠️  Failed to fetch image config blob", file=sys.stderr)
                         else:
-                            print(f"   Architecture: {arch_info}", file=sys.stderr)
-                            if not arch_info.startswith("amd64/linux"):
-                                print(f"❌ Invalid architecture: {arch_info}", file=sys.stderr)
-                                print(f"   Production images MUST be linux/amd64", file=sys.stderr)
-                                return False
-                            has_amd64 = True
-                    else:
-                        print(f"⚠️  Failed to inspect pulled image", file=sys.stderr)
+                            print(f"⚠️  Config digest not found in manifest", file=sys.stderr)
+                    except (json.JSONDecodeError, KeyError) as e:
+                        print(f"⚠️  Failed to parse manifest/config: {e}", file=sys.stderr)
 
             # Validate amd64 is present
             if not has_amd64 and "manifests" in version_info:
