@@ -71,8 +71,28 @@ class DockerManager:
             )
             aws_account_id = result.stdout.strip()
             if aws_account_id:
-                region = os.getenv("AWS_DEFAULT_REGION", self.region)
-                print(f"INFO: Detected AWS account {aws_account_id} via STS", file=sys.stderr)
+                # Get region from environment or detect from AWS config
+                region = os.getenv("AWS_DEFAULT_REGION")
+                if not region:
+                    # Try to get region from AWS CLI configuration
+                    try:
+                        region_result = subprocess.run(
+                            ["aws", "configure", "get", "region"],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=2,
+                        )
+                        if region_result.returncode == 0 and region_result.stdout.strip():
+                            region = region_result.stdout.strip()
+                    except (subprocess.TimeoutExpired, FileNotFoundError):
+                        pass
+
+                # Final fallback
+                if not region:
+                    region = self.region
+
+                print(f"INFO: Detected AWS account {aws_account_id} (region: {region}) via STS", file=sys.stderr)
                 return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
             # STS call failed, try environment variable fallback
@@ -163,20 +183,22 @@ class DockerManager:
     def build_and_push(self, version: str, include_latest: bool = True) -> bool:
         """Build and push Docker image with all generated tags.
 
-        NOTE: Only supports amd64. Will fail on arm64 to prevent pushing unusable images.
+        NOTE: Only supports amd64. On arm64, runs in dry-run mode to show what would happen.
         Production images should be built in CI on amd64 runners.
         """
         if not self._check_docker():
             return False
 
-        # Check architecture - only allow amd64 for push
+        # Check architecture - enable dry-run mode on arm64
         import platform
         machine = platform.machine().lower()
         if machine in ("arm64", "aarch64"):
-            print("ERROR: docker push is not supported on arm64 architecture", file=sys.stderr)
-            print("ERROR: Docker images must be built on amd64 for server deployment", file=sys.stderr)
-            print("ERROR: Use CI/CD to build and push production images", file=sys.stderr)
-            return False
+            print("", file=sys.stderr)
+            print("⚠️  WARNING: Running on arm64 architecture", file=sys.stderr)
+            print("⚠️  Docker push will run in DRY-RUN mode (no actual push)", file=sys.stderr)
+            print("⚠️  Production images must be built on amd64 in CI/CD", file=sys.stderr)
+            print("", file=sys.stderr)
+            self.dry_run = True
 
         # Generate tags
         tags = self.generate_tags(version, include_latest)
