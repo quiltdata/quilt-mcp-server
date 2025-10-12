@@ -17,7 +17,13 @@ from typing import Any, Iterable, Optional
 
 
 # Configuration
-DEFAULT_IMAGE_NAME = "quiltdata/mcp"  # Used as fallback for build/info commands
+# DOCKER_IMAGE_NAME must be set (typically exported from Makefile)
+_docker_image_name = os.getenv("DOCKER_IMAGE_NAME")
+if not _docker_image_name:
+    print("ERROR: DOCKER_IMAGE_NAME environment variable must be set", file=sys.stderr)
+    sys.exit(1)
+DOCKER_IMAGE_NAME: str = _docker_image_name
+
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
 
@@ -41,11 +47,10 @@ class DockerManager:
     def __init__(
         self,
         registry: Optional[str] = None,
-        image_name: str = DEFAULT_IMAGE_NAME,
         region: str = DEFAULT_REGION,
         dry_run: bool = False,
     ):
-        self.image_name = image_name
+        self.image_name = DOCKER_IMAGE_NAME
         self.region = region
         self.dry_run = dry_run
         self.registry = self._get_registry(registry)
@@ -431,7 +436,6 @@ ENVIRONMENT VARIABLES:
     tags_parser = subparsers.add_parser("tags", help="Generate Docker image tags")
     tags_parser.add_argument("--version", required=True, help="Version tag for the image")
     tags_parser.add_argument("--registry", help="ECR registry URL")
-    tags_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
     tags_parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
     tags_parser.add_argument("--no-latest", action="store_true", help="Don't include latest tag")
 
@@ -439,13 +443,11 @@ ENVIRONMENT VARIABLES:
     build_parser = subparsers.add_parser("build", help="Build Docker image locally")
     build_parser.add_argument("--version", default="dev", help="Version tag (default: dev)")
     build_parser.add_argument("--registry", help="Registry URL")
-    build_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
 
     # Push command
     push_parser = subparsers.add_parser("push", help="Build and push Docker image to registry")
     push_parser.add_argument("--version", required=True, help="Version tag for the image")
     push_parser.add_argument("--registry", help="ECR registry URL")
-    push_parser.add_argument("--image", required=True, help="Image name (required)")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
@@ -454,14 +456,12 @@ ENVIRONMENT VARIABLES:
     info_parser = subparsers.add_parser("info", help="Get Docker image URI for a version")
     info_parser.add_argument("--version", required=True, help="Version tag for the image")
     info_parser.add_argument("--registry", help="ECR registry URL")
-    info_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
     info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
 
     # Validate command
     validate_parser = subparsers.add_parser("validate", help="Validate pushed Docker images in registry")
     validate_parser.add_argument("--version", help="Version to validate (defaults to current pyproject.toml version)")
     validate_parser.add_argument("--registry", help="ECR registry URL")
-    validate_parser.add_argument("--image", required=True, help="Image name (required)")
     validate_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     validate_parser.add_argument("--no-latest", action="store_true", help="Skip latest tag validation")
 
@@ -471,13 +471,13 @@ ENVIRONMENT VARIABLES:
 def cmd_tags(args: argparse.Namespace) -> int:
     """Generate and display Docker image tags."""
     try:
-        manager = DockerManager(registry=args.registry, image_name=args.image)
+        manager = DockerManager(registry=args.registry)
         references = manager.generate_tags(args.version, include_latest=not args.no_latest)
 
         if args.output == "json":
             payload = {
                 "registry": manager.registry,
-                "image": args.image,
+                "image": DOCKER_IMAGE_NAME,
                 "tags": [ref.tag for ref in references],
                 "uris": [ref.uri for ref in references],
             }
@@ -497,7 +497,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
 
-    manager = DockerManager(registry=args.registry, image_name=args.image)
+    manager = DockerManager(registry=args.registry)
     success = manager.build_local(version)
     return 0 if success else 1
 
@@ -509,7 +509,6 @@ def cmd_push(args: argparse.Namespace) -> int:
 
     manager = DockerManager(
         registry=args.registry,
-        image_name=args.image,
         region=args.region,
         dry_run=args.dry_run,
     )
@@ -523,8 +522,8 @@ def cmd_info(args: argparse.Namespace) -> int:
     version = os.getenv("VERSION", args.version)
 
     try:
-        manager = DockerManager(registry=args.registry, image_name=args.image)
-        ref = ImageReference(manager.registry, args.image, version)
+        manager = DockerManager(registry=args.registry)
+        ref = ImageReference(manager.registry, DOCKER_IMAGE_NAME, version)
 
         if args.output == "github":
             # Output for GitHub Actions
@@ -546,7 +545,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     manager = DockerManager(
         registry=args.registry,
-        image_name=args.image,
         region=args.region,
     )
     success = manager.validate(version=version, check_latest=not args.no_latest)
