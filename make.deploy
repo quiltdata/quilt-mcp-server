@@ -133,13 +133,17 @@ docker-tools:
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found - install Docker"; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
 	@echo "✅ Docker tools available"
-	@echo "🔍 Checking ECR repository..."
-	@aws ecr describe-repositories --repository-names $(DOCKER_IMAGE_NAME) --region us-east-1 >/dev/null 2>&1 || \
-		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name $(DOCKER_IMAGE_NAME) --region us-east-1 >/dev/null; }
-	@echo "✅ ECR repository ready"
-	@echo "🔐 Authenticating with ECR..."
-	@aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 712023778557.dkr.ecr.us-east-1.amazonaws.com >/dev/null 2>&1
-	@echo "✅ ECR authentication successful"
+	@echo "🔍 Detecting AWS account..."
+	@AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text) && \
+	AWS_REGION=$${AWS_DEFAULT_REGION:-us-east-1} && \
+	echo "✅ Using AWS account: $$AWS_ACCOUNT_ID (region: $$AWS_REGION)" && \
+	echo "🔍 Checking ECR repository..." && \
+	aws ecr describe-repositories --repository-names $(DOCKER_IMAGE_NAME) --region $$AWS_REGION >/dev/null 2>&1 || \
+		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name $(DOCKER_IMAGE_NAME) --region $$AWS_REGION >/dev/null; } && \
+	echo "✅ ECR repository ready" && \
+	echo "🔐 Authenticating with ECR..." && \
+	aws ecr get-login-password --region $$AWS_REGION | docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com >/dev/null 2>&1 && \
+	echo "✅ ECR authentication successful"
 
 docker-build: docker-tools
 	@echo "🐳 Building Docker image locally..."
