@@ -170,9 +170,9 @@ docker-push-dev: docker-tools
 	@echo "✅ Development Docker push completed"
 
 docker-validate:
-	@echo "🔍 Validating Docker images in CI registry..."
+	@echo "🔍 Validating Docker images in CI registry (public read)..."
 	@echo "Using CI registry: $(CI_REGISTRY)"
-	@uv run python scripts/docker.py validate --registry $(CI_REGISTRY)
+	@uv run python scripts/docker.py validate --registry $(CI_REGISTRY) --no-latest --skip-auth
 	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets

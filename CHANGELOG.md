@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Git-Tag-Based Docker Validation**: Enhanced `make docker-validate` for dev releases
+  - Uses `git describe --tags` to find latest tag (including dev prereleases)
+  - Displays full image URI being validated for clarity
+  - **Public Access Mode**: New `--skip-auth` flag enables validation without AWS credentials
+  - Works with public ECR images using `docker manifest inspect`
+  - Removed AWS profile requirement from `make docker-validate` target
+
+### Fixed
+
+- **Docker Image Validation**: Fixed size calculation and architecture verification
+  - Image size now correctly calculated from layer sizes (was showing 0.0 MB)
+  - Architecture verification using `docker buildx imagetools` to inspect config blob
+  - Missing or non-amd64 architecture now causes hard validation failure
+  - Added `--platform=linux/amd64` to all docker builds for proper metadata
+  - ARM64 builds now show clear warnings about emulation and CI requirements
+
 ## [0.6.16] - 2025-10-11
 
 ### Added

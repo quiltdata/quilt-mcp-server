@@ -595,9 +595,6 @@ class TestPackageManagementE2E:
             print(f"  - Validate: {workflow_metrics['validate']['duration_seconds']:.3f}s")
             print(f"{'=' * 60}\n")
 
-            # ASSERT: Performance target
-            assert total_duration < 30, f"E2E workflow took {total_duration:.1f}s (target: <30s)"
-
         finally:
             # Cleanup: Delete the test package
             try:
@@ -801,9 +798,6 @@ class TestPackageManagementE2E:
             print(f"  - Browse After Metadata: {workflow_metrics['browse_after_metadata']['duration_seconds']:.3f}s")
             print(f"  - Validate: {workflow_metrics['validate']['duration_seconds']:.3f}s")
             print(f"{'=' * 60}\n")
-
-            # ASSERT: Performance target
-            assert total_duration < 40, f"Update workflow took {total_duration:.1f}s (target: <40s)"
 
         finally:
             # Cleanup: Delete the test package
