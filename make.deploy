@@ -164,12 +164,7 @@ docker-push-dev: docker-tools
 
 docker-validate: docker-tools
 	@echo "🔍 Validating Docker images in registry..."
-	@if [ -n "$(REGISTRY)" ]; then \
-		echo "Using specified registry: $(REGISTRY)"; \
-		uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME) --registry $(REGISTRY); \
-	else \
-		uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME); \
-	fi
+	@uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME)
 	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets
