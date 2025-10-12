@@ -53,18 +53,37 @@ class DockerManager:
 
     def _get_registry(self, registry: Optional[str]) -> str:
         """Determine ECR registry URL from various sources."""
-        # Priority: explicit parameter > ECR_REGISTRY env > construct from AWS_ACCOUNT_ID
+        # Priority: explicit parameter > ECR_REGISTRY env > detect via STS > construct from AWS_ACCOUNT_ID
         if registry:
             return registry
 
         if ecr_registry := os.getenv("ECR_REGISTRY"):
             return ecr_registry
 
+        # Try to get account ID from AWS STS if credentials are available
+        try:
+            result = subprocess.run(
+                ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5,
+            )
+            aws_account_id = result.stdout.strip()
+            if aws_account_id:
+                region = os.getenv("AWS_DEFAULT_REGION", self.region)
+                print(f"INFO: Detected AWS account {aws_account_id} via STS", file=sys.stderr)
+                return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            # STS call failed, try environment variable fallback
+            pass
+
         if aws_account_id := os.getenv("AWS_ACCOUNT_ID"):
             region = os.getenv("AWS_DEFAULT_REGION", self.region)
             return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
 
         # For local builds, use a default local registry
+        print("WARNING: No AWS credentials found, using localhost:5000 for local testing", file=sys.stderr)
         return "localhost:5000"
 
     def _run_command(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
