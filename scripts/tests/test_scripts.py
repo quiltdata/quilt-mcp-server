@@ -114,8 +114,8 @@ class TestScriptExecution:
         )
 
         output = result.stdout.strip().splitlines()
-        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
-        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
+        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3" in output
+        assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:latest" in output
 
         # Test JSON output format
         result = subprocess.run(
@@ -138,7 +138,7 @@ class TestScriptExecution:
         import json
         data = json.loads(result.stdout)
         assert data["registry"] == "test.registry.com"
-        assert data["image"] == "quilt-mcp-server"
+        assert data["image"] == "quiltdata/mcp"
         assert "2.0.0" in data["tags"]
         assert "latest" in data["tags"]
 
@@ -160,8 +160,8 @@ class TestScriptExecution:
         )
 
         output = result.stdout.strip().splitlines()
-        assert "test.registry.com/quilt-mcp-server:3.0.0" in output
-        assert "test.registry.com/quilt-mcp-server:latest" not in output
+        assert "test.registry.com/quiltdata/mcp:3.0.0" in output
+        assert "test.registry.com/quiltdata/mcp:latest" not in output
 
     def test_docker_script_help(self):
         """Test docker.py shows help properly."""
@@ -202,7 +202,7 @@ class TestScriptExecution:
             check=True,
         )
 
-        assert result.stdout.strip() == "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3"
+        assert result.stdout.strip() == "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3"
 
         # Test GitHub Actions output format
         result = subprocess.run(
@@ -222,7 +222,7 @@ class TestScriptExecution:
             check=True,
         )
 
-        assert result.stdout.strip() == "image-uri=test.registry.com/quilt-mcp-server:2.0.0"
+        assert result.stdout.strip() == "image-uri=test.registry.com/quiltdata/mcp:2.0.0"
 
     def test_docker_image_legacy_compatibility(self):
         """Ensure legacy docker_image.py still works if it exists."""
@@ -243,8 +243,8 @@ class TestScriptExecution:
             )
 
             output = result.stdout.strip().splitlines()
-            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in output
-            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:latest" in output
+            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3" in output
+            assert "123456789012.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:latest" in output
 
     def test_post_release_status_import(self):
         """Test post_release_status.py can be imported."""
@@ -276,7 +276,7 @@ class TestScriptExecution:
                 "--version", "1.2.3",
                 "--release-url", "https://github.com/owner/repo/releases/v1.2.3",
                 "--pypi-url", "https://pypi.org/project/quilt-mcp-server/1.2.3/",
-                "--docker-image", "123.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3",
+                "--docker-image", "123.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3",
                 "--dry-run"
             ],
             capture_output=True,
@@ -286,7 +286,7 @@ class TestScriptExecution:
         assert "DRY RUN - Comment Body" in result.stdout
         assert "## 🚀 Release Status for v1.2.3" in result.stdout
         assert "https://github.com/owner/repo/releases/v1.2.3" in result.stdout
-        assert "docker pull 123.dkr.ecr.us-east-1.amazonaws.com/quilt-mcp-server:1.2.3" in result.stdout
+        assert "docker pull 123.dkr.ecr.us-east-1.amazonaws.com/quiltdata/mcp:1.2.3" in result.stdout
         assert "pip install quilt-mcp-server==1.2.3" in result.stdout
 
     def test_post_release_status_dev_version(self):

@@ -26,6 +26,8 @@ def test_docker_image_serves_http():
     build_cmd = (
         "docker",
         "build",
+        "--platform",
+        "linux/amd64",
         "--tag",
         IMAGE_TAG,
         str(REPO_ROOT),
