@@ -67,15 +67,7 @@ runs:
           echo "🧪 TestPyPI URL: ${PYPI_URL}"
         fi
 
-    - name: Build MCPB package
-      shell: bash
-      run: make mcpb
-
-    - name: Validate MCPB package
-      shell: bash
-      run: make mcpb-validate
-
-    - name: Create release bundle
+    - name: Create release bundle (builds and validates MCPB package)
       shell: bash
       run: make release-zip
 
