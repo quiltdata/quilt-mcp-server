@@ -23,7 +23,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-validate docker-tools
 
 # Check for required tools
 check-tools:
@@ -157,6 +157,11 @@ docker-push-dev: docker-tools
 	echo "Using development version: $$DEV_VERSION" && \
 	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --image $(DOCKER_IMAGE_NAME) --no-latest
 	@echo "✅ Development Docker push completed"
+
+docker-validate: docker-tools
+	@echo "🔍 Validating Docker images in registry..."
+	@uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME)
+	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets
 release-tag:

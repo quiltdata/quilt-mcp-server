@@ -13,7 +13,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 
 # Configuration
@@ -142,8 +142,21 @@ class DockerManager:
             return False
 
     def build_and_push(self, version: str, include_latest: bool = True) -> bool:
-        """Build and push Docker image with all generated tags."""
+        """Build and push Docker image with all generated tags.
+
+        NOTE: Only supports amd64. Will fail on arm64 to prevent pushing unusable images.
+        Production images should be built in CI on amd64 runners.
+        """
         if not self._check_docker():
+            return False
+
+        # Check architecture - only allow amd64 for push
+        import platform
+        machine = platform.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            print("ERROR: docker push is not supported on arm64 architecture", file=sys.stderr)
+            print("ERROR: Docker images must be built on amd64 for server deployment", file=sys.stderr)
+            print("ERROR: Use CI/CD to build and push production images", file=sys.stderr)
             return False
 
         # Generate tags
@@ -187,6 +200,156 @@ class DockerManager:
 
         print(f"INFO: Local build completed: {local_tag}", file=sys.stderr)
         return True
+
+    def _get_project_version(self) -> str:
+        """Get current version from pyproject.toml via version.py."""
+        version_script = self.project_root / "scripts" / "version.py"
+        result = subprocess.run(
+            ["python3", str(version_script), "get-version"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=self.project_root,
+        )
+        return result.stdout.strip()
+
+    def _get_image_info(self, tag: str) -> dict[str, Any]:
+        """Get image metadata from registry using docker manifest inspect."""
+        full_uri = f"{self.registry}/{self.image_name}:{tag}"
+
+        # Use docker manifest inspect to get image details
+        result = subprocess.run(
+            ["docker", "manifest", "inspect", full_uri],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to inspect image {full_uri}: {result.stderr}")
+
+        return json.loads(result.stdout)
+
+    def validate(self, version: Optional[str] = None, check_latest: bool = True) -> bool:
+        """Validate pushed Docker images in registry.
+
+        Args:
+            version: Specific version to validate (defaults to current pyproject.toml version)
+            check_latest: Whether to verify latest tag matches expected version
+
+        Returns:
+            True if validation passes, False otherwise
+        """
+        try:
+            # Get expected version from pyproject.toml
+            expected_version = version or self._get_project_version()
+
+            print(f"INFO: Validating Docker images for version {expected_version}", file=sys.stderr)
+            print(f"INFO: Registry: {self.registry}", file=sys.stderr)
+            print(f"INFO: Image: {self.image_name}", file=sys.stderr)
+            print("", file=sys.stderr)
+
+            # Validate versioned image
+            print(f"INFO: Checking version tag: {expected_version}", file=sys.stderr)
+            version_info = self._get_image_info(expected_version)
+
+            # Extract digest and architecture info
+            has_amd64 = False
+            if "manifests" in version_info:
+                # Multi-arch or manifest list
+                print(f"INFO: Manifest list found", file=sys.stderr)
+                print(f"   Architectures:", file=sys.stderr)
+                for manifest in version_info["manifests"]:
+                    platform = manifest.get("platform", {})
+                    arch = platform.get("architecture", "unknown")
+                    os_name = platform.get("os", "unknown")
+                    digest = manifest.get("digest", "unknown")
+                    size_bytes = manifest.get("size", 0)
+
+                    # Check for amd64
+                    if arch == "amd64" and os_name == "linux":
+                        has_amd64 = True
+
+                    # Format size appropriately
+                    if size_bytes < 1024:
+                        size_str = f"{size_bytes} B"
+                    elif size_bytes < 1024 * 1024:
+                        size_str = f"{size_bytes / 1024:.1f} KB"
+                    else:
+                        size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+
+                    # Skip attestation manifests (very small, unknown platform)
+                    if arch == "unknown" and size_bytes < 10000:
+                        print(f"     - {os_name}/{arch}: {digest[:19]}... ({size_str}) [attestation]", file=sys.stderr)
+                    else:
+                        print(f"     - {os_name}/{arch}: {digest[:19]}... ({size_str})", file=sys.stderr)
+            else:
+                # Single-arch image
+                config = version_info.get("config", {})
+                digest = config.get("digest", "unknown")
+                size_bytes = config.get("size", 0)
+                size_mb = size_bytes / (1024 * 1024)
+                print(f"INFO: Single-architecture image found", file=sys.stderr)
+                print(f"   Digest: {digest}", file=sys.stderr)
+                print(f"   Size: {size_mb:.1f} MB", file=sys.stderr)
+
+                # Check if it's amd64 (though we can't easily tell from single manifest)
+                # Assume single-arch in production is a problem
+                print(f"⚠️  Single-architecture image - production requires linux/amd64", file=sys.stderr)
+
+            # Validate amd64 is present
+            if not has_amd64 and "manifests" in version_info:
+                print("", file=sys.stderr)
+                print(f"❌ Missing required architecture: linux/amd64", file=sys.stderr)
+                print(f"   Production images must include amd64 for server deployment", file=sys.stderr)
+                return False
+
+            if has_amd64:
+                print(f"✅ Required architecture present: linux/amd64", file=sys.stderr)
+
+            print("", file=sys.stderr)
+
+            # Validate latest tag if requested
+            if check_latest:
+                print(f"INFO: Checking latest tag", file=sys.stderr)
+                latest_info = self._get_image_info(LATEST_TAG)
+
+                # Compare digests to verify latest points to expected version
+                version_digest = self._extract_digest(version_info)
+                latest_digest = self._extract_digest(latest_info)
+
+                if version_digest == latest_digest:
+                    print(f"✅ Latest tag points to version {expected_version}", file=sys.stderr)
+                    print(f"   Digest: {version_digest[:19]}...", file=sys.stderr)
+                else:
+                    print(f"❌ Latest tag mismatch!", file=sys.stderr)
+                    print(f"   Expected (v{expected_version}): {version_digest[:19]}...", file=sys.stderr)
+                    print(f"   Actual (latest): {latest_digest[:19]}...", file=sys.stderr)
+                    return False
+
+            print("", file=sys.stderr)
+            print(f"✅ Docker image validation passed", file=sys.stderr)
+            return True
+
+        except subprocess.CalledProcessError as exc:
+            print(f"❌ Failed to get project version: {exc}", file=sys.stderr)
+            return False
+        except RuntimeError as exc:
+            print(f"❌ {exc}", file=sys.stderr)
+            return False
+        except Exception as exc:
+            print(f"❌ Validation failed: {exc}", file=sys.stderr)
+            return False
+
+    def _extract_digest(self, manifest_info: dict[str, Any]) -> str:
+        """Extract a comparable digest from manifest info."""
+        # For multi-arch manifests, use the manifest list digest
+        if "manifests" in manifest_info:
+            # Use first manifest's digest as representative
+            return manifest_info["manifests"][0].get("digest", "")
+
+        # For single-arch images, use config digest
+        return manifest_info.get("config", {}).get("digest", "")
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
@@ -247,6 +410,14 @@ ENVIRONMENT VARIABLES:
     info_parser.add_argument("--registry", help="ECR registry URL")
     info_parser.add_argument("--image", default=DEFAULT_IMAGE_NAME, help="Image name")
     info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
+
+    # Validate command
+    validate_parser = subparsers.add_parser("validate", help="Validate pushed Docker images in registry")
+    validate_parser.add_argument("--version", help="Version to validate (defaults to current pyproject.toml version)")
+    validate_parser.add_argument("--registry", help="ECR registry URL")
+    validate_parser.add_argument("--image", required=True, help="Image name (required)")
+    validate_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
+    validate_parser.add_argument("--no-latest", action="store_true", help="Skip latest tag validation")
 
     return parser.parse_args(list(argv))
 
@@ -322,6 +493,20 @@ def cmd_info(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Validate Docker images in registry."""
+    # Allow VERSION env var to override
+    version = os.getenv("VERSION", args.version) if args.version else None
+
+    manager = DockerManager(
+        registry=args.registry,
+        image_name=args.image,
+        region=args.region,
+    )
+    success = manager.validate(version=version, check_latest=not args.no_latest)
+    return 0 if success else 1
+
+
 def main(argv: Iterable[str] | None = None) -> int:
     """Main entry point."""
     args = parse_args(argv or sys.argv[1:])
@@ -338,6 +523,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return cmd_push(args)
     elif args.command == "info":
         return cmd_info(args)
+    elif args.command == "validate":
+        return cmd_validate(args)
     else:
         print(f"ERROR: Unknown command: {args.command}", file=sys.stderr)
         return 1
