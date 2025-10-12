@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Docker Image Validation**: Fixed size calculation and architecture verification
+  - Image size now correctly calculated from layer sizes (was showing 0.0 MB)
+  - Added architecture verification by pulling and inspecting images
+  - Missing or non-amd64 architecture now causes hard validation failure
+  - Added `--platform=linux/amd64` to all docker builds for proper metadata
+  - ARM64 builds now show clear warnings about emulation and CI requirements
+
 ## [0.6.16] - 2025-10-11
 
 ### Added
