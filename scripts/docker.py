@@ -203,6 +203,11 @@ class DockerManager:
 
         print(f"INFO: Docker push completed successfully", file=sys.stderr)
         print(f"INFO: Pushed {len(tags)} tags to registry: {self.registry}", file=sys.stderr)
+
+        # Output the primary image URI for capture by CI
+        primary_uri = tags[0].uri
+        print(f"DOCKER_IMAGE_URI={primary_uri}", file=sys.stdout)
+
         return True
 
     def build_local(self, version: str = "dev") -> bool:
