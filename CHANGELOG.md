@@ -8,6 +8,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.16] - 2025-10-11
+
+### Added
+
+- **Docker Image Validation**: New `make docker-validate` target for comprehensive image verification
+  - Validates pushed images in ECR with checksum and architecture details
+  - Verifies `latest` tag points to expected version from pyproject.toml
+  - Checks for required linux/amd64 architecture (production requirement)
+  - Better size formatting (B/KB/MB) and filters attestation manifests
+
+### Changed
+
+- **Docker Build Safety**: Enforce amd64-only production builds
+  - `make docker-push` now fails on arm64 machines (M-series Macs) with clear error
+  - Prevents pushing unusable arm64-only images to production
+  - Production Docker builds must happen in CI on amd64 runners
+  - Local `make docker-build` remains available for testing (single-arch)
+
+- **Dynamic AWS Account Detection**: Eliminated hardcoded account IDs
+  - `scripts/docker.py` uses AWS STS to detect account dynamically
+  - `make docker-tools` uses STS for ECR authentication
+  - Works correctly across different AWS accounts in CI/CD
+  - Respects `AWS_DEFAULT_REGION` environment variable
+
+- **Docker Image Configuration**: Standardized image naming
+  - Consolidated `DOCKER_IMAGE_NAME` configuration into Makefile
+  - Removed redundant environment variables from `env.example`
+  - Made image name explicit and consistent across all operations
+
+### Fixed
+
+- **CI Docker Builds**: Enabled and fixed Docker image publishing in CI
+  - Docker builds now enabled for production releases (v* tags)
+  - Docker builds now enabled for dev releases (v*-dev-* tags)
+  - Fixed registry detection to work with CI AWS credentials
+  - Eliminated duplicate MCPB package builds in release workflow
+
+## [0.6.15] - 2025-10-03
+
 ### Added
 
 - **Tabulator Query Tools**: New MCP tools for querying Tabulator tables via Athena
