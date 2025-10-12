@@ -81,6 +81,7 @@ jobs:
       uses: ./.github/actions/create-release
       with:
         package-version: ${{ steps.version.outputs.tag_version }}
+        build-docker: 'true'
         # pypi-repository-url defaults to '' for PyPI
       env:
         # AWS credentials for Docker ECR push

@@ -8,6 +8,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.16] - 2025-10-11
+
+### Added
+
+- **Docker Image Validation**: New `make docker-validate` target for comprehensive image verification
+  - Validates CI-pushed images in ECR with checksum and architecture details
+  - Verifies `latest` tag points to expected version from pyproject.toml
+  - Checks for required linux/amd64 architecture (production requirement)
+  - Better size formatting (B/KB/MB) and filters attestation manifests
+  - No authentication required (uses public ECR repository)
+
+- **Public ECR Repository**: Automatic public read access configuration
+  - CI automatically sets ECR repository policy to allow public reads
+  - Enables unauthenticated `docker pull` and manifest inspection
+  - Allows `docker-validate` to work without AWS credentials
+
+### Changed
+
+- **Docker Build Safety**: arm64 dry-run mode instead of failing
+  - `make docker-push` runs in DRY-RUN mode on arm64 machines (M-series Macs)
+  - Shows what would happen without actually pushing unusable images
+  - Developers can test push workflow locally
+  - Production Docker builds must happen in CI on amd64 runners
+
+- **Dynamic AWS Account Detection**: Eliminated hardcoded account IDs
+  - `scripts/docker.py` uses AWS STS to detect account and region dynamically
+  - `make docker-tools` uses STS for ECR authentication
+  - Logs detected AWS account and region for visibility (not redacted in CI)
+  - Works correctly across different AWS accounts in CI/CD
+
+- **Docker Image Configuration**: Standardized image naming
+  - Consolidated `DOCKER_IMAGE_NAME` configuration into Makefile
+  - Added `CI_ACCOUNT` and `CI_REGISTRY` constants for validation
+  - Removed redundant environment variables from `env.example`
+  - Made image name explicit and consistent across all operations
+
+- **Docker URI Capture**: Release notes now include actual pushed image URI
+  - CI captures Docker image URI after successful push
+  - Displayed in GitHub release notes for easy reference
+  - Users can see exact image location regardless of AWS account
+
+### Fixed
+
+- **CI Docker Builds**: Enabled and fixed Docker image publishing in CI
+  - Docker builds now enabled for production releases (v* tags)
+  - Docker builds now enabled for dev releases (v*-dev-* tags)
+  - Fixed registry detection to work with CI AWS credentials
+  - Eliminated duplicate MCPB package builds in release workflow
+
+## [0.6.15] - 2025-10-03
+
 ### Added
 
 - **Tabulator Query Tools**: New MCP tools for querying Tabulator tables via Athena

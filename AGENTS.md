@@ -427,11 +427,25 @@ The following permissions are granted for this repository:
 - When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
 - Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
 
+### Docker build architecture requirements (2025-10-11)
+
+- **Production Docker images MUST be amd64 only** - arm64 images are unusable on most servers
+- `make docker-push` will **FAIL on arm64 machines** (like M-series Macs) to prevent pushing unusable images
+- Production Docker builds should **only happen in CI** on amd64 GitHub Actions runners
+- `make docker-build` is for local testing only - builds single-arch for current platform
+- `make docker-validate` verifies pushed images:
+  - Checks for required linux/amd64 architecture
+  - Verifies latest tag points to expected version from pyproject.toml
+  - Displays image digests, sizes, and architectures
+  - Filters attestation manifests (unknown/unknown platform entries)
+- CI workflows now build and push Docker images on both production releases (v*) and dev tags (v*-dev-*)
+- Docker builds enabled via `build-docker: 'true'` in `.github/actions/create-release` action
+
 ### Docker Build and Deployment Refactoring (2025-09-22)
 
 **Script-based Docker Operations:**
 
-- All Docker operations extracted to `scripts/docker.sh` for reusability and local testing
+- All Docker operations extracted to `scripts/docker.py` for reusability and local testing
 - Script supports both `build` (local testing) and `push` (ECR deployment) commands
 - Integrates with existing `scripts/docker_image.py` for consistent tag generation
 - Supports dry-run mode via `--dry-run` for testing workflow changes

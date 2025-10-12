@@ -10,6 +10,11 @@ DIST_DIR := dist
 
 # Variables
 PACKAGE_NAME := quilt-mcp
+export DOCKER_IMAGE_NAME := quiltdata/mcp
+# CI AWS account for Docker validation (different from local account)
+CI_ACCOUNT := 850787717197
+CI_REGION := us-east-1
+CI_REGISTRY := $(CI_ACCOUNT).dkr.ecr.$(CI_REGION).amazonaws.com
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
@@ -22,7 +27,7 @@ RELEASE_ZIP := $(PACKAGE_ID)-release.zip
 ASSET_FILES := $(wildcard $(ASSETS_DIR)/*)
 APP_FILES := $(shell find $(APP_DIR)/quilt_mcp -name "*.py" 2>/dev/null || true)
 
-.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-tools
+.PHONY: deploy-build mcpb mcpb-validate python-dist python-publish release-zip deploy-clean check-tools docker-build docker-push docker-push-dev docker-validate docker-tools
 
 # Check for required tools
 check-tools:
@@ -132,13 +137,20 @@ docker-tools:
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found - install Docker"; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
 	@echo "✅ Docker tools available"
-	@echo "🔍 Checking ECR repository..."
-	@aws ecr describe-repositories --repository-names quilt-mcp-server --region us-east-1 >/dev/null 2>&1 || \
-		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name quilt-mcp-server --region us-east-1 >/dev/null; }
-	@echo "✅ ECR repository ready"
-	@echo "🔐 Authenticating with ECR..."
-	@aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 712023778557.dkr.ecr.us-east-1.amazonaws.com >/dev/null 2>&1
-	@echo "✅ ECR authentication successful"
+	@echo "🔍 Detecting AWS account..."
+	@AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text) && \
+	AWS_REGION=$${AWS_DEFAULT_REGION:-us-east-1} && \
+	echo "✅ Using AWS account: $$AWS_ACCOUNT_ID (region: $$AWS_REGION)" && \
+	echo "🔍 Checking ECR repository..." && \
+	aws ecr describe-repositories --repository-names $(DOCKER_IMAGE_NAME) --region $$AWS_REGION >/dev/null 2>&1 || \
+		{ echo "📦 Creating ECR repository..." && aws ecr create-repository --repository-name $(DOCKER_IMAGE_NAME) --region $$AWS_REGION >/dev/null; } && \
+	echo "✅ ECR repository ready" && \
+	echo "🔓 Setting repository to public read..." && \
+	aws ecr set-repository-policy --repository-name $(DOCKER_IMAGE_NAME) --region $$AWS_REGION --policy-text '{"Version":"2012-10-17","Statement":[{"Sid":"AllowPublicRead","Effect":"Allow","Principal":"*","Action":["ecr:GetDownloadUrlForLayer","ecr:BatchGetImage","ecr:BatchCheckLayerAvailability"]}]}' >/dev/null 2>&1 || \
+		echo "⚠️  Warning: Could not set public read policy (may already be set or insufficient permissions)" && \
+	echo "🔐 Authenticating with ECR..." && \
+	aws ecr get-login-password --region $$AWS_REGION | docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com >/dev/null 2>&1 && \
+	echo "✅ ECR authentication successful"
 
 docker-build: docker-tools
 	@echo "🐳 Building Docker image locally..."
@@ -156,6 +168,12 @@ docker-push-dev: docker-tools
 	echo "Using development version: $$DEV_VERSION" && \
 	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --no-latest
 	@echo "✅ Development Docker push completed"
+
+docker-validate:
+	@echo "🔍 Validating Docker images in CI registry..."
+	@echo "Using CI registry: $(CI_REGISTRY)"
+	@uv run python scripts/docker.py validate --registry $(CI_REGISTRY)
+	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets
 release-tag:

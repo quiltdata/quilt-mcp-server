@@ -13,11 +13,17 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 
 # Configuration
-DOCKER_IMAGE_NAME = "quiltdata/mcp"
+# DOCKER_IMAGE_NAME must be set (typically exported from Makefile)
+_docker_image_name = os.getenv("DOCKER_IMAGE_NAME")
+if not _docker_image_name:
+    print("ERROR: DOCKER_IMAGE_NAME environment variable must be set", file=sys.stderr)
+    sys.exit(1)
+DOCKER_IMAGE_NAME: str = _docker_image_name
+
 DEFAULT_REGION = "us-east-1"
 LATEST_TAG = "latest"
 
@@ -41,11 +47,10 @@ class DockerManager:
     def __init__(
         self,
         registry: Optional[str] = None,
-        image_name: str = DOCKER_IMAGE_NAME,
         region: str = DEFAULT_REGION,
         dry_run: bool = False,
     ):
-        self.image_name = image_name
+        self.image_name = DOCKER_IMAGE_NAME
         self.region = region
         self.dry_run = dry_run
         self.registry = self._get_registry(registry)
@@ -53,18 +58,57 @@ class DockerManager:
 
     def _get_registry(self, registry: Optional[str]) -> str:
         """Determine ECR registry URL from various sources."""
-        # Priority: explicit parameter > ECR_REGISTRY env > construct from AWS_ACCOUNT_ID
+        # Priority: explicit parameter > ECR_REGISTRY env > detect via STS > construct from AWS_ACCOUNT_ID
         if registry:
             return registry
 
         if ecr_registry := os.getenv("ECR_REGISTRY"):
             return ecr_registry
 
+        # Try to get account ID from AWS STS if credentials are available
+        try:
+            result = subprocess.run(
+                ["aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5,
+            )
+            aws_account_id = result.stdout.strip()
+            if aws_account_id:
+                # Get region from environment or detect from AWS config
+                region = os.getenv("AWS_DEFAULT_REGION")
+                if not region:
+                    # Try to get region from AWS CLI configuration
+                    try:
+                        region_result = subprocess.run(
+                            ["aws", "configure", "get", "region"],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=2,
+                        )
+                        if region_result.returncode == 0 and region_result.stdout.strip():
+                            region = region_result.stdout.strip()
+                    except (subprocess.TimeoutExpired, FileNotFoundError):
+                        pass
+
+                # Final fallback
+                if not region:
+                    region = self.region
+
+                print(f"INFO: Detected AWS account {aws_account_id} (region: {region}) via STS", file=sys.stderr)
+                return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
+            # STS call failed, try environment variable fallback
+            pass
+
         if aws_account_id := os.getenv("AWS_ACCOUNT_ID"):
             region = os.getenv("AWS_DEFAULT_REGION", self.region)
             return f"{aws_account_id}.dkr.ecr.{region}.amazonaws.com"
 
         # For local builds, use a default local registry
+        print("WARNING: No AWS credentials found, using localhost:5000 for local testing", file=sys.stderr)
         return "localhost:5000"
 
     def _run_command(self, cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -142,9 +186,24 @@ class DockerManager:
             return False
 
     def build_and_push(self, version: str, include_latest: bool = True) -> bool:
-        """Build and push Docker image with all generated tags."""
+        """Build and push Docker image with all generated tags.
+
+        NOTE: Only supports amd64. On arm64, runs in dry-run mode to show what would happen.
+        Production images should be built in CI on amd64 runners.
+        """
         if not self._check_docker():
             return False
+
+        # Check architecture - enable dry-run mode on arm64
+        import platform
+        machine = platform.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            print("", file=sys.stderr)
+            print("⚠️  WARNING: Running on arm64 architecture", file=sys.stderr)
+            print("⚠️  Docker push will run in DRY-RUN mode (no actual push)", file=sys.stderr)
+            print("⚠️  Production images must be built on amd64 in CI/CD", file=sys.stderr)
+            print("", file=sys.stderr)
+            self.dry_run = True
 
         # Generate tags
         tags = self.generate_tags(version, include_latest)
@@ -171,6 +230,11 @@ class DockerManager:
 
         print(f"INFO: Docker push completed successfully", file=sys.stderr)
         print(f"INFO: Pushed {len(tags)} tags to registry: {self.registry}", file=sys.stderr)
+
+        # Output the primary image URI for capture by CI
+        primary_uri = tags[0].uri
+        print(f"DOCKER_IMAGE_URI={primary_uri}", file=sys.stdout)
+
         return True
 
     def build_local(self, version: str = "dev") -> bool:
@@ -187,6 +251,156 @@ class DockerManager:
 
         print(f"INFO: Local build completed: {local_tag}", file=sys.stderr)
         return True
+
+    def _get_project_version(self) -> str:
+        """Get current version from pyproject.toml via version.py."""
+        version_script = self.project_root / "scripts" / "version.py"
+        result = subprocess.run(
+            ["python3", str(version_script), "get-version"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=self.project_root,
+        )
+        return result.stdout.strip()
+
+    def _get_image_info(self, tag: str) -> dict[str, Any]:
+        """Get image metadata from registry using docker manifest inspect."""
+        full_uri = f"{self.registry}/{self.image_name}:{tag}"
+
+        # Use docker manifest inspect to get image details
+        result = subprocess.run(
+            ["docker", "manifest", "inspect", full_uri],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to inspect image {full_uri}: {result.stderr}")
+
+        return json.loads(result.stdout)
+
+    def validate(self, version: Optional[str] = None, check_latest: bool = True) -> bool:
+        """Validate pushed Docker images in registry.
+
+        Args:
+            version: Specific version to validate (defaults to current pyproject.toml version)
+            check_latest: Whether to verify latest tag matches expected version
+
+        Returns:
+            True if validation passes, False otherwise
+        """
+        try:
+            # Get expected version from pyproject.toml
+            expected_version = version or self._get_project_version()
+
+            print(f"INFO: Validating Docker images for version {expected_version}", file=sys.stderr)
+            print(f"INFO: Registry: {self.registry}", file=sys.stderr)
+            print(f"INFO: Image: {self.image_name}", file=sys.stderr)
+            print("", file=sys.stderr)
+
+            # Validate versioned image
+            print(f"INFO: Checking version tag: {expected_version}", file=sys.stderr)
+            version_info = self._get_image_info(expected_version)
+
+            # Extract digest and architecture info
+            has_amd64 = False
+            if "manifests" in version_info:
+                # Multi-arch or manifest list
+                print(f"INFO: Manifest list found", file=sys.stderr)
+                print(f"   Architectures:", file=sys.stderr)
+                for manifest in version_info["manifests"]:
+                    platform = manifest.get("platform", {})
+                    arch = platform.get("architecture", "unknown")
+                    os_name = platform.get("os", "unknown")
+                    digest = manifest.get("digest", "unknown")
+                    size_bytes = manifest.get("size", 0)
+
+                    # Check for amd64
+                    if arch == "amd64" and os_name == "linux":
+                        has_amd64 = True
+
+                    # Format size appropriately
+                    if size_bytes < 1024:
+                        size_str = f"{size_bytes} B"
+                    elif size_bytes < 1024 * 1024:
+                        size_str = f"{size_bytes / 1024:.1f} KB"
+                    else:
+                        size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+
+                    # Skip attestation manifests (very small, unknown platform)
+                    if arch == "unknown" and size_bytes < 10000:
+                        print(f"     - {os_name}/{arch}: {digest[:19]}... ({size_str}) [attestation]", file=sys.stderr)
+                    else:
+                        print(f"     - {os_name}/{arch}: {digest[:19]}... ({size_str})", file=sys.stderr)
+            else:
+                # Single-arch image
+                config = version_info.get("config", {})
+                digest = config.get("digest", "unknown")
+                size_bytes = config.get("size", 0)
+                size_mb = size_bytes / (1024 * 1024)
+                print(f"INFO: Single-architecture image found", file=sys.stderr)
+                print(f"   Digest: {digest}", file=sys.stderr)
+                print(f"   Size: {size_mb:.1f} MB", file=sys.stderr)
+
+                # Check if it's amd64 (though we can't easily tell from single manifest)
+                # Assume single-arch in production is a problem
+                print(f"⚠️  Single-architecture image - production requires linux/amd64", file=sys.stderr)
+
+            # Validate amd64 is present
+            if not has_amd64 and "manifests" in version_info:
+                print("", file=sys.stderr)
+                print(f"❌ Missing required architecture: linux/amd64", file=sys.stderr)
+                print(f"   Production images must include amd64 for server deployment", file=sys.stderr)
+                return False
+
+            if has_amd64:
+                print(f"✅ Required architecture present: linux/amd64", file=sys.stderr)
+
+            print("", file=sys.stderr)
+
+            # Validate latest tag if requested
+            if check_latest:
+                print(f"INFO: Checking latest tag", file=sys.stderr)
+                latest_info = self._get_image_info(LATEST_TAG)
+
+                # Compare digests to verify latest points to expected version
+                version_digest = self._extract_digest(version_info)
+                latest_digest = self._extract_digest(latest_info)
+
+                if version_digest == latest_digest:
+                    print(f"✅ Latest tag points to version {expected_version}", file=sys.stderr)
+                    print(f"   Digest: {version_digest[:19]}...", file=sys.stderr)
+                else:
+                    print(f"❌ Latest tag mismatch!", file=sys.stderr)
+                    print(f"   Expected (v{expected_version}): {version_digest[:19]}...", file=sys.stderr)
+                    print(f"   Actual (latest): {latest_digest[:19]}...", file=sys.stderr)
+                    return False
+
+            print("", file=sys.stderr)
+            print(f"✅ Docker image validation passed", file=sys.stderr)
+            return True
+
+        except subprocess.CalledProcessError as exc:
+            print(f"❌ Failed to get project version: {exc}", file=sys.stderr)
+            return False
+        except RuntimeError as exc:
+            print(f"❌ {exc}", file=sys.stderr)
+            return False
+        except Exception as exc:
+            print(f"❌ Validation failed: {exc}", file=sys.stderr)
+            return False
+
+    def _extract_digest(self, manifest_info: dict[str, Any]) -> str:
+        """Extract a comparable digest from manifest info."""
+        # For multi-arch manifests, use the manifest list digest
+        if "manifests" in manifest_info:
+            # Use first manifest's digest as representative
+            return manifest_info["manifests"][0].get("digest", "")
+
+        # For single-arch images, use config digest
+        return manifest_info.get("config", {}).get("digest", "")
 
 
 def parse_args(argv: Iterable[str]) -> argparse.Namespace:
@@ -222,7 +436,6 @@ ENVIRONMENT VARIABLES:
     tags_parser = subparsers.add_parser("tags", help="Generate Docker image tags")
     tags_parser.add_argument("--version", required=True, help="Version tag for the image")
     tags_parser.add_argument("--registry", help="ECR registry URL")
-    tags_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     tags_parser.add_argument("--output", choices=["text", "json"], default="text", help="Output format")
     tags_parser.add_argument("--no-latest", action="store_true", help="Don't include latest tag")
 
@@ -230,13 +443,11 @@ ENVIRONMENT VARIABLES:
     build_parser = subparsers.add_parser("build", help="Build Docker image locally")
     build_parser.add_argument("--version", default="dev", help="Version tag (default: dev)")
     build_parser.add_argument("--registry", help="Registry URL")
-    build_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
 
     # Push command
     push_parser = subparsers.add_parser("push", help="Build and push Docker image to registry")
     push_parser.add_argument("--version", required=True, help="Version tag for the image")
     push_parser.add_argument("--registry", help="ECR registry URL")
-    push_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     push_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     push_parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
     push_parser.add_argument("--no-latest", action="store_true", help="Don't tag as latest")
@@ -245,8 +456,14 @@ ENVIRONMENT VARIABLES:
     info_parser = subparsers.add_parser("info", help="Get Docker image URI for a version")
     info_parser.add_argument("--version", required=True, help="Version tag for the image")
     info_parser.add_argument("--registry", help="ECR registry URL")
-    info_parser.add_argument("--image", default=DOCKER_IMAGE_NAME, help="Image name")
     info_parser.add_argument("--output", choices=["text", "github"], default="text", help="Output format")
+
+    # Validate command
+    validate_parser = subparsers.add_parser("validate", help="Validate pushed Docker images in registry")
+    validate_parser.add_argument("--version", help="Version to validate (defaults to current pyproject.toml version)")
+    validate_parser.add_argument("--registry", help="ECR registry URL")
+    validate_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
+    validate_parser.add_argument("--no-latest", action="store_true", help="Skip latest tag validation")
 
     return parser.parse_args(list(argv))
 
@@ -254,13 +471,13 @@ ENVIRONMENT VARIABLES:
 def cmd_tags(args: argparse.Namespace) -> int:
     """Generate and display Docker image tags."""
     try:
-        manager = DockerManager(registry=args.registry, image_name=args.image)
+        manager = DockerManager(registry=args.registry)
         references = manager.generate_tags(args.version, include_latest=not args.no_latest)
 
         if args.output == "json":
             payload = {
                 "registry": manager.registry,
-                "image": args.image,
+                "image": DOCKER_IMAGE_NAME,
                 "tags": [ref.tag for ref in references],
                 "uris": [ref.uri for ref in references],
             }
@@ -280,7 +497,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     # Allow VERSION env var to override
     version = os.getenv("VERSION", args.version)
 
-    manager = DockerManager(registry=args.registry, image_name=args.image)
+    manager = DockerManager(registry=args.registry)
     success = manager.build_local(version)
     return 0 if success else 1
 
@@ -292,7 +509,6 @@ def cmd_push(args: argparse.Namespace) -> int:
 
     manager = DockerManager(
         registry=args.registry,
-        image_name=args.image,
         region=args.region,
         dry_run=args.dry_run,
     )
@@ -306,8 +522,8 @@ def cmd_info(args: argparse.Namespace) -> int:
     version = os.getenv("VERSION", args.version)
 
     try:
-        manager = DockerManager(registry=args.registry, image_name=args.image)
-        ref = ImageReference(manager.registry, args.image, version)
+        manager = DockerManager(registry=args.registry)
+        ref = ImageReference(manager.registry, DOCKER_IMAGE_NAME, version)
 
         if args.output == "github":
             # Output for GitHub Actions
@@ -320,6 +536,19 @@ def cmd_info(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    """Validate Docker images in registry."""
+    # Allow VERSION env var to override
+    version = os.getenv("VERSION", args.version) if args.version else None
+
+    manager = DockerManager(
+        registry=args.registry,
+        region=args.region,
+    )
+    success = manager.validate(version=version, check_latest=not args.no_latest)
+    return 0 if success else 1
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -338,6 +567,8 @@ def main(argv: Iterable[str] | None = None) -> int:
         return cmd_push(args)
     elif args.command == "info":
         return cmd_info(args)
+    elif args.command == "validate":
+        return cmd_validate(args)
     else:
         print(f"ERROR: Unknown command: {args.command}", file=sys.stderr)
         return 1

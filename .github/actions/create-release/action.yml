@@ -67,38 +67,32 @@ runs:
           echo "🧪 TestPyPI URL: ${PYPI_URL}"
         fi
 
-    - name: Build MCPB package
-      shell: bash
-      run: make mcpb
-
-    - name: Validate MCPB package
-      shell: bash
-      run: make mcpb-validate
-
-    - name: Create release bundle
+    - name: Create release bundle (builds and validates MCPB package)
       shell: bash
       run: make release-zip
 
     - name: Build and push Docker image
-      if: ${{ inputs.build-docker == 'true' }}
-      shell: bash
-      env:
-        VERSION: ${{ inputs.package-version }}
-      run: |
-        echo "🐳 Building and pushing Docker image via Makefile"
-        make docker-push
-
-    - name: Capture Docker image info
       id: docker-info
       if: ${{ inputs.build-docker == 'true' }}
       shell: bash
       env:
         VERSION: ${{ inputs.package-version }}
       run: |
-        # Get image info using docker.py info command
-        IMAGE_URI=$(uv run python scripts/docker.py info --version "$VERSION" --output github)
-        echo "${IMAGE_URI}" >> $GITHUB_OUTPUT
-        echo "🐳 Docker Image: ${IMAGE_URI#image-uri=}"
+        echo "🐳 Building and pushing Docker image via Makefile"
+        # Capture the image URI output by docker-push
+        DOCKER_OUTPUT=$(make docker-push 2>&1)
+        echo "$DOCKER_OUTPUT"
+
+        # Extract the image URI from the output
+        IMAGE_URI=$(echo "$DOCKER_OUTPUT" | grep "^DOCKER_IMAGE_URI=" | cut -d'=' -f2)
+
+        if [ -n "$IMAGE_URI" ]; then
+          echo "image-uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "🐳 Docker Image pushed: $IMAGE_URI"
+        else
+          echo "⚠️ Warning: Could not determine Docker image URI"
+          echo "image-uri=unknown" >> $GITHUB_OUTPUT
+        fi
 
     - name: Create GitHub Release
       id: create-release
