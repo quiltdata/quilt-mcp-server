@@ -378,21 +378,25 @@ class DockerManager:
 
         return json.loads(result.stdout)
 
-    def validate(self, version: Optional[str] = None, check_latest: bool = True) -> bool:
+    def validate(self, version: Optional[str] = None, check_latest: bool = True, skip_auth: bool = False) -> bool:
         """Validate pushed Docker images in registry.
 
         Args:
             version: Specific version to validate (defaults to latest git tag, then pyproject.toml)
             check_latest: Whether to verify latest tag matches expected version
+            skip_auth: Skip ECR authentication (for public registries)
 
         Returns:
             True if validation passes, False otherwise
         """
         try:
-            # Login to ECR if needed
-            if not self._ecr_login():
-                print(f"ERROR: ECR login failed", file=sys.stderr)
-                return False
+            # Login to ECR if needed (skip for public registries)
+            if not skip_auth:
+                if not self._ecr_login():
+                    print(f"ERROR: ECR login failed", file=sys.stderr)
+                    return False
+            else:
+                print(f"INFO: Skipping ECR authentication (public registry mode)", file=sys.stderr)
 
             # Get expected version:
             # 1. Use explicit version if provided
@@ -630,6 +634,7 @@ ENVIRONMENT VARIABLES:
     validate_parser.add_argument("--registry", help="ECR registry URL")
     validate_parser.add_argument("--region", default=DEFAULT_REGION, help="AWS region")
     validate_parser.add_argument("--no-latest", action="store_true", help="Skip latest tag validation")
+    validate_parser.add_argument("--skip-auth", action="store_true", help="Skip ECR authentication (for public registries)")
 
     return parser.parse_args(list(argv))
 
@@ -713,7 +718,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         registry=args.registry,
         region=args.region,
     )
-    success = manager.validate(version=version, check_latest=not args.no_latest)
+    success = manager.validate(version=version, check_latest=not args.no_latest, skip_auth=args.skip_auth)
     return 0 if success else 1
 
 

@@ -15,7 +15,6 @@ export DOCKER_IMAGE_NAME := quiltdata/mcp
 CI_ACCOUNT := 850787717197
 CI_REGION := us-east-1
 CI_REGISTRY := $(CI_ACCOUNT).dkr.ecr.$(CI_REGION).amazonaws.com
-CI_PROFILE := sales
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
@@ -171,10 +170,9 @@ docker-push-dev: docker-tools
 	@echo "✅ Development Docker push completed"
 
 docker-validate:
-	@echo "🔍 Validating Docker images in CI registry..."
+	@echo "🔍 Validating Docker images in CI registry (public read)..."
 	@echo "Using CI registry: $(CI_REGISTRY)"
-	@echo "Using AWS profile: $(CI_PROFILE)"
-	@AWS_PROFILE=$(CI_PROFILE) uv run python scripts/docker.py validate --registry $(CI_REGISTRY) --no-latest
+	@uv run python scripts/docker.py validate --registry $(CI_REGISTRY) --no-latest --skip-auth
 	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets
