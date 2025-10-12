@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Git-Tag-Based Docker Validation**: Enhanced `make docker-validate` for dev releases
   - Uses `git describe --tags` to find latest tag (including dev prereleases)
   - Displays full image URI being validated for clarity
-  - Automatic ECR authentication using configured AWS profile
-  - Added `CI_PROFILE=sales` configuration for correct ECR access
+  - **Public Access Mode**: New `--skip-auth` flag enables validation without AWS credentials
+  - Works with public ECR images using `docker manifest inspect`
+  - Removed AWS profile requirement from `make docker-validate` target
 
 ### Fixed
 
