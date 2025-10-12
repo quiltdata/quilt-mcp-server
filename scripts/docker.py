@@ -146,12 +146,34 @@ class DockerManager:
 
         return tags
 
-    def build(self, tag: str) -> bool:
-        """Build Docker image with the specified tag."""
+    def build(self, tag: str, platform: str = "linux/amd64") -> bool:
+        """Build Docker image with the specified tag.
+
+        Args:
+            tag: Image tag to build
+            platform: Target platform (default: linux/amd64 for production)
+        """
+        # Check architecture - warn on arm64 but allow local builds for testing
+        import platform as platform_module
+        machine = platform_module.machine().lower()
+        if machine in ("arm64", "aarch64") and platform == "linux/amd64":
+            print("", file=sys.stderr)
+            print("⚠️  WARNING: Building linux/amd64 on arm64 architecture", file=sys.stderr)
+            print("⚠️  This will use emulation and be very slow", file=sys.stderr)
+            print("⚠️  For testing only - production images should be built in CI", file=sys.stderr)
+            print("", file=sys.stderr)
+
         print(f"INFO: Building Docker image: {tag}", file=sys.stderr)
+        print(f"INFO: Target platform: {platform}", file=sys.stderr)
 
         os.chdir(self.project_root)
-        result = self._run_command(["docker", "build", "--file", "Dockerfile", "--tag", tag, "."])
+        result = self._run_command([
+            "docker", "build",
+            "--platform", platform,
+            "--file", "Dockerfile",
+            "--tag", tag,
+            "."
+        ])
 
         if result.returncode == 0:
             print(f"INFO: Successfully built: {tag}", file=sys.stderr)
@@ -200,8 +222,9 @@ class DockerManager:
         if machine in ("arm64", "aarch64"):
             print("", file=sys.stderr)
             print("⚠️  WARNING: Running on arm64 architecture", file=sys.stderr)
-            print("⚠️  Docker push will run in DRY-RUN mode (no actual push)", file=sys.stderr)
-            print("⚠️  Production images must be built on amd64 in CI/CD", file=sys.stderr)
+            print("⚠️  Build will use emulation (very slow)", file=sys.stderr)
+            print("⚠️  Push will run in DRY-RUN mode (no actual push)", file=sys.stderr)
+            print("⚠️  Production images MUST be built in CI on amd64", file=sys.stderr)
             print("", file=sys.stderr)
             self.dry_run = True
 
@@ -335,18 +358,54 @@ class DockerManager:
                     else:
                         print(f"     - {os_name}/{arch}: {digest[:19]}... ({size_str})", file=sys.stderr)
             else:
-                # Single-arch image
+                # Single-arch image - need to pull and inspect to get architecture
                 config = version_info.get("config", {})
                 digest = config.get("digest", "unknown")
-                size_bytes = config.get("size", 0)
+
+                # Calculate total size from layers
+                layers = version_info.get("layers", [])
+                size_bytes = sum(layer.get("size", 0) for layer in layers)
                 size_mb = size_bytes / (1024 * 1024)
+
                 print(f"INFO: Single-architecture image found", file=sys.stderr)
                 print(f"   Digest: {digest}", file=sys.stderr)
                 print(f"   Size: {size_mb:.1f} MB", file=sys.stderr)
 
-                # Check if it's amd64 (though we can't easily tell from single manifest)
-                # Assume single-arch in production is a problem
-                print(f"⚠️  Single-architecture image - production requires linux/amd64", file=sys.stderr)
+                # Pull image and inspect to get actual architecture
+                full_uri = f"{self.registry}/{self.image_name}:{expected_version}"
+                print(f"INFO: Pulling image to verify architecture...", file=sys.stderr)
+                pull_result = subprocess.run(
+                    ["docker", "pull", full_uri],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if pull_result.returncode != 0:
+                    print(f"⚠️  Failed to pull image for architecture verification", file=sys.stderr)
+                    print(f"⚠️  Single-arch images should be linux/amd64 for production", file=sys.stderr)
+                else:
+                    # Inspect the pulled image to get architecture
+                    inspect_result = subprocess.run(
+                        ["docker", "image", "inspect", full_uri, "--format={{.Architecture}}/{{.Os}}"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if inspect_result.returncode == 0:
+                        arch_info = inspect_result.stdout.strip()
+                        if not arch_info or arch_info == "/":
+                            print(f"❌ CRITICAL: Image has NO architecture metadata!", file=sys.stderr)
+                            print(f"   This indicates the image was built/pushed incorrectly", file=sys.stderr)
+                            return False
+                        else:
+                            print(f"   Architecture: {arch_info}", file=sys.stderr)
+                            if not arch_info.startswith("amd64/linux"):
+                                print(f"❌ Invalid architecture: {arch_info}", file=sys.stderr)
+                                print(f"   Production images MUST be linux/amd64", file=sys.stderr)
+                                return False
+                            has_amd64 = True
+                    else:
+                        print(f"⚠️  Failed to inspect pulled image", file=sys.stderr)
 
             # Validate amd64 is present
             if not has_amd64 and "manifests" in version_info:
