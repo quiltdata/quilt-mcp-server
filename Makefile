@@ -46,7 +46,7 @@ help:
 	@echo "  make docker-build     - Build Docker image locally"
 	@echo "  make docker-push      - Build and push Docker image to ECR (requires VERSION)"
 	@echo "  make docker-push-dev  - Build and push development Docker image"
-	@echo "  make docker-validate  - Validate pushed images (checksums, architecture, latest tag)"
+	@echo "  make docker-validate  - Validate CI-pushed images (public read, no auth needed)"
 	@echo ""
 	@echo "🔢 Version Management: (version.py)"
 	@echo "  make bump-patch       - Bump patch version (1.2.3 → 1.2.4)"

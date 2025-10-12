@@ -11,6 +11,10 @@ DIST_DIR := dist
 # Variables
 PACKAGE_NAME := quilt-mcp
 DOCKER_IMAGE_NAME := quiltdata/mcp
+# CI AWS account for Docker validation (different from local account)
+CI_ACCOUNT := 850787717197
+CI_REGION := us-east-1
+CI_REGISTRY := $(CI_ACCOUNT).dkr.ecr.$(CI_REGION).amazonaws.com
 # Allow VERSION to be overridden from command line, otherwise read from pyproject.toml
 MANIFEST_VERSION := $(shell python3 scripts/version.py get-version 2>/dev/null || echo "dev")
 PACKAGE_VERSION := $(if $(VERSION),$(VERSION),$(MANIFEST_VERSION))
@@ -162,9 +166,10 @@ docker-push-dev: docker-tools
 	VERSION=$$DEV_VERSION uv run python scripts/docker.py push --version $$DEV_VERSION --image $(DOCKER_IMAGE_NAME) --no-latest
 	@echo "✅ Development Docker push completed"
 
-docker-validate: docker-tools
-	@echo "🔍 Validating Docker images in registry..."
-	@uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME)
+docker-validate:
+	@echo "🔍 Validating Docker images in CI registry..."
+	@echo "Using CI registry: $(CI_REGISTRY)"
+	@uv run python scripts/docker.py validate --image $(DOCKER_IMAGE_NAME) --registry $(CI_REGISTRY)
 	@echo "✅ Docker validation completed"
 
 # Release Tagging Targets
