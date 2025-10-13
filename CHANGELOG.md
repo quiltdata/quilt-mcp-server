@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Tests will now fail with clear error messages if AWS credentials are not configured
   - Improves test reliability by preventing silent test skips in CI/CD pipelines
 
+## [0.6.19] - 2025-10-13
+
 ### Fixed
 
 - **Docker Container Health Checks**: Added missing `curl` command required by ECS health checks
