@@ -159,3 +159,4 @@ src/quilt_mcp/tools/quilt_summary.py | 85 lines changed (+76, -9)
 - Manual testing recommended with actual package creation workflows
 - Test failures in main are unrelated (`**kwargs` FastMCP issue)
 
+
