@@ -49,7 +49,13 @@ def create_data_visualization(
     WORKFLOW:
         1. Collect data (Athena JSON, CSV string, S3 object, or list of records)
         2. Call this tool to obtain visualization JSON + supporting files
-        3. Upload returned files to S3 with `bucket_objects_put()` then package with `package_create()`
+        3. Upload files to S3 using bucket_objects_put() with a base prefix (e.g., "my-analysis/")
+        4. Create package with package_create(), ensuring file paths match quilt_summarize.json references
+        
+    IMPORTANT: The quilt_summarize.json file references filenames WITHOUT directory prefixes (flat structure).
+    When creating packages, either:
+        - Use flatten=True (default) so all files are at root level, OR
+        - Ensure S3 keys match exactly what's in quilt_summarize.json
 
     Args:
         data: Source data accepted as dict of columns, list of row dicts, CSV/TSV string, or S3 URI.
@@ -67,14 +73,23 @@ def create_data_visualization(
 
     Returns:
         Dict containing Quilt-ready visualization configuration, data CSV, quilt_summarize payload, and upload instructions.
+        
+        Structure:
+        - success: Boolean indicating if visualization was created
+        - visualization_config: {type, option, filename} - ECharts config
+        - data_file: {content, filename, content_type} - CSV data
+        - quilt_summarize: {content, filename} - Quilt metadata
+        - files_to_upload: List of {key, text, content_type} ready for bucket_objects_put()
+        - metadata: Statistics and info about the visualization
 
     Next step:
-        Upload each entry in `files_to_upload` with `bucket_objects_put()` and reference the same keys when calling `package_create()`.
+        Upload files with bucket_objects_put() using a common prefix, then create package referencing those exact S3 URIs.
 
     Example:
         ```python
         from quilt_mcp.tools import data_visualization, buckets, package_ops
 
+        # Step 1: Create visualization
         query_result = {"gene": ["BRCA1", "BRCA1", "TP53", "TP53"], "expression": [42.5, 45.2, 38.1, 40.3]}
         viz = data_visualization.create_data_visualization(
             data=query_result,
@@ -84,15 +99,36 @@ def create_data_visualization(
             title="Expression by Gene",
             color_scheme="genomics",
         )
-        buckets.bucket_objects_put("analysis-bucket", viz["files_to_upload"])
+        
+        # Step 2: Prepare upload items with a base prefix
+        base_prefix = "my-analysis/"
+        upload_items = [
+            {
+                "key": base_prefix + item["key"],
+                "text": item["text"],
+                "content_type": item["content_type"]
+            }
+            for item in viz["files_to_upload"]
+        ]
+        
+        # Step 3: Upload to S3
+        buckets.bucket_objects_put("s3://my-bucket", upload_items)
+        
+        # Step 4: Create package with exact S3 URIs (flatten=True by default flattens to root)
         package_ops.package_create(
             package_name="genomics/visualized-results",
             s3_uris=[
-                "s3://analysis-bucket/" + viz["quilt_summarize"]["filename"],
-                "s3://analysis-bucket/" + viz["visualization_config"]["filename"],
-                "s3://analysis-bucket/" + viz["data_file"]["filename"],
+                "s3://my-bucket/" + base_prefix + viz["visualization_config"]["filename"],
+                "s3://my-bucket/" + base_prefix + viz["data_file"]["filename"],
+                "s3://my-bucket/" + base_prefix + viz["quilt_summarize"]["filename"],
             ],
+            registry="s3://my-bucket",
+            message="Gene expression visualization",
         )
+        # With flatten=True (default), package structure will be:
+        # ├── viz_boxplot_gene_expression.json
+        # ├── viz_data_boxplot.csv
+        # └── quilt_summarize.json
         ```
     """
 
