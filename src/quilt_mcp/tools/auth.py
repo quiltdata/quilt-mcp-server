@@ -94,16 +94,49 @@ def catalog_url(
     path: str | None = None,
     catalog_host: str | None = None,
 ) -> dict[str, Any]:
-    """Generate a catalog URL for viewing packages or bucket objects.
+    """Generate Quilt catalog URL - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Detect or accept the catalog host and assemble the fully qualified URL.
+        2. Return structured metadata (bucket, view type, path) so follow-up tools can reason about the link.
+        3. Pair with ``auth.catalog_uri`` when the user also needs the Quilt+ URI representation.
 
     Args:
-        registry: Registry URL (e.g., 's3://bucket-name')
-        package_name: Package name (e.g., 'user/package') for package view, None for bucket view
-        path: Path within package or bucket (default: None)
-        catalog_host: Catalog hostname, will auto-detect if not provided
+        registry: Target registry, either ``s3://bucket`` or bare bucket name.
+        package_name: Optional ``namespace/package`` for direct package view navigation.
+        path: Optional path inside the bucket or package for deep links (e.g., ``data/metrics.csv``).
+        catalog_host: Optional override for the catalog host when auto-detection is unavailable.
 
     Returns:
-        Dict with generated catalog URL and metadata
+        Dict containing ``status`` plus URL metadata. When ``status == "success"``, ``catalog_url`` holds the browser
+        link to surface back to the user.
+
+        Response format:
+        {
+            "status": "success",
+            "catalog_url": "https://catalog.example.com/b/bucket/packages/ns/pkg/tree/latest/data",
+            "view_type": "package",
+            "bucket": "bucket",
+            "package_name": "ns/pkg",
+            "path": "data",
+            "catalog_host": "catalog.example.com"
+        }
+
+    Next step:
+        Share ``result["catalog_url"]`` with the user or feed it into the next navigation helper (for example
+        ``auth.catalog_uri`` or messaging back to the MCP client).
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        catalog_link = auth.catalog_url(
+            registry="s3://example-bucket",
+            package_name="team/forecast",
+            path="reports/summary.pdf",
+        )
+        next_action = catalog_link["catalog_url"]
+        ```
     """
     try:
         bucket = _extract_bucket_from_registry(registry)
@@ -171,18 +204,52 @@ def catalog_uri(
     tag: str | None = None,
     catalog_host: str | None = None,
 ) -> dict[str, Any]:
-    """Generate a Quilt+ URI for referencing packages or objects.
+    """Build Quilt+ URI - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Normalize the registry to ``quilt+s3://{bucket}``.
+        2. Append package fragments (``package``, ``path``, ``catalog``) based on the supplied context.
+        3. Return the URI so downstream tools or clients can reference the same package version consistently.
 
     Args:
-        registry: Registry URL (e.g., 's3://bucket-name')
-        package_name: Package name (e.g., 'user/package'), None for bucket-only URI
-        path: Path within package or bucket (default: None)
-        top_hash: Specific package version hash (default: None)
-        tag: Package version tag (default: None)
-        catalog_host: Catalog hostname, will auto-detect if not provided
+        registry: Registry backing the URI (``s3://bucket`` or bucket name).
+        package_name: Optional ``namespace/package`` for linking to a specific package.
+        path: Optional package or bucket path fragment to include in the URI.
+        top_hash: Optional immutable package hash to lock the reference to a revision.
+        tag: Optional human-friendly tag (ignored when ``top_hash`` is provided).
+        catalog_host: Optional catalog hostname hint to embed in the fragment.
 
     Returns:
-        Dict with generated Quilt+ URI and metadata
+        Dict containing ``status`` plus the computed ``quilt_plus_uri`` and supporting metadata fields.
+
+        Response format:
+        {
+            "status": "success",
+            "quilt_plus_uri": "quilt+s3://example-bucket#package=team/pkg@1111abcd&path=data/raw",
+            "bucket": "example-bucket",
+            "package_name": "team/pkg",
+            "path": "data/raw",
+            "top_hash": "1111abcd",
+            "tag": null,
+            "catalog_host": "catalog.example.com"
+        }
+
+    Next step:
+        Combine ``result["quilt_plus_uri"]`` with ``auth.catalog_url`` when the user needs both shareable link formats,
+        or return it directly so the client can persist the protocol URI.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        uri_result = auth.catalog_uri(
+            registry="s3://example-bucket",
+            package_name="team/forecast",
+            top_hash="1111abcd",
+            path="models/best.pkl",
+        )
+        quilt_plus_reference = uri_result["quilt_plus_uri"]
+        ```
     """
     try:
         bucket = _extract_bucket_from_registry(registry)
@@ -236,19 +303,39 @@ def catalog_uri(
 
 
 def catalog_info() -> dict[str, Any]:
-    """Get information about the current Quilt catalog configuration.
+    """Summarize catalog configuration - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Query Quilt configuration for catalog identifiers, URLs, and auth state.
+        2. Include optional fields (region, tabulator catalog) when authentication succeeds.
+        3. Feed the structured response into subsequent troubleshooting or navigation helpers.
 
     Returns:
-        Dict with the following keys (keys present only if values are set):
-        - catalog_name: Catalog name (always present)
-        - is_authenticated: Boolean authentication status (always present)
-        - status: Operation status (always present)
-        - navigator_url: Navigator URL (if configured)
-        - registry_url: Registry URL (if configured)
-        - logged_in_url: Login URL (if authenticated)
-        - region: AWS region (if authenticated and available)
-        - tabulator_data_catalog: Tabulator catalog name (if authenticated and available)
-        - message: Contextual message (always present)
+        Dict describing catalog connectivity with ``status``, ``catalog_name``, and optional URLs/metadata.
+
+        Response format:
+        {
+            "status": "success",
+            "catalog_name": "nightly.quilttest.com",
+            "is_authenticated": true,
+            "navigator_url": "https://nightly.quilttest.com",
+            "registry_url": "s3://nightly-bucket",
+            "region": "us-east-1",
+            "message": "Connected to catalog: nightly.quilttest.com"
+        }
+
+    Next step:
+        Use the returned fields to answer user questions, chain into ``auth.auth_status`` for deeper diagnostics,
+        or help select which catalog-specific tool to call next.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        info = auth.catalog_info()
+        if not info["is_authenticated"]:
+            follow_up = auth.auth_status()
+        ```
     """
     try:
         info = _get_catalog_info()
@@ -290,10 +377,34 @@ def catalog_info() -> dict[str, Any]:
 
 
 def catalog_name() -> dict[str, Any]:
-    """Get the name of the current Quilt catalog.
+    """Identify catalog name - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Inspect Quilt configuration to determine the catalog hostname.
+        2. Record how the name was derived (authentication, navigator config, or registry fallback).
+        3. Provide a lightweight status payload when the user only needs the catalog identifier.
 
     Returns:
-        Dict with the catalog name and detection method.
+        Dict containing ``catalog_name``, ``detection_method``, ``is_authenticated``, and ``status`` flags.
+
+        Response format:
+        {
+            "status": "success",
+            "catalog_name": "nightly.quilttest.com",
+            "detection_method": "authentication",
+            "is_authenticated": true
+        }
+
+    Next step:
+        Surface the catalog name to the user or call ``auth.catalog_url`` / ``auth.catalog_uri`` using this identifier.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        name_info = auth.catalog_name()
+        catalog_host = name_info["catalog_name"]
+        ```
     """
     try:
         info = _get_catalog_info()
@@ -324,10 +435,40 @@ def catalog_name() -> dict[str, Any]:
 
 
 def auth_status() -> dict[str, Any]:
-    """Check Quilt authentication status with rich information and actionable suggestions.
+    """Audit Quilt authentication - Quilt authentication and catalog navigation workflows
 
-    Returns:
-        Dict with comprehensive authentication status, catalog info, permissions, and next steps.
+        WORKFLOW:
+            1. Query Quilt for the current login session and catalog configuration.
+            2. If authenticated, surface recommended tools for package exploration and permission discovery.
+            3. If not authenticated, return step-by-step setup instructions to get the user connected.
+
+        Returns:
+            Dict describing authentication status, catalog metadata, and recommended next actions.
+
+            Response format:
+            {
+                "status": "authenticated",
+                "catalog_name": "nightly.quilttest.com",
+                "catalog_url": "https://nightly.quilttest.com",
+                "user_info": {"username": "alice", "email": "alice@example.com"},
+                "suggested_actions": ["Try listing packages with: packages_list()"],
+                "next_steps": {"immediate": "..."}
+            }
+
+        Next step:
+            Relay the status summary to the user and follow the suggested actions (e.g., run ``packages_list`` or guide the
+            user through login using the returned ``setup_instructions`` when unauthenticated).
+
+        Example:
+            ```python
+            from quilt_mcp.tools import auth
+
+            status = auth.auth_status()
+            if status["status"] != "authenticated":
+                guidance = "
+    ".join(status["setup_instructions"])
+            ```
+    
     """
     try:
         # Get comprehensive catalog information
@@ -439,10 +580,39 @@ def auth_status() -> dict[str, Any]:
 
 
 def filesystem_status() -> dict[str, Any]:
-    """Check filesystem permissions and environment capabilities.
+    """Probe filesystem access - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Record core directories relevant to Quilt tooling (home, temp, CWD).
+        2. Attempt lightweight write tests to confirm whether persistent flows are available.
+        3. Recommend which Quilt tools are safe to use given the discovered permissions.
 
     Returns:
-        Dict with filesystem access status and available tools.
+        Dict summarizing access checks (``home_writable``, ``temp_writable``) plus ``status`` and ``tools_available``.
+
+        Response format:
+        {
+            "home_directory": "/Users/alice",
+            "temp_directory": "/var/folders/..",
+            "current_directory": "/workspace",
+            "home_writable": true,
+            "temp_writable": true,
+            "status": "full_access",
+            "tools_available": ["auth_status", "packages_list", "..."]
+        }
+
+    Next step:
+        Use ``result["tools_available"]`` to inform the user which commands are safe, or branch to sandbox-safe flows if
+        write access is limited.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        fs_status = auth.filesystem_status()
+        if not fs_status["home_writable"]:
+            note = "Falling back to read-only tooling."
+        ```
     """
     result: dict[str, Any] = {
         "home_directory": os.path.expanduser("~"),
@@ -532,13 +702,38 @@ def filesystem_status() -> dict[str, Any]:
 
 
 def configure_catalog(catalog_url: str) -> dict[str, Any]:
-    """Configure Quilt catalog URL.
+    """Configure Quilt catalog URL - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Validate that the provided URL includes an HTTP(S) scheme.
+        2. Persist the catalog setting through ``QuiltService.set_config``.
+        3. Return confirmation and recommended actions (login, status check, exploration tools).
 
     Args:
-        catalog_url: Quilt catalog URL (e.g., 'https://demo.quiltdata.com')
+        catalog_url: Full catalog URL such as ``https://demo.quiltdata.com``.
 
     Returns:
-        Dict with configuration result and next steps.
+        Dict with ``status``, the normalized catalog URL, and follow-up instructions for login verification.
+
+        Response format:
+        {
+            "status": "success",
+            "catalog_url": "https://demo.quiltdata.com",
+            "configured_url": "https://demo.quiltdata.com",
+            "next_steps": ["Login with: quilt3 login", "..."]
+        }
+
+    Next step:
+        Run ``quilt3 login`` (or instruct the user to do so) and confirm connectivity via ``auth.auth_status()``.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        outcome = auth.configure_catalog("https://nightly.quilttest.com")
+        if outcome["status"] == "success":
+            login_hint = outcome["next_steps"][0]
+        ```
     """
     try:
         # Validate URL format
@@ -597,13 +792,39 @@ def configure_catalog(catalog_url: str) -> dict[str, Any]:
 
 
 def switch_catalog(catalog_name: str) -> dict[str, Any]:
-    """Switch to a different Quilt catalog by name.
+    """Switch Quilt catalog - Quilt authentication and catalog navigation workflows
+
+    WORKFLOW:
+        1. Map friendly catalog names (demo, sandbox, open) to their canonical URLs.
+        2. Fallback to interpreting the input as a direct URL or construct ``https://{catalog_name}``.
+        3. Delegate to ``configure_catalog`` to persist the target and return confirmation metadata.
 
     Args:
-        catalog_name: Catalog name or URL to switch to
+        catalog_name: Friendly name (``demo``) or full URL (``https://demo.quiltdata.com``) of the desired catalog.
 
     Returns:
-        Dict with switch result and status.
+        Dict mirroring ``configure_catalog`` output with extra fields describing the switch action.
+
+        Response format:
+        {
+            "status": "success",
+            "catalog_url": "https://sandbox.quiltdata.com",
+            "action": "switched",
+            "to_catalog": "sandbox",
+            "warning": "You may need to login again with: quilt3 login"
+        }
+
+    Next step:
+        Prompt the user to re-authenticate via ``quilt3 login`` and verify connectivity using ``auth.auth_status()``.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        outcome = auth.switch_catalog("demo")
+        if outcome["status"] == "success":
+            verify = auth.auth_status()
+        ```
     """
     try:
         # Common catalog mappings

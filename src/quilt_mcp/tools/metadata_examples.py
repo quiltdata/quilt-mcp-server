@@ -9,11 +9,21 @@ from .metadata_templates import get_metadata_template, list_metadata_templates
 
 
 def show_metadata_examples() -> Dict[str, Any]:
-    """
-    Show comprehensive metadata usage examples with working patterns.
+    """Show comprehensive metadata usage examples with working patterns - Metadata authoring guidance and troubleshooting
 
     Returns:
         Dict with examples, patterns, and troubleshooting guidance
+
+    Next step:
+        Share the recommended metadata pattern or feed the generated payload into creation tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_examples
+
+        result = metadata_examples.show_metadata_examples()
+        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
+        ```
     """
     return {
         "metadata_usage_guide": {
@@ -154,8 +164,7 @@ def create_metadata_from_template(
     description: str = "",
     custom_fields: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
-    """
-    Create metadata using a template with custom fields - simplified interface.
+    """Create metadata using a template with custom fields - Metadata authoring guidance and troubleshooting
 
     Args:
         template_name: Template to use ('standard', 'genomics', 'ml', 'research', 'analytics')
@@ -171,6 +180,17 @@ def create_metadata_from_template(
 
         Then use in package creation:
         package_create("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
+
+    Next step:
+        Share the recommended metadata pattern or feed the generated payload into creation tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_examples
+
+        result = metadata_examples.create_metadata_from_template()
+        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
+        ```
     """
     try:
         # Get base template
@@ -203,11 +223,21 @@ def create_metadata_from_template(
 
 
 def fix_metadata_validation_issues() -> Dict[str, Any]:
-    """
-    Provide specific guidance for fixing metadata validation issues.
+    """Provide specific guidance for fixing metadata validation issues - Metadata authoring guidance and troubleshooting
 
     Returns:
         Comprehensive troubleshooting guide for metadata problems
+
+    Next step:
+        Share the recommended metadata pattern or feed the generated payload into creation tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_examples
+
+        result = metadata_examples.fix_metadata_validation_issues()
+        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
+        ```
     """
     return {
         "common_issues_and_fixes": {

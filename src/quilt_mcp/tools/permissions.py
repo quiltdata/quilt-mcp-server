@@ -30,8 +30,7 @@ def aws_permissions_discover(
     include_cross_account: bool = False,
     force_refresh: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Discover AWS permissions for current user/role.
+    """Discover AWS permissions for current user/role - AWS permission discovery and access planning
 
     Args:
         check_buckets: Specific buckets to check (optional)
@@ -40,6 +39,17 @@ def aws_permissions_discover(
 
     Returns:
         Comprehensive permission report with bucket access levels
+
+    Next step:
+        Translate the permission insights to user guidance or follow up with targeted access checks.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import permissions
+
+        result = permissions.aws_permissions_discover()
+        # Next step: Translate the permission insights to user guidance or follow up with targeted access checks.
+        ```
     """
     try:
         discovery = _get_permission_discovery()
@@ -113,8 +123,7 @@ def aws_permissions_discover(
 
 
 def bucket_access_check(bucket_name: str, operations: List[str] = None) -> Dict[str, Any]:
-    """
-    Check specific access permissions for a bucket.
+    """Check specific access permissions for a bucket - AWS permission discovery and access planning
 
     Args:
         bucket_name: S3 bucket to check
@@ -122,6 +131,19 @@ def bucket_access_check(bucket_name: str, operations: List[str] = None) -> Dict[
 
     Returns:
         Detailed access report for the specified bucket
+
+    Next step:
+        Translate the permission insights to user guidance or follow up with targeted access checks.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import permissions
+
+        result = permissions.bucket_access_check(
+            bucket_name="example-bucket",
+        )
+        # Next step: Translate the permission insights to user guidance or follow up with targeted access checks.
+        ```
     """
     if operations is None:
         operations = ["read", "write", "list"]
@@ -183,8 +205,7 @@ def bucket_recommendations_get(
     operation_type: str = "package_creation",
     user_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Get smart bucket recommendations based on permissions and context.
+    """Get smart bucket recommendations based on permissions and context - AWS permission discovery and access planning
 
     Args:
         source_bucket: Source bucket for context (optional)
@@ -193,6 +214,17 @@ def bucket_recommendations_get(
 
     Returns:
         Categorized bucket recommendations with rationale
+
+    Next step:
+        Translate the permission insights to user guidance or follow up with targeted access checks.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import permissions
+
+        result = permissions.bucket_recommendations_get()
+        # Next step: Translate the permission insights to user guidance or follow up with targeted access checks.
+        ```
     """
     try:
         discovery = _get_permission_discovery()

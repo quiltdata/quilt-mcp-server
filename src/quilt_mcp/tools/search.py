@@ -23,8 +23,7 @@ def unified_search(
     filters: Optional[Dict[str, Any]] = None,
     count_only: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Intelligent unified search across Quilt catalogs, packages, and S3 buckets.
+    """Intelligent unified search across Quilt catalogs, packages, and S3 buckets - Catalog and package search experiences
 
     This tool automatically:
     - Parses natural language queries
@@ -42,6 +41,7 @@ def unified_search(
         include_content_preview: Include content previews for files (default: False)
         explain_query: Include query execution explanation and backend selection reasoning (default: False)
         filters: Additional filters as dict - e.g., {"file_extensions": ["csv"], "size_gt": "100MB", "date_after": "2023-01-01"}
+        count_only: Return aggregated counts only (skips fetching full result payloads) when True.
 
     Returns:
         Unified search results with metadata, explanations, and suggestions
@@ -52,6 +52,19 @@ def unified_search(
         unified_search("README files", scope="package", target="user/dataset")
         unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
         unified_search("*.csv", scope="bucket", target="s3://quilt-example")
+
+    Next step:
+        Summarize the search insight or refine the query with another search helper.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.unified_search(
+            query="status:READY",
+        )
+        # Next step: Summarize the search insight or refine the query with another search helper.
+        ```
     """
     try:
         # Set default backends if None
@@ -124,8 +137,7 @@ def search_suggest(
     suggestion_types: Optional[List[str]] = None,
     limit: int = 10,
 ) -> Dict[str, Any]:
-    """
-    Get intelligent search suggestions based on partial queries and context.
+    """Get intelligent search suggestions based on partial queries and context - Catalog and package search experiences
 
     Args:
         partial_query: Partial or incomplete search query
@@ -135,6 +147,19 @@ def search_suggest(
 
     Returns:
         Search suggestions with explanations and examples
+
+    Next step:
+        Summarize the search insight or refine the query with another search helper.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.search_suggest(
+            partial_query="SELECT * FROM table",
+        )
+        # Next step: Summarize the search insight or refine the query with another search helper.
+        ```
     """
     try:
         if suggestion_types is None:
@@ -155,8 +180,7 @@ def search_suggest(
 
 
 def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
-    """
-    Explain how a search query would be processed and executed.
+    """Explain how a search query would be processed and executed - Catalog and package search experiences
 
     Args:
         query: Search query to explain
@@ -165,6 +189,19 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
 
     Returns:
         Detailed explanation of query processing and backend selection
+
+    Next step:
+        Summarize the search insight or refine the query with another search helper.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.search_explain(
+            query="status:READY",
+        )
+        # Next step: Summarize the search insight or refine the query with another search helper.
+        ```
     """
     try:
         return _search_explain(query=query)

@@ -46,8 +46,7 @@ def workflow_create(
     description: str = "",
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Create a new workflow for tracking multi-step operations.
+    """Create a new workflow for tracking multi-step operations - Workflow tracking and orchestration tasks
 
     Args:
         workflow_id: Unique identifier for the workflow
@@ -57,6 +56,20 @@ def workflow_create(
 
     Returns:
         Workflow creation result with tracking information
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_create(
+            workflow_id="wf-123",
+            name="example-name",
+        )
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         if not workflow_id or not workflow_id.strip():
@@ -109,8 +122,7 @@ def workflow_add_step(
     dependencies: Optional[List[str]] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Add a step to an existing workflow.
+    """Add a step to an existing workflow - Workflow tracking and orchestration tasks
 
     Args:
         workflow_id: ID of the workflow to add step to
@@ -122,6 +134,21 @@ def workflow_add_step(
 
     Returns:
         Step addition result
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_add_step(
+            workflow_id="wf-123",
+            step_id="step-1",
+            description="Short workflow description",
+        )
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         if workflow_id not in _workflows:
@@ -182,8 +209,7 @@ def workflow_update_step(
     result: Optional[Dict[str, Any]] = None,
     error_message: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Update the status of a workflow step.
+    """Update the status of a workflow step - Workflow tracking and orchestration tasks
 
     Args:
         workflow_id: ID of the workflow
@@ -194,6 +220,21 @@ def workflow_update_step(
 
     Returns:
         Step update result
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_update_step(
+            workflow_id="wf-123",
+            step_id="step-1",
+            status="in_progress",
+        )
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         if workflow_id not in _workflows:
@@ -279,14 +320,26 @@ def workflow_update_step(
 
 
 def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
-    """
-    Get the current status of a workflow.
+    """Get the current status of a workflow - Workflow tracking and orchestration tasks
 
     Args:
         workflow_id: ID of the workflow to check
 
     Returns:
         Comprehensive workflow status information
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_get_status(
+            workflow_id="wf-123",
+        )
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         if workflow_id not in _workflows:
@@ -341,11 +394,21 @@ def workflow_get_status(workflow_id: str) -> Dict[str, Any]:
 
 
 def workflow_list_all() -> Dict[str, Any]:
-    """
-    List all workflows with their current status.
+    """List all workflows with their current status - Workflow tracking and orchestration tasks
 
     Returns:
         List of all workflows with summary information
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_list_all()
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         workflows_summary = []
@@ -389,8 +452,7 @@ def workflow_list_all() -> Dict[str, Any]:
 
 
 def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Apply a pre-defined workflow template.
+    """Apply a pre-defined workflow template - Workflow tracking and orchestration tasks
 
     Args:
         template_name: Name of the template to apply
@@ -399,6 +461,21 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
 
     Returns:
         Workflow creation result with template-specific steps
+
+    Next step:
+        Update the workflow state or share the status summary before moving on.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import workflow_orchestration
+
+        result = workflow_orchestration.workflow_template_apply(
+            template_name="standard",
+            workflow_id="wf-123",
+            params=["example"],
+        )
+        # Next step: Update the workflow state or share the status summary before moving on.
+        ```
     """
     try:
         # Use string-based template selection instead of function references

@@ -39,8 +39,7 @@ def generate_quilt_summarize_json(
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
 ) -> Dict[str, Any]:
-    """
-    Generate a comprehensive quilt_summarize.json file following Quilt standards.
+    """Generate a comprehensive quilt_summarize.json file following Quilt standards - Quilt summary file generation tasks
 
     This file provides a machine-readable summary of the package contents,
     structure, and metadata for automated processing and discovery.
@@ -55,6 +54,23 @@ def generate_quilt_summarize_json(
 
     Returns:
         Complete quilt_summarize.json content as dictionary
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.generate_quilt_summarize_json(
+            package_name="team/dataset",
+            package_metadata={"key": "value"},
+            organized_structure="example_value",
+            readme_content="example_value",
+            source_info="example_value",
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
         # Calculate comprehensive statistics
@@ -162,8 +178,7 @@ def generate_package_visualizations(
     package_metadata: Optional[Dict[str, Any]] = None,
     **_extra: Any,
 ) -> Dict[str, Any]:
-    """
-    Generate comprehensive visualizations for the package.
+    """Generate comprehensive visualizations for the package - Quilt summary file generation tasks
 
     Creates multiple visualization types:
     - File type distribution pie chart
@@ -176,9 +191,25 @@ def generate_package_visualizations(
         organized_structure: Organized file structure
         file_types: File type counts
         metadata_template: Template for color scheme selection
+        package_metadata: Additional package metadata to annotate the visualization summaries.
 
     Returns:
         Dictionary with visualization data and metadata
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.generate_package_visualizations(
+            package_name="team/dataset",
+            organized_structure="example_value",
+            file_types=["example"],
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
         # Normalize incoming file_types to simple counts
@@ -545,8 +576,7 @@ def create_quilt_summary_files(
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
 ) -> Dict[str, Any]:
-    """
-    Create all Quilt summary files for a package.
+    """Create all Quilt summary files for a package - Quilt summary file generation tasks
 
     Generates:
     - quilt_summarize.json: Machine-readable package summary
@@ -563,6 +593,23 @@ def create_quilt_summary_files(
 
     Returns:
         Dictionary with all generated files and content
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.create_quilt_summary_files(
+            package_name="team/dataset",
+            package_metadata={"key": "value"},
+            organized_structure="example_value",
+            readme_content="example_value",
+            source_info="example_value",
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
         # Generate quilt_summarize.json

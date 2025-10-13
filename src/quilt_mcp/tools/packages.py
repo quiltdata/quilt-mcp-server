@@ -24,7 +24,7 @@ def _normalize_registry(bucket_or_uri: str) -> str:
 
 
 def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str = "") -> dict[str, Any]:
-    """List all available Quilt packages in a registry.
+    """List all available Quilt packages in a registry - Quilt package discovery and comparison tasks
 
     Args:
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
@@ -33,6 +33,17 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
     Returns:
         Dict with list of package names.
+
+    Next step:
+        Surface package details to the user or feed identifiers into downstream package tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import packages
+
+        result = packages.packages_list()
+        # Next step: Surface package details to the user or feed identifiers into downstream package tools.
+        ```
     """
     # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
     normalized_registry = _normalize_registry(registry)
@@ -55,15 +66,29 @@ def packages_list(registry: str = DEFAULT_REGISTRY, limit: int = 0, prefix: str 
 
 
 def packages_search(query: str, registry: str = DEFAULT_REGISTRY, limit: int = 10, from_: int = 0) -> dict[str, Any]:
-    """Search for Quilt packages by content and metadata.
+    """Search for Quilt packages by content and metadata - Quilt package discovery and comparison tasks
 
     Args:
         query: Search query string to find packages
         registry: Quilt registry URL (default: DEFAULT_REGISTRY)
         limit: Maximum number of search results (default: 10)
+        from_: Result offset for pagination when retrieving additional pages (default: 0)
 
     Returns:
         Dict with search results including package names and metadata.
+
+    Next step:
+        Surface package details to the user or feed identifiers into downstream package tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import packages
+
+        result = packages.packages_search(
+            query="status:READY",
+        )
+        # Next step: Surface package details to the user or feed identifiers into downstream package tools.
+        ```
     """
     # HYBRID APPROACH: Use unified search architecture but scope to specified registry
     # This prevents inappropriate searches across buckets not in user's stack
@@ -186,7 +211,7 @@ def package_browse(
     exclude: list[str] | None = None,
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
-    """Browse the contents of a Quilt package with enhanced file information.
+    """Browse the contents of a Quilt package with enhanced file information - Quilt package discovery and comparison tasks
 
     Args:
         package_name: Name of the package to browse (e.g., "username/package-name")
@@ -211,6 +236,19 @@ def package_browse(
 
         Limited depth:
         package_browse("team/dataset", max_depth=2)
+
+    Next step:
+        Surface package details to the user or feed identifiers into downstream package tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import packages
+
+        result = packages.package_browse(
+            package_name="team/dataset",
+        )
+        # Next step: Surface package details to the user or feed identifiers into downstream package tools.
+        ```
     """
     # Initialize mutable defaults
     if include is None:
@@ -414,7 +452,7 @@ def package_contents_search(
     registry: str = DEFAULT_REGISTRY,
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
-    """Search within a package's contents by filename or path.
+    """Search within a package's contents by filename or path - Quilt package discovery and comparison tasks
 
     Args:
         package_name: Name of the package to search (e.g., "username/package-name")
@@ -424,6 +462,20 @@ def package_contents_search(
 
     Returns:
         Dict with matching entries including logical keys, S3 URIs, and optional download URLs.
+
+    Next step:
+        Surface package details to the user or feed identifiers into downstream package tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import packages
+
+        result = packages.package_contents_search(
+            package_name="team/dataset",
+            query="status:READY",
+        )
+        # Next step: Surface package details to the user or feed identifiers into downstream package tools.
+        ```
     """
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
@@ -491,7 +543,7 @@ def package_diff(
     package1_hash: str = "",
     package2_hash: str = "",
 ) -> dict[str, Any]:
-    """Compare two package versions and show differences.
+    """Compare two package versions and show differences - Quilt package discovery and comparison tasks
 
     Args:
         package1_name: Name of the first package (e.g., "username/package-name")
@@ -502,6 +554,20 @@ def package_diff(
 
     Returns:
         Dict with differences between the two packages including added, removed, and modified files.
+
+    Next step:
+        Surface package details to the user or feed identifiers into downstream package tools.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import packages
+
+        result = packages.package_diff(
+            package1_name="example_value",
+            package2_name="example_value",
+        )
+        # Next step: Surface package details to the user or feed identifiers into downstream package tools.
+        ```
     """
     normalized_registry = _normalize_registry(registry)
 

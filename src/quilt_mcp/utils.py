@@ -86,45 +86,15 @@ def create_mcp_server() -> FastMCP:
 
 def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
-    from quilt_mcp.tools import (
-        auth,
-        buckets,
-        package_ops,
-        packages,
-        s3_package,
-        permissions,
-        unified_package,
-        metadata_templates,
-        package_management,
-        metadata_examples,
-        quilt_summary,
-        search,
-        athena_glue,
-        tabulator,
-        workflow_orchestration,
-        governance,
-    )
+    from importlib import import_module
 
-    # error_recovery temporarily disabled due to Callable parameter issues
+    from quilt_mcp.tools import AVAILABLE_MODULES
 
-    return [
-        auth,
-        buckets,
-        packages,
-        package_ops,
-        s3_package,
-        permissions,
-        unified_package,
-        metadata_templates,
-        package_management,
-        metadata_examples,
-        quilt_summary,
-        search,
-        athena_glue,
-        tabulator,
-        workflow_orchestration,
-        governance,
-    ]
+    modules: list[Any] = []
+    for module_name in AVAILABLE_MODULES:
+        module = import_module(f"quilt_mcp.tools.{module_name}")
+        modules.append(module)
+    return modules
 
 
 def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose: bool = True) -> int:

@@ -385,7 +385,22 @@ _tabulator_service = None
 
 
 def get_tabulator_service() -> TabulatorService:
-    """Get or create the tabulator service instance."""
+    """Get or create the tabulator service instance - Tabulator table management and SQL automation
+
+    Returns:
+        Singleton ``TabulatorService`` configured with Quilt authentication defaults.
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.get_tabulator_service()
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
+    """
     global _tabulator_service
     if _tabulator_service is None:
         _tabulator_service = TabulatorService()
@@ -455,8 +470,7 @@ def _tabulator_query(
 
 
 async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
-    """
-    List all tabulator tables configured for a bucket.
+    """List all tabulator tables configured for a bucket - Tabulator table management and SQL automation
 
     Tabulator tables enable SQL querying across multiple Quilt packages,
     aggregating data based on configurable patterns and schemas.
@@ -470,6 +484,19 @@ async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
         - tables: List of tabulator tables with their configurations
         - bucket_name: The bucket name that was queried
         - count: Number of tables found
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_tables_list(
+            bucket_name="example-bucket",
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         service = get_tabulator_service()
@@ -491,8 +518,7 @@ async def tabulator_table_create(
     parser_skip_rows: int = 0,
     description: str = None,
 ) -> Dict[str, Any]:
-    """
-    Create a new tabulator table configuration.
+    """Create a new tabulator table configuration - Tabulator table management and SQL automation
 
     Tabulator tables aggregate data from package contents based on regex patterns
     that match package names and logical keys within packages.
@@ -512,6 +538,23 @@ async def tabulator_table_create(
 
     Returns:
         Dict containing success status and table creation details
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_table_create(
+            bucket_name="example-bucket",
+            table_name="summary",
+            schema="example_value",
+            package_pattern="example_value",
+            logical_key_pattern="example_value",
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         # Build parser configuration
@@ -542,8 +585,7 @@ async def tabulator_table_create(
 
 
 async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str, Any]:
-    """
-    Delete a tabulator table configuration.
+    """Delete a tabulator table configuration - Tabulator table management and SQL automation
 
     Args:
         bucket_name: Name of the S3 bucket
@@ -551,6 +593,20 @@ async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str,
 
     Returns:
         Dict containing success status and deletion confirmation
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_table_delete(
+            bucket_name="example-bucket",
+            table_name="summary",
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         service = get_tabulator_service()
@@ -561,8 +617,7 @@ async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str,
 
 
 async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
-    """
-    Rename a tabulator table.
+    """Rename a tabulator table - Tabulator table management and SQL automation
 
     Args:
         bucket_name: Name of the S3 bucket
@@ -571,6 +626,21 @@ async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_na
 
     Returns:
         Dict containing success status and rename confirmation
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_table_rename(
+            bucket_name="example-bucket",
+            table_name="summary",
+            new_table_name="example_value",
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         service = get_tabulator_service()
@@ -581,8 +651,7 @@ async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_na
 
 
 async def tabulator_open_query_status() -> Dict[str, Any]:
-    """
-    Get the current status of tabulator open query feature.
+    """Get the current status of tabulator open query feature - Tabulator table management and SQL automation
 
     The open query feature allows broader access to tabulator functionality.
 
@@ -590,6 +659,17 @@ async def tabulator_open_query_status() -> Dict[str, Any]:
         Dict containing:
         - success: Whether the operation succeeded
         - open_query_enabled: Current status of the open query feature
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_open_query_status()
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         service = get_tabulator_service()
@@ -600,8 +680,7 @@ async def tabulator_open_query_status() -> Dict[str, Any]:
 
 
 async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
-    """
-    Enable or disable tabulator open query feature.
+    """Enable or disable tabulator open query feature - Tabulator table management and SQL automation
 
     Args:
         enabled: Whether to enable (True) or disable (False) open query
@@ -611,6 +690,19 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
         - success: Whether the operation succeeded
         - open_query_enabled: Updated status of the open query feature
         - message: Confirmation message
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_open_query_toggle(
+            enabled=True,
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         service = get_tabulator_service()
@@ -621,8 +713,7 @@ async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
 
 
 async def tabulator_buckets_list() -> Dict[str, Any]:
-    """
-    List all buckets (databases) available in the Tabulator catalog.
+    """List all buckets (databases) available in the Tabulator catalog - Tabulator table management and SQL automation
 
     This discovers all Quilt buckets that have Tabulator tables configured,
     enabling exploration of the Tabulator catalog without knowing bucket names.
@@ -632,6 +723,17 @@ async def tabulator_buckets_list() -> Dict[str, Any]:
         - success: Whether the operation succeeded
         - buckets: List of bucket names (database names)
         - count: Number of buckets found
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_buckets_list()
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         # Execute SHOW DATABASES query to discover buckets
@@ -670,8 +772,7 @@ async def tabulator_bucket_query(
     output_format: str = "json",
     use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Execute SQL query against a specific bucket in the Tabulator catalog.
+    """Execute SQL query against a specific bucket in the Tabulator catalog - Tabulator table management and SQL automation
 
     This is the recommended way to query Tabulator tables. It auto-discovers
     the Tabulator catalog and sets the database context to the specified bucket.
@@ -686,6 +787,20 @@ async def tabulator_bucket_query(
 
     Returns:
         Query execution results with data, metadata, and formatting
+
+    Next step:
+        Execute the next tabulator action (list/create/update) or relay the information to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import tabulator
+
+        result = tabulator.tabulator_bucket_query(
+            bucket_name="example-bucket",
+            query="status:READY",
+        )
+        # Next step: Execute the next tabulator action (list/create/update) or relay the information to the user.
+        ```
     """
     try:
         # Validate inputs

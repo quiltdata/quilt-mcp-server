@@ -486,3 +486,14 @@ Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
 ALWAYS prefer editing an existing file to creating a new one.
 NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## docstring-style-enforcement
+
+- `tests/unit/test_tool_docstring_style.py` enforces the LLM docstring style guide across every MCP tool; run `PYTHONPATH=src PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/test_tool_docstring_style.py` after touching tool docstrings.
+- Each tool docstring must include a first-line context (`Action - Use case`), Args/Returns with actionable guidance, a “Next step:” section, and an executable example that shows how to consume the response.
+- Module contexts + default “Next step” phrasing live inline in the test; reuse them when adding new tools so the style check passes on the first try.
+
+## visualization-tooling
+
+- Quilt-native visualization lives in `src/quilt_mcp/tools/data_visualization.py`; it avoids heavy runtime deps (pandas/numpy) so it can run inside the current CLI sandbox.
+- Tool package exports are now lazy-loaded in `quilt_mcp/tools/__init__.py`; grab module names via `AVAILABLE_MODULES` and import specific tools with `importlib` to keep startup lightweight.
