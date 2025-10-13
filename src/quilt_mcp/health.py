@@ -25,11 +25,11 @@ def get_server_info() -> dict:
     }
 
 
-async def health_check_handler(request: Request) -> JSONResponse:
-    """Handle health check requests.
+def _build_health_response(route: str) -> JSONResponse:
+    """Build a health check response with route information.
 
     Args:
-        request: The incoming HTTP request
+        route: The route path being checked
 
     Returns:
         JSONResponse with health status information
@@ -45,6 +45,7 @@ async def health_check_handler(request: Request) -> JSONResponse:
         response_data = {
             "status": "ok",
             "timestamp": timestamp,
+            "route": route,
             "server": server_info,
         }
 
@@ -64,6 +65,7 @@ async def health_check_handler(request: Request) -> JSONResponse:
         error_response = {
             "status": "unhealthy",
             "timestamp": timestamp,
+            "route": route,
             "error": str(e),
         }
 
@@ -75,3 +77,41 @@ async def health_check_handler(request: Request) -> JSONResponse:
                 "Cache-Control": "no-cache, no-store, must-revalidate",
             },
         )
+
+
+async def health_check_handler(request: Request) -> JSONResponse:
+    """Handle health check requests at /health.
+
+    Args:
+        request: The incoming HTTP request
+
+    Returns:
+        JSONResponse with health status information
+    """
+    return _build_health_response("/health")
+
+
+async def healthz_handler(request: Request) -> JSONResponse:
+    """Handle health check requests at /healthz.
+
+    Args:
+        request: The incoming HTTP request
+
+    Returns:
+        JSONResponse with health status information
+    """
+    return _build_health_response("/healthz")
+
+
+async def root_handler(request: Request) -> JSONResponse:
+    """Handle health check requests at /.
+
+    Args:
+        request: The incoming HTTP request
+
+    Returns:
+        JSONResponse with health status information
+    """
+    return _build_health_response("/")
+
+
