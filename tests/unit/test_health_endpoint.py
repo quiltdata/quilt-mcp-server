@@ -124,53 +124,18 @@ class TestMultipleHealthCheckRoutes:
         assert body["status"] == "ok"
 
     @pytest.mark.asyncio
-    async def test_mcp_health_endpoint_returns_ok_status(self):
-        """Test that /mcp/health endpoint returns OK status."""
-        # Arrange
-        from quilt_mcp.health import mcp_health_handler
-
-        mock_request = MagicMock(spec=Request)
-
-        # Act
-        response = await mcp_health_handler(mock_request)
-
-        # Assert
-        assert isinstance(response, JSONResponse)
-        assert response.status_code == 200
-        body = json.loads(response.body.decode())
-        assert body["status"] == "ok"
-
-    @pytest.mark.asyncio
-    async def test_mcp_healthz_endpoint_returns_ok_status(self):
-        """Test that /mcp/healthz endpoint returns OK status."""
-        # Arrange
-        from quilt_mcp.health import mcp_healthz_handler
-
-        mock_request = MagicMock(spec=Request)
-
-        # Act
-        response = await mcp_healthz_handler(mock_request)
-
-        # Assert
-        assert isinstance(response, JSONResponse)
-        assert response.status_code == 200
-        body = json.loads(response.body.decode())
-        assert body["status"] == "ok"
-
-    @pytest.mark.asyncio
     async def test_all_health_endpoints_include_route_info(self):
         """Test that all health endpoints include the route that was called."""
         # Arrange
-        from quilt_mcp.health import healthz_handler, root_handler, mcp_health_handler, mcp_healthz_handler
+        from quilt_mcp.health import healthz_handler, root_handler
 
         mock_request = MagicMock(spec=Request)
 
         # Act & Assert for each handler
+        # Note: /mcp/* paths are reserved by FastMCP for protocol endpoints
         handlers = [
             (healthz_handler, "/healthz"),
             (root_handler, "/"),
-            (mcp_health_handler, "/mcp/health"),
-            (mcp_healthz_handler, "/mcp/healthz"),
         ]
 
         for handler, expected_route in handlers:

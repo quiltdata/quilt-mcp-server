@@ -292,17 +292,14 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
             health_check_handler,
             healthz_handler,
             root_handler,
-            mcp_health_handler,
-            mcp_healthz_handler,
         )
 
         # Register all health check endpoint variations
+        # Note: /mcp/* paths are reserved by FastMCP for protocol endpoints
         health_routes = [
             ("/health", health_check_handler),
             ("/healthz", healthz_handler),
             ("/", root_handler),
-            ("/mcp/health", mcp_health_handler),
-            ("/mcp/healthz", mcp_healthz_handler),
         ]
 
         for route, handler in health_routes:

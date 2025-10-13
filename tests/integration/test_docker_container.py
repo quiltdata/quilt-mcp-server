@@ -69,12 +69,11 @@ def test_docker_image_serves_http():
             pytest.fail(f"Container never became ready: {last_exception}")
 
         # Test all health check endpoint variations
+        # Note: /mcp/* paths are reserved by FastMCP for protocol endpoints
         health_endpoints = [
             (f"http://127.0.0.1:{free_port}/health", "/health"),
             (f"http://127.0.0.1:{free_port}/healthz", "/healthz"),
             (f"http://127.0.0.1:{free_port}/", "/"),
-            (f"http://127.0.0.1:{free_port}/mcp/health", "/mcp/health"),
-            (f"http://127.0.0.1:{free_port}/mcp/healthz", "/mcp/healthz"),
         ]
 
         for endpoint_url, expected_route in health_endpoints:

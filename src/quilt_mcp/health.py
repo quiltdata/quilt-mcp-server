@@ -115,25 +115,3 @@ async def root_handler(request: Request) -> JSONResponse:
     return _build_health_response("/")
 
 
-async def mcp_health_handler(request: Request) -> JSONResponse:
-    """Handle health check requests at /mcp/health.
-
-    Args:
-        request: The incoming HTTP request
-
-    Returns:
-        JSONResponse with health status information
-    """
-    return _build_health_response("/mcp/health")
-
-
-async def mcp_healthz_handler(request: Request) -> JSONResponse:
-    """Handle health check requests at /mcp/healthz.
-
-    Args:
-        request: The incoming HTTP request
-
-    Returns:
-        JSONResponse with health status information
-    """
-    return _build_health_response("/mcp/healthz")
