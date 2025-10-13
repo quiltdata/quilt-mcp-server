@@ -14,7 +14,7 @@ import os
 import pytest
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 @pytest.mark.slow
 class TestTabulatorWorkflow:
     """Test complete Tabulator workflow with real bucket and data."""
@@ -122,7 +122,7 @@ class TestTabulatorWorkflow:
         print(f"Columns: {query_result.get('columns', [])}")
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 @pytest.mark.slow
 class TestAthenaWorkflow:
     """Test complete Athena workflow with real databases."""

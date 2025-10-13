@@ -13,7 +13,7 @@ from quilt_mcp import (
 from quilt_mcp.constants import DEFAULT_BUCKET
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_bucket_objects_list_success():
     """Test bucket objects listing with real AWS (integration test)."""
     result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=10)
@@ -32,7 +32,7 @@ def test_bucket_objects_list_error():
         assert "error" in result
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_bucket_object_info_success():
     """Test bucket object info with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
@@ -56,7 +56,7 @@ def test_bucket_object_info_invalid_uri():
     assert "error" in result
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_bucket_objects_put_success():
     """Test bucket objects upload with real AWS (integration test)."""
     # Use timestamp-based keys to avoid conflicts
@@ -82,7 +82,7 @@ def test_bucket_objects_put_success():
     assert result["uploaded"] >= 0
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_bucket_object_fetch_base64():
     """Test bucket object fetch with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
@@ -101,7 +101,7 @@ def test_bucket_object_fetch_base64():
     assert isinstance(result["data"], str)
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_bucket_object_link_success():
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     # First, get a list of objects to find one that exists

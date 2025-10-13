@@ -22,7 +22,7 @@ from quilt_mcp.validators import (
 )
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
@@ -138,7 +138,7 @@ class TestPackageCreateFromS3:
         )
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestUtilityFunctions:
     """Test cases for utility functions."""
 
@@ -275,7 +275,7 @@ class TestValidation:
             assert "package_hash" in result
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestEnhancedFunctionality:
     """Test cases for enhanced S3-to-package functionality."""
 

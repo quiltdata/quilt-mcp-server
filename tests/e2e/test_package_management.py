@@ -451,7 +451,7 @@ class TestToolDocumentation:
         assert "package_validate" in result["primary_tools"]
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestPackageManagementE2E:
     """True end-to-end tests for package management with real AWS operations.
 

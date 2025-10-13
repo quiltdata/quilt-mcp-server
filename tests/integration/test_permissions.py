@@ -22,11 +22,11 @@ from quilt_mcp.services.permission_discovery import (
 )
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     @patch("quilt_mcp.tools.permissions._get_permission_discovery")
     def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""
@@ -114,7 +114,7 @@ class TestAWSPermissionsDiscover:
         assert "Failed to discover AWS permissions" in result["error"]
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
@@ -169,7 +169,7 @@ class TestBucketAccessCheck:
         assert result["operation_tests"]["write"] is False
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
@@ -231,7 +231,7 @@ class TestBucketRecommendations:
         assert "temp-work" in recommendations["temporary_storage"]
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestPermissionDiscoveryEngine:
     """Test cases for the core permission discovery engine."""
 
@@ -313,7 +313,7 @@ class TestPermissionDiscoveryEngine:
         assert identity.account_id is not None
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_discover_bucket_permissions(self):
         """Test bucket permission discovery with real AWS connection."""
         # Skip if AWS credentials not available
@@ -343,7 +343,7 @@ class TestPermissionDiscoveryEngine:
         if bucket_info.permission_level != PermissionLevel.NO_ACCESS:
             assert bucket_info.can_list is True
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
         from quilt_mcp.constants import DEFAULT_BUCKET
@@ -364,7 +364,7 @@ class TestPermissionDiscoveryEngine:
         # Should have a timestamp
         assert bucket_info.last_checked is not None
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
         # Use a bucket name that definitely doesn't exist
@@ -381,7 +381,7 @@ class TestPermissionDiscoveryEngine:
         assert bucket_info.can_write is False
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestIntegrationWithS3Package:
     """Test integration between permissions and S3-to-package functionality."""
 

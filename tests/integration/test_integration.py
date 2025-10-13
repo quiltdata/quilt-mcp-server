@@ -56,7 +56,7 @@ def require_aws_credentials():
     return True
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 @pytest.mark.search
 class TestQuiltAPI:
     """Test suite for quilt MCP server using real data - tests that expect actual results."""
@@ -706,7 +706,7 @@ class TestQuiltAPI:
         ), f"Expected meaningful error about missing packages, got: {result['error']}"
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestBucketObjectVersionConsistency:
     """Integration tests for versionId consistency across bucket_object_* functions."""
 
