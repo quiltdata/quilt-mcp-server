@@ -14,18 +14,12 @@ import os
 import pytest
 
 
-@pytest.fixture(scope="module")
-def skip_if_no_aws():
-    """Check AWS credentials are available - test will fail if not."""
-    return True
-
-
 @pytest.mark.aws
 @pytest.mark.slow
 class TestTabulatorWorkflow:
     """Test complete Tabulator workflow with real bucket and data."""
 
-    def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
+    def test_tabulator_complete_workflow(self):
         """
         Complete Tabulator workflow with dynamic discovery:
         0. List all buckets in Tabulator catalog (tabulator_buckets_list)
@@ -133,7 +127,7 @@ class TestTabulatorWorkflow:
 class TestAthenaWorkflow:
     """Test complete Athena workflow with real databases."""
 
-    def test_athena_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
+    def test_athena_complete_workflow(self):
         """
         Complete Athena workflow:
         0. List all databases (athena_databases_list)
