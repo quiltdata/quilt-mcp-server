@@ -176,7 +176,6 @@ def generate_package_visualizations(
     file_types: Dict[str, Any],
     metadata_template: str = "standard",
     package_metadata: Optional[Dict[str, Any]] = None,
-    **_extra: Any,
 ) -> Dict[str, Any]:
     """Generate comprehensive visualizations for the package - Quilt summary file generation tasks
 
