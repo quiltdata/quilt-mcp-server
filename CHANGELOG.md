@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Docker Container Health Checks**: Added missing `curl` command required by ECS health checks
+  - Previously only `libcurl4` library was installed, causing ECS health checks to fail silently
+  - Added `curl` package to Dockerfile runtime stage for proper health check execution
+  - Added comprehensive integration tests to verify curl installation and health check behavior
+  - Added `scripts/test-docker-health.sh` debugging tool for developers to simulate ECS health checks locally
+  - Tests validate exact ECS health check command: `curl -v -f --max-time 8 http://localhost:80/health`
+  - Ensures all health check routes (/health, /healthz, /) work from inside the container
+
 ## [0.6.18] - 2025-10-12
 
 ### Added
@@ -309,7 +319,7 @@ Use `quilt-mcp` as the package name.
 ### Added Tool Exclusion System
 
 - **Tool Exclusion System**: Added ability to exclude deprecated tools to reduce client confusion
-  - Excluded `packages_list` (prefer `packages_search`)  
+  - Excluded `packages_list` (prefer `packages_search`)
   - Excluded `bucket_objects_list` (prefer `bucket_objects_search`)
   - Clear messaging when tools are skipped during registration
 
@@ -381,7 +391,7 @@ Use `quilt-mcp` as the package name.
 
 - **Repository Organization**: Cleanup and standardization
   - Removed unused build phases (build-docker, catalog-push, deploy-aws) (#84)
-  - Fixed DXT Makefile targets to use `tools/dxt` instead of `build-dxt` (#92)  
+  - Fixed DXT Makefile targets to use `tools/dxt` instead of `build-dxt` (#92)
   - Updated CLAUDE.md references to use top-level location (#86)
 
 ### Changed CI/CD
@@ -473,7 +483,7 @@ Use `quilt-mcp` as the package name.
 
 - **Production Readiness**: Comprehensive validation across all major use cases
   - Bioinformatics Data Integration: 95% confidence, production ready
-  - Package Management: 90% confidence, production ready  
+  - Package Management: 90% confidence, production ready
   - Search & Discovery: 95% confidence, production ready
   - Metadata Management: 85% confidence, mostly ready
 - **Real-World Performance**: Validated with actual scientific data
@@ -500,7 +510,7 @@ Use `quilt-mcp` as the package name.
 
 - **Athena/SQL Analytics Integration**: Complete AWS Athena integration for SQL queries on Quilt data
   - `athena_databases_list` - List available Athena databases
-  - `athena_tables_list` - List tables in a database  
+  - `athena_tables_list` - List tables in a database
   - `athena_query_execute` - Execute SQL queries via Athena
   - `athena_query_history` - Retrieve query execution history
   - `athena_query_validate` - Validate SQL syntax

@@ -97,3 +97,261 @@ def test_docker_image_serves_http():
         subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
         if container_id:
             subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
+
+
+@pytest.mark.integration
+def test_container_has_curl():
+    """Verify curl is installed (required for ECS health checks)."""
+    dockerfile = REPO_ROOT / "Dockerfile"
+    assert dockerfile.exists(), "Dockerfile must exist for container build"
+
+    build_cmd = (
+        "docker",
+        "build",
+        "--platform",
+        "linux/amd64",
+        "--tag",
+        IMAGE_TAG,
+        str(REPO_ROOT),
+    )
+    subprocess.run(build_cmd, check=True)
+
+    container_name = f"quilt-mcp-curl-test-{uuid.uuid4()}"
+
+    run_cmd = (
+        "docker",
+        "run",
+        "--detach",
+        "--rm",
+        "--name",
+        container_name,
+        IMAGE_TAG,
+    )
+    run_result = subprocess.run(run_cmd, check=True, text=True, capture_output=True)
+    container_id = run_result.stdout.strip()
+
+    try:
+        # Check if curl is installed
+        result = subprocess.run(
+            ["docker", "exec", container_id, "which", "curl"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"curl not found in container: {result.stderr}"
+        assert "/usr/bin/curl" in result.stdout, f"curl path unexpected: {result.stdout}"
+
+        # Verify curl version works
+        result = subprocess.run(
+            ["docker", "exec", container_id, "curl", "--version"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"curl --version failed: {result.stderr}"
+        assert "curl" in result.stdout.lower(), f"curl version output unexpected: {result.stdout}"
+
+    finally:
+        subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
+        if container_id:
+            subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
+
+
+@pytest.mark.integration
+def test_internal_health_check_localhost():
+    """Test the EXACT health check command that ECS uses from inside the container."""
+    dockerfile = REPO_ROOT / "Dockerfile"
+    assert dockerfile.exists(), "Dockerfile must exist for container build"
+
+    build_cmd = (
+        "docker",
+        "build",
+        "--platform",
+        "linux/amd64",
+        "--tag",
+        IMAGE_TAG,
+        str(REPO_ROOT),
+    )
+    subprocess.run(build_cmd, check=True)
+
+    free_port = _find_free_port()
+    container_name = f"quilt-mcp-health-test-{uuid.uuid4()}"
+
+    # Run with EXACT same env vars as ECS deployment
+    run_cmd = (
+        "docker",
+        "run",
+        "--detach",
+        "--rm",
+        "--name",
+        container_name,
+        "-e",
+        "FASTMCP_HOST=0.0.0.0",
+        "-e",
+        "FASTMCP_PORT=80",
+        "-e",
+        "FASTMCP_TRANSPORT=http",
+        "-p",
+        f"{free_port}:80",
+        IMAGE_TAG,
+    )
+    run_result = subprocess.run(run_cmd, check=True, text=True, capture_output=True)
+    container_id = run_result.stdout.strip()
+
+    try:
+        # Wait for container to be ready (check from outside first)
+        deadline = time.time() + DEFAULT_TIMEOUT
+        last_exception = None
+        external_url = f"http://127.0.0.1:{free_port}/health"
+
+        while time.time() < deadline:
+            try:
+                response = requests.get(external_url, timeout=5)
+                if response.status_code == 200:
+                    break
+            except Exception as exc:
+                last_exception = exc
+                time.sleep(2)
+        else:
+            pytest.fail(f"Container never became ready (external check): {last_exception}")
+
+        # Now test the EXACT command ECS runs inside the container
+        # This is the command from ECS task definition health check
+        health_check_cmd = [
+            "docker",
+            "exec",
+            container_id,
+            "/bin/sh",
+            "-c",
+            "curl -v -f --max-time 8 http://localhost:80/health 2>&1 || (echo 'HEALTH CHECK FAILED'; exit 1)",
+        ]
+
+        result = subprocess.run(health_check_cmd, capture_output=True, text=True, timeout=15)
+
+        # Debug output if it fails
+        if result.returncode != 0:
+            print("\n=== Health Check Failed ===")
+            print(f"Return code: {result.returncode}")
+            print(f"STDOUT:\n{result.stdout}")
+            print(f"STDERR:\n{result.stderr}")
+
+            # Additional debugging
+            ps_result = subprocess.run(
+                ["docker", "exec", container_id, "ps", "aux"],
+                capture_output=True,
+                text=True,
+            )
+            print(f"\n=== Container Processes ===\n{ps_result.stdout}")
+
+            netstat_result = subprocess.run(
+                ["docker", "exec", container_id, "netstat", "-tln"],
+                capture_output=True,
+                text=True,
+            )
+            print(f"\n=== Listening Ports ===\n{netstat_result.stdout}")
+
+        assert result.returncode == 0, f"Internal health check failed: {result.stderr}\n{result.stdout}"
+        assert "200 OK" in result.stdout or "200 OK" in result.stderr, (
+            f"Health check didn't return 200 OK: {result.stdout}\n{result.stderr}"
+        )
+
+    finally:
+        subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
+        if container_id:
+            subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
+
+
+@pytest.mark.integration
+def test_internal_health_check_all_routes():
+    """Test all health check routes from inside the container."""
+    dockerfile = REPO_ROOT / "Dockerfile"
+    assert dockerfile.exists(), "Dockerfile must exist for container build"
+
+    build_cmd = (
+        "docker",
+        "build",
+        "--platform",
+        "linux/amd64",
+        "--tag",
+        IMAGE_TAG,
+        str(REPO_ROOT),
+    )
+    subprocess.run(build_cmd, check=True)
+
+    free_port = _find_free_port()
+    container_name = f"quilt-mcp-routes-test-{uuid.uuid4()}"
+
+    run_cmd = (
+        "docker",
+        "run",
+        "--detach",
+        "--rm",
+        "--name",
+        container_name,
+        "-e",
+        "FASTMCP_HOST=0.0.0.0",
+        "-e",
+        "FASTMCP_PORT=80",
+        "-e",
+        "FASTMCP_TRANSPORT=http",
+        "-p",
+        f"{free_port}:80",
+        IMAGE_TAG,
+    )
+    run_result = subprocess.run(run_cmd, check=True, text=True, capture_output=True)
+    container_id = run_result.stdout.strip()
+
+    try:
+        # Wait for container to be ready
+        deadline = time.time() + DEFAULT_TIMEOUT
+        last_exception = None
+        external_url = f"http://127.0.0.1:{free_port}/health"
+
+        while time.time() < deadline:
+            try:
+                response = requests.get(external_url, timeout=5)
+                if response.status_code == 200:
+                    break
+            except Exception as exc:
+                last_exception = exc
+                time.sleep(2)
+        else:
+            pytest.fail(f"Container never became ready: {last_exception}")
+
+        # Test all health check routes from inside the container
+        health_routes = ["/health", "/healthz", "/"]
+
+        for route in health_routes:
+            result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_id,
+                    "curl",
+                    "-f",
+                    "--max-time",
+                    "5",
+                    f"http://localhost:80{route}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            assert result.returncode == 0, (
+                f"Internal health check failed for {route}: {result.stderr}\n{result.stdout}"
+            )
+
+            # Verify it's valid JSON with expected structure
+            import json
+
+            try:
+                health_data = json.loads(result.stdout)
+                assert health_data["status"] == "ok", f"Health status not ok at {route}: {health_data}"
+                assert "timestamp" in health_data, f"Missing timestamp at {route}"
+                assert health_data["route"] == route, f"Route mismatch at {route}: {health_data}"
+            except json.JSONDecodeError as e:
+                pytest.fail(f"Invalid JSON response from {route}: {result.stdout}\nError: {e}")
+
+    finally:
+        subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
+        if container_id:
+            subprocess.run(("docker", "rm", container_id), check=False, capture_output=True)
