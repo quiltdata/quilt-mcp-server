@@ -1,499 +1,325 @@
-<!-- markdownlint-disable MD013 -->
-# Development Guidelines for Claude
+# Agent Guidelines: Quilt MCP Server
 
-## Core Philosophy
+## Core Principle: Action Over Explanation
 
-### Spec-Driven Development
+When users ask to "query", "understand", "explore", or "analyze" data, **execute tools to retrieve and analyze the data**. Do not provide code examples or theoretical responses when actual data can be retrieved using available MCP tools.
 
-**For complex features, follow [WORKFLOW.md](./WORKFLOW.md)** which defines:
+---
 
-- Specification creation in `./spec/` folder
-- Branch strategy: `spec/<feature>` → `impl/<feature>`
-- BDD test requirements
-- Integration test specifications
+## Data Exploration Behavior
 
-**TEST-DRIVEN DEVELOPMENT IS NON-NEGOTIABLE.** Every single line of production code must be written in response to a failing test. No exceptions. This is not a suggestion or a preference - it is the fundamental practice that enables all other principles in this document.
+### ✅ CORRECT: Action-Oriented Response
 
-I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven testing and functional programming principles. All work should be done in small, incremental changes that maintain a working state throughout development.
+**User:** "Can you provide a query so we can understand the content of these files?"
 
-## Quick Reference
+**Agent Response:**
+```
+Let me explore those files for you.
 
-**Key Principles:**
+[Calls bucket_objects_list to find files]
+[Calls bucket_object_info to get metadata]
+[Calls bucket_object_text on readable files to sample contents]
 
-- Write tests first (TDD)
-- Test behavior, not implementation
-- Small, pure functions
-- Use real schemas/types in tests, never redefine them
+I found 3 CSV files in that location. Let me show you what's in each:
 
-**Preferred Tools:**
+File 1: experiment_data.csv
+- Columns: sample_id, treatment, measurement_value, timestamp
+- 1,250 rows
+- Sample data: [shows first few rows]
 
-- **Language**: Python
-- **State Management**: Prefer immutable patterns
+File 2: metadata.csv  
+- Columns: sample_id, patient_age, condition
+- 800 rows
+- Sample data: [shows first few rows]
 
-## Testing Principles
+Would you like me to create visualizations of this data? I can make:
+1. Box plot of measurement_value by treatment
+2. Distribution histogram of patient_age
+3. Combined analysis showing relationships
 
-### Behavior-Driven Testing
-
-- **No "unit tests"** - this term is not helpful. Tests should verify expected behavior, treating implementation as a black box
-- Test through the public API exclusively - internals should be invisible to tests
-- No 1:1 mapping between test files and implementation files
-- Tests that examine internal implementation details are wasteful and should be avoided
-- **Coverage targets**: 100% coverage should be expected at all times, but these tests must ALWAYS be based on business behaviour, not implementation details
-- Tests must document expected business behaviour
-
-### Test Data Pattern
-
-Use factory functions with optional overrides for test data:
-
-- Single-parameter pure functions
-- Well-established functional patterns (map, filter, reduce callbacks)
-- Mathematical operations where order is conventional
-
-## Development Workflow
-
-### Prefactoring - Feature-Level Preparation
-
-Before implementing any feature, follow this structured approach to ensure solid foundations:
-
-#### 1. Test - Expand the Safety Net
-
-**Objective**: Strengthen test coverage so every future change has clear signals of correctness.
-
-- **Audit existing tests** around the feature area - identify gaps in behavior coverage
-- **Add missing behavioral tests** for edge cases and integration points
-- **Ensure test quality** - tests should verify business behavior, not implementation details
-- **Validate test reliability** - tests should fail when they should, pass when they should
-
-#### 2. Refactor - Prepare the Foundation
-
-**Objective**: Simplify and restructure existing code to make space for new functionality.
-
-- **Eliminate technical debt** in the area where new feature will be added
-- **Extract reusable components** that the new feature will need
-- **Simplify complex conditional logic** that might interact with new feature
-- **Improve naming and structure** to clearly express current intent
-- **Remove dead code** and unused abstractions that might confuse implementation
-
-#### 3. Implement - Build on Solid Ground
-
-**Objective**: Deliver the feature predictably once foundations are solid.
-
-- **Follow TDD micro-cycles** (Red → Green → Refactor) within this phase
-- **Build incrementally** with each change maintaining working state
-- **Focus on clarity** over cleverness in implementation
-- **Verify all safety net tests still pass** throughout implementation
-
-#### Why Prefactoring Matters
-
-- **Reduces implementation risk** by addressing complexity before adding more
-- **Creates predictable development** instead of heroic debugging sessions
-- **Establishes trust in AI-assisted development** through systematic approach
-- **Prevents compounding technical debt** by cleaning before building
-- **Enables confident changes** with comprehensive test coverage
-
-**Remember**: Prefactoring operates at the feature level, while TDD operates at the implementation level. Both are essential for maintainable code evolution.
-
-### TDD Process - THE FUNDAMENTAL PRACTICE
-
-**CRITICAL**: TDD is not optional. Every feature, every bug fix, every change MUST follow this process:
-
-Follow Red-Green-Refactor strictly:
-
-1. **Red**: Write a failing test for the desired behavior. NO PRODUCTION CODE until you have a failing test.
-   - Commit: `"test: Add BDD tests for <feature-name>"`
-   - Verify tests fail: `"test: Verify BDD tests fail without implementation"`
-
-2. **Green**: Write the MINIMUM code to make the test pass. Resist the urge to write more than needed.
-   - Initial: `"feat: Initial implementation (red phase)"`
-   - Complete: `"feat: Complete implementation (green phase)"`
-
-3. **Refactor**: Assess the code for improvement opportunities. If refactoring would add value, clean up the code while keeping tests green.
-   - Commit: `"refactor: Clean up implementation"`
-   - Coverage: `"test: Achieve 100% BDD coverage"`
-
-**Common TDD Violations to Avoid:**
-
-- Writing production code without a failing test first
-- Writing multiple tests before making the first one pass
-- Writing more production code than needed to pass the current test
-- Skipping the refactor assessment step when code could be improved
-- Adding functionality "while you're there" without a test driving it
-
-**Remember**: If you're typing production code and there isn't a failing test demanding that code, you're not doing TDD.
-
-### Refactoring - The Critical Third Step
-
-Evaluating refactoring opportunities is not optional - it's the third step in the TDD cycle. After achieving a green state and committing your work, you MUST assess whether the code can be improved. However, only refactor if there's clear value - if the code is already clean and expresses intent well, move on to the next test.
-
-#### What is Refactoring?
-
-Refactoring means changing the internal structure of code without changing its external behavior. The public API remains unchanged, all tests continue to pass, but the code becomes cleaner, more maintainable, or more efficient. Remember: only refactor when it genuinely improves the code - not all code needs refactoring.
-
-#### When to Refactor
-
-- **Always assess after green**: Once tests pass, before moving to the next test, evaluate if refactoring would add value
-- **When you see duplication**: But understand what duplication really means (see DRY below)
-- **When names could be clearer**: Variable names, function names, or type names that don't clearly express intent
-- **When structure could be simpler**: Complex conditional logic, deeply nested code, or long functions
-- **When patterns emerge**: After implementing several similar features, useful abstractions may become apparent
-
-**Remember**: Not all code needs refactoring. If the code is already clean, expressive, and well-structured, commit and move on. Refactoring should improve the code - don't change things just for the sake of change.
-
-#### Refactoring Guidelines
-
-##### 1. Commit Before Refactoring
-
-Always commit your working code before starting any refactoring. This gives you a safe point to return to:
-
-```bash
-git add .
-git commit -m "feat: add payment validation"
-# Now safe to refactor
+Just let me know which you'd prefer, or I can create all of them.
 ```
 
-##### 2. Look for Useful Abstractions Based on Semantic Meaning
+### ❌ INCORRECT: Code-Focused Response
 
-Create abstractions only when code shares the same semantic meaning and purpose. Don't abstract based on structural similarity alone - **duplicate code is far cheaper than the wrong abstraction**.
+**User:** "Can you provide a query so we can understand the content of these files?"
 
-**Questions to ask before abstracting:**
+**Agent Response:**
+```
+Perfect! I can now provide you with a comprehensive query to explore the files. 
+Here's a Python script you can use to understand what's inside these files:
 
-- Do these code blocks represent the same concept or different concepts that happen to look similar?
-- If the business rules for one change, should the others change too?
-- Would a developer reading this abstraction understand why these things are grouped together?
-- Am I abstracting based on what the code IS (structure) or what it MEANS (semantics)?
+import pandas as pd
 
-**Remember**: It's much easier to create an abstraction later when the semantic relationship becomes clear than to undo a bad abstraction that couples unrelated concepts.
+# Example: Load the CSV file
+df = pd.read_csv('s3://bucket/file.csv')
 
-##### 3. Understanding DRY - It's About Knowledge, Not Code
+# === BASIC FILE STRUCTURE ===
+print("=" * 50)
+print("BASIC STRUCTURE")
+print("=" * 50)
+print(f"Number of rows: {len(df)}")
+...
+[50 more lines of Python code]
+```
 
-DRY (Don't Repeat Yourself) is about not duplicating **knowledge** in the system, not about eliminating all code that looks similar.
+**Why this is wrong:**
+- ❌ Provides code instead of executing available tools
+- ❌ Requires user to run code themselves
+- ❌ Doesn't actually answer the question about file contents
+- ❌ Wastes time with theoretical examples
 
-##### 4. Maintain External APIs During Refactoring
+---
 
-Refactoring must never break existing consumers of your code.
+## Tool Execution Guidelines
 
-##### 5. Verify and Commit After Refactoring
+### When to Use Which Tools
 
-**CRITICAL**: After every refactoring:
+| User Intent | Tool to Execute | What to Return |
+|-------------|----------------|----------------|
+| "What files are in...?" | `bucket_objects_list()` | Actual list of files with types/sizes |
+| "Show me what's in this CSV" | `bucket_object_text()` | Parsed data with schema summary |
+| "What's the structure of...?" | `bucket_object_info()` + `bucket_object_text()` | Metadata + content sample |
+| "Create a visualization of..." | `create_data_visualization()` | Generated visualization config + files |
+| "Package these files" | `package_create()` | Created package with catalog URL |
+| "Query this data" | `bucket_object_text()` → parse → summarize | Actual data analysis results |
 
-1. Run all tests - they must pass without modification
-2. Run static analysis (linting, type checking) - must pass
-3. Commit the refactoring separately from feature changes
+### Specialized File Formats
 
-#### Refactoring Checklist
+For formats requiring specific libraries (H5AD, Parquet, BAM, VCF, etc.):
 
-Before considering refactoring complete, verify:
+1. **Acknowledge the format**: 
+   ```
+   "I found 5 H5AD files which contain single-cell RNA-seq data in AnnData format."
+   ```
 
-- [ ] The refactoring actually improves the code (if not, don't refactor)
-- [ ] All tests still pass without modification
-- [ ] All static analysis tools pass (linting, type checking)
-- [ ] No new public APIs were added (only internal ones)
-- [ ] Code is more readable than before
-- [ ] Any duplication removed was duplication of knowledge, not just code
-- [ ] No speculative abstractions were created
-- [ ] The refactoring is committed separately from feature changes
+2. **Get what you can**:
+   ```python
+   # Call bucket_object_info() for each file
+   ```
+   
+3. **Explain limitations clearly**:
+   ```
+   "H5AD files require the scanpy/anndata library to fully read their contents. 
+   I can provide:
+   - File metadata (size: 2.3 GB, modified: 2024-10-13)
+   - Presigned download URLs for local analysis
+   - Instructions for reading with scanpy if you have Python
+   ```
 
-### Commit Guidelines
+4. **Offer actionable next steps**:
+   ```
+   Would you like me to:
+   1. Generate presigned URLs so you can download these files?
+   2. Look for any associated CSV or summary files that I can read?
+   3. Create a package with these files and documentation about the format?
+   ```
 
-- Each commit should represent a complete, working change
-- Use conventional commits format:
+---
 
-  ```text
-  feat: add payment validation
-  fix: correct date formatting in payment processor
-  refactor: extract payment validation logic
-  test: add edge cases for payment validation
-  ```
+## Visualization Workflow
 
-- Include test changes with feature changes in the same commit
+### Complete Workflow Example
 
-### Pull Request Standards
+**User:** "Create a visualization of gene expression data in s3://genomics-bucket/data/expression.csv"
 
-- Every PR must have all tests passing
-- Code must have 100% coverage
-- All linting and quality checks must pass
-- Work in small increments that maintain a working state
-- PRs should be focused on a single feature or fix
-- Include description of the behavior change, not implementation details
+**Correct Agent Behavior:**
 
-## Working with Claude
+```
+Step 1: Reading the data file
+[Calls bucket_object_text("s3://genomics-bucket/data/expression.csv")]
 
-### Expectations
+Found expression data with:
+- Columns: gene_name, sample_id, expression_value, condition
+- 5,000 rows (10 genes x 500 samples)
+- Conditions: control, treated
 
-When working with my code:
+Step 2: Creating visualization
+[Calls create_data_visualization with:
+  data=<parsed_csv>,
+  plot_type="boxplot",
+  x_column="gene_name",
+  y_column="expression_value",
+  group_column="condition",
+  color_scheme="genomics"
+]
 
-1. **ALWAYS FOLLOW TDD** - No production code without a failing test. This is not negotiable.
-2. **Use Prefactoring for features** - Before implementing, strengthen tests and clean existing code (see Prefactoring section above)
-3. **Use TodoWrite tool** - Track progress through workflow steps, especially for complex tasks (see [WORKFLOW.md](./WORKFLOW.md))
-4. **Think deeply** before making any edits
-5. **Understand the full context** of the code and requirements
-6. **Ask clarifying questions** when requirements are ambiguous
-7. **Think from first principles** - don't make assumptions
-8. **Assess refactoring after every green** - Look for opportunities to improve code structure, but only refactor if it adds value
-9. **Keep project docs current** - update them whenever you introduce meaningful changes
-   **At the end of every change, update CLAUDE.md with anything useful you wished you'd known at the start**.
-   This is CRITICAL - Claude should capture learnings, gotchas, patterns discovered, or any context that would have made the task easier if known upfront. This continuous documentation ensures future work benefits from accumulated knowledge
+Generated 3 files:
+- gene_expression_boxplot.json (ECharts config)
+- viz_data_boxplot.csv (processed data)
+- quilt_summarize.json (package metadata)
 
-### Code Changes
+Step 3: Uploading visualization files
+[Calls bucket_objects_put with all files]
 
-When suggesting or making changes:
+Step 4: Creating package
+[Calls package_create with:
+  name="genomics/expression-analysis",
+  s3_uris=[original CSV + visualization files],
+  registry="s3://genomics-bucket"
+]
 
-- **Start with a failing test** - always. No exceptions.
-- After making tests pass, always assess refactoring opportunities (but only refactor if it adds value)
-- After refactoring, verify all tests and static analysis pass, then commit
-- Respect the existing patterns and conventions
-- Maintain test coverage for all behavior changes
-- Keep changes small and incremental
-- Provide rationale for significant design decisions
+✅ Complete! View your package here:
+https://catalog.example.com/b/genomics-bucket/packages/genomics/expression-analysis/
 
-**If you find yourself writing production code without a failing test, STOP immediately and write the test first.**
+The visualization is now live in the Quilt catalog and will display automatically
+when viewing the package.
+```
 
-### Workflow Execution
+---
 
-**For GitHub issue processing, follow [WORKFLOW.md](./WORKFLOW.md)** which provides:
+## Common Anti-Patterns to Avoid
 
-- 14-step standardized workflow
-- Issue analysis and branch creation
-- Spec-driven development process
-- BDD and integration testing requirements
-- PR creation and merge procedures
+### 1. ❌ Providing Code Instead of Executing
 
-Key execution guidelines:
+**Wrong:**
+```
+Here's how you can read the file:
+```python
+import scanpy as sc
+adata = sc.read_h5ad('file.h5ad')
+```
+**Right:**
+```
+Let me read that file for you...
+[Executes appropriate tool]
+Here's what I found: ...
+```
 
-- **Always check current branch and git status** before proceeding
-- **Run IDE diagnostics check** after each significant change
-- **Use `gh` commands for all GitHub operations**
-- **Follow conventional commit format** for all commits
-- **Ask for clarification** if environment setup scripts don't exist
+### 2. ❌ Suggesting Without Doing
 
-### Communication
+**Wrong:**
+```
+You could use bucket_objects_list() to see what files are there.
+```
 
-- Be explicit about trade-offs in different approaches
-- Explain the reasoning behind significant design decisions
-- Flag any deviations from these guidelines with justification
-- Suggest improvements that align with these principles
-- When unsure, ask for clarification rather than assuming
+**Right:**
+```
+Let me list those files for you...
+[Calls bucket_objects_list()]
+Found 15 files: ...
+```
+
+### 3. ❌ Asking Permission for Standard Operations
+
+**Wrong:**
+```
+Would you like me to read the CSV file to see what's inside?
+```
+
+**Right:**
+```
+Reading the CSV file to show you the structure...
+[Executes tool immediately]
+```
+
+### 4. ❌ Incomplete Workflows
+
+**Wrong:**
+```
+I can create a visualization. Just provide the data in this format: ...
+```
+
+**Right:**
+```
+[Gets the data using available tools]
+[Creates visualization with actual data]
+[Completes full workflow]
+Here's your visualization: ...
+```
+
+---
+
+## Error Handling and User Feedback
+
+### When Operations Fail
+
+**Good Error Handling:**
+```
+I tried to read the file but encountered an access error. Let me check your permissions...
+[Calls bucket_access_check()]
+
+You have read access to the bucket but not this specific file prefix.
+Here's what we can do:
+1. Try a different file in the bucket
+2. Request access to this prefix
+3. Work with publicly accessible files instead
+
+Which would you prefer?
+```
+
+**Poor Error Handling:**
+```
+Error: Access Denied. You need to fix your IAM permissions.
+```
+
+### Progress Updates for Long Operations
+
+For operations that take time:
+```
+Working on creating your package with 500 files...
+✅ Organized files by type (2s)
+✅ Generated visualizations (5s)
+✅ Created package structure (3s)
+🔄 Uploading to S3... (15s)
+✅ Complete! Package created: [URL]
+```
+
+---
+
+## Testing Your Behavior
+
+### Self-Check Questions
+
+Before responding to a user query, ask yourself:
+
+1. **Am I executing tools or just explaining?**
+   - ✅ Execute → Show results
+   - ❌ Explain → Show code
+
+2. **Can I get actual data right now?**
+   - ✅ Yes → Get it and show it
+   - ❌ No → Explain why and offer alternatives
+
+3. **Am I completing the full workflow?**
+   - ✅ End-to-end completion
+   - ❌ Partial steps requiring user action
+
+4. **Am I using available tools effectively?**
+   - ✅ Chaining tools together for complete results
+   - ❌ Using only one tool when more are needed
+
+---
+
+## Quick Reference: User Intent → Agent Action
+
+| User Says | Agent Does |
+|-----------|------------|
+| "What's in these files?" | `bucket_objects_list` + `bucket_object_text` → Show actual content |
+| "Query this data" | Read file + Parse + Analyze → Show results |
+| "Understand this" | Execute appropriate tools → Show findings |
+| "Create visualization" | Read data + Generate viz + Upload + Package → Show URL |
+| "Make a package" | Organize + Create + Verify → Show catalog link |
+| "Explore this bucket" | List + Sample files + Summarize → Show overview |
+
+---
 
 ## Summary
 
-The key is to write clean, testable, functional code that evolves through small, safe increments. Every change should be driven by a test that describes the desired behavior, and the implementation should be the simplest thing that makes that test pass. When in doubt, favor simplicity and readability over cleverness.
+**Core Behavior:** When users want to understand, query, or explore data:
+1. Execute tools immediately to retrieve actual data
+2. Analyze and summarize the real data you retrieved
+3. Offer concrete next steps based on what you found
+4. Only provide code examples if tools aren't available
 
-## Repository-Specific Commands
+**Never:**
+- Give theoretical responses when tools can execute
+- Provide code for the user to run when you can run tools
+- Suggest capabilities without demonstrating them
+- Leave workflows incomplete
 
-For this repository's specific commands and permissions, see this CLAUDE.md file which contains:
-
-- Pre-approved Makefile targets (consolidated build system)
-- Development workflow commands (make.dev)
-- Production workflow commands (make.deploy)
-- Testing and validation procedures
-- AWS operations and deployment commands
-- Docker operations
-- Environment setup and dependencies
-
-### Pre-approved Makefile Targets
-
-**Development Workflow (make.dev):**
-
-- `make run` - Start local MCP server
-- `make test` - Run all tests (includes MCPB package validation)
-- `make test-unit` - Run unit tests only (fast)
-- `make test-integration` - Run integration tests (with AWS)
-- `make test-ci` - Run CI-optimized tests
-- `make lint` - Code formatting and type checking
-- `make coverage` - Run tests with coverage report
-- `make run-inspector` - Launch MCP Inspector for testing
-
-**Production Workflow (make.deploy):**
-
-- `make build` - Prepare production build environment
-- `make mcpb` - Create MCPB package
-- `make mcpb-validate` - Validate MCPB package
-- `make release-zip` - Create release bundle with documentation
-- `make release` - Create and push release tag
-- `make release-dev` - Create and push development tag
-
-**Docker Operations (make.deploy):**
-
-- `make docker-build` - Build Docker image locally
-- `make docker-push` - Build and push Docker image to ECR (requires VERSION)
-- `make docker-push-dev` - Build and push development Docker image
-
-**Coordination & Utilities:**
-
-- `make help` - Show all available targets organized by category
-- `make clean` - Clean all artifacts (dev + deploy)
-- `make release-local` - Full local workflow (test → build → mcpb → validate → zip)
-- `make test-readme` - Test README installation commands
-- `make update-cursor-rules` - Update Cursor IDE rules from CLAUDE.md
-
-**Dry-run Mode:**
-
-- `DRY_RUN=1 make release` - Show what release tag would be created
-- `DRY_RUN=1 make release-dev` - Show what dev tag would be created
-
-## Important Instruction Reminders
-
-**CRITICAL: Do what has been asked; nothing more, nothing less.**
-
-- If asked to "create a spec", ONLY create the specification document - do NOT implement it
-- If asked to "write documentation", ONLY write the documentation - do NOT implement the features described
-- If asked to "analyze code", ONLY analyze - do NOT modify or implement changes
-- NEVER create files unless they're absolutely necessary for achieving your goal
-- ALWAYS prefer editing an existing file to creating a new one
-- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User
-- NEVER implement features when only asked to specify or document them
-
-## Permissions
-
-The following permissions are granted for this repository:
-
-- You may run any pre-approved `make` targets as defined in the Makefile.
-- You are permitted to use `gh` (GitHub CLI) commands for repository operations, including issue management, PR creation, and branch handling.
-- You may execute local scripts located in the repository (e.g., shell scripts, Python scripts) as long as they are referenced in documentation or Makefile targets.
-- You are permitted to use `uv` for Python dependency management and installation, provided its usage is documented in the repository or referenced by Makefile targets.
-
-**Note:** Only use these commands/scripts as documented or when required by the workflow. Do not introduce new scripts or commands without explicit approval.
-
-## Testing Gotchas & Patterns
-
-**Dependency Management:**
-
-- Always use `uv sync --group test` to install test dependencies before running tests
-- Use `make coverage` for full test runs, but beware matplotlib import conflicts can occur in mixed environments
-- `make coverage` consumes the suite-specific XML outputs in `build/test-results`; run `make test-unit`, `make test-integration`, and `make test-e2e` (or generate the XML another way) before invoking it if the files are missing
-- Use `make test-unit` for fast unit tests only (excludes AWS/integration tests)
-- For isolated module testing, use `PYTHONPATH=src uv run pytest tests/test_<module>.py -v`
-
-**BDD Test Patterns:**
-
-- Use `tempfile.NamedTemporaryFile()` and `tempfile.TemporaryDirectory()` for file system tests
-- Always clean up temp files with try/finally blocks
-- Test both success and failure scenarios for file operations
-- Mock external dependencies (platform detection, file systems) for reliable cross-platform tests
-
-**WORKFLOW Execution:**
-
-- Check git status and current branch before starting any workflow
-- Use TodoWrite tool to track multi-step processes
-- Always run IDE diagnostics after implementation
-- Push changes before creating PRs to ensure remote branch is up-to-date
-- **CRITICAL:** Always create specification document in `./spec/` folder before implementation (we skipped this step in issue #60)
-- **Use sub-agents** from `.claude/agents/` for complex workflow phases to prevent context loss
-- **NEVER update historical specs** - Spec files in `./spec/` are historical documentation of what was done at the time. Only update current operational files like README.md, Makefiles, and source code when fixing references
-
-**Release System
-
-- ✅ `make mcpb` - Creates MCPB package (.mcpb file)
-- ✅ `make mcpb-validate` - Validates MCPB package integrity
-- ✅ `make release-zip` - Creates release bundle (.zip with docs)
-- ✅ `make release` - Creates and pushes release tags
-- ✅ `make release-local` - Complete local workflow (no push)
-- ✅ `make release-dev` - Creates and pushes development tags
-
-**File Organization:**
-
-- `build/` - Build staging
-- `dist/` - Final packages
-- Artifacts now use top-level directories for clarity
-
-**MCPB Testing Integration:**
-
-- `make test` now includes MCPB package validation
-- Complete build pipeline tested as part of standard workflow
-- Ensures deliverable packages are always validated
-
-### Athena test caching
-
-- Integration tests now share a cached `AthenaQueryService` via fixtures (`tests/integration/conftest.py`) to avoid repeated STS/session setup; reuse the factory when adding new slow tests instead of instantiating services directly.
-
-### Coverage-focused learnings
-
-- `safe_operation` now mirrors fallback failures at the top level; add tests that expect `_fallback_used` metadata to bubble up when the fallback path fails.
-- `TelemetryCollector.cleanup_old_sessions` clears `current_session_id` when an aged session is evicted—tests that probe cleanup should confirm the pointer resets.
-- Workflow orchestration APIs reject blank workflow IDs; trim identifiers in tests when constructing fixtures to avoid silent acceptance.
-
-### 2025-09-20 uv packaging notes
-
-- MCPB packaging runs through `make.deploy` using `mcpb build`; the UV PyPI build flow lives in `scripts/release.sh python-dist` with `make python-dist`, mirroring how `make mcpb` exposes MCPB packaging.
-- `python-dist` builds local artifacts without credentials. `scripts/release.sh python-publish` (via `make python-publish`) requires either `UV_PUBLISH_TOKEN` or `UV_PUBLISH_USERNAME`/`UV_PUBLISH_PASSWORD`, defaults to TestPyPI (`PYPI_PUBLISH_URL`/`PYPI_REPOSITORY_URL` override), and respects `DIST_DIR`.
-- GitHub Actions builds dist artifacts via `python-dist`, publishes them with `pypa/gh-action-pypi-publish`, then runs `make mcpb`, `make mcpb-validate`, and `make release-zip` for complete packaging. Secrets supply the PyPI/TestPyPI token (`secrets.PYPI_TOKEN`).
-
-### Docker container + release notes (2025-09-22)
-
-- `src/quilt_mcp/main.py` now honours a pre-set `FASTMCP_TRANSPORT`; container entrypoints should export `FASTMCP_TRANSPORT=http` and `FASTMCP_HOST=0.0.0.0` before invoking `quilt-mcp`.
-- The Dockerfile uses the `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` base. Native deps (`build-essential`, `libcurl4(-openssl-dev)`, `zlib1g(-dev)`) are required for `pybigwig`; keep them in sync if the dependency list changes.
-- `make docker-build`, `make docker-run`, and `make docker-test` wrap common local workflows. `make docker-test` executes `tests/integration/test_docker_container.py`, which builds the image and probes `http://localhost:*/mcp` for a 30–60s readiness window.
-- Release automation logs into ECR via `aws-actions/amazon-ecr-login` and uses `scripts/docker_image.py` to generate version + `latest` tags. Configure either `secrets.ECR_REGISTRY` or fall back to `AWS_ACCOUNT_ID` + `AWS_DEFAULT_REGION`.
-- When running the integration test locally, Docker must be available and the build takes ~45s on warm caches. Expect the test to leave behind pulled base images but no running containers.
-- Claude Desktop still requires stdio transports; use a FastMCP proxy (`FastMCP.as_proxy(...).run(transport='stdio')`) and pass `--project /path/to/quilt-mcp-server` to `uv run` so `fastmcp` resolves correctly.
-
-### Docker build architecture requirements (2025-10-11)
-
-- **Production Docker images MUST be amd64 only** - arm64 images are unusable on most servers
-- `make docker-push` will **FAIL on arm64 machines** (like M-series Macs) to prevent pushing unusable images
-- Production Docker builds should **only happen in CI** on amd64 GitHub Actions runners
-- `make docker-build` is for local testing only - builds single-arch for current platform
-- `make docker-validate` verifies pushed images:
-  - Checks for required linux/amd64 architecture
-  - Verifies latest tag points to expected version from pyproject.toml
-  - Displays image digests, sizes, and architectures
-  - Filters attestation manifests (unknown/unknown platform entries)
-- CI workflows now build and push Docker images on both production releases (v*) and dev tags (v*-dev-*)
-- Docker builds enabled via `build-docker: 'true'` in `.github/actions/create-release` action
-
-### Docker Build and Deployment Refactoring (2025-09-22)
-
-**Script-based Docker Operations:**
-
-- All Docker operations extracted to `scripts/docker.py` for reusability and local testing
-- Script supports both `build` (local testing) and `push` (ECR deployment) commands
-- Integrates with existing `scripts/docker_image.py` for consistent tag generation
-- Supports dry-run mode via `--dry-run` for testing workflow changes
-
-**GitHub Actions Integration:**
-
-- Production releases (tags matching `v*` but not `v*-dev-*`) build and push Docker images automatically
-- Development releases skip Docker builds to reduce CI/CD time and resource usage
-- PR builds test Docker image building without pushing (build-only validation)
-- Docker operations moved from `push.yml` workflow into `create-release` action for better encapsulation
-
-**Makefile Integration:**
-
-- `make docker-build` - Build locally for development and testing
-- `make docker-push` - Build and push to ECR (requires VERSION environment variable)
-- `make docker-push-dev` - Build and push with timestamp-based development tags
-- All Docker targets include proper dependency checking for Docker daemon and required tools
-
-**GitHub Secrets Configuration:**
-
-Required secrets for Docker operations:
-
-- `ECR_REGISTRY` - ECR registry URL (preferred)
-- `AWS_ACCOUNT_ID` - AWS account ID (fallback for registry construction)
-- `AWS_DEFAULT_REGION` - AWS region (defaults to us-east-1)
-- Existing AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) for ECR login
-
-**Environment Variable Support:**
-
-- `scripts/docker.sh` respects all environment variables from `env.example`
-- `ECR_REGISTRY`, `AWS_ACCOUNT_ID`, `AWS_DEFAULT_REGION` for registry configuration
-- `VERSION` for overriding image version tags
-- `DOCKER_IMAGE_NAME` for custom image naming (defaults to `quilt-mcp-server`)
-
-## important-instruction-reminders
-
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
-
-## docstring-style-enforcement
-
-- `tests/unit/test_tool_docstring_style.py` enforces the LLM docstring style guide across every MCP tool; run `PYTHONPATH=src PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/test_tool_docstring_style.py` after touching tool docstrings.
-- Each tool docstring must include a first-line context (`Action - Use case`), Args/Returns with actionable guidance, a “Next step:” section, and an executable example that shows how to consume the response.
-- Module contexts + default “Next step” phrasing live inline in the test; reuse them when adding new tools so the style check passes on the first try.
-
-## visualization-tooling
-
-- Quilt-native visualization lives in `src/quilt_mcp/tools/data_visualization.py`; it avoids heavy runtime deps (pandas/numpy) so it can run inside the current CLI sandbox.
-- Tool package exports are now lazy-loaded in `quilt_mcp/tools/__init__.py`; grab module names via `AVAILABLE_MODULES` and import specific tools with `importlib` to keep startup lightweight.
+**Always:**
+- Execute available tools proactively
+- Show actual results from real data
+- Complete full workflows end-to-end
+- Offer specific, actionable next steps

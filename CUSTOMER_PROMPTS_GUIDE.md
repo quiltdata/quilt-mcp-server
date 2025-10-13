@@ -380,6 +380,137 @@ Can you:
 
 ---
 
+## 📊 Data Exploration & Analysis Prompts
+
+### Scenario 11: Query and Explore File Contents
+
+**IMPORTANT for LLMs**: When users ask to "query" or "understand" file contents, **execute actual tool calls** to inspect the data. Don't just provide code examples - use the available MCP tools to retrieve and analyze the data.
+
+**Prompt:**
+```
+I have CSV files in s3://my-bucket/data/ and I want to understand their contents.
+
+Please:
+1. List the CSV files
+2. Read the first few rows of each file to show me the structure
+3. Summarize what columns/data each file contains
+4. Suggest how to visualize this data
+```
+
+**What the LLM SHOULD do:**
+- ✅ Call `bucket_objects_list()` to find CSV files
+- ✅ Call `bucket_object_text()` to read file contents
+- ✅ Parse and summarize the data structure
+- ✅ Suggest appropriate visualizations based on actual data
+- ✅ If visualization is requested, call `create_data_visualization()` with the actual data
+
+**What the LLM SHOULD NOT do:**
+- ❌ Provide Python code examples without executing them
+- ❌ Suggest tools without using them
+- ❌ Give theoretical responses when actual data can be retrieved
+
+---
+
+### Scenario 12: Create Visualization from Query Results
+
+**Prompt:**
+```
+I have gene expression data in s3://genomics-bucket/data/expression.csv.
+
+Please:
+1. Read the file and show me what columns are available
+2. Create a box plot visualization of expression values by gene
+3. Package the data and visualization together
+```
+
+**What the LLM will do:**
+- Call `bucket_object_text()` to read the CSV
+- Parse the data to identify columns
+- Call `create_data_visualization()` with:
+  ```python
+  {
+    "data": <parsed_csv_data>,
+    "plot_type": "boxplot",
+    "x_column": "gene",
+    "y_column": "expression",
+    "title": "Gene Expression Analysis",
+    "color_scheme": "genomics"
+  }
+  ```
+- Upload visualization files using `bucket_objects_put()`
+- Create package with `package_create()`
+
+---
+
+### Scenario 13: Analyze Multiple Data Files
+
+**Prompt:**
+```
+I have several CSV files in s3://analysis-bucket/results/:
+- experiment_1.csv
+- experiment_2.csv
+- experiment_3.csv
+
+Please:
+1. Read all three files and show me their schemas
+2. Compare what columns they have in common
+3. If they have compatible structures, combine them and create a visualization
+4. Package everything together with a README explaining the analysis
+```
+
+**What the LLM will do:**
+- Loop through files calling `bucket_object_text()` for each
+- Parse and compare schemas
+- Identify common columns
+- If compatible, merge data and create visualization
+- Generate comprehensive README
+- Package data + visualization + README
+
+---
+
+### Scenario 14: Interactive Data Exploration
+
+**Prompt:**
+```
+I found some data files in s3://nextflowtower/INV377_scRNAseq/ but I don't know what they contain.
+
+Can you:
+1. List all files in that prefix
+2. Show me file types and sizes
+3. For any CSV or text files, read samples to show me the structure
+4. Suggest what analysis or visualizations would be appropriate
+5. If I confirm, go ahead and create those visualizations
+```
+
+**What the LLM will do:**
+- Call `bucket_objects_list()` with the prefix
+- Identify file types (CSV, JSON, H5AD, etc.)
+- For readable formats (CSV, JSON, TXT):
+  - Call `bucket_object_text()` to sample contents
+  - Display structure and schema
+- For specialized formats (H5AD, Parquet):
+  - Explain what the format is
+  - Note what specialized tools/libraries would be needed
+  - Offer to extract metadata if possible
+- Suggest appropriate visualizations based on actual data
+- Wait for user confirmation before proceeding
+
+**Handling Specialized Formats (H5AD, Parquet, etc.):**
+
+When encountering specialized formats that require specific libraries:
+
+1. **Acknowledge the format**: "I found H5AD files which contain single-cell RNA-seq data"
+2. **Use available tools**: Call `bucket_object_info()` to get metadata (size, modification date)
+3. **Explain limitations**: "H5AD files require the `scanpy` library to read. I can:"
+   - Get file metadata (size, date)
+   - Download the file for local analysis
+   - Provide guidance on how to read it with appropriate tools
+4. **Offer alternatives**:
+   - "Would you like me to generate a presigned URL so you can download and analyze it locally?"
+   - "If you have exported CSVs or summary tables from these files, I can visualize those"
+
+---
+
 ## 🔗 Quick Reference
 
 | Task | Recommended Tool | Key Parameters |
