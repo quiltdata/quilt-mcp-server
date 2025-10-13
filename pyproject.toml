@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.6.19"
+version = "0.6.20"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
