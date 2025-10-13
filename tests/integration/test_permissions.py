@@ -346,10 +346,6 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.aws
     def test_discover_bucket_permissions_full_access(self):
         """Test bucket permission discovery with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
@@ -371,10 +367,6 @@ class TestPermissionDiscoveryEngine:
     @pytest.mark.aws
     def test_discover_bucket_permissions_nonexistent_bucket(self):
         """Test bucket permission discovery with nonexistent bucket (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         # Use a bucket name that definitely doesn't exist
         nonexistent_bucket = f"definitely-nonexistent-bucket-{int(time.time())}"
 

@@ -16,10 +16,6 @@ from quilt_mcp.constants import DEFAULT_BUCKET
 @pytest.mark.aws
 def test_bucket_objects_list_success():
     """Test bucket objects listing with real AWS (integration test)."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
     result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=10)
     assert "bucket" in result
     assert "objects" in result
@@ -39,10 +35,6 @@ def test_bucket_objects_list_error():
 @pytest.mark.aws
 def test_bucket_object_info_success():
     """Test bucket object info with real AWS (integration test)."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):
@@ -67,10 +59,6 @@ def test_bucket_object_info_invalid_uri():
 @pytest.mark.aws
 def test_bucket_objects_put_success():
     """Test bucket objects upload with real AWS (integration test)."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
     # Use timestamp-based keys to avoid conflicts
     import time
 
@@ -97,10 +85,6 @@ def test_bucket_objects_put_success():
 @pytest.mark.aws
 def test_bucket_object_fetch_base64():
     """Test bucket object fetch with real AWS (integration test)."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):
@@ -120,10 +104,6 @@ def test_bucket_object_fetch_base64():
 @pytest.mark.aws
 def test_bucket_object_link_success():
     """Test bucket object presigned URL generation with real AWS (integration test)."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):

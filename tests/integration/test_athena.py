@@ -16,10 +16,8 @@ import pytest
 
 @pytest.fixture(scope="module")
 def skip_if_no_aws():
-    """Skip tests if AWS credentials are not available."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
+    """Check AWS credentials are available - test will fail if not."""
+    return True
 
 
 @pytest.mark.aws

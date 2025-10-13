@@ -32,10 +32,6 @@ class TestUtilsAWSIntegration:
     @pytest.mark.aws
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET
@@ -53,10 +49,6 @@ class TestUtilsAWSIntegration:
     @pytest.mark.aws
     def test_generate_signed_url_exception(self):
         """Test handling of exceptions with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         # Try to generate URL for a bucket that doesn't exist
         result = generate_signed_url("s3://definitely-nonexistent-bucket-12345/key")
 
