@@ -55,7 +55,6 @@ def test_docker_image_serves_http():
         deadline = time.time() + DEFAULT_TIMEOUT
         last_exception = None
         mcp_url = f"http://127.0.0.1:{free_port}/mcp"
-        health_url = f"http://127.0.0.1:{free_port}/health"
 
         # Wait for container to be ready
         while time.time() < deadline:
@@ -69,16 +68,31 @@ def test_docker_image_serves_http():
         else:
             pytest.fail(f"Container never became ready: {last_exception}")
 
-        # Test the health check endpoint
-        health_response = requests.get(health_url, timeout=5)
-        assert health_response.status_code == 200, f"Health check failed with status {health_response.status_code}"
+        # Test all health check endpoint variations
+        health_endpoints = [
+            (f"http://127.0.0.1:{free_port}/health", "/health"),
+            (f"http://127.0.0.1:{free_port}/healthz", "/healthz"),
+            (f"http://127.0.0.1:{free_port}/", "/"),
+            (f"http://127.0.0.1:{free_port}/mcp/health", "/mcp/health"),
+            (f"http://127.0.0.1:{free_port}/mcp/healthz", "/mcp/healthz"),
+        ]
 
-        # Verify health check response format
-        health_data = health_response.json()
-        assert health_data["status"] == "ok", f"Health status is not ok: {health_data}"
-        assert "timestamp" in health_data, "Health response missing timestamp"
-        assert "server" in health_data, "Health response missing server info"
-        assert health_data["server"]["name"] == "quilt-mcp-server", "Incorrect server name"
+        for endpoint_url, expected_route in health_endpoints:
+            health_response = requests.get(endpoint_url, timeout=5)
+            assert health_response.status_code == 200, (
+                f"Health check at {expected_route} failed with status {health_response.status_code}"
+            )
+
+            # Verify health check response format
+            health_data = health_response.json()
+            assert health_data["status"] == "ok", f"Health status at {expected_route} is not ok: {health_data}"
+            assert "timestamp" in health_data, f"Health response at {expected_route} missing timestamp"
+            assert "route" in health_data, f"Health response at {expected_route} missing route info"
+            assert health_data["route"] == expected_route, (
+                f"Health response route mismatch: expected {expected_route}, got {health_data.get('route')}"
+            )
+            assert "server" in health_data, f"Health response at {expected_route} missing server info"
+            assert health_data["server"]["name"] == "quilt-mcp-server", f"Incorrect server name at {expected_route}"
 
     finally:
         subprocess.run(("docker", "stop", container_name), check=False, capture_output=True)
