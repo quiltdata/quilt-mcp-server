@@ -31,7 +31,7 @@ test-all: mcpb-validate test-scripts | $(RESULTS_DIR)
 test-ci: | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
+	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
 test-unit: $(RESULTS_DIR)/coverage-unit.xml
 

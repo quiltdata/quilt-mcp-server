@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 from quilt_mcp.tools import governance
 
 
+@pytest.mark.admin
 class TestGovernanceIntegration:
     """Integration tests for governance functionality."""
 
@@ -114,6 +115,7 @@ class TestGovernanceIntegration:
             assert "Admin" in error_msg or "permission" in error_msg.lower()
 
 
+@pytest.mark.admin
 class TestGovernanceWorkflows:
     """Test complete governance workflows."""
 

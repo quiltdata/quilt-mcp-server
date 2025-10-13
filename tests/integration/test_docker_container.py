@@ -19,6 +19,7 @@ def _find_free_port() -> int:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 def test_docker_image_serves_http():
     dockerfile = REPO_ROOT / "Dockerfile"
     assert dockerfile.exists(), "Dockerfile must exist for container build"

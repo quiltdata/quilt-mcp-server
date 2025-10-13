@@ -606,6 +606,7 @@ class TestPackageManagementE2E:
             except Exception as e:
                 print(f"Warning: Failed to clean up test package {package_name}: {e}")
 
+    @pytest.mark.slow
     def test_update_package_workflow_e2e(self, unique_package_name, test_s3_objects):
         """E2E: Verify update → browse → validate workflow for existing packages.
 

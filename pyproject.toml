@@ -92,13 +92,10 @@ python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short --color=yes"
 markers = [
+    "admin: marks tests that require Quilt admin privileges (deselect with '-m \"not admin\"')",
     "aws: marks tests that require AWS credentials and network access",
-    "search: marks tests that require search functionality",
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "performance: marks tests as performance benchmarks",
     "integration: marks tests as integration tests",
-    "error_handling: marks tests as error handling tests",
-    "asyncio: marks tests as async tests",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 
 [tool.pytest.ini_options.asyncio]
