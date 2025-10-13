@@ -46,7 +46,7 @@ def test_bucket_object_info_success():
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):
-        pytest.skip(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
 
     # Use the first object for testing
     test_object = objects_result["objects"][0]
@@ -104,7 +104,7 @@ def test_bucket_object_fetch_base64():
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):
-        pytest.skip(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
 
     # Use the first object for testing
     test_object = objects_result["objects"][0]
@@ -127,7 +127,7 @@ def test_bucket_object_link_success():
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
     if not objects_result.get("objects"):
-        pytest.skip(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
 
     # Use the first object for testing
     test_object = objects_result["objects"][0]

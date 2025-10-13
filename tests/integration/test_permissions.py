@@ -303,7 +303,7 @@ class TestPermissionDiscoveryEngine:
             sts = boto3.client("sts")
             sts.get_caller_identity()
         except Exception:
-            pytest.skip("AWS credentials not available")
+            pytest.fail("AWS credentials not available")
 
         discovery = AWSPermissionDiscovery()
         identity = discovery.discover_user_identity()
@@ -323,7 +323,7 @@ class TestPermissionDiscoveryEngine:
             s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
-            pytest.skip("AWS credentials not available")
+            pytest.fail("AWS credentials not available")
 
         discovery = AWSPermissionDiscovery()
 

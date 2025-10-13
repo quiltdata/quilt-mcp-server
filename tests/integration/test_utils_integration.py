@@ -17,7 +17,7 @@ class TestUtilsAWSIntegration:
             s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
-            pytest.skip("AWS credentials not available")
+            pytest.fail("AWS credentials not available")
 
         # Use a known public bucket for testing (quilt-example is publicly readable)
         result = generate_signed_url("s3://quilt-example/README.md", 1800)

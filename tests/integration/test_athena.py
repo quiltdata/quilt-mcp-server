@@ -119,7 +119,7 @@ class TestTabulatorWorkflow:
 
         # Verify we found a working bucket/table combination
         if not query_result or not bucket_name or not table_name:
-            pytest.skip(
+            pytest.fail(
                 "Could not find a bucket with queryable tables\n"
                 "Tried all buckets but none had tables with accessible data"
             )
@@ -240,7 +240,7 @@ class TestAthenaWorkflow:
 
         # Check if we found a working database/table combination
         if not query_result or not database_name or not table_name:
-            pytest.skip(
+            pytest.fail(
                 "Could not find a database with queryable tables\n"
                 "Tried all databases but none had tables with accessible data"
             )

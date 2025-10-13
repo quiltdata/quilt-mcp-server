@@ -19,7 +19,7 @@ def skip_if_no_aws_credentials():
 
         sts.get_caller_identity()
     except Exception as e:
-        pytest.skip(f"AWS credentials not available: {e}")
+        pytest.fail(f"AWS credentials not available: {e}")
 
 
 def has_aws_credentials() -> bool:
