@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.18] - 2025-10-12
+
+### Added
+
+- **Multiple Health Check Routes**: Added support for standard health check endpoint variations
+  - `/health` - Standard health check endpoint
+  - `/healthz` - Kubernetes-style health check endpoint
+  - `/` - Root path health check
+  - `/mcp/health` - MCP-prefixed health check endpoint
+  - `/mcp/healthz` - MCP-prefixed Kubernetes-style endpoint
+  - All routes return consistent JSON response with route identification
+  - Automatically registered for HTTP/SSE/streamable-http transports
+
+### Changed
+
+- **Health Check Response Format**: Enhanced to include route identifier
+  - Added `"route"` field showing which endpoint was called
+  - Helps with debugging and infrastructure monitoring
+  - Maintains backward compatibility with existing health checks
+
+## [0.6.17] - 2025-10-11
+
 ### Added
 
 - **Git-Tag-Based Docker Validation**: Enhanced `make docker-validate` for dev releases
