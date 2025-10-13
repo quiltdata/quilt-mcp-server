@@ -486,9 +486,10 @@ def test_mcp_protocol_compliance():
         assert "result" in init_data, f"Initialize response missing result field: {init_data}"
         assert "error" not in init_data, f"Initialize failed with error: {init_data.get('error')}"
 
-        # Test 2: Verify JSON-RPC 2.0 protocol compliance for any request
-        # The core requirement is that the server responds with valid JSON-RPC 2.0 format
-        # We'll test with tools/list even if it returns an error - the protocol format is what matters
+        # Test 2: Test tools/list method call
+        # This should work after a successful initialize, but currently fails with:
+        # "MCP error -32602: Invalid request parameters"
+        # Same error that MCP Inspector sees!
         tools_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
         tools_response = session.post(mcp_url, json=tools_request, timeout=10)
@@ -498,25 +499,21 @@ def test_mcp_protocol_compliance():
 
         # Parse SSE response
         tools_data = parse_sse_response(tools_response.text)
-        assert "jsonrpc" in tools_data, "Response missing jsonrpc field"
+        assert "jsonrpc" in tools_data, "tools/list response missing jsonrpc field"
         assert tools_data["jsonrpc"] == "2.0", f"Invalid jsonrpc version: {tools_data.get('jsonrpc')}"
-        assert "id" in tools_data, "Response missing id field"
-        assert tools_data["id"] == 2, f"Response id mismatch: expected 2, got {tools_data.get('id')}"
+        assert "id" in tools_data, "tools/list response missing id field"
+        assert tools_data["id"] == 2, f"tools/list response id mismatch: expected 2, got {tools_data.get('id')}"
 
-        # Response must have either result or error (JSON-RPC 2.0 spec)
-        assert "result" in tools_data or "error" in tools_data, (
-            f"JSON-RPC response must have either 'result' or 'error': {tools_data}"
+        # THIS IS WHERE THE BUG MANIFESTS:
+        # Server returns error instead of result
+        assert "result" in tools_data, (
+            f"tools/list should return result, but got error: {tools_data.get('error')}\n"
+            f"This is the same error MCP Inspector sees!\n"
+            f"Full response: {tools_data}"
         )
+        assert "error" not in tools_data, f"tools/list failed with error: {tools_data.get('error')}"
 
-        # If we got an error for tools/list, that's a known limitation of this test approach
-        # The important thing is that the protocol format is correct
-        if "error" in tools_data:
-            pytest.skip(
-                f"tools/list returned JSON-RPC error (likely session state issue in test): "
-                f"{tools_data['error']}. Protocol format is valid, which is what we're testing."
-            )
-
-        # If we got a successful result, validate the structure
+        # Validate tools/list result structure
         result = tools_data["result"]
         assert "tools" in result, f"tools/list result missing 'tools' field: {result}"
         assert isinstance(result["tools"], list), f"tools/list 'tools' must be a list: {type(result['tools'])}"
