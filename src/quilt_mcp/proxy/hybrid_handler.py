@@ -6,6 +6,8 @@ This is the integration layer between:
 - Remote MCP servers via mcp-use (Benchling, BioContextAI)
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Any
 
