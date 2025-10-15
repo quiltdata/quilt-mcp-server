@@ -1,13 +1,14 @@
 # Quilt MCP Workshop Guide
 
-Welcome! This workshop will teach you how to use the Quilt MCP (Model Context Protocol) server with Claude to query, visualize, and package your data.
+Welcome! This workshop will teach you how to use the Quilt MCP (Model Context Protocol) server with **Claude Code on Amazon Bedrock** to query, visualize, and package your data.
+
+**🏢 Deployment Model**: This workshop uses **VS Code with Continue extension** and **Claude on Amazon Bedrock** for enterprise AWS environments. All data stays within your AWS account.
 
 ## 📋 Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Installation](#installation)
-   - [Option A: Claude Desktop (Recommended)](#option-a-claude-desktop-recommended)
-   - [Option B: VS Code with Continue](#option-b-vs-code-with-continue)
+   - VS Code with Continue + Amazon Bedrock
 3. [Verify Installation](#verify-installation)
 4. [Getting Started](#getting-started)
 5. [Workshop Exercises](#workshop-exercises)
