@@ -52,6 +52,25 @@ Add to your `mcp.json`:
 }
 ```
 
+## 🎓 Workshop Materials
+
+Running a workshop or training session? We have complete workshop materials with AWS Bedrock integration:
+
+**[📚 Workshop Guide →](./workshop/)**
+
+Includes:
+- **Step-by-step participant guide** - Installation, configuration, hands-on exercises
+- **Instructor guide** - Timeline, talking points, troubleshooting
+- **Email templates** - HubSpot-compatible templates for sending AWS credentials
+- **Quick reference cards** - Common prompts and tool categories
+- **Pre-event checklist** - What participants need to install beforehand
+
+Perfect for:
+- Team training sessions
+- Conference workshops
+- Educational courses
+- Internal enablement
+
 ## Configuration
 
 ### Authentication
