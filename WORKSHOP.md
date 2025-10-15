@@ -1,10 +1,10 @@
 # Quilt MCP Workshop Guide
 
-Welcome! This workshop will teach you how to use the Quilt MCP (Model Context Protocol) server with **Claude Code on Amazon Bedrock** to query, visualize, and package your data.
+Welcome! This workshop will teach you how to use the Quilt MCP (Model Context Protocol) server with **Claude on Amazon Bedrock** to query, visualize, and package your data.
 
-**🏢 Deployment Model**: This workshop uses **Claude Code** (Anthropic's official CLI) with **Claude on Amazon Bedrock**. Choose your environment:
-- **Terminal**: Use `claude` CLI directly (recommended for this workshop)
-- **VS Code**: Use Claude Code extension for VS Code
+**🏢 Deployment Model**: This workshop uses **MCP with Claude on Amazon Bedrock**. Choose your environment:
+- **VS Code + Continue**: Full IDE integration with Bedrock (recommended for this workshop)
+- **Terminal + MCP Inspector**: Web-based testing interface for MCP tools
 
 All data stays within your AWS account. No data leaves your infrastructure.
 
@@ -12,8 +12,8 @@ All data stays within your AWS account. No data leaves your infrastructure.
 
 1. [Prerequisites](#prerequisites)
 2. [Installation](#installation)
-   - [Option A: Claude Code CLI (Terminal)](#option-a-claude-code-cli-terminal)
-   - [Option B: Claude Code for VS Code](#option-b-claude-code-for-vs-code)
+   - [Option A: VS Code + Continue (Recommended)](#option-a-vs-code--continue-recommended)
+   - [Option B: Terminal + MCP Inspector](#option-b-terminal--mcp-inspector)
 3. [Verify Installation](#verify-installation)
 4. [Getting Started](#getting-started)
 5. [Workshop Exercises](#workshop-exercises)
@@ -59,88 +59,9 @@ If not configured, your instructor will provide credentials.
 
 Choose your preferred environment:
 
-### Option A: Claude Code CLI (Terminal)
+### Option A: VS Code + Continue (Recommended)
 
-This is the **recommended option** for this workshop - you'll use Claude directly in your terminal.
-
-#### Step 1: Install Claude Code CLI
-
-**macOS/Linux**:
-```bash
-curl -fsSL https://claude.ai/install.sh | sh
-```
-
-**Verify installation**:
-```bash
-claude --version
-```
-
-#### Step 2: Configure Claude for Bedrock
-
-Create/edit `~/.config/claude/config.json`:
-
-```bash
-mkdir -p ~/.config/claude
-cat > ~/.config/claude/config.json << 'EOF'
-{
-  "mcpServers": {
-    "quilt": {
-      "command": "uvx",
-      "args": ["--from", "quilt-mcp", "quilt-mcp"],
-      "env": {
-        "AWS_REGION": "us-east-1",
-        "AWS_PROFILE": "default",
-        "QUILT_CATALOG_URL": "https://demo.quiltdata.com"
-      }
-    }
-  },
-  "provider": "bedrock",
-  "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-  "region": "us-east-1"
-}
-EOF
-```
-
-**Customize** (if your instructor provides different values):
-- Change `AWS_REGION` to your AWS region
-- Change `AWS_PROFILE` to your AWS profile name
-- Change `QUILT_CATALOG_URL` to your Quilt catalog
-
-#### Step 3: Install Quilt MCP Server
-
-```bash
-# Install uv (Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Test Quilt MCP installation
-uvx --from quilt-mcp quilt-mcp
-```
-
-You should see:
-```
-Quilt MCP Server starting...
-```
-
-Press `Ctrl+C` to stop. ✅
-
-#### Step 4: Start Claude Code
-
-```bash
-claude
-```
-
-You should see a chat interface. Type:
-```
-What MCP tools do you have available?
-```
-
-Claude should list Quilt tools. ✅
-
----
-
-### Option B: Claude Code for VS Code
-
-If you prefer VS Code, use the Claude Code extension.
+This is the **recommended option** for this workshop - full IDE integration with all Quilt MCP tools.
 
 #### Step 1: Install VS Code
 
@@ -148,14 +69,14 @@ If you prefer VS Code, use the Claude Code extension.
 2. Install for your operating system
 3. Launch VS Code
 
-#### Step 2: Install Claude Code Extension
+#### Step 2: Install Continue Extension
 
 1. Open VS Code
 2. Open Extensions view:
    - **Mac**: Press `Cmd+Shift+X`
    - **Windows/Linux**: Press `Ctrl+Shift+X`
-3. Search for **"Claude Code"** by Anthropic
-4. Click **Install**
+3. Search for **"Continue"**
+4. Click **Install** on the Continue extension
 5. Wait for installation to complete
 
 #### Step 3: Install Quilt MCP Server
@@ -182,17 +103,25 @@ uvx --from quilt-mcp quilt-mcp
 
 Press `Ctrl+C` to stop it. ✅
 
-#### Step 4: Configure Claude Code Extension
+#### Step 4: Configure Continue with Bedrock + MCP
 
-1. **Open Claude Code Settings**:
+1. **Open Continue Config**:
    - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-   - Type "Claude Code: Open Settings"
+   - Type "Continue: Open config.json"
    - Press Enter
 
-2. **Add MCP Server Configuration**:
+2. **Replace the config with this**:
 
 ```json
 {
+  "models": [
+    {
+      "title": "Claude Sonnet 4.5 (Bedrock)",
+      "provider": "bedrock",
+      "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "region": "us-east-1"
+    }
+  ],
   "mcpServers": {
     "quilt": {
       "command": "uvx",
@@ -203,17 +132,14 @@ Press `Ctrl+C` to stop it. ✅
         "QUILT_CATALOG_URL": "https://demo.quiltdata.com"
       }
     }
-  },
-  "provider": "bedrock",
-  "model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-  "region": "us-east-1"
+  }
 }
 ```
 
-3. **Customize** (if needed):
+3. **Customize** (if your instructor provides different values):
    - Change `region` to your AWS region
    - Change `AWS_PROFILE` to your AWS profile name
-   - Change `QUILT_CATALOG_URL` to your catalog
+   - Change `QUILT_CATALOG_URL` to your Quilt catalog
 
 4. **Save the file** (`Cmd+S` or `Ctrl+S`)
 
@@ -225,40 +151,95 @@ Press `Ctrl+C` to stop it. ✅
 
 2. **Relaunch VS Code**
 
-3. **Open Claude Code panel**:
-   - Click the Claude icon in the left sidebar
-   - Or press `Cmd+Shift+C` (Mac) or `Ctrl+Shift+C` (Windows/Linux)
+3. **Open Continue sidebar**:
+   - Click the Continue icon in the left sidebar
+   - Or press `Cmd+L` (Mac) or `Ctrl+L` (Windows/Linux)
+
+---
+
+### Option B: Terminal + MCP Inspector
+
+If you prefer terminal-based work, use MCP Inspector to test Quilt MCP tools via a web interface.
+
+#### Step 1: Install Prerequisites
+
+**Install uv (Python package manager)**:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Install MCP Inspector** (requires Node.js):
+```bash
+npm install -g @modelcontextprotocol/inspector
+```
+
+#### Step 2: Test Quilt MCP Server
+
+```bash
+uvx --from quilt-mcp quilt-mcp
+```
+
+You should see: `Quilt MCP Server starting...`
+
+Press `Ctrl+C` to stop. ✅
+
+#### Step 3: Start MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector uvx --from quilt-mcp quilt-mcp
+```
+
+This will:
+1. Start the Quilt MCP server
+2. Open a web interface at `http://localhost:5173`
+3. Show all available Quilt MCP tools
+
+#### Step 4: Test in Web Interface
+
+In the MCP Inspector web UI:
+
+1. **View Available Tools**: See all Quilt MCP tools listed
+2. **Test a Tool**: Click on `bucket_objects_list`
+3. **Enter Parameters**:
+   ```json
+   {
+     "bucket": "s3://quilt-example"
+   }
+   ```
+4. **Execute**: Click "Run" and see results
+
+✅ You can now test any Quilt MCP tool through the web interface!
+
+**Note**: For actual workshop exercises with Claude, you'll need to use Python with boto3 to call Bedrock directly. The MCP Inspector is useful for testing tools, but doesn't include Claude integration.
 
 ---
 
 ## Verify Installation
 
-### Test 1: Check Tools Available
+### For VS Code + Continue Users
 
-**Terminal (Claude CLI)**:
-```bash
-claude
-```
+#### Test 1: Check Tools Available
 
-**VS Code (Claude Code Extension)**:
-- Open Claude panel (click Claude icon or `Cmd+Shift+C`)
+1. **Open Continue sidebar**:
+   - Click Continue icon in left sidebar
+   - Or press `Cmd+L` (Mac) or `Ctrl+L` (Windows/Linux)
 
-**Type this message**:
-```
-What MCP tools do you have available?
-```
+2. **Type this message**:
+   ```
+   What MCP tools do you have available?
+   ```
 
-**Expected response**:
-Claude should list Quilt MCP tools including:
-- `mcp_quilt-mcp-server_auth_status` - Check authentication
-- `mcp_quilt-mcp-server_bucket_objects_list` - List S3 objects
-- `mcp_quilt-mcp-server_packages_search` - Search packages
-- `mcp_quilt-mcp-server_create_data_visualization` - Create visualizations
-- And many more...
+3. **Expected response**:
+   Claude should list Quilt MCP tools including:
+   - `mcp_quilt-mcp-server_auth_status` - Check authentication
+   - `mcp_quilt-mcp-server_bucket_objects_list` - List S3 objects
+   - `mcp_quilt-mcp-server_packages_search` - Search packages
+   - `mcp_quilt-mcp-server_create_data_visualization` - Create visualizations
+   - And many more...
 
 ✅ **Success**: If you see the tools listed, you're ready!
 
-### Test 2: Query Your Data
+#### Test 2: Query Your Data
 
 **Try this prompt**:
 ```
@@ -273,37 +254,44 @@ Claude should use the `auth_status` tool and tell you:
 
 ✅ **Success**: If Claude responds with your catalog info, everything works!
 
+### For MCP Inspector Users
+
+1. **Open MCP Inspector**: Should be running at `http://localhost:5173`
+2. **View Tools**: All Quilt MCP tools should be listed
+3. **Test a Tool**: Click any tool and try executing it
+4. **See Results**: Tool output appears in the interface
+
+✅ **Success**: If you can execute tools and see results, MCP is working!
+
 ---
 
 ## Troubleshooting
 
-### Issue: Claude doesn't see MCP tools
+### Issue: Continue doesn't see MCP tools
 
 **Symptoms**: Claude responds "I don't have access to Quilt tools" or tools list is empty
 
 **Solutions**:
 
-1. **Verify configuration file exists**:
-   ```bash
-   # For Claude CLI
-   cat ~/.config/claude/config.json
-   
-   # For VS Code
-   # Open: Cmd+Shift+P → "Claude Code: Open Settings"
-   ```
+1. **Verify Continue configuration**:
+   - Press `Cmd+Shift+P` → "Continue: Open config.json"
+   - Check that `mcpServers` section exists
+   - Verify JSON syntax is correct (no trailing commas, proper quotes)
 
 2. **Check AWS credentials**:
    ```bash
    aws sts get-caller-identity
    ```
 
-3. **Restart completely**:
-   - **Terminal**: Exit and restart terminal, then run `claude` again
-   - **VS Code**: Quit completely (Cmd+Q or Alt+F4), then relaunch
+3. **Restart VS Code completely**:
+   - Quit completely: `Cmd+Q` (Mac) or `Alt+F4` (Windows)
+   - Relaunch VS Code
+   - Wait 10 seconds for Continue to initialize
 
-4. **Check logs**:
-   - **Terminal**: Claude CLI shows errors directly
-   - **VS Code**: `Help` → `Toggle Developer Tools` → Console tab
+4. **Check Continue logs**:
+   - Open VS Code: `Help` → `Toggle Developer Tools`
+   - Go to Console tab
+   - Look for MCP connection errors or warnings
 
 ### Issue: "Could not connect to MCP server"
 
