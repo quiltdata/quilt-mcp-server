@@ -36,14 +36,18 @@ Before starting, ensure you have:
 - AWS Region (typically `us-east-1`)
 - Bedrock Model ID
 
-These credentials provide access to:
-- **Amazon Bedrock** with Claude Sonnet 4.5
-- **S3 buckets** with sample data
-- **Athena** for SQL queries
-- **AWS Glue** data catalog
-- **Quilt catalogs** (via automatic STS token authentication)
+**Important About Authentication** - Two Separate Logins Required:
 
-**Important**: The Quilt MCP server will automatically use your AWS credentials to access Quilt catalogs and S3 data via STS tokens. **No separate Quilt login is required** - your AWS credentials handle everything!
+1. **AWS Credentials** (provided via email) - **Bedrock ONLY**
+   - Used for: Claude Sonnet 4.5 model access via Amazon Bedrock
+   - Configure with: `aws configure` (see email for setup instructions)
+   
+2. **Quilt Login** (separate authentication) - **Everything Else**
+   - Used for: S3 data access, Athena queries, Quilt catalogs, AWS Glue
+   - Configure with: `quilt3 login` (you'll do this during workshop setup)
+   - Your Quilt credentials provide access to the data infrastructure
+
+**Why two logins?** Bedrock runs in the workshop AWS account (your provided credentials), while all data access (S3, Athena, Quilt) uses Quilt's authentication system and runs in Quilt's AWS infrastructure.
 
 ### Check Your Python Version
 
@@ -145,10 +149,10 @@ Press `Ctrl+C` to stop it. ✅
 ```
 
 3. **Understanding the Configuration**:
-   - **`provider: "bedrock"`** - Uses AWS Bedrock for Claude
-   - **`AWS_PROFILE: "default"`** - Uses your AWS credentials from `~/.aws/credentials`
-   - **`QUILT_CATALOG_URL`** - Your Quilt catalog (provided by instructor)
-   - **No separate Quilt login needed!** - The MCP server automatically uses your AWS credentials to obtain STS tokens for Quilt catalog and S3 access
+   - **`provider: "bedrock"`** - Uses AWS Bedrock for Claude model access (uses your AWS credentials)
+   - **`AWS_PROFILE: "default"`** - Uses your AWS credentials from `~/.aws/credentials` (ONLY for Bedrock)
+   - **`QUILT_CATALOG_URL`** - Your Quilt catalog URL (authenticated via `quilt3 login`)
+   - **Note**: The Quilt MCP server uses `quilt3` authentication for S3, Athena, and catalog access - your AWS credentials are ONLY for Bedrock
 
 4. **Customize** (if your instructor provides different values):
    - Change `region` to your AWS region
@@ -168,6 +172,32 @@ Press `Ctrl+C` to stop it. ✅
 3. **Open Continue sidebar**:
    - Click the Continue icon in the left sidebar
    - Or press `Cmd+L` (Mac) or `Ctrl+L` (Windows/Linux)
+
+#### Step 6: Authenticate with Quilt
+
+Now you need to log in to Quilt to access S3, Athena, and Quilt catalogs:
+
+1. **Open a terminal** (in VS Code: `Terminal` → `New Terminal`)
+
+2. **Run Quilt login**:
+   ```bash
+   quilt3 login
+   ```
+
+3. **Follow the prompts**:
+   - Enter your Quilt catalog URL (provided by instructor, e.g., `https://demo.quiltdata.com`)
+   - A browser window will open for authentication
+   - Log in with your Quilt credentials (SSO or username/password)
+   - Return to terminal once authenticated
+
+4. **Verify authentication**:
+   ```bash
+   quilt3 config
+   ```
+   
+   Should show your catalog URL and authentication status. ✅
+
+**Important**: This Quilt login is separate from your AWS credentials and provides access to all data operations (S3, Athena, Quilt packages).
 
 ---
 
@@ -355,18 +385,34 @@ Now that everything is installed, let's learn the basics!
 ### Understanding the Workflow
 
 ```
-You (in Claude) → Quilt MCP Server → AWS (via your credentials)
-                      ↓                      ↓
-               Uses STS tokens    → S3, Athena, Quilt Catalog, Bedrock
-                      ↓
-              Claude sees & processes your data
+You (in Claude via Continue) → Quilt MCP Server → Two Authentication Systems:
+                                     
+                                     Path 1: AWS Credentials
+                                     ↓
+                                     Workshop AWS Account
+                                     → Amazon Bedrock (Claude model)
+                                     
+                                     Path 2: Quilt Login (quilt3)
+                                     ↓
+                                     Quilt AWS Infrastructure
+                                     → S3, Athena, Glue, Quilt Catalog
 ```
 
-**Authentication Flow**:
-1. You provide AWS credentials in `~/.aws/credentials` (Access Key + Secret Key)
-2. Quilt MCP server uses those credentials to obtain STS tokens
-3. STS tokens grant access to S3, Athena, Glue, and Quilt catalogs
-4. **No separate Quilt login needed** - everything uses your AWS IAM identity!
+**Authentication Flow** (Two Separate Logins Required):
+
+1. **AWS Credentials** (provided via email) - **Bedrock ONLY**
+   - Configure in `~/.aws/credentials` (Access Key + Secret Key)
+   - Grants access to: **Amazon Bedrock** (Claude Sonnet 4.5 model)
+   - Used for: AI model inference, running Claude queries
+
+2. **Quilt Login** (separate authentication) - **Everything Else**
+   - Run `quilt3 login` to authenticate with Quilt
+   - Grants access to: **S3 data, Athena queries, Glue catalog, Quilt packages**
+   - Used for: Accessing data files, running SQL queries, searching packages, creating packages
+
+**Why two logins?** 
+- **Bedrock** runs in the workshop AWS account (uses your provided AWS credentials)
+- **All data access** (S3, Athena, Quilt) runs in Quilt's AWS infrastructure (uses Quilt authentication via `quilt3 login`)
 
 ### Key Capabilities
 
