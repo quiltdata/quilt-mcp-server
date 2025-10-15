@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; }
+        .credentials-box { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #4CAF50; }
+        .step-box { background: #e8f5e9; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        pre { background: #fff; padding: 15px; border-radius: 3px; font-family: 'Courier New', monospace; overflow-x: auto; border: 1px solid #ddd; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+        h1 { color: #4CAF50; }
+        h2 { color: #2196F3; border-bottom: 2px solid #2196F3; padding-bottom: 5px; }
+        h3 { color: #FF9800; }
+        .warning { background: #fff3cd; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #ff9800; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        table td { padding: 10px; border-bottom: 1px solid #ddd; }
+        table td:first-child { font-weight: bold; width: 200px; }
+        .example { background: #f3e5f5; padding: 15px; margin: 15px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<h1>🚀 Your AWS Bedrock Access for Claude Sonnet 4.5</h1>
+
+<p>Welcome to the workshop! Your AWS credentials have been created and are ready to use.</p>
+
+<div class="credentials-box">
+    <h2>📋 Your AWS Credentials</h2>
+    <table>
+        <tr>
+            <td>Username:</td>
+            <td><code>{{ custom.username }}</code></td>
+        </tr>
+        <tr>
+            <td>Access Key ID:</td>
+            <td><code>{{ custom.access_key }}</code></td>
+        </tr>
+        <tr>
+            <td>Secret Access Key:</td>
+            <td><code>{{ custom.secret_key }}</code></td>
+        </tr>
+        <tr>
+            <td>Region:</td>
+            <td><code>us-east-1</code></td>
+        </tr>
+        <tr>
+            <td>Model ID:</td>
+            <td><code>anthropic.claude-sonnet-4-5-20250929-v1:0</code></td>
+        </tr>
+    </table>
+</div>
+
+<div class="warning">
+    <strong>⚠️ Security Warning:</strong> These credentials provide access to AI services that cost money. Please:
+    <ul>
+        <li>Store them securely (use a password manager)</li>
+        <li>Never commit them to git repositories</li>
+        <li>Never share them publicly</li>
+        <li>Use them only for this workshop</li>
+    </ul>
+</div>
+
+<hr>
+
+<h2>🔧 Setup Instructions</h2>
+
+<div class="step-box">
+    <h3>Step 1: Install AWS CLI</h3>
+    
+    <p><strong>On macOS:</strong></p>
+    <pre>brew install awscli</pre>
+    
+    <p><strong>On Windows:</strong></p>
+    <p>Download and install from: <a href="https://aws.amazon.com/cli/">https://aws.amazon.com/cli/</a></p>
+    
+    <p><strong>On Linux:</strong></p>
+    <pre>curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install</pre>
+    
+    <p><strong>Verify installation:</strong></p>
+    <pre>aws --version</pre>
+    <p>Should show: <code>aws-cli/2.x.x</code> or higher</p>
+</div>
+
+<div class="step-box">
+    <h3>Step 2: Configure AWS Credentials</h3>
+    
+    <p>Run this command and enter your credentials when prompted:</p>
+    <pre>aws configure</pre>
+    
+    <p>Enter the following values:</p>
+    <pre>AWS Access Key ID: {{ custom.access_key }}
+AWS Secret Access Key: {{ custom.secret_key }}
+Default region name: us-east-1
+Default output format: json</pre>
+    
+    <p><strong>Verify your credentials work:</strong></p>
+    <pre>aws sts get-caller-identity</pre>
+    <p>You should see your AWS account information.</p>
+</div>
+
+<div class="step-box">
+    <h3>Step 3: Test Bedrock Access</h3>
+    
+    <p>Verify you can access Claude models:</p>
+    <pre>aws bedrock list-foundation-models \
+    --region us-east-1 \
+    --by-provider anthropic \
+    --query 'modelSummaries[?contains(modelId, `sonnet-4-5`)].{ModelID:modelId,Name:modelName}' \
+    --output table</pre>
+    
+    <p>You should see Claude Sonnet 4.5 in the list.</p>
+</div>
+
+<hr>
+
+<h2>💻 Using Quilt MCP with Claude on AWS Bedrock</h2>
+
+<div class="example">
+    <h3>Option 1: Quilt MCP with Bedrock (Recommended for Workshop)</h3>
+    
+    <p><strong>Install uv (Python package manager):</strong></p>
+    <pre>curl -LsSf https://astral.sh/uv/install.sh | sh</pre>
+    
+    <p><strong>Test Quilt MCP Server:</strong></p>
+    <pre>uvx --from quilt-mcp quilt-mcp</pre>
+    <p>You should see: <code>Quilt MCP Server starting...</code></p>
+    <p>Press Ctrl+C to stop.</p>
+    
+    <p><strong>For Terminal Use - Option A: Using MCP Inspector (Simple Testing):</strong></p>
+    <pre># Install MCP Inspector
+npm install -g @modelcontextprotocol/inspector
+
+# Start Quilt MCP with Inspector
+npx @modelcontextprotocol/inspector uvx --from quilt-mcp quilt-mcp</pre>
+    <p>This opens a web interface where you can test all Quilt tools directly.</p>
+    
+    <p><strong>For Terminal Use - Option B: Python with boto3:</strong></p>
+    <p>Use Python to call Bedrock directly and describe Quilt tools in your prompts:</p>
+    <pre>import boto3
+import json
+
+bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
+
+def ask_claude(prompt):
+    response = bedrock.invoke_model(
+        modelId='anthropic.claude-sonnet-4-5-20250929-v1:0',
+        body=json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 4096,
+            "messages": [{"role": "user", "content": prompt}]
+        })
+    )
+    return json.loads(response['body'].read())['content'][0]['text']
+
+# Example: Tell Claude about Quilt capabilities
+prompt = """I need to list files in s3://quilt-example bucket.
+Can you write Python code using boto3 to do this?"""
+
+print(ask_claude(prompt))</pre>
+
+    <p><strong>For VS Code - Using Continue Extension:</strong></p>
+    <ol>
+        <li>Open VS Code</li>
+        <li>Go to Extensions (⌘+Shift+X)</li>
+        <li>Search for "Continue" and install it</li>
+        <li>Open Continue config: <code>Cmd+Shift+P</code> → "Continue: Open config.json"</li>
+        <li>Add this configuration:</li>
+    </ol>
+    <pre>{
+  "models": [{
+    "title": "Claude Sonnet 4.5",
+    "provider": "bedrock",
+    "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "region": "us-east-1"
+  }],
+  "mcpServers": {
+    "quilt": {
+      "command": "uvx",
+      "args": ["--from", "quilt-mcp", "quilt-mcp"],
+      "env": {
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}</pre>
+    <p>Restart VS Code, then open Continue sidebar (Cmd+L). Claude will have access to all Quilt MCP tools!</p>
+</div>
+
+<div class="example">
+    <h3>Option 2: Python with boto3 (For Custom Applications)</h3>
+    
+    <p><strong>Install boto3:</strong></p>
+    <pre>pip install boto3</pre>
+    
+    <p><strong>Complete working example:</strong></p>
+    <pre>import boto3
+import json
+
+# Initialize Bedrock client
+bedrock = boto3.client(
+    service_name='bedrock-runtime',
+    region_name='us-east-1'
+)
+
+# Your prompt
+prompt = "Explain quantum computing in simple terms"
+
+# Call Claude Sonnet 4.5
+response = bedrock.invoke_model(
+    modelId='anthropic.claude-sonnet-4-5-20250929-v1:0',
+    contentType='application/json',
+    accept='application/json',
+    body=json.dumps({
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 2048,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.7,
+        "top_p": 0.9
+    })
+)
+
+# Parse and print response
+result = json.loads(response['body'].read())
+assistant_message = result['content'][0]['text']
+print(assistant_message)</pre>
+
+    <p><strong>Save as <code>test_claude.py</code> and run:</strong></p>
+    <pre>python test_claude.py</pre>
+</div>
+
+<div class="example">
+    <h3>Option 3: Python Conversational Example</h3>
+    
+    <p>For multi-turn conversations:</p>
+    <pre>import boto3
+import json
+
+bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
+
+def chat_with_claude(messages):
+    """Send messages to Claude and get response"""
+    response = bedrock.invoke_model(
+        modelId='anthropic.claude-sonnet-4-5-20250929-v1:0',
+        body=json.dumps({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 2048,
+            "messages": messages
+        })
+    )
+    result = json.loads(response['body'].read())
+    return result['content'][0]['text']
+
+# Start conversation
+conversation = []
+
+# First message
+conversation.append({
+    "role": "user",
+    "content": "Hello! I'm learning to code. Can you help?"
+})
+response1 = chat_with_claude(conversation)
+print(f"Claude: {response1}\n")
+
+# Add Claude's response to conversation
+conversation.append({
+    "role": "assistant",
+    "content": response1
+})
+
+# Second message
+conversation.append({
+    "role": "user",
+    "content": "Great! Can you write a Python function to calculate factorial?"
+})
+response2 = chat_with_claude(conversation)
+print(f"Claude: {response2}")</pre>
+</div>
+
+<div class="example">
+    <h3>Option 4: AWS CLI</h3>
+    
+    <p>Quick test from command line:</p>
+    <pre>aws bedrock-runtime invoke-model \
+    --region us-east-1 \
+    --model-id anthropic.claude-sonnet-4-5-20250929-v1:0 \
+    --body '{
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 1024,
+        "messages": [
+            {
+                "role": "user",
+                "content": "Write a haiku about coding"
+            }
+        ]
+    }' \
+    --cli-binary-format raw-in-base64-out \
+    response.json && cat response.json | jq -r '.content[0].text'</pre>
+</div>
+
+<div class="example">
+    <h3>Option 5: Node.js / JavaScript</h3>
+    
+    <p><strong>Install AWS SDK:</strong></p>
+    <pre>npm install @aws-sdk/client-bedrock-runtime</pre>
+    
+    <p><strong>Code example:</strong></p>
+    <pre>const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
+
+const client = new BedrockRuntimeClient({ region: "us-east-1" });
+
+async function askClaude(prompt) {
+    const command = new InvokeModelCommand({
+        modelId: "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        contentType: "application/json",
+        accept: "application/json",
+        body: JSON.stringify({
+            anthropic_version: "bedrock-2023-05-31",
+            max_tokens: 2048,
+            messages: [
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ]
+        })
+    });
+    
+    const response = await client.send(command);
+    const result = JSON.parse(new TextDecoder().decode(response.body));
+    return result.content[0].text;
+}
+
+// Usage
+askClaude("Explain async/await in JavaScript").then(console.log);</pre>
+</div>
+
+<hr>
+
+<h2>🎯 Common Use Cases with Quilt MCP</h2>
+
+<div class="example">
+    <h3>1. Explore S3 Data</h3>
+    <pre># Using Continue in VS Code or MCP Inspector
+> List all CSV files in s3://quilt-example bucket
+> Search for files containing "genomics" in s3://my-bucket
+> Show me the contents of data/sample.csv</pre>
+</div>
+
+<div class="example">
+    <h3>2. Query with Athena</h3>
+    <pre># Run SQL queries on your data
+> What databases do I have access to in Athena?
+> Query the experiment_data table and show me the first 10 rows
+> Run this SQL: SELECT gene, AVG(expression) FROM rna_seq GROUP BY gene</pre>
+</div>
+
+<div class="example">
+    <h3>3. Create Data Visualizations</h3>
+    <pre># Generate charts from your data
+> Create a box plot of gene expression grouped by condition
+> Make a scatter plot of these data points with genomics colors
+> Visualize the query results as a bar chart</pre>
+</div>
+
+<div class="example">
+    <h3>4. Package Your Analysis</h3>
+    <pre># Create Quilt packages with documentation
+> Create a package called "genomics/rna-analysis" with these files
+> Add a README explaining this analysis
+> Package the results with metadata using the genomics template</pre>
+</div>
+
+<div class="example">
+    <h3>5. Search Quilt Packages</h3>
+    <pre># Find and explore packages
+> Search for packages related to "RNA-seq"
+> Browse the contents of genomics/experiment-001 package
+> Show me packages created in the last week</pre>
+</div>
+
+<div class="example">
+    <h3>6. Combine Everything - Complete Workflow</h3>
+    <pre># End-to-end data analysis
+> Query the RNA-seq data, create a visualization, and package it
+> Find CSV files, run Athena queries, and create a report package
+> Analyze s3://my-bucket/data/, visualize results, publish as Quilt package</pre>
+</div>
+
+<hr>
+
+<h2>⚙️ Model Parameters Explained</h2>
+
+<table>
+    <tr>
+        <td><code>max_tokens</code></td>
+        <td>Maximum response length (1024-8192). Higher = longer responses.</td>
+    </tr>
+    <tr>
+        <td><code>temperature</code></td>
+        <td>Randomness (0.0-1.0). Lower = more focused, Higher = more creative.</td>
+    </tr>
+    <tr>
+        <td><code>top_p</code></td>
+        <td>Nucleus sampling (0.0-1.0). Controls diversity. Use 0.9 for balanced results.</td>
+    </tr>
+</table>
+
+<p><strong>Recommended settings for code:</strong></p>
+<ul>
+    <li><code>temperature: 0.3</code> - More deterministic for code generation</li>
+    <li><code>max_tokens: 4096</code> - Allow longer code examples</li>
+    <li><code>top_p: 0.9</code> - Good balance</li>
+</ul>
+
+<hr>
+
+<h2>🔍 Troubleshooting</h2>
+
+<div class="warning">
+    <h3>Common Issues and Solutions</h3>
+    
+    <p><strong>Error: "Unable to locate credentials"</strong></p>
+    <ul>
+        <li>Run <code>aws configure</code> again</li>
+        <li>Verify with: <code>cat ~/.aws/credentials</code></li>
+    </ul>
+    
+    <p><strong>Error: "AccessDeniedException"</strong></p>
+    <ul>
+        <li>Check you're using region <code>us-east-1</code></li>
+        <li>Verify credentials: <code>aws sts get-caller-identity</code></li>
+    </ul>
+    
+    <p><strong>Error: "ValidationException: Malformed input"</strong></p>
+    <ul>
+        <li>Check your JSON syntax (especially quotes)</li>
+        <li>Ensure <code>anthropic_version</code> is set correctly</li>
+        <li>Verify <code>messages</code> array has at least one message</li>
+    </ul>
+    
+    <p><strong>Slow responses?</strong></p>
+    <ul>
+        <li>Reduce <code>max_tokens</code></li>
+        <li>Make prompts more specific</li>
+        <li>Claude Sonnet 4.5 is fast but comprehensive - responses take 2-10 seconds</li>
+    </ul>
+</div>
+
+<hr>
+
+<h2>📚 Additional Resources</h2>
+
+<ul>
+    <li><a href="https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html">AWS Bedrock Documentation</a></li>
+    <li><a href="https://docs.anthropic.com/claude/docs/intro-to-claude">Anthropic Claude Documentation</a></li>
+    <li><a href="https://docs.anthropic.com/claude/docs/models-overview">Claude Model Comparison</a></li>
+    <li><a href="https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime.html">Boto3 Bedrock Reference</a></li>
+</ul>
+
+<hr>
+
+<h2>💡 Best Practices</h2>
+
+<ol>
+    <li><strong>Be Specific:</strong> Clear, detailed prompts get better results</li>
+    <li><strong>Provide Context:</strong> Include relevant background information</li>
+    <li><strong>Iterate:</strong> Refine your prompts based on responses</li>
+    <li><strong>Use Examples:</strong> Show Claude what you want with examples</li>
+    <li><strong>Set Constraints:</strong> Specify format, length, style requirements</li>
+    <li><strong>Error Handling:</strong> Always wrap API calls in try/except blocks</li>
+    <li><strong>Cost Awareness:</strong> Monitor your usage (Claude Sonnet 4.5: ~$3/million input tokens)</li>
+</ol>
+
+<hr>
+
+<h2>🎓 Workshop Support</h2>
+
+<p>If you encounter any issues during the workshop:</p>
+<ul>
+    <li>Ask workshop instructors for help</li>
+    <li>Check the troubleshooting section above</li>
+    <li>Verify your credentials with: <code>aws sts get-caller-identity</code></li>
+    <li>Test basic access with: <code>aws bedrock list-foundation-models --region us-east-1</code></li>
+</ul>
+
+<hr>
+
+<p style="color: #666; font-size: 14px; margin-top: 40px;">
+    <strong>Remember:</strong> These credentials expire after the workshop. Store any code examples you create, but don't rely on these credentials long-term.
+</p>
+
+<p style="color: #666; font-size: 12px;">
+    Credentials created: {{ custom.created_at }}<br>
+    Workshop Participant: {{ custom.username }}
+</p>
+
+</body>
+</html>
+
