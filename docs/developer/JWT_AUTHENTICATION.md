@@ -1,147 +1,54 @@
-# JWT Authentication for Quilt MCP Server
+# JWT Authentication Deployment Guide
 
-This guide explains how to deploy and configure JWT-based authentication for the Quilt MCP server, following patterns from the quiltdata/quilt repository.
+This guide explains how to **deploy** and **configure** JWT-based authentication for the Quilt MCP server.
 
-## Overview
+> **For architecture details**, see [JWT_ARCHITECTURE.md](../JWT_ARCHITECTURE.md)
 
-The Quilt MCP server supports JWT-based authentication with enhanced tokens from the Quilt frontend. These tokens use compression to stay under the 8KB limit while providing comprehensive authorization information.
+## Quick Start
 
-### Authentication Flow
+The MCP server enforces JWT-only authentication. No IAM fallback exists for tool operations.
 
-```
-┌──────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│   Quilt      │  JWT    │   MCP Server     │  AWS    │   S3/Athena/     │
-│   Frontend   ├────────►│   + FastMCP      ├────────►│   Quilt Registry │
-└──────────────┘         └──────────────────┘         └──────────────────┘
-```
+## Prerequisites
 
-1. User authenticates with Quilt frontend (OAuth2)
-2. Frontend generates compressed JWT with user's AWS credentials/role
-3. Frontend sends JWT in `Authorization: Bearer <token>` header
-4. MCP server validates and decompresses JWT
-5. MCP server uses AWS credentials/role from JWT for operations
+- Frontend and backend must share the same JWT secret (55+ characters)
+- Frontend must send `Authorization: Bearer <token>` header
+- Tokens must include AWS credentials or role ARN
 
-## JWT Token Structure
+## Deployment Steps
 
-### Compressed Format
-
-The frontend sends tokens with abbreviated field names to save space:
-
-```json
-{
-  "iss": "quilt-frontend",
-  "aud": "quilt-mcp-server",
-  "sub": "user-id",
-  "iat": 1758740633,
-  "exp": 1758827033,
-  "jti": "1a2b3c4d5e",
-  "s": "w",                        // scope (abbreviated)
-  "p": ["g", "p", "d", "l"],       // permissions (abbreviated)
-  "r": ["ReadWriteQuiltV2-sales"], // roles
-  "b": {                           // buckets (compressed)
-    "_type": "groups",
-    "_data": {
-      "quilt": ["sandbox-bucket", "sales-raw"],
-      "cell": ["cellpainting-gallery"]
-    }
-  },
-  "l": "write",                    // level (abbreviated)
-  
-  // Expanded fields for compatibility
-  "scope": "w",
-  "permissions": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"],
-  "roles": ["ReadWriteQuiltV2-sales"],
-  "buckets": ["quilt-sandbox-bucket", "quilt-sales-raw", "cellpainting-gallery"],
-  "level": "write",
-  
-  // Optional AWS credentials
-  "aws_credentials": {
-    "access_key_id": "ASIA...",
-    "secret_access_key": "...",
-    "session_token": "...",
-    "region": "us-east-1"
-  },
-  
-  // Or AWS role ARN for assumption
-  "aws_role_arn": "arn:aws:iam::123456789012:role/QuiltUserRole"
-}
-```
-
-### Bucket Compression Formats
-
-The MCP server supports three bucket compression formats:
-
-#### 1. Groups Format
-```json
-{
-  "_type": "groups",
-  "_data": {
-    "quilt": ["sandbox-bucket", "sales-raw"],
-    "cell": ["cellpainting-gallery"]
-  }
-}
-```
-
-Decompresses to: `["quilt-sandbox-bucket", "quilt-sales-raw", "cellpainting-gallery"]`
-
-#### 2. Patterns Format
-```json
-{
-  "_type": "patterns",
-  "_data": {
-    "quilt": ["sandbox-bucket"],
-    "other": ["data-drop-off-bucket"]
-  }
-}
-```
-
-#### 3. Compressed Format
-```json
-{
-  "_type": "compressed",
-  "_data": "eyJxdWlsdC1zYW5kYm94LWJ1Y2tldCI..." // base64 encoded JSON
-}
-```
-
-### Permission Abbreviations
-
-| Abbreviation | Full Permission |
-|--------------|-----------------|
-| `g` | `s3:GetObject` |
-| `p` | `s3:PutObject` |
-| `d` | `s3:DeleteObject` |
-| `l` | `s3:ListBucket` |
-| `la` | `s3:ListAllMyBuckets` |
-| `gv` | `s3:GetObjectVersion` |
-| `pa` | `s3:PutObjectAcl` |
-| `amu` | `s3:AbortMultipartUpload` |
-
-## Environment Configuration
-
-### Required Environment Variables
+### Step 1: Store JWT Secret in AWS SSM (Recommended)
 
 ```bash
-# JWT Configuration
-MCP_ENHANCED_JWT_SECRET=your-jwt-secret-here
-MCP_ENHANCED_JWT_KID=frontend-enhanced
-
-# Quilt Catalog Configuration
-QUILT_CATALOG_URL=https://your-catalog.quiltdata.com
-QUILT_DEFAULT_BUCKET=your-default-bucket
-
-# AWS Configuration (for IAM role-based auth)
-AWS_DEFAULT_REGION=us-east-1
+aws ssm put-parameter \
+  --name "/quilt/mcp-server/jwt-secret" \
+  --value "your-55-char-secret-here" \
+  --type "SecureString" \
+  --region us-east-1 \
+  --overwrite
 ```
 
-### Docker Deployment
+### Step 2: Configure Environment Variables
 
-For Docker/ECS deployments, the MCP server can use:
+**Option A: Direct Secret (Development)**
 
-1. **JWT with embedded AWS credentials** - Frontend includes temporary AWS credentials in JWT
-2. **JWT with role ARN** - Frontend includes role ARN, server assumes it
-3. **ECS task role** - Server uses IAM role attached to ECS task
+```bash
+export MCP_ENHANCED_JWT_SECRET="your-55-char-secret-here"
+export MCP_ENHANCED_JWT_KID="frontend-enhanced"
+export QUILT_CATALOG_URL="https://demo.quiltdata.com"
+```
 
-Example docker-compose.yml:
+**Option B: SSM Parameter (Production)**
+
+```bash
+export MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER="/quilt/mcp-server/jwt-secret"
+export AWS_REGION="us-east-1"
+export MCP_ENHANCED_JWT_KID="frontend-enhanced"
+export QUILT_CATALOG_URL="https://demo.quiltdata.com"
+```
+
+### Step 3: Deploy with Docker/ECS
+
+**Docker Compose:**
 
 ```yaml
 version: '3.8'
@@ -159,159 +66,123 @@ services:
       - "8000:8000"
 ```
 
-## Implementation Details
+**ECS Task Definition:**
 
-### JWT Validation
-
-The MCP server validates JWTs in the following order:
-
-1. Check for `Authorization: Bearer <token>` header
-2. Decode JWT using configured secret
-3. Validate standard claims (iss, aud, exp)
-4. Decompress abbreviated claims
-5. Extract AWS credentials or role ARN
-6. Create boto3 session for AWS operations
-
-See `src/quilt_mcp/services/bearer_auth_service.py` for implementation.
-
-### Decompression
-
-The JWT decompression follows this strategy:
-
-1. **Prefer expanded fields** - Use `permissions`, `buckets`, `roles`, `scope`, `level` when present
-2. **Fall back to abbreviated** - Decompress `p`, `b`, `r`, `s`, `l` if expanded fields missing
-3. **Validate results** - Ensure bucket count matches expected values
-4. **Provide defaults** - Fall back to read-only access if validation fails
-
-See `src/quilt_mcp/services/jwt_decoder.py` for implementation.
-
-### Tool Authorization
-
-Each MCP tool has required permissions defined in the bearer auth service:
-
-```python
+```json
 {
-    "bucket_objects_list": ["s3:ListBucket", "s3:GetBucketLocation"],
-    "bucket_object_fetch": ["s3:GetObject"],
-    "package_create": ["s3:ListBucket", "s3:GetObject", "s3:PutObject"],
-    ...
+  "containerDefinitions": [{
+    "name": "quilt-mcp-server",
+    "environment": [
+      {
+        "name": "MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER",
+        "value": "/quilt/mcp-server/jwt-secret"
+      },
+      {
+        "name": "MCP_ENHANCED_JWT_KID",
+        "value": "frontend-enhanced"
+      },
+      {
+        "name": "QUILT_CATALOG_URL",
+        "value": "https://demo.quiltdata.com"
+      }
+    ]
+  }]
 }
 ```
 
-The server checks:
-1. User has required permissions for the tool
-2. User has access to the target bucket (if applicable)
+## Verification
 
-## Testing
+### Step 4: Test Deployment
 
-### Local Testing
-
-1. Generate a test JWT using the frontend token generator
-2. Set the JWT secret in environment variables
-3. Send requests with `Authorization: Bearer <token>` header
-
+**Health Check:**
 ```bash
-# Test with curl
-curl -H "Authorization: Bearer eyJhbG..." \
-     http://localhost:8000/mcp/packages/browse?package_name=user/dataset
+curl https://demo.quiltdata.com/mcp/healthz
+# Expected: {"status": "ok"}
 ```
 
-### Integration Testing
-
-The repository includes integration tests for JWT authentication:
-
-```bash
-# Run JWT-specific tests
-uv run pytest tests/integration/test_jwt_auth.py -v
-
-# Run with bearer token
-QUILT_ACCESS_TOKEN=eyJhbG... uv run pytest tests/integration/
+**JWT Diagnostics (via Qurator):**
+```
+Ask Qurator: "Check my JWT authentication status"
 ```
 
-## Security Considerations
+Expected response shows:
+- `auth_scheme: "jwt"` ✅
+- `buckets_count: 32` ✅
+- `permissions_count: 24` ✅
 
-### Production Deployment
+### Step 5: Monitor CloudWatch Logs
 
-1. **Use strong JWT secrets** - Generate cryptographically secure secrets
-2. **Enable HTTPS** - Always use TLS for JWT transmission
-3. **Set appropriate token expiration** - Frontend should use short-lived tokens (< 24 hours)
-4. **Rotate secrets regularly** - Update JWT secret periodically
-5. **Validate audience** - Ensure `aud` claim matches your server
-6. **Monitor token usage** - Log authentication attempts and failures
+```bash
+aws logs tail /ecs/mcp-server-production --follow --region us-east-1
+```
 
-### IAM Role-Based Auth
+**Success Pattern:**
+```
+INFO: Session abc123: JWT authenticated for user testuser (buckets=32, permissions=24)
+INFO: Using cached JWT auth for session abc123
+INFO: ✅ Using JWT-based S3 client for bucket_objects_list
+```
 
-For ECS deployments, consider using IAM roles instead of embedded credentials:
-
-1. Frontend includes role ARN in JWT
-2. MCP server assumes role using ECS task role
-3. Provides better audit trail (via CloudTrail)
-4. Avoids embedding credentials in JWTs
+**Failure Pattern:**
+```
+ERROR: JWT validation failed: Signature verification failed
+ERROR: JWT authorization failed: JWT authentication required
+```
 
 ## Troubleshooting
 
-### Common Issues
+### Issue: "Signature verification failed"
 
-#### JWT Validation Fails
+**Cause:** JWT secrets don't match between frontend and backend
 
-```
-ERROR: JWT token could not be verified
-```
+**Fix:**
+1. Get frontend secret:
+   ```javascript
+   // Browser console
+   const tokenGen = window.__dynamicAuthManager?.tokenGenerator
+   console.log('Secret:', tokenGen?.signingSecret)
+   console.log('Length:', tokenGen?.signingSecret?.length)
+   ```
 
-**Solution**: Check that `MCP_ENHANCED_JWT_SECRET` matches the frontend's secret.
+2. Compare with backend:
+   ```bash
+   aws ecs describe-task-definition \
+     --task-definition quilt-mcp-server \
+     --query 'taskDefinition.containerDefinitions[0].environment[?name==`MCP_ENHANCED_JWT_SECRET`]'
+   ```
 
-#### Bucket Access Denied
+3. Update task definition if they don't match
 
-```
-ERROR: Access denied to bucket my-bucket
-```
+### Issue: Tools use IAM role instead of JWT
 
-**Solution**: Verify the JWT includes the bucket in the `buckets` claim.
+**Cause:** Authorization header not being sent or JWT validation failing
 
-#### Permission Denied
+**Fix:**
+1. Check browser console for outgoing requests
+2. Verify `Authorization: Bearer` header is present
+3. Run `jwt_diagnostics` tool via Qurator
+4. Check CloudWatch logs for authentication errors
 
-```
-ERROR: Missing required permission(s): s3:PutObject
-```
+### Issue: No buckets/permissions in JWT
 
-**Solution**: Check the user's role includes write permissions.
+**Cause:** Frontend not including authorization data in token
 
-### Debug Logging
+**Fix:**
+1. Verify frontend token includes `buckets` and `permissions` claims
+2. Check role mappings in `AWSBucketDiscoveryService`
+3. Ensure token generation includes user's AWS access
 
-Enable debug logging to see JWT decompression details:
+## Security Best Practices
 
-```bash
-export LOG_LEVEL=DEBUG
-uv run quilt-mcp
-```
-
-This will log:
-- JWT payload after decompression
-- Permission and bucket validation
-- AWS credential retrieval
-- Tool authorization decisions
+1. **Strong Secrets**: Use 55+ character cryptographically secure secrets
+2. **HTTPS Only**: Always use TLS for JWT transmission
+3. **Short Expiration**: Tokens should expire in < 24 hours
+4. **Secret Rotation**: Rotate JWT secrets periodically
+5. **Monitoring**: Track authentication failures in CloudWatch
 
 ## References
 
-- Quilt JWT Compression Format: `catalog/app/services/JWTCompressionFormat.md` in quiltdata/quilt
-- MCP Server JWT Guide: `catalog/app/services/MCP_Server_JWT_Decompression_Guide.md` in quiltdata/quilt
-- Bearer Auth Service: `src/quilt_mcp/services/bearer_auth_service.py`
-- JWT Decoder: `src/quilt_mcp/services/jwt_decoder.py`
-- Authentication Service: `src/quilt_mcp/services/auth_service.py`
-
-## Migration from OAuth2
-
-If migrating from OAuth2-only authentication:
-
-1. Update frontend to generate enhanced JWTs
-2. Deploy MCP server with JWT secret configured
-3. Test with both OAuth2 and JWT (parallel deployment)
-4. Gradually migrate users to JWT-based access
-5. Monitor for authentication failures
-6. Deprecate OAuth2 once migration complete
-
-## Next Steps
-
-- Review [AUTHENTICATION.md](./AUTHENTICATION.md) for overall auth architecture
-- See [DEPLOYMENT.md](../DEPLOYMENT.md) for deployment options
-- Check [TESTING.md](./TESTING.md) for testing procedures
+- **Architecture Details**: [JWT_ARCHITECTURE.md](../JWT_ARCHITECTURE.md)
+- **Bearer Auth Service**: `src/quilt_mcp/services/bearer_auth_service.py`
+- **JWT Decoder**: `src/quilt_mcp/services/jwt_decoder.py`
+- **Session Manager**: `src/quilt_mcp/services/session_auth.py`
