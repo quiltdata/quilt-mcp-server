@@ -182,6 +182,9 @@ def package_create(
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
+    # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
+    auth_ctx: AuthorizationContext | None = None
+
     # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
@@ -341,6 +344,9 @@ def package_update(
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
+    # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
+    auth_ctx: AuthorizationContext | None = None
+
     # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
         metadata = {}
@@ -485,6 +491,9 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
         # Next step: Report the package operation result or continue the workflow (e.
         ```
     """
+    # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
+    auth_ctx: AuthorizationContext | None = None
+
     if not package_name:
         return {"error": "package_name is required for package deletion"}
 
@@ -520,5 +529,5 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
                 "package_name": package_name,
                 "registry": registry,
             },
-            auth_ctx if 'auth_ctx' in locals() else None,
+            auth_ctx,
         )
