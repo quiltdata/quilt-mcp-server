@@ -641,20 +641,20 @@ def test_bucket_object_text_encoding_scenarios():
         mock_client.get_object.return_value = {"Body": mock_body}
 
         mock_auth_ctx = AuthorizationContext(
-        authorized=True,
-        auth_type="iam",
-        s3_client=mock_client,
-    )
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-            result = bucket_object_text("s3://test-bucket/test-file.txt", encoding=encoding)
+        result = bucket_object_text("s3://test-bucket/test-file.txt", encoding=encoding)
 
-            if should_succeed:
-                assert "error" not in result
-                assert "text" in result
-                assert isinstance(result["text"], str)
-                assert result["encoding"] == encoding
-            else:
-                assert "error" in result
+        if should_succeed:
+            assert "error" not in result
+            assert "text" in result
+            assert isinstance(result["text"], str)
+            assert result["encoding"] == encoding
+        else:
+            assert "error" in result
 
 
 def test_bucket_object_text_truncation_scenarios():
@@ -686,18 +686,18 @@ def test_bucket_object_text_truncation_scenarios():
         mock_client.get_object.return_value = {"Body": mock_body}
 
         mock_auth_ctx = AuthorizationContext(
-        authorized=True,
-        auth_type="iam",
-        s3_client=mock_client,
-    )
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-            result = bucket_object_text("s3://test-bucket/test-file.txt", max_bytes=max_bytes)
+        result = bucket_object_text("s3://test-bucket/test-file.txt", max_bytes=max_bytes)
 
-            assert "error" not in result
-            assert "truncated" in result
-            assert result["truncated"] == should_truncate
-            assert result["max_bytes"] == max_bytes
-            assert len(result["text"]) == expected_text_length
+        assert "error" not in result
+        assert "truncated" in result
+        assert result["truncated"] == should_truncate
+        assert result["max_bytes"] == max_bytes
+        assert len(result["text"]) == expected_text_length
 
 
 def test_bucket_object_text_with_client_error_variations():
@@ -719,17 +719,17 @@ def test_bucket_object_text_with_client_error_variations():
         mock_client.get_object.side_effect = ClientError(error_response, operation)
 
         mock_auth_ctx = AuthorizationContext(
-        authorized=True,
-        auth_type="iam",
-        s3_client=mock_client,
-    )
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-            result = bucket_object_text("s3://test-bucket/test-file.txt")
+        result = bucket_object_text("s3://test-bucket/test-file.txt")
 
-            assert "error" in result
-            assert expected_msg in result["error"]
-            assert result["bucket"] == "test-bucket"
-            assert result["key"] == "test-file.txt"
+        assert "error" in result
+        assert expected_msg in result["error"]
+        assert result["bucket"] == "test-bucket"
+        assert result["key"] == "test-file.txt"
 
 
 def test_bucket_object_text_decode_failure_handling():

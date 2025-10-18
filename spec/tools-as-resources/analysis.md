@@ -2,10 +2,6 @@
 
 ## Overview
 
-This document analyzes the difference between the `legacy_0_7_2` branch (which had MCP Resources) and the current `jwt-merge` branch (which removed them), to identify which tools should actually be implemented as MCP Resources according to the Model Context Protocol specification.
-
-## Background
-
 ### What Changed
 
 In the `legacy_0_7_2` branch, the codebase had a complete MCP Resources framework located in `src/quilt_mcp/resources/`:
@@ -19,15 +15,17 @@ In the `legacy_0_7_2` branch, the codebase had a complete MCP Resources framewor
 - **Package Resources**: `package.py` - `PackageToolsResource`
 - **Tabulator Resources**: `tabulator.py` - `TabulatorTablesResource`
 
-**All of these resources were deleted** in the transition to `jwt-merge`. The entire `src/quilt_mcp/resources/` directory no longer exists.
+**All of these resources were deleted** in the transition to `release-08`. The entire `src/quilt_mcp/resources/` directory no longer exists.
 
 ## MCP Protocol: Tools vs Resources
 
 According to the Model Context Protocol specification:
 
 ### MCP Tools
+
 **Purpose**: Enable agents to perform actions and computations
 **Characteristics**:
+
 - Execute operations (create, update, delete)
 - Perform calculations or transformations
 - Trigger side effects
@@ -37,8 +35,10 @@ According to the Model Context Protocol specification:
 **Examples**: Create a package, execute a query, upload files, delete a user
 
 ### MCP Resources
+
 **Purpose**: Expose data and information that agents can read
 **Characteristics**:
+
 - Provide read-only or primarily informational content
 - Return relatively static or slowly-changing data
 - Used for discovery and exploration
@@ -54,6 +54,7 @@ According to the Model Context Protocol specification:
 After analyzing the current tool set, here are the tools categorized by their primary function:
 
 #### 1. Authentication & Configuration Tools (Should likely be Resources)
+
 - `auth_status()` - Audit Quilt authentication ✅ **RESOURCE CANDIDATE**
 - `catalog_info()` - Summarize catalog configuration ✅ **RESOURCE CANDIDATE**
 - `catalog_name()` - Identify catalog name ✅ **RESOURCE CANDIDATE**
@@ -62,42 +63,48 @@ After analyzing the current tool set, here are the tools categorized by their pr
 #### 2. List/Discovery Tools (Strong Resource Candidates)
 
 **Admin/Governance:**
+
 - `admin_roles_list()` - List all available roles ✅ **RESOURCE CANDIDATE**
 - `admin_users_list()` - List all users in registry ✅ **RESOURCE CANDIDATE**
-- `admin_sso_config_get()` - Get SSO configuration ✅ **RESOURCE CANDIDATE**
-- `admin_tabulator_open_query_get()` - Get tabulator open query status ✅ **RESOURCE CANDIDATE**
 
 **Athena/Glue:**
+
 - `athena_databases_list()` - List available databases ✅ **RESOURCE CANDIDATE**
 - `athena_workgroups_list()` - List available workgroups ✅ **RESOURCE CANDIDATE**
 - `athena_query_history()` - Retrieve query execution history ✅ **RESOURCE CANDIDATE**
 
 **Buckets:**
+
 - `bucket_objects_list()` - List objects in S3 bucket ✅ **RESOURCE CANDIDATE**
 
 **Tabulator:**
+
 - `tabulator_buckets_list()` - List all buckets in Tabulator catalog ✅ **RESOURCE CANDIDATE**
 - `tabulator_tables_list()` - List tabulator tables for a bucket ✅ **RESOURCE CANDIDATE**
-- `tabulator_open_query_status()` - Get open query feature status ✅ **RESOURCE CANDIDATE**
 
 **Metadata:**
+
 - `list_metadata_templates()` - List available metadata templates ✅ **RESOURCE CANDIDATE**
 - `show_metadata_examples()` - Show metadata usage examples ✅ **RESOURCE CANDIDATE**
 - `fix_metadata_validation_issues()` - Provide troubleshooting guidance ✅ **RESOURCE CANDIDATE**
 
 **Package Management:**
+
 - `list_package_tools()` - List package management tools ✅ **RESOURCE CANDIDATE**
 - `list_available_resources()` - Auto-detect buckets and registries ✅ **RESOURCE CANDIDATE**
 
 **Workflow:**
+
 - `workflow_list_all()` - List all workflows ✅ **RESOURCE CANDIDATE**
 - `workflow_get_status()` - Get workflow status ✅ **RESOURCE CANDIDATE**
 
 **Permissions:**
+
 - `aws_permissions_discover()` - Discover AWS permissions ✅ **RESOURCE CANDIDATE**
 - `bucket_recommendations_get()` - Get bucket recommendations ✅ **RESOURCE CANDIDATE**
 
 #### 3. Query/Read Tools (Borderline - could be either)
+
 - `athena_query_execute()` - Execute SQL query ⚠️ **BORDERLINE** (has side effects in Athena)
 - `athena_table_schema()` - Get table schema ✅ **RESOURCE CANDIDATE**
 - `bucket_object_info()` - Get object metadata ✅ **RESOURCE CANDIDATE**
@@ -111,6 +118,7 @@ After analyzing the current tool set, here are the tools categorized by their pr
 - `tabulator_bucket_query()` - Execute SQL against bucket ⚠️ **BORDERLINE** (read-only query)
 
 #### 4. Write/Action Tools (Should remain Tools)
+
 - `configure_catalog()` - Configure catalog URL ❌ **KEEP AS TOOL**
 - `switch_catalog()` - Switch catalog ❌ **KEEP AS TOOL**
 - `package_create()` - Create package ❌ **KEEP AS TOOL**
@@ -127,6 +135,7 @@ After analyzing the current tool set, here are the tools categorized by their pr
 - `workflow_add_step()` - Add workflow step ❌ **KEEP AS TOOL**
 
 #### 5. Utility/Helper Tools
+
 - `catalog_uri()` - Build Quilt+ URI ⚠️ **UTILITY** (could be either)
 - `catalog_url()` - Generate catalog URL ⚠️ **UTILITY** (could be either)
 - `bucket_object_link()` - Generate presigned URL ❌ **KEEP AS TOOL** (creates temporary credential)
@@ -151,8 +160,7 @@ These tools are purely informational, have no side effects, and return discovery
    - `admin://users` → `admin_users_list()`
    - `admin://users/{name}` → `admin_user_get(name)`
    - `admin://roles` → `admin_roles_list()`
-   - `admin://sso/config` → `admin_sso_config_get()`
-   - `admin://tabulator/open-query` → `admin_tabulator_open_query_get()`
+   - `admin://config` → Combined configuration resource (SSO, tabulator settings, etc.)
 
 3. **Athena Resources** (`athena://`)
    - `athena://databases` → `athena_databases_list()`
@@ -169,7 +177,6 @@ These tools are purely informational, have no side effects, and return discovery
 5. **Tabulator Resources** (`tabulator://`)
    - `tabulator://buckets` → `tabulator_buckets_list()`
    - `tabulator://buckets/{bucket}/tables` → `tabulator_tables_list(bucket)`
-   - `tabulator://open-query/status` → `tabulator_open_query_status()`
 
 6. **Workflow Resources** (`workflow://`)
    - `workflow://workflows` → `workflow_list_all()`
@@ -212,12 +219,14 @@ These either have side effects, perform significant computation, or are primaril
 ## Implementation Strategy
 
 ### Phase 1: Core Discovery Resources
+
 Implement the most clear-cut cases that align with the legacy resources:
 
 ```python
 # Resource URIs matching legacy implementation
 admin://users
 admin://roles
+admin://config
 athena://databases
 athena://workgroups
 metadata://templates
@@ -228,6 +237,7 @@ tabulator://{bucket}/tables
 ```
 
 ### Phase 2: Extended Discovery Resources
+
 Add new resources that weren't in legacy but follow the same pattern:
 
 ```python
@@ -238,15 +248,12 @@ permissions://recommendations
 tabulator://buckets
 ```
 
-### Phase 3: Content Resources
-Consider whether to expose actual data content as resources:
+### Phase 3: Update Configuration
 
-```python
-s3://{bucket}/objects
-s3://{bucket}/objects/{key}
-package://{registry}/packages
-package://{registry}/packages/{name}
-```
+- Ensure resources are properly configured/exposed
+- Ensure tests exist for new resources (unit, integration, e2e)
+- SKIP tests for obsoleted tools
+- Add them to the `excluded_tools` in utils.py
 
 ## URI Scheme Design
 
@@ -287,26 +294,31 @@ Following the legacy implementation and MCP best practices:
 ## Benefits of Resources Over Tools
 
 ### 1. Better MCP Semantics
+
 - Resources clearly indicate "read-only, informational"
 - Tools clearly indicate "actions with side effects"
 - Agents can make better decisions about when to use each
 
 ### 2. Caching Opportunities
+
 - MCP clients can cache resource responses
 - List endpoints are naturally cacheable
 - Reduces unnecessary API calls
 
 ### 3. Discovery Support
+
 - Resources can be enumerated via `resources/list`
 - Clients can build UI elements from resource URIs
 - Better IDE integration and tooling
 
 ### 4. URI-Based Access
+
 - RESTful URI patterns are intuitive
 - Hierarchical organization is clear
 - Compatible with browser-based tools
 
 ### 5. Reduced Parameter Complexity
+
 - Resources encode parameters in URI path
 - Less ambiguity about required vs optional params
 - Cleaner function signatures
@@ -325,12 +337,14 @@ To maintain backward compatibility while introducing resources:
 ### Example: Admin Users
 
 **Current (Tool Only)**:
+
 ```python
 # Client calls tool
 result = await client.call_tool("admin_users_list", {})
 ```
 
 **After Migration (Resource + Tool)**:
+
 ```python
 # Option 1: Resource (preferred for reading)
 users = await client.read_resource("admin://users")
@@ -395,15 +409,20 @@ Based on legacy implementation, standardize on:
 The `legacy_0_7_2` branch had the right idea with MCP Resources, but the implementation was removed during the JWT merge. This analysis identifies **32 tools that should be resources** based on MCP best practices.
 
 The highest priority candidates are:
-- Admin users/roles listing (13 governance tools)
+
+- Admin users/roles listing (11 governance tools - mutations remain as tools)
 - Athena/Glue discovery (4 tools)
 - Metadata templates/examples (5 tools)
-- Tabulator discovery (3 tools)
+- Tabulator discovery (2 tools)
 - Workflow status (2 tools)
 - Permission discovery (3 tools)
 - Auth/catalog status (4 tools)
 
+Configuration settings (SSO, tabulator open query) should be consolidated into an `admin://config`
+resource rather than having individual getter tools.
+
 Implementing these as resources will improve:
+
 - MCP protocol compliance
 - Agent decision-making
 - Caching efficiency

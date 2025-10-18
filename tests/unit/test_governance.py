@@ -144,6 +144,7 @@ class TestGovernanceService:
 class TestUserManagement:
     """Test user management functions."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users)")
     @pytest.mark.asyncio
     async def test_admin_users_list_success(self, mock_admin_available, sample_users):
         """Test successful user listing."""
@@ -166,6 +167,7 @@ class TestUserManagement:
                 assert result["count"] == 3
                 assert "admin_user" in [u["name"] for u in result["users"]]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users)")
     @pytest.mark.asyncio
     async def test_admin_users_list_unavailable(self, mock_admin_unavailable):
         """Test user listing when admin unavailable."""
@@ -174,6 +176,7 @@ class TestUserManagement:
         assert result["success"] is False
         assert "Admin functionality not available" in result["error"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users/{name})")
     @pytest.mark.asyncio
     async def test_admin_user_get_success(self, mock_admin_available, sample_users):
         """Test successful user retrieval."""
@@ -186,6 +189,7 @@ class TestUserManagement:
             assert result["user"]["email"] == "admin@example.com"
             assert result["user"]["is_admin"] is True
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users/{name})")
     @pytest.mark.asyncio
     async def test_admin_user_get_not_found(self, mock_admin_available):
         """Test user retrieval when user not found."""
@@ -195,6 +199,7 @@ class TestUserManagement:
             assert result["success"] is False
             assert "not found" in result["error"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users/{name})")
     @pytest.mark.asyncio
     async def test_admin_user_get_empty_name(self, mock_admin_available):
         """Test user retrieval with empty name."""
@@ -345,6 +350,7 @@ class TestUserManagement:
 class TestRoleManagement:
     """Test role management functions."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://roles)")
     @pytest.mark.asyncio
     async def test_admin_roles_list_success(self, mock_admin_available, sample_roles):
         """Test successful role listing."""
@@ -367,6 +373,7 @@ class TestRoleManagement:
                 assert result["count"] == 3
                 assert "admin" in [r["name"] for r in result["roles"]]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://roles)")
     @pytest.mark.asyncio
     async def test_admin_roles_list_unavailable(self, mock_admin_unavailable):
         """Test role listing when admin unavailable."""
@@ -379,6 +386,7 @@ class TestRoleManagement:
 class TestSSOConfiguration:
     """Test SSO configuration functions."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://config)")
     @pytest.mark.asyncio
     async def test_admin_sso_config_get_success(self, mock_admin_available):
         """Test successful SSO config retrieval."""
@@ -392,6 +400,7 @@ class TestSSOConfiguration:
             assert result["sso_config"]["text"] == "test config"
             assert result["sso_config"]["uploader"]["name"] == "admin"
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://config)")
     @pytest.mark.asyncio
     async def test_admin_sso_config_get_none(self, mock_admin_available):
         """Test SSO config retrieval when none exists."""
@@ -436,6 +445,7 @@ class TestSSOConfiguration:
 class TestTabulatorAdmin:
     """Test enhanced tabulator administration functions."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://config)")
     @pytest.mark.asyncio
     async def test_admin_tabulator_open_query_get_success(self, mock_admin_available):
         """Test successful open query status retrieval."""

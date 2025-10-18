@@ -119,11 +119,68 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     if tool_modules is None:
         tool_modules = get_tool_modules()
 
+    # Tools that are now available as resources
+    # NOTE: For backward compatibility, keep tools functional but mark them as resource-available
+    # DO NOT add to excluded_tools yet - maintain dual access during migration period
+    RESOURCE_AVAILABLE_TOOLS = [
+        # Phase 1 - Core Discovery Resources
+        "admin_users_list",
+        "admin_roles_list",
+        "admin_sso_config_get",
+        "admin_tabulator_open_query_get",
+        "athena_databases_list",
+        "athena_workgroups_list",
+        "list_metadata_templates",
+        "show_metadata_examples",
+        "fix_metadata_validation_issues",
+        "workflow_list_all",
+        "tabulator_buckets_list",
+        # Phase 2 - Extended Discovery Resources
+        "auth_status",
+        "catalog_info",
+        "catalog_name",
+        "filesystem_status",
+        "aws_permissions_discover",
+        "bucket_recommendations_get",
+        "bucket_access_check",
+        "admin_user_get",
+        "athena_table_schema",
+        "athena_query_history",
+        "tabulator_tables_list",
+        "get_metadata_template",
+        "workflow_get_status",
+    ]
+
     # List of deprecated tools (to reduce client confusion)
     excluded_tools = {
         "packages_list",  # Prefer packages_search
         "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal use only
+        # Phase 3: Tools now available as resources (exclude from MCP tool registration)
+        "admin_users_list",
+        "admin_roles_list",
+        "admin_sso_config_get",
+        "admin_tabulator_open_query_get",
+        "athena_databases_list",
+        "athena_workgroups_list",
+        "list_metadata_templates",
+        "show_metadata_examples",
+        "fix_metadata_validation_issues",
+        "workflow_list_all",
+        "tabulator_buckets_list",
+        "auth_status",
+        "catalog_info",
+        "catalog_name",
+        "filesystem_status",
+        "aws_permissions_discover",
+        "bucket_recommendations_get",
+        "bucket_access_check",
+        "admin_user_get",
+        "athena_table_schema",
+        "athena_query_history",
+        "tabulator_tables_list",
+        "get_metadata_template",
+        "workflow_get_status",
     }
 
     tools_registered = 0
@@ -304,6 +361,44 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
         Configured FastMCP server instance
     """
     mcp = create_mcp_server()
+
+    # Initialize resources AFTER creating server
+    from quilt_mcp.resources import register_all_resources, get_registry
+    from quilt_mcp.config import resource_config
+    import sys
+
+    if resource_config.RESOURCES_ENABLED:
+        register_all_resources()
+        registry = get_registry()
+        resources = registry.list_resources()
+
+        # Register each resource with FastMCP
+        def create_handler(resource_uri: str):
+            """Create a handler with proper closure for each resource URI."""
+            async def handler() -> str:
+                """Resource handler."""
+                response = await registry.read_resource(resource_uri)
+                return response._serialize_content()
+            return handler
+
+        for resource_info in resources:
+            uri = resource_info["uri"]
+            name = resource_info["name"]
+            description = resource_info["description"]
+            mime_type = resource_info["mimeType"]
+
+            # Register with FastMCP
+            mcp.add_resource_fn(
+                uri=uri,
+                fn=create_handler(uri),
+                name=name,
+                description=description,
+                mime_type=mime_type,
+            )
+
+        if verbose:
+            print(f"Registered {len(resources)} MCP resources", file=sys.stderr)
+
     tools_count = register_tools(mcp, verbose=verbose)
 
     # Register health check endpoints for HTTP transport

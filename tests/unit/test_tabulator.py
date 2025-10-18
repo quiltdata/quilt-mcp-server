@@ -153,6 +153,7 @@ def test_tabulator_query_fails_without_catalog_config(monkeypatch: pytest.Monkey
     assert "tabulator_data_catalog not configured" in result["error"]
 
 
+@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
 def test_tabulator_buckets_list_calls_tabulator_query(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_buckets_list calls _tabulator_query with SHOW DATABASES."""
     # Mock _tabulator_query
@@ -184,6 +185,7 @@ def test_tabulator_buckets_list_calls_tabulator_query(monkeypatch: pytest.Monkey
     assert len(result["buckets"]) == 2
 
 
+@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
 def test_tabulator_buckets_list_handles_query_failure(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_buckets_list handles _tabulator_query failures."""
     # Mock _tabulator_query to fail
