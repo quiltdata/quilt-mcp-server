@@ -351,18 +351,90 @@ class TestMCPServerConfiguration(unittest.TestCase):
             mock_stderr.write.assert_called()
 
     @patch("quilt_mcp.utils.create_configured_server")
-    def test_run_server_success(self, mock_create_server):
-        """Test successful run_server execution."""
+    def test_run_server_stdio_success(self, mock_create_server):
+        """Test successful run_server execution with stdio transport."""
         mock_server = Mock(spec=FastMCP)
         mock_create_server.return_value = mock_server
 
-        # Set environment variable to a valid transport
-        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
+        # Set environment variable to stdio transport
+        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
             run_server()
 
         # Verify server was created and run was called
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="http")
+        mock_server.run.assert_called_once_with(transport="stdio")
+
+    @patch("quilt_mcp.utils.build_http_app")
+    @patch("quilt_mcp.utils.create_configured_server")
+    def test_run_server_http_success(self, mock_create_server, mock_build_app):
+        """Test successful run_server execution with HTTP transport."""
+        mock_server = Mock(spec=FastMCP)
+        mock_create_server.return_value = mock_server
+        mock_app = Mock()
+        mock_build_app.return_value = mock_app
+
+        # Mock uvicorn module that gets imported inside run_server
+        with patch.dict("sys.modules", {"uvicorn": Mock()}):
+            import sys
+
+            mock_uvicorn = sys.modules["uvicorn"]
+
+            # Set environment variable to HTTP transport
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "http"}):
+                run_server()
+
+            # Verify HTTP app was built
+            mock_create_server.assert_called_once()
+            mock_build_app.assert_called_once_with(mock_server, transport="http")
+
+            # Verify uvicorn was started with correct parameters
+            mock_uvicorn.run.assert_called_once()
+            call_args = mock_uvicorn.run.call_args
+            self.assertEqual(call_args[0][0], mock_app)  # First positional arg is the app
+            self.assertEqual(call_args[1]["host"], "127.0.0.1")
+            self.assertEqual(call_args[1]["port"], 8000)
+
+    @patch("quilt_mcp.utils.build_http_app")
+    @patch("quilt_mcp.utils.create_configured_server")
+    def test_run_server_sse_transport(self, mock_create_server, mock_build_app):
+        """Test run_server with SSE transport."""
+        mock_server = Mock(spec=FastMCP)
+        mock_create_server.return_value = mock_server
+        mock_app = Mock()
+        mock_build_app.return_value = mock_app
+
+        with patch.dict("sys.modules", {"uvicorn": Mock()}):
+            import sys
+
+            mock_uvicorn = sys.modules["uvicorn"]
+
+            with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "sse"}):
+                run_server()
+
+            mock_build_app.assert_called_once_with(mock_server, transport="sse")
+            mock_uvicorn.run.assert_called_once()
+
+    @patch("quilt_mcp.utils.build_http_app")
+    @patch("quilt_mcp.utils.create_configured_server")
+    def test_run_server_custom_host_port(self, mock_create_server, mock_build_app):
+        """Test run_server respects custom host and port env vars."""
+        mock_server = Mock(spec=FastMCP)
+        mock_create_server.return_value = mock_server
+        mock_app = Mock()
+        mock_build_app.return_value = mock_app
+
+        with patch.dict("sys.modules", {"uvicorn": Mock()}):
+            import sys
+
+            mock_uvicorn = sys.modules["uvicorn"]
+
+            env_vars = {"FASTMCP_TRANSPORT": "http", "FASTMCP_HOST": "0.0.0.0", "FASTMCP_PORT": "9000"}  # noqa: S104
+            with patch.dict(os.environ, env_vars):
+                run_server()
+
+            call_args = mock_uvicorn.run.call_args
+            self.assertEqual(call_args[1]["host"], "0.0.0.0")  # noqa: S104
+            self.assertEqual(call_args[1]["port"], 9000)
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_default_transport(self, mock_create_server):
