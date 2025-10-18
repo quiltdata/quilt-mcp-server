@@ -6,7 +6,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.20] - Unreleased
+
+### Changed
+
+- **Test Skip Fixtures Removed**: Tests now fail instead of skip when AWS is misconfigured
+  - Removed `skip_if_no_aws_credentials` function from `tests/helpers.py`
+  - Removed `skip_if_no_aws` fixture from `tests/integration/test_athena.py`
+  - Removed all imports and usages of skip fixtures across 6 test files
+  - Tests will now fail with clear error messages if AWS credentials are not configured
+  - Improves test reliability by preventing silent test skips in CI/CD pipelines
+
+## [0.6.19] - 2025-10-13
 
 ### Fixed
 

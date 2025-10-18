@@ -14,20 +14,12 @@ import os
 import pytest
 
 
-@pytest.fixture(scope="module")
-def skip_if_no_aws():
-    """Skip tests if AWS credentials are not available."""
-    from tests.helpers import skip_if_no_aws_credentials
-
-    skip_if_no_aws_credentials()
-
-
-@pytest.mark.aws
+@pytest.mark.integration
 @pytest.mark.slow
 class TestTabulatorWorkflow:
     """Test complete Tabulator workflow with real bucket and data."""
 
-    def test_tabulator_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
+    def test_tabulator_complete_workflow(self):
         """
         Complete Tabulator workflow with dynamic discovery:
         0. List all buckets in Tabulator catalog (tabulator_buckets_list)
@@ -119,7 +111,7 @@ class TestTabulatorWorkflow:
 
         # Verify we found a working bucket/table combination
         if not query_result or not bucket_name or not table_name:
-            pytest.skip(
+            pytest.fail(
                 "Could not find a bucket with queryable tables\n"
                 "Tried all buckets but none had tables with accessible data"
             )
@@ -130,12 +122,12 @@ class TestTabulatorWorkflow:
         print(f"Columns: {query_result.get('columns', [])}")
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 @pytest.mark.slow
 class TestAthenaWorkflow:
     """Test complete Athena workflow with real databases."""
 
-    def test_athena_complete_workflow(self, skip_if_no_aws):  # noqa: ARG002
+    def test_athena_complete_workflow(self):
         """
         Complete Athena workflow:
         0. List all databases (athena_databases_list)
@@ -240,7 +232,7 @@ class TestAthenaWorkflow:
 
         # Check if we found a working database/table combination
         if not query_result or not database_name or not table_name:
-            pytest.skip(
+            pytest.fail(
                 "Could not find a database with queryable tables\n"
                 "Tried all databases but none had tables with accessible data"
             )

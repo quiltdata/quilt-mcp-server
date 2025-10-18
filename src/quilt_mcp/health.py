@@ -113,5 +113,3 @@ async def root_handler(request: Request) -> JSONResponse:
         JSONResponse with health status information
     """
     return _build_health_response("/")
-
-

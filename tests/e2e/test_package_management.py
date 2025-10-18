@@ -59,7 +59,7 @@ def test_s3_objects(unique_package_name):
     # Normalize bucket name (remove s3:// prefix if present)
     test_bucket = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET else ""
     if not test_bucket:
-        pytest.skip("DEFAULT_BUCKET not configured")
+        pytest.fail("DEFAULT_BUCKET not configured")
 
     test_prefix = f"test-data/e2e-{uuid.uuid4().hex[:8]}"
 
@@ -81,7 +81,7 @@ def test_s3_objects(unique_package_name):
     # Upload test objects (bucket_objects_put expects bucket name without s3:// prefix)
     result = bucket_objects_put(test_bucket, test_items)
     if result.get("uploaded", 0) < len(test_items):
-        pytest.skip("Failed to create test S3 objects - check AWS permissions")
+        pytest.fail("Failed to create test S3 objects - check AWS permissions")
 
     # Return S3 URIs (with s3:// prefix)
     s3_uris = [f"s3://{test_bucket}/{item['key']}" for item in test_items]
@@ -451,7 +451,7 @@ class TestToolDocumentation:
         assert "package_validate" in result["primary_tools"]
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 class TestPackageManagementE2E:
     """True end-to-end tests for package management with real AWS operations.
 
@@ -483,9 +483,9 @@ class TestPackageManagementE2E:
         This tests the core workflow: create → browse → validate.
         Performance target: <30s for complete workflow
         """
-        # Skip if bucket/registry not configured
+        # Fail if bucket/registry not configured
         if not DEFAULT_BUCKET or not DEFAULT_REGISTRY:
-            pytest.skip("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
+            pytest.fail("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
 
         # Normalize registry to ensure s3:// prefix
         registry = DEFAULT_REGISTRY if DEFAULT_REGISTRY.startswith("s3://") else f"s3://{DEFAULT_REGISTRY}"
@@ -606,6 +606,7 @@ class TestPackageManagementE2E:
             except Exception as e:
                 print(f"Warning: Failed to clean up test package {package_name}: {e}")
 
+    @pytest.mark.slow
     def test_update_package_workflow_e2e(self, unique_package_name, test_s3_objects):
         """E2E: Verify update → browse → validate workflow for existing packages.
 
@@ -624,9 +625,9 @@ class TestPackageManagementE2E:
         """
         from quilt_mcp.tools.package_ops import package_update
 
-        # Skip if bucket/registry not configured
+        # Fail if bucket/registry not configured
         if not DEFAULT_BUCKET or not DEFAULT_REGISTRY:
-            pytest.skip("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
+            pytest.fail("DEFAULT_BUCKET/DEFAULT_REGISTRY not configured - set QUILT_DEFAULT_BUCKET in .env")
 
         # Normalize registry and bucket
         registry = DEFAULT_REGISTRY if DEFAULT_REGISTRY.startswith("s3://") else f"s3://{DEFAULT_REGISTRY}"

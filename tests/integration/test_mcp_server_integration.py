@@ -12,7 +12,7 @@ from quilt_mcp.tools.packages import (
 )
 
 
-@pytest.mark.aws
+@pytest.mark.integration
 def test_quilt_tools():
     # Auth tool returns a structured dict
     result = auth_status()

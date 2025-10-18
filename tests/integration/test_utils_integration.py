@@ -7,7 +7,7 @@ from quilt_mcp.utils import generate_signed_url
 class TestUtilsAWSIntegration:
     """Test utility functions that require AWS connectivity."""
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_generate_signed_url_success(self):
         """Test URL generation with real AWS connection."""
         # Skip if AWS credentials not available
@@ -17,7 +17,7 @@ class TestUtilsAWSIntegration:
             s3 = boto3.client("s3")
             s3.list_buckets()  # Test basic connectivity
         except Exception:
-            pytest.skip("AWS credentials not available")
+            pytest.fail("AWS credentials not available")
 
         # Use a known public bucket for testing (quilt-example is publicly readable)
         result = generate_signed_url("s3://quilt-example/README.md", 1800)
@@ -29,13 +29,9 @@ class TestUtilsAWSIntegration:
             assert "quilt-example" in result
             assert "README.md" in result
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         from quilt_mcp.constants import DEFAULT_BUCKET
 
         # Extract bucket name from DEFAULT_BUCKET
@@ -50,13 +46,9 @@ class TestUtilsAWSIntegration:
         result2 = generate_signed_url(test_s3_uri, 700000)  # > 7 days
         assert result2.startswith("https://")
 
-    @pytest.mark.aws
+    @pytest.mark.integration
     def test_generate_signed_url_exception(self):
         """Test handling of exceptions with real AWS (integration test)."""
-        from tests.helpers import skip_if_no_aws_credentials
-
-        skip_if_no_aws_credentials()
-
         # Try to generate URL for a bucket that doesn't exist
         result = generate_signed_url("s3://definitely-nonexistent-bucket-12345/key")
 

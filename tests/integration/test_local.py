@@ -10,7 +10,7 @@ from quilt_mcp.tools.packages import packages_list, package_browse
 
 
 @pytest.mark.asyncio
-@pytest.mark.aws
+@pytest.mark.integration
 async def test_quilt_tools():
     """Basic smoke test against local tool functions (no network)."""
     print("Testing Quilt MCP Server Tools...")
