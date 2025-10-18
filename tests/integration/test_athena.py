@@ -16,6 +16,7 @@ import pytest
 
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.search
 class TestTabulatorWorkflow:
     """Test complete Tabulator workflow with real bucket and data."""
 

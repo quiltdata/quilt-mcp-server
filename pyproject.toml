@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.7.6"
+version = "0.8.0"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -41,6 +41,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
+    "pyjwt>=2.8.0",
 ]
 
 [project.urls]
@@ -104,4 +105,3 @@ mode = "auto"
 [tool.ruff]
 # Use external configuration file
 config = "ruff.toml"
-

@@ -468,7 +468,7 @@ def auth_status() -> dict[str, Any]:
                 guidance = "
     ".join(status["setup_instructions"])
             ```
-    
+
     """
     try:
         # Get comprehensive catalog information

@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import contextlib
 import inspect
+import io
 import os
 import re
 import sys
-import io
-import contextlib
-from typing import Any, Dict, Literal, Callable
-from urllib.parse import urlparse, parse_qs, unquote
+from typing import Any, Callable, Dict, Literal, Optional
+from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
 from fastmcp import FastMCP
+
+from quilt_mcp.runtime_context import (
+    RuntimeAuthState,
+    push_runtime_context,
+    reset_runtime_context,
+    set_default_environment,
+)
+from quilt_mcp.services.bearer_auth_service import JwtAuthError, get_bearer_auth_service
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -148,6 +156,41 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
     return tools_registered
 
 
+def _runtime_boto3_session() -> Optional[boto3.Session]:
+    """Return a boto3 session sourced from the active runtime context if available."""
+    try:
+        from quilt_mcp.runtime_context import get_runtime_auth
+    except ImportError:
+        return None
+
+    auth_state = get_runtime_auth()
+    if not auth_state:
+        return None
+
+    extras = auth_state.extras or {}
+
+    session = extras.get("boto3_session")
+    if isinstance(session, boto3.Session):
+        return session
+
+    credentials = extras.get("aws_credentials")
+    if isinstance(credentials, dict):
+        access_key = credentials.get("access_key_id")
+        secret_key = credentials.get("secret_access_key")
+        session_token = credentials.get("session_token")
+        region = credentials.get("region") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
+
+        if access_key and secret_key:
+            return boto3.Session(
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                aws_session_token=session_token,
+                region_name=region or "us-east-1",
+            )
+
+    return None
+
+
 def get_s3_client(use_quilt_auth: bool = True):
     """Get an S3 client instance with optional Quilt authentication.
 
@@ -157,6 +200,10 @@ def get_s3_client(use_quilt_auth: bool = True):
     Returns:
         boto3 S3 client instance
     """
+    session = _runtime_boto3_session()
+    if session:
+        return session.client("s3")
+
     if use_quilt_auth:
         try:
             import quilt3
@@ -183,6 +230,10 @@ def get_sts_client(use_quilt_auth: bool = True):
     Returns:
         boto3 STS client instance
     """
+    session = _runtime_boto3_session()
+    if session:
+        return session.client("sts")
+
     if use_quilt_auth:
         try:
             import quilt3
@@ -284,6 +335,99 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     return mcp
 
 
+def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-http"] = "http"):
+    """Configure the FastMCP HTTP app with JWT-aware middleware."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        app = mcp.http_app(transport=transport)
+    except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
+        logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
+        raise
+
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["*", "Authorization", "Mcp-Session-Id", "MCP-Protocol-Version"],
+            expose_headers=["mcp-session-id"],
+            allow_credentials=False,
+        )
+    except ImportError:  # pragma: no cover - starlette optional guard
+        logger.warning("CORS middleware unavailable; continuing without CORS configuration")
+
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.responses import JSONResponse
+        from starlette.datastructures import MutableHeaders
+    except ImportError as exc:  # pragma: no cover
+        logger.error("Starlette HTTP middleware unavailable: %s", exc)
+        return app
+
+    require_jwt = os.getenv("MCP_REQUIRE_JWT", "false").lower() == "true"
+
+    class QuiltAuthMiddleware(BaseHTTPMiddleware):
+        """Middleware that injects runtime auth state for HTTP requests."""
+
+        HEALTH_PATHS = {"/health", "/healthz"}
+
+        async def dispatch(self, request, call_next):
+            context_token = None
+            headers = MutableHeaders(scope=request.scope)
+            accept_header = headers.get("accept", "")
+            if "application/json" in accept_header and "text/event-stream" not in accept_header:
+                headers["accept"] = f"{accept_header}, text/event-stream"
+
+            if request.url.path in self.HEALTH_PATHS:
+                return await call_next(request)
+
+            authorization = request.headers.get("authorization")
+            metadata = {"path": request.url.path}
+            auth_state: Optional[RuntimeAuthState] = None
+
+            if authorization:
+                auth_service = get_bearer_auth_service()
+                try:
+                    jwt_result = auth_service.authenticate_header(authorization)
+                    boto3_session = auth_service.build_boto3_session(jwt_result)
+                    auth_state = RuntimeAuthState(
+                        scheme="jwt",
+                        access_token=jwt_result.token,
+                        claims=jwt_result.claims,
+                        extras={
+                            "jwt_auth_result": jwt_result,
+                            "aws_credentials": jwt_result.aws_credentials,
+                            "aws_role_arn": jwt_result.aws_role_arn,
+                            "boto3_session": boto3_session,
+                        },
+                    )
+                except JwtAuthError as exc:
+                    logger.warning("JWT authentication failed for %s: %s", request.url.path, exc.detail)
+                    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
+            elif require_jwt:
+                return JSONResponse(
+                    {"error": "missing_authorization", "detail": "Bearer token required"},
+                    status_code=401,
+                )
+
+            environment = "web-jwt" if auth_state else "web-iam"
+            context_token = push_runtime_context(environment=environment, auth=auth_state, metadata=metadata)
+
+            try:
+                return await call_next(request)
+            finally:
+                if context_token is not None:
+                    reset_runtime_context(context_token)
+
+    app.add_middleware(QuiltAuthMiddleware)
+    return app
+
+
 def run_server() -> None:
     """Run the MCP server with proper error handling."""
     try:
@@ -300,7 +444,23 @@ def run_server() -> None:
 
         transport: Literal["stdio", "http", "sse", "streamable-http"] = transport_str  # type: ignore
 
-        # Run the server
+        if transport == "stdio":
+            set_default_environment("desktop-stdio")
+            mcp.run(transport=transport)
+            return
+
+        set_default_environment("web-service")
+
+        if transport in ["http", "sse", "streamable-http"]:
+            app = build_http_app(mcp, transport=transport)
+
+            import uvicorn
+
+            host = os.environ.get("FASTMCP_ADDR") or os.environ.get("FASTMCP_HOST") or "127.0.0.1"
+            port = int(os.environ.get("FASTMCP_PORT", "8000"))
+            uvicorn.run(app, host=host, port=port, log_level="info")
+            return
+
         mcp.run(transport=transport)
 
     except Exception as e:
