@@ -187,3 +187,4 @@ cython_debug/
 # Cursor IDE
 .cursor/
 /scratch
+.cursor-mcp-test-config.json

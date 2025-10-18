@@ -32,8 +32,7 @@ def create_package(
     metadata: dict[str, Any] | None = None,
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
-    """
-    Unified package creation tool that handles everything automatically.
+    """Unified package creation tool that handles everything automatically - Guided Quilt package creation onboarding
 
     This is the main package creation interface that provides intelligent
     defaults, automatic validation, permissions checking, and helpful guidance.
@@ -46,9 +45,24 @@ def create_package(
         dry_run: Preview without creating package (default: False)
         target_registry: Target registry (auto-detected if not provided)
         metadata: Additional package metadata
+        copy_mode: Copy behavior for ingestion (``all``, ``same_bucket``, or ``none``).
 
     Returns:
         Comprehensive package creation result with guidance and next steps
+
+    Next step:
+        Guide the user through the suggested next tool in the package creation journey.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import unified_package
+
+        result = unified_package.create_package(
+            name="example-name",
+            files=["example"],
+        )
+        # Next step: Guide the user through the suggested next tool in the package creation journey.
+        ```
     """
     try:
         # Validate package name
@@ -171,10 +185,21 @@ def create_package(
 
 
 def quick_start() -> Dict[str, Any]:
-    """Provide guided onboarding and setup assistance.
+    """Provide guided onboarding and setup assistance - Guided Quilt package creation onboarding
 
     Returns:
         Step-by-step setup guide with current status and next actions.
+
+    Next step:
+        Guide the user through the suggested next tool in the package creation journey.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import unified_package
+
+        result = unified_package.quick_start()
+        # Next step: Guide the user through the suggested next tool in the package creation journey.
+        ```
     """
     try:
         # Check current status
@@ -299,10 +324,21 @@ def quick_start() -> Dict[str, Any]:
 
 
 def list_available_resources() -> Dict[str, Any]:
-    """Auto-detect user's available buckets and registries.
+    """Auto-detect user's available buckets and registries - Guided Quilt package creation onboarding
 
     Returns:
         Dict with writable buckets, readable buckets, and configured registries.
+
+    Next step:
+        Guide the user through the suggested next tool in the package creation journey.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import unified_package
+
+        result = unified_package.list_available_resources()
+        # Next step: Guide the user through the suggested next tool in the package creation journey.
+        ```
     """
     try:
         # Use the permissions discovery to get comprehensive bucket information

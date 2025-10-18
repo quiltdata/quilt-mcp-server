@@ -122,7 +122,7 @@ def package_create(
     flatten: bool = True,
     copy_mode: str = "all",
 ) -> dict[str, Any]:
-    """Create a new Quilt package from S3 objects.
+    """Create a new Quilt package from S3 objects - Core package creation, update, and deletion workflows
 
     Args:
         package_name: Name for the new package (e.g., "username/package-name")
@@ -131,6 +131,7 @@ def package_create(
         metadata: Optional metadata dict to attach to the package (JSON object, not string)
         message: Commit message for package creation (default: "Created via package_create tool")
         flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
+        copy_mode: Copy policy for the underlying data (``all``, ``same_bucket``, or ``none``).
 
     Returns:
         Dict with creation status, package details, and list of files added.
@@ -145,6 +146,20 @@ def package_create(
             ["s3://bucket/file.csv"],
             metadata={"description": "My dataset", "type": "research"}
         )
+
+    Next step:
+        Report the package operation result or continue the workflow (e.g., metadata updates).
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_ops
+
+        result = package_ops.package_create(
+            package_name="team/dataset",
+            s3_uris=["s3://example-bucket/data.csv"],
+        )
+        # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
+        ```
     """
     # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
@@ -263,7 +278,7 @@ def package_update(
     flatten: bool = True,
     copy_mode: str = "all",
 ) -> dict[str, Any]:
-    """Update an existing Quilt package by adding new S3 objects.
+    """Update an existing Quilt package by adding new S3 objects - Core package creation, update, and deletion workflows
 
     Args:
         package_name: Name of the existing package to update (e.g., "username/package-name")
@@ -272,9 +287,24 @@ def package_update(
         metadata: Optional metadata dict to merge with existing package metadata
         message: Commit message for package update (default: "Added objects via package_update tool")
         flatten: Use only filenames as logical paths instead of full S3 keys (default: True)
+        copy_mode: Copy policy for the source objects (``all``, ``same_bucket``, or ``none``).
 
     Returns:
         Dict with update status, package details, and list of files added.
+
+    Next step:
+        Report the package operation result or continue the workflow (e.g., metadata updates).
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_ops
+
+        result = package_ops.package_update(
+            package_name="team/dataset",
+            s3_uris=["s3://example-bucket/data.csv"],
+        )
+        # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
+        ```
     """
     # Handle metadata parameter - support both dict and JSON string for user convenience
     if metadata is None:
@@ -382,7 +412,7 @@ def package_update(
 
 
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
-    """Delete a Quilt package from the registry.
+    """Delete a Quilt package from the registry - Core package creation, update, and deletion workflows
 
     Args:
         package_name: Name of the package to delete (e.g., "username/package-name")
@@ -390,6 +420,19 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
 
     Returns:
         Dict with deletion status and confirmation message.
+
+    Next step:
+        Report the package operation result or continue the workflow (e.g., metadata updates).
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_ops
+
+        result = package_ops.package_delete(
+            package_name="team/dataset",
+        )
+        # Next step: Report the package operation result or continue the workflow (e.
+        ```
     """
     if not package_name:
         return {"error": "package_name is required for package deletion"}

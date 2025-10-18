@@ -24,7 +24,7 @@ def bucket_objects_list(
     continuation_token: str = "",
     include_signed_urls: bool = True,
 ) -> dict[str, Any]:
-    """List objects in an S3 bucket with optional prefix filtering.
+    """List objects in an S3 bucket with optional prefix filtering - S3 bucket exploration and object retrieval tasks
 
     Args:
         bucket: S3 bucket name or s3:// URI (default: DEFAULT_BUCKET)
@@ -35,6 +35,17 @@ def bucket_objects_list(
 
     Returns:
         Dict with bucket info, objects list, and pagination details.
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_objects_list()
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     bkt = _normalize_bucket(bucket)
     max_keys = max(1, min(max_keys, 1000))
@@ -77,7 +88,7 @@ def bucket_objects_list(
 
 
 def bucket_object_info(s3_uri: str) -> dict[str, Any]:
-    """Get metadata information for a specific S3 object.
+    """Get metadata information for a specific S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
         s3_uri: Full S3 URI, optionally with versionId query parameter
@@ -93,6 +104,19 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
         - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_object_info(
+            s3_uri="example_value",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
@@ -129,7 +153,7 @@ def bucket_object_info(s3_uri: str) -> dict[str, Any]:
 
 
 def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf-8") -> dict[str, Any]:
-    """Read text content from an S3 object.
+    """Read text content from an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
         s3_uri: Full S3 URI, optionally with versionId query parameter
@@ -147,6 +171,19 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
         - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_object_text(
+            s3_uri="example_value",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
@@ -188,7 +225,7 @@ def bucket_object_text(s3_uri: str, max_bytes: int = 65536, encoding: str = "utf
 
 
 def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, Any]:
-    """Upload multiple objects to an S3 bucket.
+    """Upload multiple objects to an S3 bucket - S3 bucket exploration and object retrieval tasks
 
     Args:
         bucket: S3 bucket name or s3:// URI
@@ -197,6 +234,20 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
 
     Returns:
         Dict with upload results and summary statistics.
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_objects_put(
+            bucket="example-bucket",
+            items=["example"],
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     import base64
 
@@ -255,7 +306,7 @@ def bucket_objects_put(bucket: str, items: list[dict[str, Any]]) -> dict[str, An
 
 
 def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool = True) -> dict[str, Any]:
-    """Fetch binary or text data from an S3 object.
+    """Fetch binary or text data from an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
         s3_uri: Full S3 URI, optionally with versionId query parameter
@@ -273,6 +324,19 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
         - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_object_fetch(
+            s3_uri="example_value",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     import base64
 
@@ -342,7 +406,7 @@ def bucket_object_fetch(s3_uri: str, max_bytes: int = 65536, base64_encode: bool
 
 
 def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
-    """Generate a presigned URL for downloading an S3 object.
+    """Generate a presigned URL for downloading an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
         s3_uri: Full S3 URI, optionally with versionId query parameter
@@ -359,6 +423,19 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
         - InvalidVersionId: Generic error with operation details
         - NoSuchVersion: "Version {versionId} not found for {s3_uri}"
         - AccessDenied (with versionId): "Access denied for version {versionId} of {s3_uri}"
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_object_link(
+            s3_uri="example_value",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     try:
         bucket, key, version_id = parse_s3_uri(s3_uri)
@@ -395,7 +472,7 @@ def bucket_object_link(s3_uri: str, expiration: int = 3600) -> dict[str, Any]:
 
 
 def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> dict[str, Any]:
-    """Search objects in a Quilt bucket using Elasticsearch query syntax.
+    """Search objects in a Quilt bucket using Elasticsearch query syntax - S3 bucket exploration and object retrieval tasks
 
     Args:
         bucket: S3 bucket name or s3:// URI
@@ -404,6 +481,20 @@ def bucket_objects_search(bucket: str, query: str | dict, limit: int = 10) -> di
 
     Returns:
         Dict with search results including matching objects and metadata.
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_objects_search(
+            bucket="example-bucket",
+            query="status:READY",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     bkt = _normalize_bucket(bucket)
     bucket_uri = f"s3://{bkt}"
@@ -432,7 +523,7 @@ def bucket_objects_search_graphql(
     first: int = 100,
     after: str = "",
 ) -> dict[str, Any]:
-    """Search bucket objects via Quilt Catalog GraphQL.
+    """Search bucket objects via Quilt Catalog GraphQL - S3 bucket exploration and object retrieval tasks
 
     This is a generic GraphQL-powered search that can express rich filters and
     returns objects with optional package linkage where available.
@@ -445,6 +536,19 @@ def bucket_objects_search_graphql(
 
     Returns:
         Dict with objects, pagination info, and the effective filter used.
+
+    Next step:
+        Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import buckets
+
+        result = buckets.bucket_objects_search_graphql(
+            bucket="example-bucket",
+        )
+        # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
+        ```
     """
     import json
     from urllib.parse import urljoin

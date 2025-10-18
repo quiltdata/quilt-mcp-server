@@ -39,8 +39,7 @@ def create_package_enhanced(
     auto_organize: bool = True,
     copy_mode: str = "all",
 ) -> Dict[str, Any]:
-    """
-    Enhanced package creation with better error handling and metadata templates.
+    """Enhanced package creation with better error handling and metadata templates - Advanced Quilt package management routines
 
     This is the recommended package creation tool that provides:
     - Intelligent metadata templates for common use cases
@@ -57,6 +56,7 @@ def create_package_enhanced(
         registry: Target registry (auto-detected if not provided)
         dry_run: Preview package without creating (default: False)
         auto_organize: Enable smart folder organization (default: True)
+        copy_mode: Copy strategy for materializing data (``all``, ``same_bucket``, or ``none``).
 
     Returns:
         Comprehensive package creation result with guidance
@@ -75,6 +75,20 @@ def create_package_enhanced(
 
         Dry run (preview):
         create_package_enhanced("team/test", ["s3://bucket/file.csv"], dry_run=True)
+
+    Next step:
+        Communicate the management result or proceed with related metadata adjustments.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_management
+
+        result = package_management.create_package_enhanced(
+            name="example-name",
+            files=["example"],
+        )
+        # Next step: Communicate the management result or proceed with related metadata adjustments.
+        ```
     """
     try:
         # Validate package name
@@ -352,8 +366,7 @@ def package_update_metadata(
     registry: str = None,
     merge_with_existing: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Update or replace metadata for an existing package.
+    """Update or replace metadata for an existing package - Advanced Quilt package management routines
 
     Args:
         package_name: Name of the package to update
@@ -363,6 +376,20 @@ def package_update_metadata(
 
     Returns:
         Update result with status and guidance
+
+    Next step:
+        Communicate the management result or proceed with related metadata adjustments.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_management
+
+        result = package_management.package_update_metadata(
+            package_name="team/dataset",
+            metadata={"description": "Example"},
+        )
+        # Next step: Communicate the management result or proceed with related metadata adjustments.
+        ```
     """
     try:
         # Handle metadata as string
@@ -547,8 +574,7 @@ def package_validate(
     check_integrity: bool = True,
     check_accessibility: bool = True,
 ) -> Dict[str, Any]:
-    """
-    Validate package integrity and accessibility.
+    """Validate package integrity and accessibility - Advanced Quilt package management routines
 
     Args:
         package_name: Name of the package to validate
@@ -558,6 +584,19 @@ def package_validate(
 
     Returns:
         Comprehensive validation report
+
+    Next step:
+        Communicate the management result or proceed with related metadata adjustments.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_management
+
+        result = package_management.package_validate(
+            package_name="team/dataset",
+        )
+        # Next step: Communicate the management result or proceed with related metadata adjustments.
+        ```
     """
     try:
         # Determine registry to use
@@ -620,11 +659,21 @@ def package_validate(
 
 
 def list_package_tools() -> Dict[str, Any]:
-    """
-    List all package management tools with usage guidance.
+    """List all package management tools with usage guidance - Advanced Quilt package management routines
 
     Returns:
         Comprehensive guide to package management tools
+
+    Next step:
+        Communicate the management result or proceed with related metadata adjustments.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import package_management
+
+        result = package_management.list_package_tools()
+        # Next step: Communicate the management result or proceed with related metadata adjustments.
+        ```
     """
     return {
         "primary_tools": {

@@ -338,8 +338,7 @@ def package_create_from_s3(
     copy_mode: str = "all",
     force: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Create a well-organized Quilt package from S3 bucket contents with smart organization.
+    """Create a well-organized Quilt package from S3 bucket contents with smart organization - Bulk S3-to-package ingestion workflows
 
     Args:
         source_bucket: S3 bucket containing source data
@@ -355,9 +354,25 @@ def package_create_from_s3(
         metadata_template: Metadata template to use ('standard', 'ml', 'analytics')
         dry_run: Preview structure without creating package (default: False)
         metadata: Additional user-provided metadata
+        copy_mode: Copy policy for package materialization (``all``, ``same_bucket``, or ``none``).
+        force: Skip confirmation prompts when True—useful for automated ingestion.
 
     Returns:
         Package creation result with structure info, metadata, and confirmation details
+
+    Next step:
+        Review the dry-run output then hand the planned manifest to package_ops.create_package.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import s3_package
+
+        result = s3_package.package_create_from_s3(
+            source_bucket="example_value",
+            package_name="team/dataset",
+        )
+        # Next step: Review the dry-run output then hand the planned manifest to package_ops.create_package.
+        ```
     """
     try:
         # Validate inputs

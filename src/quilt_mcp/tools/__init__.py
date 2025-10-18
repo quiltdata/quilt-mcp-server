@@ -28,44 +28,45 @@ Example usage:
     pkg_list = packages.packages_list()
 """
 
-from . import (
-    auth,
-    buckets,
-    package_ops,
-    packages,
-    s3_package,
-    permissions,
-    unified_package,
-    metadata_templates,
-    package_management,
-    metadata_examples,
-    quilt_summary,
-    graphql,
-    search,
-    athena_glue,
-    tabulator,
-    workflow_orchestration,
-    governance,
-)
+from importlib import import_module
+from types import ModuleType
+from typing import Dict
 
-# error_recovery temporarily disabled due to Callable parameter issues
+_MODULE_PATHS = {
+    "auth": "quilt_mcp.tools.auth",
+    "buckets": "quilt_mcp.tools.buckets",
+    "packages": "quilt_mcp.tools.packages",
+    "package_ops": "quilt_mcp.tools.package_ops",
+    "s3_package": "quilt_mcp.tools.s3_package",
+    "permissions": "quilt_mcp.tools.permissions",
+    "unified_package": "quilt_mcp.tools.unified_package",
+    "metadata_templates": "quilt_mcp.tools.metadata_templates",
+    "package_management": "quilt_mcp.tools.package_management",
+    "metadata_examples": "quilt_mcp.tools.metadata_examples",
+    "quilt_summary": "quilt_mcp.tools.quilt_summary",
+    "graphql": "quilt_mcp.tools.graphql",
+    "search": "quilt_mcp.tools.search",
+    "data_visualization": "quilt_mcp.tools.data_visualization",
+    "athena_glue": "quilt_mcp.tools.athena_glue",
+    "tabulator": "quilt_mcp.tools.tabulator",
+    "workflow_orchestration": "quilt_mcp.tools.workflow_orchestration",
+    "governance": "quilt_mcp.tools.governance",
+    # error_recovery temporarily disabled due to Callable parameter issues
+}
 
-__all__ = [
-    "auth",
-    "buckets",
-    "packages",
-    "package_ops",
-    "s3_package",
-    "permissions",
-    "unified_package",
-    "metadata_templates",
-    "package_management",
-    "metadata_examples",
-    "quilt_summary",
-    "graphql",
-    "search",
-    "athena_glue",
-    "tabulator",
-    "workflow_orchestration",
-    "governance",
-]
+AVAILABLE_MODULES = list(_MODULE_PATHS.keys())
+__all__ = AVAILABLE_MODULES.copy()
+
+_LOADED_MODULES: Dict[str, ModuleType] = {}
+
+
+def __getattr__(name: str) -> ModuleType:
+    if name not in _MODULE_PATHS:
+        raise AttributeError(f"module 'quilt_mcp.tools' has no attribute '{name}'")
+    if name not in _LOADED_MODULES:
+        _LOADED_MODULES[name] = import_module(_MODULE_PATHS[name])
+    return _LOADED_MODULES[name]
+
+
+def __dir__() -> list[str]:
+    return sorted(list(globals().keys()) + AVAILABLE_MODULES)

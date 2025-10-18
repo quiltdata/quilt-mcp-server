@@ -47,14 +47,25 @@ def athena_databases_list(
     data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    List available databases in AWS Glue Data Catalog.
+    """List available databases in AWS Glue Data Catalog - Athena querying and Glue catalog inspection workflows
 
     Args:
         data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         List of databases with metadata
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_databases_list()
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         if service is None:
@@ -71,16 +82,29 @@ def athena_tables_list(
     table_pattern: Optional[str] = None,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    List tables in a specific database.
+    """List tables in a specific database - Athena querying and Glue catalog inspection workflows
 
     Args:
         database_name: Name of the database
         data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
         table_pattern: Optional pattern to filter table names
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         List of tables with metadata and schemas
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_tables_list(
+            database_name="example_value",
+        )
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         if service is None:
@@ -97,16 +121,30 @@ def athena_table_schema(
     data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    Get detailed schema information for a specific table.
+    """Get detailed schema information for a specific table - Athena querying and Glue catalog inspection workflows
 
     Args:
         database_name: Name of the database
         table_name: Name of the table
         data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         Detailed table schema including columns, types, partitions
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_table_schema(
+            database_name="example_value",
+            table_name="summary",
+        )
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         if service is None:
@@ -121,14 +159,25 @@ def athena_workgroups_list(
     use_quilt_auth: bool = True,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    List available Athena workgroups that the user can access.
+    """List available Athena workgroups that the user can access - Athena querying and Glue catalog inspection workflows
 
     Args:
         use_quilt_auth: Use quilt3 assumed role credentials if available
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         List of accessible workgroups with their configurations
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_workgroups_list()
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         # Use consolidated AthenaQueryService for consistent authentication patterns
@@ -170,8 +219,7 @@ def athena_query_execute(
     use_quilt_auth: bool = True,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    Execute SQL query against Athena using SQLAlchemy/PyAthena.
+    """Execute SQL query against Athena using SQLAlchemy/PyAthena - Athena querying and Glue catalog inspection workflows
 
     IMPORTANT SQL Syntax Requirements:
     - Use double quotes for table/column names with special characters
@@ -187,9 +235,13 @@ def athena_query_execute(
         max_results: Maximum number of results to return
         output_format: Output format (json, csv, parquet, table)
         use_quilt_auth: Use quilt3 assumed role credentials if available
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         Query execution results with data, metadata, and formatting
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
     """
     try:
         # Validate inputs
@@ -293,17 +345,29 @@ def athena_query_history(
     use_quilt_auth: bool = True,
     service: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """
-    Retrieve query execution history from Athena.
+    """Retrieve query execution history from Athena - Athena querying and Glue catalog inspection workflows
 
     Args:
         max_results: Maximum number of queries to return
         status_filter: Filter by query status (SUCCEEDED, FAILED, etc.)
         start_time: Start time for query range (ISO format)
         end_time: End time for query range (ISO format)
+        use_quilt_auth: Use quilt3 assumed role credentials if available.
+        service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
     Returns:
         List of historical query executions
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_query_history()
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         import boto3
@@ -396,14 +460,26 @@ def athena_query_history(
 
 
 def athena_query_validate(query: str) -> Dict[str, Any]:
-    """
-    Validate SQL query syntax without executing it.
+    """Validate SQL query syntax without executing it - Athena querying and Glue catalog inspection workflows
 
     Args:
         query: SQL query to validate
 
     Returns:
         Validation results with syntax check and suggestions
+
+    Next step:
+        Pass identifiers or results on to analytics tooling or report them to the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import athena_glue
+
+        result = athena_glue.athena_query_validate(
+            query="status:READY",
+        )
+        # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
+        ```
     """
     try:
         import re

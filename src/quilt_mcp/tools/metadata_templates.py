@@ -66,8 +66,7 @@ METADATA_TEMPLATES = {
 
 
 def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = None) -> Dict[str, Any]:
-    """
-    Get a metadata template with optional custom fields.
+    """Get a metadata template with optional custom fields - Metadata template discovery and validation
 
     Args:
         template_name: Name of the template ('standard', 'genomics', 'ml', 'research', 'analytics')
@@ -75,6 +74,19 @@ def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = No
 
     Returns:
         Metadata dictionary with template fields and custom fields
+
+    Next step:
+        Apply or validate metadata using the returned template guidance.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_templates
+
+        result = metadata_templates.get_metadata_template(
+            template_name="standard",
+        )
+        # Next step: Apply or validate metadata using the returned template guidance.
+        ```
     """
     if template_name not in METADATA_TEMPLATES:
         template_name = "standard"
@@ -93,11 +105,21 @@ def get_metadata_template(template_name: str, custom_fields: Dict[str, Any] = No
 
 
 def list_metadata_templates() -> Dict[str, Any]:
-    """
-    List available metadata templates with descriptions.
+    """List available metadata templates with descriptions - Metadata template discovery and validation
 
     Returns:
         Dictionary with template information and usage examples
+
+    Next step:
+        Apply or validate metadata using the returned template guidance.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_templates
+
+        result = metadata_templates.list_metadata_templates()
+        # Next step: Apply or validate metadata using the returned template guidance.
+        ```
     """
     templates_info = {}
 
@@ -122,8 +144,7 @@ def list_metadata_templates() -> Dict[str, Any]:
 
 
 def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = None) -> Dict[str, Any]:
-    """
-    Validate metadata structure and provide suggestions.
+    """Validate metadata structure and provide suggestions - Metadata template discovery and validation
 
     Args:
         metadata: Metadata dictionary to validate
@@ -131,6 +152,19 @@ def validate_metadata_structure(metadata: Dict[str, Any], template_name: str = N
 
     Returns:
         Validation result with suggestions for improvement
+
+    Next step:
+        Apply or validate metadata using the returned template guidance.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import metadata_templates
+
+        result = metadata_templates.validate_metadata_structure(
+            metadata={"description": "Example"},
+        )
+        # Next step: Apply or validate metadata using the returned template guidance.
+        ```
     """
     issues = []
     suggestions = []

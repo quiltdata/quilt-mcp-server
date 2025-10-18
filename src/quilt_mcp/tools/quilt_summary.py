@@ -39,8 +39,7 @@ def generate_quilt_summarize_json(
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
 ) -> Dict[str, Any]:
-    """
-    Generate a comprehensive quilt_summarize.json file following Quilt standards.
+    """Generate a comprehensive quilt_summarize.json file following Quilt standards - Quilt summary file generation tasks
 
     This file provides a machine-readable summary of the package contents,
     structure, and metadata for automated processing and discovery.
@@ -55,6 +54,23 @@ def generate_quilt_summarize_json(
 
     Returns:
         Complete quilt_summarize.json content as dictionary
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.generate_quilt_summarize_json(
+            package_name="team/dataset",
+            package_metadata={"key": "value"},
+            organized_structure="example_value",
+            readme_content="example_value",
+            source_info="example_value",
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
         # Calculate comprehensive statistics
@@ -157,11 +173,11 @@ def generate_quilt_summarize_json(
 def generate_package_visualizations(
     package_name: str,
     organized_structure: Dict[str, List[Dict[str, Any]]],
-    file_types: Dict[str, int],
+    file_types: Dict[str, Any],
     metadata_template: str = "standard",
+    package_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Generate comprehensive visualizations for the package.
+    """Generate comprehensive visualizations for the package - Quilt summary file generation tasks
 
     Creates multiple visualization types:
     - File type distribution pie chart
@@ -174,20 +190,68 @@ def generate_package_visualizations(
         organized_structure: Organized file structure
         file_types: File type counts
         metadata_template: Template for color scheme selection
+        package_metadata: Additional package metadata to annotate the visualization summaries.
 
     Returns:
         Dictionary with visualization data and metadata
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.generate_package_visualizations(
+            package_name="team/dataset",
+            organized_structure="example_value",
+            file_types=["example"],
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
+        # Normalize incoming file_types to simple counts
+        normalized_file_types: Dict[str, int] = {}
+        for ext, info in (file_types or {}).items():
+            if isinstance(info, dict):
+                count = info.get("count") or info.get("total")
+                if count is not None:
+                    normalized_file_types[ext] = int(count)
+            else:
+                normalized_file_types[ext] = int(info)
+
+        # Derive file type counts from structure if not provided
+        if not normalized_file_types:
+            for files in (organized_structure or {}).values():
+                for obj in files or []:
+                    logical_key = (
+                        obj.get("logicalKey")
+                        or obj.get("LogicalKey")
+                        or obj.get("Key")
+                        or obj.get("key")
+                        or ""
+                    )
+                    ext = Path(str(logical_key)).suffix.lstrip(".").lower() or "unknown"
+                    normalized_file_types[ext] = normalized_file_types.get(ext, 0) + 1
+
+        total_files = sum(len(files or []) for files in (organized_structure or {}).values())
+        total_bytes = sum(
+            (entry.get("Size") or entry.get("size") or 0)
+            for files in (organized_structure or {}).values()
+            for entry in (files or [])
+        )
+        total_size_mb = total_bytes / (1024 * 1024) if total_bytes else 0
+
         visualizations = {}
 
         # 1. File Type Distribution Pie Chart
-        if file_types and len(file_types) > 1:
+        if normalized_file_types and len(normalized_file_types) > 1:
             fig, ax = plt.subplots(figsize=(10, 8))
             colors = COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"])
 
             # Sort by count for better visualization
-            sorted_types = sorted(file_types.items(), key=lambda x: x[1], reverse=True)
+            sorted_types = sorted(normalized_file_types.items(), key=lambda x: x[1], reverse=True)
             labels = [f"{ext} ({count})" for ext, count in sorted_types]
             sizes = [count for _, count in sorted_types]
 
@@ -229,7 +293,7 @@ def generate_package_visualizations(
             fig, ax = plt.subplots(figsize=(12, 8))
 
             folders = list(organized_structure.keys())
-            file_counts = [len(organized_structure[folder]) for folder in folders]
+            file_counts = [len(organized_structure.get(folder, []) or []) for folder in folders]
 
             # Use horizontal bar chart for folder structure
             y_pos = np.arange(len(folders))
@@ -281,7 +345,7 @@ def generate_package_visualizations(
         all_sizes = []
         for files in organized_structure.values():
             for obj in files:
-                size = obj.get("Size", 0)
+                size = obj.get("Size") or obj.get("size") or 0
                 if size > 0:
                     all_sizes.append(size)
 
@@ -399,8 +463,11 @@ def generate_package_visualizations(
 
             # Bottom right: Summary statistics
             ax4.axis("off")
-            total_files = sum(len(files) for files in organized_structure.values())
-            total_size_mb = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values()) / (
+            total_files = sum(len(files or []) for files in organized_structure.values())
+            total_size_mb = sum(
+                sum((obj.get("Size") or obj.get("size") or 0) for obj in (files or []))
+                for files in organized_structure.values()
+            ) / (
                 1024 * 1024
             )
 
@@ -410,7 +477,7 @@ Package Summary
 Total Files: {total_files}
 Total Size: {total_size_mb:.1f} MB
 Folders: {len(organized_structure)}
-File Types: {len(file_types)}
+File Types: {len(normalized_file_types)}
 
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 Template: {metadata_template}
@@ -442,7 +509,7 @@ Template: {metadata_template}
                     "total_files": total_files,
                     "total_size_mb": round(total_size_mb, 2),
                     "folder_count": len(organized_structure),
-                    "file_type_count": len(file_types),
+                    "file_type_count": len(normalized_file_types),
                 },
                 "image_base64": img_base64,
                 "mime_type": "image/png",
@@ -458,6 +525,36 @@ Template: {metadata_template}
                 "template_used": metadata_template,
                 "color_scheme": COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
             },
+            "visualization_dashboards": [
+                {
+                    "id": "package-overview",
+                    "title": f"Package Overview - {package_name}",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "widgets": [
+                        {
+                            "type": "stats",
+                            "title": "Summary",
+                            "stats": [
+                                {"label": "Total Files", "value": total_files},
+                                {"label": "Total Size (MB)", "value": round(total_size_mb, 2)},
+                                {"label": "File Types", "value": len(normalized_file_types)},
+                            ],
+                        },
+                        {
+                            "type": "chart",
+                            "chart": "pie",
+                            "title": "File Type Distribution",
+                            "data": visualizations.get("file_type_distribution", {}).get("data", {}),
+                        },
+                        {
+                            "type": "chart",
+                            "chart": "bar",
+                            "title": "Folder Distribution",
+                            "data": visualizations.get("folder_structure", {}).get("data", {}),
+                        },
+                    ],
+                }
+            ],
         }
 
     except Exception as e:
@@ -478,8 +575,7 @@ def create_quilt_summary_files(
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
 ) -> Dict[str, Any]:
-    """
-    Create all Quilt summary files for a package.
+    """Create all Quilt summary files for a package - Quilt summary file generation tasks
 
     Generates:
     - quilt_summarize.json: Machine-readable package summary
@@ -496,6 +592,23 @@ def create_quilt_summary_files(
 
     Returns:
         Dictionary with all generated files and content
+
+    Next step:
+        Write the generated summary artifacts or share their locations with the user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import quilt_summary
+
+        result = quilt_summary.create_quilt_summary_files(
+            package_name="team/dataset",
+            package_metadata={"key": "value"},
+            organized_structure="example_value",
+            readme_content="example_value",
+            source_info="example_value",
+        )
+        # Next step: Write the generated summary artifacts or share their locations with the user.
+        ```
     """
     try:
         # Generate quilt_summarize.json

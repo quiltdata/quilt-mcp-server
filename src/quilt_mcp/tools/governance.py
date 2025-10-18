@@ -85,8 +85,7 @@ class GovernanceService:
 
 
 async def admin_users_list() -> Dict[str, Any]:
-    """
-    List all users in the registry with detailed information.
+    """List all users in the registry with detailed information - Quilt governance and administrative operations
 
     Returns:
         Dict containing:
@@ -94,6 +93,17 @@ async def admin_users_list() -> Dict[str, Any]:
         - users: List of users with detailed information
         - count: Number of users found
         - formatted_table: Table-formatted output for better readability
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_users_list()
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -139,14 +149,26 @@ async def admin_users_list() -> Dict[str, Any]:
 
 
 async def admin_user_get(name: str) -> Dict[str, Any]:
-    """
-    Get detailed information about a specific user.
+    """Get detailed information about a specific user - Quilt governance and administrative operations
 
     Args:
         name: Username to retrieve
 
     Returns:
         Dict containing user information or error details
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_get(
+            name="example-name",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -211,8 +233,7 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
 async def admin_user_create(
     name: str, email: str, role: str, extra_roles: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    """
-    Create a new user in the registry.
+    """Create a new user in the registry - Quilt governance and administrative operations
 
     Args:
         name: Username for the new user
@@ -222,6 +243,21 @@ async def admin_user_create(
 
     Returns:
         Dict containing creation result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_create(
+            name="example-name",
+            email="user@example.com",
+            role="viewer",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -265,14 +301,26 @@ async def admin_user_create(
 
 
 async def admin_user_delete(name: str) -> Dict[str, Any]:
-    """
-    Delete a user from the registry.
+    """Delete a user from the registry - Quilt governance and administrative operations
 
     Args:
         name: Username to delete
 
     Returns:
         Dict containing deletion result
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_delete(
+            name="example-name",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -294,8 +342,7 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
 
 
 async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
-    """
-    Update a user's email address.
+    """Update a user's email address - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -303,6 +350,20 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_set_email(
+            name="example-name",
+            email="user@example.com",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -334,8 +395,7 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
 
 
 async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
-    """
-    Set the admin status for a user.
+    """Set the admin status for a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -343,6 +403,20 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_set_admin(
+            name="example-name",
+            admin="example_value",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -368,8 +442,7 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
 
 
 async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
-    """
-    Set the active status for a user.
+    """Set the active status for a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -377,6 +450,20 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_set_active(
+            name="example-name",
+            active="example_value",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -402,14 +489,26 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
 
 
 async def admin_user_reset_password(name: str) -> Dict[str, Any]:
-    """
-    Reset a user's password.
+    """Reset a user's password - Quilt governance and administrative operations
 
     Args:
         name: Username to reset password for
 
     Returns:
         Dict containing reset result
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_reset_password(
+            name="example-name",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -436,8 +535,7 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
 async def admin_user_set_role(
     name: str, role: str, extra_roles: Optional[List[str]] = None, append: bool = False
 ) -> Dict[str, Any]:
-    """
-    Set the primary and extra roles for a user.
+    """Set the primary and extra roles for a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -447,6 +545,20 @@ async def admin_user_set_role(
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_set_role(
+            name="example-name",
+            role="viewer",
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -478,8 +590,7 @@ async def admin_user_set_role(
 
 
 async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
-    """
-    Add roles to a user.
+    """Add roles to a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -487,6 +598,20 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_add_roles(
+            name="example-name",
+            roles=["viewer"],
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -518,8 +643,7 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
 
 
 async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Remove roles from a user.
+    """Remove roles from a user - Quilt governance and administrative operations
 
     Args:
         name: Username to update
@@ -528,6 +652,20 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
 
     Returns:
         Dict containing update result and user information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_user_remove_roles(
+            name="example-name",
+            roles=["viewer"],
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -562,8 +700,7 @@ async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optiona
 
 
 async def admin_roles_list() -> Dict[str, Any]:
-    """
-    List all available roles in the registry.
+    """List all available roles in the registry - Quilt governance and administrative operations
 
     Returns:
         Dict containing:
@@ -571,6 +708,17 @@ async def admin_roles_list() -> Dict[str, Any]:
         - roles: List of roles with detailed information
         - count: Number of roles found
         - formatted_table: Table-formatted output for better readability
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_roles_list()
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -613,11 +761,21 @@ async def admin_roles_list() -> Dict[str, Any]:
 
 
 async def admin_sso_config_get() -> Dict[str, Any]:
-    """
-    Get the current SSO configuration.
+    """Get the current SSO configuration - Quilt governance and administrative operations
 
     Returns:
         Dict containing SSO configuration or None if not configured
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_sso_config_get()
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -655,14 +813,26 @@ async def admin_sso_config_get() -> Dict[str, Any]:
 
 
 async def admin_sso_config_set(config: str) -> Dict[str, Any]:
-    """
-    Set the SSO configuration.
+    """Set the SSO configuration - Quilt governance and administrative operations
 
     Args:
         config: SSO configuration text
 
     Returns:
         Dict containing update result and configuration information
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_sso_config_set(
+            config={"setting": "value"},
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -699,11 +869,21 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
 
 
 async def admin_sso_config_remove() -> Dict[str, Any]:
-    """
-    Remove the SSO configuration.
+    """Remove the SSO configuration - Quilt governance and administrative operations
 
     Returns:
         Dict containing removal result
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_sso_config_remove()
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -725,11 +905,21 @@ async def admin_sso_config_remove() -> Dict[str, Any]:
 
 
 async def admin_tabulator_open_query_get() -> Dict[str, Any]:
-    """
-    Get the current tabulator open query status.
+    """Get the current tabulator open query status - Quilt governance and administrative operations
 
     Returns:
         Dict containing open query status
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_tabulator_open_query_get()
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
@@ -752,14 +942,26 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
 
 
 async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
-    """
-    Set the tabulator open query status.
+    """Set the tabulator open query status - Quilt governance and administrative operations
 
     Args:
         enabled: Whether to enable open query
 
     Returns:
         Dict containing update result
+
+    Next step:
+        Communicate the governance change and confirm with adjacent admin tools if needed.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import governance
+
+        result = governance.admin_tabulator_open_query_set(
+            enabled=True,
+        )
+        # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
+        ```
     """
     try:
         service = GovernanceService()
