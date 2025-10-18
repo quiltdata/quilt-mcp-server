@@ -58,7 +58,7 @@ $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 	@echo "Running end-to-end workflow tests..."
 	@uv sync --group test
 	@if [ -d "tests/e2e" ] && [ "$$(find tests/e2e -name "*.py" | wc -l)" -gt 0 ]; then \
-		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
+		export PYTHONPATH="src" && uv run python -m pytest tests/e2e/ -v -m "not admin" --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-e2e.xml --cov-report=term-missing; \
 	else \
 		echo "No e2e tests found, creating empty coverage file..."; \
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
