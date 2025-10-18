@@ -41,6 +41,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
+    "pyjwt>=2.8.0",
 ]
 
 [project.urls]
@@ -104,4 +105,3 @@ mode = "auto"
 [tool.ruff]
 # Use external configuration file
 config = "ruff.toml"
-

@@ -17,6 +17,7 @@ from typing import Any
 
 from ..constants import DEFAULT_REGISTRY
 from ..services.quilt_service import QuiltService
+from .auth_helpers import AuthorizationContext, check_package_authorization
 
 # Initialize service
 quilt_service = QuiltService()
@@ -42,6 +43,26 @@ def _normalize_registry(bucket_or_uri: str) -> str:
 
 
 # Internal helper replicated from monolith (will be removed there)
+
+
+def _authorize_package(
+    tool_name: str,
+    tool_args: dict[str, Any],
+    *,
+    context: dict[str, Any],
+) -> tuple[AuthorizationContext | None, dict[str, Any] | None]:
+    auth_ctx = check_package_authorization(tool_name, tool_args)
+    if not auth_ctx.authorized:
+        error_payload = auth_ctx.error_response()
+        error_payload.update(context)
+        return None, error_payload
+    return auth_ctx, None
+
+
+def _attach_auth_metadata(payload: dict[str, Any], auth_ctx: AuthorizationContext | None) -> dict[str, Any]:
+    if auth_ctx and auth_ctx.auth_type:
+        payload.setdefault("auth_type", auth_ctx.auth_type)
+    return payload
 
 
 def _collect_objects_into_package(
@@ -221,6 +242,14 @@ def package_create(
 
     normalized_registry = _normalize_registry(registry)
 
+    auth_ctx, error = _authorize_package(
+        "package_create",
+        {"package_name": package_name, "registry": normalized_registry},
+        context={"package_name": package_name, "registry": normalized_registry},
+    )
+    if error:
+        return error
+
     try:
         # Use the new create_package_revision method with auto_organize=False
         # to preserve the existing flattening behavior
@@ -236,22 +265,28 @@ def package_create(
 
         # Handle the result based on its structure
         if result.get("error"):
-            return {
-                "error": result["error"],
-                "package_name": package_name,
-                "warnings": warnings,
-            }
+            return _attach_auth_metadata(
+                {
+                    "error": result["error"],
+                    "package_name": package_name,
+                    "warnings": warnings,
+                },
+                auth_ctx,
+            )
 
         # Extract the top_hash from the result
         top_hash = result.get("top_hash")
         entries_added = result.get("entries_added", len(s3_uris))
 
     except Exception as e:
-        return {
-            "error": f"Failed to create package: {e}",
-            "package_name": package_name,
-            "warnings": warnings,
-        }
+        return _attach_auth_metadata(
+            {
+                "error": f"Failed to create package: {e}",
+                "package_name": package_name,
+                "warnings": warnings,
+            },
+            auth_ctx,
+        )
 
     # Ensure all values are JSON serializable
     result_data = {
@@ -266,7 +301,7 @@ def package_create(
         "warnings": warnings,
         "message": str(message),
     }
-    return result_data
+    return _attach_auth_metadata(result_data, auth_ctx)
 
 
 def package_update(
@@ -346,6 +381,13 @@ def package_update(
         return {"error": "package_name is required for package_update"}
     warnings: list[str] = []
     normalized_registry = _normalize_registry(registry)
+    auth_ctx, error = _authorize_package(
+        "package_update",
+        {"package_name": package_name, "registry": normalized_registry},
+        context={"package_name": package_name, "registry": normalized_registry},
+    )
+    if error:
+        return error
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
@@ -354,15 +396,21 @@ def package_update(
             quilt_service = QuiltService()
             existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
     except Exception as e:
-        return {
-            "error": f"Failed to browse existing package '{package_name}': {e}",
-            "package_name": package_name,
-        }
+        return _attach_auth_metadata(
+            {
+                "error": f"Failed to browse existing package '{package_name}': {e}",
+                "package_name": package_name,
+            },
+            auth_ctx,
+        )
     # Use the existing package as the base instead of creating a new one
     updated_pkg = existing_pkg
     added = _collect_objects_into_package(updated_pkg, s3_uris, flatten, warnings)
     if not added:
-        return {"error": "No new S3 objects were added", "warnings": warnings}
+        return _attach_auth_metadata(
+            {"error": "No new S3 objects were added", "warnings": warnings},
+            auth_ctx,
+        )
     if metadata:
         try:
             combined = {}
@@ -389,11 +437,14 @@ def package_update(
             )
 
     except Exception as e:
-        return {
-            "error": f"Failed to push updated package: {e}",
-            "package_name": package_name,
-            "warnings": warnings,
-        }
+        return _attach_auth_metadata(
+            {
+                "error": f"Failed to push updated package: {e}",
+                "package_name": package_name,
+                "warnings": warnings,
+            },
+            auth_ctx,
+        )
 
     # Convert non-string values to ensure JSON serialization
     result = {
@@ -408,7 +459,7 @@ def package_update(
         "message": str(message),
         "metadata_added": bool(metadata),
     }
-    return result
+    return _attach_auth_metadata(result, auth_ctx)
 
 
 def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[str, Any]:
@@ -439,21 +490,35 @@ def package_delete(package_name: str, registry: str = DEFAULT_REGISTRY) -> dict[
 
     try:
         normalized_registry = _normalize_registry(registry)
+        auth_ctx, error = _authorize_package(
+            "package_delete",
+            {"package_name": package_name, "registry": normalized_registry},
+            context={"package_name": package_name, "registry": normalized_registry},
+        )
+        if error:
+            return error
+
         # Suppress stdout during delete to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
         with suppress_stdout():
             quilt3.delete_package(package_name, registry=normalized_registry)
-        return {
-            "status": "success",
-            "action": "deleted",
-            "package_name": package_name,
-            "registry": registry,
-            "message": f"Package {package_name} deleted successfully",
-        }
+        return _attach_auth_metadata(
+            {
+                "status": "success",
+                "action": "deleted",
+                "package_name": package_name,
+                "registry": registry,
+                "message": f"Package {package_name} deleted successfully",
+            },
+            auth_ctx,
+        )
     except Exception as e:
-        return {
-            "error": f"Failed to delete package '{package_name}': {e}",
-            "package_name": package_name,
-            "registry": registry,
-        }
+        return _attach_auth_metadata(
+            {
+                "error": f"Failed to delete package '{package_name}': {e}",
+                "package_name": package_name,
+                "registry": registry,
+            },
+            auth_ctx if 'auth_ctx' in locals() else None,
+        )

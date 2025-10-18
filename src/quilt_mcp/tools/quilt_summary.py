@@ -226,11 +226,7 @@ def generate_package_visualizations(
             for files in (organized_structure or {}).values():
                 for obj in files or []:
                     logical_key = (
-                        obj.get("logicalKey")
-                        or obj.get("LogicalKey")
-                        or obj.get("Key")
-                        or obj.get("key")
-                        or ""
+                        obj.get("logicalKey") or obj.get("LogicalKey") or obj.get("Key") or obj.get("key") or ""
                     )
                     ext = Path(str(logical_key)).suffix.lstrip(".").lower() or "unknown"
                     normalized_file_types[ext] = normalized_file_types.get(ext, 0) + 1
@@ -467,9 +463,7 @@ def generate_package_visualizations(
             total_size_mb = sum(
                 sum((obj.get("Size") or obj.get("size") or 0) for obj in (files or []))
                 for files in organized_structure.values()
-            ) / (
-                1024 * 1024
-            )
+            ) / (1024 * 1024)
 
             summary_text = f"""
 Package Summary

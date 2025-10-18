@@ -444,10 +444,12 @@ def test_mcp_protocol_compliance():
         # Use a requests.Session to maintain state (cookies, etc.) across requests
         # This is required for MCP session management
         session = requests.Session()
-        session.headers.update({
-            "Accept": "application/json, text/event-stream",
-            "Content-Type": "application/json",
-        })
+        session.headers.update(
+            {
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json",
+            }
+        )
 
         # Test 1: Initialize session (required before tools/list)
         init_request = {
@@ -468,15 +470,12 @@ def test_mcp_protocol_compliance():
 
         # Parse SSE response
         content_type = init_response.headers.get("Content-Type", "")
-        assert "text/event-stream" in content_type, (
-            f"Expected SSE response (text/event-stream), got: {content_type}"
-        )
+        assert "text/event-stream" in content_type, f"Expected SSE response (text/event-stream), got: {content_type}"
 
         # Extract session ID from response headers and add to session headers for subsequent requests
         mcp_session_id = init_response.headers.get("mcp-session-id")
         assert mcp_session_id is not None, (
-            f"Expected mcp-session-id header in initialize response. "
-            f"Headers: {dict(init_response.headers)}"
+            f"Expected mcp-session-id header in initialize response. Headers: {dict(init_response.headers)}"
         )
         session.headers.update({"mcp-session-id": mcp_session_id})
 

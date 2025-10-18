@@ -75,7 +75,12 @@ Perfect for:
 
 ### Authentication
 
-**quilt-mcp uses quilt3 for authentication.** Configure once, use everywhere:
+quilt-mcp supports **dual-mode authentication** at runtime:
+
+- **JWT (web deployments):** When the HTTP transport provides a bearer token, the server verifies it and uses the JWT-derived AWS session for all tools.
+- **IAM/quilt3 (desktop & CLIs):** Without a JWT, the server transparently falls back to the existing quilt3 login flow so local workflows keep working.
+
+Configure or refresh quilt3 credentials with:
 
 ```bash
 # Configure catalog and authenticate (interactive)
@@ -88,7 +93,9 @@ quilt3 config https://your-catalog.quiltdata.com
 quilt3 login
 ```
 
-Your credentials are stored in `~/.quilt/` and automatically used by quilt-mcp.
+Your credentials are stored in `~/.quilt/` and automatically used by quilt-mcp whenever a JWT is not present.
+
+To **require JWTs** in production deployments, set `MCP_REQUIRE_JWT=true`. In strict mode, bucket and package tools return a clear error instead of falling back to quilt3 credentials.
 
 ### Environment Variables
 
@@ -97,6 +104,7 @@ Override defaults via environment or MCP config:
 - `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL (e.g., `your-catalog.quiltdata.com`)
 - `QUILT_DEFAULT_BUCKET` - Default S3 bucket (e.g., `s3://your-bucket`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access
+- `MCP_REQUIRE_JWT` - Set to `true` to reject IAM/quilt3 fallback and enforce JWT-only access
 
 ## Development
 
