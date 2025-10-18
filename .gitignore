@@ -188,3 +188,4 @@ cython_debug/
 .cursor/
 /scratch
 .cursor-mcp-test-config.json
+.tmp/
