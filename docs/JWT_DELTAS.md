@@ -6,7 +6,8 @@
 
 ## Overview
 
-This branch implements **JWT-only authentication** with no IAM fallback, session-based caching, and comprehensive diagnostic tools. The changes span authentication services, middleware, tools, and extensive testing.
+This branch implements **JWT-only authentication** with no IAM fallback, session-based caching, and comprehensive diagnostic tools.
+The changes span authentication services, middleware, tools, and extensive testing.
 
 ## Core Implementation Files
 
@@ -15,6 +16,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
 #### New Services
 
 **`src/quilt_mcp/services/auth_service.py`** (+920 lines)
+
 - Central authentication service with multiple auth methods
 - Priority: QUILT3 → QUILT_REGISTRY → ASSUMED_ROLE → IAM_ROLE → ENVIRONMENT
 - Automatic role assumption from headers
@@ -25,6 +27,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
   - `assume_quilt_user_role()` - STS role assumption
 
 **`src/quilt_mcp/services/bearer_auth_service.py`** (+393 lines)
+
 - JWT signature validation and decompression
 - Per-tool permission checking
 - Bucket access authorization
@@ -35,6 +38,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
   - `check_package_authorization()` - Package-level auth
 
 **`src/quilt_mcp/services/jwt_decoder.py`** (+245 lines)
+
 - JWT claim decompression (handles compressed bucket lists, permissions)
 - Three compression formats: groups, patterns, compressed
 - Permission abbreviation expansion (g→s3:GetObject, p→s3:PutObject, etc.)
@@ -44,6 +48,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
   - `_expand_permissions()` - Permission abbreviation expansion
 
 **`src/quilt_mcp/services/session_auth.py`** (+199 lines)
+
 - Session-based JWT authentication caching
 - Maps MCP session IDs to validated JWT results
 - 1-hour session expiration
@@ -53,6 +58,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
   - `cleanup_old_sessions()` - Removes expired sessions
 
 **`src/quilt_mcp/services/graphql_bearer_service.py`** (+322 lines)
+
 - GraphQL-specific bearer token integration
 - Passes JWT to catalog GraphQL endpoint
 - **Key Methods:**
@@ -62,6 +68,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
 #### Modified Services
 
 **`src/quilt_mcp/services/quilt_service.py`**
+
 - Updated to use bearer auth for package operations
 - JWT-derived boto3 sessions
 - **Key Changes:**
@@ -71,6 +78,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
 ### 2. Runtime Context (New)
 
 **`src/quilt_mcp/runtime_context.py`** (+136 lines)
+
 - Request-scoped context using contextvars
 - Isolates desktop (stdio) from web (HTTP) sessions
 - Prevents credential leakage between requests
@@ -85,6 +93,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
 ### 3. JWT Utilities (New)
 
 **`src/quilt_mcp/jwt_utils/jwt_decompression.py`** (+312 lines)
+
 - Standalone JWT decompression utilities
 - Can be used outside MCP tools for testing/debugging
 - **Key Functions:**
@@ -95,6 +104,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
 ### 4. Middleware (Modified)
 
 **`src/quilt_mcp/utils.py`** (modified)
+
 - `QuiltAuthMiddleware` - Enhanced with JWT and runtime context
 - **Key Changes:**
   - Line 426-500: JWT authentication middleware
@@ -102,6 +112,7 @@ This branch implements **JWT-only authentication** with no IAM fallback, session
   - Line 700-750: Environment variable bridge for legacy compatibility
 
 **Location:** `src/quilt_mcp/utils.py:426-500`
+
 ```python
 class QuiltAuthMiddleware(BaseHTTPMiddleware):
     """Middleware for JWT authentication and runtime context management."""
@@ -118,6 +129,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 #### New Auth Tools
 
 **`src/quilt_mcp/tools/jwt_diagnostics.py`** (+311 lines)
+
 - Three diagnostic MCP tools for troubleshooting
 - **Tools:**
   - `jwt_diagnostics()` - Comprehensive JWT auth state
@@ -125,6 +137,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `session_diagnostics()` - Session cache inspection
 
 **`src/quilt_mcp/tools/auth_helpers.py`** (+108 lines)
+
 - Unified authorization checking for bucket and package operations
 - **Functions:**
   - `check_s3_authorization()` - S3 bucket authorization
@@ -132,6 +145,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `get_athena_service()` - Athena service with JWT auth
 
 **`src/quilt_mcp/tools/bearer_auth.py`** (+442 lines)
+
 - Tools for comparing JWT secrets, getting frontend tokens
 - **Tools:**
   - `compare_jwt_secrets()` - Debug secret mismatches
@@ -140,6 +154,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 #### Modified Auth Tools
 
 **`src/quilt_mcp/tools/auth.py`**
+
 - Updated catalog URL/name detection to use bearer auth context
 - Enhanced auth_status with JWT information
 - **Key Changes:**
@@ -149,6 +164,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### 6. Tools - Bucket Operations (Modified)
 
 **`src/quilt_mcp/tools/buckets.py`** (+578 lines, heavily refactored)
+
 - All bucket tools now use JWT authorization
 - No IAM fallback - fails if JWT missing/invalid
 - **Key Changes:**
@@ -157,6 +173,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - Line 400-500: Error handling for missing/invalid JWT
 
 **Modified Tools:**
+
 - `bucket_objects_list()` - Uses JWT-derived S3 client
 - `bucket_object_fetch()` - JWT auth required
 - `bucket_object_text()` - JWT auth required
@@ -165,12 +182,14 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### 7. Tools - Package Operations (Modified)
 
 **`src/quilt_mcp/tools/packages.py`**
+
 - Package browse/search use bearer auth for GraphQL
 - **Key Changes:**
   - Line 50-100: Bearer token integration
   - Line 150-200: GraphQL query with Authorization header
 
 **`src/quilt_mcp/tools/package_ops.py`**
+
 - Package create/update/delete use JWT authorization
 - **Key Changes:**
   - Line 100-150: JWT auth checks
@@ -179,6 +198,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### 8. Tools - Athena/Tabulator (Modified)
 
 **`src/quilt_mcp/tools/athena_glue.py`**
+
 - Athena queries use JWT-derived credentials
 - **Key Changes:**
   - Line 50-100: Bearer auth integration
@@ -189,6 +209,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### New Test Files
 
 **`tests/unit/test_auth_service.py`** (+443 lines)
+
 - Comprehensive authentication service tests
 - Tests all auth methods, priority ordering, role assumption
 - **Key Test Classes:**
@@ -197,6 +218,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `TestAuthMethodPriority` - Auth method selection
 
 **`tests/unit/test_jwt_decompression.py`** (+261 lines)
+
 - JWT decompression and validation tests
 - Tests all compression formats and edge cases
 - **Key Test Classes:**
@@ -205,6 +227,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `TestPermissionExpansion` - Permission abbreviations
 
 **`tests/unit/test_session_auth.py`** (+359 lines)
+
 - Session-based JWT authentication tests
 - Tests caching, expiration, cleanup
 - **Key Test Classes:**
@@ -213,6 +236,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `TestSessionExpiration` - Expiration handling
 
 **`tests/unit/test_buckets_authorization.py`** (+238 lines)
+
 - Bucket tool authorization tests
 - Tests JWT-only enforcement, no IAM fallback
 - **Key Test Classes:**
@@ -220,11 +244,13 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `TestS3ClientCreation` - JWT-derived client creation
 
 **`tests/unit/test_package_ops_authorization.py`** (+106 lines)
+
 - Package operation authorization tests
 - **Key Test Classes:**
   - `TestPackageAuthorization` - Package tool auth checks
 
 **`tests/unit/test_middleware_functionality.py`** (+275 lines)
+
 - Middleware integration tests
 - Tests request processing, context management
 - **Key Test Classes:**
@@ -232,11 +258,13 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
   - `TestRuntimeContext` - Context isolation
 
 **`tests/unit/test_jwt_decoder.py`** (+49 lines)
+
 - JWT decoder unit tests
 - **Key Test Classes:**
   - `TestJWTDecoder` - Decoder logic
 
 **`tests/unit/test_quilt_role_middleware.py`** (+117 lines)
+
 - Role assumption middleware tests
 - **Key Test Classes:**
   - `TestQuiltRoleMiddleware` - Header extraction and role switching
@@ -244,12 +272,15 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### Modified Test Files
 
 **`tests/unit/test_auth.py`**
+
 - Updated to test bearer auth integration
 
 **`tests/integration/test_integration.py`**
+
 - Added JWT authentication integration tests
 
 **`tests/integration/test_athena_integration.py`** (+424 lines, new)
+
 - Athena integration tests with JWT auth
 
 ## Configuration & Deployment
@@ -257,6 +288,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 ### Environment Variables (New/Modified)
 
 **`env.example`** (updated)
+
 ```bash
 # JWT Configuration (NEW)
 MCP_ENHANCED_JWT_SECRET=your-jwt-secret-here
@@ -270,14 +302,17 @@ QUILT_CATALOG_URL=https://demo.quiltdata.com
 ### Docker & Deployment
 
 **`Dockerfile`** (modified)
+
 - Updated to support JWT environment variables
 - Sets FASTMCP_TRANSPORT=http for HTTP-based JWT auth
 
 **`deploy/ecs-task-definition.json`** (+92 lines, new)
+
 - ECS task definition with JWT secret configuration
 - References SSM parameter for secret
 
 **`deploy/terraform/modules/mcp_server/`** (+365 lines, new)
+
 - Terraform module for MCP server deployment
 - Includes JWT secret configuration
 - ALB integration for HTTP transport
@@ -285,13 +320,16 @@ QUILT_CATALOG_URL=https://demo.quiltdata.com
 ### Scripts (New)
 
 **`scripts/compare_jwt_secrets.py`** (+74 lines)
+
 - Debug tool to compare frontend and backend JWT secrets
 
 **`scripts/validate_jwt.py`** (+120 lines, new)
+
 - Validates JWT tokens locally
 - Tests signature verification
 
 **`debug_mcp_issue.py`** (+120 lines)
+
 - Comprehensive MCP debugging script
 - Tests JWT authentication end-to-end
 
@@ -300,44 +338,54 @@ QUILT_CATALOG_URL=https://demo.quiltdata.com
 ### Architecture Documentation (New)
 
 **`docs/JWT_ARCHITECTURE.md`** (+420 lines)
+
 - Comprehensive JWT authentication architecture
 - Token structure, compression, validation
 - Implementation details and troubleshooting
 
 **`docs/architecture/AUTHENTICATION_ARCHITECTURE.md`** (+706 lines)
+
 - Overall authentication and role assumption architecture
 - Quick reference and implementation details
 
 **`docs/architecture/GRAPHQL_BEARER_TOKEN_INTEGRATION.md`** (+416 lines)
+
 - GraphQL bearer token integration specifics
 
 ### Deployment Guides (New)
 
 **`docs/developer/JWT_AUTHENTICATION.md`** (+188 lines)
+
 - JWT deployment guide
 - SSM secrets, Docker/ECS setup
 
 **`docs/developer/FRONTEND_INTEGRATION_GUIDE.md`** (+491 lines)
+
 - Frontend integration for role assumption headers
 
 ### Troubleshooting Guides (New)
 
 **`docs/FRONTEND_INTEGRATION_TROUBLESHOOTING.md`** (+458 lines)
+
 - Frontend JWT integration troubleshooting
 - Common issues and diagnostic scripts
 
 **`docs/developer/ROLE_ASSUMPTION_TROUBLESHOOTING.md`** (+305 lines)
+
 - Role assumption troubleshooting guide
 
 ### Infrastructure Documentation (New)
 
 **`docs/architecture/MCP_SERVER_INFRASTRUCTURE.md`** (+326 lines)
+
 - MCP server infrastructure overview
 
 **`docs/architecture/ECR_DEPLOYMENT_PROCESS.md`** (+453 lines)
+
 - ECR deployment process with JWT secrets
 
 **`docs/architecture/ALB_NETWORKING_CONFIGURATION.md`** (+334 lines)
+
 - ALB configuration for HTTP-based JWT
 
 ## Key Behavioral Changes
@@ -345,12 +393,14 @@ QUILT_CATALOG_URL=https://demo.quiltdata.com
 ### 1. JWT-Only Authentication (No IAM Fallback)
 
 **Before (main branch):**
+
 ```python
 # Tools would fall back to IAM role if no explicit auth
 s3_client = get_s3_client()  # Uses IAM role from ECS task
 ```
 
 **After (this branch):**
+
 ```python
 # Tools REQUIRE JWT, fail if missing
 auth_result = check_s3_authorization(bucket_name, required_permissions)
@@ -365,10 +415,12 @@ s3_client = auth_result["s3_client"]  # JWT-derived client
 ### 2. Session-Based Caching
 
 **Before (main branch):**
+
 - No session management
 - Each request validates independently
 
 **After (this branch):**
+
 ```python
 # First request: Validate JWT, cache by session ID
 session_auth_manager.authenticate_session(session_id, authorization_header)
@@ -382,10 +434,12 @@ cached_auth = session_auth_manager.get_session_auth(session_id)
 ### 3. Runtime Context Isolation
 
 **Before (main branch):**
+
 - Environment variables shared across requests
 - Desktop and web sessions could interfere
 
 **After (this branch):**
+
 ```python
 # Each request gets isolated context
 with push_runtime_context(environment="web-jwt", auth_state=jwt_result):
@@ -398,10 +452,12 @@ with push_runtime_context(environment="web-jwt", auth_state=jwt_result):
 ### 4. Middleware-Based Auth
 
 **Before (main branch):**
+
 - Tools individually checked auth
 - Inconsistent auth enforcement
 
 **After (this branch):**
+
 ```python
 # Middleware extracts and validates JWT for all requests
 class QuiltAuthMiddleware:
@@ -437,6 +493,7 @@ class QuiltAuthMiddleware:
 ## Testing the Changes
 
 ### Unit Tests
+
 ```bash
 # Test authentication services
 uv run pytest tests/unit/test_auth_service.py -v
@@ -452,12 +509,14 @@ uv run pytest tests/unit/test_buckets_authorization.py -v
 ```
 
 ### Integration Tests
+
 ```bash
 # Test with real JWT token
 QUILT_ACCESS_TOKEN=<your-jwt> uv run pytest tests/integration/ -v
 ```
 
 ### Manual Testing
+
 ```bash
 # Validate JWT locally
 python scripts/validate_jwt.py <your-jwt>
@@ -472,6 +531,7 @@ python scripts/compare_jwt_secrets.py
 ## Critical Files to Review
 
 ### Must Review (Core Logic)
+
 1. `src/quilt_mcp/services/bearer_auth_service.py` - JWT validation
 2. `src/quilt_mcp/services/session_auth.py` - Session caching
 3. `src/quilt_mcp/runtime_context.py` - Context isolation
@@ -479,11 +539,13 @@ python scripts/compare_jwt_secrets.py
 5. `src/quilt_mcp/utils.py` (lines 426-650) - Middleware
 
 ### Should Review (Tool Integration)
+
 1. `src/quilt_mcp/tools/buckets.py` - Bucket tools JWT enforcement
 2. `src/quilt_mcp/tools/packages.py` - Package tools bearer auth
 3. `src/quilt_mcp/tools/package_ops.py` - Package ops JWT auth
 
 ### Nice to Review (Diagnostics & Testing)
+
 1. `src/quilt_mcp/tools/jwt_diagnostics.py` - Diagnostic tools
 2. `tests/unit/test_auth_service.py` - Auth service tests
 3. `tests/unit/test_jwt_decompression.py` - Decompression tests
@@ -491,6 +553,7 @@ python scripts/compare_jwt_secrets.py
 ## Summary
 
 **Total Changes:**
+
 - **20 files changed** (from git log)
 - **+994 insertions, -2,349 deletions** (net -1,355 lines)
 - **5 new service files** (auth, bearer_auth, jwt_decoder, session_auth, graphql_bearer)
@@ -499,6 +562,7 @@ python scripts/compare_jwt_secrets.py
 - **8 new documentation files** (architecture, deployment, troubleshooting)
 
 **Key Implementation:**
+
 - JWT-only authentication with no IAM fallback
 - Session-based caching (1-hour expiration)
 - Runtime context isolation (desktop vs web)
@@ -507,6 +571,7 @@ python scripts/compare_jwt_secrets.py
 - 100% test coverage for new auth logic
 
 **Deployment Requirements:**
+
 - JWT secret configuration (SSM or environment variable)
 - Frontend must send `Authorization: Bearer` header
 - Docker image with HTTP transport support

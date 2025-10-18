@@ -2,7 +2,8 @@
 
 ## Overview
 
-The Quilt MCP Server uses JWT-based authentication with enhanced tokens from the Quilt frontend. This document explains the **current** architecture and how it works.
+The Quilt MCP Server uses JWT-based authentication with enhanced tokens from the Quilt frontend.
+This document explains the **current** architecture and how it works.
 
 ## Current Architecture (2025-09-25)
 
@@ -240,6 +241,7 @@ Three MCP tools are available for troubleshooting:
 **Usage:** Ask Qurator: "Check my JWT authentication status"
 
 **Returns:**
+
 - Runtime environment
 - Auth scheme (jwt, bearer, role, etc.)
 - Session cache stats
@@ -251,6 +253,7 @@ Three MCP tools are available for troubleshooting:
 **Usage:** Ask Qurator: "Validate my JWT token"
 
 **Returns:**
+
 - Token validation result (pass/fail)
 - Header and payload details
 - Secret configuration comparison
@@ -261,6 +264,7 @@ Three MCP tools are available for troubleshooting:
 **Usage:** Ask Qurator: "Show session diagnostics"
 
 **Returns:**
+
 - Active sessions
 - Session ages and idle times
 - User information per session
@@ -332,11 +336,13 @@ curl -H "Authorization: Bearer eyJhbG..." \
 **Symptom:** "JWT token could not be verified"
 
 **Diagnosis:**
+
 ```
 Ask Qurator: "Validate my JWT token"
 ```
 
 **Solution:**
+
 1. Verify frontend and backend secrets match exactly (case-sensitive)
 2. Check secret length (should be 55 chars, not 31)
 3. Verify `kid` matches in both frontend and backend
@@ -346,11 +352,13 @@ Ask Qurator: "Validate my JWT token"
 **Symptom:** CloudWatch logs show "Using IAM role" instead of JWT
 
 **Diagnosis:**
+
 ```
 Ask Qurator: "Check my JWT authentication status"
 ```
 
 **Solution:**
+
 1. Ensure `Authorization: Bearer` header is being sent
 2. Check middleware is setting runtime context correctly
 3. Verify bucket tools call JWT auth helpers (not legacy paths)
@@ -360,11 +368,13 @@ Ask Qurator: "Check my JWT authentication status"
 **Symptom:** JWT validation happens on every request (slow)
 
 **Diagnosis:**
+
 ```
 Ask Qurator: "Show session diagnostics"
 ```
 
 **Solution:**
+
 1. Check `mcp-session-id` header is being sent
 2. Verify session manager is initialized
 3. Check for session expiration (1 hour default)

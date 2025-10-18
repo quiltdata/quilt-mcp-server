@@ -12,6 +12,7 @@ This guide helps troubleshoot frontend MCP Client integration issues with the Qu
 ### Issue 1: MCP Client Not Sending Authorization Header
 
 **Symptoms:**
+
 - CloudWatch logs show: "No auth header, allowing for initialization" on every request
 - Tools fail with "No write access" or fall back to IAM role
 - 401 Unauthorized responses
@@ -43,6 +44,7 @@ console.log('✅ Fetch interceptor installed')
 **Root Causes:**
 
 1. **Headers not generated on every request**
+
    ```typescript
    // WRONG: Headers generated once
    const headers = await this.getRequestHeaders()
@@ -56,6 +58,7 @@ console.log('✅ Fetch interceptor installed')
    ```
 
 2. **Token getter returns null**
+
    ```javascript
    // Check token availability
    const token = await window.__dynamicAuthManager.getCurrentToken()
@@ -65,6 +68,7 @@ console.log('✅ Fetch interceptor installed')
    ```
 
 3. **Headers not passed to fetch**
+
    ```typescript
    // WRONG:
    fetch(url, { method: 'POST', body: ... })  // ❌ No headers
@@ -103,6 +107,7 @@ async request(method: string, params: any) {
 ### Issue 2: MCP Server URL Not Configured
 
 **Symptoms:**
+
 - Console shows "MCP Server URL: undefined"
 - 401 errors on requests to `/mcp/?t=...`
 
@@ -149,6 +154,7 @@ const mcpClient = new MCPClient({
 ### Issue 3: JWT Signature Verification Fails
 
 **Symptoms:**
+
 - Console: "JWT token could not be verified"
 - Backend logs: "Signature verification failed"
 
@@ -168,6 +174,7 @@ console.log('Frontend Secret:', {
 ```
 
 **Expected:**
+
 - Secret: `quilt-sales-prod-mcp-jwt-secret-2025-enhanced-tokens-v2`
 - Length: **55 characters**
 - No whitespace, no special characters
@@ -187,6 +194,7 @@ console.log('Secrets match:', expectedSecret === actualSecret)
 ### Issue 4: Bucket Format Error
 
 **Symptoms:**
+
 - Error: "Cannot use 'in' operator to search for 'name' in cellpainting-gallery"
 
 **Root Cause:**
@@ -229,6 +237,7 @@ const bucketNames = extractBucketNames(freshBuckets)
 ### Issue 5: Token Not Enhanced
 
 **Symptoms:**
+
 - Enhanced token identical to original token
 - Console: "⚠️ EnhancedTokenGenerator: Missing signing secret"
 
@@ -379,23 +388,27 @@ After fixes, diagnostics should show:
 ## Checklist
 
 ### Configuration
+
 - [ ] `quiltConfig.mcp.serverUrl` = `https://demo.quiltdata.com/mcp`
 - [ ] `quiltConfig.mcp.enhancedJwt.signingSecret` = 55 char secret
 - [ ] `quiltConfig.mcp.enhancedJwt.keyId` = `frontend-enhanced`
 
 ### MCP Client
+
 - [ ] Client initialized with endpoint
 - [ ] Token getter configured and returns token
 - [ ] `getRequestHeaders()` called on every request
 - [ ] Headers include `Authorization: Bearer <token>`
 
 ### Auth Manager
+
 - [ ] `DynamicAuthManager` initialized
 - [ ] `EnhancedTokenGenerator` receives signing secret
 - [ ] `getCurrentToken()` returns valid JWT
 - [ ] `getCurrentBuckets()` returns array of strings
 
 ### Code Patterns
+
 - [ ] No `'name' in bucket` checks without type checking
 - [ ] All fetch calls include headers
 - [ ] Headers are fresh (not cached)
@@ -435,7 +448,8 @@ aws logs tail /ecs/mcp-server-production --follow --region us-east-1
 ```
 
 Look for:
-```
+
+```log
 INFO: Session abc123: JWT authenticated for user testuser (buckets=32, permissions=24)
 INFO: ✅ Using JWT-based S3 client for bucket_objects_list
 ```
