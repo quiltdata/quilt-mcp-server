@@ -188,6 +188,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     return tools_registered
 
+
 def _runtime_boto3_session() -> Optional[boto3.Session]:
     """Return a boto3 session sourced from the active runtime context if available."""
     try:
@@ -366,6 +367,7 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
                     response = await registry.read_resource(actual_uri)
                     return response._serialize_content()
+
                 return parameterized_handler
             else:
                 # Create simple handler for static URIs
@@ -373,6 +375,7 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
                     """Resource handler."""
                     response = await registry.read_resource(resource_uri)
                     return response._serialize_content()
+
                 return static_handler
 
         for resource_info in resources:

@@ -72,6 +72,7 @@ class TestMCPResource:
     @pytest.fixture
     def mock_resource(self):
         """Create a mock resource for testing."""
+
         class MockResource(MCPResource):
             @property
             def uri_scheme(self) -> str:
@@ -97,6 +98,7 @@ class TestMCPResource:
     @pytest.fixture
     def parameterized_resource(self):
         """Create a parameterized mock resource for testing."""
+
         class ParamResource(MCPResource):
             @property
             def uri_scheme(self) -> str:
@@ -212,6 +214,7 @@ class TestResourceRegistry:
     @pytest.fixture
     def mock_resource_class(self):
         """Create a mock resource class for testing."""
+
         class MockResource(MCPResource):
             def __init__(self, pattern: str, name: str):
                 self._pattern = pattern
@@ -359,6 +362,7 @@ class TestEdgeCases:
 
     def test_extract_params_special_characters(self):
         """Test parameter extraction with special characters."""
+
         class SpecialResource(MCPResource):
             @property
             def uri_scheme(self) -> str:
