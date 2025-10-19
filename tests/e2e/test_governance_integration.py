@@ -3,9 +3,14 @@ Integration tests for Quilt governance and administration tools.
 
 These tests require actual Quilt admin privileges and test the governance
 functionality against a real Quilt catalog when available.
+
+NOTE: These tests are deprecated as the governance tools have been replaced
+by MCP resources. Use the resource tests instead.
 """
 
 import pytest
+
+pytestmark = pytest.mark.skip(reason="Deprecated: governance tools replaced by resources")
 import os
 from unittest.mock import patch
 
