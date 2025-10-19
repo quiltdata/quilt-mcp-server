@@ -37,6 +37,12 @@ if app_dir not in sys.path:
 # Removed unused README test framework imports
 
 
+@pytest.fixture(scope="session")
+def anyio_backend():
+    """Configure anyio to use asyncio backend only (AsyncMock doesn't support trio)."""
+    return "asyncio"
+
+
 def pytest_configure(config):
     """Configure pytest and set up AWS session if needed."""
     # Configure boto3 default session to use AWS_PROFILE if set

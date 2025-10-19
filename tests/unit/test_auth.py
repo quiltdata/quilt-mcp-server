@@ -280,6 +280,7 @@ class TestCatalogUri:
 class TestCatalogInfo:
     """Test catalog_info function - targeting missing exception handling."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/info)")
     def test_catalog_info_success_authenticated(self):
         """Test catalog_info success when authenticated - includes region and tabulator_data_catalog."""
         mock_info = {
@@ -305,6 +306,7 @@ class TestCatalogInfo:
             assert result["tabulator_data_catalog"] == "quilt-demo-tabulator"
             assert "Connected to catalog" in result["message"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/info)")
     def test_catalog_info_success_not_authenticated(self):
         """Test catalog_info success when not authenticated - region and tabulator_data_catalog should not be present."""
         mock_info = {
@@ -330,6 +332,7 @@ class TestCatalogInfo:
             assert "tabulator_data_catalog" not in result  # Should not be present when None
             assert "not authenticated" in result["message"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/info)")
     def test_catalog_info_with_partial_urls(self):
         """Test catalog_info with some URLs present - covers lines 254-259."""
         mock_info = {
@@ -352,6 +355,7 @@ class TestCatalogInfo:
             assert "region" not in result
             assert "tabulator_data_catalog" not in result
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/info)")
     def test_catalog_info_with_exception(self):
         """Test exception handling in catalog_info - covers lines 269-274."""
         with patch('quilt_mcp.tools.auth._get_catalog_info', side_effect=Exception("Info error")):
@@ -366,6 +370,7 @@ class TestCatalogInfo:
 class TestCatalogName:
     """Test catalog_name function - targeting missing branches."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/name)")
     def test_catalog_name_with_registry_url_detection(self):
         """Test catalog name detection via registry_url - covers lines 292-293."""
         mock_info = {
@@ -383,6 +388,7 @@ class TestCatalogName:
             assert result["catalog_name"] == "test-catalog"
             assert result["detection_method"] == "registry_config"
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/name)")
     def test_catalog_name_with_exception(self):
         """Test exception handling in catalog_name - covers lines 302-308."""
         with patch('quilt_mcp.tools.auth._get_catalog_info', side_effect=Exception("Name error")):
@@ -397,6 +403,7 @@ class TestCatalogName:
 class TestAuthStatus:
     """Test auth_status function - targeting missing exception branches."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://status)")
     def test_auth_status_not_authenticated(self):
         """Test auth_status when not authenticated - covers lines 371-378."""
         mock_catalog_info = {"catalog_name": "demo.quiltdata.com", "is_authenticated": False}
@@ -417,6 +424,7 @@ class TestAuthStatus:
             assert "Configure catalog" in result["setup_instructions"][0]
             assert "quick_setup" in result
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://status)")
     def test_auth_status_registry_config_exception(self):
         """Test exception handling when getting registry config - covers lines 330-331."""
         mock_catalog_info = {"catalog_name": "test", "is_authenticated": True}
@@ -433,6 +441,7 @@ class TestAuthStatus:
             assert result["status"] == "authenticated"
             assert result["registry_bucket"] is None
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://status)")
     def test_auth_status_user_info_exception(self):
         """Test exception handling when getting user info - covers lines 342-343."""
         mock_catalog_info = {"catalog_name": "test", "is_authenticated": True}
@@ -450,6 +459,7 @@ class TestAuthStatus:
                 assert result["status"] == "authenticated"
                 # The function should still complete successfully despite user info exception
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://status)")
     def test_auth_status_main_exception(self):
         """Test main exception handling in auth_status - covers lines 402-423."""
         with patch('quilt_mcp.tools.auth.QuiltService', side_effect=Exception("Service error")):
@@ -465,6 +475,7 @@ class TestAuthStatus:
 class TestFilesystemStatus:
     """Test filesystem_status function - targeting missing branches."""
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://filesystem)")
     def test_filesystem_status_home_write_error(self):
         """Test home directory write error - covers lines 445-447."""
         with patch('builtins.open', side_effect=PermissionError("No permission")):
@@ -474,6 +485,7 @@ class TestFilesystemStatus:
             assert "home_write_error" in result
             assert "No permission" in result["home_write_error"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://filesystem)")
     def test_filesystem_status_temp_write_error(self):
         """Test temp directory write error - covers lines 456-458."""
         with patch('tempfile.NamedTemporaryFile', side_effect=OSError("Temp error")):
@@ -483,6 +495,7 @@ class TestFilesystemStatus:
             assert "temp_write_error" in result
             assert "Temp error" in result["temp_write_error"]
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://filesystem)")
     def test_filesystem_status_limited_access(self):
         """Test limited filesystem access - covers lines 485-501."""
         with patch('builtins.open', side_effect=PermissionError("No home access")):
@@ -493,6 +506,7 @@ class TestFilesystemStatus:
                 assert "Limited filesystem access" in result["message"]
                 assert "recommendation" in result
 
+    @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://filesystem)")
     def test_filesystem_status_read_only(self):
         """Test read-only filesystem - covers lines 503-514."""
         with patch('builtins.open', side_effect=PermissionError("No write access")):

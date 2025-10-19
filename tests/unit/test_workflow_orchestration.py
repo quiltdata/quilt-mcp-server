@@ -71,6 +71,7 @@ def test_workflow_template_apply_sets_dependencies_and_guidance():
     assert "analyze-structure" in status_after_step["next_available_steps"]
 
 
+@pytest.mark.skip(reason="Tool deprecated - now available as resource (workflow://workflows)")
 def test_workflow_list_all_sorts_by_recent_activity():
     """Workflows should be listed in descending order of their last update."""
 

@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from statistics import mean, median, quantiles, StatisticsError
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from ..utils import get_s3_client
 
@@ -32,7 +32,7 @@ Records = List[Dict[str, Any]]
 
 
 def create_data_visualization(
-    data: Union[Dict[str, Iterable[Any]], Sequence[Dict[str, Any]], str],
+    data: dict[str, Iterable[Any]] | Sequence[Dict[str, Any]] | str,
     plot_type: str,
     x_column: str,
     y_column: Optional[str] = None,
@@ -51,7 +51,7 @@ def create_data_visualization(
         2. Call this tool to obtain visualization JSON + supporting files
         3. Upload files to S3 using bucket_objects_put() with a base prefix (e.g., "my-analysis/")
         4. Create package with package_create(), ensuring file paths match quilt_summarize.json references
-        
+
     IMPORTANT: The quilt_summarize.json file references filenames WITHOUT directory prefixes (flat structure).
     When creating packages, either:
         - Use flatten=True (default) so all files are at root level, OR
@@ -73,7 +73,7 @@ def create_data_visualization(
 
     Returns:
         Dict containing Quilt-ready visualization configuration, data CSV, quilt_summarize payload, and upload instructions.
-        
+
         Structure:
         - success: Boolean indicating if visualization was created
         - visualization_config: {type, option, filename} - ECharts config
@@ -99,7 +99,7 @@ def create_data_visualization(
             title="Expression by Gene",
             color_scheme="genomics",
         )
-        
+
         # Step 2: Prepare upload items with a base prefix
         base_prefix = "my-analysis/"
         upload_items = [
@@ -110,10 +110,10 @@ def create_data_visualization(
             }
             for item in viz["files_to_upload"]
         ]
-        
+
         # Step 3: Upload to S3
         buckets.bucket_objects_put("s3://my-bucket", upload_items)
-        
+
         # Step 4: Create package with exact S3 URIs (flatten=True by default flattens to root)
         package_ops.package_create(
             package_name="genomics/visualized-results",
@@ -196,7 +196,7 @@ def create_data_visualization(
         return {"success": False, "error": str(exc), "suggestion": _get_error_suggestion(exc)}
 
 
-def _normalize_data(data: Union[Dict[str, Iterable[Any]], Sequence[Dict[str, Any]], str]) -> Records:
+def _normalize_data(data: dict[str, Iterable[Any]] | Sequence[Dict[str, Any]] | str) -> Records:
     if isinstance(data, list):
         return [dict(row) for row in data]
 
@@ -378,7 +378,13 @@ def _create_echarts_boxplot(
     return {
         "title": {"text": title or f"{ylabel} by {xlabel}", "left": "center"},
         "tooltip": {"trigger": "item", "axisPointer": {"type": "shadow"}},
-        "xAxis": {"type": "category", "data": ordered_categories, "name": xlabel, "nameLocation": "middle", "nameGap": 30},
+        "xAxis": {
+            "type": "category",
+            "data": ordered_categories,
+            "name": xlabel,
+            "nameLocation": "middle",
+            "nameGap": 30,
+        },
         "yAxis": {"type": "value", "name": ylabel, "nameLocation": "middle", "nameGap": 45},
         "series": [
             {
@@ -628,9 +634,7 @@ def _calculate_statistics(records: Records, y_column: Optional[str]) -> Dict[str
 def _make_filename(kind: str, primary: str, secondary: str) -> str:
     parts = [kind, primary or "", secondary or ""]
     slug = "_".join(
-        segment.strip().lower().replace(" ", "_").replace("/", "_")
-        for segment in parts
-        if segment and segment.strip()
+        segment.strip().lower().replace(" ", "_").replace("/", "_") for segment in parts if segment and segment.strip()
     )
     if not slug:
         slug = "visualization"

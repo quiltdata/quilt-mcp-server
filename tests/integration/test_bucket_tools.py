@@ -11,6 +11,7 @@ from quilt_mcp import (
     bucket_objects_put,
 )
 from quilt_mcp.constants import DEFAULT_BUCKET
+from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
 @pytest.mark.integration
@@ -27,7 +28,12 @@ def test_bucket_objects_list_success():
 def test_bucket_objects_list_error():
     mock_client = MagicMock()
     mock_client.list_objects_v2.side_effect = Exception("boom")
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_objects_list(bucket="my-bucket")
         assert "error" in result
 
@@ -130,7 +136,12 @@ def test_bucket_object_link_invalid_uri():
 def test_bucket_object_link_error():
     mock_client = MagicMock()
     mock_client.generate_presigned_url.side_effect = Exception("access denied")
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_link("s3://my-bucket/file.txt")
         assert "error" in result
         assert result["bucket"] == "my-bucket"
@@ -152,7 +163,12 @@ def test_bucket_object_info_with_version_id():
     }
     mock_client.head_object.return_value = mock_head_response
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_info("s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
@@ -170,7 +186,12 @@ def test_bucket_object_text_with_version_id():
     mock_get_response = {"Body": mock_body}
     mock_client.get_object.return_value = mock_get_response
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_text("s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
@@ -189,7 +210,12 @@ def test_bucket_object_fetch_with_version_id():
     mock_get_response = {"Body": mock_body, "ContentType": "application/octet-stream"}
     mock_client.get_object.return_value = mock_get_response
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_fetch("s3://my-bucket/file.bin?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
@@ -204,7 +230,12 @@ def test_bucket_object_link_with_version_id():
     mock_client = MagicMock()
     mock_client.generate_presigned_url.return_value = "https://example.com/signed-url"
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_link("s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId in Params
@@ -226,7 +257,12 @@ def test_bucket_object_info_version_error_handling():
     error_response = {'Error': {'Code': 'NoSuchVersion', 'Message': 'The specified version does not exist'}}
     mock_client.head_object.side_effect = ClientError(error_response, 'HeadObject')
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_info("s3://my-bucket/file.txt?versionId=invalid-version")
 
         assert "error" in result
@@ -242,7 +278,12 @@ def test_bucket_object_text_version_error_handling():
     error_response = {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}
     mock_client.get_object.side_effect = ClientError(error_response, 'GetObject')
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         result = bucket_object_text("s3://my-bucket/file.txt?versionId=restricted-version")
 
         assert "error" in result
@@ -262,7 +303,12 @@ def test_bucket_object_functions_without_version_id():
 
     mock_client.generate_presigned_url.return_value = "https://example.com/url"
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test without version ID - should not pass VersionId parameter
         info_result = bucket_object_info("s3://my-bucket/file.txt")
         text_result = bucket_object_text("s3://my-bucket/file.txt")
@@ -313,7 +359,12 @@ def test_version_consistency_across_all_functions():
 
     mock_client.generate_presigned_url.return_value = "https://example.com/versioned-url"
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Call all four functions with the same versioned URI
         info_result = bucket_object_info(test_s3_uri)
         text_result = bucket_object_text(test_s3_uri)
@@ -374,7 +425,12 @@ def test_version_parameter_consistency_across_functions(version_id, should_fail)
 
     mock_client.generate_presigned_url.return_value = "https://example.com/url"
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Call all functions
         info_result = bucket_object_info(test_s3_uri)
         text_result = bucket_object_text(test_s3_uri)
@@ -422,7 +478,12 @@ def test_error_handling_consistency_across_functions():
     mock_client.get_object.side_effect = client_error
     mock_client.generate_presigned_url.side_effect = client_error
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         info_result = bucket_object_info(test_s3_uri)
         text_result = bucket_object_text(test_s3_uri)
         fetch_result = bucket_object_fetch(test_s3_uri)
@@ -468,7 +529,12 @@ def test_version_error_scenarios_across_functions(error_code, error_message, exp
     mock_client.get_object.side_effect = client_error
     mock_client.generate_presigned_url.side_effect = client_error
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         results = [
             bucket_object_info(test_s3_uri),
             bucket_object_text(test_s3_uri),
@@ -531,7 +597,12 @@ def test_malformed_version_id_handling():
 
     mock_client.generate_presigned_url.return_value = "https://example.com/url"
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         for uri in malformed_uris:
             # Functions should either parse and handle the version ID or fail consistently
             info_result = bucket_object_info(uri)
@@ -569,16 +640,21 @@ def test_bucket_object_text_encoding_scenarios():
         mock_body.read.return_value = content
         mock_client.get_object.return_value = {"Body": mock_body}
 
-        with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
-            result = bucket_object_text("s3://test-bucket/test-file.txt", encoding=encoding)
+        mock_auth_ctx = AuthorizationContext(
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
+        result = bucket_object_text("s3://test-bucket/test-file.txt", encoding=encoding)
 
-            if should_succeed:
-                assert "error" not in result
-                assert "text" in result
-                assert isinstance(result["text"], str)
-                assert result["encoding"] == encoding
-            else:
-                assert "error" in result
+        if should_succeed:
+            assert "error" not in result
+            assert "text" in result
+            assert isinstance(result["text"], str)
+            assert result["encoding"] == encoding
+        else:
+            assert "error" in result
 
 
 def test_bucket_object_text_truncation_scenarios():
@@ -609,14 +685,19 @@ def test_bucket_object_text_truncation_scenarios():
         mock_body.read.return_value = content
         mock_client.get_object.return_value = {"Body": mock_body}
 
-        with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
-            result = bucket_object_text("s3://test-bucket/test-file.txt", max_bytes=max_bytes)
+        mock_auth_ctx = AuthorizationContext(
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
+        result = bucket_object_text("s3://test-bucket/test-file.txt", max_bytes=max_bytes)
 
-            assert "error" not in result
-            assert "truncated" in result
-            assert result["truncated"] == should_truncate
-            assert result["max_bytes"] == max_bytes
-            assert len(result["text"]) == expected_text_length
+        assert "error" not in result
+        assert "truncated" in result
+        assert result["truncated"] == should_truncate
+        assert result["max_bytes"] == max_bytes
+        assert len(result["text"]) == expected_text_length
 
 
 def test_bucket_object_text_with_client_error_variations():
@@ -637,13 +718,18 @@ def test_bucket_object_text_with_client_error_variations():
         error_response = {'Error': {'Code': error_code, 'Message': f"Test {error_code} error"}}
         mock_client.get_object.side_effect = ClientError(error_response, operation)
 
-        with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
-            result = bucket_object_text("s3://test-bucket/test-file.txt")
+        mock_auth_ctx = AuthorizationContext(
+            authorized=True,
+            auth_type="iam",
+            s3_client=mock_client,
+        )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
+        result = bucket_object_text("s3://test-bucket/test-file.txt")
 
-            assert "error" in result
-            assert expected_msg in result["error"]
-            assert result["bucket"] == "test-bucket"
-            assert result["key"] == "test-file.txt"
+        assert "error" in result
+        assert expected_msg in result["error"]
+        assert result["bucket"] == "test-bucket"
+        assert result["key"] == "test-file.txt"
 
 
 def test_bucket_object_text_decode_failure_handling():
@@ -657,7 +743,12 @@ def test_bucket_object_text_decode_failure_handling():
     mock_body.read.return_value = invalid_content
     mock_client.get_object.return_value = {"Body": mock_body}
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test with errors="replace" (default behavior)
         result = bucket_object_text("s3://test-bucket/test-file.txt", encoding="ascii")
 
@@ -680,7 +771,12 @@ def test_bucket_object_fetch_with_decode_fallback():
     mock_body.read.return_value = binary_content
     mock_client.get_object.return_value = {"Body": mock_body, "ContentType": "image/png"}
 
-    with patch("quilt_mcp.tools.buckets.get_s3_client", return_value=mock_client):
+    mock_auth_ctx = AuthorizationContext(
+        authorized=True,
+        auth_type="iam",
+        s3_client=mock_client,
+    )
+    with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test with base64_encode=False to trigger decode fallback
         result = bucket_object_fetch("s3://test-bucket/image.png", base64_encode=False)
 

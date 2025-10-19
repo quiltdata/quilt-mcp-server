@@ -6,16 +6,169 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.20] - Unreleased
+## [0.8.1] - 2025-10-19
+
+### Added
+
+- **Tools-as-Resources Framework**: Complete implementation of MCP Tools-as-Resources (#221)
+  - Tools can now be exposed as MCP resources with parameterized URIs
+  - Added comprehensive integration and e2e tests for resource registration
+  - Fixed AsyncMock usage and pytest-anyio configuration for async testing
+  - Improved handling of parameterized resource URIs in FastMCP registration
 
 ### Changed
 
-- **Test Skip Fixtures Removed**: Tests now fail instead of skip when AWS is misconfigured
+- **Test Configuration**: Configured pytest-anyio to use asyncio backend only for consistency
+
+### Fixed
+
+- **Resource Registration**: Handle parameterized resource URIs correctly in FastMCP registration
+- **Testing Infrastructure**: Fix AsyncMock usage in resource tests for proper async testing
+
+## [0.8.0] - 2025-10-18
+
+### Added
+
+- **JWT-Based Authentication**: Complete authentication and authorization system (#220)
+  - Implements secure JWT-based authentication for MCP server
+  - Role-based access control for admin operations
+  - Token-based session management
+  - Integration with AWS services for authentication backend
+
+### Changed
+
+- **Test Skip Fixtures Removed**: Tests now fail instead of skip when AWS is misconfigured (#219)
   - Removed `skip_if_no_aws_credentials` function from `tests/helpers.py`
   - Removed `skip_if_no_aws` fixture from `tests/integration/test_athena.py`
   - Removed all imports and usages of skip fixtures across 6 test files
   - Tests will now fail with clear error messages if AWS credentials are not configured
   - Improves test reliability by preventing silent test skips in CI/CD pipelines
+
+### Documentation
+
+- **Authentication Architecture**: Clarified AWS credential flow
+  - Documented that AWS credentials are only used for AWS Bedrock integration
+  - Updated workshop guides with accurate MCP/Bedrock instructions
+  - Organized workshop materials and integrated with main README
+
+## [0.7.5] - 2025-10-17
+
+### Added
+
+- **Data Visualization Tool**: New comprehensive data visualization capabilities
+  - `create_data_visualization()` - Create visualizations from CSV/JSON data
+  - Support for multiple chart types (boxplot, scatter, line, bar)
+  - Automatic ECharts configuration generation
+  - Integration with Quilt package metadata
+  - Flexible data input (S3, CSV strings, JSON objects)
+
+### Changed
+
+- **Tool Documentation**: Enhanced docstrings for LLM consumption
+  - Improved clarity on file structure requirements for quilt_summarize.json
+  - Added detailed examples for visualization workflows
+  - Better explanation of flat file structures in package creation
+
+### Documentation
+
+- **LLM Behavioral Guidelines**: Added comprehensive agent guidelines ([CLAUDE.md](CLAUDE.md))
+  - Action-oriented data exploration patterns
+  - Tool execution best practices
+  - Complete visualization workflow examples
+- **Workshop Materials**: Added comprehensive workshop content and customer prompts guide
+
+## [0.7.4] - 2025-10-16
+
+### Fixed
+
+- **Visualization Function Signatures**: Removed `**kwargs` from `generate_package_visualizations`
+  - Fixed FastMCP compatibility issues with parameter validation
+  - Ensures all parameters are explicitly defined and validated
+
+## [0.7.3] - 2025-10-16
+
+### Added
+
+- **Visualization Enhancements**: Enhanced visualization capabilities
+  - Flexible input handling for various data formats
+  - Dashboard support for multi-chart visualizations
+  - Customer prompts guide for effective tool usage
+
+## [0.7.2] - 2025-10-02
+
+### Fixed
+
+- **Athena Database Names**: Fixed handling of hyphenated database names
+  - Removed buggy `USE` statement that didn't support hyphens
+  - Use `schema_name` parameter instead for proper database context
+
+## [0.7.1] - 2025-10-02
+
+### Fixed
+
+- **Athena Query Execution**: Improved database name handling
+  - Enhanced support for non-standard database names
+  - Better error handling for database selection
+
+## [0.7.0] - 2025-10-01
+
+### Added
+
+- **MCP Resource Framework**: Complete resource system for list-type functions (#189)
+  - Implemented standardized Model Context Protocol (MCP) resource system
+  - Created 9 resource providers covering admin, S3, Athena, metadata, workflow, package, and tabulator domains
+  - Parameterized URIs support (e.g., `tabulator://{bucket}/tables`)
+  - Comprehensive backward compatibility layer via `compatibility.py`
+
+- **QuiltService Refactoring**: Major architectural overhaul (#203)
+  - Added 27 new operational methods with proper return types
+  - User Management (10 methods), Role Management (4 methods), SSO Configuration (3 methods)
+  - Tabulator Administration (6 methods), Config & Package (2 methods)
+  - Dynamic admin credential checking with `has_admin_credentials()`
+  - Proper separation of concerns - service layer owns all quilt3 interaction
+
+### Changed
+
+- **API Consolidation**: Streamlined tool interfaces
+  - **Search Functions**: 4 → 1 (`catalog_search`) - 75% API surface reduction (#185)
+    - Removed `packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`
+  - **Package Operations**: 4 → 2 functions - 50% API reduction (#184, #187)
+    - Standardized on `create_package` and `create_package_from_prefix`
+    - Removed obsolete `package_update`, `package_update_metadata`, old `create_package`
+
+- **Resource Migration**: Migrated list-type functions to MCP resources (#204)
+  - `admin_users_list` → `admin://users`
+  - `admin_roles_list` → `admin://roles`
+  - `list_available_resources` → `s3://buckets`
+  - `athena_databases_list` → `athena://databases`
+  - `athena_workgroups_list` → `athena://workgroups`
+  - `list_metadata_templates` → `metadata://templates`
+  - `workflow_list` → `workflow://workflows`
+  - `package_tools_list` → `package://tools`
+  - `tabulator_tables_list` → `tabulator://{bucket}/tables`
+  - Total: 9 list functions replaced by resources, tool count 63 → 61
+
+### Removed
+
+- **Obsolete Service Methods**: Deleted 5 anti-pattern methods
+  - `get_users_admin()`, `get_roles_admin()`, `get_sso_config_admin()`, `get_tabulator_admin()`, `get_search_api()`
+  - Replaced incorrect `is_admin_available()` with `has_admin_credentials()`
+  - Deleted `AdminNotAvailableError` and module-level constants
+  - Removed 625 lines of obsolete admin checking test code
+
+### Architecture
+
+- **Backend Swapping Enabled**: Service layer now provides operational abstractions
+  - Interface is implementation-agnostic
+  - All return types properly typed (`dict[str, Any]`, `list[dict[str, Any]]`, `str`, `bool`, `None`)
+  - No raw quilt3 modules exposed to callers
+  - Better IDE support and static analysis
+
+### Testing
+
+- ✅ 301 tests passing with 100% coverage maintained
+- ✅ Zero breaking changes - All MCP tool interfaces unchanged
+- ✅ 7 refactoring phases independently tested and committed
 
 ## [0.6.19] - 2025-10-13
 

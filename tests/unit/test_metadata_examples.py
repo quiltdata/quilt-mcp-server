@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import patch
 
 from quilt_mcp.tools.metadata_examples import (
@@ -7,6 +8,7 @@ from quilt_mcp.tools.metadata_examples import (
 )
 
 
+@pytest.mark.skip(reason="Tool deprecated - now available as resource (metadata://examples)")
 def test_show_metadata_examples_structure():
     guide = show_metadata_examples()
 
@@ -53,6 +55,7 @@ def test_create_metadata_from_template_failure():
         assert "suggested_actions" in result
 
 
+@pytest.mark.skip(reason="Tool deprecated - now available as resource (metadata://troubleshooting)")
 def test_fix_metadata_validation_issues_contents():
     info = fix_metadata_validation_issues()
 
