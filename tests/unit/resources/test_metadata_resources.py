@@ -1,7 +1,7 @@
 """Unit tests for metadata resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.metadata import (
     MetadataTemplatesResource,
@@ -29,7 +29,7 @@ class TestMetadataTemplatesResource:
             },
         }
 
-        with patch("quilt_mcp.resources.metadata.list_metadata_templates", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.metadata.list_metadata_templates") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("metadata://templates")
@@ -56,7 +56,7 @@ class TestMetadataExamplesResource:
             ],
         }
 
-        with patch("quilt_mcp.resources.metadata.show_metadata_examples", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.metadata.show_metadata_examples") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("metadata://examples")
@@ -80,7 +80,7 @@ class TestMetadataTroubleshootingResource:
             "guide": "Troubleshooting steps...",
         }
 
-        with patch("quilt_mcp.resources.metadata.fix_metadata_validation_issues", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.metadata.fix_metadata_validation_issues") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("metadata://troubleshooting")
@@ -107,7 +107,7 @@ class TestMetadataTemplateResource:
             },
         }
 
-        with patch("quilt_mcp.resources.metadata.get_metadata_template", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.metadata.get_metadata_template") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"name": "genomics"}

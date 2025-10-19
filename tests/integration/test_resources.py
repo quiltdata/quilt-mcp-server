@@ -240,6 +240,7 @@ class TestTabulatorResources:
         assert "items" in result.content
         assert isinstance(result.content["items"], list)
 
+    @pytest.mark.admin
     @pytest.mark.anyio
     async def test_tabulator_tables_resource(self):
         """Test that Tabulator tables resource works for a bucket."""
@@ -272,6 +273,7 @@ class TestTabulatorResources:
 
 
 @pytest.mark.integration
+@pytest.mark.admin
 class TestAdminResources:
     """Integration tests for admin resources."""
 

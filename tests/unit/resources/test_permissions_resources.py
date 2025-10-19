@@ -1,7 +1,7 @@
 """Unit tests for permissions resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.permissions import (
     PermissionsDiscoverResource,
@@ -28,7 +28,7 @@ class TestPermissionsDiscoverResource:
             },
         }
 
-        with patch("quilt_mcp.resources.permissions.aws_permissions_discover", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.permissions.aws_permissions_discover") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("permissions://discover")
@@ -55,7 +55,7 @@ class TestBucketRecommendationsResource:
             ],
         }
 
-        with patch("quilt_mcp.resources.permissions.bucket_recommendations_get", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.permissions.bucket_recommendations_get") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("permissions://recommendations")
@@ -82,7 +82,7 @@ class TestBucketAccessResource:
             },
         }
 
-        with patch("quilt_mcp.resources.permissions.bucket_access_check", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.permissions.bucket_access_check") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "my-bucket"}

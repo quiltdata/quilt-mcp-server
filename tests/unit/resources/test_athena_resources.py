@@ -1,7 +1,7 @@
 """Unit tests for athena resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.athena import (
     AthenaDatabasesResource,
@@ -30,7 +30,7 @@ class TestAthenaDatabasesResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.athena.athena_databases_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.athena.athena_databases_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("athena://databases")
@@ -44,7 +44,7 @@ class TestAthenaDatabasesResource:
         """Test databases list retrieval failure."""
         mock_result = {"success": False, "error": "AWS error"}
 
-        with patch("quilt_mcp.resources.athena.athena_databases_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.athena.athena_databases_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list databases"):
@@ -70,7 +70,7 @@ class TestAthenaWorkgroupsResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.athena.athena_workgroups_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.athena.athena_workgroups_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("athena://workgroups")
@@ -98,7 +98,7 @@ class TestAthenaTableSchemaResource:
             ],
         }
 
-        with patch("quilt_mcp.resources.athena.athena_table_schema", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.athena.athena_table_schema") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"database": "mydb", "table": "mytable"}
@@ -134,7 +134,7 @@ class TestAthenaQueryHistoryResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.athena.athena_query_history", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.athena.athena_query_history") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("athena://queries/history")

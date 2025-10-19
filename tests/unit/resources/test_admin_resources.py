@@ -1,7 +1,7 @@
 """Unit tests for admin resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.admin import (
     AdminUsersResource,
@@ -32,7 +32,7 @@ class TestAdminUsersResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.admin.admin_users_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_users_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("admin://users")
@@ -48,7 +48,7 @@ class TestAdminUsersResource:
         """Test users list retrieval failure."""
         mock_result = {"success": False, "error": "Access denied"}
 
-        with patch("quilt_mcp.resources.admin.admin_users_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_users_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list users"):
@@ -87,7 +87,7 @@ class TestAdminRolesResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.admin.admin_roles_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_roles_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("admin://roles")
@@ -101,7 +101,7 @@ class TestAdminRolesResource:
         """Test roles list retrieval failure."""
         mock_result = {"success": False, "error": "Permission error"}
 
-        with patch("quilt_mcp.resources.admin.admin_roles_list", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_roles_list") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list roles"):
@@ -126,8 +126,8 @@ class TestAdminConfigResource:
             "open_query_enabled": True,
         }
 
-        with patch("quilt_mcp.resources.admin.admin_sso_config_get", new_callable=AsyncMock) as mock_sso:
-            with patch("quilt_mcp.resources.admin.admin_tabulator_open_query_get", new_callable=AsyncMock) as mock_tab:
+        with patch("quilt_mcp.resources.admin.admin_sso_config_get") as mock_sso:
+            with patch("quilt_mcp.resources.admin.admin_tabulator_open_query_get") as mock_tab:
                 mock_sso.return_value = mock_sso_result
                 mock_tab.return_value = mock_tabulator_result
 
@@ -158,7 +158,7 @@ class TestAdminUserResource:
             "user": {"name": "alice", "email": "alice@example.com", "role": "admin"},
         }
 
-        with patch("quilt_mcp.resources.admin.admin_user_get", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_user_get") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"name": "alice"}
@@ -179,7 +179,7 @@ class TestAdminUserResource:
         """Test user retrieval failure."""
         mock_result = {"success": False, "error": "User not found"}
 
-        with patch("quilt_mcp.resources.admin.admin_user_get", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_user_get") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"name": "nonexistent"}
@@ -207,7 +207,7 @@ class TestAdminSSOConfigResource:
             "sso_config": {"provider": "okta", "enabled": True},
         }
 
-        with patch("quilt_mcp.resources.admin.admin_sso_config_get", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_sso_config_get") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("admin://config/sso")
@@ -235,7 +235,7 @@ class TestAdminTabulatorConfigResource:
             "open_query_enabled": False,
         }
 
-        with patch("quilt_mcp.resources.admin.admin_tabulator_open_query_get", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.admin.admin_tabulator_open_query_get") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("admin://config/tabulator")

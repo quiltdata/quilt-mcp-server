@@ -1,7 +1,7 @@
 """Unit tests for workflow resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.workflow import (
     WorkflowsResource,
@@ -28,7 +28,7 @@ class TestWorkflowsResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.workflow.workflow_list_all", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.workflow.workflow_list_all") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("workflow://workflows")
@@ -42,7 +42,7 @@ class TestWorkflowsResource:
         """Test workflows list retrieval failure."""
         mock_result = {"status": "error", "error": "Database error"}
 
-        with patch("quilt_mcp.resources.workflow.workflow_list_all", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.workflow.workflow_list_all") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list workflows"):
@@ -69,7 +69,7 @@ class TestWorkflowStatusResource:
             },
         }
 
-        with patch("quilt_mcp.resources.workflow.workflow_get_status", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.workflow.workflow_get_status") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"id": "wf1"}
@@ -90,7 +90,7 @@ class TestWorkflowStatusResource:
         """Test workflow status retrieval failure."""
         mock_result = {"status": "error", "error": "Workflow not found"}
 
-        with patch("quilt_mcp.resources.workflow.workflow_get_status", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.workflow.workflow_get_status") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"id": "nonexistent"}

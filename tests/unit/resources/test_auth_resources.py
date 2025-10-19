@@ -1,7 +1,7 @@
 """Unit tests for auth resources."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.auth import (
     AuthStatusResource,
@@ -27,7 +27,7 @@ class TestAuthStatusResource:
             "user": "alice",
         }
 
-        with patch("quilt_mcp.resources.auth.auth_status", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.auth.auth_status") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("auth://status")
@@ -52,7 +52,7 @@ class TestCatalogInfoResource:
             "navigator_url": "https://catalog.example.com",
         }
 
-        with patch("quilt_mcp.resources.auth.catalog_info", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.auth.catalog_info") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("auth://catalog/info")
@@ -76,7 +76,7 @@ class TestCatalogNameResource:
             "catalog_name": "my-catalog",
         }
 
-        with patch("quilt_mcp.resources.auth.catalog_name", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.auth.catalog_name") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("auth://catalog/name")
@@ -101,7 +101,7 @@ class TestFilesystemStatusResource:
             "status": "full_access",
         }
 
-        with patch("quilt_mcp.resources.auth.filesystem_status", new_callable=AsyncMock) as mock_tool:
+        with patch("quilt_mcp.resources.auth.filesystem_status") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("auth://filesystem/status")
