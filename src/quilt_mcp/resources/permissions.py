@@ -1,5 +1,6 @@
 """Permissions resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
@@ -30,7 +31,7 @@ class PermissionsDiscoverResource(MCPResource):
         return "Discover AWS permissions for current user/role"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await aws_permissions_discover()
+        result = await asyncio.to_thread(aws_permissions_discover)
         return ResourceResponse(uri=uri, content=result)
 
 
@@ -54,7 +55,7 @@ class BucketRecommendationsResource(MCPResource):
         return "Smart bucket recommendations based on permissions and context"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await bucket_recommendations_get()
+        result = await asyncio.to_thread(bucket_recommendations_get)
         return ResourceResponse(uri=uri, content=result)
 
 
@@ -82,6 +83,6 @@ class BucketAccessResource(MCPResource):
             raise ValueError("Bucket name required in URI")
 
         bucket_name = params["bucket"]
-        result = await bucket_access_check(bucket_name=bucket_name)
+        result = await asyncio.to_thread(bucket_access_check, bucket_name=bucket_name)
 
         return ResourceResponse(uri=uri, content=result)

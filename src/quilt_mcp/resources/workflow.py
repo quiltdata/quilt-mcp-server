@@ -1,5 +1,6 @@
 """Workflow resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
@@ -29,7 +30,7 @@ class WorkflowsResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await workflow_list_all()
+        result = await asyncio.to_thread(workflow_list_all)
 
         if not result.get("success"):
             raise Exception(f"Failed to list workflows: {result.get('error', 'Unknown error')}")
@@ -70,7 +71,7 @@ class WorkflowStatusResource(MCPResource):
             raise ValueError("Workflow ID required in URI")
 
         workflow_id = params["id"]
-        result = await workflow_get_status(workflow_id=workflow_id)
+        result = await asyncio.to_thread(workflow_get_status, workflow_id=workflow_id)
 
         if not result.get("success"):
             raise Exception(f"Failed to get workflow status: {result.get('error', 'Unknown error')}")

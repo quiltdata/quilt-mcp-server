@@ -1,5 +1,6 @@
 """Metadata resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
@@ -33,7 +34,7 @@ class MetadataTemplatesResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await list_metadata_templates()
+        result = await asyncio.to_thread(list_metadata_templates)
 
         return ResourceResponse(uri=uri, content=result)
 
@@ -61,7 +62,7 @@ class MetadataExamplesResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await show_metadata_examples()
+        result = await asyncio.to_thread(show_metadata_examples)
 
         return ResourceResponse(uri=uri, content=result)
 
@@ -89,7 +90,7 @@ class MetadataTroubleshootingResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await fix_metadata_validation_issues()
+        result = await asyncio.to_thread(fix_metadata_validation_issues)
 
         return ResourceResponse(uri=uri, content=result)
 
@@ -118,6 +119,6 @@ class MetadataTemplateResource(MCPResource):
             raise ValueError("Template name required in URI")
 
         template_name = params["name"]
-        result = await get_metadata_template(template_name=template_name)
+        result = await asyncio.to_thread(get_metadata_template, template_name=template_name)
 
         return ResourceResponse(uri=uri, content=result)

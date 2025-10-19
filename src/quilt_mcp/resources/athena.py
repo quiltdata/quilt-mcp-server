@@ -1,5 +1,6 @@
 """Athena resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
@@ -34,7 +35,7 @@ class AthenaDatabasesResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await athena_databases_list()
+        result = await asyncio.to_thread(athena_databases_list)
 
         if not result.get("success"):
             raise Exception(f"Failed to list databases: {result.get('error', 'Unknown error')}")
@@ -74,7 +75,7 @@ class AthenaWorkgroupsResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await athena_workgroups_list()
+        result = await asyncio.to_thread(athena_workgroups_list)
 
         if not result.get("success"):
             raise Exception(f"Failed to list workgroups: {result.get('error', 'Unknown error')}")
@@ -114,7 +115,7 @@ class AthenaTableSchemaResource(MCPResource):
         if not params or "database" not in params or "table" not in params:
             raise ValueError("Database and table names required in URI")
 
-        result = await athena_table_schema(database_name=params["database"], table_name=params["table"])
+        result = await asyncio.to_thread(athena_table_schema, database_name=params["database"], table_name=params["table"])
 
         if not result.get("success"):
             raise Exception(f"Failed to get schema: {result.get('error', 'Unknown error')}")
@@ -142,7 +143,7 @@ class AthenaQueryHistoryResource(MCPResource):
         return "Recent query execution history"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await athena_query_history()
+        result = await asyncio.to_thread(athena_query_history)
 
         if not result.get("success"):
             raise Exception(f"Failed to get query history: {result.get('error', 'Unknown error')}")

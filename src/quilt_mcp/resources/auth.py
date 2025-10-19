@@ -1,5 +1,6 @@
 """Authentication resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
@@ -31,7 +32,7 @@ class AuthStatusResource(MCPResource):
         return "Current authentication status and catalog configuration"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await auth_status()
+        result = await asyncio.to_thread(auth_status)
         return ResourceResponse(uri=uri, content=result)
 
 
@@ -55,7 +56,7 @@ class CatalogInfoResource(MCPResource):
         return "Detailed catalog configuration and connectivity information"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await catalog_info()
+        result = await asyncio.to_thread(catalog_info)
         return ResourceResponse(uri=uri, content=result)
 
 
@@ -79,7 +80,7 @@ class CatalogNameResource(MCPResource):
         return "Catalog name and detection method"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await catalog_name()
+        result = await asyncio.to_thread(catalog_name)
         return ResourceResponse(uri=uri, content=result)
 
 
@@ -103,5 +104,5 @@ class FilesystemStatusResource(MCPResource):
         return "Filesystem access permissions and writable directories"
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await filesystem_status()
+        result = await asyncio.to_thread(filesystem_status)
         return ResourceResponse(uri=uri, content=result)
