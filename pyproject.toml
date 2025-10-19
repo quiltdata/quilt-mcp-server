@@ -99,9 +99,6 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 
-[tool.pytest.ini_options.asyncio]
-mode = "auto"
-
 [tool.ruff]
 # Use external configuration file
 config = "ruff.toml"
