@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Phase 3 Deprecation Summary - Tools as Resources
 
 **Date**: 2025-10-18
@@ -11,6 +12,7 @@ Successfully excluded 24 tools from MCP tool registration that are now available
 ## Tools Excluded (24 total)
 
 ### Admin Tools (5)
+
 - `admin_users_list` → `admin://users`
 - `admin_roles_list` → `admin://roles`
 - `admin_sso_config_get` → `admin://config`
@@ -18,33 +20,39 @@ Successfully excluded 24 tools from MCP tool registration that are now available
 - `admin_user_get` → `admin://users/{name}`
 
 ### Auth Tools (4)
+
 - `auth_status` → `auth://status`
 - `catalog_info` → `auth://catalog/info`
 - `catalog_name` → `auth://catalog/name`
 - `filesystem_status` → `auth://filesystem`
 
 ### Athena Tools (4)
+
 - `athena_databases_list` → `athena://databases`
 - `athena_workgroups_list` → `athena://workgroups`
 - `athena_table_schema` → `athena://databases/{db}/tables/{table}/schema`
 - `athena_query_history` → `athena://queries/history`
 
 ### Metadata Tools (4)
+
 - `list_metadata_templates` → `metadata://templates`
 - `show_metadata_examples` → `metadata://examples`
 - `fix_metadata_validation_issues` → `metadata://troubleshooting`
 - `get_metadata_template` → `metadata://templates/{name}`
 
 ### Permissions Tools (3)
+
 - `aws_permissions_discover` → `permissions://discover`
 - `bucket_recommendations_get` → `permissions://recommendations`
 - `bucket_access_check` → `permissions://buckets/{bucket}/access`
 
 ### Tabulator Tools (2)
+
 - `tabulator_buckets_list` → `tabulator://buckets`
 - `tabulator_tables_list` → `tabulator://buckets/{bucket}/tables`
 
 ### Workflow Tools (2)
+
 - `workflow_list_all` → `workflow://workflows`
 - `workflow_get_status` → `workflow://workflows/{id}`
 
@@ -73,6 +81,7 @@ excluded_tools = {
 Marked tests that specifically test the deprecated MCP tool interface with `@pytest.mark.skip`:
 
 #### `tests/unit/test_governance.py` (10 tests skipped)
+
 - `test_admin_users_list_success`
 - `test_admin_users_list_unavailable`
 - `test_admin_user_get_success`
@@ -85,6 +94,7 @@ Marked tests that specifically test the deprecated MCP tool interface with `@pyt
 - `test_admin_tabulator_open_query_get_success`
 
 #### `tests/unit/test_auth.py` (14 tests skipped)
+
 - `test_catalog_info_success_authenticated`
 - `test_catalog_info_success_not_authenticated`
 - `test_catalog_info_with_partial_urls`
@@ -101,29 +111,36 @@ Marked tests that specifically test the deprecated MCP tool interface with `@pyt
 - `test_filesystem_status_read_only`
 
 #### `tests/unit/test_metadata_examples.py` (2 tests skipped)
+
 - `test_show_metadata_examples_structure`
 - `test_fix_metadata_validation_issues_contents`
 
 #### `tests/unit/test_tabulator.py` (2 tests skipped)
+
 - `test_tabulator_buckets_list_calls_tabulator_query`
 - `test_tabulator_buckets_list_handles_query_failure`
 
 #### `tests/unit/test_workflow_orchestration.py` (1 test skipped)
+
 - `test_workflow_list_all_sorts_by_recent_activity`
 
-**Total: 29 tests skipped**
+#### Total: 29 tests skipped
 
 ## Verification
 
 ### Server Functionality
+
 ✅ Server starts successfully with resources disabled:
-```
+
+```log
 Total tools registered: 62
 SUCCESS: All 24 tools correctly excluded from registration
 ```
 
 ### Test Status
+
 ✅ All skipped tests are properly marked and don't run:
+
 - Admin tests: 10 skipped
 - Auth tests: 14 skipped
 - Metadata tests: 2 skipped
@@ -131,6 +148,7 @@ SUCCESS: All 24 tools correctly excluded from registration
 - Workflow tests: 1 skipped
 
 ### Underlying Service Logic
+
 ✅ Service and business logic tests remain intact and continue to pass. Only tests of the MCP tool interface were skipped.
 
 ## Important Notes
@@ -151,7 +169,8 @@ SUCCESS: All 24 tools correctly excluded from registration
 ### Known Issues
 
 There's a separate issue with resource registration (FastMCP API compatibility) that causes tests to fail:
-```
+
+```error
 ValueError: URI parameters {'bucket'} must be a subset of the function arguments: set()
 ```
 
@@ -174,6 +193,7 @@ uv run pytest tests/unit/test_workflow_orchestration.py -v -k "workflow_list_all
 ## Conclusion
 
 Phase 3 deprecation is **COMPLETE**:
+
 - ✅ 24 tools added to `excluded_tools` in `utils.py`
 - ✅ 29 MCP tool interface tests skipped with clear reasons
 - ✅ Server starts successfully (without resources)

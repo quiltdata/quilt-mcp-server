@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 MD029 -->
 # Tools-as-Resources Analysis
 
 ## Overview
