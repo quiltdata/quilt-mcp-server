@@ -14,6 +14,7 @@ import pytest
 class TestMCPResourcesWorkflow:
     """E2E tests for complete MCP resources workflow."""
 
+    @pytest.mark.admin
     @pytest.mark.anyio
     async def test_resource_registration_and_discovery(self):
         """
