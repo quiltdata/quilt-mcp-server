@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from quilt_mcp.tools import package_ops
+from quilt_mcp.tools import packages
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
@@ -22,7 +22,7 @@ class FakeQuiltService:
 @pytest.fixture
 def fake_service(monkeypatch):
     service = FakeQuiltService()
-    monkeypatch.setattr(package_ops, "quilt_service", service)
+    monkeypatch.setattr(packages, "quilt_service", service)
     return service
 
 
@@ -31,9 +31,9 @@ def _authorized_context(auth_type: str = "jwt") -> AuthorizationContext:
 
 
 def test_package_create_attaches_auth_type(monkeypatch, fake_service):
-    monkeypatch.setattr(package_ops, "check_package_authorization", lambda *_, **__: _authorized_context("jwt"))
+    monkeypatch.setattr(packages, "check_package_authorization", lambda *_, **__: _authorized_context("jwt"))
 
-    result = package_ops.package_create(
+    result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )
@@ -52,9 +52,9 @@ def test_package_create_respects_strict_mode(monkeypatch, fake_service):
         error="JWT required",
         strict=True,
     )
-    monkeypatch.setattr(package_ops, "check_package_authorization", lambda *_, **__: strict_ctx)
+    monkeypatch.setattr(packages, "check_package_authorization", lambda *_, **__: strict_ctx)
 
-    result = package_ops.package_create(
+    result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )

@@ -7,10 +7,10 @@ from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 
-from quilt_mcp.tools.permissions import (
-    aws_permissions_discover,
-    bucket_access_check,
+from quilt_mcp.services.permissions_service import (
     bucket_recommendations_get,
+    check_bucket_access,
+    discover_permissions,
     _generate_bucket_recommendations,
     _generate_smart_recommendations,
 )
@@ -27,7 +27,7 @@ class TestAWSPermissionsDiscover:
     """Test cases for AWS permissions discovery."""
 
     @pytest.mark.integration
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_discover_permissions_success(self, mock_get_discovery):
         """Test successful permission discovery."""
         # Setup mocks
@@ -66,7 +66,7 @@ class TestAWSPermissionsDiscover:
         mock_discovery.discover_accessible_buckets = Mock(return_value=mock_buckets)
         mock_discovery.get_cache_stats = Mock(return_value={"permission_cache_size": 2})
 
-        result = aws_permissions_discover()
+        result = discover_permissions()
 
         assert result["success"] is True
         assert result["user_identity"]["user_name"] == "test-user"
@@ -74,7 +74,7 @@ class TestAWSPermissionsDiscover:
         assert len(result["categorized_buckets"]["read_only"]) == 1
         assert "recommendations" in result
 
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_discover_specific_buckets(self, mock_get_discovery):
         """Test permission discovery for specific buckets."""
         mock_discovery = Mock()
@@ -95,20 +95,20 @@ class TestAWSPermissionsDiscover:
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.get_cache_stats = Mock(return_value={})
 
-        result = aws_permissions_discover(check_buckets=["test-bucket"])
+        result = discover_permissions(check_buckets=["test-bucket"])
 
         assert result["success"] is True
         assert len(result["bucket_permissions"]) == 1
         assert result["bucket_permissions"][0]["name"] == "test-bucket"
 
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_discover_permissions_error(self, mock_get_discovery):
         """Test error handling in permission discovery."""
         mock_discovery = Mock()
         mock_get_discovery.return_value = mock_discovery
         mock_discovery.discover_user_identity = Mock(side_effect=Exception("AWS error"))
 
-        result = aws_permissions_discover()
+        result = discover_permissions()
 
         assert result["success"] is False
         assert "Failed to discover AWS permissions" in result["error"]
@@ -118,7 +118,7 @@ class TestAWSPermissionsDiscover:
 class TestBucketAccessCheck:
     """Test cases for bucket access checking."""
 
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_bucket_access_check_success(self, mock_get_discovery):
         """Test successful bucket access check."""
         mock_discovery = Mock()
@@ -136,14 +136,14 @@ class TestBucketAccessCheck:
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": True, "list": True})
 
-        result = bucket_access_check("test-bucket")
+        result = check_bucket_access("test-bucket")
 
         assert result["success"] is True
         assert result["bucket_name"] == "test-bucket"
         assert result["permission_level"] == "full_access"
         assert result["access_summary"]["can_write"] is True
 
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_bucket_access_check_limited(self, mock_get_discovery):
         """Test bucket access check with limited permissions."""
         mock_discovery = Mock()
@@ -161,7 +161,7 @@ class TestBucketAccessCheck:
         mock_discovery.discover_bucket_permissions = Mock(return_value=mock_bucket)
         mock_discovery.test_bucket_operations = Mock(return_value={"read": True, "write": False, "list": True})
 
-        result = bucket_access_check("readonly-bucket", ["read", "write", "list"])
+        result = check_bucket_access("readonly-bucket", ["read", "write", "list"])
 
         assert result["success"] is True
         assert result["access_summary"]["can_read"] is True
@@ -173,7 +173,7 @@ class TestBucketAccessCheck:
 class TestBucketRecommendations:
     """Test cases for bucket recommendations."""
 
-    @patch("quilt_mcp.tools.permissions._get_permission_discovery")
+    @patch("quilt_mcp.services.permissions_service.get_permission_discovery")
     def test_bucket_recommendations_package_creation(self, mock_get_discovery):
         """Test bucket recommendations for package creation."""
         mock_discovery = Mock()

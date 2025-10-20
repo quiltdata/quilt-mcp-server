@@ -37,7 +37,7 @@ class TestTabulatorWorkflow:
         - Full stack: auth → catalog → query → results
         """
         import asyncio
-        from quilt_mcp.tools.tabulator import tabulator_buckets_list, tabulator_bucket_query
+        from quilt_mcp.services.tabulator_service import tabulator_buckets_list, tabulator_bucket_query
 
         # 0. List all buckets in Tabulator catalog
         buckets_result = asyncio.run(tabulator_buckets_list())
@@ -142,7 +142,7 @@ class TestAthenaWorkflow:
         - SELECT query with actual data
         - Full stack without Tabulator catalog
         """
-        from quilt_mcp.tools.athena_glue import (
+        from quilt_mcp.services.athena_read_service import (
             athena_databases_list,
             athena_query_execute,
             athena_tables_list,

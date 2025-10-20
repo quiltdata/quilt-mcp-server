@@ -4,7 +4,7 @@ import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.athena_glue import (
+from quilt_mcp.services.athena_read_service import (
     athena_databases_list,
     athena_workgroups_list,
     athena_table_schema,

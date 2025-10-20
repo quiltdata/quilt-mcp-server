@@ -211,3 +211,175 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
             "error": f"Search explanation failed: {e}",
             "query": query,
         }
+
+
+# Renamed from unified_search for simpler interface
+search = unified_search
+
+
+# GraphQL search functions (previously in separate graphql module)
+
+
+def _get_graphql_endpoint():
+    """Return (session, graphql_url) from QuiltService context or (None, None).
+
+    Uses QuiltService to acquire the authenticated requests session and
+    the active registry URL, then constructs the GraphQL endpoint.
+    """
+    try:
+        from urllib.parse import urljoin
+
+        from ..services.quilt_service import QuiltService
+
+        quilt_service = QuiltService()
+
+        if not quilt_service.has_session_support():
+            return None, None
+        session = quilt_service.get_session()
+        registry_url = quilt_service.get_registry_url()
+        if not registry_url:
+            return None, None
+        graphql_url = urljoin(registry_url.rstrip("/") + "/", "graphql")
+        return session, graphql_url
+    except Exception:
+        return None, None
+
+
+def search_graphql(query: str, variables: Optional[Dict] = None) -> Dict[str, Any]:
+    """Execute an arbitrary GraphQL query against the configured Quilt Catalog - Catalog and package search experiences
+
+    Args:
+        query: GraphQL query string
+        variables: Variables dictionary to bind
+
+    Returns:
+        Dict with raw `data`, optional `errors`, and `success` flag.
+
+    Next step:
+        Summarize the search insight or refine the query with another search helper.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.search_graphql(
+            query="query { bucketConfigs { name } }",
+        )
+        # Next step: Summarize the search insight or refine the query with another search helper.
+        ```
+    """
+    session, graphql_url = _get_graphql_endpoint()
+    if not session or not graphql_url:
+        return {
+            "success": False,
+            "error": "GraphQL endpoint or session unavailable. Ensure quilt3 is configured and authenticated.",
+        }
+
+    try:
+        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
+        if resp.status_code != 200:
+            return {
+                "success": False,
+                "error": f"GraphQL HTTP {resp.status_code}: {resp.text}",
+            }
+        payload = resp.json()
+        return {
+            "success": "errors" not in payload,
+            "data": payload.get("data"),
+            "errors": payload.get("errors"),
+        }
+    except Exception as e:
+        return {"success": False, "error": f"GraphQL request failed: {e}"}
+
+
+def search_objects_graphql(
+    bucket: str,
+    object_filter: Optional[Dict] = None,
+    first: int = 100,
+    after: str = "",
+) -> Dict[str, Any]:
+    """Search for objects within a bucket via Quilt GraphQL - Catalog and package search experiences
+
+    Note: The exact schema may vary by Quilt deployment. This targets a common
+    Enterprise pattern with `objects(bucket:, filter:, first:, after:)` and
+    nodes containing object attributes and an optional `package` linkage.
+
+    Args:
+        bucket: S3 bucket name or s3:// URI
+        object_filter: Dictionary of filter fields compatible with the catalog schema
+        first: Page size (default 100)
+        after: Cursor for pagination
+
+    Returns:
+        Dict with objects, pagination info, and the effective filter used.
+
+    Next step:
+        Summarize the search insight or refine the query with another search helper.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import search
+
+        result = search.search_objects_graphql(
+            bucket="my-bucket",
+            object_filter={"extension": "csv"},
+            first=50,
+        )
+        # Next step: Summarize the search insight or refine the query with another search helper.
+        ```
+    """
+    # Normalize bucket input: allow s3://bucket
+    bkt = bucket[5:].split("/", 1)[0] if bucket.startswith("s3://") else bucket
+
+    gql = (
+        "query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {\n"
+        "  objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {\n"
+        "    edges {\n"
+        "      node { key size updated contentType extension package { name topHash tag } }\n"
+        "      cursor\n"
+        "    }\n"
+        "    pageInfo { endCursor hasNextPage }\n"
+        "  }\n"
+        "}"
+    )
+    variables = {
+        "bucket": bkt,
+        "filter": object_filter or {},
+        "first": max(1, min(first, 1000)),
+        "after": after or None,
+    }
+
+    result = search_graphql(gql, variables)
+    if not result.get("success"):
+        return {
+            "success": False,
+            "bucket": bkt,
+            "objects": [],
+            "error": result.get("error") or result.get("errors"),
+        }
+    data = result.get("data", {}) or {}
+    conn = data.get("objects", {}) or {}
+    edges = conn.get("edges", []) or []
+    objects = [
+        {
+            "key": edge.get("node", {}).get("key"),
+            "size": edge.get("node", {}).get("size"),
+            "updated": edge.get("node", {}).get("updated"),
+            "content_type": edge.get("node", {}).get("contentType"),
+            "extension": edge.get("node", {}).get("extension"),
+            "package": edge.get("node", {}).get("package"),
+        }
+        for edge in edges
+        if isinstance(edge, dict)
+    ]
+    page_info = conn.get("pageInfo") or {}
+    return {
+        "success": True,
+        "bucket": bkt,
+        "objects": objects,
+        "page_info": {
+            "end_cursor": page_info.get("endCursor"),
+            "has_next_page": page_info.get("hasNextPage", False),
+        },
+        "filter": variables["filter"],
+    }

@@ -34,7 +34,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Check if GraphQL endpoint is accessible using proven infrastructure."""
         try:
             # Use the existing working GraphQL infrastructure
-            from ...tools.graphql import _get_graphql_endpoint, catalog_graphql_query
+            from ...tools.search import _get_graphql_endpoint, search_graphql
 
             session, graphql_url = _get_graphql_endpoint()
 
@@ -48,8 +48,8 @@ class EnterpriseGraphQLBackend(SearchBackend):
             # Test with the working bucketConfigs query first
             test_query = "query { bucketConfigs { name } }"
 
-            # Use the proven catalog_graphql_query function
-            result = catalog_graphql_query(test_query, {})
+            # Use the proven search_graphql function
+            result = search_graphql(test_query, {})
 
             if result.get("success"):
                 self._update_status(BackendStatus.AVAILABLE)
@@ -78,10 +78,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 return False
 
             # Test with the working bucketConfigs query
-            from ...tools.graphql import catalog_graphql_query
+            from ...tools.search import search_graphql
 
             test_query = "query { bucketConfigs { name } }"
-            result = catalog_graphql_query(test_query, {})
+            result = search_graphql(test_query, {})
 
             if result.get("success"):
                 self._update_status(BackendStatus.AVAILABLE)
@@ -392,12 +392,12 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return graphql_filter
 
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a GraphQL query using the proven catalog_graphql_query approach."""
+        """Execute a GraphQL query using the proven search_graphql approach."""
         # Use the existing working GraphQL infrastructure (synchronous)
-        from ...tools.graphql import catalog_graphql_query
+        from ...tools.search import search_graphql
 
-        # catalog_graphql_query is synchronous, so we can call it directly
-        result = catalog_graphql_query(query, variables)
+        # search_graphql is synchronous, so we can call it directly
+        result = search_graphql(query, variables)
 
         if not result.get("success"):
             # Unpack detailed error information for better troubleshooting

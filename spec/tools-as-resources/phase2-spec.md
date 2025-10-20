@@ -251,7 +251,7 @@ class FilesystemStatusResource(MCPResource):
 
 ```python
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.permissions import (
+from quilt_mcp.services.permissions_service import (
     aws_permissions_discover,
     bucket_recommendations_get,
     bucket_access_check

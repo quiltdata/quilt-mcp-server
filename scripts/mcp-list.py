@@ -100,11 +100,9 @@ def identify_overlapping_tools(_tools: List[Dict[str, Any]]) -> Dict[str, List[s
     """Identify tools with overlapping functionality that should be consolidated."""
     overlaps = {}
 
-    # Package creation tools - MAJOR OVERLAP
+    # Package creation tools - MAJOR OVERLAP (CLEANED UP - removed unified_package and package_management)
     package_creation = [
         "package_create",           # package_ops module - basic creation
-        "create_package",          # unified_package module - unified interface
-        "create_package_enhanced", # package_management module - enhanced with templates
         "package_create_from_s3"   # s3_package module - from S3 sources
     ]
     overlaps["Package Creation"] = package_creation
@@ -151,17 +149,13 @@ def generate_consolidation_report(_tools: List[Dict[str, Any]], output_file: str
         "consolidation_plan": {}
     }
 
-    # Package Creation Consolidation
+    # Package Creation Consolidation (COMPLETED - removed convenience wrappers)
     report["consolidation_plan"]["package_creation"] = {
-        "action": "BREAK_COMPATIBILITY",
-        "keep": "create_package_enhanced",
-        "deprecate": ["package_create", "create_package", "package_create_from_s3"],
-        "rationale": "create_package_enhanced provides all functionality with templates and validation",
-        "migration": {
-            "package_create": "Replace with create_package_enhanced(copy_mode='all')",
-            "create_package": "Replace with create_package_enhanced(auto_organize=True)",
-            "package_create_from_s3": "Replace with create_package_enhanced(files=[bucket_prefix])"
-        }
+        "action": "COMPLETED",
+        "status": "Phase 1 complete - removed unified_package and package_management modules",
+        "kept": ["package_create", "package_create_from_s3"],
+        "removed": ["create_package", "create_package_enhanced"],
+        "rationale": "Removed user-facing convenience wrappers with no unique functionality"
     }
 
     # Search Consolidation

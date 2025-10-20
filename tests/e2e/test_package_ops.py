@@ -7,7 +7,7 @@ including the automatic README content extraction from metadata.
 from unittest.mock import Mock, patch, MagicMock
 import io
 
-from quilt_mcp.tools.package_ops import (
+from quilt_mcp.tools.packages import (
     package_create,
     package_update,
     package_delete,
@@ -20,7 +20,7 @@ from quilt_mcp.tools.package_ops import (
 class TestPackageCreate:
     """Test cases for the package_create function."""
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_readme_content_extraction_from_metadata(self, mock_create_revision):
         """Test that README content is automatically extracted from metadata and added as package file."""
         # Mock successful package creation
@@ -61,7 +61,7 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_readme_field_extraction_from_metadata(self, mock_create_revision):
         """Test that 'readme' field is also extracted from metadata."""
         # Mock successful package creation
@@ -102,7 +102,7 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_both_readme_fields_extraction(self, mock_create_revision):
         """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
         # Mock successful package creation
@@ -144,7 +144,7 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_no_readme_content_in_metadata(self, mock_create_revision):
         """Test that packages without README content in metadata work normally."""
         # Mock successful package creation
@@ -180,7 +180,7 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_readme_file_creation_failure_handling(self, mock_create_revision):
         """Test that README file creation failures are handled gracefully."""
         # Mock package creation that will process README internally
@@ -222,7 +222,7 @@ class TestPackageCreate:
         # Verify success (README failure handling is now internal to create_package_revision)
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_empty_metadata_handling(self, mock_create_revision):
         """Test that empty metadata is handled correctly."""
         # Mock successful package creation
@@ -255,7 +255,7 @@ class TestPackageCreate:
         # Verify success
         assert result["status"] == "success"
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_metadata_without_readme_fields(self, mock_create_revision):
         """Test that metadata without README fields is processed normally."""
         # Mock successful package creation
@@ -560,7 +560,7 @@ class TestPackageCreateErrorHandling:
         assert result["provided_type"] == "int"
         assert "examples" in result
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_package_create_with_service_error_response(self, mock_create_revision):
         """Test package_create when service returns error response."""
         mock_create_revision.return_value = {
@@ -576,7 +576,7 @@ class TestPackageCreateErrorHandling:
         assert result["package_name"] == "test/package"
         assert "warnings" in result
 
-    @patch("quilt_mcp.tools.package_ops.quilt_service.create_package_revision")
+    @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_package_create_with_service_exception(self, mock_create_revision):
         """Test package_create when service raises exception."""
         mock_create_revision.side_effect = Exception("Network error")
@@ -631,7 +631,7 @@ class TestPackageUpdate:
         assert result["error"] == "Invalid metadata type"
         assert result["provided_type"] == "list"
 
-    @patch("quilt_mcp.tools.package_ops.QuiltService")
+    @patch("quilt_mcp.tools.packages.QuiltService")
     @patch("quilt_mcp.utils.suppress_stdout")
     def test_package_update_browse_package_failure(self, mock_suppress, mock_quilt_service_class):
         """Test package_update when browsing existing package fails."""
@@ -656,7 +656,7 @@ class TestPackageDelete:
 
         assert result["error"] == "package_name is required for package deletion"
 
-    @patch("quilt_mcp.tools.package_ops.quilt3.delete_package")
+    @patch("quilt_mcp.tools.packages.quilt3.delete_package")
     @patch("quilt_mcp.utils.suppress_stdout")
     def test_package_delete_success(self, mock_suppress, mock_delete):
         """Test successful package deletion."""
@@ -670,7 +670,7 @@ class TestPackageDelete:
         assert result["registry"] == "s3://test-bucket"
         assert "deleted successfully" in result["message"]
 
-    @patch("quilt_mcp.tools.package_ops.quilt3.delete_package")
+    @patch("quilt_mcp.tools.packages.quilt3.delete_package")
     @patch("quilt_mcp.utils.suppress_stdout")
     def test_package_delete_failure(self, mock_suppress, mock_delete):
         """Test package deletion failure."""

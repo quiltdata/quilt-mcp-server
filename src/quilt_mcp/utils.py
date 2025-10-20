@@ -96,11 +96,11 @@ def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
     from importlib import import_module
 
-    from quilt_mcp.tools import AVAILABLE_MODULES
+    from quilt_mcp.tools import _MODULE_PATHS
 
     modules: list[Any] = []
-    for module_name in AVAILABLE_MODULES:
-        module = import_module(f"quilt_mcp.tools.{module_name}")
+    for module_name, module_path in _MODULE_PATHS.items():
+        module = import_module(module_path)
         modules.append(module)
     return modules
 

@@ -212,5 +212,5 @@ creating individual getter tools for each one.
 
 - Main analysis: [analysis.md](./analysis.md)
 - MCP tools list: [../../tests/fixtures/mcp-list.csv](../../tests/fixtures/mcp-list.csv)
-- Governance module: `src/quilt_mcp/tools/governance.py`
-- Tabulator module: `src/quilt_mcp/tools/tabulator.py`
+- Governance module: `src/quilt_mcp/services/governance_service.py`
+- Tabulator module: `src/quilt_mcp/services/tabulator_service.py`

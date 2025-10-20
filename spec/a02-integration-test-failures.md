@@ -118,7 +118,7 @@ def _handle_admin_error(self, e: Exception, operation: Optional[str] = None) -> 
 
 ```python
 import pytest
-from app.quilt_mcp.tools.governance import GovernanceService
+from app.quilt_mcp.services.governance_service import GovernanceService
 
 class TestGovernanceErrorHandling:
     """Test governance error handling robustness."""

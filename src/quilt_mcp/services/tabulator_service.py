@@ -10,7 +10,7 @@ import yaml
 from quilt_mcp.formatting import format_tabulator_results_as_table
 from quilt_mcp.services import auth_metadata
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.tools import athena_glue
+from quilt_mcp.services import athena_read_service as athena_glue
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
@@ -443,11 +443,109 @@ def list_tabulator_tables(bucket_name: str) -> Dict[str, Any]:
         return format_error_response(f"Failed to list tabulator tables: {exc}")
 
 
+async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
+    """Async wrapper mirroring the legacy tool interface for listing tables."""
+    service = get_tabulator_service()
+    return service.list_tables(bucket_name)
+
+
+async def tabulator_table_create(
+    bucket_name: str,
+    table_name: str,
+    schema: List[Dict[str, str]],
+    package_pattern: str,
+    logical_key_pattern: str,
+    parser_format: str = "csv",
+    parser_delimiter: Optional[str] = None,
+    parser_header: bool = True,
+    parser_skip_rows: int = 0,
+    description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create tabulator table (legacy tool signature)."""
+    parser_config: Dict[str, Any] = {"format": parser_format, "header": parser_header}
+    if parser_format in {"csv", "tsv"}:
+        parser_config["delimiter"] = parser_delimiter or ("\t" if parser_format == "tsv" else ",")
+        if parser_skip_rows:
+            parser_config["skip_rows"] = parser_skip_rows
+
+    service = get_tabulator_service()
+    return service.create_table(
+        bucket_name=bucket_name,
+        table_name=table_name,
+        schema=schema,
+        package_pattern=package_pattern,
+        logical_key_pattern=logical_key_pattern,
+        parser_config=parser_config,
+        description=description,
+    )
+
+
+async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str, Any]:
+    """Delete tabulator table (legacy tool signature)."""
+    service = get_tabulator_service()
+    return service.delete_table(bucket_name=bucket_name, table_name=table_name)
+
+
+async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
+    """Rename tabulator table (legacy tool signature)."""
+    service = get_tabulator_service()
+    return service.rename_table(bucket_name=bucket_name, table_name=table_name, new_table_name=new_table_name)
+
+
+async def tabulator_open_query_status() -> Dict[str, Any]:
+    """Return tabulator open query flag."""
+    service = get_tabulator_service()
+    return service.get_open_query_status()
+
+
+async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
+    """Toggle tabulator open query flag."""
+    service = get_tabulator_service()
+    return service.set_open_query(enabled=enabled)
+
+
+async def tabulator_buckets_list() -> Dict[str, Any]:
+    """Async legacy wrapper for listing tabulator buckets."""
+    return list_tabulator_buckets()
+
+
+async def tabulator_bucket_query(
+    bucket_name: str,
+    query: str,
+    workgroup_name: Optional[str] = None,
+    max_results: int = 1000,
+    output_format: str = "json",
+    use_quilt_auth: bool = True,
+) -> Dict[str, Any]:
+    """Execute a bucket-scoped tabulator query (legacy tool signature)."""
+    if not bucket_name or not bucket_name.strip():
+        return format_error_response("bucket_name cannot be empty")
+    if not query or not query.strip():
+        return format_error_response("query cannot be empty")
+
+    return _tabulator_query(
+        query=query,
+        database_name=bucket_name,
+        workgroup_name=workgroup_name,
+        max_results=max_results,
+        output_format=output_format,
+        use_quilt_auth=use_quilt_auth,
+    )
+
+
 __all__ = [
     "ADMIN_AVAILABLE",
     "TabulatorService",
     "get_tabulator_service",
     "list_tabulator_buckets",
     "list_tabulator_tables",
+    "tabulator_tables_list",
+    "tabulator_table_create",
+    "tabulator_table_delete",
+    "tabulator_table_rename",
+    "tabulator_open_query_status",
+    "tabulator_open_query_toggle",
+    "tabulator_buckets_list",
+    "tabulator_bucket_query",
     "_tabulator_query",
 ]

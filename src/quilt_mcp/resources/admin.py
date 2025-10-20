@@ -3,7 +3,7 @@
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.governance import (
+from quilt_mcp.services.governance_service import (
     admin_users_list,
     admin_roles_list,
     admin_sso_config_get,

@@ -1,24 +1,24 @@
 """MCP tools for Quilt data access.
 
 This package contains all the MCP tool implementations organized by functionality:
-- auth: Authentication and filesystem checks
+- catalog: Catalog configuration and URL generation
 - buckets: S3 bucket operations
-- packages: Package browsing and search
-- package_ops: Package creation, update, and deletion
-- s3_package: S3-to-package creation functionality
-- permissions: AWS permissions discovery and bucket recommendations
-- unified_package: Simplified, intelligent package creation interface
-- package_management: Enhanced package management with better UX
+- packages: Package browsing, creation, update, deletion, and S3-to-package ingestion
 - athena_glue: AWS Athena queries and Glue Data Catalog discovery
 - tabulator: Quilt tabulator table management for SQL querying across packages
+- data_visualization: Create visualizations from data
+- quilt_summary: Generate package summary files
+- search: Unified search across catalogs, packages, buckets (includes GraphQL queries)
+- workflow_orchestration: Workflow orchestration and status tracking
+- governance: Governance policies and compliance
 
 These tools are pure functions that are registered by the tools module.
 
 Example usage:
-    from quilt_mcp.tools import auth, buckets, packages, package_ops
+    from quilt_mcp.tools import catalog, buckets, packages
 
-    # Use auth tools
-    status = auth.auth_status()
+    # Use catalog tools
+    url = catalog.catalog_url("s3://my-bucket", "user/package")
 
     # Use bucket tools
     objects = buckets.bucket_objects_list("my-bucket")
@@ -32,22 +32,16 @@ from types import ModuleType
 from typing import Dict
 
 _MODULE_PATHS = {
-    "auth": "quilt_mcp.tools.auth",
+    "catalog": "quilt_mcp.tools.catalog",
     "buckets": "quilt_mcp.tools.buckets",
     "packages": "quilt_mcp.tools.packages",
-    "package_ops": "quilt_mcp.tools.package_ops",
-    "s3_package": "quilt_mcp.tools.s3_package",
-    "permissions": "quilt_mcp.tools.permissions",
-    "unified_package": "quilt_mcp.tools.unified_package",
-    "package_management": "quilt_mcp.tools.package_management",
     "quilt_summary": "quilt_mcp.tools.quilt_summary",
-    "graphql": "quilt_mcp.tools.graphql",
     "search": "quilt_mcp.tools.search",
     "data_visualization": "quilt_mcp.tools.data_visualization",
-    "athena_glue": "quilt_mcp.tools.athena_glue",
-    "tabulator": "quilt_mcp.tools.tabulator",
-    "workflow_orchestration": "quilt_mcp.tools.workflow_orchestration",
-    "governance": "quilt_mcp.tools.governance",
+    "athena_glue": "quilt_mcp.services.athena_read_service",
+    "tabulator": "quilt_mcp.services.tabulator_service",
+    "workflow_orchestration": "quilt_mcp.services.workflow_service",
+    "governance": "quilt_mcp.services.governance_service",
     # error_recovery temporarily disabled due to Callable parameter issues
 }
 

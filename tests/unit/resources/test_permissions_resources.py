@@ -28,7 +28,7 @@ class TestPermissionsDiscoverResource:
             },
         }
 
-        with patch("quilt_mcp.resources.permissions.aws_permissions_discover") as mock_tool:
+        with patch("quilt_mcp.resources.permissions.discover_permissions") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("permissions://discover")
@@ -82,7 +82,7 @@ class TestBucketAccessResource:
             },
         }
 
-        with patch("quilt_mcp.resources.permissions.bucket_access_check") as mock_tool:
+        with patch("quilt_mcp.resources.permissions.check_bucket_access") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "my-bucket"}

@@ -355,7 +355,7 @@ def _check_auth_status() -> Dict[str, Any]:
 def _check_permissions_discovery() -> Dict[str, Any]:
     """Check permissions discovery functionality."""
     try:
-        from .permissions import aws_permissions_discover
+        from quilt_mcp.services.permissions_service import discover_permissions as aws_permissions_discover
 
         result = aws_permissions_discover(force_refresh=False)
         if not result.get("success"):

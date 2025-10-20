@@ -1,4 +1,4 @@
-"""Tests for auth.py - Test-Driven Development Implementation."""
+"""Tests for catalog.py - Test-Driven Development Implementation."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from quilt_mcp.services.auth_metadata import (
     auth_status,
     filesystem_status,
 )
-from quilt_mcp.tools.auth import catalog_url, catalog_uri, configure_catalog, switch_catalog
+from quilt_mcp.tools.catalog import catalog_url, catalog_uri, configure_catalog, switch_catalog
 
 
 class TestExtractCatalogNameFromUrl:
@@ -143,7 +143,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_success_package_view(self):
         """Test successful catalog URL generation for package view."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_url("s3://test-bucket", "user/package")
 
             assert result["status"] == "success"
@@ -153,7 +153,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_success_bucket_view(self):
         """Test successful catalog URL generation for bucket view - covers lines 144-150."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_url("s3://test-bucket", package_name=None)
 
             assert result["status"] == "success"
@@ -163,7 +163,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_bucket_view_with_path(self):
         """Test bucket view with path - covers lines 144-150."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_url("s3://test-bucket", package_name=None, path="data/files")
 
             assert result["status"] == "success"
@@ -173,7 +173,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_package_view_with_path(self):
         """Test package view with path - covers lines 138-139."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_url("s3://test-bucket", "user/package", path="data/files")
 
             assert result["status"] == "success"
@@ -183,7 +183,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_no_catalog_host_error(self):
         """Test error when catalog host cannot be determined - covers lines 115-118."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value=None):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value=None):
             result = catalog_url("s3://test-bucket", "user/package")
 
             assert result["status"] == "error"
@@ -191,7 +191,7 @@ class TestCatalogUrl:
 
     def test_catalog_url_with_exception(self):
         """Test exception handling in catalog_url - covers lines 162-163."""
-        with patch('quilt_mcp.tools.auth._extract_bucket_from_registry', side_effect=Exception("Bucket error")):
+        with patch('quilt_mcp.tools.catalog._extract_bucket_from_registry', side_effect=Exception("Bucket error")):
             result = catalog_url("s3://test-bucket", "user/package")
 
             assert result["status"] == "error"
@@ -204,7 +204,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_package_name(self):
         """Test catalog_uri with package name - covers lines 191-223."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket", "user/package")
 
             assert result["status"] == "success"
@@ -214,7 +214,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_top_hash(self):
         """Test catalog_uri with top_hash - covers lines 199-200."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket", "user/package", top_hash="abc123")
 
             assert result["status"] == "success"
@@ -222,7 +222,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with tag - covers lines 201-202."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket", "user/package", tag="v1.0")
 
             assert result["status"] == "success"
@@ -230,7 +230,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_path(self):
         """Test catalog_uri with path - covers lines 205-206."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket", "user/package", path="data/file.csv")
 
             assert result["status"] == "success"
@@ -238,7 +238,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_no_catalog_host(self):
         """Test catalog_uri without catalog host - covers lines 209-215."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value=None):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value=None):
             result = catalog_uri("s3://test-bucket", "user/package")
 
             assert result["status"] == "success"
@@ -247,7 +247,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_protocol_removal(self):
         """Test catalog_uri with protocol removal - covers lines 213-215."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="https://demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="https://demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket", "user/package")
 
             assert result["status"] == "success"
@@ -257,7 +257,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_bucket_only(self):
         """Test catalog_uri with bucket only (no package) - covers lines 191-223."""
-        with patch('quilt_mcp.tools.auth._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
+        with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
             result = catalog_uri("s3://test-bucket")
 
             assert result["status"] == "success"
@@ -266,7 +266,7 @@ class TestCatalogUri:
 
     def test_catalog_uri_with_exception(self):
         """Test exception handling in catalog_uri - covers line 234-235."""
-        with patch('quilt_mcp.tools.auth._extract_bucket_from_registry', side_effect=Exception("URI error")):
+        with patch('quilt_mcp.tools.catalog._extract_bucket_from_registry', side_effect=Exception("URI error")):
             result = catalog_uri("s3://test-bucket", "user/package")
 
             assert result["status"] == "error"
@@ -531,7 +531,7 @@ class TestConfigureCatalog:
         """Test successful configuration - covers lines 541-547."""
         with (
             patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
-            patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class,
+            patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class,
         ):
             mock_service = Mock()
             mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
@@ -548,7 +548,7 @@ class TestConfigureCatalog:
         """Test exception handling in configure_catalog - covers lines 564-581."""
         with (
             patch('quilt_mcp.services.quilt_service.QuiltService', side_effect=Exception("Config error")),
-            patch('quilt_mcp.tools.auth.QuiltService', side_effect=Exception("Config error")),
+            patch('quilt_mcp.tools.catalog.QuiltService', side_effect=Exception("Config error")),
         ):
             result = configure_catalog("https://demo.quiltdata.com")
 
@@ -563,7 +563,7 @@ class TestSwitchCatalog:
 
     def test_switch_catalog_with_full_url(self):
         """Test switching to catalog with full URL - covers lines 607-608."""
-        with patch('quilt_mcp.tools.auth.configure_catalog') as mock_configure:
+        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
             mock_configure.return_value = {"status": "success"}
 
             result = switch_catalog("https://custom.quiltdata.com")
@@ -573,7 +573,7 @@ class TestSwitchCatalog:
 
     def test_switch_catalog_with_known_catalog_name(self):
         """Test switching with known catalog name (demo)."""
-        with patch('quilt_mcp.tools.auth.configure_catalog') as mock_configure:
+        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
             mock_configure.return_value = {"status": "success"}
 
             result = switch_catalog("demo")
@@ -584,7 +584,7 @@ class TestSwitchCatalog:
 
     def test_switch_catalog_with_unknown_catalog_name(self):
         """Test switching with unknown catalog name - covers lines 611-612."""
-        with patch('quilt_mcp.tools.auth.configure_catalog') as mock_configure:
+        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
             mock_configure.return_value = {"status": "success"}
 
             result = switch_catalog("custom")
@@ -595,7 +595,7 @@ class TestSwitchCatalog:
 
     def test_switch_catalog_with_exception(self):
         """Test exception handling in switch_catalog - covers lines 630-637."""
-        with patch('quilt_mcp.tools.auth.configure_catalog', side_effect=Exception("Switch error")):
+        with patch('quilt_mcp.tools.catalog.configure_catalog', side_effect=Exception("Switch error")):
             result = switch_catalog("demo")
 
             assert result["status"] == "error"

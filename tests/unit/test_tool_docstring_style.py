@@ -10,21 +10,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = PROJECT_ROOT / "src" / "quilt_mcp" / "tools"
 
 # Modules registered via quilt_mcp.utils.get_tool_modules()
+# Only testing modules in src/quilt_mcp/tools/ directory
 TOOL_MODULES = [
-    "auth",
     "buckets",
+    "catalog",
+    "data_visualization",
     "packages",
-    "package_ops",
-    "s3_package",
-    "permissions",
-    "unified_package",
-    "package_management",
     "quilt_summary",
     "search",
-    "athena_glue",
-    "tabulator",
-    "workflow_orchestration",
-    "governance",
 ]
 
 

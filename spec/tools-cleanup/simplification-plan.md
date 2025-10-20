@@ -111,8 +111,8 @@ governance           ✓ Keep
 
 **Changes**:
 
-1. Delete [src/quilt_mcp/tools/unified_package.py](../src/quilt_mcp/tools/unified_package.py)
-2. Delete [src/quilt_mcp/tools/package_management.py](../src/quilt_mcp/tools/package_management.py)
+1. Delete [src/quilt_mcp/services/unified_package_service.py](../src/quilt_mcp/services/unified_package_service.py)
+2. Delete [src/quilt_mcp/services/package_management_service.py](../src/quilt_mcp/services/package_management_service.py)
 3. Update [src/quilt_mcp/tools/**init**.py](../src/quilt_mcp/tools/__init__.py):
    - Remove `"unified_package"` and `"package_management"` from `_MODULE_PATHS`
 4. Remove/update tests:

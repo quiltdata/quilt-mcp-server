@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Test Configuration**: Configured pytest-anyio to use asyncio backend only for consistency
+- **Service Architecture**: Migrated governance, permissions, workflow, Athena read-only, tabulator, and package management helpers into `quilt_mcp.services.*`, removed the legacy tool shims, and refreshed the tool registry/fixtures to point at the new modules.
 
 ### Fixed
 

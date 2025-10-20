@@ -9,7 +9,7 @@
 
 - **Complete service migration for remaining read-only tools**
   - Permissions: move `aws_permissions_discover`, `bucket_recommendations_get`, `bucket_access_check` logic into a `services/permissions_service.py`.
-  - Governance: extract `GovernanceService` helpers so resources no longer import `quilt_mcp.tools.governance`.
+  - Governance: extract `GovernanceService` helpers so resources no longer import `quilt_mcp.services.governance_service`.
   - Workflow orchestration: relocate `workflow_list_all` and `workflow_get_status` to a service module, then update the resource to call it.
   - Athena: follow the same pattern for any list-or-read-only helpers still living under `tools/athena_glue.py`.
   - Tabulator: finish wiring resources and tests to the new `services.tabulator` helpers; remove the residual tool shims once everything depends on the service.
@@ -40,7 +40,21 @@
 
 ## Suggested Sequencing
 
-1. Resolve uv / `.git` permission issues so commits and tests can run locally.
-2. Finish migrating permissions, workflow, governance, and athena read-only helpers into services; update resources and tests accordingly.
-3. Remove the superseded tool modules and convenience wrappers; update tooling registry and fixtures.
-4. Refresh documentation and changelog once the tool surface matches the simplified plan.
+1. **Re-baseline the suite (`make -B test`) before refactors**
+   - Run the full target (`make -B test`); if the uv cache bug blocks execution, fall back to `python -m pytest tests` as noted under blockers so we still exercise the suite.
+   - Fix any failures caused by interim service shims so the branch starts green. Patch the temporary double-mocking of Quilt services once the constructor is centralized.
+   - Capture any persistent failures in TODOs or `notes/` so they are visible during review—no silent skips.
+2. **Finish migrating the remaining read-only helpers into services**
+   - Stand up `services/permissions_service.py` for `aws_permissions_discover`, `bucket_recommendations_get`, and `bucket_access_check`, mirroring the new tabulator pattern.
+   - Relocate governance/workflow/Athena helpers into their respective `services/*` modules, then update `resources/*.py` to call the services directly.
+   - Update unit and integration tests to import the service layer and drop the legacy tool patches; regenerate fixtures where they embed tool paths.
+3. **Cull the superseded tool modules and wrappers**
+   - Remove the migrated `quilt_mcp/tools/*.py` files (`metadata_examples`, `metadata_templates`, remaining tabulator shim, etc.) plus `unified_package` and `package_management`.
+   - Update `src/quilt_mcp/tools/__init__.py`, any registry catalogs, and `tests/fixtures/mcp-list.csv` so the deleted modules disappear from discovery.
+   - Re-run targeted search (`rg "quilt_mcp.tools"`) to confirm no stale imports remain.
+4. **Refresh documentation once the surface area is stable**
+   - Sweep `docs/`, `spec/`, and resource READMEs for tool references; replace them with service/resource guidance and new URIs.
+   - Note the migration in `CHANGELOG.md` and call out the breaking change for external tool consumers.
+5. **Full regression and PR polish**
+   - Execute `make test-all` (plus `ruff`/type checks if they are not already wired into the target) and fix any remaining regressions.
+   - Review `git status`, regenerate artifacts (fixtures, lockfiles) as needed, and craft the PR summary linking to the migration/spec docs.

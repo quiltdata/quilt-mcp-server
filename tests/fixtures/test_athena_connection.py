@@ -173,7 +173,7 @@ def test_mcp_tools():
     print("=" * 60)
 
     try:
-        from quilt_mcp.tools.athena_glue import (
+        from quilt_mcp.services.athena_read_service import (
             athena_databases_list,
             athena_query_validate,
         )
@@ -192,7 +192,7 @@ def test_mcp_tools():
             print(f"❌ Database listing failed: {result.get('error', 'Unknown error')}")
 
         # Test workgroups listing
-        from quilt_mcp.tools.athena_glue import athena_workgroups_list
+        from quilt_mcp.services.athena_read_service import athena_workgroups_list
 
         workgroups_result = athena_workgroups_list()
         if workgroups_result.get("success"):

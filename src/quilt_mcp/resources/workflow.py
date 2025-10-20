@@ -4,7 +4,7 @@ import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.workflow_orchestration import workflow_list_all, workflow_get_status
+from quilt_mcp.services.workflow_service import workflow_get_status, workflow_list_all
 
 
 class WorkflowsResource(MCPResource):

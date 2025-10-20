@@ -72,16 +72,16 @@ class TestAuthMigrationToQuiltService:
             mock_service.get_catalog_info.assert_called_once()
 
     def test_no_direct_quilt3_imports_after_migration(self):
-        """Test that auth.py has no direct quilt3 imports after migration."""
+        """Test that catalog.py has no direct quilt3 imports after migration."""
         # This test will initially fail, which is expected in RED phase
-        # After migration, auth.py should not import quilt3 directly
+        # After migration, catalog.py should not import quilt3 directly
 
         import ast
         import inspect
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        # Get the source code of the auth module
-        source = inspect.getsource(auth)
+        # Get the source code of the catalog module
+        source = inspect.getsource(catalog)
         tree = ast.parse(source)
 
         # Check for direct quilt3 imports

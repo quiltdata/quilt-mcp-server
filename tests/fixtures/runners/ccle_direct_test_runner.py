@@ -22,7 +22,7 @@ from quilt_mcp.tools import (
     athena_glue,
     tabulator,
     buckets,
-    package_management,
+    package_ops,
     workflow_orchestration,
     auth,
 )
@@ -478,17 +478,17 @@ class CCLEDirectTester:
 
         # Step 1: Test package creation for sharing
         try:
-            package_create = package_management.create_package_enhanced(
-                name=f"ccle/breast-cancer-subset-{int(time.time())}",
-                files=["s3://quilt-sandbox-bucket/ccle/breast-samples.csv"],
-                description="CCLE breast cancer cell lines for collaborative study",
-                metadata_template="standard",
-                dry_run=True,
+            package_create = package_ops.package_create(
+                package_name=f"ccle/breast-cancer-subset-{int(time.time())}",
+                s3_uris=["s3://quilt-sandbox-bucket/ccle/breast-samples.csv"],
+                registry="s3://quilt-sandbox-bucket",
+                metadata={"description": "CCLE breast cancer cell lines for collaborative study"},
+                message="Created for collaborative research testing",
             )
 
             if package_create.get("success"):
                 result["steps_completed"].append("collaborative_package_creation")
-                result["tools_used"].append("create_package_enhanced")
+                result["tools_used"].append("package_create")
                 result["recommendations"].append("Package creation available for data sharing")
                 print("      ✅ Collaborative package creation successful")
             else:
@@ -500,24 +500,29 @@ class CCLEDirectTester:
             result["errors"].append(f"Package creation failed: {str(e)}")
             print(f"      ❌ Package creation failed: {e}")
 
-        # Step 2: Test package validation
+        # Step 2: Test package browsing (validation alternative)
         try:
-            # Use a known package for validation test
-            packages_result = packages.packages_list(limit=1)
+            # Use a known package for browsing test
+            packages_result = packages.packages_search(query="*", limit=1)
 
-            if packages_result.get("success") and packages_result.get("packages"):
-                first_package = packages_result["packages"][0]["name"]
-                validation_result = package_management.package_validate(package_name=first_package)
+            if packages_result.get("success") and packages_result.get("results"):
+                first_package = packages_result["results"][0].get("_source", {}).get("key", "")
+                if first_package:
+                    browse_result = packages.package_browse(package_name=first_package)
 
-                if validation_result.get("success"):
-                    result["steps_completed"].append("package_validation")
-                    result["tools_used"].append("package_validate")
-                    result["recommendations"].append("Package validation available for data integrity checks")
-                    print("      ✅ Package validation successful")
+                    if browse_result.get("success"):
+                        result["steps_completed"].append("package_validation")
+                        result["tools_used"].append("package_browse")
+                        result["recommendations"].append("Package browsing available for data integrity checks")
+                        print("      ✅ Package browsing successful")
+                    else:
+                        result["steps_failed"].append("package_validation")
+                        result["errors"].append("Package browsing failed")
+                        print("      ❌ Package browsing failed")
                 else:
                     result["steps_failed"].append("package_validation")
-                    result["errors"].append("Package validation failed")
-                    print("      ❌ Package validation failed")
+                    result["errors"].append("No package name found in search results")
+                    print("      ❌ No package name found in search results")
             else:
                 result["steps_failed"].append("package_validation")
                 result["errors"].append("No packages available for validation test")

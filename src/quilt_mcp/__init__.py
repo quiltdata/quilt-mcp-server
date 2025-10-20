@@ -15,15 +15,17 @@ from .constants import (
 )
 
 # Re-export all tools for easy access
-from .tools.auth import (
-    auth_status,
-    catalog_info,
-    catalog_name,
+from .tools.catalog import (
     catalog_uri,
     catalog_url,
     configure_catalog,
-    filesystem_status,
     switch_catalog,
+)
+from .services.auth_metadata import (
+    auth_status,
+    catalog_info,
+    catalog_name,
+    filesystem_status,
 )
 from .tools.buckets import (
     bucket_object_fetch,
@@ -34,23 +36,10 @@ from .tools.buckets import (
     bucket_objects_put,
     bucket_objects_search,
 )
-from .tools.package_ops import package_create, package_delete, package_update
-from .tools.s3_package import package_create_from_s3
-from .tools.permissions import (
-    aws_permissions_discover,
-    bucket_access_check,
+from .services.permissions_service import (
     bucket_recommendations_get,
-)
-from .tools.unified_package import (
-    create_package,
-    list_available_resources,
-    quick_start,
-)
-from .tools.package_management import (
-    create_package_enhanced,
-    package_update_metadata,
-    package_validate,
-    list_package_tools,
+    check_bucket_access as bucket_access_check,
+    discover_permissions as aws_permissions_discover,
 )
 from .services.metadata_service import (
     create_metadata_from_template,
@@ -68,11 +57,15 @@ from .tools.quilt_summary import (
 from .tools.packages import (
     package_browse,
     package_contents_search,
+    package_create,
+    package_create_from_s3,
+    package_delete,
     package_diff,
+    package_update,
     packages_list,
     packages_search,
 )
-from .tools.tabulator import (
+from .services.tabulator_service import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
@@ -121,17 +114,9 @@ __all__ = [
     "aws_permissions_discover",
     "bucket_access_check",
     "bucket_recommendations_get",
-    # Unified tools
-    "create_package",
-    "list_available_resources",
-    "quick_start",
-    # Enhanced package management
-    "create_package_enhanced",
+    # Metadata helpers
     "get_metadata_template",
     "list_metadata_templates",
-    "list_package_tools",
-    "package_update_metadata",
-    "package_validate",
     "validate_metadata_structure",
     # Metadata examples and guidance
     "show_metadata_examples",

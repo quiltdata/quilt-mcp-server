@@ -197,7 +197,7 @@ class QuiltAuthMiddleware(BaseHTTPMiddleware):
 
 ### 8. Tools - Athena/Tabulator (Modified)
 
-**`src/quilt_mcp/tools/athena_glue.py`**
+**`src/quilt_mcp/services/athena_read_service.py`**
 
 - Athena queries use JWT-derived credentials
 - **Key Changes:**
