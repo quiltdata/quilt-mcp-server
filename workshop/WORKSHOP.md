@@ -833,8 +833,7 @@ Create a package called "[namespace]/[name]" with these files: [list]
 
 **Data Exploration**:
 - `bucket_objects_list` - List S3 files
-- `unified_search` - Search S3 by content
-- `unified_search` - Find packages
+- `unified_search` - Search S3 by content and find packages
 - `package_browse` - View package contents
 
 **Querying**:
