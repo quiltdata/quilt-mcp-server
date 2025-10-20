@@ -15,11 +15,11 @@ from urllib.parse import urlparse
 
 try:
     from quilt_mcp.services.quilt_service import QuiltService
-except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
     # Provide a stub so tests can patch QuiltService without requiring quilt3.
     class QuiltService:  # type: ignore[misc]
         def __init__(self, *args, **kwargs):
-            raise ModuleNotFoundError("quilt3 is required for QuiltService") from exc
+            raise ModuleNotFoundError("quilt3 is required for QuiltService")
 
 
 # ---------------------------------------------------------------------------

@@ -232,7 +232,7 @@ class TestAdminUserResource:
         with patch("quilt_mcp.resources.admin.admin_user_get") as mock_tool:
             mock_tool.return_value = mock_result
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="Username cannot be empty|Failed to get user"):
                 await resource.read("admin://users/", params)
 
     def test_properties(self, resource):

@@ -18,11 +18,11 @@ from quilt_mcp.services.auth_metadata import (
 
 try:
     from ..services.quilt_service import QuiltService
-except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
 
     class QuiltService:  # type: ignore[misc]
         def __init__(self, *args, **kwargs):
-            raise ModuleNotFoundError("quilt3 is required for QuiltService") from exc
+            raise ModuleNotFoundError("quilt3 is required for QuiltService")
 
 
 def catalog_url(
