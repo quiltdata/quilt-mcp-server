@@ -150,7 +150,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
         """Search objects within a specific bucket using GraphQL."""
-        # Use the same GraphQL query pattern as the working bucket_objects_search_graphql
+        # Uses the GraphQL query pattern shared with the legacy bucket search helper
         graphql_query = """
         query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
             objects(bucket: $bucket, filter: $filter, first: $first) {
@@ -425,7 +425,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Convert GraphQL bucket objects results to standard format."""
         results = []
 
-        # Use the same result structure as bucket_objects_search_graphql
+        # Use the same result structure as the legacy GraphQL bucket search helper
         data = graphql_result.get("data", {})
         objects = data.get("objects", {})
         edges = objects.get("edges", [])
@@ -612,7 +612,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return user_meta_filters
 
-    def _convert_packages_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
+    def _convert_catalog_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert searchPackages GraphQL results to standard format."""
         results = []
 

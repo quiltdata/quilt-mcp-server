@@ -230,26 +230,6 @@ result = await mcp_client.call_tool(\"packages_list\", {
 }
 ```
 
-#### `packages_search`
-
-Search packages by content and metadata using Elasticsearch.
-
-```python
-# Content search
-result = await mcp_client.call_tool(\"packages_search\", {
-    \"query\": \"RNA-seq genomics human\",
-    \"registry\": \"s3://quilt-example\",
-    \"limit\": 10
-})
-
-# Advanced search with filters
-result = await mcp_client.call_tool(\"packages_search\", {
-    \"query\": \"genomics\",
-    \"from_\": 0,
-    \"limit\": 20
-})
-```
-
 ### Package Creation Tools
 
 #### `create_package_enhanced` (Recommended)
@@ -395,32 +375,6 @@ result = await mcp_client.call_tool(\"package_validate\", {
 }
 ```
 
-#### `package_contents_search`
-
-Search within a specific package's contents by filename or path.
-
-```python
-result = await mcp_client.call_tool(\"package_contents_search\", {
-    \"package_name\": \"genomics/ccle-rnaseq\",
-    \"query\": \"sample_001\",
-    \"registry\": \"s3://quilt-example\",
-    \"include_signed_urls\": true
-})
-
-# Response includes matching files with download URLs
-{
-    \"success\": true,
-    \"matches\": [
-        {
-            \"logical_key\": \"data/sample_001.fastq.gz\",
-            \"s3_uri\": \"s3://quilt-example/.../sample_001.fastq.gz\",
-            \"size\": 1048576,
-            \"download_url\": \"https://...\"
-        }
-    ]
-}
-```
-
 #### `package_update_metadata`
 
 Update package metadata without recreating the entire package.
@@ -478,49 +432,6 @@ result = await mcp_client.call_tool(\"bucket_objects_list\", {
     \"is_truncated\": false,
     \"next_continuation_token\": null
 }
-```
-
-#### `bucket_objects_search`
-
-Search objects using Elasticsearch with advanced query capabilities.
-
-```python
-# Text search
-result = await mcp_client.call_tool(\"bucket_objects_search\", {
-    \"bucket\": \"s3://my-data-bucket\",
-    \"query\": \"RNA-seq fastq\",
-    \"limit\": 20
-})
-
-# Advanced query with filters
-result = await mcp_client.call_tool(\"bucket_objects_search\", {
-    \"bucket\": \"s3://my-data-bucket\",
-    \"query\": {
-        \"bool\": {
-            \"must\": [
-                {\"match\": {\"key\": \"genomics\"}},
-                {\"range\": {\"size\": {\"gte\": 1000000}}}
-            ]
-        }
-    },
-    \"limit\": 10
-})
-```
-
-#### `bucket_objects_search_graphql`
-
-Search bucket objects using GraphQL with rich filtering capabilities.
-
-```python
-result = await mcp_client.call_tool(\"bucket_objects_search_graphql\", {
-    \"bucket\": \"s3://my-data-bucket\",
-    \"object_filter\": {
-        \"key_contains\": \"genomics\",
-        \"size_gte\": 1000000,
-        \"modified_after\": \"2024-01-01\"
-    },
-    \"first\": 50
-})
 ```
 
 ### Object Operations
@@ -1395,7 +1306,7 @@ result = await mcp_client.call_tool("quick_start", {})
     "success": true,
     "quick_start_guide": {
         "authentication": ["auth_status", "catalog_info"],
-        "data_exploration": ["packages_search", "package_browse"],
+        "data_exploration": ["unified_search", "package_browse"],
         "package_creation": ["create_package_enhanced", "package_validate"]
     },
     "common_workflows": [...],
@@ -2079,9 +1990,9 @@ status = await mcp_client.call_tool(\"workflow_get_status\", {
 | Category | Primary Tools | Use Cases |
 |----------|---------------|-----------|
 | **Authentication** | `auth_status`, `catalog_info`, `filesystem_status` | Setup, troubleshooting, environment validation |
-| **Package Management** | `create_package_enhanced`, `package_browse`, `packages_search` | Data organization, exploration |
+| **Package Management** | `create_package_enhanced`, `package_browse` | Data organization, exploration |
 | **S3 Operations** | `bucket_objects_list`, `bucket_object_info`, `unified_search` | Direct data access, file operations |
-| **Search & Discovery** | `unified_search`, `search_suggest`, `packages_search` | Finding data, content discovery |
+| **Search & Discovery** | `unified_search`, `search_suggest`, `search_explain` | Finding data, content discovery |
 | **Analytics** | `athena_query_execute`, `tabulator_tables_list` | Data analysis, SQL queries |
 | **Workflows** | `workflow_create`, `workflow_add_step`, `workflow_get_status` | Process orchestration, automation |
 | **Metadata** | `get_metadata_template`, `validate_metadata_structure` | Data documentation, standardization |

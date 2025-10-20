@@ -46,7 +46,7 @@
 - **Cause**: Elasticsearch performance/memory protection
 
 ### **Missing Total Count API**
-- **Issue**: `packages_search` doesn't return Elasticsearch total count metadata
+- **Issue**: `unified_search` doesn't return Elasticsearch total count metadata
 - **Impact**: Cannot get true totals without aggregation queries
 - **Workaround**: Use limit=10,000 to get maximum sample
 

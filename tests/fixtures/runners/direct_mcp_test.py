@@ -159,10 +159,15 @@ class DirectMCPTester:
 
         # Test different search functions
         search_tests = [
-            ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
+            ("mcp_quilt_unified_search", {"query": "data", "limit": 3}),
             (
-                "mcp_quilt_bucket_objects_search",
-                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+                "mcp_quilt_unified_search",
+                {
+                    "query": "data",
+                    "scope": "bucket",
+                    "target": "s3://quilt-sandbox-bucket",
+                    "limit": 3,
+                },
             ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
@@ -212,10 +217,10 @@ class DirectMCPTester:
 
         # Test with invalid inputs
         error_tests = [
-            ("mcp_quilt_packages_search", {"query": "", "limit": -1}),  # Invalid limit
+            ("mcp_quilt_unified_search", {"query": "", "limit": -1}),  # Invalid limit
             (
-                "mcp_quilt_bucket_objects_search",
-                {"bucket": "invalid-bucket", "query": "test"},
+                "mcp_quilt_unified_search",
+                {"query": "test", "scope": "bucket", "target": "invalid-bucket"},
             ),  # Invalid bucket
             ("mcp_quilt_auth_status", {}),  # Missing required parameter
         ]

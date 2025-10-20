@@ -40,8 +40,8 @@ is not authorized to perform: glue:GetDatabase on resource: arn:aws:glue:us-east
 
 | Test Case | MCP Decision | Discovery Success | Aggregation Success |
 |-----------|-------------|-------------------|-------------------|
-| **AW003**: Cell painting QC aggregation | `packages_search` + `package_browse` | ✅ **EXCELLENT** | ❌ **INCOMPLETE** |
-| **AW004**: Meta-analysis package | `packages_search` + `bucket_objects_search` | ✅ **GOOD** | ❌ **NOT ATTEMPTED** |
+| **AW003**: Cell painting QC aggregation | `unified_search` + `package_browse` | ✅ **EXCELLENT** | ❌ **INCOMPLETE** |
+| **AW004**: Meta-analysis package | `unified_search` + `unified_search` | ✅ **GOOD** | ❌ **NOT ATTEMPTED** |
 
 **Discovery Phase**: ✅ **Excellent** - MCP successfully:
 - Found 4 cell painting packages
@@ -74,10 +74,10 @@ is not authorized to perform: glue:GetDatabase on resource: arn:aws:glue:us-east
 
 | Search Type | Query | MCP Decision | Result Quality |
 |-------------|-------|-------------|----------------|
-| **Broad** | "cancer research" | `packages_search` | ✅ **EXCELLENT** - Found presentations, schemas |
-| **Medium** | "breast cancer RNA-seq" | `packages_search` | ✅ **GOOD** - Found CCLE data files |
-| **Specific** | "BRCA_samples_metadata.csv" | `bucket_objects_search` | ✅ **ACCURATE** - No results (file doesn't exist) |
-| **Pattern** | "*_QC_report_*.csv" | `bucket_objects_search` | ✅ **GOOD** - Found metadata files |
+| **Broad** | "cancer research" | `unified_search` | ✅ **EXCELLENT** - Found presentations, schemas |
+| **Medium** | "breast cancer RNA-seq" | `unified_search` | ✅ **GOOD** - Found CCLE data files |
+| **Specific** | "BRCA_samples_metadata.csv" | `unified_search` | ✅ **ACCURATE** - No results (file doesn't exist) |
+| **Pattern** | "*_QC_report_*.csv" | `unified_search` | ✅ **GOOD** - Found metadata files |
 
 **Search Capability**: ✅ **Excellent** - MCP demonstrates sophisticated search refinement
 **Progressive Narrowing**: Works exactly as expected for real-world discovery workflows

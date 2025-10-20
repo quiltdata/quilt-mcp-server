@@ -63,13 +63,13 @@ class MCPTestSimulator:
             "mcp_quilt_catalog_info",
             "mcp_quilt_catalog_name",
             "mcp_quilt_filesystem_status",
-            "mcp_quilt_packages_search",
+            "mcp_quilt_unified_search",
             "mcp_quilt_packages_list",
             "mcp_quilt_package_browse",
             "mcp_quilt_package_create",
             "mcp_quilt_package_update",
             "mcp_quilt_package_diff",
-            "mcp_quilt_bucket_objects_search",
+            "mcp_quilt_unified_search",
             "mcp_quilt_bucket_objects_list",
             "mcp_quilt_bucket_object_info",
             "mcp_quilt_bucket_object_text",
@@ -167,7 +167,7 @@ class MCPTestSimulator:
 
     def _simulate_search_test(self, test_id: str, persona: str, utterance: str, mcp_tools: List[str]) -> TestResult:
         """Simulate search-related tests"""
-        if "mcp_quilt_packages_search" in mcp_tools:
+        if "mcp_quilt_unified_search" in mcp_tools:
             # Simulate successful package search
             return TestResult(
                 test_id=test_id,
@@ -175,7 +175,7 @@ class MCPTestSimulator:
                 utterance=utterance,
                 status="PASS",
                 execution_time_ms=0,  # Will be set by caller
-                tools_used=["mcp_quilt_packages_search"],
+                tools_used=["mcp_quilt_unified_search"],
                 response_summary="Found 3-5 packages matching search criteria",
                 recommendations=[],
             )

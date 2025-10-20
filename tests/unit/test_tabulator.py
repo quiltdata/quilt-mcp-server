@@ -153,55 +153,6 @@ def test_tabulator_query_fails_without_catalog_config(monkeypatch: pytest.Monkey
     assert "tabulator_data_catalog not configured" in result["error"]
 
 
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
-def test_tabulator_buckets_list_calls_tabulator_query(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_buckets_list calls _tabulator_query with SHOW DATABASES."""
-    # Mock _tabulator_query
-    mock_query = MagicMock(
-        return_value={
-            "success": True,
-            "formatted_data": [
-                {"database_name": "bucket-one"},
-                {"database_name": "bucket-two"},
-            ],
-        }
-    )
-    monkeypatch.setattr("quilt_mcp.services.tabulator_service._tabulator_query", mock_query)
-
-    # Call the function
-    from quilt_mcp.services.tabulator_service import tabulator_buckets_list
-    import asyncio
-
-    result = asyncio.run(tabulator_buckets_list())
-
-    # Verify _tabulator_query was called with SHOW DATABASES
-    mock_query.assert_called_once()
-    call_args = mock_query.call_args[0]
-    assert "SHOW DATABASES" in call_args[0]
-
-    # Verify result structure
-    assert result["success"] is True
-    assert "buckets" in result
-    assert len(result["buckets"]) == 2
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
-def test_tabulator_buckets_list_handles_query_failure(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_buckets_list handles _tabulator_query failures."""
-    # Mock _tabulator_query to fail
-    mock_query = MagicMock(return_value={"success": False, "error": "Catalog not configured"})
-    monkeypatch.setattr("quilt_mcp.services.tabulator_service._tabulator_query", mock_query)
-
-    # Call should propagate error
-    from quilt_mcp.services.tabulator_service import tabulator_buckets_list
-    import asyncio
-
-    result = asyncio.run(tabulator_buckets_list())
-
-    assert result["success"] is False
-    assert "error" in result
-
-
 def test_tabulator_bucket_query_calls_tabulator_query_with_database(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_bucket_query calls _tabulator_query with database_name."""
     # Mock _tabulator_query

@@ -77,16 +77,16 @@ governance           ✓ Keep
 
 **Current split**:
 
-- `packages`: Browse and search (`package_browse`, `package_contents_search`, `package_diff`, `packages_search`)
+- `packages`: Browse and search (`package_browse`, `unified_search`, `package_diff`, `unified_search`)
 - `package_ops`: Basic CRUD (`package_create`, `package_update`, `package_delete`)
 - `s3_package`: S3-to-package workflow (`package_create_from_s3`)
 
 **Target**: Single `packages` module with all package operations:
 
 - `package_browse(package_name, ...)` - from packages
-- `package_contents_search(package_name, query, ...)` - from packages
+- `unified_search(package_name, query, ...)` - from packages
 - `package_diff(package1_name, package2_name, ...)` - from packages
-- `packages_search(query, ...)` - from packages
+- `unified_search(query, ...)` - from packages
 - `package_create(package_name, s3_uris, ...)` - from package_ops
 - `package_create_from_s3(source_bucket, package_name, ...)` - from s3_package
 - `package_update(package_name, s3_uris, ...)` - from package_ops

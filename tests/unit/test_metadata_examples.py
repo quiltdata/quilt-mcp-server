@@ -2,30 +2,8 @@ import pytest
 from unittest.mock import patch
 
 from quilt_mcp.services.metadata_service import (
-    show_metadata_examples,
     create_metadata_from_template,
-    fix_metadata_validation_issues,
 )
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (metadata://examples)")
-def test_show_metadata_examples_structure():
-    guide = show_metadata_examples()
-
-    assert isinstance(guide, dict)
-    assert "metadata_usage_guide" in guide
-    assert "troubleshooting" in guide
-    assert "best_practices" in guide
-    assert "quick_reference" in guide
-
-    muc = guide["metadata_usage_guide"]
-    assert "working_examples" in muc
-    assert "common_patterns" in muc
-    assert "recommended_approach" in muc
-
-    quick = guide["quick_reference"]
-    assert "available_templates" in quick
-    assert set(["standard", "genomics", "ml", "research", "analytics"]).issubset(set(quick["available_templates"]))
 
 
 def test_create_metadata_from_template_success():
@@ -53,17 +31,3 @@ def test_create_metadata_from_template_failure():
         assert "Failed to create metadata from template" in result["error"]
         assert result["template_requested"] == "unknown"
         assert "suggested_actions" in result
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (metadata://troubleshooting)")
-def test_fix_metadata_validation_issues_contents():
-    info = fix_metadata_validation_issues()
-
-    assert "common_issues_and_fixes" in info
-    issues = info["common_issues_and_fixes"]
-    assert "schema_validation_error" in issues
-    assert "json_format_error" in issues
-    assert "type_validation_error" in issues
-
-    assert "step_by_step_fix" in info
-    assert any("Choose your approach" in step or step.startswith("1.") for step in info["step_by_step_fix"])

@@ -227,9 +227,9 @@ exploration_scenario = TestScenario(
     name="package_exploration", 
     steps=[
         TestStep("packages_list", {"limit": 20}),
-        TestStep("packages_search", {"query": "dataset"}),
+        TestStep("unified_search", {"query": "dataset"}),
         TestStep("package_browse", {"package_name": "examples/data"}),
-        TestStep("package_contents_search", {"query": "*.csv"})
+        TestStep("unified_search", {"query": "*.csv"})
     ],
     expected_total_time=10.0,
     expected_call_count=4

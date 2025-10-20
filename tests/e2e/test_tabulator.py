@@ -395,7 +395,7 @@ class TestTabulatorTableDelete:
 
         assert result["success"] is True
         assert result["table_name"] == "test_table"
-        mock_service.delete_table.assert_called_once_with("test-bucket", "test_table")
+        mock_service.delete_table.assert_called_once_with(bucket_name="test-bucket", table_name="test_table")
 
     @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
@@ -433,7 +433,7 @@ class TestTabulatorTableRename:
         assert result["success"] is True
         assert result["old_table_name"] == "old_table"
         assert result["new_table_name"] == "new_table"
-        mock_service.rename_table.assert_called_once_with("test-bucket", "old_table", "new_table")
+        mock_service.rename_table.assert_called_once_with(bucket_name="test-bucket", table_name="old_table", new_table_name="new_table")
 
     @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
@@ -488,7 +488,7 @@ class TestTabulatorOpenQuery:
         assert result["success"] is True
         assert result["open_query_enabled"] is False
         assert "disabled" in result["message"]
-        mock_service.set_open_query.assert_called_once_with(False)
+        mock_service.set_open_query.assert_called_once_with(enabled=False)
 
     @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio

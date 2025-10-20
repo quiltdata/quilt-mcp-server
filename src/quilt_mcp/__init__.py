@@ -34,7 +34,6 @@ from .tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
 )
 from .services.permissions_service import (
     bucket_recommendations_get,
@@ -56,14 +55,12 @@ from .tools.quilt_summary import (
 )
 from .tools.packages import (
     package_browse,
-    package_contents_search,
     package_create,
     package_create_from_s3,
     package_delete,
     package_diff,
     package_update,
     packages_list,
-    packages_search,
 )
 from .services.tabulator_service import (
     tabulator_tables_list,
@@ -99,17 +96,14 @@ __all__ = [
     "bucket_objects_put",
     "bucket_object_fetch",
     "bucket_object_link",
-    "bucket_objects_search",
     # Package tools
     "package_browse",
-    "package_contents_search",
     "package_create",
     "package_create_from_s3",
     "package_delete",
     "package_diff",
     "package_update",
     "packages_list",
-    "packages_search",
     # Permission tools
     "aws_permissions_discover",
     "bucket_access_check",

@@ -131,16 +131,14 @@ class TestGraphQLBackend:
         backend = EnterpriseGraphQLBackend()
         assert backend.status == BackendStatus.AVAILABLE
 
-    @patch("quilt_mcp.search.backends.graphql.quilt3")
-    def test_graphql_unavailable(self, mock_quilt3):
+    @patch("quilt_mcp.tools.search._get_graphql_endpoint")
+    def test_graphql_unavailable(self, mock_get_endpoint):
         """Test GraphQL backend when service is unavailable."""
-        mock_quilt3.session.get_registry_url.return_value = None
-        mock_quilt3.session.get_session.return_value = None
-
         # Mock the GraphQL endpoint function to return None
-        with patch("quilt_mcp.tools.graphql._get_graphql_endpoint", return_value=(None, None)):
-            backend = EnterpriseGraphQLBackend()
-            assert backend.status == BackendStatus.UNAVAILABLE
+        mock_get_endpoint.return_value = (None, None)
+
+        backend = EnterpriseGraphQLBackend()
+        assert backend.status == BackendStatus.UNAVAILABLE
 
     @patch("quilt_mcp.search.backends.graphql.quilt3")
     @pytest.mark.asyncio
