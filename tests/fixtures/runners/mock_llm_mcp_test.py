@@ -340,8 +340,6 @@ class MockLLMMCPTester:
             "auth_status",
             "unified_search",
             "packages_list",
-            "unified_search",
-            "unified_search",
         ]
 
         found_tools = [tool for tool in key_tools if tool in available_tools]
