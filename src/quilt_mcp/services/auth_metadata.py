@@ -283,9 +283,7 @@ def filesystem_status() -> Dict[str, Any]:
                 "catalog_uri",
                 "filesystem_status",
                 "packages_list",
-                "packages_search",
                 "package_browse",
-                "package_contents_search",
                 "package_create",
                 "package_update",
                 "bucket_objects_list",
@@ -293,6 +291,7 @@ def filesystem_status() -> Dict[str, Any]:
                 "bucket_object_text",
                 "bucket_objects_put",
                 "bucket_object_fetch",
+                "unified_search",
             ],
         )
     elif result.get("temp_writable"):
@@ -310,7 +309,7 @@ def filesystem_status() -> Dict[str, Any]:
                 "bucket_object_info",
                 "bucket_object_text",
                 "packages_list",
-                "packages_search",
+                "unified_search",
             ],
         )
     else:
@@ -327,7 +326,7 @@ def filesystem_status() -> Dict[str, Any]:
                 "bucket_object_info",
                 "bucket_object_text",
                 "packages_list",
-                "packages_search",
+                "unified_search",
             ],
         )
 

@@ -18,11 +18,11 @@
 **Total Benchling Tools Available**: 25+ tools
 
 ### ❌ **MISSING in Cursor (All Quilt MCP Tools)**
-- `mcp_quilt_packages_search` ❌ NOT FOUND
+- `mcp_quilt_unified_search` ❌ NOT FOUND
 - `mcp_quilt_packages_list` ❌ NOT FOUND  
 - `mcp_quilt_package_browse` ❌ NOT FOUND
 - `mcp_quilt_athena_query_execute` ❌ NOT FOUND
-- `mcp_quilt_bucket_objects_search` ❌ NOT FOUND
+- `mcp_quilt_unified_search` ❌ NOT FOUND
 - `mcp_quilt_create_package_enhanced` ❌ NOT FOUND
 - `mcp_quilt_tabulator_tables_list` ❌ NOT FOUND
 

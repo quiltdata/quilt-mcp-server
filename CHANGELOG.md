@@ -176,7 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **API Consolidation**: Streamlined tool interfaces
   - **Search Functions**: 4 → 1 (`catalog_search`) - 75% API surface reduction (#185)
-    - Removed `packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`
+    - Removed legacy search tools (`packages_search`, `bucket_objects_search`, `bucket_objects_search_graphql`) in favor of `unified_search`
   - **Package Operations**: 4 → 2 functions - 50% API reduction (#184, #187)
     - Standardized on `create_package` and `create_package_from_prefix`
     - Removed obsolete `package_update`, `package_update_metadata`, old `create_package`
@@ -528,8 +528,8 @@ Use `quilt-mcp` as the package name.
 ### Added Tool Exclusion System
 
 - **Tool Exclusion System**: Added ability to exclude deprecated tools to reduce client confusion
-  - Excluded `packages_list` (prefer `packages_search`)
-  - Excluded `bucket_objects_list` (prefer `bucket_objects_search`)
+  - Excluded `packages_list` (prefer `unified_search`)
+  - Excluded `bucket_objects_list` (prefer `unified_search` with `scope="bucket"`)
   - Clear messaging when tools are skipped during registration
 
 ### Fixed Issues

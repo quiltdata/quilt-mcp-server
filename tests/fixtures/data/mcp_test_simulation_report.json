@@ -90,7 +90,7 @@
       "status": "PASS",
       "execution_time_ms": 0.01,
       "tools_used": [
-        "mcp_quilt_packages_search"
+        "mcp_quilt_unified_search"
       ],
       "error_message": null,
       "error_type": null,
@@ -176,8 +176,8 @@
       "status": "PASS",
       "execution_time_ms": 0.0,
       "tools_used": [
-        "mcp_quilt_bucket_objects_search",
-        "mcp_quilt_packages_search"
+        "mcp_quilt_unified_search",
+        "mcp_quilt_unified_search"
       ],
       "error_message": null,
       "error_type": null,
@@ -380,7 +380,7 @@
       "status": "PASS",
       "execution_time_ms": 0.0,
       "tools_used": [
-        "mcp_quilt_packages_search"
+        "mcp_quilt_unified_search"
       ],
       "error_message": null,
       "error_type": null,
@@ -562,7 +562,7 @@
       "status": "PASS",
       "execution_time_ms": 0.0,
       "tools_used": [
-        "mcp_quilt_bucket_objects_search",
+        "mcp_quilt_unified_search",
         "mcp_quilt_package_browse"
       ],
       "error_message": null,

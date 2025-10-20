@@ -122,8 +122,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="List available packages",
             ),
             TestStep(
-                tool_name="packages_search",
-                args={"query": "dataset", "limit": 10},
+                tool_name="unified_search",
+                args={"query": "dataset", "limit": 10, "scope": "catalog"},
                 description="Search for dataset packages",
             ),
             TestStep(
@@ -132,8 +132,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="Browse package structure",
             ),
             TestStep(
-                tool_name="package_contents_search",
-                args={"package_name": "examples/wellcome-data", "query": "*.csv"},
+                tool_name="unified_search",
+                args={"query": "*.csv", "scope": "package", "target": "examples/wellcome-data"},
                 description="Search for CSV files in package",
             ),
         ],
@@ -156,8 +156,8 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
                 description="List bucket objects",
             ),
             TestStep(
-                tool_name="bucket_objects_search",
-                args={"bucket": "s3://quilt-sandbox-bucket", "query": "*.json"},
+                tool_name="unified_search",
+                args={"query": "*.json", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search for JSON files",
             ),
             TestStep(
@@ -480,8 +480,8 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
         expected_call_count=8,
         steps=[
             TestStep(
-                tool_name="packages_search",
-                args={"query": "genomics", "limit": 50},
+                tool_name="unified_search",
+                args={"query": "genomics", "limit": 50, "scope": "catalog"},
                 description="Search for genomics packages",
             ),
             TestStep(
@@ -494,13 +494,13 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 description="Deep browse (could be optimized with max_depth)",
             ),
             TestStep(
-                tool_name="package_contents_search",
-                args={"package_name": "genomics/example", "query": "*"},
+                tool_name="unified_search",
+                args={"query": "*", "scope": "package", "target": "genomics/example"},
                 description="Search all contents (could be combined with browse)",
             ),
             TestStep(
-                tool_name="bucket_objects_search",
-                args={"bucket": "s3://quilt-sandbox-bucket", "query": "genomics"},
+                tool_name="unified_search",
+                args={"query": "genomics", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search bucket for genomics files",
             ),
             TestStep(

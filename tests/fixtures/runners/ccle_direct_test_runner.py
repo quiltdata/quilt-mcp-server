@@ -25,6 +25,7 @@ from quilt_mcp.tools import (
     package_ops,
     workflow_orchestration,
     auth,
+    search,
 )
 
 
@@ -130,10 +131,10 @@ class CCLEDirectTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = packages.packages_search(query="CCLE expression RNA-seq", limit=5)
+            search_result = search.unified_search(query="CCLE expression RNA-seq", scope="catalog", limit=5)
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
-                result["tools_used"].append("packages_search")
+                result["tools_used"].append("unified_search")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in search_result["results"][:3]]
                 )
@@ -211,11 +212,11 @@ class CCLEDirectTester:
 
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = packages.packages_search(query="CCLE FASTQ RNA-seq raw", limit=3)
+            fastq_search = search.unified_search(query="CCLE FASTQ RNA-seq raw", scope="catalog", limit=3)
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
-                result["tools_used"].append("packages_search")
+                result["tools_used"].append("unified_search")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in fastq_search["results"]]
                 )
@@ -280,13 +281,16 @@ class CCLEDirectTester:
 
         # Step 4: Search for Salmon quantification results
         try:
-            salmon_search = buckets.bucket_objects_search(
-                bucket="s3://quilt-sandbox-bucket", query="salmon quant.sf TPM", limit=5
+            salmon_search = search.unified_search(
+                query="salmon quant.sf TPM",
+                scope="bucket",
+                target="s3://quilt-sandbox-bucket",
+                limit=5,
             )
 
             if salmon_search.get("success"):
                 result["steps_completed"].append("salmon_results_discovery")
-                result["tools_used"].append("bucket_objects_search")
+                result["tools_used"].append("unified_search")
                 result["recommendations"].append("Salmon quantification results discoverable for benchmarking")
                 print("      ✅ Salmon results discovery successful")
             else:
@@ -304,11 +308,11 @@ class CCLEDirectTester:
 
         # Step 1: Search for BAM files
         try:
-            bam_search = packages.packages_search(query="CCLE BAM alignment RNA-seq", limit=3)
+            bam_search = search.unified_search(query="CCLE BAM alignment RNA-seq", scope="catalog", limit=3)
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
-                result["tools_used"].append("packages_search")
+                result["tools_used"].append("unified_search")
                 print("      ✅ BAM file discovery successful")
             else:
                 result["steps_failed"].append("bam_discovery")
@@ -368,11 +372,11 @@ class CCLEDirectTester:
 
         for data_type in data_types:
             try:
-                search_result = packages.packages_search(query=f"CCLE {data_type}", limit=2)
+                search_result = search.unified_search(query=f"CCLE {data_type}", scope="catalog", limit=2)
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")
-                    result["tools_used"].append("packages_search")
+                    result["tools_used"].append("unified_search")
                     print(f"      ✅ {data_type} data discovery successful")
                 else:
                     result["steps_failed"].append(f"{data_type}_discovery")
@@ -503,7 +507,7 @@ class CCLEDirectTester:
         # Step 2: Test package browsing (validation alternative)
         try:
             # Use a known package for browsing test
-            packages_result = packages.packages_search(query="*", limit=1)
+            packages_result = search.unified_search(query="*", scope="catalog", limit=1)
 
             if packages_result.get("success") and packages_result.get("results"):
                 first_package = packages_result["results"][0].get("_source", {}).get("key", "")

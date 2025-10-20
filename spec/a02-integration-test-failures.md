@@ -39,10 +39,10 @@ reliability and masks real issues.
 
 **~~Affected Tests~~:** **NOW PASSING ✅**
 
-- ~~`test_packages_search_authentication_error`~~ ✅ **PASSES**
-- ~~`test_packages_search_config_error`~~ ✅ **PASSES**
+- ~~`test_unified_search_authentication_error`~~ ✅ **PASSES**
+- ~~`test_unified_search_config_error`~~ ✅ **PASSES**
 
-**~~Root Cause~~:** ~~Tests were only mocking primary search method but packages_search has fallback to quilt3.Bucket.search()~~ **FIXED**
+**~~Root Cause~~:** ~~Tests were only mocking primary search method but unified_search has fallback to quilt3.Bucket.search()~~ **FIXED**
 
 **Resolution:** Updated tests to mock both `build_stack_search_indices` AND `quilt3.Bucket.search()` fallback methods.
 
@@ -54,8 +54,8 @@ reliability and masks real issues.
 
 - `test_bucket_object_info_known_file` - "HeadObject operation: Not Found"
 - `test_bucket_object_text_csv_file` - "key does not exist"
-- `test_packages_search_finds_data` - timeout (missing search data)
-- `test_bucket_objects_search_finds_data` - missing test objects
+- `test_unified_search_finds_data` - timeout (missing search data)
+- `test_unified_search_finds_data` - missing test objects
 
 **Root Cause:** Environment-dependent tests without data provisioning.
 
@@ -221,11 +221,11 @@ def test_bucket_object_info_known_file(self, test_data_provisioner):
 
 @pytest.mark.aws
 @pytest.mark.timeout(60)
-async def test_packages_search_with_timeout_handling(self):
+async def test_unified_search_with_timeout_handling(self):
     """Test package search with proper timeout handling."""
     try:
         result = await asyncio.wait_for(
-            packages_search("data", limit=5), 
+            unified_search("data", limit=5), 
             timeout=60.0
         )
         

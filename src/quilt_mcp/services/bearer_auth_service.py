@@ -213,11 +213,10 @@ class BearerAuthService:
             "bucket_objects_put": ["s3:PutObject"],
             "package_create_from_s3": ["s3:GetObject", "s3:ListBucket"],
             "package_browse": ["quilt:BrowsePackages"],
-            "package_contents_search": ["quilt:BrowsePackages"],
             "package_create": ["quilt:UpdatePackage"],
             "package_update": ["quilt:UpdatePackage"],
             "package_delete": ["quilt:UpdatePackage"],
-            "packages_search": ["quilt:BrowsePackages"],
+            "unified_search": ["quilt:BrowsePackages"],
         }
 
         overrides_env = os.getenv("MCP_TOOL_PERMISSIONS")

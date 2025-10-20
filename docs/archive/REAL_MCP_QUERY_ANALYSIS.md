@@ -20,7 +20,7 @@ After running actual user queries against the real MCP server, I've discovered s
 ## 📊 Detailed Query Analysis
 
 ### **R001: "Find all packages containing RNA-seq data from human samples"**
-**MCP Decision**: `packages_search` with "RNA-seq human samples"
+**MCP Decision**: `unified_search` with "RNA-seq human samples"
 **Actual Result**: ✅ **EXCELLENT**
 - Found genomics package with RNA-seq data from human samples (NA12878, NA12987, NA12989)
 - Metadata correctly identified organism="human" and data_type="RNA-seq"
@@ -87,7 +87,7 @@ After running actual user queries against the real MCP server, I've discovered s
 ---
 
 ### **R007: "Search for files containing specific text across multiple packages"**
-**MCP Decision**: `bucket_objects_search` with specific terms
+**MCP Decision**: `unified_search` with specific terms
 **Actual Result**: ✅ **GOOD**
 - Searched for "eIF4E" (no results - likely accurate)
 - Searched for "RNA" (found 5 relevant files)
@@ -113,7 +113,7 @@ After running actual user queries against the real MCP server, I've discovered s
 ---
 
 ### **R021: "Search for packages with specific metadata criteria"**
-**MCP Decision**: `packages_search` with "genomics"
+**MCP Decision**: `unified_search` with "genomics"
 **Actual Result**: ✅ **GOOD**
 - Found genomics-related packages and files
 - Included metadata showing package_type="genomics"
