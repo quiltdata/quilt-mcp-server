@@ -254,8 +254,6 @@ class TestQuiltTools:
             assert "package=user/package:v1.0" in result["quilt_plus_uri"]
             assert result["tag"] == "v1.0"
 
-       mock_bucket = Mock()
-       mock_bucket.search.return_value = mock_results
     def test_package_diff_success(self):
         """Test package_diff with successful diff."""
         mock_pkg1 = Mock()
