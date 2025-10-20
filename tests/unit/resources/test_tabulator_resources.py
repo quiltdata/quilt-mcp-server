@@ -25,7 +25,7 @@ class TestTabulatorBucketsResource:
             "count": 3,
         }
 
-        with patch("quilt_mcp.services.tabulator_service.list_tabulator_buckets") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("tabulator://buckets")
@@ -39,7 +39,7 @@ class TestTabulatorBucketsResource:
         """Test buckets list retrieval failure."""
         mock_result = {"success": False, "error": "Service unavailable"}
 
-        with patch("quilt_mcp.services.tabulator_service.list_tabulator_buckets") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list buckets"):
@@ -65,7 +65,7 @@ class TestTabulatorTablesResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.services.tabulator_service.list_tabulator_tables") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_tables") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "my-bucket"}
@@ -87,7 +87,7 @@ class TestTabulatorTablesResource:
         """Test tables list retrieval failure."""
         mock_result = {"success": False, "error": "Bucket not found"}
 
-        with patch("quilt_mcp.resources.tabulator.tabulator_tables_list") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_tables") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "nonexistent"}

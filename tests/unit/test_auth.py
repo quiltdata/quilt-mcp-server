@@ -529,10 +529,14 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_success(self):
         """Test successful configuration - covers lines 541-547."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with (
+            patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
+            patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class,
+        ):
             mock_service = Mock()
             mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
             mock_service_class.return_value = mock_service
+            base_service_class.return_value = mock_service
 
             result = configure_catalog("https://demo.quiltdata.com")
 
@@ -542,7 +546,10 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_with_exception(self):
         """Test exception handling in configure_catalog - covers lines 564-581."""
-        with patch('quilt_mcp.tools.auth.QuiltService', side_effect=Exception("Config error")):
+        with (
+            patch('quilt_mcp.services.quilt_service.QuiltService', side_effect=Exception("Config error")),
+            patch('quilt_mcp.tools.auth.QuiltService', side_effect=Exception("Config error")),
+        ):
             result = configure_catalog("https://demo.quiltdata.com")
 
             assert result["status"] == "error"
@@ -618,10 +625,14 @@ class TestGetCatalogInfo:
         """Test that _get_catalog_info properly delegates to QuiltService."""
         mock_info = {"catalog_name": "test", "is_authenticated": True}
 
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with (
+            patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
+            patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class,
+        ):
             mock_service = Mock()
             mock_service.get_catalog_info.return_value = mock_info
             mock_service_class.return_value = mock_service
+            base_service_class.return_value = mock_service
 
             result = _get_catalog_info()
 

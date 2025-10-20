@@ -437,11 +437,11 @@ def _tabulator_query(
     """
     try:
         # Import here to avoid circular dependency
-        from .auth import catalog_info
+        from quilt_mcp.services import auth_metadata
         from .athena_glue import athena_query_execute
 
         # Auto-discover data_catalog_name from catalog_info
-        info = catalog_info()
+        info = auth_metadata.catalog_info()
         if not info.get("tabulator_data_catalog"):
             return format_error_response(
                 "tabulator_data_catalog not configured. This requires a Tabulator-enabled catalog. "

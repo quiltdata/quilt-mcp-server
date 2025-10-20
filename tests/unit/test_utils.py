@@ -248,8 +248,8 @@ class TestMCPServerConfiguration(unittest.TestCase):
     def test_get_tool_modules(self):
         """Test that get_tool_modules returns expected modules."""
         modules = get_tool_modules()
-        # The function returns 18 modules after adding data_visualization and stack_buckets
-        self.assertEqual(len(modules), 18)
+        # The function returns 16 modules after retiring metadata_examples and metadata_templates
+        self.assertEqual(len(modules), 16)
         # Check that key modules are included
         module_names = [m.__name__ for m in modules]
         self.assertIn("quilt_mcp.tools.auth", module_names)

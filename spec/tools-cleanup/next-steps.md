@@ -2,6 +2,13 @@
 
 ## Outstanding Work
 
+- **Address current unit test failures (`make -B test`)**
+  - `tests/unit/test_quilt_service.py::TestQuiltServiceAuthentication::test_services_package_exports_core_classes` fails because `quilt_mcp.services` no longer re-exports `QuiltService`; restore the export (or adjust the test expectation) after the services package stabilizes.
+  - `tests/unit/test_tabulator.py::{test_tabulator_query_discovers_catalog_from_catalog_info,test_tabulator_query_accepts_database_name,test_tabulator_query_fails_without_catalog_config}` highlight gaps in the new Tabulator service wiring: the catalog name lookup now resolves to `quilt-quilt-staging-tabulator`, and the workflow no longer fails when config is absent. Decide whether to revert to the legacy fallback, update fixtures, or change expectations to the new behaviour.
+  - `tests/unit/test_tool_docstring_style.py::test_tool_docstrings_follow_llm_style[auth]` reports that the `auth` tools still violate the updated docstring contract (purpose/context first line, `Returns`, `Next step`, and runnable `Example` sections). Update the docstrings alongside the service migration.
+  - `tests/unit/test_tool_docstring_style.py::{test_tool_docstrings_follow_llm_style[metadata_templates], test_tool_docstrings_follow_llm_style[metadata_examples]}` fail because the metadata tool modules have already been removed; update `_MODULE_PATHS`, the style tests, and any registry fixtures once the new services cover the metadata use cases.
+  - `tests/unit/test_utils.py::TestMCPServerConfiguration::test_get_tool_modules` still expects 18 tool modules; reduce the expected count (and regenerate dependent fixtures) after the metadata modules are retired.
+
 - **Complete service migration for remaining read-only tools**
   - Permissions: move `aws_permissions_discover`, `bucket_recommendations_get`, `bucket_access_check` logic into a `services/permissions_service.py`.
   - Governance: extract `GovernanceService` helpers so resources no longer import `quilt_mcp.tools.governance`.

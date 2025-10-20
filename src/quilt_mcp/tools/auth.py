@@ -407,20 +407,87 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "help": "Use one of the available catalog names or provide a full URL",
         }
 def catalog_info() -> dict[str, Any]:
-    """Wrapper around shared catalog_info helper for backward compatibility."""
+    """Retrieve catalog metadata - Quilt authentication introspection workflows
+
+    Returns:
+        Dict describing the active Quilt catalog: authentication status, catalog URLs, region, and
+        tabulator configuration when available.
+
+    Next step:
+        Feed the returned metadata into downstream helpers (for example, Tabulator queries or catalog URL builders)
+        or surface the catalog URLs directly to the end user.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        metadata = auth.catalog_info()
+        if metadata.get("status") == "success":
+            print(metadata["catalog_url"])
+        ```
+    """
     return _catalog_info()
 
 
 def catalog_name() -> dict[str, Any]:
-    """Wrapper around shared catalog_name helper for backward compatibility."""
+    """Report the current catalog name - Quilt authentication introspection workflows
+
+    Returns:
+        Dict containing the canonical catalog name along with authentication status and the raw configuration payload.
+
+    Next step:
+        Pair the catalog name with `auth.catalog_info()` or share the friendly identifier with the user to confirm
+        which Quilt deployment they are interacting with.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        name_info = auth.catalog_name()
+        active_name = name_info.get("catalog_name")
+        ```
+    """
     return _catalog_name()
 
 
 def auth_status() -> dict[str, Any]:
-    """Wrapper around shared auth_status helper for backward compatibility."""
+    """Check Quilt authentication status - Quilt authentication introspection workflows
+
+    Returns:
+        Dict capturing whether the user is logged in, which profile is active, and any URLs that require sign-in.
+
+    Next step:
+        Relay the status to the user or trigger a follow-up action (such as prompting a login) when `is_authenticated`
+        is False.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        status = auth.auth_status()
+        if not status.get("is_authenticated"):
+            print("Next step: run quilt3 login")
+        ```
+    """
     return _auth_status()
 
 
 def filesystem_status() -> dict[str, Any]:
-    """Wrapper around shared filesystem_status helper for backward compatibility."""
+    """Inspect filesystem access - Quilt authentication and local environment workflows
+
+    Returns:
+        Dict summarizing filesystem accessibility, including whether Quilt can read and write to configured paths.
+
+    Next step:
+        Communicate the readiness back to the user or adjust follow-up operations if local filesystem access is
+        restricted.
+
+    Example:
+        ```python
+        from quilt_mcp.tools import auth
+
+        fs = auth.filesystem_status()
+        print(f"Next step: confirm access to {fs['root_path']}")
+        ```
+    """
     return _filesystem_status()

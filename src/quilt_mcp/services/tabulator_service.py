@@ -8,9 +8,9 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from quilt_mcp.formatting import format_tabulator_results_as_table
-from quilt_mcp.services.auth_metadata import catalog_info
+from quilt_mcp.services import auth_metadata
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.tools.athena_glue import athena_query_execute
+from quilt_mcp.tools import athena_glue
 from quilt_mcp.utils import format_error_response
 
 logger = logging.getLogger(__name__)
@@ -381,7 +381,7 @@ def _tabulator_query(
 ) -> Dict[str, Any]:
     """Execute a query against the Tabulator catalog."""
     try:
-        info = catalog_info()
+        info = auth_metadata.catalog_info()
         if not info.get("tabulator_data_catalog"):
             return format_error_response(
                 "tabulator_data_catalog not configured. This requires a Tabulator-enabled catalog. "
@@ -390,7 +390,7 @@ def _tabulator_query(
 
         data_catalog_name = info["tabulator_data_catalog"]
 
-        return athena_query_execute(
+        return athena_glue.athena_query_execute(
             query=query,
             database_name=database_name,
             workgroup_name=workgroup_name,
