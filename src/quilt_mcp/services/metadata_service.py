@@ -164,6 +164,7 @@ def validate_metadata_structure(metadata: Dict[str, Any], template_name: Optiona
 # Metadata examples and troubleshooting
 # ---------------------------------------------------------------------------
 
+
 def show_metadata_examples() -> Dict[str, Any]:
     """Return comprehensive metadata usage examples and troubleshooting tips."""
     return {

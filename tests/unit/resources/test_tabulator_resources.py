@@ -48,10 +48,7 @@ class TestTabulatorBucketsResource:
     @pytest.mark.anyio
     async def test_read_catalog_not_configured(self, resource):
         """Test buckets list when catalog not configured."""
-        mock_result = {
-            "success": False,
-            "error": "tabulator_data_catalog not configured in catalog"
-        }
+        mock_result = {"success": False, "error": "tabulator_data_catalog not configured in catalog"}
 
         with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
             mock_tool.return_value = mock_result

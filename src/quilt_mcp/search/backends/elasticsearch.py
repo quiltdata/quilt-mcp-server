@@ -199,13 +199,13 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         if filters:
             filter_clauses = []
             if filters.get("file_extensions"):
-                filter_clauses.append(
-                    {"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}}
-                )
+                filter_clauses.append({"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}})
             if filters.get("size_gt"):
                 filter_clauses.append({"range": {"size": {"gt": filters["size_gt"]}}})
             if filter_clauses:
-                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(filter_clauses)
+                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
+                    filter_clauses
+                )
 
         from ...tools.stack_buckets import build_stack_search_indices
 

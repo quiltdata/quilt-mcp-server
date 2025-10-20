@@ -285,6 +285,7 @@ class TestUserManagement:
 
 class TestRoleManagement:
     """Test role management functions."""
+
     pass
 
 

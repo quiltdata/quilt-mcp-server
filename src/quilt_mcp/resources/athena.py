@@ -115,7 +115,9 @@ class AthenaTableSchemaResource(MCPResource):
         if not params or "database" not in params or "table" not in params:
             raise ValueError("Database and table names required in URI")
 
-        result = await asyncio.to_thread(athena_table_schema, database_name=params["database"], table_name=params["table"])
+        result = await asyncio.to_thread(
+            athena_table_schema, database_name=params["database"], table_name=params["table"]
+        )
 
         if not result.get("success"):
             raise Exception(f"Failed to get schema: {result.get('error', 'Unknown error')}")

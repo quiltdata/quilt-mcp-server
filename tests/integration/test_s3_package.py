@@ -125,30 +125,21 @@ class TestPackageCreateFromS3:
 
         # Verify the dry_run returned the expected preview structure
         assert result.get("action") == "preview", (
-            f"Expected action='preview' for dry_run=True, got {result.get('action')}. "
-            f"Full result: {result}"
+            f"Expected action='preview' for dry_run=True, got {result.get('action')}. Full result: {result}"
         )
 
-        assert "package_name" in result, (
-            f"Missing 'package_name' in preview result. "
-            f"Full result: {result}"
-        )
+        assert "package_name" in result, f"Missing 'package_name' in preview result. Full result: {result}"
 
         assert result["package_name"] == KNOWN_TEST_PACKAGE, (
-            f"Expected package_name='{KNOWN_TEST_PACKAGE}', "
-            f"got {result.get('package_name')}"
+            f"Expected package_name='{KNOWN_TEST_PACKAGE}', got {result.get('package_name')}"
         )
 
         # Verify structure preview is present
-        assert "structure_preview" in result, (
-            f"Missing 'structure_preview' in dry_run result. "
-            f"Full result: {result}"
-        )
+        assert "structure_preview" in result, f"Missing 'structure_preview' in dry_run result. Full result: {result}"
 
         # Verify registry was set correctly
         assert result.get("registry") == DEFAULT_REGISTRY, (
-            f"Expected registry='{DEFAULT_REGISTRY}', "
-            f"got {result.get('registry')}"
+            f"Expected registry='{DEFAULT_REGISTRY}', got {result.get('registry')}"
         )
 
 
@@ -374,7 +365,6 @@ class TestREADMEContentExtraction:
 
         # Should either fail gracefully or handle metadata
         assert "error" in result or "success" in result
-
 
 
 class TestCreateEnhancedPackageMigration:

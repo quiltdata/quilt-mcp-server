@@ -19,6 +19,7 @@ from quilt_mcp.services.auth_metadata import (
 try:
     from ..services.quilt_service import QuiltService
 except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+
     class QuiltService:  # type: ignore[misc]
         def __init__(self, *args, **kwargs):
             raise ModuleNotFoundError("quilt3 is required for QuiltService") from exc
@@ -236,6 +237,8 @@ def catalog_uri(
 
     except Exception as e:
         return {"status": "error", "error": f"Failed to generate Quilt+ URI: {e}"}
+
+
 def configure_catalog(catalog_url: str) -> dict[str, Any]:
     """Configure Quilt catalog URL - Quilt authentication and catalog navigation workflows
 
@@ -406,6 +409,8 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "available_catalogs": list(catalog_mappings.keys()),
             "help": "Use one of the available catalog names or provide a full URL",
         }
+
+
 def catalog_info() -> dict[str, Any]:
     """Retrieve catalog metadata - Quilt authentication introspection workflows
 

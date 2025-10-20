@@ -433,7 +433,9 @@ class TestTabulatorTableRename:
         assert result["success"] is True
         assert result["old_table_name"] == "old_table"
         assert result["new_table_name"] == "new_table"
-        mock_service.rename_table.assert_called_once_with(bucket_name="test-bucket", table_name="old_table", new_table_name="new_table")
+        mock_service.rename_table.assert_called_once_with(
+            bucket_name="test-bucket", table_name="old_table", new_table_name="new_table"
+        )
 
     @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio

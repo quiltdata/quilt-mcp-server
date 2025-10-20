@@ -57,10 +57,7 @@ class TestAdminUsersResource:
     @pytest.mark.anyio
     async def test_read_admin_unavailable(self, resource):
         """Test users list when admin functionality unavailable."""
-        mock_result = {
-            "success": False,
-            "error": "Admin functionality not available. quilt3.admin module not found."
-        }
+        mock_result = {"success": False, "error": "Admin functionality not available. quilt3.admin module not found."}
 
         with patch("quilt_mcp.resources.admin.admin_users_list") as mock_tool:
             mock_tool.return_value = mock_result
@@ -124,10 +121,7 @@ class TestAdminRolesResource:
     @pytest.mark.anyio
     async def test_read_admin_unavailable(self, resource):
         """Test roles list when admin functionality unavailable."""
-        mock_result = {
-            "success": False,
-            "error": "Admin functionality not available. quilt3.admin module not found."
-        }
+        mock_result = {"success": False, "error": "Admin functionality not available. quilt3.admin module not found."}
 
         with patch("quilt_mcp.resources.admin.admin_roles_list") as mock_tool:
             mock_tool.return_value = mock_result
@@ -273,11 +267,7 @@ class TestAdminSSOConfigResource:
     @pytest.mark.anyio
     async def test_read_no_config(self, resource):
         """Test SSO config retrieval when no config exists."""
-        mock_result = {
-            "success": True,
-            "sso_config": None,
-            "message": "No SSO configuration found"
-        }
+        mock_result = {"success": True, "sso_config": None, "message": "No SSO configuration found"}
 
         with patch("quilt_mcp.resources.admin.admin_sso_config_get") as mock_tool:
             mock_tool.return_value = mock_result

@@ -26,6 +26,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _extract_catalog_name_from_url(url: str) -> str:
     """Return a human-friendly catalog hostname for status messages."""
     if not url:
@@ -79,6 +80,7 @@ def _get_catalog_host_from_config() -> str | None:
 # ---------------------------------------------------------------------------
 # Public helpers consumed by resources and higher-level workflows
 # ---------------------------------------------------------------------------
+
 
 def catalog_info() -> Dict[str, Any]:
     """Summarize catalog configuration for discovery and troubleshooting."""
