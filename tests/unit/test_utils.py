@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fastmcp import FastMCP
-from quilt_mcp.tools import catalog, buckets, packages
+from quilt_mcp.tools import buckets, catalog, packages
 from quilt_mcp.utils import (
     create_configured_server,
     create_mcp_server,
