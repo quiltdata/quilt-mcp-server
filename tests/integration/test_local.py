@@ -23,16 +23,8 @@ async def test_quilt_tools():
 
     # Test packages_list signature (dry call with default registry)
     print("\n2. Testing packages_list (dry):")
-    try:
-        response = packages_list()
-        assert isinstance(response, dict)
-    except Exception as e:
-        if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
-            print(f"Skipped packages_list due to access denied: {e}")
-            response = {"packages": [], "error": "Access denied"}
-        else:
-            raise
-
+    response = packages_list()
+    assert isinstance(response, dict)
     # Test package_browse error handling on nonexistent package
     print("\n3. Testing package_browse (nonexistent):")
     pkg_info = package_browse("nonexistent/placeholder")

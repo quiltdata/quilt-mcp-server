@@ -23,7 +23,7 @@ def test_quilt_tools():
         pkgs = packages_list()
         assert isinstance(pkgs, dict)
     except Exception as e:
-        if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
+        if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e) or "Authentication failed" in str(e):
             # Expected in environments without proper AWS permissions
             pkgs = {"packages": [], "error": "Access denied"}
         else:
