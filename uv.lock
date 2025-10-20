@@ -1971,10 +1971,12 @@ lint = [
     { name = "ruff" },
 ]
 test = [
+    { name = "pyjwt" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-timeout" },
+    { name = "quilt3" },
 ]
 
 [package.metadata]
@@ -2013,10 +2015,12 @@ dev = [
 ]
 lint = [{ name = "ruff", specifier = ">=0.1.0" }]
 test = [
+    { name = "pyjwt", specifier = ">=2.8.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "pytest-timeout", specifier = ">=2.1.0" },
+    { name = "quilt3", specifier = ">=5.6.0" },
 ]
 
 [[package]]

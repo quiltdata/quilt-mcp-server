@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-# Import the original auth functions to test migration
-from quilt_mcp.tools.auth import auth_status, _get_catalog_info
+# Import the helper functions to verify QuiltService usage
+from quilt_mcp.services.auth_metadata import auth_status, _get_catalog_info
 
 
 class TestAuthMigrationToQuiltService:
@@ -30,7 +30,7 @@ class TestAuthMigrationToQuiltService:
         }
 
         # Patch QuiltService to return our mock
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService', return_value=mock_service):
             result = auth_status()
 
             # Verify the result structure
@@ -60,7 +60,7 @@ class TestAuthMigrationToQuiltService:
         }
 
         # Patch QuiltService in the _get_catalog_info function
-        with patch('quilt_mcp.tools.auth.QuiltService', return_value=mock_service):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService', return_value=mock_service):
             result = _get_catalog_info()
 
             # Verify the result

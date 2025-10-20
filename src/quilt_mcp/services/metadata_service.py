@@ -1,30 +1,171 @@
-"""Metadata Examples and Usage Guidance.
+"""Metadata helpers used by MCP resources and higher-level workflows.
 
-This module provides comprehensive examples and guidance for using metadata
-with Quilt packages, addressing common user confusion and validation issues.
+This module centralizes the read-only metadata helpers that previously lived
+under ``quilt_mcp.tools.metadata_templates`` and
+``quilt_mcp.tools.metadata_examples`` so resources can consume them directly
+without routing through the tools shim.  Other call sites (e.g. enhanced
+package management) can import from here as well without creating circular
+dependencies.
 """
 
-from typing import Dict, Any, List
-from .metadata_templates import get_metadata_template, list_metadata_templates
+from __future__ import annotations
 
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+
+def _current_timestamp() -> str:
+    """Return an ISO-8601 timestamp for template fields."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Metadata templates
+# ---------------------------------------------------------------------------
+
+METADATA_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    "standard": {
+        "description": "Standard data package",
+        "created_by": "quilt-mcp-server",
+        "creation_date": _current_timestamp(),
+        "package_type": "data",
+        "version": "1.0.0",
+    },
+    "genomics": {
+        "description": "Genomics data package",
+        "created_by": "quilt-mcp-server",
+        "creation_date": _current_timestamp(),
+        "package_type": "genomics",
+        "data_type": "genomics",
+        "organism": "unknown",
+        "genome_build": "unknown",
+        "sequencing_platform": "unknown",
+        "analysis_type": "unknown",
+        "version": "1.0.0",
+    },
+    "ml": {
+        "description": "Machine learning dataset",
+        "created_by": "quilt-mcp-server",
+        "creation_date": _current_timestamp(),
+        "package_type": "ml_dataset",
+        "data_type": "machine_learning",
+        "dataset_stage": "processed",
+        "model_ready": True,
+        "features_count": "unknown",
+        "target_variable": "unknown",
+        "version": "1.0.0",
+    },
+    "research": {
+        "description": "Research data package",
+        "created_by": "quilt-mcp-server",
+        "creation_date": _current_timestamp(),
+        "package_type": "research",
+        "data_type": "research",
+        "study_type": "unknown",
+        "research_domain": "unknown",
+        "publication_status": "unpublished",
+        "version": "1.0.0",
+    },
+    "analytics": {
+        "description": "Business analytics data package",
+        "created_by": "quilt-mcp-server",
+        "creation_date": _current_timestamp(),
+        "package_type": "analytics",
+        "data_type": "business_analytics",
+        "analysis_period": "unknown",
+        "business_unit": "unknown",
+        "metrics_included": [],
+        "version": "1.0.0",
+    },
+}
+
+
+def get_metadata_template(template_name: str, custom_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Return a metadata template merged with optional custom fields."""
+    template_key = template_name if template_name in METADATA_TEMPLATES else "standard"
+    metadata = METADATA_TEMPLATES[template_key].copy()
+    metadata["creation_date"] = _current_timestamp()
+
+    if custom_fields:
+        metadata.update(custom_fields)
+
+    return metadata
+
+
+def list_metadata_templates() -> Dict[str, Any]:
+    """List the available metadata templates and usage examples."""
+    templates_info: Dict[str, Dict[str, Any]] = {}
+
+    for name, template in METADATA_TEMPLATES.items():
+        templates_info[name] = {
+            "description": template.get("description", ""),
+            "package_type": template.get("package_type", ""),
+            "data_type": template.get("data_type", ""),
+            "fields": list(template.keys()),
+            "example_usage": f'get_metadata_template("{name}", {{"custom_field": "value"}})',
+        }
+
+    return {
+        "available_templates": templates_info,
+        "usage_examples": [
+            'metadata = get_metadata_template("genomics", {"organism": "human", "genome_build": "GRCh38"})',
+            'metadata = get_metadata_template("ml", {"features_count": 150, "target_variable": "price"})',
+            'metadata = get_metadata_template("research", {"study_type": "clinical_trial"})',
+        ],
+        "custom_template_tip": "You can also pass any custom metadata dict directly to package creation functions",
+    }
+
+
+def validate_metadata_structure(metadata: Dict[str, Any], template_name: Optional[str] = None) -> Dict[str, Any]:
+    """Validate a metadata dictionary and surface improvement suggestions."""
+    if not isinstance(metadata, dict):
+        return {
+            "valid": False,
+            "error": "Metadata must be a dictionary/JSON object",
+            "provided_type": type(metadata).__name__,
+            "fix": "Pass a dictionary like {'description': 'My dataset'}",
+        }
+
+    issues: List[str] = []
+    suggestions: List[str] = []
+
+    recommended_fields = ["description", "created_by", "version"]
+    missing_recommended = [field for field in recommended_fields if field not in metadata]
+    if missing_recommended:
+        suggestions.extend([f"Consider adding '{field}' field" for field in missing_recommended])
+
+    if "description" in metadata and isinstance(metadata["description"], str) and len(metadata["description"]) < 10:
+        suggestions.append("Description is very short - consider adding more detail")
+
+    if template_name and template_name in METADATA_TEMPLATES:
+        template = METADATA_TEMPLATES[template_name]
+        template_fields = set(template.keys())
+        provided_fields = set(metadata.keys())
+
+        missing_template_fields = template_fields - provided_fields
+        if missing_template_fields:
+            suggestions.extend([f"Template '{template_name}' suggests adding: {', '.join(missing_template_fields)}"])
+
+        extra_fields = provided_fields - template_fields
+        if extra_fields:
+            suggestions.extend([f"Extra fields not in '{template_name}' template: {', '.join(extra_fields)}"])
+
+    is_valid = not issues
+
+    return {
+        "valid": is_valid,
+        "issues": issues,
+        "suggestions": suggestions,
+        "checked_template": template_name,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Metadata examples and troubleshooting
+# ---------------------------------------------------------------------------
 
 def show_metadata_examples() -> Dict[str, Any]:
-    """Show comprehensive metadata usage examples with working patterns - Metadata authoring guidance and troubleshooting
-
-    Returns:
-        Dict with examples, patterns, and troubleshooting guidance
-
-    Next step:
-        Share the recommended metadata pattern or feed the generated payload into creation tools.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import metadata_examples
-
-        result = metadata_examples.show_metadata_examples()
-        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
-        ```
-    """
+    """Return comprehensive metadata usage examples and troubleshooting tips."""
     return {
         "metadata_usage_guide": {
             "overview": "Metadata can be passed as either a dictionary object or JSON string",
@@ -162,41 +303,11 @@ def show_metadata_examples() -> Dict[str, Any]:
 def create_metadata_from_template(
     template_name: str = "standard",
     description: str = "",
-    custom_fields: Dict[str, Any] = None,
+    custom_fields: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Create metadata using a template with custom fields - Metadata authoring guidance and troubleshooting
-
-    Args:
-        template_name: Template to use ('standard', 'genomics', 'ml', 'research', 'analytics')
-        description: Package description (added to metadata)
-        custom_fields: Additional fields to merge with template
-
-    Returns:
-        Complete metadata dictionary ready for package creation
-
-    Examples:
-        Basic usage:
-        metadata = create_metadata_from_template("genomics", "Human genome study", {"organism": "human"})
-
-        Then use in package creation:
-        package_create("genomics/study1", ["s3://bucket/data.vcf"], metadata=metadata)
-
-    Next step:
-        Share the recommended metadata pattern or feed the generated payload into creation tools.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import metadata_examples
-
-        result = metadata_examples.create_metadata_from_template()
-        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
-        ```
-    """
+    """Create metadata content by combining a template with optional overrides."""
     try:
-        # Get base template
         metadata = get_metadata_template(template_name, custom_fields or {})
-
-        # Add description if provided
         if description:
             metadata["description"] = description
 
@@ -209,10 +320,10 @@ def create_metadata_from_template(
             "example_usage": f'package_create("team/package", ["s3://bucket/file.csv"], metadata={str(metadata)})',
         }
 
-    except Exception as e:
+    except Exception as exc:
         return {
             "success": False,
-            "error": f"Failed to create metadata from template: {str(e)}",
+            "error": f"Failed to create metadata from template: {exc}",
             "template_requested": template_name,
             "suggested_actions": [
                 "Try: list_metadata_templates() to see available templates",
@@ -223,22 +334,7 @@ def create_metadata_from_template(
 
 
 def fix_metadata_validation_issues() -> Dict[str, Any]:
-    """Provide specific guidance for fixing metadata validation issues - Metadata authoring guidance and troubleshooting
-
-    Returns:
-        Comprehensive troubleshooting guide for metadata problems
-
-    Next step:
-        Share the recommended metadata pattern or feed the generated payload into creation tools.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import metadata_examples
-
-        result = metadata_examples.fix_metadata_validation_issues()
-        # Next step: Share the recommended metadata pattern or feed the generated payload into creation tools.
-        ```
-    """
+    """Provide troubleshooting tips for common metadata validation issues."""
     return {
         "common_issues_and_fixes": {
             "schema_validation_error": {

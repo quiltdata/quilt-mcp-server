@@ -73,8 +73,8 @@
 - Documentation updates describing the resource URIs instead of tool entry points.
 - Validation checklist proving no stale tool references remain.
 
-## Open Questions
+## Decisions
 
-- Should any of the migrated helpers become shared utilities (`quilt_mcp/services` or `utils`) to avoid circular imports?
-- Do we need compatibility shims for third-party consumers that might still import the tools package?
-- Are there additional read-only tools (e.g., search explain/suggest) that should also be folded into resources during this cleanup?
+- Shared helpers stay local unless circular import pressure forces relocation to `quilt_mcp/services` or `utils`.
+- No compatibility shims for third-party imports of the removed tool modules.
+- Out-of-scope: additional read-only tools such as search explain/suggest remain untouched this round.

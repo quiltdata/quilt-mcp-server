@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 
-from quilt_mcp.tools.metadata_examples import (
+from quilt_mcp.services.metadata_service import (
     show_metadata_examples,
     create_metadata_from_template,
     fix_metadata_validation_issues,
@@ -45,7 +45,7 @@ def test_create_metadata_from_template_success():
 
 def test_create_metadata_from_template_failure():
     with patch(
-        "quilt_mcp.tools.metadata_examples.get_metadata_template",
+        "quilt_mcp.services.metadata_service.get_metadata_template",
         side_effect=Exception("boom"),
     ):
         result = create_metadata_from_template("unknown", "desc", {"x": 1})

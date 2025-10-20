@@ -203,7 +203,7 @@ def quick_start() -> Dict[str, Any]:
     """
     try:
         # Check current status
-        from .auth import auth_status
+        from quilt_mcp.services.auth_metadata import auth_status
 
         auth_result = auth_status()
 

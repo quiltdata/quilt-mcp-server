@@ -4,7 +4,7 @@ import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.auth import (
+from quilt_mcp.services.auth_metadata import (
     auth_status,
     catalog_info,
     catalog_name,

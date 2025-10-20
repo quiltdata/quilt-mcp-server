@@ -4,7 +4,7 @@ Smoke tests for Quilt MCP server tool functions (no external Quilt module).
 """
 
 import pytest
-from quilt_mcp.tools.auth import auth_status
+from quilt_mcp.services.auth_metadata import auth_status
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,

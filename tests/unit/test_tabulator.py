@@ -90,7 +90,7 @@ def test_tabulator_query_discovers_catalog_from_catalog_info(monkeypatch: pytest
             "tabulator_data_catalog": "quilt_example_catalog",
         }
     )
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
     mock_execute = MagicMock(return_value={"success": True, "rows": [], "row_count": 0})
@@ -121,7 +121,7 @@ def test_tabulator_query_accepts_database_name(monkeypatch: pytest.MonkeyPatch):
             "tabulator_data_catalog": "quilt_example_catalog",
         }
     )
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
     mock_execute = MagicMock(return_value={"success": True, "formatted_data": []})
@@ -142,7 +142,7 @@ def test_tabulator_query_fails_without_catalog_config(monkeypatch: pytest.Monkey
     """Test that _tabulator_query fails gracefully without catalog configuration."""
     # Mock catalog_info to return no tabulator_data_catalog
     mock_catalog_info = MagicMock(return_value={"status": "success", "is_authenticated": True})
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Call should fail
     from quilt_mcp.tools.tabulator import _tabulator_query

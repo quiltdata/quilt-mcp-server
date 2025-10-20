@@ -2,90 +2,26 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
-from ..services.quilt_service import QuiltService
+from quilt_mcp.services.auth_metadata import (
+    _extract_bucket_from_registry,
+    _extract_catalog_name_from_url,
+    _get_catalog_host_from_config,
+    _get_catalog_info,
+    auth_status as _auth_status,
+    catalog_info as _catalog_info,
+    catalog_name as _catalog_name,
+    filesystem_status as _filesystem_status,
+)
 
-
-def _extract_catalog_name_from_url(url: str) -> str:
-    """Extract a human-readable catalog name from a Quilt catalog URL.
-
-    Args:
-        url: The catalog URL (e.g., 'https://nightly.quilttest.com')
-
-    Returns:
-        A simplified catalog name (e.g., 'nightly.quilttest.com')
-    """
-    if not url:
-        return "unknown"
-
-    try:
-        parsed = urlparse(url)
-        hostname = parsed.hostname or parsed.netloc
-        if hostname:
-            # Remove common subdomain prefixes that don't add semantic value
-            if hostname.startswith("www."):
-                hostname = hostname[4:]
-            return hostname
-        return url
-    except Exception:
-        return url
-
-
-def _get_catalog_info() -> dict[str, Any]:
-    """Get comprehensive catalog information from Quilt configuration.
-
-    Returns:
-        Dict with catalog name, URLs, and configuration details.
-    """
-    service = QuiltService()
-    return service.get_catalog_info()
-
-
-def _extract_bucket_from_registry(registry: str) -> str:
-    """Extract bucket name from registry URL.
-
-    Args:
-        registry: Registry URL (e.g., 's3://bucket-name')
-
-    Returns:
-        Bucket name without s3:// prefix
-    """
-    if registry.startswith("s3://"):
-        return registry[5:]
-    return registry
-
-
-def _get_catalog_host_from_config() -> str | None:
-    """Get catalog host from Quilt configuration.
-
-    Returns:
-        Catalog hostname or None if not found
-    """
-    try:
-        service = QuiltService()
-
-        # Try authenticated URL first
-        logged_in_url = service.get_logged_in_url()
-        if logged_in_url:
-            parsed = urlparse(logged_in_url)
-            hostname = parsed.hostname
-            return hostname if hostname else None
-
-        # Fall back to navigator_url from config
-        config = service.get_config()
-        if config and config.get("navigator_url"):
-            nav_url = config.get("navigator_url")
-            if nav_url:
-                parsed = urlparse(nav_url)
-                hostname = parsed.hostname
-                return hostname if hostname else None
-    except Exception:
-        pass
-    return None
+try:
+    from ..services.quilt_service import QuiltService
+except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+    class QuiltService:  # type: ignore[misc]
+        def __init__(self, *args, **kwargs):
+            raise ModuleNotFoundError("quilt3 is required for QuiltService") from exc
 
 
 def catalog_url(
@@ -300,407 +236,6 @@ def catalog_uri(
 
     except Exception as e:
         return {"status": "error", "error": f"Failed to generate Quilt+ URI: {e}"}
-
-
-def catalog_info() -> dict[str, Any]:
-    """Summarize catalog configuration - Quilt authentication and catalog navigation workflows
-
-    WORKFLOW:
-        1. Query Quilt configuration for catalog identifiers, URLs, and auth state.
-        2. Include optional fields (region, tabulator catalog) when authentication succeeds.
-        3. Feed the structured response into subsequent troubleshooting or navigation helpers.
-
-    Returns:
-        Dict describing catalog connectivity with ``status``, ``catalog_name``, and optional URLs/metadata.
-
-        Response format:
-        {
-            "status": "success",
-            "catalog_name": "nightly.quilttest.com",
-            "is_authenticated": true,
-            "navigator_url": "https://nightly.quilttest.com",
-            "registry_url": "s3://nightly-bucket",
-            "region": "us-east-1",
-            "message": "Connected to catalog: nightly.quilttest.com"
-        }
-
-    Next step:
-        Use the returned fields to answer user questions, chain into ``auth.auth_status`` for deeper diagnostics,
-        or help select which catalog-specific tool to call next.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import auth
-
-        info = auth.catalog_info()
-        if not info["is_authenticated"]:
-            follow_up = auth.auth_status()
-        ```
-    """
-    try:
-        info = _get_catalog_info()
-
-        result = {
-            "catalog_name": info["catalog_name"],
-            "is_authenticated": info["is_authenticated"],
-            "status": "success",
-        }
-
-        # Add URLs if available
-        if info["navigator_url"]:
-            result["navigator_url"] = info["navigator_url"]
-        if info["registry_url"]:
-            result["registry_url"] = info["registry_url"]
-        if info["logged_in_url"]:
-            result["logged_in_url"] = info["logged_in_url"]
-
-        # Add AWS region and tabulator catalog if authenticated
-        if info["region"]:
-            result["region"] = info["region"]
-        if info["tabulator_data_catalog"]:
-            result["tabulator_data_catalog"] = info["tabulator_data_catalog"]
-
-        # Add helpful context
-        if info["is_authenticated"]:
-            result["message"] = f"Connected to catalog: {info['catalog_name']}"
-        else:
-            result["message"] = f"Configured for catalog: {info['catalog_name']} (not authenticated)"
-
-        return result
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"Failed to get catalog info: {e}",
-            "catalog_name": "unknown",
-        }
-
-
-def catalog_name() -> dict[str, Any]:
-    """Identify catalog name - Quilt authentication and catalog navigation workflows
-
-    WORKFLOW:
-        1. Inspect Quilt configuration to determine the catalog hostname.
-        2. Record how the name was derived (authentication, navigator config, or registry fallback).
-        3. Provide a lightweight status payload when the user only needs the catalog identifier.
-
-    Returns:
-        Dict containing ``catalog_name``, ``detection_method``, ``is_authenticated``, and ``status`` flags.
-
-        Response format:
-        {
-            "status": "success",
-            "catalog_name": "nightly.quilttest.com",
-            "detection_method": "authentication",
-            "is_authenticated": true
-        }
-
-    Next step:
-        Surface the catalog name to the user or call ``auth.catalog_url`` / ``auth.catalog_uri`` using this identifier.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import auth
-
-        name_info = auth.catalog_name()
-        catalog_host = name_info["catalog_name"]
-        ```
-    """
-    try:
-        info = _get_catalog_info()
-
-        # Determine how the catalog name was detected
-        detection_method = "unknown"
-        if info["logged_in_url"]:
-            detection_method = "authentication"
-        elif info["navigator_url"]:
-            detection_method = "navigator_config"
-        elif info["registry_url"]:
-            detection_method = "registry_config"
-
-        return {
-            "catalog_name": info["catalog_name"],
-            "detection_method": detection_method,
-            "is_authenticated": info["is_authenticated"],
-            "status": "success",
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"Failed to detect catalog name: {e}",
-            "catalog_name": "unknown",
-            "detection_method": "error",
-        }
-
-
-def auth_status() -> dict[str, Any]:
-    """Audit Quilt authentication - Quilt authentication and catalog navigation workflows
-
-        WORKFLOW:
-            1. Query Quilt for the current login session and catalog configuration.
-            2. If authenticated, surface recommended tools for package exploration and permission discovery.
-            3. If not authenticated, return step-by-step setup instructions to get the user connected.
-
-        Returns:
-            Dict describing authentication status, catalog metadata, and recommended next actions.
-
-            Response format:
-            {
-                "status": "authenticated",
-                "catalog_name": "nightly.quilttest.com",
-                "catalog_url": "https://nightly.quilttest.com",
-                "user_info": {"username": "alice", "email": "alice@example.com"},
-                "suggested_actions": ["Try listing packages with: packages_list()"],
-                "next_steps": {"immediate": "..."}
-            }
-
-        Next step:
-            Relay the status summary to the user and follow the suggested actions (e.g., run ``packages_list`` or guide the
-            user through login using the returned ``setup_instructions`` when unauthenticated).
-
-        Example:
-            ```python
-            from quilt_mcp.tools import auth
-
-            status = auth.auth_status()
-            if status["status"] != "authenticated":
-                guidance = "
-    ".join(status["setup_instructions"])
-            ```
-
-    """
-    try:
-        # Get comprehensive catalog information
-        service = QuiltService()
-        catalog_info = service.get_catalog_info()
-        logged_in_url = service.get_logged_in_url()
-
-        if logged_in_url:
-            # Get registry bucket information
-            registry_bucket = None
-            try:
-                config = service.get_config()
-                if config and config.get("registryUrl"):
-                    registry_bucket = _extract_bucket_from_registry(config["registryUrl"])
-            except Exception:
-                pass
-
-            # Try to get user information
-            user_info = {}
-            try:
-                # Try to get user info from quilt3 if available
-                # This is a placeholder - actual implementation would depend on Quilt3 API
-                user_info = {
-                    "username": "current_user",  # Would be extracted from auth token
-                    "email": "user@example.com",  # Would be extracted from auth token
-                }
-            except Exception:
-                user_info = {"username": "unknown", "email": "unknown"}
-
-            # Generate suggested actions based on status
-            suggested_actions = [
-                "Try listing packages with: packages_list()",
-                "Test bucket permissions with: bucket_access_check(bucket_name)",
-                "Discover your writable buckets with: aws_permissions_discover()",
-                "Create your first package with: package_create_from_s3()",
-            ]
-
-            return {
-                "status": "authenticated",
-                "catalog_url": logged_in_url,
-                "catalog_name": catalog_info.get("catalog_name", "unknown"),
-                "registry_bucket": registry_bucket,
-                "write_permissions": "unknown",  # Will be determined by permissions discovery
-                "user_info": user_info,
-                "suggested_actions": suggested_actions,
-                "message": f"Successfully authenticated to {catalog_info.get('catalog_name', 'Quilt catalog')}",
-                "search_available": True,
-                "next_steps": {
-                    "immediate": "Try: aws_permissions_discover() to see your bucket access",
-                    "package_creation": "Try: package_create_from_s3() to create your first package",
-                    "exploration": "Try: packages_list() to browse existing packages",
-                },
-            }
-        else:
-            # Not authenticated - provide helpful setup guidance
-            setup_instructions = [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
-                "2. Login: quilt3 login",
-                "3. Follow the browser authentication flow",
-                "4. Verify with: auth_status()",
-            ]
-
-            return {
-                "status": "not_authenticated",
-                "catalog_name": catalog_info.get("catalog_name", "none"),
-                "message": "Not logged in to Quilt catalog",
-                "search_available": False,
-                "setup_instructions": setup_instructions,
-                "quick_setup": {
-                    "description": "Get started quickly with Quilt",
-                    "steps": [
-                        {
-                            "step": 1,
-                            "action": "Configure catalog",
-                            "command": "quilt3 config https://open.quiltdata.com",
-                        },
-                        {"step": 2, "action": "Login", "command": "quilt3 login"},
-                        {"step": 3, "action": "Verify", "command": "auth_status()"},
-                    ],
-                },
-                "help": {
-                    "documentation": "https://docs.quiltdata.com/",
-                    "support": "For help, visit Quilt documentation or contact support",
-                },
-            }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": f"Failed to check authentication: {e}",
-            "catalog_name": "unknown",
-            "troubleshooting": {
-                "common_issues": [
-                    "AWS credentials not configured",
-                    "Quilt not installed properly",
-                    "Network connectivity issues",
-                ],
-                "suggested_fixes": [
-                    "Check AWS credentials with: aws sts get-caller-identity",
-                    "Reinstall quilt3: pip install --upgrade quilt3",
-                    "Check network connectivity",
-                ],
-            },
-            "setup_instructions": [
-                "1. Configure catalog: quilt3 config https://open.quiltdata.com",
-                "2. Login: quilt3 login",
-            ],
-        }
-
-
-def filesystem_status() -> dict[str, Any]:
-    """Probe filesystem access - Quilt authentication and catalog navigation workflows
-
-    WORKFLOW:
-        1. Record core directories relevant to Quilt tooling (home, temp, CWD).
-        2. Attempt lightweight write tests to confirm whether persistent flows are available.
-        3. Recommend which Quilt tools are safe to use given the discovered permissions.
-
-    Returns:
-        Dict summarizing access checks (``home_writable``, ``temp_writable``) plus ``status`` and ``tools_available``.
-
-        Response format:
-        {
-            "home_directory": "/Users/alice",
-            "temp_directory": "/var/folders/..",
-            "current_directory": "/workspace",
-            "home_writable": true,
-            "temp_writable": true,
-            "status": "full_access",
-            "tools_available": ["auth_status", "packages_list", "..."]
-        }
-
-    Next step:
-        Use ``result["tools_available"]`` to inform the user which commands are safe, or branch to sandbox-safe flows if
-        write access is limited.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import auth
-
-        fs_status = auth.filesystem_status()
-        if not fs_status["home_writable"]:
-            note = "Falling back to read-only tooling."
-        ```
-    """
-    result: dict[str, Any] = {
-        "home_directory": os.path.expanduser("~"),
-        "temp_directory": tempfile.gettempdir(),
-        "current_directory": os.getcwd(),
-    }
-
-    # Test home directory write access
-    try:
-        test_file = os.path.join(result["home_directory"], ".quilt_test_write")
-        with open(test_file, "w") as f:
-            f.write("test")
-        os.remove(test_file)
-        result["home_writable"] = True
-    except Exception as e:
-        result["home_writable"] = False
-        result["home_write_error"] = str(e)
-
-    # Test temp directory write access
-    try:
-        import tempfile as _tf
-
-        with _tf.NamedTemporaryFile(delete=True) as f:
-            f.write(b"test")
-        result["temp_writable"] = True
-    except Exception as e:
-        result["temp_writable"] = False
-        result["temp_write_error"] = str(e)
-
-    # Determine access level and available tools
-    if result.get("home_writable"):
-        result.update(
-            status="full_access",
-            message="Full filesystem access available - all Quilt tools should work",
-            tools_available=[
-                "auth_status",
-                "catalog_info",
-                "catalog_name",
-                "catalog_url",
-                "catalog_uri",
-                "filesystem_status",
-                "packages_list",
-                "packages_search",
-                "package_browse",
-                "package_contents_search",
-                "package_create",
-                "package_update",
-                "bucket_objects_list",
-                "bucket_object_info",
-                "bucket_object_text",
-                "bucket_objects_put",
-                "bucket_object_fetch",
-            ],
-        )
-    elif result.get("temp_writable"):
-        result.update(
-            status="limited_access",
-            message="Limited filesystem access - Quilt tools may work with proper configuration",
-            tools_available=[
-                "auth_status",
-                "catalog_info",
-                "catalog_name",
-                "catalog_url",
-                "catalog_uri",
-                "filesystem_status",
-                "packages_list",
-                "package_browse",
-                "package_contents_search",
-            ],
-            recommendation="Try setting QUILT_CONFIG_DIR environment variable to /tmp",
-        )
-    else:
-        result.update(
-            status="read_only",
-            message="Read-only filesystem - most Quilt tools will not work",
-            tools_available=[
-                "auth_status",
-                "catalog_info",
-                "catalog_name",
-                "catalog_url",
-                "catalog_uri",
-                "filesystem_status",
-            ],
-        )
-
-    return result
-
-
 def configure_catalog(catalog_url: str) -> dict[str, Any]:
     """Configure Quilt catalog URL - Quilt authentication and catalog navigation workflows
 
@@ -871,3 +406,21 @@ def switch_catalog(catalog_name: str) -> dict[str, Any]:
             "available_catalogs": list(catalog_mappings.keys()),
             "help": "Use one of the available catalog names or provide a full URL",
         }
+def catalog_info() -> dict[str, Any]:
+    """Wrapper around shared catalog_info helper for backward compatibility."""
+    return _catalog_info()
+
+
+def catalog_name() -> dict[str, Any]:
+    """Wrapper around shared catalog_name helper for backward compatibility."""
+    return _catalog_name()
+
+
+def auth_status() -> dict[str, Any]:
+    """Wrapper around shared auth_status helper for backward compatibility."""
+    return _auth_status()
+
+
+def filesystem_status() -> dict[str, Any]:
+    """Wrapper around shared filesystem_status helper for backward compatibility."""
+    return _filesystem_status()

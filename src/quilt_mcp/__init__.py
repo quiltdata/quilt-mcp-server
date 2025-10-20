@@ -46,21 +46,19 @@ from .tools.unified_package import (
     list_available_resources,
     quick_start,
 )
-from .tools.metadata_templates import (
-    get_metadata_template,
-    list_metadata_templates,
-    validate_metadata_structure,
-)
 from .tools.package_management import (
     create_package_enhanced,
     package_update_metadata,
     package_validate,
     list_package_tools,
 )
-from .tools.metadata_examples import (
-    show_metadata_examples,
+from .services.metadata_service import (
     create_metadata_from_template,
     fix_metadata_validation_issues,
+    get_metadata_template,
+    list_metadata_templates,
+    show_metadata_examples,
+    validate_metadata_structure,
 )
 from .tools.quilt_summary import (
     create_quilt_summary_files,

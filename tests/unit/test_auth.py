@@ -9,20 +9,17 @@ from urllib.parse import ParseResult
 
 import pytest
 
-from quilt_mcp.tools.auth import (
+from quilt_mcp.services.auth_metadata import (
     _extract_catalog_name_from_url,
     _extract_bucket_from_registry,
     _get_catalog_host_from_config,
     _get_catalog_info,
-    catalog_url,
-    catalog_uri,
     catalog_info,
     catalog_name,
     auth_status,
     filesystem_status,
-    configure_catalog,
-    switch_catalog,
 )
+from quilt_mcp.tools.auth import catalog_url, catalog_uri, configure_catalog, switch_catalog
 
 
 class TestExtractCatalogNameFromUrl:
@@ -56,14 +53,14 @@ class TestExtractCatalogNameFromUrl:
 
     def test_extract_catalog_name_with_parsing_exception(self):
         """Test exception handling during URL parsing - covers lines 34-35."""
-        with patch('quilt_mcp.tools.auth.urlparse', side_effect=Exception("Parse error")):
+        with patch('quilt_mcp.services.auth_metadata.urlparse', side_effect=Exception("Parse error")):
             result = _extract_catalog_name_from_url("https://example.com")
             assert result == "https://example.com"
 
     def test_extract_catalog_name_with_netloc_fallback(self):
         """Test using netloc when hostname is None."""
         # Create a mock parsed result where hostname is None but netloc exists
-        with patch('quilt_mcp.tools.auth.urlparse') as mock_urlparse:
+        with patch('quilt_mcp.services.auth_metadata.urlparse') as mock_urlparse:
             mock_parsed = Mock()
             mock_parsed.hostname = None
             mock_parsed.netloc = "example.com:8080"
@@ -78,7 +75,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_when_logged_in_url_available(self):
         """Test getting catalog host from logged_in_url."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = "https://demo.quiltdata.com"
             mock_service_class.return_value = mock_service
@@ -88,7 +85,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_falls_back_to_navigator_url(self):
         """Test fallback to navigator_url from config - covers lines 79-85."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
             mock_service.get_config.return_value = {"navigator_url": "https://nightly.quilttest.com"}
@@ -99,7 +96,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_with_no_navigator_url(self):
         """Test when config has no navigator_url - covers lines 79-85."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
             mock_service.get_config.return_value = {}
@@ -110,7 +107,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_with_none_config(self):
         """Test when get_config returns None - covers lines 79-80."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
             mock_service.get_config.return_value = None
@@ -121,7 +118,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_with_empty_navigator_url(self):
         """Test when navigator_url is empty string - covers lines 82-85."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.return_value = None
             mock_service.get_config.return_value = {"navigator_url": ""}
@@ -132,7 +129,7 @@ class TestGetCatalogHostFromConfig:
 
     def test_get_catalog_host_with_exception(self):
         """Test exception handling - covers lines 86-88."""
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_logged_in_url.side_effect = Exception("Service error")
             mock_service_class.return_value = mock_service
@@ -293,7 +290,7 @@ class TestCatalogInfo:
             "tabulator_data_catalog": "quilt-demo-tabulator",
         }
 
-        with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', return_value=mock_info):
             result = catalog_info()
 
             assert result["status"] == "success"
@@ -319,7 +316,7 @@ class TestCatalogInfo:
             "tabulator_data_catalog": None,
         }
 
-        with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', return_value=mock_info):
             result = catalog_info()
 
             assert result["status"] == "success"
@@ -345,7 +342,7 @@ class TestCatalogInfo:
             "tabulator_data_catalog": None,
         }
 
-        with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', return_value=mock_info):
             result = catalog_info()
 
             assert result["status"] == "success"
@@ -358,7 +355,7 @@ class TestCatalogInfo:
     @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/info)")
     def test_catalog_info_with_exception(self):
         """Test exception handling in catalog_info - covers lines 269-274."""
-        with patch('quilt_mcp.tools.auth._get_catalog_info', side_effect=Exception("Info error")):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', side_effect=Exception("Info error")):
             result = catalog_info()
 
             assert result["status"] == "error"
@@ -381,7 +378,7 @@ class TestCatalogName:
             "is_authenticated": False,
         }
 
-        with patch('quilt_mcp.tools.auth._get_catalog_info', return_value=mock_info):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', return_value=mock_info):
             result = catalog_name()
 
             assert result["status"] == "success"
@@ -391,7 +388,7 @@ class TestCatalogName:
     @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://catalog/name)")
     def test_catalog_name_with_exception(self):
         """Test exception handling in catalog_name - covers lines 302-308."""
-        with patch('quilt_mcp.tools.auth._get_catalog_info', side_effect=Exception("Name error")):
+        with patch('quilt_mcp.services.auth_metadata._get_catalog_info', side_effect=Exception("Name error")):
             result = catalog_name()
 
             assert result["status"] == "error"
@@ -408,7 +405,7 @@ class TestAuthStatus:
         """Test auth_status when not authenticated - covers lines 371-378."""
         mock_catalog_info = {"catalog_name": "demo.quiltdata.com", "is_authenticated": False}
 
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_catalog_info.return_value = mock_catalog_info
             mock_service.get_logged_in_url.return_value = None  # This is key - not logged in
@@ -429,7 +426,7 @@ class TestAuthStatus:
         """Test exception handling when getting registry config - covers lines 330-331."""
         mock_catalog_info = {"catalog_name": "test", "is_authenticated": True}
 
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_catalog_info.return_value = mock_catalog_info
             mock_service.get_logged_in_url.return_value = "https://demo.quiltdata.com"
@@ -446,7 +443,7 @@ class TestAuthStatus:
         """Test exception handling when getting user info - covers lines 342-343."""
         mock_catalog_info = {"catalog_name": "test", "is_authenticated": True}
 
-        with patch('quilt_mcp.tools.auth.QuiltService') as mock_service_class:
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_catalog_info.return_value = mock_catalog_info
             mock_service.get_logged_in_url.return_value = "https://demo.quiltdata.com"
@@ -462,7 +459,7 @@ class TestAuthStatus:
     @pytest.mark.skip(reason="Tool deprecated - now available as resource (auth://status)")
     def test_auth_status_main_exception(self):
         """Test main exception handling in auth_status - covers lines 402-423."""
-        with patch('quilt_mcp.tools.auth.QuiltService', side_effect=Exception("Service error")):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService', side_effect=Exception("Service error")):
             result = auth_status()
 
             assert result["status"] == "error"

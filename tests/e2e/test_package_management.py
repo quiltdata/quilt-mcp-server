@@ -14,11 +14,7 @@ from quilt_mcp.tools.package_management import (
     package_validate,
     list_package_tools,
 )
-from quilt_mcp.tools.metadata_templates import (
-    get_metadata_template,
-    list_metadata_templates,
-    validate_metadata_structure,
-)
+from quilt_mcp.services.metadata_service import get_metadata_template, list_metadata_templates, validate_metadata_structure
 from quilt_mcp.tools.packages import package_browse
 from quilt_mcp.tools.package_ops import package_delete
 from quilt_mcp.tools.buckets import bucket_objects_put

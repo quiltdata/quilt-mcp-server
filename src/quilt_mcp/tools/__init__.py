@@ -8,7 +8,6 @@ This package contains all the MCP tool implementations organized by functionalit
 - s3_package: S3-to-package creation functionality
 - permissions: AWS permissions discovery and bucket recommendations
 - unified_package: Simplified, intelligent package creation interface
-- metadata_templates: Metadata templates and validation utilities
 - package_management: Enhanced package management with better UX
 - athena_glue: AWS Athena queries and Glue Data Catalog discovery
 - tabulator: Quilt tabulator table management for SQL querying across packages
@@ -40,9 +39,7 @@ _MODULE_PATHS = {
     "s3_package": "quilt_mcp.tools.s3_package",
     "permissions": "quilt_mcp.tools.permissions",
     "unified_package": "quilt_mcp.tools.unified_package",
-    "metadata_templates": "quilt_mcp.tools.metadata_templates",
     "package_management": "quilt_mcp.tools.package_management",
-    "metadata_examples": "quilt_mcp.tools.metadata_examples",
     "quilt_summary": "quilt_mcp.tools.quilt_summary",
     "graphql": "quilt_mcp.tools.graphql",
     "search": "quilt_mcp.tools.search",

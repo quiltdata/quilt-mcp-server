@@ -17,11 +17,7 @@ from pathlib import Path
 from ..constants import DEFAULT_REGISTRY
 from ..utils import validate_package_name, format_error_response
 from ..services.quilt_service import QuiltService
-from .metadata_templates import (
-    get_metadata_template,
-    validate_metadata_structure,
-    list_metadata_templates,
-)
+from quilt_mcp.services.metadata_service import get_metadata_template, list_metadata_templates, validate_metadata_structure
 from .package_ops import package_create as _base_package_create
 from .packages import package_browse
 

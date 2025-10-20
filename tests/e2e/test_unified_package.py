@@ -69,7 +69,7 @@ class TestCreatePackage:
 class TestQuickStart:
     """Test cases for the quick_start onboarding tool."""
 
-    @patch("quilt_mcp.tools.auth.auth_status")
+    @patch("quilt_mcp.services.auth_metadata.auth_status")
     def test_quick_start_authenticated(self, mock_auth_status):
         """Test quick start for authenticated user."""
         mock_auth_status.return_value = {
@@ -84,7 +84,7 @@ class TestQuickStart:
         assert "next_actions" in result
         assert len(result["next_actions"]) > 0
 
-    @patch("quilt_mcp.tools.auth.auth_status")
+    @patch("quilt_mcp.services.auth_metadata.auth_status")
     def test_quick_start_not_authenticated(self, mock_auth_status):
         """Test quick start for non-authenticated user."""
         mock_auth_status.return_value = {"status": "not_authenticated"}
@@ -96,7 +96,7 @@ class TestQuickStart:
         assert "setup_flow" in result
         assert len(result["setup_flow"]) >= 4
 
-    @patch("quilt_mcp.tools.auth.auth_status")
+    @patch("quilt_mcp.services.auth_metadata.auth_status")
     def test_quick_start_error_state(self, mock_auth_status):
         """Test quick start for error state."""
         mock_auth_status.return_value = {

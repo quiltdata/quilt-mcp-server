@@ -4,11 +4,12 @@ import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.metadata_examples import (
-    show_metadata_examples,
+from quilt_mcp.services.metadata_service import (
     fix_metadata_validation_issues,
+    get_metadata_template,
+    list_metadata_templates,
+    show_metadata_examples,
 )
-from quilt_mcp.tools.metadata_templates import list_metadata_templates, get_metadata_template
 
 
 class MetadataTemplatesResource(MCPResource):

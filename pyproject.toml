@@ -71,6 +71,8 @@ test = [
     "pytest-asyncio>=0.23.0", 
     "pytest-cov>=4.0.0",
     "pytest-timeout>=2.1.0",
+    "quilt3>=5.6.0",
+    "pyjwt>=2.8.0",
 ]
 deploy = [
     "aws-cdk-lib>=2.100.0",

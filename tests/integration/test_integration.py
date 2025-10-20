@@ -11,14 +11,8 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.tools.auth import (
-    auth_status,
-    catalog_info,
-    catalog_name,
-    catalog_uri,
-    catalog_url,
-    filesystem_status,
-)
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name, filesystem_status
+from quilt_mcp.tools.auth import catalog_uri, catalog_url
 from quilt_mcp.tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,

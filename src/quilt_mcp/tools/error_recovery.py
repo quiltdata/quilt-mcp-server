@@ -345,7 +345,7 @@ def health_check_with_recovery() -> Dict[str, Any]:
 def _check_auth_status() -> Dict[str, Any]:
     """Check authentication status."""
     try:
-        from .auth import auth_status
+        from quilt_mcp.services.auth_metadata import auth_status
 
         return auth_status()
     except Exception as e:

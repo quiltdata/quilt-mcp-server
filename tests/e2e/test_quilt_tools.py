@@ -1,13 +1,8 @@
 from unittest.mock import Mock, patch
 import pytest
 
-from quilt_mcp.tools.auth import (
-    auth_status,
-    catalog_info,
-    catalog_name,
-    catalog_uri,
-    catalog_url,
-)
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name
+from quilt_mcp.tools.auth import catalog_uri, catalog_url
 from quilt_mcp.tools.buckets import bucket_objects_search
 from quilt_mcp.tools.packages import (
     package_browse,
