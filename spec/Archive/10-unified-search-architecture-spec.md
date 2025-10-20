@@ -21,10 +21,10 @@ This specification defines a comprehensive, unified search architecture for the 
 - Built-in session management and authentication
 
 **Existing MCP Tools**:
-1. **`packages_search`** - Uses quilt3 search API
-2. **`package_contents_search`** - Within-package file search
-3. **`bucket_objects_search`** - Uses quilt3.Bucket.search()
-4. **`bucket_objects_search_graphql`** - Uses enterprise GraphQL endpoints
+1. **`unified_search`** - Uses quilt3 search API
+2. **`unified_search`** - Within-package file search
+3. **`unified_search`** - Uses quilt3.Bucket.search()
+4. **`unified_search`** - Uses enterprise GraphQL endpoints
 
 ### Current Limitations
 - No unified interface that leverages all existing capabilities
@@ -234,7 +234,7 @@ def search_explain(
 
 ### Enhanced Existing Tools
 
-#### 1. `packages_search_advanced`
+#### 1. `unified_search_advanced`
 Enhanced version with:
 - Complex query DSL support
 - Faceted search (by type, date, size, etc.)

@@ -45,6 +45,20 @@ class TestTabulatorBucketsResource:
             with pytest.raises(Exception, match="Failed to list buckets"):
                 await resource.read("tabulator://buckets")
 
+    @pytest.mark.anyio
+    async def test_read_catalog_not_configured(self, resource):
+        """Test buckets list when catalog not configured."""
+        mock_result = {
+            "success": False,
+            "error": "tabulator_data_catalog not configured in catalog"
+        }
+
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            with pytest.raises(Exception, match="catalog not configured"):
+                await resource.read("tabulator://buckets")
+
 
 class TestTabulatorTablesResource:
     """Test TabulatorTablesResource (parameterized)."""

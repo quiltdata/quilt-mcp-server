@@ -43,7 +43,7 @@
     "search_tests": [
       {
         "success": false,
-        "tool_name": "mcp_quilt_packages_search",
+        "tool_name": "mcp_quilt_unified_search",
         "arguments": {
           "query": "data",
           "limit": 3
@@ -53,7 +53,7 @@
       },
       {
         "success": false,
-        "tool_name": "mcp_quilt_bucket_objects_search",
+        "tool_name": "mcp_quilt_unified_search",
         "arguments": {
           "bucket": "s3://quilt-sandbox-bucket",
           "query": "data",
@@ -68,7 +68,7 @@
     "error_tests": [
       {
         "success": false,
-        "tool_name": "mcp_quilt_packages_search",
+        "tool_name": "mcp_quilt_unified_search",
         "arguments": {
           "query": "",
           "limit": -1
@@ -78,7 +78,7 @@
       },
       {
         "success": false,
-        "tool_name": "mcp_quilt_bucket_objects_search",
+        "tool_name": "mcp_quilt_unified_search",
         "arguments": {
           "bucket": "invalid-bucket",
           "query": "test"

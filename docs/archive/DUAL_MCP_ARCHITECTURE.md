@@ -19,8 +19,8 @@ This document describes the implementation of a dual MCP (Model Context Protocol
 - Permission discovery and validation
 
 **Available Tools** (prefix: `mcp_quilt_`):
-- `packages_search`, `package_browse`, `package_create_from_s3`
-- `bucket_objects_search`, `bucket_objects_list`
+- `unified_search`, `package_browse`, `package_create_from_s3`
+- `unified_search`, `bucket_objects_list`
 - `athena_databases_list`, `athena_tables_list`, `athena_query_execute`
 - `tabulator_tables_list`, `tabulator_table_create`
 - `generate_package_visualizations`, `generate_quilt_summarize_json`

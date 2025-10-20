@@ -48,6 +48,28 @@ class TestWorkflowsResource:
             with pytest.raises(Exception, match="Failed to list workflows"):
                 await resource.read("workflow://workflows")
 
+    @pytest.mark.anyio
+    async def test_read_sorts_by_recent_activity(self, resource):
+        """Test that workflows are sorted by most recent activity."""
+        mock_result = {
+            "success": True,
+            "workflows": [
+                {"id": "wf-new", "name": "New Workflow", "status": "running", "updated_at": "2024-10-20T12:00:00Z"},
+                {"id": "wf-old", "name": "Old Workflow", "status": "completed", "updated_at": "2024-10-19T12:00:00Z"},
+            ],
+            "count": 2,
+        }
+
+        with patch("quilt_mcp.resources.workflow.workflow_list_all") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            response = await resource.read("workflow://workflows")
+
+            # Verify workflows are in the correct order (newest first)
+            workflow_ids = [wf["id"] for wf in response.content["items"]]
+            assert workflow_ids[0] == "wf-new"
+            assert workflow_ids[1] == "wf-old"
+
 
 class TestWorkflowStatusResource:
     """Test WorkflowStatusResource (parameterized)."""

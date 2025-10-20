@@ -247,7 +247,7 @@ def test_data_discovery_flow():
         steps=[
             ("packages_list", {}),
             ("package_browse", {"package_name": "example/dataset"}),
-            ("bucket_objects_search", {"query": "*.csv"})
+            ("unified_search", {"query": "*.csv"})
         ],
         expected_calls=3,
         max_time=15.0,

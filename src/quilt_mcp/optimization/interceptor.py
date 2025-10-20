@@ -261,7 +261,7 @@ class ToolCallInterceptor:
             },
             "packages_list": {
                 "condition": lambda args: args.get("prefix", ""),
-                "alternative": "packages_search",
+                "alternative": "unified_search",
             },
         }
 
@@ -341,7 +341,7 @@ class ToolCallInterceptor:
         # Pattern: Browse followed by search (could be optimized)
         if len(recent_tools) >= 2 and recent_tools[-2:] == [
             "package_browse",
-            "package_contents_search",
+            "unified_search",
         ]:
             logger.info("Optimization: Consider using search with filters instead of browse+search")
 

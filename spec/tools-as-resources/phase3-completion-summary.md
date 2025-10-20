@@ -64,7 +64,7 @@ Added all 24 tools to the `excluded_tools` set with clear documentation:
 
 ```python
 excluded_tools = {
-    "packages_list",  # Prefer packages_search
+    "packages_list",  # Prefer unified_search
     "athena_tables_list",  # Prefer athena_query_execute
     "get_tabulator_service",  # Internal use only
     # Phase 3: Tools now available as resources (exclude from MCP tool registration)

@@ -64,6 +64,45 @@ class TestMetadataExamplesResource:
             assert response.uri == "metadata://examples"
             assert response.content == mock_result
 
+    @pytest.mark.anyio
+    async def test_read_structure_validation(self, resource):
+        """Test that examples response has expected structure."""
+        mock_result = {
+            "metadata_usage_guide": {
+                "working_examples": [],
+                "common_patterns": [],
+                "recommended_approach": "...",
+            },
+            "troubleshooting": {},
+            "best_practices": [],
+            "quick_reference": {
+                "available_templates": ["standard", "genomics", "ml", "research", "analytics"],
+            },
+        }
+
+        with patch("quilt_mcp.resources.metadata.show_metadata_examples") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            response = await resource.read("metadata://examples")
+
+            content = response.content
+            assert "metadata_usage_guide" in content
+            assert "troubleshooting" in content
+            assert "best_practices" in content
+            assert "quick_reference" in content
+
+            # Verify nested structure
+            muc = content["metadata_usage_guide"]
+            assert "working_examples" in muc
+            assert "common_patterns" in muc
+            assert "recommended_approach" in muc
+
+            # Verify template list
+            quick = content["quick_reference"]
+            assert "available_templates" in quick
+            templates = set(quick["available_templates"])
+            assert {"standard", "genomics", "ml", "research", "analytics"}.issubset(templates)
+
 
 class TestMetadataTroubleshootingResource:
     """Test MetadataTroubleshootingResource."""
@@ -87,6 +126,38 @@ class TestMetadataTroubleshootingResource:
 
             assert response.uri == "metadata://troubleshooting"
             assert response.content == mock_result
+
+    @pytest.mark.anyio
+    async def test_read_structure_validation(self, resource):
+        """Test that troubleshooting response has expected structure."""
+        mock_result = {
+            "common_issues_and_fixes": {
+                "schema_validation_error": "...",
+                "json_format_error": "...",
+                "type_validation_error": "...",
+            },
+            "step_by_step_fix": [
+                "1. Check your metadata",
+                "Choose your approach",
+                "2. Validate the structure",
+            ],
+        }
+
+        with patch("quilt_mcp.resources.metadata.fix_metadata_validation_issues") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            response = await resource.read("metadata://troubleshooting")
+
+            content = response.content
+            assert "common_issues_and_fixes" in content
+            issues = content["common_issues_and_fixes"]
+            assert "schema_validation_error" in issues
+            assert "json_format_error" in issues
+            assert "type_validation_error" in issues
+
+            assert "step_by_step_fix" in content
+            steps = content["step_by_step_fix"]
+            assert any("Choose your approach" in step or step.startswith("1.") for step in steps)
 
 
 class TestMetadataTemplateResource:

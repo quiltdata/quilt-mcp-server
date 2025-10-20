@@ -24,7 +24,7 @@ I've adjusted the ChatGPT-suggested test cases to align with actual Quilt functi
 
 ### 3. **Aligned with Actual MCP Tools**
 Each test case now specifies the actual MCP tools that would be used:
-- `mcp_quilt_packages_search` for package discovery
+- `mcp_quilt_unified_search` for package discovery
 - `mcp_quilt_package_browse` for exploring package contents
 - `mcp_quilt_create_package_enhanced` for package creation
 - `mcp_quilt_tabulator_*` tools for SQL querying

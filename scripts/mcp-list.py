@@ -71,9 +71,9 @@ async def extract_resource_metadata() -> List[Dict[str, Any]]:
     resources = []
 
     registry = create_default_registry()
-    for uri_pattern in registry.list_resources():
-        resource = registry.get_resource(uri_pattern)
 
+    # Access the internal _resources list to iterate through registered resources
+    for resource in registry._resources:
         # Get resource class information
         resource_class = resource.__class__
         module = inspect.getmodule(resource_class)
@@ -89,10 +89,11 @@ async def extract_resource_metadata() -> List[Dict[str, Any]]:
         doc = inspect.getdoc(resource_class) or "No description available"
 
         # Build signature string showing the URI pattern
+        uri_pattern = resource.uri_pattern
         signature_str = f"{resource_class.__name__}(uri='{uri_pattern}')"
 
-        # Check if list_items method is async
-        is_async = inspect.iscoroutinefunction(resource.list_items)
+        # Check if _read_impl method exists and is async
+        is_async = hasattr(resource, '_read_impl') and inspect.iscoroutinefunction(resource._read_impl)
 
         resources.append({
             "type": "resource",
