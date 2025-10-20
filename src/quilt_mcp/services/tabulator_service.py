@@ -445,8 +445,12 @@ def list_tabulator_tables(bucket_name: str) -> Dict[str, Any]:
 
 async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
     """Async wrapper mirroring the legacy tool interface for listing tables."""
-    service = get_tabulator_service()
-    return service.list_tables(bucket_name)
+    try:
+        service = get_tabulator_service()
+        return service.list_tables(bucket_name)
+    except Exception as e:
+        logger.error(f"Error in tabulator_tables_list: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_table_create(
@@ -462,46 +466,66 @@ async def tabulator_table_create(
     description: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create tabulator table (legacy tool signature)."""
-    parser_config: Dict[str, Any] = {"format": parser_format, "header": parser_header}
-    if parser_format in {"csv", "tsv"}:
-        parser_config["delimiter"] = parser_delimiter or ("\t" if parser_format == "tsv" else ",")
-        if parser_skip_rows:
-            parser_config["skip_rows"] = parser_skip_rows
+    try:
+        parser_config: Dict[str, Any] = {"format": parser_format, "header": parser_header}
+        if parser_format in {"csv", "tsv"}:
+            parser_config["delimiter"] = parser_delimiter or ("\t" if parser_format == "tsv" else ",")
+            if parser_skip_rows:
+                parser_config["skip_rows"] = parser_skip_rows
 
-    service = get_tabulator_service()
-    return service.create_table(
-        bucket_name=bucket_name,
-        table_name=table_name,
-        schema=schema,
-        package_pattern=package_pattern,
-        logical_key_pattern=logical_key_pattern,
-        parser_config=parser_config,
-        description=description,
-    )
+        service = get_tabulator_service()
+        return service.create_table(
+            bucket_name=bucket_name,
+            table_name=table_name,
+            schema=schema,
+            package_pattern=package_pattern,
+            logical_key_pattern=logical_key_pattern,
+            parser_config=parser_config,
+            description=description,
+        )
+    except Exception as e:
+        logger.error(f"Error in tabulator_table_create: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_table_delete(bucket_name: str, table_name: str) -> Dict[str, Any]:
     """Delete tabulator table (legacy tool signature)."""
-    service = get_tabulator_service()
-    return service.delete_table(bucket_name=bucket_name, table_name=table_name)
+    try:
+        service = get_tabulator_service()
+        return service.delete_table(bucket_name=bucket_name, table_name=table_name)
+    except Exception as e:
+        logger.error(f"Error in tabulator_table_delete: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_table_rename(bucket_name: str, table_name: str, new_table_name: str) -> Dict[str, Any]:
     """Rename tabulator table (legacy tool signature)."""
-    service = get_tabulator_service()
-    return service.rename_table(bucket_name=bucket_name, table_name=table_name, new_table_name=new_table_name)
+    try:
+        service = get_tabulator_service()
+        return service.rename_table(bucket_name=bucket_name, table_name=table_name, new_table_name=new_table_name)
+    except Exception as e:
+        logger.error(f"Error in tabulator_table_rename: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_open_query_status() -> Dict[str, Any]:
     """Return tabulator open query flag."""
-    service = get_tabulator_service()
-    return service.get_open_query_status()
+    try:
+        service = get_tabulator_service()
+        return service.get_open_query_status()
+    except Exception as e:
+        logger.error(f"Error in tabulator_open_query_status: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_open_query_toggle(enabled: bool) -> Dict[str, Any]:
     """Toggle tabulator open query flag."""
-    service = get_tabulator_service()
-    return service.set_open_query(enabled=enabled)
+    try:
+        service = get_tabulator_service()
+        return service.set_open_query(enabled=enabled)
+    except Exception as e:
+        logger.error(f"Error in tabulator_open_query_toggle: {e}")
+        return format_error_response(str(e))
 
 
 async def tabulator_buckets_list() -> Dict[str, Any]:
