@@ -19,7 +19,7 @@ from quilt_mcp.services.auth_metadata import (
     auth_status,
     filesystem_status,
 )
-from quilt_mcp.tools.catalog import catalog_url, catalog_uri, configure_catalog, switch_catalog
+from quilt_mcp.tools.catalog import catalog_url, catalog_uri, catalog_configure
 
 
 class TestExtractCatalogNameFromUrl:
@@ -518,14 +518,22 @@ class TestFilesystemStatus:
 class TestConfigureCatalog:
     """Test configure_catalog function - targeting missing exception handling."""
 
-    def test_configure_catalog_invalid_url_format(self):
-        """Test invalid URL format validation - covers lines 531-537."""
-        result = configure_catalog("invalid-url")
+    def test_configure_catalog_with_friendly_name(self):
+        """Test configuration with friendly name like 'demo'."""
+        with (
+            patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
+            patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class,
+        ):
+            mock_service = Mock()
+            mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
+            mock_service_class.return_value = mock_service
+            base_service_class.return_value = mock_service
 
-        assert result["status"] == "error"
-        assert "Invalid catalog URL format" in result["error"]
-        assert result["provided"] == "invalid-url"
-        assert "http://" in result["expected"]
+            result = catalog_configure("demo")
+
+            assert result["status"] == "success"
+            assert result["catalog_url"] == "https://demo.quiltdata.com"
+            mock_service.set_config.assert_called_with("https://demo.quiltdata.com")
 
     def test_configure_catalog_success(self):
         """Test successful configuration - covers lines 541-547."""
@@ -538,7 +546,7 @@ class TestConfigureCatalog:
             mock_service_class.return_value = mock_service
             base_service_class.return_value = mock_service
 
-            result = configure_catalog("https://demo.quiltdata.com")
+            result = catalog_configure("https://demo.quiltdata.com")
 
             assert result["status"] == "success"
             assert result["catalog_url"] == "https://demo.quiltdata.com"
@@ -550,58 +558,12 @@ class TestConfigureCatalog:
             patch('quilt_mcp.services.quilt_service.QuiltService', side_effect=Exception("Config error")),
             patch('quilt_mcp.tools.catalog.QuiltService', side_effect=Exception("Config error")),
         ):
-            result = configure_catalog("https://demo.quiltdata.com")
+            result = catalog_configure("https://demo.quiltdata.com")
 
             assert result["status"] == "error"
             assert "Failed to configure catalog" in result["error"]
             assert "troubleshooting" in result
             assert "Config error" in result["error"]
-
-
-class TestSwitchCatalog:
-    """Test switch_catalog function - targeting missing branches."""
-
-    def test_switch_catalog_with_full_url(self):
-        """Test switching to catalog with full URL - covers lines 607-608."""
-        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
-            mock_configure.return_value = {"status": "success"}
-
-            result = switch_catalog("https://custom.quiltdata.com")
-
-            mock_configure.assert_called_with("https://custom.quiltdata.com")
-            assert result["status"] == "success"
-
-    def test_switch_catalog_with_known_catalog_name(self):
-        """Test switching with known catalog name (demo)."""
-        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
-            mock_configure.return_value = {"status": "success"}
-
-            result = switch_catalog("demo")
-
-            # "demo" maps to specific URL in catalog_mappings
-            mock_configure.assert_called_with("https://demo.quiltdata.com")
-            assert result["status"] == "success"
-
-    def test_switch_catalog_with_unknown_catalog_name(self):
-        """Test switching with unknown catalog name - covers lines 611-612."""
-        with patch('quilt_mcp.tools.catalog.configure_catalog') as mock_configure:
-            mock_configure.return_value = {"status": "success"}
-
-            result = switch_catalog("custom")
-
-            # Unknown name should construct https:// URL from name
-            mock_configure.assert_called_with("https://custom")
-            assert result["status"] == "success"
-
-    def test_switch_catalog_with_exception(self):
-        """Test exception handling in switch_catalog - covers lines 630-637."""
-        with patch('quilt_mcp.tools.catalog.configure_catalog', side_effect=Exception("Switch error")):
-            result = switch_catalog("demo")
-
-            assert result["status"] == "error"
-            assert "Failed to switch catalog" in result["error"]
-            assert "available_catalogs" in result
-            assert "Switch error" in result["error"]
 
 
 class TestExtractBucketFromRegistry:

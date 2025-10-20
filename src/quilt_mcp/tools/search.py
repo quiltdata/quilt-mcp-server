@@ -11,7 +11,7 @@ from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.search_explain import search_explain as _search_explain
 
 
-def unified_search(
+def search_catalog(
     query: str,
     scope: str = "global",
     target: str = "",
@@ -47,11 +47,11 @@ def unified_search(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        unified_search("CSV files in genomics packages")
-        unified_search("packages created last month", scope="catalog")
-        unified_search("README files", scope="package", target="user/dataset")
-        unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
-        unified_search("*.csv", scope="bucket", target="s3://quilt-example")
+        search_catalog("CSV files in genomics packages")
+        search_catalog("packages created last month", scope="catalog")
+        search_catalog("README files", scope="package", target="user/dataset")
+        search_catalog("files larger than 100MB", filters={"size_gt": "100MB"})
+        search_catalog("*.csv", scope="bucket", target="s3://quilt-example")
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -60,7 +60,7 @@ def unified_search(
         ```python
         from quilt_mcp.tools import search
 
-        result = search.unified_search(
+        result = search.search_catalog(
             query="status:READY",
         )
         # Next step: Summarize the search insight or refine the query with another search helper.
@@ -211,10 +211,6 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
             "error": f"Search explanation failed: {e}",
             "query": query,
         }
-
-
-# Renamed from unified_search for simpler interface
-search = unified_search
 
 
 # GraphQL search functions (previously in separate graphql module)

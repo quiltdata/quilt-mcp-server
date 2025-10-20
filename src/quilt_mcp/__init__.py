@@ -18,8 +18,7 @@ from .constants import (
 from .tools.catalog import (
     catalog_uri,
     catalog_url,
-    configure_catalog,
-    switch_catalog,
+    catalog_configure,
 )
 from .services.auth_metadata import (
     auth_status,
@@ -86,9 +85,8 @@ __all__ = [
     "catalog_name",
     "catalog_url",
     "catalog_uri",
-    "configure_catalog",
+    "catalog_configure",
     "filesystem_status",
-    "switch_catalog",
     # Bucket tools
     "bucket_object_info",
     "bucket_object_text",

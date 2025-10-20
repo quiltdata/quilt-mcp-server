@@ -40,10 +40,7 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
         module_name = module.__name__ if module else "unknown"
 
         # Extract module short name (last component)
-        if module_name.startswith("quilt_mcp.tools."):
-            short_module = module_name.replace("quilt_mcp.tools.", "")
-        else:
-            short_module = module_name
+        short_module = module_name.split('.')[-1]
 
         # Check if function is async
         is_async = inspect.iscoroutinefunction(handler.fn)
@@ -80,10 +77,7 @@ async def extract_resource_metadata() -> List[Dict[str, Any]]:
         module_name = module.__name__ if module else "unknown"
 
         # Extract module short name (last component)
-        if module_name.startswith("quilt_mcp.resources."):
-            short_module = module_name.replace("quilt_mcp.resources.", "")
-        else:
-            short_module = module_name
+        short_module = module_name.split('.')[-1]
 
         # Get class docstring
         doc = inspect.getdoc(resource_class) or "No description available"
