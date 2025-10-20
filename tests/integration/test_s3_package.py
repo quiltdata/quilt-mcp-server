@@ -337,25 +337,6 @@ class TestREADMEContentExtraction:
         # Should either fail gracefully or handle metadata
         assert "error" in result or "success" in result
 
-    def test_both_readme_fields_extraction(self):
-        """Test that both 'readme_content' and 'readme' fields are extracted (readme_content takes priority)."""
-        # This test is redundant with test_readme_content_extraction_from_metadata
-        # The priority logic is simple: readme_content is used if present
-        # We don't need to test every permutation with full mocking
-        pass
-
-    def test_no_readme_content_in_metadata(self):
-        """Test that packages without README content in metadata work normally."""
-        # When generate_readme=False and no readme_content in metadata,
-        # the package should be created without a README
-        # This is tested adequately by the main integration tests
-        pass
-
-    def test_readme_content_vs_generated_content_priority(self):
-        """Test that extracted README content takes priority over generated content."""
-        # This is tested by test_readme_content_extraction_from_metadata
-        # No need to duplicate with different parameter combinations
-        pass
 
 
 class TestCreateEnhancedPackageMigration:
