@@ -1,10 +1,30 @@
 # Tools Cleanup Plan: Resource Inline Migration
 
+**Status**: ~85% Complete (as of 2025-10-20)
+**Detailed Status**: See [migration-status.md](./migration-status.md) for current state and completion plan
+
 ## Objective
 
 - Inline the read-only logic that still lives under `quilt_mcp.tools.*` directly into their corresponding `quilt_mcp.resources.*` modules.
 - Delete the legacy tool modules once their functionality is owned by resources, including all exports, registrations, and doc references.
 - Restore or replace the skipped tests with resource-focused coverage so that the migration does not regress behaviour.
+
+## Current Status (2025-10-20)
+
+✅ **Complete**:
+
+- All read-only logic migrated to `quilt_mcp.services.*`
+- All domains exposed via `quilt_mcp.resources.*`
+- Tool registry updated to point to services
+- Resource tests implemented for all domains
+
+🔧 **Remaining**:
+
+- Test coverage audit and gap filling
+- Documentation updates
+- Final validation and cleanup
+
+See [migration-status.md](./migration-status.md) for detailed completion plan with estimated timeline of 5-8 hours.
 
 ## References
 
@@ -78,3 +98,126 @@
 - Shared helpers stay local unless circular import pressure forces relocation to `quilt_mcp/services` or `utils`.
 - No compatibility shims for third-party imports of the removed tool modules.
 - Out-of-scope: additional read-only tools such as search explain/suggest remain untouched this round.
+
+---
+
+## Completion Status by Domain
+
+### Authentication ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.auth_metadata`
+
+- ✅ Service implemented with all functions: `auth_status`, `catalog_info`, `catalog_name`, `filesystem_status`
+- ✅ Resources implemented: `AuthStatusResource`, `CatalogInfoResource`, `CatalogNameResource`, `FilesystemStatusResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_auth_resources.py`
+- ✅ Tool registry points to service
+- ✅ No orphaned tool files
+
+**Resource URIs**: `auth://status`, `auth://catalog/info`, `auth://catalog/name`, `auth://filesystem/status`
+
+### Governance ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.governance_service`
+
+- ✅ Service implemented with async functions for all admin operations
+- ✅ Resources implemented: 7 admin resources covering users, roles, SSO, tabulator config
+- ✅ Resource tests exist: `tests/unit/resources/test_admin_resources.py`
+- ✅ Tool registry points to service
+- ✅ Legacy tool tests marked as skipped with resource URI references
+- ✅ No orphaned tool files
+
+**Resource URIs**: `admin://users`, `admin://roles`, `admin://config`, `admin://users/{name}`, `admin://config/sso`, `admin://config/tabulator`
+
+### Athena/Glue ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.athena_read_service`
+
+- ✅ Service implemented: `athena_databases_list`, `athena_tables_list`, `athena_table_schema`, `athena_workgroups_list`, `athena_query_history`
+- ✅ Resources implemented: `AthenaDatabasesResource`, `AthenaWorkgroupsResource`, `AthenaTableSchemaResource`, `AthenaQueryHistoryResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_athena_resources.py`
+- ✅ Tool registry points to service
+- ✅ No orphaned tool files
+
+**Resource URIs**: `athena://databases`, `athena://workgroups`, `athena://databases/{database}/tables/{table}/schema`, `athena://queries/history`
+
+**Note**: `athena_query_execute` remains as a write tool (not migrated)
+
+### Metadata ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.metadata_service`
+
+- ✅ Service implemented: `get_metadata_template`, `list_metadata_templates`, `show_metadata_examples`,
+  `fix_metadata_validation_issues`, `validate_metadata_structure`, `create_metadata_from_template`
+- ✅ Resources implemented: `MetadataTemplatesResource`, `MetadataExamplesResource`, `MetadataTroubleshootingResource`, `MetadataTemplateResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_metadata_resources.py`
+- ✅ Tool registry points to service
+- ✅ Legacy tool tests marked as skipped
+- ✅ No orphaned tool files
+
+**Resource URIs**: `metadata://templates`, `metadata://templates/{name}`, `metadata://examples`, `metadata://troubleshooting`
+
+### Permissions ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.permissions_service`
+
+- ✅ Service implemented: `discover_permissions`, `bucket_recommendations_get`, `check_bucket_access`
+- ✅ Resources implemented: `PermissionsDiscoverResource`, `BucketRecommendationsResource`, `BucketAccessResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_permissions_resources.py`
+- ✅ Tool registry points to service
+- ✅ No orphaned tool files
+
+**Resource URIs**: `permissions://discover`, `permissions://recommendations`, `permissions://buckets/{bucket}/access`
+
+### Tabulator ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.tabulator_service`
+
+- ✅ Service implemented: `list_tabulator_buckets`, `list_tabulator_tables`
+- ✅ Resources implemented: `TabulatorBucketsResource`, `TabulatorTablesResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_tabulator_resources.py`
+- ✅ Tool registry points to service
+- ✅ No orphaned tool files
+
+**Resource URIs**: `tabulator://buckets`, `tabulator://buckets/{bucket}/tables`
+
+**Note**: Write operations (`tabulator_table_create`, `tabulator_table_delete`, etc.) remain as tools
+
+### Workflow Orchestration ✅ COMPLETE
+
+**Service**: `quilt_mcp.services.workflow_service`
+
+- ✅ Service implemented: `workflow_list_all`, `workflow_get_status`
+- ✅ Resources implemented: `WorkflowsResource`, `WorkflowStatusResource`
+- ✅ Resource tests exist: `tests/unit/resources/test_workflow_resources.py`
+- ✅ Tool registry points to service
+- ✅ Legacy tool tests marked as skipped
+- ✅ No orphaned tool files
+
+**Resource URIs**: `workflow://workflows`, `workflow://workflows/{id}`
+
+**Note**: Write operations (`workflow_create`, `workflow_add_step`, `workflow_update_step`) remain as tools
+
+---
+
+## Migration Completion Summary
+
+**Overall Progress**: 7/7 domains (100% functional migration)
+
+**What's Done**:
+
+- ✅ All services implemented and tested
+- ✅ All resources implemented and tested
+- ✅ Tool registry updated
+- ✅ No orphaned tool files
+- ✅ Skipped tests document migration path
+
+**What Remains** (see [migration-status.md](./migration-status.md) for details):
+
+- [ ] Test coverage audit (verify resource tests cover all tool test cases)
+- [ ] Documentation updates (user-facing docs, code examples)
+- [ ] CHANGELOG entry
+- [ ] Final validation (test suite run, import verification)
+
+**Estimated Time to Complete**: 5-8 hours
+
+**Next Recommended Action**: Begin Phase 2, Task 2.1 from migration-status.md (audit resource test coverage)

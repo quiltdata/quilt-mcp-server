@@ -144,7 +144,10 @@ class TestGovernanceService:
 class TestUserManagement:
     """Test user management functions."""
 
-    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users)")
+    @pytest.mark.skip(
+        reason="Tool deprecated in v0.8.x - now available as MCP resource (admin://users). "
+               "See tests/unit/resources/test_admin_resources.py for resource-level tests."
+    )
     @pytest.mark.asyncio
     async def test_admin_users_list_success(self, mock_admin_available, sample_users):
         """Test successful user listing."""
@@ -167,7 +170,10 @@ class TestUserManagement:
                 assert result["count"] == 3
                 assert "admin_user" in [u["name"] for u in result["users"]]
 
-    @pytest.mark.skip(reason="Tool deprecated - now available as resource (admin://users)")
+    @pytest.mark.skip(
+        reason="Tool deprecated in v0.8.x - now available as MCP resource (admin://users). "
+               "See tests/unit/resources/test_admin_resources.py for resource-level tests."
+    )
     @pytest.mark.asyncio
     async def test_admin_users_list_unavailable(self, mock_admin_unavailable):
         """Test user listing when admin unavailable."""

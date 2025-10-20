@@ -55,6 +55,20 @@ class TestAdminUsersResource:
                 await resource.read("admin://users")
 
     @pytest.mark.anyio
+    async def test_read_admin_unavailable(self, resource):
+        """Test users list when admin functionality unavailable."""
+        mock_result = {
+            "success": False,
+            "error": "Admin functionality not available. quilt3.admin module not found."
+        }
+
+        with patch("quilt_mcp.resources.admin.admin_users_list") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            with pytest.raises(Exception, match="Admin functionality not available"):
+                await resource.read("admin://users")
+
+    @pytest.mark.anyio
     async def test_read_invalid_uri(self, resource):
         """Test with invalid URI."""
         with pytest.raises(ValueError, match="Invalid URI"):
@@ -105,6 +119,20 @@ class TestAdminRolesResource:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list roles"):
+                await resource.read("admin://roles")
+
+    @pytest.mark.anyio
+    async def test_read_admin_unavailable(self, resource):
+        """Test roles list when admin functionality unavailable."""
+        mock_result = {
+            "success": False,
+            "error": "Admin functionality not available. quilt3.admin module not found."
+        }
+
+        with patch("quilt_mcp.resources.admin.admin_roles_list") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            with pytest.raises(Exception, match="Admin functionality not available"):
                 await resource.read("admin://roles")
 
 
@@ -186,6 +214,33 @@ class TestAdminUserResource:
             with pytest.raises(Exception, match="Failed to get user"):
                 await resource.read("admin://users/nonexistent", params)
 
+    @pytest.mark.anyio
+    async def test_read_user_not_found(self, resource):
+        """Test user retrieval when user does not exist."""
+        mock_result = {"success": False, "error": "User 'ghost' not found"}
+
+        with patch("quilt_mcp.resources.admin.admin_user_get") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            params = {"name": "ghost"}
+            with pytest.raises(Exception, match="not found"):
+                await resource.read("admin://users/ghost", params)
+
+    @pytest.mark.anyio
+    async def test_read_empty_username(self, resource):
+        """Test user retrieval with empty username."""
+        params = {"name": ""}
+        # The resource should validate empty username
+        # This may raise ValueError or pass empty string to service
+        # Testing service behavior through resource
+        mock_result = {"success": False, "error": "Username cannot be empty"}
+
+        with patch("quilt_mcp.resources.admin.admin_user_get") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            with pytest.raises(Exception):
+                await resource.read("admin://users/", params)
+
     def test_properties(self, resource):
         """Test resource properties."""
         assert resource.uri_pattern == "admin://users/{name}"
@@ -214,6 +269,24 @@ class TestAdminSSOConfigResource:
 
             assert response.uri == "admin://config/sso"
             assert response.content == mock_result
+
+    @pytest.mark.anyio
+    async def test_read_no_config(self, resource):
+        """Test SSO config retrieval when no config exists."""
+        mock_result = {
+            "success": True,
+            "sso_config": None,
+            "message": "No SSO configuration found"
+        }
+
+        with patch("quilt_mcp.resources.admin.admin_sso_config_get") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            response = await resource.read("admin://config/sso")
+
+            assert response.uri == "admin://config/sso"
+            assert response.content["sso_config"] is None
+            assert "No SSO configuration found" in response.content["message"]
 
     def test_properties(self, resource):
         """Test resource properties."""
