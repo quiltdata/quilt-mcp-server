@@ -6,6 +6,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2025-10-20
+
+### Changed
+
+- **Major Tools Consolidation**: Dramatically simplified tool organization and reduced API surface area
+  - **Consolidated tool modules** from 9 separate files into 3 focused modules:
+    - Merged `package_management.py`, `package_ops.py`, `s3_package.py`, `unified_package.py` → `packages.py`
+    - Renamed `auth.py` → `catalog.py` for clearer authentication/catalog operations
+    - Created new consolidated `search.py` module
+    - Removed obsolete `graphql.py` and `tabulator.py` tool modules
+  - **Deleted 3,678 lines** of redundant code while adding only 2,000 lines of consolidated functionality
+  - **Net reduction of 1,678 lines** across 61 files with improved maintainability
+
+- **Service Layer Refactoring**: Enhanced service architecture with better separation of concerns
+  - Renamed and reorganized service modules for clarity:
+    - `auth_metadata.py` → split into focused services
+    - Created `metadata_service.py` for metadata operations
+    - Created `athena_read_service.py`, `governance_service.py`, `permissions_service.py`, `workflow_service.py`
+  - Migrated 825 lines from `tools/tabulator.py` into `services/tabulator_service.py`
+  - All services now properly isolated with clean interfaces
+
+- **Test Suite Optimization**: Streamlined test organization
+  - Removed duplicate test suites (`test_package_management.py`, `test_unified_package.py`, `test_package_management_integration.py`)
+  - Consolidated test coverage into focused suites with better organization
+  - Renamed `test_auth.py` → `test_catalog.py` to match new module naming
+  - Updated all test imports and references across 20+ test files
+
+### Fixed
+
+- **Import Path Updates**: Fixed all import paths across codebase after module consolidation
+- **Test Regressions**: Resolved tabulator and auth test failures introduced during refactoring
+- **GraphQL Backend**: Fixed import issues in search backend after graphql module removal
+
+### Architecture
+
+- **Cleaner Separation**: Tools layer now exclusively handles MCP tool registration
+- **Service Ownership**: All business logic properly encapsulated in service layer
+- **Reduced Complexity**: Easier navigation and maintenance with fewer, more focused modules
+
+### Internal
+
+- **Documentation**: Updated all spec documents and planning files to reflect new architecture
+- **Build Tools**: Updated `scripts/mcp-list.py` to handle consolidated tool registry
+
 ## [0.8.1] - 2025-10-19
 
 ### Added
