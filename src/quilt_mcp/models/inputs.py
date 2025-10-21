@@ -344,6 +344,267 @@ class PackageCreateParams(BaseModel):
     ]
 
 
+class PackageUpdateParams(BaseModel):
+    """Parameters for package_update tool."""
+
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name of the existing package to update in namespace/name format",
+            examples=["username/dataset", "team/analysis-results"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ]
+    s3_uris: Annotated[
+        list[str],
+        Field(
+            description="List of S3 URIs to add to the package",
+            examples=[["s3://bucket/newfile.csv", "s3://bucket/updated.json"]],
+            min_length=1,
+        ),
+    ]
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Target Quilt registry S3 URI",
+        ),
+    ]
+    metadata: Annotated[
+        Optional[dict[str, str | int | float | bool]],
+        Field(
+            default=None,
+            description="Optional metadata to merge with existing package metadata",
+            examples=[{"updated": "true", "version": "2.0"}],
+        ),
+    ]
+    message: Annotated[
+        str,
+        Field(
+            default="Added objects via package_update tool",
+            description="Commit message for package update",
+        ),
+    ]
+    flatten: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
+        ),
+    ]
+    copy_mode: Annotated[
+        Literal["all", "same_bucket", "none"],
+        Field(
+            default="all",
+            description="Copy policy for the source objects: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+        ),
+    ]
+
+
+class PackageDeleteParams(BaseModel):
+    """Parameters for package_delete tool."""
+
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name of the package to delete in namespace/name format",
+            examples=["username/dataset", "team/old-analysis"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ]
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI where the package resides",
+        ),
+    ]
+
+
+class PackagesListParams(BaseModel):
+    """Parameters for packages_list tool."""
+
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI to list packages from",
+        ),
+    ]
+    limit: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Maximum number of packages to return, 0 for unlimited",
+        ),
+    ]
+    prefix: Annotated[
+        str,
+        Field(
+            default="",
+            description="Filter packages by name prefix",
+            examples=["", "team/", "user/analysis-"],
+        ),
+    ]
+
+
+class PackageDiffParams(BaseModel):
+    """Parameters for package_diff tool."""
+
+    package1_name: Annotated[
+        str,
+        Field(
+            description="Name of the first package in namespace/name format",
+            examples=["username/dataset", "team/analysis-v1"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ]
+    package2_name: Annotated[
+        str,
+        Field(
+            description="Name of the second package in namespace/name format",
+            examples=["username/dataset", "team/analysis-v2"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ]
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI",
+        ),
+    ]
+    package1_hash: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional specific hash for first package (empty string for latest)",
+        ),
+    ]
+    package2_hash: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional specific hash for second package (empty string for latest)",
+        ),
+    ]
+
+
+class PackageCreateFromS3Params(BaseModel):
+    """Parameters for package_create_from_s3 tool."""
+
+    source_bucket: Annotated[
+        str,
+        Field(
+            description="S3 bucket name containing source data (without s3:// prefix)",
+            examples=["my-data-bucket", "research-data"],
+        ),
+    ]
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name for the new package in namespace/name format",
+            examples=["username/dataset", "team/research-data"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ]
+    source_prefix: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional prefix to filter source objects",
+            examples=["", "data/2024/", "experiments/"],
+        ),
+    ]
+    target_registry: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Target Quilt registry (auto-suggested if not provided)",
+        ),
+    ]
+    description: Annotated[
+        str,
+        Field(
+            default="",
+            description="Package description",
+        ),
+    ]
+    include_patterns: Annotated[
+        Optional[list[str]],
+        Field(
+            default=None,
+            description="File patterns to include (glob style)",
+            examples=[["*.csv", "*.json"], ["data/*.parquet"]],
+        ),
+    ]
+    exclude_patterns: Annotated[
+        Optional[list[str]],
+        Field(
+            default=None,
+            description="File patterns to exclude (glob style)",
+            examples=[["*.tmp", "*.log"], ["temp/*"]],
+        ),
+    ]
+    auto_organize: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Enable smart folder organization",
+        ),
+    ]
+    generate_readme: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Generate comprehensive README.md",
+        ),
+    ]
+    confirm_structure: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Require user confirmation of structure",
+        ),
+    ]
+    metadata_template: Annotated[
+        Literal["standard", "ml", "analytics"],
+        Field(
+            default="standard",
+            description="Metadata template to use",
+        ),
+    ]
+    dry_run: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Preview structure without creating package",
+        ),
+    ]
+    metadata: Annotated[
+        Optional[dict[str, str | int | float | bool]],
+        Field(
+            default=None,
+            description="Additional user-provided metadata",
+        ),
+    ]
+    copy_mode: Annotated[
+        Literal["all", "same_bucket", "none"],
+        Field(
+            default="all",
+            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+        ),
+    ]
+    force: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Skip confirmation prompts when True—useful for automated ingestion",
+        ),
+    ]
+
+
 # ============================================================================
 # Catalog Input Models
 # ============================================================================

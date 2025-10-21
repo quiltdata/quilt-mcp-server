@@ -1057,11 +1057,14 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         files = result.get("files", [])
 
         # Build package URL
-        from .auth_helpers import catalog_url
-        package_url = catalog_url(
+        from .catalog import catalog_url
+        from ..models import CatalogUrlParams
+        catalog_params = CatalogUrlParams(
             registry=normalized_registry,
             package_name=params.package_name,
         )
+        catalog_result = catalog_url(catalog_params)
+        package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
         return PackageCreateSuccess(
             package_name=params.package_name,
@@ -1216,11 +1219,14 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
         )
 
     # Build package URL
-    from .auth_helpers import catalog_url
-    package_url = catalog_url(
+    from .catalog import catalog_url
+    from ..models import CatalogUrlParams
+    catalog_params = CatalogUrlParams(
         registry=normalized_registry,
         package_name=params.package_name,
     )
+    catalog_result = catalog_url(catalog_params)
+    package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
     return PackageUpdateSuccess(
         package_name=params.package_name,

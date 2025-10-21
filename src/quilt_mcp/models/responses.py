@@ -251,16 +251,27 @@ class PackageMetadata(BaseModel):
     message: Optional[str] = None
 
 
+class PackageSummary(BaseModel):
+    """Summary statistics for a package."""
+
+    total_size: int
+    total_size_human: str
+    file_types: list[str]
+    total_files: int
+    total_directories: int
+
+
 class PackageBrowseSuccess(SuccessResponse):
     """Response from package_browse when successful."""
 
     package_name: str
     registry: str
-    top_hash: str
-    entries: list[PackageFileEntry]
-    metadata: PackageMetadata
-    total_size: int
-    file_count: int
+    total_entries: int
+    summary: PackageSummary
+    view_type: Literal["recursive", "flat"]
+    file_tree: Optional[dict] = None  # Recursive tree structure
+    entries: list[dict]  # List of entry data with logical_key, physical_key, size, etc.
+    metadata: Optional[dict] = None  # Package metadata if available
 
 
 class PackageCreateSuccess(SuccessResponse):
@@ -283,6 +294,117 @@ class PackageCreateError(ErrorResponse):
     examples: Optional[list[str]] = None
     tip: Optional[str] = None
     json_error: Optional[str] = None
+
+
+class PackageUpdateSuccess(SuccessResponse):
+    """Response from package_update when successful."""
+
+    status: Literal["success"] = "success"
+    action: Literal["updated"] = "updated"
+    package_name: str
+    registry: str
+    top_hash: str
+    new_entries_added: int
+    files_added: list[dict[str, str]]  # List of {"logical_path": str, "source": str}
+    warnings: list[str] = Field(default_factory=list)
+    message: str
+    metadata_added: bool
+    auth_type: Optional[str] = None
+
+
+class PackageUpdateError(ErrorResponse):
+    """Response from package_update when failed."""
+
+    package_name: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PackageDeleteSuccess(SuccessResponse):
+    """Response from package_delete when successful."""
+
+    status: Literal["success"] = "success"
+    action: Literal["deleted"] = "deleted"
+    package_name: str
+    registry: str
+    message: str
+    auth_type: Optional[str] = None
+
+
+class PackageDeleteError(ErrorResponse):
+    """Response from package_delete when failed."""
+
+    package_name: Optional[str] = None
+    registry: Optional[str] = None
+
+
+class PackagesListSuccess(SuccessResponse):
+    """Response from packages_list when successful."""
+
+    packages: list[str]
+    count: int = Field(description="Number of packages returned")
+    registry: Optional[str] = None
+    prefix_filter: Optional[str] = None
+
+
+class PackagesListError(ErrorResponse):
+    """Response from packages_list when failed."""
+
+    registry: Optional[str] = None
+
+
+class PackageDiffSuccess(SuccessResponse):
+    """Response from package_diff when successful."""
+
+    package1: str
+    package2: str
+    package1_hash: str
+    package2_hash: str
+    registry: str
+    diff: dict  # Quilt3's diff result
+
+
+class PackageDiffError(ErrorResponse):
+    """Response from package_diff when failed."""
+
+    package1: Optional[str] = None
+    package2: Optional[str] = None
+
+
+class FolderInfo(BaseModel):
+    """Information about an organized folder."""
+
+    file_count: int
+    sample_files: list[str] = Field(max_length=3)
+
+
+class PackageCreateFromS3Success(SuccessResponse):
+    """Response from package_create_from_s3 when successful."""
+
+    action: Literal["created", "preview"]
+    package_name: str
+    registry: str
+    structure: dict  # folders_created, files_organized, readme_generated
+    metadata: dict  # package_size_mb, file_types, organization_applied
+    confirmation: dict  # bucket_suggested, structure_preview, etc.
+    package_hash: Optional[str] = None
+    created_at: Optional[str] = None
+    summary_files: Optional[dict] = None
+    readme_preview: Optional[str] = None
+    metadata_preview: Optional[dict] = None
+    message: Optional[str] = None
+
+
+class PackageCreateFromS3Error(ErrorResponse):
+    """Response from package_create_from_s3 when failed."""
+
+    bucket: Optional[str] = None
+    package_name: Optional[str] = None
+    provided: Optional[str] = None
+    expected: Optional[str] = None
+    example: Optional[str] = None
+    tip: Optional[str] = None
+    fix: Optional[str] = None
+    debug_info: Optional[dict] = None
 
 
 # ============================================================================
@@ -354,7 +476,7 @@ class VisualizationFile(BaseModel):
 class VisualizationConfig(BaseModel):
     """ECharts visualization configuration."""
 
-    type: Literal["boxplot", "scatter", "line", "bar"]
+    type: Literal["echarts"]  # Visualization engine type
     option: dict  # ECharts option object
     filename: str
 
@@ -366,7 +488,7 @@ class DataVisualizationSuccess(SuccessResponse):
     data_file: VisualizationFile
     quilt_summarize: VisualizationFile
     files_to_upload: list[VisualizationFile]
-    metadata: dict[str, str | int | float]
+    metadata: dict  # Contains plot_type, statistics (dict), data_points, visualization_engine, columns_used (list)
 
 
 class DataVisualizationError(ErrorResponse):
@@ -435,6 +557,11 @@ BucketObjectsPutResponse = BucketObjectsPutSuccess | BucketObjectsPutError
 # Package responses
 PackageBrowseResponse = PackageBrowseSuccess | ErrorResponse
 PackageCreateResponse = PackageCreateSuccess | PackageCreateError
+PackageUpdateResponse = PackageUpdateSuccess | PackageUpdateError
+PackageDeleteResponse = PackageDeleteSuccess | PackageDeleteError
+PackagesListResponse = PackagesListSuccess | PackagesListError
+PackageDiffResponse = PackageDiffSuccess | PackageDiffError
+PackageCreateFromS3Response = PackageCreateFromS3Success | PackageCreateFromS3Error
 
 # Athena responses
 AthenaQueryResponse = AthenaQuerySuccess | AthenaQueryError

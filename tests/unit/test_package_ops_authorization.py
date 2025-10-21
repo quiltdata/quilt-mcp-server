@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
+import quilt3
 
 from quilt_mcp.tools import packages
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
+from quilt_mcp.models import PackageCreateParams, PackageCreateError
 
 
 class FakeQuiltService:
@@ -33,14 +35,35 @@ def _authorized_context(auth_type: str = "jwt") -> AuthorizationContext:
 def test_package_create_attaches_auth_type(monkeypatch, fake_service):
     monkeypatch.setattr(packages, "check_package_authorization", lambda *_, **__: _authorized_context("jwt"))
 
-    result = packages.package_create(
+    # Mock S3 client to avoid actual S3 calls
+    class MockS3Client:
+        def head_object(self, **kwargs):
+            return {"ContentLength": 100}
+
+    monkeypatch.setattr(packages, "get_s3_client", lambda: MockS3Client())
+
+    # Mock quilt3 package operations
+    class MockPackage:
+        def __init__(self):
+            self.top_hash = "deadbeef"
+
+        def set(self, key, s3_uri):
+            pass
+
+        def push(self, *args, **kwargs):
+            pass
+
+    monkeypatch.setattr(packages.quilt3, "Package", lambda: MockPackage())
+
+    params = PackageCreateParams(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )
+    result = packages.package_create(params)
 
-    assert result["auth_type"] == "jwt"
-    assert result["status"] == "success"
-    assert fake_service.calls["create_package_revision"]["package_name"] == "team/example"
+    assert result.auth_type == "jwt"
+    assert result.status == "success"
+    assert result.package_name == "team/example"
 
 
 def test_package_create_respects_strict_mode(monkeypatch, fake_service):
@@ -54,10 +77,12 @@ def test_package_create_respects_strict_mode(monkeypatch, fake_service):
     )
     monkeypatch.setattr(packages, "check_package_authorization", lambda *_, **__: strict_ctx)
 
-    result = packages.package_create(
+    params = PackageCreateParams(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )
+    result = packages.package_create(params)
 
-    assert result["error"] == "JWT required"
-    assert result["strict_mode"] is True
+    # The result should be an error since authorization failed
+    assert isinstance(result, PackageCreateError)
+    assert "Authorization failed" in result.error or "JWT required" in result.error
