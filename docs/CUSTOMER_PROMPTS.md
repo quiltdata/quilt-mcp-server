@@ -12,7 +12,7 @@ Copy and paste these prompts when working with Quilt MCP Server through Claude o
 
 **Prompt:**
 
-```
+```prompt
 I need to create a Quilt package from files that are already in S3.
 
 My files are at:
@@ -36,7 +36,7 @@ Use the "research" metadata template and organize the files automatically.
 
 **Prompt:**
 
-```
+```prompt
 I have a lot of data files in S3 at s3://my-data-bucket/experiments/exp-2024-Q4/
 
 Please create a Quilt package named "team/q4-2024-experiment" from all files 
@@ -57,7 +57,7 @@ with visualizations.
 
 **Prompt:**
 
-```
+```prompt
 I have local CSV files that I need to package in Quilt:
 - experiment_data.csv (contains: sample_id, measurement_1, measurement_2)
 - sample_info.csv (contains: sample_id, condition, treatment)
@@ -82,7 +82,7 @@ Please:
 
 **Prompt:**
 
-```
+```prompt
 Create a package named "analytics/monthly-report-oct-2024" from:
 - s3://reports-bucket/october/sales_data.parquet
 - s3://reports-bucket/october/customer_insights.json
@@ -110,7 +110,7 @@ Use the analytics template and include visualizations.
 
 **Prompt:**
 
-```
+```prompt
 I have a package named "research/experiment-001" and I want to see 
 visualizations of its contents.
 
@@ -136,7 +136,7 @@ Please show me:
 
 **Prompt:**
 
-```
+```prompt
 Create a package named "genomics/rnaseq-batch-12" from 
 s3://genomics-data/batch-12/
 
@@ -165,7 +165,7 @@ Include:
 
 **Prompt:**
 
-```
+```prompt
 I want to preview what a package would look like before actually creating it.
 
 Please show me a preview of a package from s3://my-bucket/project-alpha/
@@ -190,7 +190,7 @@ Don't create it yet - just show me:
 
 **Prompt:**
 
-```
+```prompt
 Create a package from s3://data-bucket/project-x/ but exclude:
 - Any files with "temp" or "test" in the name
 - All .log files
@@ -211,7 +211,7 @@ Name it "production/project-x-v1" and use standard template.
 
 **Prompt:**
 
-```
+```prompt
 I have an existing package "research/experiment-001" and I want to add new files:
 - s3://my-bucket/data/followup_results.csv
 - s3://my-bucket/docs/final_report.pdf
@@ -233,7 +233,7 @@ Keep all existing files and regenerate visualizations to include the new data.
 
 **Prompt:**
 
-```
+```prompt
 Create a comprehensive package named "multimodal/study-2024" from:
 
 CSV data:
@@ -271,7 +271,7 @@ Use research template and create visualizations showing:
 
 **Prompt:**
 
-```
+```prompt
 I tried to create a package but got an error about permissions.
 
 Please:
@@ -284,7 +284,7 @@ Please:
 
 **Prompt:**
 
-```
+```prompt
 I'm trying to package s3://big-data-bucket/large-dataset/ which has thousands of files.
 
 Can you:
@@ -298,7 +298,7 @@ Can you:
 
 **Prompt:**
 
-```
+```prompt
 I created a package but the visualizations show wrong file counts.
 
 My package is "team/dataset-123". Please:
@@ -313,14 +313,14 @@ My package is "team/dataset-123". Please:
 
 ### Tip 1: Be Specific About Structure
 
-```
+```example
 Good: "Organize files into data/, docs/, and notebooks/ folders"
 Better: "Auto-organize files by type using the standard folder structure"
 ```
 
 ### Tip 2: Specify Metadata Template
 
-```
+```example
 Available templates:
 - standard: General purpose packages
 - genomics: Genomics/biology data
@@ -331,14 +331,14 @@ Available templates:
 
 ### Tip 3: Use Dry Run First
 
-```
+```example
 "First show me a preview (dry run) of the package structure, then if it looks 
 good, create the actual package."
 ```
 
 ### Tip 4: Request Specific Visualizations
 
-```
+```example
 "Generate visualizations showing:
 - File type distribution (pie chart)
 - Folder structure (bar chart)
@@ -352,7 +352,7 @@ good, create the actual package."
 
 **Comprehensive Prompt:**
 
-```
+```example
 I need to create a well-documented Quilt package for our Q4 2024 experiment.
 
 Source data:
@@ -386,7 +386,7 @@ Please walk me through each step and confirm before proceeding.
 
 **Prompt:**
 
-```
+```prompt
 I'm new to Quilt. Can you show me:
 1. What package creation tools are available?
 2. A simple example of creating a package
@@ -398,7 +398,7 @@ I'm new to Quilt. Can you show me:
 
 **Prompt:**
 
-```
+```prompt
 I have data at s3://my-bucket/project-data/ but I'm not sure what's there.
 
 Can you:
@@ -414,11 +414,13 @@ Can you:
 
 ### Scenario 11: Query and Explore File Contents
 
-**IMPORTANT for LLMs**: When users ask to "query" or "understand" file contents, **execute actual tool calls** to inspect the data. Don't just provide code examples - use the available MCP tools to retrieve and analyze the data.
+**IMPORTANT for LLMs**:
+When users ask to "query" or "understand" file contents, **execute actual tool calls** to inspect the data.
+Don't just provide code examples - use the available MCP tools to retrieve and analyze the data.
 
 **Prompt:**
 
-```
+```prompt
 I have CSV files in s3://my-bucket/data/ and I want to understand their contents.
 
 Please:
@@ -448,7 +450,7 @@ Please:
 
 **Prompt:**
 
-```
+```prompt
 I have gene expression data in s3://genomics-bucket/data/expression.csv.
 
 Please:
@@ -483,7 +485,7 @@ Please:
 
 **Prompt:**
 
-```
+```prompt
 I have several CSV files in s3://analysis-bucket/results/:
 - experiment_1.csv
 - experiment_2.csv
@@ -511,7 +513,7 @@ Please:
 
 **Prompt:**
 
-```
+```prompt
 I found some data files in s3://nextflowtower/INV377_scRNAseq/ but I don't know what they contain.
 
 Can you:
@@ -571,7 +573,7 @@ If a prompt doesn't work as expected, try:
 
 **Debug Prompt:**
 
-```
+```prompt
 Something went wrong with my package creation. The error message was: [paste error]
 
 Can you:
@@ -582,7 +584,7 @@ Can you:
 
 **Clarification Prompt:**
 
-```
+```prompt
 I don't understand the response about [specific part].
 
 Can you explain:
