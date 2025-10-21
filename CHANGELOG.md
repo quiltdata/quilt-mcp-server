@@ -20,8 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Net reduction of 1,678 lines** across 61 files with improved maintainability
 
 - **Service Layer Refactoring**: Enhanced service architecture with better separation of concerns
+  - Decoupled catalog tools from QuiltService with improved architecture (#223)
+    - Moved configure_catalog logic to auth_metadata.py
+    - Removed QuiltService stub from catalog.py
+    - Eliminated dual import paths and simplified test mocking
   - Renamed and reorganized service modules for clarity:
-    - `auth_metadata.py` → split into focused services
+    - `auth_metadata.py` → enhanced with catalog configuration helpers
     - Created `metadata_service.py` for metadata operations
     - Created `athena_read_service.py`, `governance_service.py`, `permissions_service.py`, `workflow_service.py`
   - Migrated 825 lines from `tools/tabulator.py` into `services/tabulator_service.py`
@@ -32,12 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Consolidated test coverage into focused suites with better organization
   - Renamed `test_auth.py` → `test_catalog.py` to match new module naming
   - Updated all test imports and references across 20+ test files
+  - Fixed test mocking to patch in single location (auth_metadata)
 
 ### Fixed
 
 - **Import Path Updates**: Fixed all import paths across codebase after module consolidation
 - **Test Regressions**: Resolved tabulator and auth test failures introduced during refactoring
 - **GraphQL Backend**: Fixed import issues in search backend after graphql module removal
+- **Linting Errors**: Fixed F821 and B017 linting errors across codebase
+  - Fixed undefined `exc` variable in auth_metadata.py and catalog.py
+  - Fixed blind exception assert in test_admin_resources.py
+
+### Added
+
+- **CI/CD Enhancements**: Added linting step to PR workflow to catch future linting issues
 
 ### Architecture
 
