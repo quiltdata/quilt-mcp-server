@@ -15,9 +15,9 @@ from quilt_mcp.models import PackagesListParams, PackageBrowseParams
 
 @pytest.mark.integration
 def test_quilt_tools():
-    # Auth tool returns a structured dict
+    # Auth tool returns a Pydantic model or dict
     result = auth_status()
-    assert isinstance(result, dict)
+    assert hasattr(result, 'success') or isinstance(result, dict)
 
     # Basic listing call should return Pydantic model (mocked in unit runs)
     try:

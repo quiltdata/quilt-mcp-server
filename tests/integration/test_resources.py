@@ -143,7 +143,9 @@ class TestAthenaResources:
         result = await resource.read("athena://queries/history")
 
         assert result.uri == "athena://queries/history"
-        assert isinstance(result.content, dict)
+        # Content is now a Pydantic model, check it has the expected structure
+        from quilt_mcp.models import AthenaQueryHistorySuccess
+        assert hasattr(result.content, 'success') or isinstance(result.content, (dict, AthenaQueryHistorySuccess))
 
 
 @pytest.mark.integration
