@@ -583,7 +583,9 @@ class TestBucketObjectVersionConsistency:
         link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri))
 
         # All should succeed (or all should fail consistently)
-        all_succeed = all(not hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result])
+        all_succeed = all(
+            not hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result]
+        )
         all_fail = all(hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result])
 
         assert all_succeed or all_fail, "Functions should have consistent success/failure status"

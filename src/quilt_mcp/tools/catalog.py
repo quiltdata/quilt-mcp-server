@@ -244,6 +244,7 @@ def catalog_uri(params: CatalogUriParams) -> CatalogUriSuccess | CatalogUriError
 # The following functions delegate to service layer and don't need Pydantic migration
 # as they simply pass through dict responses from the service layer
 
+
 def catalog_configure(catalog_url: str) -> dict:
     """Configure Quilt catalog URL - Quilt authentication and catalog navigation workflows
 

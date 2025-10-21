@@ -628,7 +628,7 @@ def packages_list(params: PackagesListParams) -> PackagesListSuccess | PackagesL
 
         # Apply limit if specified
         if params.limit > 0:
-            pkgs = pkgs[:params.limit]
+            pkgs = pkgs[: params.limit]
 
         return PackagesListSuccess(
             packages=pkgs,
@@ -709,7 +709,7 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
 
     # Apply top limit if specified
     if params.top > 0:
-        keys = keys[:params.top]
+        keys = keys[: params.top]
 
     for logical_key in keys:
         try:
@@ -1059,6 +1059,7 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         # Build package URL
         from .catalog import catalog_url
         from ..models import CatalogUrlParams
+
         catalog_params = CatalogUrlParams(
             registry=normalized_registry,
             package_name=params.package_name,
@@ -1221,6 +1222,7 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
     # Build package URL
     from .catalog import catalog_url
     from ..models import CatalogUrlParams
+
     catalog_params = CatalogUrlParams(
         registry=normalized_registry,
         package_name=params.package_name,
@@ -1550,11 +1552,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                 metadata_info={
                     "package_size_mb": round(total_size / (1024 * 1024), 2),
                     "file_types": list(
-                        set(
-                            Path(obj["Key"]).suffix.lower().lstrip(".")
-                            for obj in objects
-                            if Path(obj["Key"]).suffix
-                        )
+                        set(Path(obj["Key"]).suffix.lower().lstrip(".") for obj in objects if Path(obj["Key"]).suffix)
                     ),
                 },
                 confirmation=confirmation_info,

@@ -77,6 +77,7 @@ def test_bucket_object_info_success():
 def test_bucket_object_info_invalid_uri():
     # Invalid URIs should be caught by Pydantic validation
     from pydantic import ValidationError
+
     try:
         params = BucketObjectInfoParams(s3_uri="not-an-s3-uri")
         # If validation passes (shouldn't), call the function
@@ -154,6 +155,7 @@ def test_bucket_object_link_success():
 def test_bucket_object_link_invalid_uri():
     # Invalid URIs should be caught by Pydantic validation
     from pydantic import ValidationError
+
     try:
         params = BucketObjectLinkParams(s3_uri="not-an-s3-uri")
         # If validation passes (shouldn't), call the function
@@ -656,7 +658,9 @@ def test_malformed_version_id_handling():
             link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=uri))
 
             # All should have the same error/success status
-            all_have_error = all(hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result])
+            all_have_error = all(
+                hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result]
+            )
             all_succeed = all(
                 not hasattr(result, "error") for result in [info_result, text_result, fetch_result, link_result]
             )

@@ -7,9 +7,31 @@ replacing generic Dict[str, Any] with structured, validated responses.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+class DictAccessibleModel(BaseModel):
+    """Base model that supports dict-like access for backward compatibility."""
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow dict-like access to model fields."""
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support dict.get() method."""
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            return default
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'key in model' checks."""
+        return hasattr(self, key)
 
 
 # ============================================================================
@@ -17,13 +39,13 @@ from pydantic import BaseModel, Field
 # ============================================================================
 
 
-class SuccessResponse(BaseModel):
+class SuccessResponse(DictAccessibleModel):
     """Base model for successful operations."""
 
     success: Literal[True] = True
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(DictAccessibleModel):
     """Base model for error responses."""
 
     success: Literal[False] = False
@@ -282,18 +304,24 @@ class PackageCreateSuccess(SuccessResponse):
     top_hash: str
     message: str
     files_added: int
-    total_size: int
+    total_size: int = 0  # Default to 0 if not calculated
     catalog_url: Optional[str] = None
+    files: list[dict[str, str]] = Field(default_factory=list)  # List of file entries
+    warnings: list[str] = Field(default_factory=list)  # Any warnings during creation
+    auth_type: Optional[str] = None  # Authentication type used
 
 
 class PackageCreateError(ErrorResponse):
     """Response from package_create when failed."""
 
+    package_name: Optional[str] = None
+    registry: Optional[str] = None
     provided_type: Optional[str] = None
     expected: Optional[str] = None
     examples: Optional[list[str]] = None
     tip: Optional[str] = None
     json_error: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PackageUpdateSuccess(SuccessResponse):
@@ -316,6 +344,7 @@ class PackageUpdateError(ErrorResponse):
     """Response from package_update when failed."""
 
     package_name: Optional[str] = None
+    registry: Optional[str] = None
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -460,6 +489,142 @@ class AthenaQueryValidationError(ErrorResponse):
     syntax_errors: list[str]
 
 
+class DatabaseInfo(BaseModel):
+    """Information about an Athena/Glue database."""
+
+    name: str
+    description: str = ""
+    location_uri: str = ""
+    create_time: Optional[str] = None
+    parameters: dict[str, str] = Field(default_factory=dict)
+
+
+class AthenaDatabasesListSuccess(SuccessResponse):
+    """Response from athena_databases_list when successful."""
+
+    databases: list[DatabaseInfo]
+    data_catalog_name: str
+    count: int
+
+
+class TableInfo(BaseModel):
+    """Information about an Athena/Glue table."""
+
+    name: str
+    database_name: str
+    description: str = ""
+    owner: str = ""
+    create_time: Optional[str] = None
+    update_time: Optional[str] = None
+    table_type: str = ""
+    storage_descriptor: dict = Field(default_factory=dict)
+    partition_keys: list[dict] = Field(default_factory=list)
+    parameters: dict[str, str] = Field(default_factory=dict)
+
+
+class AthenaTablesListSuccess(SuccessResponse):
+    """Response from athena_tables_list when successful."""
+
+    tables: list[TableInfo]
+    database_name: str
+    data_catalog_name: str
+    count: int
+
+
+class ColumnInfo(BaseModel):
+    """Information about a table column."""
+
+    name: str
+    type: str
+    comment: str = ""
+    parameters: dict[str, str] = Field(default_factory=dict)
+
+
+class PartitionInfo(BaseModel):
+    """Information about a table partition."""
+
+    name: str
+    type: str
+    comment: str = ""
+
+
+class TableSchemaInfo(BaseModel):
+    """Detailed schema information for a table."""
+
+    table_name: str
+    database_name: str
+    data_catalog_name: str
+    columns: list[ColumnInfo]
+    partitions: list[PartitionInfo] = Field(default_factory=list)
+    table_type: str = ""
+    description: str = ""
+    owner: str = ""
+    create_time: Optional[str] = None
+    update_time: Optional[str] = None
+    storage_descriptor: dict = Field(default_factory=dict)
+    parameters: dict[str, str] = Field(default_factory=dict)
+
+
+class AthenaTableSchemaSuccess(SuccessResponse):
+    """Response from athena_table_schema when successful."""
+
+    success: Literal[True] = True
+    table_name: str
+    database_name: str
+    data_catalog_name: str
+    columns: list[ColumnInfo]
+    partitions: list[PartitionInfo]
+    table_type: str = ""
+    description: str = ""
+    owner: str = ""
+    create_time: Optional[str] = None
+    update_time: Optional[str] = None
+    storage_descriptor: dict = Field(default_factory=dict)
+    parameters: dict[str, str] = Field(default_factory=dict)
+
+
+class WorkgroupInfo(BaseModel):
+    """Information about an Athena workgroup."""
+
+    name: str
+    description: str = ""
+    creation_time: Optional[datetime] = None
+    output_location: Optional[str] = None
+    enforce_workgroup_config: bool = False
+
+
+class AthenaWorkgroupsListSuccess(SuccessResponse):
+    """Response from athena_workgroups_list when successful."""
+
+    workgroups: list[WorkgroupInfo]
+    region: str
+    count: int
+
+
+class QueryHistoryEntry(BaseModel):
+    """A single query execution from history."""
+
+    query_execution_id: str
+    query: str
+    status: str
+    submission_time: Optional[str] = None
+    completion_time: Optional[str] = None
+    execution_time_ms: Optional[int] = None
+    data_scanned_bytes: Optional[int] = None
+    result_location: Optional[str] = None
+    work_group: Optional[str] = None
+    database: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class AthenaQueryHistorySuccess(SuccessResponse):
+    """Response from athena_query_history when successful."""
+
+    query_history: list[QueryHistoryEntry]
+    count: int
+    filters: dict[str, str | int | None]
+
+
 # ============================================================================
 # Data Visualization Responses
 # ============================================================================
@@ -539,6 +704,177 @@ class WorkflowStepUpdateSuccess(SuccessResponse):
     updated_at: str
 
 
+class WorkflowAddStepSuccess(SuccessResponse):
+    """Response from workflow_add_step."""
+
+    workflow_id: str
+    step_id: str
+    step: WorkflowStep
+    workflow_summary: dict[str, int | str]
+    message: str
+
+
+class WorkflowProgress(DictAccessibleModel):
+    """Progress information for a workflow."""
+
+    total_steps: int
+    completed_steps: int
+    failed_steps: int
+    in_progress_steps: int
+    pending_steps: int
+    percentage: float
+
+
+class WorkflowGetStatusSuccess(SuccessResponse):
+    """Response from workflow_get_status."""
+
+    workflow: dict  # Full workflow data
+    progress: WorkflowProgress
+    next_available_steps: list[str]
+    can_proceed: bool
+    recent_activity: list[dict]
+    recommendations: list[str]
+
+
+class WorkflowSummary(BaseModel):
+    """Summary of a single workflow."""
+
+    id: str
+    name: str
+    status: Literal["created", "in_progress", "completed", "failed", "cancelled"]
+    progress: dict[str, int | float]
+    created_at: str
+    updated_at: str
+
+
+class WorkflowListAllSuccess(SuccessResponse):
+    """Response from workflow_list_all."""
+
+    workflows: list[WorkflowSummary]
+    total_workflows: int
+    active_workflows: int
+    completed_workflows: int
+
+
+class WorkflowTemplateApplySuccess(SuccessResponse):
+    """Response from workflow_template_apply."""
+
+    workflow_id: str
+    template_applied: str
+    workflow: dict  # Full workflow data with template steps
+    message: str
+    next_steps: list[str]
+
+
+# ============================================================================
+# Error Recovery Responses
+# ============================================================================
+
+
+class HealthCheckSuccess(SuccessResponse):
+    """Response from health_check_with_recovery."""
+
+    overall_health: Literal["healthy", "degraded", "unhealthy"]
+    health_results: dict[str, Any]  # Batch operation results
+    recovery_recommendations: list[str]
+    timestamp: str
+    next_steps: list[str]
+
+
+# ============================================================================
+# Quilt Summary Responses
+# ============================================================================
+
+
+class QuiltSummarizeJson(SuccessResponse):
+    """Response from generate_quilt_summarize_json - the complete summary structure."""
+
+    package_info: dict[str, Any]  # name, namespace, version, etc.
+    data_summary: dict[str, Any]  # total_files, file_types, sizes
+    structure: dict[str, Any]  # folders, organization_type
+    source: dict[str, Any]  # type, bucket, prefix
+    documentation: dict[str, Any]  # readme_generated, metadata_complete
+    quilt_metadata: dict[str, Any]  # User-provided metadata
+    access: dict[str, Any]  # browse_command, catalog_url
+    generated_at: str
+    generator: str
+    generator_version: str
+
+
+class QuiltSummarizeJsonError(ErrorResponse):
+    """Error response from generate_quilt_summarize_json."""
+
+    package_name: str
+    generated_at: str
+
+
+class PackageVisualizationsSuccess(SuccessResponse):
+    """Response from generate_package_visualizations."""
+
+    visualizations: dict[str, Any]  # Keyed by viz type (file_type_distribution, etc.)
+    count: int
+    types: list[str]
+    metadata: dict[str, Any]
+    visualization_dashboards: list[dict[str, Any]]
+
+
+class PackageVisualizationsError(ErrorResponse):
+    """Error response from generate_package_visualizations."""
+
+    visualizations: dict[str, Any] = {}
+    count: int = 0
+
+
+class QuiltSummaryFilesSuccess(SuccessResponse):
+    """Response from create_quilt_summary_files."""
+
+    summary_package: dict[str, Any]  # Contains quilt_summarize.json, README.md, visualizations
+    files_generated: dict[str, bool]  # Which files were successfully created
+    visualization_count: int
+    next_steps: list[str]
+
+
+class QuiltSummaryFilesError(ErrorResponse):
+    """Error response from create_quilt_summary_files."""
+
+    summary_package: dict[str, Any] = {}
+    files_generated: dict[str, bool] = {}
+
+
+# ============================================================================
+# Search Responses
+# ============================================================================
+
+
+class SearchExplainSuccess(SuccessResponse):
+    """Response from search_explain."""
+
+    query: str
+    explanation: dict[str, Any]  # Contains backend selection, query parsing, execution plan
+    backends_selected: list[str]
+    query_complexity: str
+    estimated_results: Optional[int] = None
+
+
+class SearchExplainError(ErrorResponse):
+    """Error response from search_explain."""
+
+    query: str
+
+
+class SearchGraphQLSuccess(SuccessResponse):
+    """Response from search_graphql."""
+
+    data: Optional[dict[str, Any]] = None
+    errors: Optional[list[dict[str, Any]]] = None
+
+
+class SearchGraphQLError(ErrorResponse):
+    """Error response from search_graphql."""
+
+    pass
+
+
 # ============================================================================
 # Type Aliases for Union Types
 # ============================================================================
@@ -566,6 +902,11 @@ PackageCreateFromS3Response = PackageCreateFromS3Success | PackageCreateFromS3Er
 # Athena responses
 AthenaQueryResponse = AthenaQuerySuccess | AthenaQueryError
 AthenaQueryValidationResponse = AthenaQueryValidationSuccess | AthenaQueryValidationError
+AthenaDatabasesListResponse = AthenaDatabasesListSuccess | ErrorResponse
+AthenaTablesListResponse = AthenaTablesListSuccess | ErrorResponse
+AthenaTableSchemaResponse = AthenaTableSchemaSuccess | ErrorResponse
+AthenaWorkgroupsListResponse = AthenaWorkgroupsListSuccess | ErrorResponse
+AthenaQueryHistoryResponse = AthenaQueryHistorySuccess | ErrorResponse
 
 # Visualization responses
 DataVisualizationResponse = DataVisualizationSuccess | DataVisualizationError
@@ -573,3 +914,16 @@ DataVisualizationResponse = DataVisualizationSuccess | DataVisualizationError
 # Workflow responses
 WorkflowCreateResponse = WorkflowCreateSuccess | ErrorResponse
 WorkflowStepUpdateResponse = WorkflowStepUpdateSuccess | ErrorResponse
+WorkflowAddStepResponse = WorkflowAddStepSuccess | ErrorResponse
+WorkflowGetStatusResponse = WorkflowGetStatusSuccess | ErrorResponse
+WorkflowListAllResponse = WorkflowListAllSuccess | ErrorResponse
+WorkflowTemplateApplyResponse = WorkflowTemplateApplySuccess | ErrorResponse
+
+# Search responses
+SearchExplainResponse = SearchExplainSuccess | SearchExplainError
+SearchGraphQLResponse = SearchGraphQLSuccess | SearchGraphQLError
+
+# Quilt summary responses
+QuiltSummarizeJsonResponse = QuiltSummarizeJson | QuiltSummarizeJsonError
+PackageVisualizationsResponse = PackageVisualizationsSuccess | PackageVisualizationsError
+QuiltSummaryFilesResponse = QuiltSummaryFilesSuccess | QuiltSummaryFilesError

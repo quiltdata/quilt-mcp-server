@@ -769,6 +769,166 @@ class AthenaQueryValidateParams(BaseModel):
     ]
 
 
+class AthenaDatabasesListParams(BaseModel):
+    """Parameters for athena_databases_list tool."""
+
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog to query",
+            examples=["AwsDataCatalog"],
+        ),
+    ]
+    service: Annotated[
+        Optional[object],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ]
+
+
+class AthenaTablesListParams(BaseModel):
+    """Parameters for athena_tables_list tool."""
+
+    database_name: Annotated[
+        str,
+        Field(
+            description="Name of the database to list tables from",
+            examples=["my_database", "analytics_db"],
+        ),
+    ]
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog",
+            examples=["AwsDataCatalog"],
+        ),
+    ]
+    table_pattern: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional pattern to filter table names (SQL LIKE pattern)",
+            examples=["user_%", "fact_*"],
+        ),
+    ]
+    service: Annotated[
+        Optional[object],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ]
+
+
+class AthenaTableSchemaParams(BaseModel):
+    """Parameters for athena_table_schema tool."""
+
+    database_name: Annotated[
+        str,
+        Field(
+            description="Name of the database containing the table",
+            examples=["my_database"],
+        ),
+    ]
+    table_name: Annotated[
+        str,
+        Field(
+            description="Name of the table to get schema for",
+            examples=["user_events", "sales_data"],
+        ),
+    ]
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog",
+            examples=["AwsDataCatalog"],
+        ),
+    ]
+    service: Annotated[
+        Optional[object],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ]
+
+
+class AthenaWorkgroupsListParams(BaseModel):
+    """Parameters for athena_workgroups_list tool."""
+
+    use_quilt_auth: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use quilt3 assumed role credentials if available",
+        ),
+    ]
+    service: Annotated[
+        Optional[object],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ]
+
+
+class AthenaQueryHistoryParams(BaseModel):
+    """Parameters for athena_query_history tool."""
+
+    max_results: Annotated[
+        int,
+        Field(
+            default=50,
+            ge=1,
+            le=500,
+            description="Maximum number of queries to return (1-500)",
+        ),
+    ]
+    status_filter: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Filter by query status (SUCCEEDED, FAILED, CANCELLED, RUNNING, QUEUED)",
+            examples=["SUCCEEDED", "FAILED"],
+        ),
+    ]
+    start_time: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Start time for query range (ISO format)",
+            examples=["2024-01-01T00:00:00Z"],
+        ),
+    ]
+    end_time: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="End time for query range (ISO format)",
+            examples=["2024-12-31T23:59:59Z"],
+        ),
+    ]
+    use_quilt_auth: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use quilt3 assumed role credentials if available",
+        ),
+    ]
+    service: Annotated[
+        Optional[object],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ]
+
+
 # ============================================================================
 # Data Visualization Input Models
 # ============================================================================
@@ -980,5 +1140,59 @@ class WorkflowUpdateStepParams(BaseModel):
         Field(
             default=None,
             description="Optional error message if step failed",
+        ),
+    ]
+
+
+class WorkflowGetStatusParams(BaseModel):
+    """Parameters for workflow_get_status tool."""
+
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="ID of the workflow to get status for",
+            examples=["wf-123", "analysis-workflow-456"],
+        ),
+    ]
+
+
+class WorkflowListAllParams(BaseModel):
+    """Parameters for workflow_list_all tool."""
+
+    # No parameters needed for list_all - but we keep the class for consistency
+    pass
+
+
+class WorkflowTemplateApplyParams(BaseModel):
+    """Parameters for workflow_template_apply tool."""
+
+    template_name: Annotated[
+        Literal[
+            "cross-package-aggregation",
+            "environment-promotion",
+            "longitudinal-analysis",
+            "data-validation",
+        ],
+        Field(
+            description="Name of the template to apply",
+        ),
+    ]
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="ID for the new workflow to create from template",
+            examples=["wf-aggregation-123", "wf-promotion-456"],
+        ),
+    ]
+    params: Annotated[
+        dict[str, str | int | list | dict],
+        Field(
+            description="Parameters to customize the template (varies by template type)",
+            examples=[
+                {
+                    "source_packages": ["team/data1", "team/data2"],
+                    "target_package": "team/aggregated",
+                }
+            ],
         ),
     ]

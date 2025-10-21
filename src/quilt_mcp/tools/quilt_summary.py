@@ -16,6 +16,15 @@ import matplotlib
 import numpy as np
 from collections import defaultdict
 
+from ..models.responses import (
+    QuiltSummarizeJson,
+    QuiltSummarizeJsonError,
+    PackageVisualizationsSuccess,
+    PackageVisualizationsError,
+    QuiltSummaryFilesSuccess,
+    QuiltSummaryFilesError,
+)
+
 logger = logging.getLogger(__name__)
 
 # Configure matplotlib for non-interactive backend
@@ -38,7 +47,7 @@ def generate_quilt_summarize_json(
     readme_content: str,
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
-) -> Dict[str, Any]:
+) -> QuiltSummarizeJson | QuiltSummarizeJsonError:
     """Generate a comprehensive quilt_summarize.json file following Quilt standards - Quilt summary file generation tasks
 
     This file provides a machine-readable summary of the package contents,
@@ -159,15 +168,15 @@ def generate_quilt_summarize_json(
             "generator_version": "1.0.0",
         }
 
-        return summary
+        return QuiltSummarizeJson(**summary)
 
     except Exception as e:
         logger.error(f"Failed to generate quilt_summarize.json: {e}")
-        return {
-            "error": f"Failed to generate summary: {str(e)}",
-            "package_name": package_name,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        return QuiltSummarizeJsonError(
+            error=f"Failed to generate summary: {str(e)}",
+            package_name=package_name,
+            generated_at=datetime.now(timezone.utc).isoformat(),
+        )
 
 
 def generate_package_visualizations(
@@ -176,7 +185,7 @@ def generate_package_visualizations(
     file_types: Dict[str, Any],
     metadata_template: str = "standard",
     package_metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+) -> PackageVisualizationsSuccess | PackageVisualizationsError:
     """Generate comprehensive visualizations for the package - Quilt summary file generation tasks
 
     Creates multiple visualization types:
@@ -509,17 +518,16 @@ Template: {metadata_template}
                 "mime_type": "image/png",
             }
 
-        return {
-            "success": True,
-            "visualizations": visualizations,
-            "count": len(visualizations),
-            "types": list(visualizations.keys()),
-            "metadata": {
+        return PackageVisualizationsSuccess(
+            visualizations=visualizations,
+            count=len(visualizations),
+            types=list(visualizations.keys()),
+            metadata={
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "template_used": metadata_template,
                 "color_scheme": COLOR_SCHEMES.get(metadata_template, COLOR_SCHEMES["default"]),
             },
-            "visualization_dashboards": [
+            visualization_dashboards=[
                 {
                     "id": "package-overview",
                     "title": f"Package Overview - {package_name}",
@@ -549,16 +557,15 @@ Template: {metadata_template}
                     ],
                 }
             ],
-        }
+        )
 
     except Exception as e:
         logger.error(f"Failed to generate visualizations: {e}")
-        return {
-            "success": False,
-            "error": f"Failed to generate visualizations: {str(e)}",
-            "visualizations": {},
-            "count": 0,
-        }
+        return PackageVisualizationsError(
+            error=f"Failed to generate visualizations: {str(e)}",
+            visualizations={},
+            count=0,
+        )
 
 
 def create_quilt_summary_files(
@@ -568,7 +575,7 @@ def create_quilt_summary_files(
     readme_content: str,
     source_info: Dict[str, Any],
     metadata_template: str = "standard",
-) -> Dict[str, Any]:
+) -> QuiltSummaryFilesSuccess | QuiltSummaryFilesError:
     """Create all Quilt summary files for a package - Quilt summary file generation tasks
 
     Generates:
@@ -632,10 +639,14 @@ def create_quilt_summary_files(
         )
 
         # Create the complete summary package
+        # Convert Pydantic models to dicts for backward compatibility
+        summary_json_dict = summary_json.model_dump() if hasattr(summary_json, "model_dump") else {}
+        visualizations_dict = visualizations.model_dump() if hasattr(visualizations, "model_dump") else {}
+
         summary_package = {
-            "quilt_summarize.json": summary_json,
+            "quilt_summarize.json": summary_json_dict,
             "README.md": readme_content,
-            "visualizations": visualizations,
+            "visualizations": visualizations_dict,
             "generation_info": {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "generator": "quilt-mcp-server",
@@ -649,27 +660,25 @@ def create_quilt_summary_files(
             },
         }
 
-        return {
-            "success": True,
-            "summary_package": summary_package,
-            "files_generated": {
-                "quilt_summarize.json": bool(summary_json),
+        return QuiltSummaryFilesSuccess(
+            summary_package=summary_package,
+            files_generated={
+                "quilt_summarize.json": bool(summary_json_dict),
                 "README.md": bool(readme_content),
-                "visualizations": visualizations.get("success", False),
+                "visualizations": visualizations.success,
             },
-            "visualization_count": visualizations.get("count", 0),
-            "next_steps": [
+            visualization_count=visualizations.count if hasattr(visualizations, "count") else 0,
+            next_steps=[
                 "Add these files to your Quilt package",
                 "Use quilt_summarize.json for automated processing",
                 "Include visualizations in package documentation",
             ],
-        }
+        )
 
     except Exception as e:
         logger.error(f"Failed to create Quilt summary files: {e}")
-        return {
-            "success": False,
-            "error": f"Failed to create summary files: {str(e)}",
-            "summary_package": {},
-            "files_generated": {},
-        }
+        return QuiltSummaryFilesError(
+            error=f"Failed to create summary files: {str(e)}",
+            summary_package={},
+            files_generated={},
+        )
