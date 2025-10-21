@@ -72,11 +72,10 @@ class CatalogUrlSuccess(SuccessResponse):
     catalog_host: Optional[str] = None
 
 
-class CatalogUrlError(BaseModel):
+class CatalogUrlError(ErrorResponse):
     """Response from catalog_url when failed."""
 
-    status: Literal["error"] = "error"
-    error: str
+    pass  # Inherits error field from ErrorResponse
 
 
 class CatalogUriSuccess(SuccessResponse):
@@ -92,11 +91,10 @@ class CatalogUriSuccess(SuccessResponse):
     catalog_host: Optional[str] = None
 
 
-class CatalogUriError(BaseModel):
+class CatalogUriError(ErrorResponse):
     """Response from catalog_uri when failed."""
 
-    status: Literal["error"] = "error"
-    error: str
+    pass  # Inherits error field from ErrorResponse
 
 
 # ============================================================================

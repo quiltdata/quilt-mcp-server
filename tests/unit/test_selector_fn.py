@@ -77,7 +77,7 @@ def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
     result = package_create(params)
 
     # The function should succeed and return status
-    assert result.status == "success"
+    assert result.success is True
     assert result.top_hash == "test_top_hash"
 
 
@@ -105,5 +105,5 @@ def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_clas
     result = package_create(params)
 
     # The function should succeed and return status
-    assert result.status == "success"
+    assert result.success is True
     assert result.top_hash == "test_top_hash"

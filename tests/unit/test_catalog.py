@@ -143,7 +143,7 @@ class TestCatalogUrl:
             result = catalog_url(params)
 
             assert isinstance(result, dict) or hasattr(result, 'status')
-            assert result.status == "success"
+            assert result.success is True
             assert result.view_type == "package"
             assert "demo.quiltdata.com" in result.catalog_url
             assert result.bucket == "test-bucket"
@@ -154,7 +154,7 @@ class TestCatalogUrl:
             params = CatalogUrlParams(registry="s3://test-bucket", package_name=None)
             result = catalog_url(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert result.view_type == "bucket"
             assert "demo.quiltdata.com" in result.catalog_url
             assert result.bucket == "test-bucket"
@@ -165,7 +165,7 @@ class TestCatalogUrl:
             params = CatalogUrlParams(registry="s3://test-bucket", package_name=None, path="data/files")
             result = catalog_url(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert result.view_type == "bucket"
             assert "data" in result.catalog_url
             assert "files" in result.catalog_url
@@ -176,7 +176,7 @@ class TestCatalogUrl:
             params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package", path="data/files")
             result = catalog_url(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert result.view_type == "package"
             assert "data" in result.catalog_url
             assert "files" in result.catalog_url
@@ -187,7 +187,7 @@ class TestCatalogUrl:
             params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_url(params)
 
-            assert result.status == "error"
+            assert result.success is False
             assert "Could not determine catalog host" in result.error
 
     def test_catalog_url_with_exception(self):
@@ -196,7 +196,7 @@ class TestCatalogUrl:
             params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_url(params)
 
-            assert result.status == "error"
+            assert result.success is False
             assert "Failed to generate catalog URL" in result.error
             assert "Bucket error" in result.error
 
@@ -210,7 +210,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "quilt+s3://test-bucket" in result.quilt_plus_uri
             assert "package=user/package" in result.quilt_plus_uri
             assert "catalog=demo.quiltdata.com" in result.quilt_plus_uri
@@ -221,7 +221,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", top_hash="abc123")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "package=user/package@abc123" in result.quilt_plus_uri
 
     def test_catalog_uri_with_tag(self):
@@ -230,7 +230,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "package=user/package:v1.0" in result.quilt_plus_uri
 
     def test_catalog_uri_with_path(self):
@@ -239,7 +239,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", path="data/file.csv")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "path=data/file.csv" in result.quilt_plus_uri
 
     def test_catalog_uri_no_catalog_host(self):
@@ -248,7 +248,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             # Should not contain catalog parameter when no host available
             assert "catalog=" not in result.quilt_plus_uri
 
@@ -258,7 +258,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "catalog=demo.quiltdata.com" in result.quilt_plus_uri
             # Should not contain https:// in the catalog parameter
             assert "https://" not in result.quilt_plus_uri.split("catalog=")[1]
@@ -269,7 +269,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket")
             result = catalog_uri(params)
 
-            assert result.status == "success"
+            assert result.success is True
             assert "quilt+s3://test-bucket" in result.quilt_plus_uri
             assert "package=" not in result.quilt_plus_uri
 
@@ -279,7 +279,7 @@ class TestCatalogUri:
             params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
             result = catalog_uri(params)
 
-            assert result.status == "error"
+            assert result.success is False
             assert "Failed to generate Quilt+ URI" in result.error
             assert "URI error" in result.error
 
