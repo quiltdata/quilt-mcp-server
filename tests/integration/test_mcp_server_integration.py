@@ -9,7 +9,7 @@ from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
 )
-from quilt_mcp.tools.search import unified_search
+from quilt_mcp.tools.search import search_catalog
 
 
 @pytest.mark.integration
@@ -34,5 +34,5 @@ def test_quilt_tools():
     assert isinstance(browse, dict)
 
     # Searching within nonexistent package should also return a dict response
-    search = unified_search(query="README.md", scope="package", target="nonexistent/package")
+    search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)

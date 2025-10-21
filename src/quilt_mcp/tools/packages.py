@@ -10,6 +10,7 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..constants import DEFAULT_REGISTRY
+from .quilt_summary import create_quilt_summary_files
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 from ..services.quilt_service import QuiltService
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
@@ -1579,9 +1580,6 @@ def package_create_from_s3(
                 metadata_template=metadata_template,
             )
             logger.info("Generated new README content")
-
-        # Generate Quilt summary files (quilt_summarize.json + visualizations)
-        from .quilt_summary import create_quilt_summary_files
 
         summary_files = create_quilt_summary_files(
             package_name=package_name,

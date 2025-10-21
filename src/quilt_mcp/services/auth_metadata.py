@@ -335,10 +335,90 @@ def filesystem_status() -> Dict[str, Any]:
     return result
 
 
+def configure_catalog(catalog_url: str) -> Dict[str, Any]:
+    """Configure the Quilt catalog URL.
+
+    Args:
+        catalog_url: Full catalog URL or friendly name (demo, sandbox, open).
+
+    Returns:
+        Dict containing configuration result with status, catalog_url, and next steps.
+    """
+    try:
+        # Common catalog mappings
+        catalog_mappings = {
+            "demo": "https://demo.quiltdata.com",
+            "sandbox": "https://sandbox.quiltdata.com",
+            "open": "https://open.quiltdata.com",
+            "example": "https://open.quiltdata.com",
+        }
+
+        # Determine target URL
+        original_input = catalog_url
+        if catalog_url.lower() in catalog_mappings:
+            catalog_url = catalog_mappings[catalog_url.lower()]
+            friendly_name = original_input.lower()
+        elif catalog_url.startswith(("http://", "https://")):
+            friendly_name = _extract_catalog_name_from_url(catalog_url)
+        elif not catalog_url.startswith(("http://", "https://")):
+            # Try to construct URL
+            catalog_url = f"https://{catalog_url}"
+            friendly_name = original_input
+        else:
+            friendly_name = _extract_catalog_name_from_url(catalog_url)
+
+        # Configure the catalog
+        service = QuiltService()
+        service.set_config(catalog_url)
+
+        # Verify configuration
+        config = service.get_config()
+        configured_url = config.get("navigator_url") if config else None
+
+        return {
+            "status": "success",
+            "catalog_url": catalog_url,
+            "configured_url": configured_url,
+            "message": f"Successfully configured catalog: {friendly_name}",
+            "next_steps": [
+                "Login with: quilt3 login",
+                "Verify with: auth_status()",
+                "Start exploring with: packages_list()",
+            ],
+            "help": {
+                "login_command": "quilt3 login",
+                "verify_command": "auth_status()",
+                "documentation": "https://docs.quiltdata.com/",
+            },
+        }
+
+    except Exception as exc:
+        return {
+            "status": "error",
+            "error": f"Failed to configure catalog: {exc}",
+            "catalog_url": catalog_url,
+            "available_catalogs": list(catalog_mappings.keys()) if "catalog_mappings" in locals() else [],
+            "troubleshooting": {
+                "common_issues": [
+                    "Invalid catalog URL",
+                    "Network connectivity problems",
+                    "Quilt configuration file permissions",
+                ],
+                "suggested_fixes": [
+                    "Verify the catalog URL is correct and accessible",
+                    "Check network connectivity",
+                    "Ensure write permissions to Quilt config directory",
+                    "Use one of the available catalog names: demo, sandbox, open",
+                ],
+            },
+        }
+
+
 __all__ = [
     "auth_status",
     "catalog_info",
     "catalog_name",
+    "configure_catalog",
     "filesystem_status",
     "_extract_catalog_name_from_url",
     "_extract_bucket_from_registry",

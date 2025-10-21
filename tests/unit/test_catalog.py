@@ -520,14 +520,10 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_with_friendly_name(self):
         """Test configuration with friendly name like 'demo'."""
-        with (
-            patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
-            patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class,
-        ):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
             mock_service_class.return_value = mock_service
-            base_service_class.return_value = mock_service
 
             result = catalog_configure("demo")
 
@@ -537,14 +533,10 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_success(self):
         """Test successful configuration - covers lines 541-547."""
-        with (
-            patch('quilt_mcp.services.quilt_service.QuiltService') as base_service_class,
-            patch('quilt_mcp.tools.catalog.QuiltService') as mock_service_class,
-        ):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService') as mock_service_class:
             mock_service = Mock()
             mock_service.get_config.return_value = {"navigator_url": "https://demo.quiltdata.com"}
             mock_service_class.return_value = mock_service
-            base_service_class.return_value = mock_service
 
             result = catalog_configure("https://demo.quiltdata.com")
 
@@ -554,10 +546,7 @@ class TestConfigureCatalog:
 
     def test_configure_catalog_with_exception(self):
         """Test exception handling in configure_catalog - covers lines 564-581."""
-        with (
-            patch('quilt_mcp.services.quilt_service.QuiltService', side_effect=Exception("Config error")),
-            patch('quilt_mcp.tools.catalog.QuiltService', side_effect=Exception("Config error")),
-        ):
+        with patch('quilt_mcp.services.auth_metadata.QuiltService', side_effect=Exception("Config error")):
             result = catalog_configure("https://demo.quiltdata.com")
 
             assert result["status"] == "error"
