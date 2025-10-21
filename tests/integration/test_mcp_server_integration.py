@@ -4,12 +4,12 @@ Smoke tests for Quilt MCP server tool functions (no external Quilt module).
 """
 
 import pytest
-from quilt_mcp.tools.auth import auth_status
+from quilt_mcp.services.auth_metadata import auth_status
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
-    package_contents_search,
 )
+from quilt_mcp.tools.search import search_catalog
 
 
 @pytest.mark.integration
@@ -23,7 +23,7 @@ def test_quilt_tools():
         pkgs = packages_list()
         assert isinstance(pkgs, dict)
     except Exception as e:
-        if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
+        if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e) or "Authentication failed" in str(e):
             # Expected in environments without proper AWS permissions
             pkgs = {"packages": [], "error": "Access denied"}
         else:
@@ -34,5 +34,5 @@ def test_quilt_tools():
     assert isinstance(browse, dict)
 
     # Searching within nonexistent package should also return a dict response
-    search = package_contents_search("nonexistent/package", "README.md")
+    search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)

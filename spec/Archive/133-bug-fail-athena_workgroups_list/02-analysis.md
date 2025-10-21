@@ -11,7 +11,7 @@
 
 The `athena_workgroups_list` functionality is implemented across several architectural layers:
 
-1. **Tool Interface Layer** (`src/quilt_mcp/tools/athena_glue.py`)
+1. **Tool Interface Layer** (`src/quilt_mcp/services/athena_read_service.py`)
    - Function: `athena_workgroups_list(use_quilt_auth: bool = True)`
    - Lines 108-214: Main implementation
    - Handles MCP tool interface and result formatting

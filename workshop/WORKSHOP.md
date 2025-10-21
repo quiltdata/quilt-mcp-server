@@ -277,7 +277,7 @@ In the MCP Inspector web UI:
    Claude should list Quilt MCP tools including:
    - `mcp_quilt-mcp-server_auth_status` - Check authentication
    - `mcp_quilt-mcp-server_bucket_objects_list` - List S3 objects
-   - `mcp_quilt-mcp-server_packages_search` - Search packages
+   - `mcp_quilt-mcp-server_unified_search` - Search packages
    - `mcp_quilt-mcp-server_create_data_visualization` - Create visualizations
    - And many more...
 
@@ -470,7 +470,7 @@ Search for packages related to "genomics" or "RNA-seq" in the Quilt catalog
 ```
 
 **What Claude does**:
-- Calls `packages_search` with your query
+- Calls `unified_search` with your query
 - Returns matching packages
 
 **Expected result**: List of genomics/RNA-seq packages
@@ -833,8 +833,7 @@ Create a package called "[namespace]/[name]" with these files: [list]
 
 **Data Exploration**:
 - `bucket_objects_list` - List S3 files
-- `bucket_objects_search` - Search S3 by content
-- `packages_search` - Find packages
+- `unified_search` - Search S3 by content and find packages
 - `package_browse` - View package contents
 
 **Querying**:

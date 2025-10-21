@@ -1,21 +1,11 @@
-"""Service layer integrations exposed by the Quilt MCP server."""
+"""Service layer package for Quilt MCP.
 
-from .auth_service import AuthService
-from .quilt_service import QuiltService
+Modules should be imported directly (e.g., ``quilt_mcp.services.auth_service``)
+to avoid importing optional dependencies at package import time.
+"""
+
 from .athena_service import AthenaQueryService
-from .permission_discovery import (
-    AWSPermissionDiscovery,
-    PermissionLevel,
-    BucketInfo,
-    UserIdentity,
-)
+from .permission_discovery import AWSPermissionDiscovery
+from .quilt_service import QuiltService
 
-__all__ = [
-    "AuthService",
-    "QuiltService",
-    "AthenaQueryService",
-    "AWSPermissionDiscovery",
-    "PermissionLevel",
-    "BucketInfo",
-    "UserIdentity",
-]
+__all__ = ["QuiltService", "AthenaQueryService", "AWSPermissionDiscovery"]

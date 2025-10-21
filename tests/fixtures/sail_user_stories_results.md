@@ -57,7 +57,7 @@ The Sail Biomedicines user stories have been tested using the dual MCP server ar
 
 **Key Findings**:
 - Benchling MCP provides `benchling_search_entities` for experimental data discovery
-- Quilt MCP provides `packages_search` and `unified_search` for analytical data
+- Quilt MCP provides `unified_search` and `unified_search` for analytical data
 - Both systems return structured JSON that can be easily correlated
 - Query performance is excellent (5ms for Quilt, <100ms for Benchling)
 
@@ -191,10 +191,10 @@ The Sail Biomedicines user stories have been tested using the dual MCP server ar
 
 | Sail User Story | Benchling Tools | Quilt Tools | Status |
 |-----------------|----------------|-------------|---------|
-| Federated Discovery | `search_entities` | `packages_search`, `athena_query_execute` | ✅ |
+| Federated Discovery | `search_entities` | `unified_search`, `athena_query_execute` | ✅ |
 | Notebook Summarization | `get_entries`, `get_entry_by_id` | `generate_quilt_summarize_json` | ✅ |
 | NGS Lifecycle | `get_projects` | `package_create_from_s3` | ✅ |
-| Unified Search | `search_entities` | `unified_search`, `bucket_objects_search` | ✅ |
+| Unified Search | `search_entities` | `unified_search`, `unified_search` | ✅ |
 
 ## Recommendations
 

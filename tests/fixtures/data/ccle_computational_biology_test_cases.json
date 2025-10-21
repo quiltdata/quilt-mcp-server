@@ -27,7 +27,7 @@
       "expected_tools": [
         "tabulator_tables_list",
         "athena_query_execute", 
-        "bucket_objects_search",
+        "unified_search",
         "package_browse"
       ],
       "expected_sql": "SELECT cell_line_name, tissue_type, ERBB2_tpm FROM ccle_expression_data WHERE tissue_type = 'breast' ORDER BY ERBB2_tpm DESC LIMIT 20",
@@ -59,11 +59,11 @@
         "Download validation matrices for comparison"
       ],
       "expected_tools": [
-        "packages_search",
+        "unified_search",
         "package_browse", 
-        "bucket_objects_search",
+        "unified_search",
         "bucket_object_link",
-        "package_contents_search"
+        "unified_search"
       ],
       "expected_data_access": [
         "Raw FASTQ files (R1/R2 paired-end)",
@@ -99,7 +99,7 @@
         "Validate splicing events and expression anomalies"
       ],
       "expected_tools": [
-        "packages_search",
+        "unified_search",
         "package_browse",
         "bucket_object_link",
         "catalog_url"
@@ -137,7 +137,7 @@
         "Export integrated dataset for analysis"
       ],
       "expected_tools": [
-        "packages_search",
+        "unified_search",
         "workflow_create",
         "workflow_template_apply",
         "create_package_enhanced"
@@ -190,7 +190,7 @@
         "Validate package integrity and accessibility"
       ],
       "expected_tools": [
-        "packages_search",
+        "unified_search",
         "create_package_enhanced", 
         "package_validate",
         "catalog_url"

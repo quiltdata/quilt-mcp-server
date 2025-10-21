@@ -4,18 +4,18 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 
-from quilt_mcp.tools.athena_glue import (
+from quilt_mcp.services.athena_read_service import (
     athena_query_execute,
     athena_workgroups_list,
     athena_databases_list,
 )
-from quilt_mcp.tools.tabulator import tabulator_tables_list
+from quilt_mcp.services.tabulator_service import tabulator_tables_list
 
 
 class TestAthenaTableFormatIntegration:
     """Integration tests for Athena tools with table formatting."""
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_query_execute_with_table_format(self, mock_service_class):
         """Test athena_query_execute with table output format."""
         # Mock the service and its methods
@@ -64,7 +64,7 @@ class TestAthenaTableFormatIntegration:
         mock_service.execute_query.assert_called_once()
         mock_service.format_results.assert_called_once()
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_query_execute_with_auto_table_detection(self, mock_service_class):
         """Test athena_query_execute with automatic table detection."""
         mock_service = Mock()
@@ -106,7 +106,7 @@ class TestAthenaTableFormatIntegration:
         assert result["display_format"] == "table"
         assert "database_name" in result["formatted_data_table"]
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_workgroups_list_with_table_format(self, mock_service_class):
         """Test athena_workgroups_list with table formatting enhancement."""
         mock_service = Mock()
@@ -143,7 +143,7 @@ class TestAthenaTableFormatIntegration:
         # Note: The actual implementation may not have this yet
         # This test verifies the integration works without errors
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_databases_list_with_table_format(self, mock_service_class):
         """Test athena_databases_list with table formatting."""
         mock_service = Mock()
@@ -170,7 +170,7 @@ class TestAthenaTableFormatIntegration:
 class TestTabulatorTableFormatIntegration:
     """Integration tests for tabulator tools with table formatting."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     def test_tabulator_tables_list_with_table_format(self, mock_get_service):
         """Test tabulator_tables_list with table formatting."""
         # Mock the tabulator service
@@ -212,7 +212,7 @@ class TestTabulatorTableFormatIntegration:
 class TestTableFormatErrorHandling:
     """Test error handling in table formatting integration."""
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_query_execute_format_error_handling(self, mock_service_class):
         """Test error handling when table formatting fails."""
         mock_service = Mock()
@@ -234,7 +234,7 @@ class TestTableFormatErrorHandling:
         assert "error" in result
         assert "Query execution failed" in result["error"]
 
-    @patch("quilt_mcp.tools.athena_glue.AthenaQueryService")
+    @patch("quilt_mcp.services.athena_read_service.AthenaQueryService")
     def test_athena_workgroups_list_format_error_handling(self, mock_service_class):
         """Test error handling in workgroups list formatting."""
         mock_service = Mock()

@@ -165,7 +165,7 @@ class LLMMCPTester:
             tool_names = [tool["name"] for tool in tools]
             key_tools = [
                 "mcp_quilt_auth_status",
-                "mcp_quilt_packages_search",
+                "mcp_quilt_unified_search",
                 "unified_search",
             ]
             found_key_tools = [tool for tool in key_tools if tool in tool_names]
@@ -258,10 +258,15 @@ class LLMMCPTester:
 
         # Test search functions
         search_tests = [
-            ("mcp_quilt_packages_search", {"query": "data", "limit": 3}),
+            ("mcp_quilt_unified_search", {"query": "data", "limit": 3}),
             (
-                "mcp_quilt_bucket_objects_search",
-                {"bucket": "s3://quilt-sandbox-bucket", "query": "data", "limit": 3},
+                "mcp_quilt_unified_search",
+                {
+                    "query": "data",
+                    "scope": "bucket",
+                    "target": "s3://quilt-sandbox-bucket",
+                    "limit": 3,
+                },
             ),
             ("mcp_quilt_packages_list", {"limit": 5}),
         ]
@@ -296,13 +301,13 @@ class LLMMCPTester:
         # Test error cases
         error_tests = [
             (
-                "mcp_quilt_packages_search",
+                "mcp_quilt_unified_search",
                 {"query": "", "limit": -1},
             ),  # Invalid parameters
             ("nonexistent_tool", {"any": "args"}),  # Nonexistent tool
             (
-                "mcp_quilt_bucket_objects_search",
-                {"bucket": "invalid-bucket"},
+                "mcp_quilt_unified_search",
+                {"query": "data", "scope": "bucket", "target": "invalid-bucket"},
             ),  # Invalid bucket
         ]
 

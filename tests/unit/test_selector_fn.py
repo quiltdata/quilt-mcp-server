@@ -1,8 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock, MagicMock
 
-from quilt_mcp.tools.package_ops import package_create
-from quilt_mcp.tools.s3_package import package_create_from_s3
+from quilt_mcp.tools.packages import package_create, package_create_from_s3
 
 
 class MockPackage:

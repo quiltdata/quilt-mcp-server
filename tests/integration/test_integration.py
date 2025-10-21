@@ -11,14 +11,8 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.tools.auth import (
-    auth_status,
-    catalog_info,
-    catalog_name,
-    catalog_uri,
-    catalog_url,
-    filesystem_status,
-)
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name, filesystem_status
+from quilt_mcp.tools.catalog import catalog_uri, catalog_url
 from quilt_mcp.tools.buckets import (
     bucket_object_fetch,
     bucket_object_info,
@@ -26,19 +20,14 @@ from quilt_mcp.tools.buckets import (
     bucket_object_text,
     bucket_objects_list,
     bucket_objects_put,
-    bucket_objects_search,
-)
-from quilt_mcp.tools.package_ops import (
-    package_create,
-    package_delete,
-    package_update,
 )
 from quilt_mcp.tools.packages import (
     package_browse,
-    package_contents_search,
+    package_create,
+    package_delete,
     package_diff,
+    package_update,
     packages_list,
-    packages_search,
 )
 
 # Test configuration - using constants
@@ -127,39 +116,6 @@ class TestQuiltAPI:
             f"Known package {KNOWN_PACKAGE} not found in {TEST_REGISTRY} - check QUILT_TEST_PACKAGE configuration"
         )
 
-    @pytest.mark.search
-    def test_packages_search_finds_data(self):
-        """Test that searching finds actual data (search returns S3 objects, not packages)."""
-        # Use a very simple search to avoid timeout
-        try:
-            # Test with explicit registry parameter (our fix ensures registry-specific search)
-            # Use limit=1 and a simple query to minimize time
-            result = packages_search("*", registry=TEST_REGISTRY, limit=1)
-            assert isinstance(result, dict)
-            assert "results" in result
-            assert "registry" in result  # Verify our fix adds registry info
-            assert "bucket" in result  # Verify our fix adds bucket info
-
-            # If we get results, verify the structure
-            if len(result["results"]) > 0:
-                for item in result["results"]:
-                    if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
-            else:
-                # No results is fine - the search functionality is working
-                import warnings
-
-                warnings.warn(
-                    f"No search results found in registry {TEST_REGISTRY}. "
-                    "This may be expected in CI environments without indexed content. "
-                    "The search functionality is working correctly - it's properly scoped to the specified registry."
-                )
-        except Exception as e:
-            # If search fails completely, that's also acceptable in CI
-            import warnings
-
-            warnings.warn(f"Search failed: {e}. This may be expected in CI environments.")
-
     def test_package_browse_known_package(self, known_package_browse_result):
         """Test browsing the known test package."""
         result = known_package_browse_result
@@ -180,40 +136,6 @@ class TestQuiltAPI:
         for entry in result["entries"]:
             assert isinstance(entry, dict), f"Entry should be dict, got {type(entry)}: {entry}"
             assert "logical_key" in entry, f"Entry missing logical_key: {entry}"
-
-    def test_package_contents_search_in_known_package(self):
-        """Test searching within a known package for files."""
-        # Try searching for the known test entry first
-        known_entry = KNOWN_TEST_ENTRY if KNOWN_TEST_ENTRY else "README.md"
-        result = package_contents_search(
-            KNOWN_PACKAGE,
-            known_entry,
-            registry=TEST_REGISTRY,
-            include_signed_urls=False,
-        )
-
-        assert isinstance(result, dict)
-        assert "matches" in result
-        assert "count" in result
-
-        # If the known entry isn't found, try common extensions
-        if result["count"] == 0:
-            for ext in [".md", ".txt", ".csv", ".json", ".parquet"]:
-                result = package_contents_search(
-                    KNOWN_PACKAGE,
-                    ext,
-                    registry=TEST_REGISTRY,
-                    include_signed_urls=False,
-                )
-                if result["count"] > 0:
-                    break
-
-        # Don't fail if no matches - just verify the search functionality works
-        # (Some packages might not have common file types)
-        if result["count"] > 0:
-            for match in result["matches"]:
-                assert isinstance(match, dict), f"Match should be dict, got {type(match)}: {match}"
-                assert "logical_key" in match, f"Match missing logical_key: {match}"
 
     def test_bucket_objects_list_returns_data(self):
         """Test that bucket listing returns actual objects."""
@@ -405,15 +327,6 @@ class TestQuiltAPI:
 
     # FAILURE CASES - These should fail gracefully
 
-    @pytest.mark.search
-    def test_packages_search_no_results(self):
-        """Test that non-existent search returns empty results, not error."""
-        result = packages_search("xyznonexistentpackage123456789")
-
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) == 0, "Non-existent search should return empty results"
-
     def test_packages_list_invalid_registry_fails(self):
         """Test that invalid registry fails gracefully with proper error."""
         with pytest.raises(Exception) as exc_info:
@@ -566,72 +479,6 @@ class TestQuiltAPI:
                     print(f"Test file uploaded successfully: {item['key']}")
         except Exception:
             pass  # Cleanup is best-effort
-
-    @pytest.mark.search
-    def test_bucket_objects_search_finds_data(self):
-        """Test bucket_objects_search finds actual data in the test bucket."""
-        # Try multiple search terms to find some data
-        search_terms = ["README", "csv", "parquet", "json", "txt", "data", "test"]
-        found_results = False
-
-        for term in search_terms:
-            result = bucket_objects_search(KNOWN_BUCKET, term, limit=5)
-            assert isinstance(result, dict)
-            assert "bucket" in result
-            assert "query" in result
-            assert "results" in result
-
-            if "error" in result:
-                # Search might not be configured - skip test
-                if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                    pytest.fail(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
-                continue
-
-            if len(result["results"]) > 0:
-                found_results = True
-                # Verify the response structure is correct
-                for item in result["results"]:
-                    if isinstance(item, dict) and "_source" in item:
-                        assert len(item["_source"]) > 0, "Search result should have at least one key in _source"
-                break
-
-        # If search is configured but no results found, that's okay for some buckets
-        if not found_results:
-            pytest.fail(
-                f"No search results found for any common terms {search_terms} in {KNOWN_BUCKET} - bucket may not have indexed content"
-            )
-
-    def test_bucket_objects_search_no_results(self):
-        """Test that non-existent search returns empty results, not error."""
-        result = bucket_objects_search(KNOWN_BUCKET, "xyznonexistentfile123456789")
-
-        assert isinstance(result, dict)
-        if "error" not in result:
-            assert "results" in result
-            assert len(result["results"]) == 0, "Non-existent search should return empty results"
-        else:
-            # Search might not be configured - that's okay
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.fail(f"Search not configured for bucket {KNOWN_BUCKET}")
-
-    def test_bucket_objects_search_dsl_query(self):
-        """Test bucket_objects_search with dictionary DSL query."""
-        query_dsl = {"query": {"wildcard": {"key": "*.csv"}}}
-
-        result = bucket_objects_search(KNOWN_BUCKET, query_dsl, limit=3)
-
-        assert isinstance(result, dict)
-        assert "bucket" in result
-        assert "query" in result
-        assert result["query"] == query_dsl
-
-        if "error" in result:
-            # Search might not be configured - skip test
-            if "search endpoint" in result["error"].lower() or "not configured" in result["error"].lower():
-                pytest.fail(f"Search not configured for bucket {KNOWN_BUCKET}: {result['error']}")
-        else:
-            assert "results" in result
-            # Results might be empty if no CSV files exist, which is okay
 
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""

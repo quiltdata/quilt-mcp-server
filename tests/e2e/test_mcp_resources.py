@@ -54,9 +54,7 @@ class TestMCPResourcesWorkflow:
         print(f"Found categories: {categories}")
         # Should have at least these categories
         expected_categories = {"auth", "permissions", "athena", "metadata", "workflow", "admin", "tabulator"}
-        assert expected_categories.issubset(
-            categories
-        ), f"Missing categories: {expected_categories - categories}"
+        assert expected_categories.issubset(categories), f"Missing categories: {expected_categories - categories}"
 
         # 3. Read sample resources from each category
         sample_uris = {

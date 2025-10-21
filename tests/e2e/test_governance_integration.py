@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 
-from quilt_mcp.tools import governance
+from quilt_mcp.services import governance_service as governance
 
 
 @pytest.mark.admin
@@ -197,7 +197,7 @@ class TestGovernanceErrorHandling:
         # This test simulates network connectivity issues
 
         with patch(
-            "quilt_mcp.tools.governance.admin_users.list",
+            "quilt_mcp.services.governance_service.admin_users.list",
             side_effect=Exception("Network error"),
         ):
             result = await governance.admin_users_list()

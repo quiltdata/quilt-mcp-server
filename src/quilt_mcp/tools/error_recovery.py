@@ -345,7 +345,7 @@ def health_check_with_recovery() -> Dict[str, Any]:
 def _check_auth_status() -> Dict[str, Any]:
     """Check authentication status."""
     try:
-        from .auth import auth_status
+        from quilt_mcp.services.auth_metadata import auth_status
 
         return auth_status()
     except Exception as e:
@@ -355,7 +355,7 @@ def _check_auth_status() -> Dict[str, Any]:
 def _check_permissions_discovery() -> Dict[str, Any]:
     """Check permissions discovery functionality."""
     try:
-        from .permissions import aws_permissions_discover
+        from quilt_mcp.services.permissions_service import discover_permissions as aws_permissions_discover
 
         result = aws_permissions_discover(force_refresh=False)
         if not result.get("success"):
@@ -433,7 +433,7 @@ def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str
             [
                 "Check if the registry is accessible",
                 "Verify package names and registry URLs",
-                "Try: packages_search() to test basic connectivity",
+                "Try: unified_search() to test basic connectivity",
             ]
         )
 
@@ -485,7 +485,7 @@ def _safe_package_operation_internal(operation_func: Callable, package_name: str
             "suggestions": [
                 f"Verify package '{package_name}' exists",
                 "Check registry access permissions",
-                "Try: packages_search() to test connectivity",
+                "Try: unified_search() to test connectivity",
             ],
         }
 

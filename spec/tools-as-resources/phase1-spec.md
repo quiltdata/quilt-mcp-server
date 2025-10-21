@@ -191,7 +191,7 @@ def get_registry() -> ResourceRegistry:
 
 ```python
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.governance import (
+from quilt_mcp.services.governance_service import (
     admin_users_list,
     admin_roles_list,
     admin_sso_config_get,
@@ -328,7 +328,7 @@ class AdminConfigResource(MCPResource):
 
 ```python
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.athena_glue import (
+from quilt_mcp.services.athena_read_service import (
     athena_databases_list,
     athena_workgroups_list
 )
@@ -522,7 +522,7 @@ class MetadataTroubleshootingResource(MCPResource):
 
 ```python
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.workflow_orchestration import workflow_list_all
+from quilt_mcp.services.workflow_service import workflow_list_all
 
 
 class WorkflowsResource(MCPResource):
@@ -569,7 +569,7 @@ class WorkflowsResource(MCPResource):
 
 ```python
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.tabulator import tabulator_buckets_list
+from quilt_mcp.services.tabulator_service import tabulator_buckets_list
 
 
 class TabulatorBucketsResource(MCPResource):

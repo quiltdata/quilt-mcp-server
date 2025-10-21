@@ -106,7 +106,7 @@
         "quilt_resultframe_annotate_literature"
       ],
       "mcp_tools": [
-        "mcp_quilt_bucket_objects_search",
+        "mcp_quilt_unified_search",
         "mcp_quilt_athena_query_execute"
       ],
       "success_criteria": [
@@ -502,8 +502,8 @@
         "search_unified"
       ],
       "mcp_tools": [
-        "mcp_quilt_packages_search",
-        "mcp_quilt_bucket_objects_search"
+        "mcp_quilt_unified_search",
+        "mcp_quilt_unified_search"
       ],
       "success_criteria": [
         "Mixed result set with package and object hits",

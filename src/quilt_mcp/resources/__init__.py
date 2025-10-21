@@ -96,8 +96,23 @@ def register_all_resources():
     registry.register(TabulatorTablesResource())
 
 
+def create_default_registry() -> ResourceRegistry:
+    """Create a default resource registry with all standard resources.
+
+    This is a legacy function maintained for backward compatibility with scripts.
+    New code should use get_registry() instead.
+
+    Returns:
+        ResourceRegistry with all MCP resources registered
+    """
+    registry = get_registry()
+    register_all_resources()
+    return registry
+
+
 __all__ = [
     "ResourceRegistry",
     "get_registry",
     "register_all_resources",
+    "create_default_registry",
 ]

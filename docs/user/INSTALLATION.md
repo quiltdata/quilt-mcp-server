@@ -408,7 +408,7 @@ aws s3 cp test.txt s3://your-bucket/test.txt
 
 # Use permission discovery tool
 python -c \"
-from app.quilt_mcp.tools.permissions import aws_permissions_discover
+from app.quilt_mcp.services.permissions_service import aws_permissions_discover
 result = aws_permissions_discover()
 print(result)
 \"

@@ -1,9 +1,10 @@
 """Tabulator resources for MCP."""
 
+import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.tabulator import tabulator_buckets_list, tabulator_tables_list
+from quilt_mcp.services.tabulator_service import list_tabulator_buckets, list_tabulator_tables
 
 
 class TabulatorBucketsResource(MCPResource):
@@ -29,7 +30,7 @@ class TabulatorBucketsResource(MCPResource):
         if uri != self.uri_pattern:
             raise ValueError(f"Invalid URI: {uri}")
 
-        result = await tabulator_buckets_list()
+        result = await asyncio.to_thread(list_tabulator_buckets)
 
         if not result.get("success"):
             raise Exception(f"Failed to list buckets: {result.get('error', 'Unknown error')}")
@@ -70,7 +71,7 @@ class TabulatorTablesResource(MCPResource):
             raise ValueError("Bucket name required in URI")
 
         bucket_name = params["bucket"]
-        result = await tabulator_tables_list(bucket_name=bucket_name)
+        result = await asyncio.to_thread(list_tabulator_tables, bucket_name)
 
         if not result.get("success"):
             raise Exception(f"Failed to list tables: {result.get('error', 'Unknown error')}")

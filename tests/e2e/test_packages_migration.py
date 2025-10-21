@@ -6,15 +6,12 @@ after migrating from direct quilt3 imports to QuiltService.
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
-    package_contents_search,
     package_diff,
-    packages_search,
 )
 
 
@@ -59,30 +56,6 @@ class TestPackagesMigrationValidation:
         assert result['success'] is True
         assert result['package_name'] == 'user/package'
 
-    def test_package_contents_search_uses_quilt_service(self):
-        """Test package_contents_search calls QuiltService.browse_package."""
-        mock_service = Mock()
-        mock_package = Mock()
-        mock_package.keys.return_value = ['data.csv', 'readme.txt']
-        mock_entry = Mock()
-        mock_entry.physical_key = 's3://bucket/data.csv'
-        mock_entry.size = 2048
-        mock_entry.hash = 'def456'
-        mock_package.__getitem__ = Mock(return_value=mock_entry)
-        mock_service.browse_package.return_value = mock_package
-
-        with (
-            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
-            patch('quilt_mcp.utils.suppress_stdout'),
-            patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
-        ):
-            result = package_contents_search('user/package', 'csv', 's3://test-bucket')
-
-        mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
-        assert result['package_name'] == 'user/package'
-        assert result['query'] == 'csv'
-        assert len(result['matches']) == 1
-
     def test_package_diff_uses_quilt_service(self):
         """Test package_diff calls QuiltService.browse_package for both packages."""
         mock_service = Mock()
@@ -102,24 +75,3 @@ class TestPackagesMigrationValidation:
         mock_service.browse_package.assert_any_call('user/package2', registry='s3://test-bucket')
         assert result['package1'] == 'user/package1'
         assert result['package2'] == 'user/package2'
-
-    def test_packages_search_uses_quilt_service_for_bucket_fallback(self):
-        """Test packages_search uses QuiltService.create_bucket for fallback search."""
-        mock_service = Mock()
-        mock_bucket = Mock()
-        mock_bucket.search.return_value = [{'name': 'user/package1'}]
-        mock_service.create_bucket.return_value = mock_bucket
-        mock_service.get_search_api.side_effect = Exception("Search API not available")
-
-        with (
-            patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
-            patch('quilt_mcp.utils.suppress_stdout'),
-            patch('quilt_mcp.tools.stack_buckets.build_stack_search_indices', return_value=None),
-        ):
-            result = packages_search('test query', 's3://test-bucket')
-
-        mock_service.get_search_api.assert_called_once()
-        mock_service.create_bucket.assert_called_once_with('s3://test-bucket')
-        mock_bucket.search.assert_called_once_with('test query', limit=10)
-        assert result['fallback_used'] == 'bucket_search'
-        assert result['results'] == [{'name': 'user/package1'}]

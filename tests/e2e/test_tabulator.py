@@ -6,7 +6,7 @@ Tests for Quilt Tabulator management tools
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-from quilt_mcp.tools.tabulator import (
+from quilt_mcp.services.tabulator_service import (
     tabulator_tables_list,
     tabulator_table_create,
     tabulator_table_delete,
@@ -23,12 +23,12 @@ class TestTabulatorService:
 
     def test_service_initialization_without_admin(self):
         """Test service initialization when admin client is not available."""
-        with patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", False):
+        with patch("quilt_mcp.services.tabulator_service.ADMIN_AVAILABLE", False):
             service = TabulatorService(use_quilt_auth=True)
             assert service.admin_available is False
             assert service.use_quilt_auth is True
 
-    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
+    @patch("quilt_mcp.services.tabulator_service.ADMIN_AVAILABLE", True)
     def test_service_initialization_with_admin(self):
         """Test service initialization with admin client."""
         service = TabulatorService(use_quilt_auth=True)
@@ -226,7 +226,7 @@ class TestTabulatorService:
         assert result["success"] is False
         assert "Admin functionality not available" in result["error"]
 
-    @patch("quilt_mcp.tools.tabulator.ADMIN_AVAILABLE", True)
+    @patch("quilt_mcp.services.tabulator_service.ADMIN_AVAILABLE", True)
     def test_create_table_validation_errors(self):
         """Test TabulatorService.create_table with validation errors."""
         service = TabulatorService(use_quilt_auth=True)
@@ -251,7 +251,7 @@ class TestGetTabulatorService:
 class TestTabulatorTablesList:
     """Test tabulator_tables_list function."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_list_tables_success(self, mock_get_service):
         """Test successful table listing."""
@@ -280,7 +280,7 @@ class TestTabulatorTablesList:
         assert result["bucket_name"] == "test-bucket"
         mock_service.list_tables.assert_called_once_with("test-bucket")
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_list_tables_error(self, mock_get_service):
         """Test table listing error handling."""
@@ -297,7 +297,7 @@ class TestTabulatorTablesList:
 class TestTabulatorTableCreate:
     """Test tabulator_table_create function."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_create_table_success(self, mock_get_service):
         """Test successful table creation."""
@@ -324,7 +324,7 @@ class TestTabulatorTableCreate:
         assert result["table_name"] == "test_table"
         mock_service.create_table.assert_called_once()
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_create_table_with_parser_options(self, mock_get_service):
         """Test table creation with custom parser options."""
@@ -353,7 +353,7 @@ class TestTabulatorTableCreate:
         assert parser_config["header"] is False
         assert parser_config["skip_rows"] == 1
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_create_table_error_handling(self, mock_get_service):
         """Test table creation error handling."""
@@ -377,7 +377,7 @@ class TestTabulatorTableCreate:
 class TestTabulatorTableDelete:
     """Test tabulator_table_delete function."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_delete_table_success(self, mock_get_service):
         """Test successful table deletion."""
@@ -395,9 +395,9 @@ class TestTabulatorTableDelete:
 
         assert result["success"] is True
         assert result["table_name"] == "test_table"
-        mock_service.delete_table.assert_called_once_with("test-bucket", "test_table")
+        mock_service.delete_table.assert_called_once_with(bucket_name="test-bucket", table_name="test_table")
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_delete_table_error_handling(self, mock_get_service):
         """Test table deletion error handling."""
@@ -414,7 +414,7 @@ class TestTabulatorTableDelete:
 class TestTabulatorTableRename:
     """Test tabulator_table_rename function."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_rename_table_success(self, mock_get_service):
         """Test successful table rename."""
@@ -433,9 +433,11 @@ class TestTabulatorTableRename:
         assert result["success"] is True
         assert result["old_table_name"] == "old_table"
         assert result["new_table_name"] == "new_table"
-        mock_service.rename_table.assert_called_once_with("test-bucket", "old_table", "new_table")
+        mock_service.rename_table.assert_called_once_with(
+            bucket_name="test-bucket", table_name="old_table", new_table_name="new_table"
+        )
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_rename_table_error_handling(self, mock_get_service):
         """Test table rename error handling."""
@@ -452,7 +454,7 @@ class TestTabulatorTableRename:
 class TestTabulatorOpenQuery:
     """Test tabulator open query functions."""
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_open_query_status(self, mock_get_service):
         """Test getting open query status."""
@@ -470,7 +472,7 @@ class TestTabulatorOpenQuery:
         assert result["open_query_enabled"] is True
         mock_service.get_open_query_status.assert_called_once()
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_open_query_toggle(self, mock_get_service):
         """Test toggling open query status."""
@@ -488,9 +490,9 @@ class TestTabulatorOpenQuery:
         assert result["success"] is True
         assert result["open_query_enabled"] is False
         assert "disabled" in result["message"]
-        mock_service.set_open_query.assert_called_once_with(False)
+        mock_service.set_open_query.assert_called_once_with(enabled=False)
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_open_query_status_error_handling(self, mock_get_service):
         """Test open query status error handling."""
@@ -503,7 +505,7 @@ class TestTabulatorOpenQuery:
         assert result["success"] is False
         assert "Status check failed" in result["error"]
 
-    @patch("quilt_mcp.tools.tabulator.get_tabulator_service")
+    @patch("quilt_mcp.services.tabulator_service.get_tabulator_service")
     @pytest.mark.asyncio
     async def test_open_query_toggle_error_handling(self, mock_get_service):
         """Test open query toggle error handling."""

@@ -469,7 +469,7 @@ This checklist provides detailed instructions for orchestrator agents to impleme
 
 ### Files Modified
 
-- ✅ `src/quilt_mcp/tools/athena_glue.py` - Major refactoring for consolidation
+- ✅ `src/quilt_mcp/services/athena_read_service.py` - Major refactoring for consolidation
 - ✅ `src/quilt_mcp/aws/athena_service.py` - Added `list_workgroups` method
 - ✅ `tests/test_athena_glue.py` - 11 comprehensive BDD tests
 - ✅ `tests/fixtures/test_athena_connection.py` - Fixed deprecated field references

@@ -25,7 +25,7 @@ class TestTabulatorBucketsResource:
             "count": 3,
         }
 
-        with patch("quilt_mcp.resources.tabulator.tabulator_buckets_list") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
             mock_tool.return_value = mock_result
 
             response = await resource.read("tabulator://buckets")
@@ -39,10 +39,21 @@ class TestTabulatorBucketsResource:
         """Test buckets list retrieval failure."""
         mock_result = {"success": False, "error": "Service unavailable"}
 
-        with patch("quilt_mcp.resources.tabulator.tabulator_buckets_list") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
             mock_tool.return_value = mock_result
 
             with pytest.raises(Exception, match="Failed to list buckets"):
+                await resource.read("tabulator://buckets")
+
+    @pytest.mark.anyio
+    async def test_read_catalog_not_configured(self, resource):
+        """Test buckets list when catalog not configured."""
+        mock_result = {"success": False, "error": "tabulator_data_catalog not configured in catalog"}
+
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_buckets") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            with pytest.raises(Exception, match="catalog not configured"):
                 await resource.read("tabulator://buckets")
 
 
@@ -65,7 +76,7 @@ class TestTabulatorTablesResource:
             "count": 2,
         }
 
-        with patch("quilt_mcp.resources.tabulator.tabulator_tables_list") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_tables") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "my-bucket"}
@@ -74,7 +85,7 @@ class TestTabulatorTablesResource:
             assert response.uri == "tabulator://buckets/my-bucket/tables"
             assert response.content["items"] == mock_result["tables"]
             assert response.content["metadata"]["total_count"] == 2
-            mock_tool.assert_called_once_with(bucket_name="my-bucket")
+            mock_tool.assert_called_once_with("my-bucket")
 
     @pytest.mark.anyio
     async def test_read_missing_param(self, resource):
@@ -87,7 +98,7 @@ class TestTabulatorTablesResource:
         """Test tables list retrieval failure."""
         mock_result = {"success": False, "error": "Bucket not found"}
 
-        with patch("quilt_mcp.resources.tabulator.tabulator_tables_list") as mock_tool:
+        with patch("quilt_mcp.resources.tabulator.list_tabulator_tables") as mock_tool:
             mock_tool.return_value = mock_result
 
             params = {"bucket": "nonexistent"}

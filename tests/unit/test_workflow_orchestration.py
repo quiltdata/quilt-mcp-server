@@ -69,18 +69,3 @@ def test_workflow_template_apply_sets_dependencies_and_guidance():
     wo.workflow_update_step("wf-template", "discover-packages", "completed")
     status_after_step = wo.workflow_get_status("wf-template")
     assert "analyze-structure" in status_after_step["next_available_steps"]
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (workflow://workflows)")
-def test_workflow_list_all_sorts_by_recent_activity():
-    """Workflows should be listed in descending order of their last update."""
-
-    wo.workflow_create("wf-old", "Old workflow")
-    time.sleep(0.01)
-    wo.workflow_create("wf-new", "New workflow")
-
-    listing = wo.workflow_list_all()
-
-    assert listing["success"] is True
-    workflow_ids = [wf["id"] for wf in listing["workflows"]]
-    assert workflow_ids[0] == "wf-new"

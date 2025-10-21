@@ -264,7 +264,7 @@ The same underlying quilt3 mechanisms are used - we've just made the visualizati
 ## Files Using Visualizations
 
 - `src/quilt_mcp/tools/s3_package.py` - S3-to-package creation
-- `src/quilt_mcp/tools/package_management.py` - Package management workflows
+- `src/quilt_mcp/services/package_management_service.py` - Package management workflows
 - `src/quilt_mcp/services/quilt_service.py` - Core quilt3 integration
 
 ## Next Steps

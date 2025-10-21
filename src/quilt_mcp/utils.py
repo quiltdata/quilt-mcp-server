@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import boto3
 from fastmcp import FastMCP
+from fastmcp.resources import Resource
 
 from quilt_mcp.runtime_context import (
     RuntimeAuthState,
@@ -96,11 +97,11 @@ def get_tool_modules() -> list[Any]:
     """Get list of tool modules to register."""
     from importlib import import_module
 
-    from quilt_mcp.tools import AVAILABLE_MODULES
+    from quilt_mcp.tools import _MODULE_PATHS
 
     modules: list[Any] = []
-    for module_name in AVAILABLE_MODULES:
-        module = import_module(f"quilt_mcp.tools.{module_name}")
+    for module_name, module_path in _MODULE_PATHS.items():
+        module = import_module(module_path)
         modules.append(module)
     return modules
 
@@ -151,7 +152,11 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
 
     # List of deprecated tools (to reduce client confusion)
     excluded_tools = {
-        "packages_list",  # Prefer packages_search
+        "search_graphql",  # Deprecated - use search_catalog
+        "search_objects_graphql",  # Deprecated - use search_catalog
+        "list_tabulator_buckets",  # Prefer tabulator_buckets_list resource
+        "list_tabulator_tables",  # Prefer tabulator_tables_list resource
+        "packages_list",  # Prefer unified_search
         "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal use only
     }
@@ -384,14 +389,15 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
             description = resource_info["description"]
             mime_type = resource_info["mimeType"]
 
-            # Register with FastMCP
-            mcp.add_resource_fn(
-                uri=uri,
+            # Register with FastMCP using the new Resource.from_function API
+            resource = Resource.from_function(
                 fn=create_handler(uri),
+                uri=uri,
                 name=name,
                 description=description,
                 mime_type=mime_type,
             )
+            mcp.add_resource(resource)
 
         if verbose:
             print(f"Registered {len(resources)} MCP resources", file=sys.stderr)

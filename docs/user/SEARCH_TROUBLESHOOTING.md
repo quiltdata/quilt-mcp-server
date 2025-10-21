@@ -34,8 +34,8 @@ The GraphQL backend may show as unavailable with error messages like:
 
 2. **Test Working GraphQL Tool**:
    ```python
-   from quilt_mcp.tools.buckets import bucket_objects_search_graphql
-   result = bucket_objects_search_graphql('bucket-name', {}, first=1)
+   from quilt_mcp.tools.buckets import unified_search
+   result = unified_search('bucket-name', {}, first=1)
    print(f"Working tool success: {result.get('success', False)}")
    ```
 

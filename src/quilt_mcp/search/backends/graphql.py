@@ -34,7 +34,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Check if GraphQL endpoint is accessible using proven infrastructure."""
         try:
             # Use the existing working GraphQL infrastructure
-            from ...tools.graphql import _get_graphql_endpoint, catalog_graphql_query
+            from ...tools.search import _get_graphql_endpoint, search_graphql
 
             session, graphql_url = _get_graphql_endpoint()
 
@@ -48,8 +48,8 @@ class EnterpriseGraphQLBackend(SearchBackend):
             # Test with the working bucketConfigs query first
             test_query = "query { bucketConfigs { name } }"
 
-            # Use the proven catalog_graphql_query function
-            result = catalog_graphql_query(test_query, {})
+            # Use the proven search_graphql function
+            result = search_graphql(test_query, {})
 
             if result.get("success"):
                 self._update_status(BackendStatus.AVAILABLE)
@@ -78,10 +78,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 return False
 
             # Test with the working bucketConfigs query
-            from ...tools.graphql import catalog_graphql_query
+            from ...tools.search import search_graphql
 
             test_query = "query { bucketConfigs { name } }"
-            result = catalog_graphql_query(test_query, {})
+            result = search_graphql(test_query, {})
 
             if result.get("success"):
                 self._update_status(BackendStatus.AVAILABLE)
@@ -150,7 +150,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
         """Search objects within a specific bucket using GraphQL."""
-        # Use the same GraphQL query pattern as the working bucket_objects_search_graphql
+        # Uses the GraphQL query pattern shared with the legacy bucket search helper
         graphql_query = """
         query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
             objects(bucket: $bucket, filter: $filter, first: $first) {
@@ -392,12 +392,12 @@ class EnterpriseGraphQLBackend(SearchBackend):
         return graphql_filter
 
     async def _execute_graphql_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a GraphQL query using the proven catalog_graphql_query approach."""
+        """Execute a GraphQL query using the proven search_graphql approach."""
         # Use the existing working GraphQL infrastructure (synchronous)
-        from ...tools.graphql import catalog_graphql_query
+        from ...tools.search import search_graphql
 
-        # catalog_graphql_query is synchronous, so we can call it directly
-        result = catalog_graphql_query(query, variables)
+        # search_graphql is synchronous, so we can call it directly
+        result = search_graphql(query, variables)
 
         if not result.get("success"):
             # Unpack detailed error information for better troubleshooting
@@ -425,7 +425,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         """Convert GraphQL bucket objects results to standard format."""
         results = []
 
-        # Use the same result structure as bucket_objects_search_graphql
+        # Use the same result structure as the legacy GraphQL bucket search helper
         data = graphql_result.get("data", {})
         objects = data.get("objects", {})
         edges = objects.get("edges", [])
@@ -612,7 +612,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
         return user_meta_filters
 
-    def _convert_packages_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
+    def _convert_catalog_search_results(self, graphql_result: Dict[str, Any]) -> List[SearchResult]:
         """Convert searchPackages GraphQL results to standard format."""
         results = []
 

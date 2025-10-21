@@ -84,7 +84,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 # Use bucket-specific search
                 results = await self._search_bucket(query, target, filters, limit)
             elif scope == "package" and target:
-                # Search within specific package (use package_contents_search logic)
+                # Search within specific package (dedicated package-scoped logic pending)
                 results = await self._search_package(query, target, filters, limit)
             else:
                 # Global/catalog search using packages search API
@@ -138,52 +138,92 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         limit: int,
     ) -> List[SearchResult]:
         """Search within a specific package."""
-        # This would use existing package_contents_search logic
-        # For now, return empty results as this is handled by other tools
+        # TODO: implement package-scoped search directly via search API if needed
         return []
 
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Global search across all stack buckets using the packages search API."""
-        from ...tools.packages import packages_search
-        from ...tools.stack_buckets import get_stack_buckets
+        """Global search across all stack buckets using the catalog search API."""
+        search_response = self._execute_catalog_search(query=query, limit=limit, filters=filters)
 
-        # Get all buckets in the stack for comprehensive search
-        stack_buckets = get_stack_buckets()
-        logger.debug(f"Searching across {len(stack_buckets)} stack buckets: {stack_buckets}")
+        if "error" in search_response:
+            raise Exception(search_response["error"])
 
-        # Use existing packages_search tool (now updated to search across stack)
-        search_result = packages_search(query, limit=limit)
-
-        if "error" in search_result:
-            raise Exception(search_result["error"])
-
-        return self._convert_packages_results(search_result.get("results", []))
+        hits = search_response.get("hits", {}).get("hits", [])
+        return self._convert_catalog_results(hits)
 
     def get_total_count(self, query: str, filters: Optional[Dict[str, Any]] = None) -> int:
         """Get total count of matching documents using Elasticsearch size=0 query."""
-        from ...tools.packages import packages_search
+        try:
+            search_response = self._execute_catalog_search(query=query, limit=0, filters=filters)
+        except Exception as exc:
+            raise Exception(f"Failed to get total count: {exc}") from exc
+
+        total = search_response.get("hits", {}).get("total")
+        if isinstance(total, dict) and "value" in total:
+            return int(total["value"])
+        if total is not None:
+            return int(total)
+
+        return len(search_response.get("hits", {}).get("hits", []))
+
+    def _execute_catalog_search(
+        self,
+        query: Union[str, Dict[str, Any]],
+        limit: int,
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        from_: int = 0,
+    ) -> Dict[str, Any]:
+        """Execute a catalog search query via quilt3 search API."""
+        try:
+            search_api = self.quilt_service.get_search_api()
+        except Exception as exc:
+            return {"error": f"Search API unavailable: {exc}"}
+
+        if isinstance(query, str) and not query.strip().startswith("{"):
+            dsl_query: Dict[str, Any] = {
+                "from": max(from_, 0),
+                "size": max(limit, 0),
+                "query": {"query_string": {"query": query}},
+            }
+        else:
+            import json
+
+            if isinstance(query, str):
+                dsl_query = json.loads(query)
+            else:
+                dsl_query = dict(query)
+            dsl_query["from"] = max(from_, 0)
+            dsl_query["size"] = max(limit, 0)
+
+        if filters:
+            filter_clauses = []
+            if filters.get("file_extensions"):
+                filter_clauses.append({"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}})
+            if filters.get("size_gt"):
+                filter_clauses.append({"range": {"size": {"gt": filters["size_gt"]}}})
+            if filter_clauses:
+                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
+                    filter_clauses
+                )
+
+        from ...tools.stack_buckets import build_stack_search_indices
+
+        index_name = None
+        try:
+            index_name = build_stack_search_indices()
+        except Exception:
+            index_name = None
 
         try:
-            # Use size=0 approach like the catalog UI for instant counts
-            search_result = packages_search(query, limit=0)  # size=0 in Elasticsearch
-
-            if "error" in search_result:
-                raise Exception(f"Count query failed: {search_result['error']}")
-
-            # Extract total count from Elasticsearch response
-            total = search_result.get("total")
-            if total is not None:
-                if isinstance(total, dict) and "value" in total:
-                    return total["value"]
-                else:
-                    return int(total)
-
-            # If no total in response, fall back to counting results
-            results = search_result.get("results", [])
-            return len(results)
-
-        except Exception as e:
-            raise Exception(f"Failed to get total count: {e}")
+            kwargs: Dict[str, Any] = {"query": dsl_query}
+            if index_name:
+                kwargs["index"] = index_name
+            if limit >= 0:
+                kwargs["limit"] = limit
+            return search_api(**kwargs)
+        except Exception as exc:  # pragma: no cover - surface search API issues
+            return {"error": f"Catalog search failed: {exc}"}
 
     def _build_elasticsearch_query(self, query: str, filters: Optional[Dict[str, Any]]) -> Union[str, Dict[str, Any]]:
         """Build Elasticsearch query from natural language and filters."""
@@ -261,8 +301,8 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return results
 
-    def _convert_packages_results(self, raw_results: List[Dict[str, Any]]) -> List[SearchResult]:
-        """Convert packages_search results to standard format."""
+    def _convert_catalog_results(self, raw_results: List[Dict[str, Any]]) -> List[SearchResult]:
+        """Convert catalog search results to standard format."""
         results = []
 
         for hit in raw_results:

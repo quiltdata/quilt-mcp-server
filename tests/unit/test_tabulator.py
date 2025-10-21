@@ -90,14 +90,14 @@ def test_tabulator_query_discovers_catalog_from_catalog_info(monkeypatch: pytest
             "tabulator_data_catalog": "quilt_example_catalog",
         }
     )
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
     mock_execute = MagicMock(return_value={"success": True, "rows": [], "row_count": 0})
-    monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
+    monkeypatch.setattr("quilt_mcp.services.athena_read_service.athena_query_execute", mock_execute)
 
     # Call the private function
-    from quilt_mcp.tools.tabulator import _tabulator_query
+    from quilt_mcp.services.tabulator_service import _tabulator_query
 
     result = _tabulator_query("SHOW DATABASES")
 
@@ -121,14 +121,14 @@ def test_tabulator_query_accepts_database_name(monkeypatch: pytest.MonkeyPatch):
             "tabulator_data_catalog": "quilt_example_catalog",
         }
     )
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Mock athena_query_execute
     mock_execute = MagicMock(return_value={"success": True, "formatted_data": []})
-    monkeypatch.setattr("quilt_mcp.tools.athena_glue.athena_query_execute", mock_execute)
+    monkeypatch.setattr("quilt_mcp.services.athena_read_service.athena_query_execute", mock_execute)
 
     # Call with database_name
-    from quilt_mcp.tools.tabulator import _tabulator_query
+    from quilt_mcp.services.tabulator_service import _tabulator_query
 
     result = _tabulator_query("SELECT * FROM test_table LIMIT 1", database_name="test-bucket")
 
@@ -142,64 +142,15 @@ def test_tabulator_query_fails_without_catalog_config(monkeypatch: pytest.Monkey
     """Test that _tabulator_query fails gracefully without catalog configuration."""
     # Mock catalog_info to return no tabulator_data_catalog
     mock_catalog_info = MagicMock(return_value={"status": "success", "is_authenticated": True})
-    monkeypatch.setattr("quilt_mcp.tools.auth.catalog_info", mock_catalog_info)
+    monkeypatch.setattr("quilt_mcp.services.auth_metadata.catalog_info", mock_catalog_info)
 
     # Call should fail
-    from quilt_mcp.tools.tabulator import _tabulator_query
+    from quilt_mcp.services.tabulator_service import _tabulator_query
 
     result = _tabulator_query("SHOW DATABASES")
 
     assert result["success"] is False
     assert "tabulator_data_catalog not configured" in result["error"]
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
-def test_tabulator_buckets_list_calls_tabulator_query(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_buckets_list calls _tabulator_query with SHOW DATABASES."""
-    # Mock _tabulator_query
-    mock_query = MagicMock(
-        return_value={
-            "success": True,
-            "formatted_data": [
-                {"database_name": "bucket-one"},
-                {"database_name": "bucket-two"},
-            ],
-        }
-    )
-    monkeypatch.setattr("quilt_mcp.tools.tabulator._tabulator_query", mock_query)
-
-    # Call the function
-    from quilt_mcp.tools.tabulator import tabulator_buckets_list
-    import asyncio
-
-    result = asyncio.run(tabulator_buckets_list())
-
-    # Verify _tabulator_query was called with SHOW DATABASES
-    mock_query.assert_called_once()
-    call_args = mock_query.call_args[0]
-    assert "SHOW DATABASES" in call_args[0]
-
-    # Verify result structure
-    assert result["success"] is True
-    assert "buckets" in result
-    assert len(result["buckets"]) == 2
-
-
-@pytest.mark.skip(reason="Tool deprecated - now available as resource (tabulator://buckets)")
-def test_tabulator_buckets_list_handles_query_failure(monkeypatch: pytest.MonkeyPatch):
-    """Test that tabulator_buckets_list handles _tabulator_query failures."""
-    # Mock _tabulator_query to fail
-    mock_query = MagicMock(return_value={"success": False, "error": "Catalog not configured"})
-    monkeypatch.setattr("quilt_mcp.tools.tabulator._tabulator_query", mock_query)
-
-    # Call should propagate error
-    from quilt_mcp.tools.tabulator import tabulator_buckets_list
-    import asyncio
-
-    result = asyncio.run(tabulator_buckets_list())
-
-    assert result["success"] is False
-    assert "error" in result
 
 
 def test_tabulator_bucket_query_calls_tabulator_query_with_database(monkeypatch: pytest.MonkeyPatch):
@@ -211,10 +162,10 @@ def test_tabulator_bucket_query_calls_tabulator_query_with_database(monkeypatch:
             "formatted_data": [{"col1": "value1"}],
         }
     )
-    monkeypatch.setattr("quilt_mcp.tools.tabulator._tabulator_query", mock_query)
+    monkeypatch.setattr("quilt_mcp.services.tabulator_service._tabulator_query", mock_query)
 
     # Call the function
-    from quilt_mcp.tools.tabulator import tabulator_bucket_query
+    from quilt_mcp.services.tabulator_service import tabulator_bucket_query
     import asyncio
 
     result = asyncio.run(tabulator_bucket_query(bucket_name="test-bucket", query="SELECT * FROM test_table LIMIT 1"))
@@ -231,7 +182,7 @@ def test_tabulator_bucket_query_calls_tabulator_query_with_database(monkeypatch:
 
 def test_tabulator_bucket_query_validates_bucket_name(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_bucket_query validates bucket_name parameter."""
-    from quilt_mcp.tools.tabulator import tabulator_bucket_query
+    from quilt_mcp.services.tabulator_service import tabulator_bucket_query
     import asyncio
 
     # Call with empty bucket_name
@@ -243,7 +194,7 @@ def test_tabulator_bucket_query_validates_bucket_name(monkeypatch: pytest.Monkey
 
 def test_tabulator_bucket_query_validates_query(monkeypatch: pytest.MonkeyPatch):
     """Test that tabulator_bucket_query validates query parameter."""
-    from quilt_mcp.tools.tabulator import tabulator_bucket_query
+    from quilt_mcp.services.tabulator_service import tabulator_bucket_query
     import asyncio
 
     # Call with empty query

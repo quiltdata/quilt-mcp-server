@@ -111,11 +111,11 @@ After analyzing the current tool set, here are the tools categorized by their pr
 - `bucket_object_info()` - Get object metadata ✅ **RESOURCE CANDIDATE**
 - `bucket_object_text()` - Read text content ✅ **RESOURCE CANDIDATE**
 - `bucket_object_fetch()` - Fetch binary/text data ✅ **RESOURCE CANDIDATE**
-- `bucket_objects_search()` - Search objects ✅ **RESOURCE CANDIDATE**
-- `bucket_objects_search_graphql()` - Search via GraphQL ✅ **RESOURCE CANDIDATE**
+- `unified_search()` - Search objects ✅ **RESOURCE CANDIDATE**
+- `unified_search()` - Search via GraphQL ✅ **RESOURCE CANDIDATE**
 - `package_browse()` - Browse package contents ✅ **RESOURCE CANDIDATE**
-- `packages_search()` - Search for packages ✅ **RESOURCE CANDIDATE**
-- `package_contents_search()` - Search within package ✅ **RESOURCE CANDIDATE**
+- `unified_search()` - Search for packages ✅ **RESOURCE CANDIDATE**
+- `unified_search()` - Search within package ✅ **RESOURCE CANDIDATE**
 - `tabulator_bucket_query()` - Execute SQL against bucket ⚠️ **BORDERLINE** (read-only query)
 
 #### 4. Write/Action Tools (Should remain Tools)
@@ -198,7 +198,7 @@ These have some characteristics of resources but may involve computation or have
    - `s3://{bucket}/objects/{key}/content` → `bucket_object_text(s3_uri)` (actual content)
 
 9. **Package Resources** (`package://`)
-   - `package://{registry}/packages` → `packages_search()` (with default query)
+   - `package://{registry}/packages` → `unified_search()` (with default query)
    - `package://{registry}/packages/{name}` → `package_browse(name)`
    - `package://{registry}/tools` → `list_package_tools()`
 

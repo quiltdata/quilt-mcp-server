@@ -4,7 +4,7 @@ import asyncio
 from typing import Dict, Optional
 
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
-from quilt_mcp.tools.athena_glue import (
+from quilt_mcp.services.athena_read_service import (
     athena_databases_list,
     athena_workgroups_list,
     athena_table_schema,
@@ -115,7 +115,9 @@ class AthenaTableSchemaResource(MCPResource):
         if not params or "database" not in params or "table" not in params:
             raise ValueError("Database and table names required in URI")
 
-        result = await asyncio.to_thread(athena_table_schema, database_name=params["database"], table_name=params["table"])
+        result = await asyncio.to_thread(
+            athena_table_schema, database_name=params["database"], table_name=params["table"]
+        )
 
         if not result.get("success"):
             raise Exception(f"Failed to get schema: {result.get('error', 'Unknown error')}")

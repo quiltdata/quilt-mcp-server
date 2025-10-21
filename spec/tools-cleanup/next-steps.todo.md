@@ -1,0 +1,5 @@
+- [x] Run `make -B test` (fallback: `python -m pytest tests`) and fix any failures.
+- [x] Migrate permissions, workflow, governance, and Athena read-only helpers into `services/`, update resources/tests, regenerate fixtures.
+- [x] Remove superseded tool modules/wrappers (`metadata_examples`, `metadata_templates`, tabulator shim, `unified_package`, `package_management`); update registry entries and search for stale imports.
+- [ ] Refresh docs/spec/changelog to reflect the simplified service-focused surface.
+- [ ] Execute `make test-all`, address regressions, tidy repo state, and prepare PR summary. *(Attempted 2025-10-19; run timed out with 24 integration/auth failures pending Quilt login credentials.)*
