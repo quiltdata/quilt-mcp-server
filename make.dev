@@ -92,9 +92,11 @@ test-scripts: scripts/tests/test_*.py | $(RESULTS_DIR)
 lint:
 	@echo "Running code linting and auto-fixing..."
 	@uv sync --group lint
-	@echo "Running ruff (format + lint + type check) - auto-fixing..."
+	@echo "Running ruff (format + lint) - auto-fixing..."
 	@uv run ruff format src/quilt_mcp/ tests/
 	@uv run ruff check --fix src/quilt_mcp/ tests/
+	@echo "Running mypy type checking..."
+	@uv run mypy src/quilt_mcp/ --show-error-codes --pretty
 	@echo "✅ All linting completed"
 
 # Development Server Targets

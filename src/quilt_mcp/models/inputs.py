@@ -127,6 +127,36 @@ class BucketObjectLinkParams(BaseModel):
     ]
 
 
+class BucketObjectTextParams(BaseModel):
+    """Parameters for bucket_object_text tool."""
+
+    s3_uri: Annotated[
+        str,
+        Field(
+            description="Full S3 URI to the object",
+            examples=["s3://bucket-name/path/to/file.txt"],
+            pattern=r"^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/.+",
+        ),
+    ]
+    max_bytes: Annotated[
+        int,
+        Field(
+            default=65536,
+            ge=1,
+            le=10485760,  # 10MB
+            description="Maximum bytes to read (1 byte to 10MB)",
+        ),
+    ]
+    encoding: Annotated[
+        str,
+        Field(
+            default="utf-8",
+            description="Text encoding to use for decoding",
+            examples=["utf-8", "latin-1", "ascii"],
+        ),
+    ]
+
+
 class BucketObjectsPutItem(BaseModel):
     """A single item to upload to S3."""
 

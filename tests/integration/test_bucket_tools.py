@@ -11,18 +11,34 @@ from quilt_mcp import (
     bucket_objects_put,
 )
 from quilt_mcp.constants import DEFAULT_BUCKET
+from quilt_mcp.models import (
+    BucketObjectFetchParams,
+    BucketObjectInfoParams,
+    BucketObjectLinkParams,
+    BucketObjectsPutItem,
+    BucketObjectsPutParams,
+    BucketObjectsListParams,
+    BucketObjectTextParams,
+    BucketObjectsListSuccess,
+    BucketObjectInfoSuccess,
+    BucketObjectsPutSuccess,
+    BucketObjectFetchSuccess,
+    PresignedUrlResponse,
+    BucketObjectTextSuccess,
+)
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
 @pytest.mark.integration
 def test_bucket_objects_list_success():
     """Test bucket objects listing with real AWS (integration test)."""
-    result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=10)
-    assert "bucket" in result
-    assert "objects" in result
-    assert isinstance(result["objects"], list)
+    params = BucketObjectsListParams(bucket=DEFAULT_BUCKET, max_keys=10)
+    result = bucket_objects_list(params)
+    assert isinstance(result, BucketObjectsListSuccess)
+    assert result.bucket
+    assert isinstance(result.objects, list)
     # Should have some objects in the test bucket
-    assert len(result["objects"]) >= 0  # Allow empty bucket
+    assert len(result.objects) >= 0  # Allow empty bucket
 
 
 def test_bucket_objects_list_error():
@@ -34,8 +50,9 @@ def test_bucket_objects_list_error():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        result = bucket_objects_list(bucket="my-bucket")
-        assert "error" in result
+        params = BucketObjectsListParams(bucket="my-bucket")
+        result = bucket_objects_list(params)
+        assert hasattr(result, "error")
 
 
 @pytest.mark.integration

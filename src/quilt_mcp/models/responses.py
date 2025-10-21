@@ -157,6 +157,77 @@ class PresignedUrlResponse(SuccessResponse):
     auth_type: Optional[str] = None
 
 
+class BucketObjectTextSuccess(SuccessResponse):
+    """Response from bucket_object_text when successful."""
+
+    bucket: str
+    key: str
+    s3_uri: str
+    text: str
+    encoding: str
+    bytes_read: int
+    truncated: bool
+    auth_type: Optional[str] = None
+
+
+class BucketObjectTextError(BaseModel):
+    """Response from bucket_object_text when failed."""
+
+    error: str
+    bucket: Optional[str] = None
+    key: Optional[str] = None
+
+
+class BucketObjectFetchSuccess(SuccessResponse):
+    """Response from bucket_object_fetch when successful."""
+
+    bucket: str
+    key: str
+    s3_uri: str
+    data: str  # Base64-encoded or text depending on base64_encode param
+    content_type: Optional[str] = None
+    bytes_read: int
+    truncated: bool
+    is_base64: bool
+    auth_type: Optional[str] = None
+
+
+class BucketObjectFetchError(BaseModel):
+    """Response from bucket_object_fetch when failed."""
+
+    error: str
+    bucket: Optional[str] = None
+    key: Optional[str] = None
+
+
+class UploadResult(BaseModel):
+    """Result of uploading a single object."""
+
+    key: str
+    etag: Optional[str] = None
+    size: Optional[int] = None
+    content_type: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BucketObjectsPutSuccess(SuccessResponse):
+    """Response from bucket_objects_put when successful."""
+
+    bucket: str
+    requested: int
+    uploaded: int
+    failed: int
+    results: list[UploadResult]
+    auth_type: Optional[str] = None
+
+
+class BucketObjectsPutError(BaseModel):
+    """Response from bucket_objects_put when failed."""
+
+    error: str
+    bucket: str
+
+
 # ============================================================================
 # Package Tool Responses
 # ============================================================================
@@ -357,6 +428,9 @@ CatalogUriResponse = CatalogUriSuccess | CatalogUriError
 # Bucket responses
 BucketObjectsListResponse = BucketObjectsListSuccess | BucketObjectsListError
 BucketObjectInfoResponse = BucketObjectInfoSuccess | BucketObjectInfoError
+BucketObjectTextResponse = BucketObjectTextSuccess | BucketObjectTextError
+BucketObjectFetchResponse = BucketObjectFetchSuccess | BucketObjectFetchError
+BucketObjectsPutResponse = BucketObjectsPutSuccess | BucketObjectsPutError
 
 # Package responses
 PackageBrowseResponse = PackageBrowseSuccess | ErrorResponse

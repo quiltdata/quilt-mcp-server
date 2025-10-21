@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.8.2"
+version = "0.9.0"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -80,6 +80,7 @@ deploy = [
 ]
 lint = [
     "ruff>=0.1.0",
+    "mypy>=1.8.0",
 ]
 dev = [
     "pytest-xdist>=3.8.0",
@@ -104,3 +105,42 @@ markers = [
 [tool.ruff]
 # Use external configuration file
 config = "ruff.toml"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+strict_concatenate = true
+
+# Allow gradual typing - don't require all code to be typed yet
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "quilt3.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "boto3.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "botocore.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fastmcp.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mcp.*"
+ignore_missing_imports = true
