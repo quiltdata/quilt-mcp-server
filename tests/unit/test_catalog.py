@@ -264,6 +264,7 @@ class TestCatalogUri:
             assert "Failed to generate Quilt+ URI" in result["error"]
             assert "URI error" in result["error"]
 
+
 class TestConfigureCatalog:
     """Test configure_catalog function - targeting missing exception handling."""
 
