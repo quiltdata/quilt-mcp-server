@@ -10,7 +10,6 @@ by MCP resources. Use the resource tests instead.
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Deprecated: governance tools replaced by resources")
 import os
 from unittest.mock import patch
 
@@ -41,52 +40,6 @@ class TestGovernanceIntegration:
         else:
             assert error_check is not None
             assert error_check["success"] is False
-
-    @pytest.mark.asyncio
-    async def test_roles_list_integration(self):
-        """Test role listing with real admin API."""
-        result = await governance.admin_roles_list()
-
-        # Should succeed if admin privileges are available
-        if result["success"]:
-            assert "roles" in result
-            assert "count" in result
-            assert isinstance(result["roles"], list)
-
-            # Check that roles have expected structure
-            if result["roles"]:
-                role = result["roles"][0]
-                assert "id" in role
-                assert "name" in role
-                assert "arn" in role
-                assert "type" in role
-        else:
-            # If it fails, should be due to permissions
-            error_msg = result.get("error") or ""
-            assert "Admin" in error_msg or "permission" in error_msg.lower()
-
-    @pytest.mark.asyncio
-    async def test_users_list_integration(self):
-        """Test user listing with real admin API."""
-        result = await governance.admin_users_list()
-
-        # Should succeed if admin privileges are available
-        if result["success"]:
-            assert "users" in result
-            assert "count" in result
-            assert isinstance(result["users"], list)
-
-            # Check that users have expected structure
-            if result["users"]:
-                user = result["users"][0]
-                assert "name" in user
-                assert "email" in user
-                assert "is_active" in user
-                assert "is_admin" in user
-        else:
-            # If it fails, should be due to permissions
-            error_msg = result.get("error") or ""
-            assert "Admin" in error_msg or "permission" in error_msg.lower()
 
     @pytest.mark.asyncio
     async def test_sso_config_get_integration(self):
@@ -147,33 +100,6 @@ class TestGovernanceWorkflows:
         create_result = await governance.admin_user_create("", "", "")
         assert create_result["success"] is False
         assert "Username cannot be empty" in create_result["error"]
-
-    @pytest.mark.asyncio
-    async def test_role_and_user_integration(self):
-        """Test integration between role and user management."""
-        # 1. Get available roles
-        roles_result = await governance.admin_roles_list()
-
-        if not roles_result["success"]:
-            pytest.fail("Cannot test integration without admin privileges")
-
-        # 2. Get users to see role assignments
-        users_result = await governance.admin_users_list()
-
-        if not users_result["success"]:
-            pytest.fail("Cannot test integration without admin privileges")
-
-        # 3. Verify that user roles reference valid roles
-        for user in users_result["users"]:
-            if user.get("role"):
-                # User's primary role should be in available roles
-                # Note: This might not always be true in real systems due to role updates
-                pass  # Just verify structure exists
-
-            if user.get("extra_roles"):
-                # Extra roles should also be valid
-                # Note: This might not always be true in real systems due to role updates
-                pass  # Just verify structure exists
 
 
 class TestGovernanceErrorHandling:
