@@ -146,7 +146,9 @@ class TestPackageCreateFromS3:
 
         # Verify structure preview is present (it's nested in confirmation)
         assert "confirmation" in result_dict, f"Missing 'confirmation' in dry_run result. Full result: {result_dict}"
-        assert "structure_preview" in result_dict["confirmation"], f"Missing 'structure_preview' in confirmation. Full result: {result_dict}"
+        assert "structure_preview" in result_dict["confirmation"], (
+            f"Missing 'structure_preview' in confirmation. Full result: {result_dict}"
+        )
 
         # Verify registry was set correctly
         assert result_dict.get("registry") == DEFAULT_REGISTRY, (

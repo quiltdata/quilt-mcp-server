@@ -920,14 +920,25 @@ def package_diff(params: PackageDiffParams) -> PackageDiffSuccess | PackageDiffE
         # Use quilt3's built-in diff functionality
         diff_result = pkg1.diff(pkg2)
 
-        # Convert the diff result to a more readable format
+        # Convert the diff tuple (added, deleted, modified) to a dictionary
+        if isinstance(diff_result, tuple) and len(diff_result) == 3:
+            added, deleted, modified = diff_result
+            diff_dict = {
+                "added": list(added) if added else [],
+                "deleted": list(deleted) if deleted else [],
+                "modified": list(modified) if modified else [],
+            }
+        else:
+            # If diff_result is already a dict or unexpected format, use as-is
+            diff_dict = diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
+
         return PackageDiffSuccess(
             package1=params.package1_name,
             package2=params.package2_name,
             package1_hash=params.package1_hash if params.package1_hash else "latest",
             package2_hash=params.package2_hash if params.package2_hash else "latest",
             registry=params.registry,
-            diff=diff_result,
+            diff=diff_dict,
         )
 
     except Exception as e:

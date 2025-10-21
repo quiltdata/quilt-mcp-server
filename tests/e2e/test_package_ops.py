@@ -544,7 +544,9 @@ class TestPackageCreateErrorHandling:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            params = PackageCreateParams(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
+            params = PackageCreateParams(
+                package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+            )
 
         # Verify the validation error is about the pattern mismatch
         assert "String should match pattern" in str(exc_info.value)
