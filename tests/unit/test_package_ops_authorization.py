@@ -56,6 +56,7 @@ def test_package_create_attaches_auth_type(monkeypatch, fake_service):
 
     # Import the catalog module within packages to mock it
     from quilt_mcp.tools import catalog
+
     monkeypatch.setattr(catalog, "catalog_url", mock_catalog_url)
 
     # Mock quilt3 package operations

@@ -1643,5 +1643,9 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         return PackageCreateFromS3Error(
             error=f"Failed to create package: {str(e)}",
             package_name=params.package_name,
-            suggested_actions=["Check logs for details", "Verify all parameters", "Ensure source bucket is accessible"],
+            suggested_actions=[
+                "Check logs for details",
+                "Verify all parameters",
+                "Ensure source bucket is accessible",
+            ],
         )
