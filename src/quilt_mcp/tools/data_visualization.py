@@ -9,6 +9,13 @@ from io import BytesIO, StringIO
 from statistics import mean, median, quantiles, StatisticsError
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from ..models import (
+    DataVisualizationParams,
+    DataVisualizationSuccess,
+    DataVisualizationError,
+    VisualizationConfig,
+    VisualizationFile,
+)
 from ..utils import get_s3_client
 
 
@@ -32,18 +39,8 @@ Records = List[Dict[str, Any]]
 
 
 def create_data_visualization(
-    data: dict[str, Iterable[Any]] | Sequence[Dict[str, Any]] | str,
-    plot_type: str,
-    x_column: str,
-    y_column: Optional[str] = None,
-    group_column: Optional[str] = None,
-    title: str = "",
-    xlabel: str = "",
-    ylabel: str = "",
-    color_scheme: str = "genomics",
-    template: str = "research",
-    output_format: str = "echarts",
-) -> Dict[str, Any]:
+    params: DataVisualizationParams,
+) -> DataVisualizationSuccess | DataVisualizationError:
     """Create interactive data visualization for Quilt packages - Generate ECharts configurations from tabular data.
 
     WORKFLOW:
@@ -58,29 +55,31 @@ def create_data_visualization(
         - Ensure S3 keys match exactly what's in quilt_summarize.json
 
     Args:
-        data: Source data accepted as dict of columns, list of row dicts, CSV/TSV string, or S3 URI.
-              Dict input expects equal length iterables per column (`{"gene": [...], "expression": [...]}`).
-        plot_type: Visualization type (`"boxplot"`, `"scatter"`, `"line"`, `"bar"`).
-        x_column: Column used for x-axis (category or numeric depending on plot).
-        y_column: Column used for y-axis (required for all four plot types).
-        group_column: Optional grouping/color column (scatter/line/bar).
-        title: Chart title override (auto-generated when empty).
-        xlabel: X-axis label override (defaults to `x_column`).
-        ylabel: Y-axis label override (defaults to `y_column`).
-        color_scheme: Palette name (`"genomics"`, `"ml"`, `"research"`, `"analytics"`, `"default"`).
-        template: Metadata template label written into quilt_summarize metadata.
-        output_format: Visualization engine, currently `"echarts"` only.
+        params: DataVisualizationParams containing:
+            - data: Source data accepted as dict of columns, list of row dicts, CSV/TSV string, or S3 URI
+            - plot_type: Visualization type ("boxplot", "scatter", "line", "bar")
+            - x_column: Column used for x-axis (category or numeric depending on plot)
+            - y_column: Column used for y-axis (required for all four plot types)
+            - group_column: Optional grouping/color column (scatter/line/bar)
+            - title: Chart title override (auto-generated when empty)
+            - xlabel: X-axis label override (defaults to x_column)
+            - ylabel: Y-axis label override (defaults to y_column)
+            - color_scheme: Palette name ("genomics", "ml", "research", "analytics", "default")
+            - template: Metadata template label written into quilt_summarize metadata
+            - output_format: Visualization engine, currently "echarts" only
 
     Returns:
-        Dict containing Quilt-ready visualization configuration, data CSV, quilt_summarize payload, and upload instructions.
+        DataVisualizationSuccess on success containing:
+            - visualization_config: VisualizationConfig with ECharts configuration
+            - data_file: VisualizationFile with CSV data
+            - quilt_summarize: VisualizationFile with Quilt metadata
+            - files_to_upload: List of VisualizationFile ready for bucket_objects_put()
+            - metadata: Statistics and info about the visualization
 
-        Structure:
-        - success: Boolean indicating if visualization was created
-        - visualization_config: {type, option, filename} - ECharts config
-        - data_file: {content, filename, content_type} - CSV data
-        - quilt_summarize: {content, filename} - Quilt metadata
-        - files_to_upload: List of {key, text, content_type} ready for bucket_objects_put()
-        - metadata: Statistics and info about the visualization
+        DataVisualizationError on failure containing:
+            - error: Error message
+            - suggestions: Helpful suggestions for fixing the error
+            - plot_type, x_column, y_column: Context about what was attempted
 
     Next step:
         Upload files with bucket_objects_put() using a common prefix, then create package referencing those exact S3 URIs.
@@ -133,67 +132,90 @@ def create_data_visualization(
     """
 
     try:
-        records = _normalize_data(data)
-        plot_type_normalized = _normalize_plot_type(plot_type)
-        _validate_plot_requirements(records, plot_type_normalized, x_column, y_column, group_column)
+        records = _normalize_data(params.data)  # type: ignore[arg-type]  # Internal function with broader types
+        plot_type_normalized = _normalize_plot_type(params.plot_type)
+        _validate_plot_requirements(
+            records, plot_type_normalized, params.x_column, params.y_column, params.group_column
+        )
 
         viz = _create_visualization_config(
             records=records,
             plot_type=plot_type_normalized,
-            x_column=x_column,
-            y_column=y_column or "",
-            group_column=group_column,
-            title=title,
-            xlabel=xlabel or x_column,
-            ylabel=ylabel or (y_column or ""),
-            color_scheme=color_scheme,
-            output_format=output_format,
+            x_column=params.x_column,
+            y_column=params.y_column or "",
+            group_column=params.group_column,
+            title=params.title,
+            xlabel=params.xlabel or params.x_column,
+            ylabel=params.ylabel or (params.y_column or ""),
+            color_scheme=params.color_scheme,
+            output_format=params.output_format,
         )
 
-        data_file = _create_data_file(records, plot_type_normalized, x_column, y_column, group_column)
+        data_file = _create_data_file(
+            records, plot_type_normalized, params.x_column, params.y_column, params.group_column
+        )
         quilt_sum = _generate_quilt_summarize(
             viz_config=viz,
             data_file=data_file,
-            title=title or viz.option.get("title", {}).get("text") or "Visualization",
-            description=_build_description(plot_type_normalized, xlabel or x_column, ylabel or (y_column or "")),
-            template=template,
+            title=params.title or viz.option.get("title", {}).get("text") or "Visualization",
+            description=_build_description(
+                plot_type_normalized, params.xlabel or params.x_column, params.ylabel or (params.y_column or "")
+            ),
+            template=params.template,
         )
-        stats = _calculate_statistics(records, y_column)
+        stats = _calculate_statistics(records, params.y_column)
 
         files_to_upload = [
-            {
-                "key": viz.filename,
-                "text": json.dumps(viz.option, indent=2),
-                "content_type": "application/json",
-            },
-            {
-                "key": data_file["filename"],
-                "text": data_file["content"],
-                "content_type": data_file["content_type"],
-            },
-            {
-                "key": quilt_sum["filename"],
-                "text": json.dumps(quilt_sum["content"], indent=2),
-                "content_type": "application/json",
-            },
+            VisualizationFile(
+                key=viz.filename,
+                text=json.dumps(viz.option, indent=2),
+                content_type="application/json",
+            ),
+            VisualizationFile(
+                key=data_file["filename"],
+                text=data_file["content"],
+                content_type=data_file["content_type"],
+            ),
+            VisualizationFile(
+                key=quilt_sum["filename"],
+                text=json.dumps(quilt_sum["content"], indent=2),
+                content_type="application/json",
+            ),
         ]
 
-        return {
-            "success": True,
-            "visualization_config": {"type": viz.engine, "option": viz.option, "filename": viz.filename},
-            "data_file": data_file,
-            "quilt_summarize": quilt_sum,
-            "files_to_upload": files_to_upload,
-            "metadata": {
+        return DataVisualizationSuccess(
+            visualization_config=VisualizationConfig(
+                type="echarts",
+                option=viz.option,
+                filename=viz.filename,
+            ),
+            data_file=VisualizationFile(
+                key=data_file["filename"],
+                text=data_file["content"],
+                content_type=data_file["content_type"],
+            ),
+            quilt_summarize=VisualizationFile(
+                key=quilt_sum["filename"],
+                text=json.dumps(quilt_sum["content"], indent=2),
+                content_type="application/json",
+            ),
+            files_to_upload=files_to_upload,
+            metadata={
                 "plot_type": plot_type_normalized,
                 "statistics": stats,
                 "data_points": len(records),
                 "visualization_engine": viz.engine,
-                "columns_used": [x_column, y_column, group_column],
+                "columns_used": [params.x_column, params.y_column, params.group_column],
             },
-        }
+        )
     except Exception as exc:  # noqa: BLE001
-        return {"success": False, "error": str(exc), "suggestion": _get_error_suggestion(exc)}
+        return DataVisualizationError(
+            error=str(exc),
+            possible_fixes=[_get_error_suggestion(exc)],
+            plot_type=getattr(params, "plot_type", None),
+            x_column=getattr(params, "x_column", None),
+            y_column=getattr(params, "y_column", None),
+        )
 
 
 def _normalize_data(data: dict[str, Iterable[Any]] | Sequence[Dict[str, Any]] | str) -> Records:
@@ -366,7 +388,7 @@ def _create_echarts_boxplot(
             seen.add(category)
             ordered_categories.append(category)
 
-    series_data = []
+    series_data: list[list[float]] = []
     for category in ordered_categories:
         values = data_map.get(category, [])
         if not values:
@@ -485,7 +507,7 @@ def _create_echarts_line(
                 }
             )
     else:
-        points = [_extract_point(row, x_column, y_column) for row in records]
+        points = [p for p in [_extract_point(row, x_column, y_column) for row in records] if p is not None]
         filtered = sorted([pt for pt in points if pt is not None], key=lambda item: item[0])
         series = [
             {

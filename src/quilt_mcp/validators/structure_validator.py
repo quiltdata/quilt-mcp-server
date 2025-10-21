@@ -29,8 +29,8 @@ def validate_package_structure(
     Returns:
         Tuple of (is_valid, warnings, recommendations)
     """
-    warnings = []
-    recommendations = []
+    warnings: list[str] = []
+    recommendations: list[str] = []
     is_valid = True
 
     # Check for empty structure
@@ -129,7 +129,7 @@ def suggest_folder_organization(file_objects: List[Dict[str, Any]]) -> Dict[str,
     Returns:
         Dictionary mapping suggested folders to file keys
     """
-    suggestions = {}
+    suggestions: dict[str, list[str]] = {}
 
     for obj in file_objects:
         key = obj["Key"]

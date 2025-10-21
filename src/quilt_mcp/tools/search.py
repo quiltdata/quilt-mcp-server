@@ -6,6 +6,12 @@ This module exposes the unified search functionality as MCP tools.
 import asyncio
 from typing import Dict, List, Any, Optional
 
+from ..models.responses import (
+    SearchExplainSuccess,
+    SearchExplainError,
+    SearchGraphQLSuccess,
+    SearchGraphQLError,
+)
 from ..search.tools.unified_search import unified_search as _unified_search
 from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.search_explain import search_explain as _search_explain
@@ -179,7 +185,7 @@ def search_suggest(
         }
 
 
-def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[str, Any]:
+def search_explain(query: str, scope: str = "global", target: str = "") -> SearchExplainSuccess | SearchExplainError:
     """Explain how a search query would be processed and executed - Catalog and package search experiences
 
     Args:
@@ -204,13 +210,22 @@ def search_explain(query: str, scope: str = "global", target: str = "") -> Dict[
         ```
     """
     try:
-        return _search_explain(query=query)
+        explanation = _search_explain(query=query)
+        backend_selection = explanation.get("backend_selection", {})
+        backends_selected = backend_selection.get("selected_backends", [])
+        query_analysis = explanation.get("query_analysis", {})
+
+        return SearchExplainSuccess(
+            query=query,
+            explanation=explanation,
+            backends_selected=backends_selected,
+            query_complexity=query_analysis.get("detected_type", "unknown"),
+        )
     except (RuntimeError, ValueError) as e:
-        return {
-            "success": False,
-            "error": f"Search explanation failed: {e}",
-            "query": query,
-        }
+        return SearchExplainError(
+            error=f"Search explanation failed: {e}",
+            query=query,
+        )
 
 
 # GraphQL search functions (previously in separate graphql module)
@@ -241,7 +256,7 @@ def _get_graphql_endpoint():
         return None, None
 
 
-def search_graphql(query: str, variables: Optional[Dict] = None) -> Dict[str, Any]:
+def search_graphql(query: str, variables: Optional[Dict] = None) -> SearchGraphQLSuccess | SearchGraphQLError:
     """Execute an arbitrary GraphQL query against the configured Quilt Catalog - Catalog and package search experiences
 
     Args:
@@ -266,26 +281,24 @@ def search_graphql(query: str, variables: Optional[Dict] = None) -> Dict[str, An
     """
     session, graphql_url = _get_graphql_endpoint()
     if not session or not graphql_url:
-        return {
-            "success": False,
-            "error": "GraphQL endpoint or session unavailable. Ensure quilt3 is configured and authenticated.",
-        }
+        return SearchGraphQLError(
+            error="GraphQL endpoint or session unavailable. Ensure quilt3 is configured and authenticated."
+        )
 
     try:
         resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
         if resp.status_code != 200:
-            return {
-                "success": False,
-                "error": f"GraphQL HTTP {resp.status_code}: {resp.text}",
-            }
+            return SearchGraphQLError(error=f"GraphQL HTTP {resp.status_code}: {resp.text}")
+
         payload = resp.json()
-        return {
-            "success": "errors" not in payload,
-            "data": payload.get("data"),
-            "errors": payload.get("errors"),
-        }
+        if "errors" in payload:
+            return SearchGraphQLError(error=f"GraphQL errors: {payload.get('errors')}")
+        return SearchGraphQLSuccess(
+            data=payload.get("data"),
+            errors=payload.get("errors"),
+        )
     except Exception as e:
-        return {"success": False, "error": f"GraphQL request failed: {e}"}
+        return SearchGraphQLError(error=f"GraphQL request failed: {e}")
 
 
 def search_objects_graphql(

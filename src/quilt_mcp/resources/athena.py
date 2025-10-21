@@ -37,15 +37,18 @@ class AthenaDatabasesResource(MCPResource):
 
         result = await asyncio.to_thread(athena_databases_list)
 
-        if not result.get("success"):
-            raise Exception(f"Failed to list databases: {result.get('error', 'Unknown error')}")
+        # Convert Pydantic model to dict
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
+
+        if not result_dict.get("success"):
+            raise Exception(f"Failed to list databases: {result_dict.get('error', 'Unknown error')}")
 
         return ResourceResponse(
             uri=uri,
             content={
-                "items": result.get("databases", []),
+                "items": result_dict.get("databases", []),
                 "metadata": {
-                    "total_count": len(result.get("databases", [])),
+                    "total_count": len(result_dict.get("databases", [])),
                     "has_more": False,
                 },
             },
@@ -77,15 +80,18 @@ class AthenaWorkgroupsResource(MCPResource):
 
         result = await asyncio.to_thread(athena_workgroups_list)
 
-        if not result.get("success"):
-            raise Exception(f"Failed to list workgroups: {result.get('error', 'Unknown error')}")
+        # Convert Pydantic model to dict
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
+
+        if not result_dict.get("success"):
+            raise Exception(f"Failed to list workgroups: {result_dict.get('error', 'Unknown error')}")
 
         return ResourceResponse(
             uri=uri,
             content={
-                "items": result.get("workgroups", []),
+                "items": result_dict.get("workgroups", []),
                 "metadata": {
-                    "total_count": len(result.get("workgroups", [])),
+                    "total_count": len(result_dict.get("workgroups", [])),
                     "has_more": False,
                 },
             },
@@ -119,10 +125,13 @@ class AthenaTableSchemaResource(MCPResource):
             athena_table_schema, database_name=params["database"], table_name=params["table"]
         )
 
-        if not result.get("success"):
-            raise Exception(f"Failed to get schema: {result.get('error', 'Unknown error')}")
+        # Convert Pydantic model to dict
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
 
-        return ResourceResponse(uri=uri, content=result)
+        if not result_dict.get("success"):
+            raise Exception(f"Failed to get schema: {result_dict.get('error', 'Unknown error')}")
+
+        return ResourceResponse(uri=uri, content=result_dict)
 
 
 class AthenaQueryHistoryResource(MCPResource):
@@ -147,7 +156,10 @@ class AthenaQueryHistoryResource(MCPResource):
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
         result = await asyncio.to_thread(athena_query_history)
 
-        if not result.get("success"):
-            raise Exception(f"Failed to get query history: {result.get('error', 'Unknown error')}")
+        # Convert Pydantic model to dict
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
 
-        return ResourceResponse(uri=uri, content=result)
+        if not result_dict.get("success"):
+            raise Exception(f"Failed to get query history: {result_dict.get('error', 'Unknown error')}")
+
+        return ResourceResponse(uri=uri, content=result_dict)

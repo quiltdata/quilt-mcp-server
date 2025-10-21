@@ -7,7 +7,7 @@ for automatic visualization generation.
 
 import os
 from pathlib import Path
-from typing import List, Dict, Set
+from typing import Any, Dict, List, Set
 import mimetypes
 
 
@@ -85,7 +85,7 @@ class FileAnalyzer:
         Returns:
             Dictionary mapping file types to lists of file paths
         """
-        file_types = {"data": [], "genomic": [], "image": [], "text": [], "other": []}
+        file_types: dict[str, list[str]] = {"data": [], "genomic": [], "image": [], "text": [], "other": []}
 
         for file_path in package_path.rglob("*"):
             if file_path.is_file():
@@ -197,7 +197,7 @@ class FileAnalyzer:
                     files.append(str(file_path))
         return files
 
-    def get_file_metadata(self, file_path: str) -> Dict[str, any]:
+    def get_file_metadata(self, file_path: str) -> Dict[str, Any]:
         """
         Get metadata for a specific file.
 
@@ -224,7 +224,7 @@ class FileAnalyzer:
         except (OSError, PermissionError):
             return {}
 
-    def analyze_package_structure(self, package_path: Path) -> Dict[str, any]:
+    def analyze_package_structure(self, package_path: Path) -> Dict[str, Any]:
         """
         Analyze the overall structure of the package.
 

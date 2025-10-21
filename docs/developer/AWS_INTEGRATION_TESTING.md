@@ -14,6 +14,7 @@ The project uses a two-tier testing strategy:
 To enable integration testing, configure the following secrets in your GitHub repository:
 
 ### Core AWS Credentials
+
 ```
 AWS_ACCESS_KEY_ID          - AWS access key for test user/role
 AWS_SECRET_ACCESS_KEY      - AWS secret key for test user/role  
@@ -21,6 +22,7 @@ AWS_DEFAULT_REGION         - AWS region (default: us-east-1)
 ```
 
 ### Quilt-Specific Settings
+
 ```
 QUILT_DEFAULT_BUCKET       - S3 bucket for package testing (e.g., "my-quilt-test-bucket")
 QUILT_CATALOG_URL          - Quilt catalog URL (e.g., "https://demo.quiltdata.com")
@@ -29,6 +31,7 @@ QUILT_TEST_ENTRY           - Known S3 object for testing (e.g., "test-file.csv")
 ```
 
 ### Optional Advanced Settings
+
 ```
 QUILT_READ_POLICY_ARN      - IAM policy ARN for read permissions
 CDK_DEFAULT_ACCOUNT        - AWS account ID for CDK deployment tests
@@ -40,6 +43,7 @@ CDK_DEFAULT_REGION         - AWS region for CDK deployment tests
 The integration test user/role needs the following permissions:
 
 ### Minimum S3 Permissions
+
 ```json
 {
     "Version": "2012-10-17",
@@ -62,6 +66,7 @@ The integration test user/role needs the following permissions:
 ```
 
 ### IAM Permissions for Discovery Tests
+
 ```json
 {
     "Version": "2012-10-17",
@@ -85,19 +90,24 @@ The integration test user/role needs the following permissions:
 ## Test Triggering
 
 ### Automatic Triggers
+
 - **Unit tests**: Run on every push and PR
 - **Integration tests**: Run on pushes to `main` branch
 
 ### Manual Triggers
 
 #### 1. Add Label to PR
+
 Add the `test:integration` label to any PR to trigger integration tests.
 
 #### 2. Manual Workflow Dispatch
+
 Go to Actions → Integration Tests → Run workflow
+
 - Choose test scope: `all`, `aws`, `search`, or `permissions`
 
 ### Command Line Examples
+
 ```bash
 # Trigger via GitHub CLI
 gh workflow run integration-test.yml -f test_scope=aws
@@ -109,6 +119,7 @@ gh pr edit 123 --add-label "test:integration"
 ## Local Development
 
 ### Running Integration Tests Locally
+
 ```bash
 # Set up environment
 export AWS_ACCESS_KEY_ID=your_key
@@ -123,6 +134,7 @@ make test              # Full local test suite including AWS, search, permission
 ```
 
 ### Running Unit Tests (No AWS)
+
 ```bash
 cd app && make test-ci
 ```
@@ -130,11 +142,13 @@ cd app && make test-ci
 ## Test Organization
 
 ### Test Markers
+
 - `@pytest.mark.aws`: Tests requiring AWS credentials
 - `@pytest.mark.search`: Tests requiring Quilt search functionality
 - `@pytest.mark.slow`: Long-running tests
 
 ### File Organization
+
 ```
 app/tests/
 ├── test_bucket_tools.py        # Unit tests (mocked)
@@ -148,6 +162,7 @@ app/tests/
 ## Debugging Failed Tests
 
 ### Check Test Logs
+
 1. Go to GitHub Actions → Failed workflow
 2. Expand the "Run integration tests" step
 3. Look for specific error messages
@@ -155,24 +170,31 @@ app/tests/
 ### Common Issues
 
 #### Authentication Errors
+
 ```
 Error: Unable to locate credentials
 ```
+
 **Solution**: Check that AWS secrets are correctly configured
 
 #### Permission Denied
+
 ```
 Error: Access Denied
 ```
+
 **Solution**: Verify IAM permissions for the test bucket/resources
 
 #### Timeout Errors
+
 ```
 Error: Test timed out after 60 seconds
 ```
+
 **Solution**: Check network connectivity or increase timeout
 
 ### Local Debugging
+
 ```bash
 # Run single test with verbose output
 cd app
@@ -186,21 +208,25 @@ uv run python -m pytest tests/test_integration.py -v --timeout=30 --timeout-meth
 ## Best Practices
 
 ### 1. Use Dedicated Test Resources
+
 - Create separate S3 buckets for testing
 - Use test-specific IAM roles with minimal permissions
 - Avoid using production data in tests
 
 ### 2. Clean Up Test Data
+
 - Tests should clean up any resources they create
 - Use unique names with UUIDs for test objects
 - Set up bucket lifecycle policies to automatically delete old test data
 
 ### 3. Handle Rate Limits
+
 - Tests include appropriate timeouts
 - Retry logic for transient failures
 - Avoid running too many parallel requests
 
 ### 4. Security
+
 - Never commit AWS credentials to code
 - Use GitHub secrets for all sensitive data
 - Regularly rotate test credentials
@@ -223,6 +249,7 @@ aws s3api put-bucket-lifecycle-configuration \
 ```
 
 Example `test-lifecycle.json`:
+
 ```json
 {
     "Rules": [

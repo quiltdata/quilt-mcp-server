@@ -79,7 +79,7 @@ class TaskSession:
     session_id: str
     start_time: float
     end_time: Optional[float] = None
-    tool_calls: List[ToolCallData] = None
+    tool_calls: List[ToolCallData] | None = None
     task_type: Optional[str] = None
     completed: bool = False
     total_calls: int = 0
@@ -269,7 +269,7 @@ class TelemetryCollector:
         completion_rate = completed_sessions / total_sessions if total_sessions > 0 else 0
 
         # Tool usage statistics
-        tool_usage = {}
+        tool_usage: dict[str, int] = {}
         for session in self.sessions.values():
             for call in session.tool_calls:
                 tool_usage[call.tool_name] = tool_usage.get(call.tool_name, 0) + 1

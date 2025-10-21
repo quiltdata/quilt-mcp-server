@@ -449,7 +449,7 @@ class AutonomousOptimizer:
 
     def _generate_recommendations(self) -> List[str]:
         """Generate optimization recommendations."""
-        recommendations = []
+        recommendations: list[str] = []
 
         # Analyze rule success rates
         for rule in self.rules:

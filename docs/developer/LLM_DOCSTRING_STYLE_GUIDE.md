@@ -9,6 +9,7 @@ When LLMs (Large Language Models) interact with MCP tools, **docstrings are thei
 3. **Docstring content**
 
 This guide provides patterns for writing docstrings that help LLMs understand:
+
 - **What** the tool does
 - **When** to use it
 - **How** it fits into multi-step workflows
@@ -21,16 +22,19 @@ This guide provides patterns for writing docstrings that help LLMs understand:
 The first line is the most important. It should answer: "What does this do and when would I use it?"
 
 ❌ **Bad** (too vague):
+
 ```python
 """Upload objects to a bucket."""
 ```
 
 ✅ **Good** (purpose + context):
+
 ```python
 """Upload files to S3 bucket - typically used BEFORE package creation."""
 ```
 
 ✅ **Better** (adds relationship to other tools):
+
 ```python
 """Upload files to S3 bucket - Step 1 of 2 for creating packages from local files."""
 ```
@@ -40,6 +44,7 @@ The first line is the most important. It should answer: "What does this do and w
 If your tool is part of a multi-step process, make it explicit with a WORKFLOW section.
 
 ❌ **Bad** (isolated description):
+
 ```python
 def upload_files(...):
     """Upload files to storage.
@@ -52,6 +57,7 @@ def upload_files(...):
 ```
 
 ✅ **Good** (shows context in workflow):
+
 ```python
 def upload_files(...):
     """Upload files to storage - Step 1 before processing.
@@ -73,12 +79,14 @@ def upload_files(...):
 Don't just describe the return structure - tell the LLM what to DO with it.
 
 ❌ **Bad** (describes structure only):
+
 ```python
 Returns:
     Dict with 'status', 'results', and 'metadata' fields.
 ```
 
 ✅ **Good** (actionable guidance):
+
 ```python
 Returns:
     Dict with upload results. Extract 'results[].id' values and pass to process_files().
@@ -107,6 +115,7 @@ Use formatting to make critical information stand out to LLMs:
 - **Lists** for multiple options or steps
 
 ✅ **Example**:
+
 ```python
 """Create analysis report from processed data.
 
@@ -125,6 +134,7 @@ Args:
 When multiple tools solve similar problems, help the LLM choose the right one.
 
 ✅ **Example**:
+
 ```python
 """Create package from S3 files (MAIN TOOL - use this for most package creation).
 
@@ -149,6 +159,7 @@ ALTERNATIVES:
 LLMs learn patterns from examples. Include realistic, copy-pasteable examples.
 
 ✅ **Good example format**:
+
 ```python
 """Upload files to S3 bucket.
 
@@ -175,6 +186,7 @@ Example:
 Help LLMs handle errors gracefully.
 
 ✅ **Example**:
+
 ```python
 """Process uploaded files.
 
@@ -358,28 +370,33 @@ def list_available_resources(...) -> Dict[str, Any]:
 Use this checklist when writing or updating docstrings:
 
 ### Essential Elements
+
 - [ ] First line: Clear purpose + context (when to use this)
 - [ ] Args: Each parameter explained with examples
 - [ ] Returns: Structure + what to do with the data
 - [ ] Example: Concrete, copy-pasteable usage
 
 ### Workflow Context
+
 - [ ] Multi-step workflows shown explicitly
 - [ ] Prerequisites listed (what to do first)
 - [ ] Next steps indicated (what to do after)
 - [ ] Related tools mentioned
 
 ### Decision Support
+
 - [ ] WHEN TO USE section (positive indicators)
 - [ ] WHEN NOT TO USE section (negative indicators)
 - [ ] ALTERNATIVES section (other tools for similar tasks)
 
 ### Error Handling
+
 - [ ] Common errors documented
 - [ ] Suggested fixes provided
 - [ ] Validation requirements stated
 
 ### Examples
+
 - [ ] Success case example
 - [ ] Multi-step workflow example (if applicable)
 - [ ] Error handling example (if applicable)
@@ -389,6 +406,7 @@ Use this checklist when writing or updating docstrings:
 ### Example 1: File Upload Tool
 
 ❌ **Before** (tool-centric, no workflow):
+
 ```python
 def upload_file(path: str, destination: str) -> dict:
     """Upload a file to the destination.
@@ -403,6 +421,7 @@ def upload_file(path: str, destination: str) -> dict:
 ```
 
 ✅ **After** (workflow-aware, actionable):
+
 ```python
 def upload_file(path: str, destination: str) -> dict:
     """Upload file to storage - Required first step before processing or analysis.
@@ -451,6 +470,7 @@ def upload_file(path: str, destination: str) -> dict:
 ### Example 2: Data Processing Tool
 
 ❌ **Before** (technical, isolated):
+
 ```python
 def process_data(data_id: str, options: dict) -> dict:
     """Process data with specified options.
@@ -465,6 +485,7 @@ def process_data(data_id: str, options: dict) -> dict:
 ```
 
 ✅ **After** (contextual, helpful):
+
 ```python
 def process_data(data_id: str, options: dict | None = None) -> dict:
     """Process uploaded data - Step 2 of 3 in data analysis workflow.
@@ -531,6 +552,7 @@ def process_data(data_id: str, options: dict | None = None) -> dict:
 ### Example 3: Configuration Tool
 
 ❌ **Before** (minimal):
+
 ```python
 def set_config(key: str, value: str) -> dict:
     """Set configuration value.
@@ -545,6 +567,7 @@ def set_config(key: str, value: str) -> dict:
 ```
 
 ✅ **After** (informative):
+
 ```python
 def set_config(key: str, value: str) -> dict:
     """Configure system settings - Affects behavior of all subsequent operations.
@@ -683,6 +706,7 @@ def experimental_ai_analyze(data_id: str) -> dict:
 Before finalizing a docstring, verify:
 
 ### For LLM Comprehension
+
 - [ ] Could an LLM understand this without reading other docs?
 - [ ] Are multi-step workflows explicit?
 - [ ] Are next steps clearly indicated?
@@ -690,12 +714,14 @@ Before finalizing a docstring, verify:
 - [ ] Are examples realistic and complete?
 
 ### For Human Readability
+
 - [ ] Is it scannable (good visual hierarchy)?
 - [ ] Are examples copy-pasteable?
 - [ ] Is terminology consistent?
 - [ ] Are edge cases documented?
 
 ### For Maintenance
+
 - [ ] Are referenced tools named correctly?
 - [ ] Do examples match current API?
 - [ ] Are parameter types current?
@@ -704,32 +730,38 @@ Before finalizing a docstring, verify:
 ## Common Mistakes to Avoid
 
 ### ❌ Mistake 1: Assuming Context
+
 ```python
 """Process the data."""  # What data? What processing? When would I use this?
 ```
 
 ### ✅ Fix: Provide Full Context
+
 ```python
 """Process uploaded CSV data - Validates, transforms, and prepares for analysis."""
 ```
 
 ### ❌ Mistake 2: Technical Jargon Without Explanation
+
 ```python
 """Performs ETL on the ingested data streams."""
 ```
 
 ### ✅ Fix: Explain Terms or Use Plain Language
+
 ```python
 """Extract, Transform, Load (ETL): Cleans and restructures uploaded data for analysis."""
 ```
 
 ### ❌ Mistake 3: Vague Returns
+
 ```python
 Returns:
     Dictionary containing results
 ```
 
 ### ✅ Fix: Specific, Actionable Returns
+
 ```python
 Returns:
     Dictionary with processed_file_id needed for export_results().
@@ -737,12 +769,14 @@ Returns:
 ```
 
 ### ❌ Mistake 4: No Workflow Context
+
 ```python
 def step_two(...):
     """Execute step two of the process."""
 ```
 
 ### ✅ Fix: Show Complete Workflow
+
 ```python
 def step_two(...):
     """Execute step 2: Transform data - Run after step_one(), before step_three().
@@ -753,12 +787,14 @@ def step_two(...):
 ```
 
 ### ❌ Mistake 5: Examples That Don't Run
+
 ```python
 Example:
     result = tool(...)  # Fill in parameters
 ```
 
 ### ✅ Fix: Complete, Runnable Examples
+
 ```python
 Example:
     result = tool(
@@ -843,5 +879,3 @@ LLM-friendly docstrings are not just documentation—they're **instructions** th
 5. ✅ Provide better assistance to users
 
 Remember: **If an LLM can't understand your docstring, it can't use your tool effectively.**
-
-

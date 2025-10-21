@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, Mock, MagicMock
 
 from quilt_mcp.tools.packages import package_create, package_create_from_s3
+from quilt_mcp.models import PackageCreateParams
 
 
 class MockPackage:
@@ -53,11 +54,17 @@ class MockEntry:
 
 
 @patch("quilt3.Package")
-def test_package_ops_copy_mode_none(mock_package_class):
+@patch("quilt_mcp.tools.packages.get_s3_client")
+def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
-    result = package_create(
+    # Mock S3 client to avoid actual S3 calls
+    mock_s3_client = Mock()
+    mock_s3_client.head_object.return_value = {"ContentLength": 100}
+    mock_get_s3_client.return_value = mock_s3_client
+
+    params = PackageCreateParams(
         package_name="team/pkg",
         s3_uris=[
             "s3://bucket-a/dir/file1.csv",
@@ -67,18 +74,25 @@ def test_package_ops_copy_mode_none(mock_package_class):
         copy_mode="none",
         flatten=True,
     )
+    result = package_create(params)
 
     # The function should succeed and return status
-    assert result.get("status") == "success"
-    assert result.get("top_hash") == "test_top_hash"
+    assert result.success is True
+    assert result.top_hash == "test_top_hash"
 
 
 @patch("quilt3.Package")
-def test_package_ops_copy_mode_same_bucket(mock_package_class):
+@patch("quilt_mcp.tools.packages.get_s3_client")
+def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_class):
     # Configure mock to return our MockPackage
     mock_package_class.return_value = MockPackage()
 
-    result = package_create(
+    # Mock S3 client to avoid actual S3 calls
+    mock_s3_client = Mock()
+    mock_s3_client.head_object.return_value = {"ContentLength": 100}
+    mock_get_s3_client.return_value = mock_s3_client
+
+    params = PackageCreateParams(
         package_name="team/pkg",
         s3_uris=[
             "s3://target-bucket/path/file1.csv",
@@ -88,7 +102,8 @@ def test_package_ops_copy_mode_same_bucket(mock_package_class):
         copy_mode="same_bucket",
         flatten=True,
     )
+    result = package_create(params)
 
     # The function should succeed and return status
-    assert result.get("status") == "success"
-    assert result.get("top_hash") == "test_top_hash"
+    assert result.success is True
+    assert result.top_hash == "test_top_hash"

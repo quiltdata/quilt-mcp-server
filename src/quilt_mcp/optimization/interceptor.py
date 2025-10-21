@@ -274,7 +274,7 @@ class ToolCallInterceptor:
 
     def _suggest_parameter_optimizations(self, tool_name: str, kwargs: Dict[str, Any]) -> List[str]:
         """Suggest parameter optimizations for better performance."""
-        suggestions = []
+        suggestions: list[str] = []
 
         # Common parameter optimizations
         if tool_name == "bucket_objects_list":

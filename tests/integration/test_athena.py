@@ -174,9 +174,9 @@ class TestAthenaWorkflow:
         table_name = None
 
         for db_info in databases:
-            # Handle both dict and string responses
-            # Response format: {"name": "db_name", "description": "", ...}
-            db_name = db_info.get("name") if isinstance(db_info, dict) else db_info
+            # Handle Pydantic DatabaseInfo model
+            # Response format: DatabaseInfo(name="db_name", description="", ...)
+            db_name = db_info.name if hasattr(db_info, 'name') else str(db_info)
             if not db_name or db_name in ["information_schema", "default"]:
                 continue
 
@@ -200,9 +200,9 @@ class TestAthenaWorkflow:
 
             # 3. Try to query the first table from this database
             first_table = tables[0]
-            # Handle both dict and string responses
-            # Response format: {"name": "table_name", "database_name": "db_name", ...}
-            current_table_name = first_table.get("name") if isinstance(first_table, dict) else first_table
+            # Handle Pydantic TableInfo model
+            # Response format: TableInfo(name="table_name", database_name="db_name", ...)
+            current_table_name = first_table.name if hasattr(first_table, 'name') else str(first_table)
             if not current_table_name:
                 print(f"  Could not extract table name from: {first_table}")
                 continue

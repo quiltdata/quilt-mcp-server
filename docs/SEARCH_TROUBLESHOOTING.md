@@ -5,26 +5,31 @@
 ### Symptom: GraphQL Backend Shows "Error" Status
 
 The GraphQL backend may show as unavailable with error messages like:
+
 - `"GraphQL request failed: 'message'"`
 - `"GraphQL access check failed: 'message'"`
 
 ### Common Causes & Solutions
 
 #### 1. Demo Catalog GraphQL Limitations
+
 **Issue**: Demo catalogs may not have full GraphQL endpoints enabled
 **Solution**: This is expected behavior. The system gracefully falls back to Elasticsearch + S3
 
 #### 2. Enterprise Catalog Authentication
+
 **Issue**: Enterprise GraphQL requires proper authentication tokens
 **Solution**: Ensure you're logged in with `quilt3 login` and have proper permissions
 
 #### 3. Network/Connectivity Issues
+
 **Issue**: GraphQL endpoint may be temporarily unavailable
 **Solution**: The system automatically falls back to available backends
 
 ### Verification Steps
 
 1. **Check Authentication**:
+
    ```python
    import quilt3
    print(f"Logged in: {quilt3.logged_in()}")
@@ -33,6 +38,7 @@ The GraphQL backend may show as unavailable with error messages like:
    ```
 
 2. **Test Working GraphQL Tool**:
+
    ```python
    from quilt_mcp.tools.buckets import unified_search
    result = unified_search('bucket-name', {}, first=1)
@@ -40,6 +46,7 @@ The GraphQL backend may show as unavailable with error messages like:
    ```
 
 3. **Check Backend Status**:
+
    ```python
    from quilt_mcp.search.tools.unified_search import get_search_engine
    engine = get_search_engine()
@@ -50,12 +57,14 @@ The GraphQL backend may show as unavailable with error messages like:
 ### Expected Behavior
 
 #### Demo/Community Catalogs
+
 - **Elasticsearch**: ✅ Available (primary search)
 - **GraphQL**: ⚠️ Unavailable (expected)
 - **S3**: ✅ Available (fallback)
 - **Result**: Full functionality with 2-backend coverage
 
 #### Enterprise Catalogs  
+
 - **Elasticsearch**: ✅ Available (fast search)
 - **GraphQL**: ✅ Available (rich metadata)
 - **S3**: ✅ Available (fallback)
@@ -66,6 +75,7 @@ The GraphQL backend may show as unavailable with error messages like:
 ### Slow Search Responses
 
 1. **Check Backend Performance**:
+
    ```python
    result = await unified_search("your query", explain_query=True)
    backend_status = result["backend_status"]
@@ -85,6 +95,7 @@ The GraphQL backend may show as unavailable with error messages like:
 ### No Results Found
 
 1. **Check Query Classification**:
+
    ```python
    from quilt_mcp.search.core.query_parser import parse_query
    analysis = parse_query("your query")
@@ -93,6 +104,7 @@ The GraphQL backend may show as unavailable with error messages like:
    ```
 
 2. **Try Alternative Queries**:
+
    ```python
    suggestions = search_suggest("your partial query")
    print(f"Suggestions: {suggestions['suggestions']['query_completions']}")
@@ -128,18 +140,19 @@ result = asyncio.run(unified_search("query"))
 ## Best Practices
 
 ### Query Optimization
+
 - **Be Specific**: `"CSV files in genomics packages"` vs `"data"`
 - **Use Filters**: Include size, date, or type constraints
 - **Scope Appropriately**: Use `bucket` or `package` scope when possible
 
 ### Error Handling
+
 - **Check Success**: Always verify `result["success"]` before using results
 - **Handle Fallbacks**: System continues with available backends
 - **Monitor Performance**: Use `explain_query=True` for optimization
 
 ### Enterprise Features
+
 - **User Metadata**: Use GraphQL for custom metadata filtering
 - **Relationships**: Leverage package dependency queries
 - **Analytics**: Use GraphQL statistics and faceting capabilities
-
-

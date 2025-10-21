@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class OptimizedMCPServer:
     """MCP Server with integrated optimization capabilities."""
 
-    def __init__(self, enable_optimization: bool = None):
+    def __init__(self, enable_optimization: bool | None = None):
         # Determine if optimization should be enabled
         if enable_optimization is None:
             enable_optimization = os.getenv("MCP_OPTIMIZATION_ENABLED", "true").lower() == "true"
@@ -113,7 +113,7 @@ class OptimizedMCPServer:
         return self.mcp_server.run(transport=transport)
 
 
-def create_optimized_server(enable_optimization: bool = None) -> OptimizedMCPServer:
+def create_optimized_server(enable_optimization: bool | None = None) -> OptimizedMCPServer:
     """Create an optimized MCP server instance."""
     return OptimizedMCPServer(enable_optimization=enable_optimization)
 

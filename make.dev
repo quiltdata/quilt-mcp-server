@@ -29,7 +29,7 @@ test-all: mcpb-validate test-scripts | $(RESULTS_DIR)
 
 
 test-ci: | $(RESULTS_DIR)
-	@echo "Running all tests..."
+	@echo "Running CI tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
 
@@ -80,21 +80,24 @@ coverage-html:
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
 test-scripts: scripts/tests/test_*.py | $(RESULTS_DIR)
-	@echo "Running script tests (coverage analysis, workflow behavior)..."
+	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
 	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "*.py" | wc -l)" -gt 0 ]; then \
 		export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v; \
 	else \
 		echo "No script tests found"; \
 	fi
+	@echo "\n===✅ Finished script tests"
 
 # Code Quality Targets
 lint:
 	@echo "Running code linting and auto-fixing..."
 	@uv sync --group lint
-	@echo "Running ruff (format + lint + type check) - auto-fixing..."
+	@echo "Running ruff (format + lint) - auto-fixing..."
 	@uv run ruff format src/quilt_mcp/ tests/
 	@uv run ruff check --fix src/quilt_mcp/ tests/
+	@echo "Running mypy type checking..."
+	@uv run mypy src/quilt_mcp/ --show-error-codes --pretty
 	@echo "✅ All linting completed"
 
 # Development Server Targets

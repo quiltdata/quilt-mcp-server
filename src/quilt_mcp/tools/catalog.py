@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
 from urllib.parse import quote
 
+from quilt_mcp.models import (
+    CatalogUriError,
+    CatalogUriParams,
+    CatalogUriSuccess,
+    CatalogUrlError,
+    CatalogUrlParams,
+    CatalogUrlSuccess,
+)
 from quilt_mcp.services.auth_metadata import (
     _extract_bucket_from_registry,
     _extract_catalog_name_from_url,
@@ -18,12 +25,7 @@ from quilt_mcp.services.auth_metadata import (
 )
 
 
-def catalog_url(
-    registry: str,
-    package_name: str | None = None,
-    path: str | None = None,
-    catalog_host: str | None = None,
-) -> dict[str, Any]:
+def catalog_url(params: CatalogUrlParams) -> CatalogUrlSuccess | CatalogUrlError:
     """Generate Quilt catalog URL - Quilt authentication and catalog navigation workflows
 
     WORKFLOW:
@@ -32,17 +34,18 @@ def catalog_url(
         3. Pair with ``auth.catalog_uri`` when the user also needs the Quilt+ URI representation.
 
     Args:
-        registry: Target registry, either ``s3://bucket`` or bare bucket name.
-        package_name: Optional ``namespace/package`` for direct package view navigation.
-        path: Optional path inside the bucket or package for deep links (e.g., ``data/metrics.csv``).
-        catalog_host: Optional override for the catalog host when auto-detection is unavailable.
+        params: CatalogUrlParams containing:
+            - registry: Target registry, either ``s3://bucket`` or bare bucket name.
+            - package_name: Optional ``namespace/package`` for direct package view navigation.
+            - path: Optional path inside the bucket or package for deep links (e.g., ``data/metrics.csv``).
+            - catalog_host: Optional override for the catalog host when auto-detection is unavailable.
 
     Returns:
-        Dict containing ``status`` plus URL metadata. When ``status == "success"``, ``catalog_url`` holds the browser
-        link to surface back to the user.
+        CatalogUrlSuccess with URL metadata when successful, or CatalogUrlError on failure.
 
-        Response format:
+        Success response:
         {
+            "success": True,
             "status": "success",
             "catalog_url": "https://catalog.example.com/b/bucket/packages/ns/pkg/tree/latest/data",
             "view_type": "package",
@@ -53,87 +56,86 @@ def catalog_url(
         }
 
     Next step:
-        Share ``result["catalog_url"]`` with the user or feed it into the next navigation helper (for example
+        Share ``result.catalog_url`` with the user or feed it into the next navigation helper (for example
         ``auth.catalog_uri`` or messaging back to the MCP client).
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
+        from quilt_mcp.models import CatalogUrlParams
 
-        catalog_link = auth.catalog_url(
+        params = CatalogUrlParams(
             registry="s3://example-bucket",
             package_name="team/forecast",
             path="reports/summary.pdf",
         )
-        next_action = catalog_link["catalog_url"]
+        result = catalog.catalog_url(params)
+        if isinstance(result, CatalogUrlSuccess):
+            print(result.catalog_url)
         ```
     """
     try:
-        bucket = _extract_bucket_from_registry(registry)
+        bucket = _extract_bucket_from_registry(params.registry)
 
         # Auto-detect catalog host if not provided
+        catalog_host = params.catalog_host if params.catalog_host else ""
         if not catalog_host:
-            catalog_host = _get_catalog_host_from_config()
-            if not catalog_host:
-                return {
-                    "status": "error",
-                    "error": "Could not determine catalog host. Please provide catalog_host parameter or ensure Quilt is configured.",
-                }
+            detected_host = _get_catalog_host_from_config()
+            if not detected_host:
+                return CatalogUrlError(
+                    error="Could not determine catalog host. Please provide catalog_host parameter or ensure Quilt is configured."
+                )
+            catalog_host = detected_host
 
         # Ensure catalog_host has https protocol
         if not catalog_host.startswith("http"):
             catalog_host = f"https://{catalog_host}"
 
         # Build URL based on whether it's a package or bucket view
-        if package_name:
+        if params.package_name:
             # Package view: https://{catalog_host}/b/{bucket}/packages/{package_name}/tree/latest/{path}
             url_parts = [
                 catalog_host.rstrip("/"),
                 "b",
                 bucket,
                 "packages",
-                package_name,
+                params.package_name,
                 "tree",
                 "latest",
             ]
-            if path:
+            if params.path:
                 # URL encode the path components
-                path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
+                path_parts = [quote(part, safe="") for part in params.path.strip("/").split("/") if part]
                 url_parts.extend(path_parts)
             url = "/".join(url_parts)
             view_type = "package"
         else:
             # Bucket view: https://{catalog_host}/b/{bucket}/tree/{path}
             url_parts = [catalog_host.rstrip("/"), "b", bucket, "tree"]
-            if path:
+            if params.path:
                 # URL encode the path components
-                path_parts = [quote(part, safe="") for part in path.strip("/").split("/") if part]
+                path_parts = [quote(part, safe="") for part in params.path.strip("/").split("/") if part]
                 url_parts.extend(path_parts)
             url = "/".join(url_parts)
             view_type = "bucket"
 
-        return {
-            "status": "success",
-            "catalog_url": url,
-            "view_type": view_type,
-            "bucket": bucket,
-            "package_name": package_name,
-            "path": path,
-            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
-        }
+        # Clean catalog host for response
+        clean_catalog_host = catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None
+
+        return CatalogUrlSuccess(
+            catalog_url=url,
+            view_type=view_type,  # type: ignore[arg-type]  # view_type is runtime-determined Literal
+            bucket=bucket,
+            package_name=params.package_name,
+            path=params.path,
+            catalog_host=clean_catalog_host,
+        )
 
     except Exception as e:
-        return {"status": "error", "error": f"Failed to generate catalog URL: {e}"}
+        return CatalogUrlError(error=f"Failed to generate catalog URL: {e}")
 
 
-def catalog_uri(
-    registry: str,
-    package_name: str | None = None,
-    path: str | None = None,
-    top_hash: str | None = None,
-    tag: str | None = None,
-    catalog_host: str | None = None,
-) -> dict[str, Any]:
+def catalog_uri(params: CatalogUriParams) -> CatalogUriSuccess | CatalogUriError:
     """Build Quilt+ URI - Quilt authentication and catalog navigation workflows
 
     WORKFLOW:
@@ -142,18 +144,20 @@ def catalog_uri(
         3. Return the URI so downstream tools or clients can reference the same package version consistently.
 
     Args:
-        registry: Registry backing the URI (``s3://bucket`` or bucket name).
-        package_name: Optional ``namespace/package`` for linking to a specific package.
-        path: Optional package or bucket path fragment to include in the URI.
-        top_hash: Optional immutable package hash to lock the reference to a revision.
-        tag: Optional human-friendly tag (ignored when ``top_hash`` is provided).
-        catalog_host: Optional catalog hostname hint to embed in the fragment.
+        params: CatalogUriParams containing:
+            - registry: Registry backing the URI (``s3://bucket`` or bucket name).
+            - package_name: Optional ``namespace/package`` for linking to a specific package.
+            - path: Optional package or bucket path fragment to include in the URI.
+            - top_hash: Optional immutable package hash to lock the reference to a revision.
+            - tag: Optional human-friendly tag (ignored when ``top_hash`` is provided).
+            - catalog_host: Optional catalog hostname hint to embed in the fragment.
 
     Returns:
-        Dict containing ``status`` plus the computed ``quilt_plus_uri`` and supporting metadata fields.
+        CatalogUriSuccess with the computed Quilt+ URI when successful, or CatalogUriError on failure.
 
-        Response format:
+        Success response:
         {
+            "success": True,
             "status": "success",
             "quilt_plus_uri": "quilt+s3://example-bucket#package=team/pkg@1111abcd&path=data/raw",
             "bucket": "example-bucket",
@@ -165,24 +169,27 @@ def catalog_uri(
         }
 
     Next step:
-        Combine ``result["quilt_plus_uri"]`` with ``auth.catalog_url`` when the user needs both shareable link formats,
+        Combine ``result.quilt_plus_uri`` with ``catalog.catalog_url`` when the user needs both shareable link formats,
         or return it directly so the client can persist the protocol URI.
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
+        from quilt_mcp.models import CatalogUriParams
 
-        uri_result = auth.catalog_uri(
+        params = CatalogUriParams(
             registry="s3://example-bucket",
             package_name="team/forecast",
             top_hash="1111abcd",
             path="models/best.pkl",
         )
-        quilt_plus_reference = uri_result["quilt_plus_uri"]
+        result = catalog.catalog_uri(params)
+        if isinstance(result, CatalogUriSuccess):
+            print(result.quilt_plus_uri)
         ```
     """
     try:
-        bucket = _extract_bucket_from_registry(registry)
+        bucket = _extract_bucket_from_registry(params.registry)
 
         # Start building URI: quilt+s3://bucket
         uri_parts = [f"quilt+s3://{bucket}"]
@@ -190,19 +197,20 @@ def catalog_uri(
         # Build fragment parameters
         fragment_params = []
 
-        if package_name:
+        if params.package_name:
             # Add version specifier to package name if provided
-            package_spec = package_name
-            if top_hash:
-                package_spec += f"@{top_hash}"
-            elif tag:
-                package_spec += f":{tag}"
+            package_spec = params.package_name
+            if params.top_hash:
+                package_spec += f"@{params.top_hash}"
+            elif params.tag:
+                package_spec += f":{params.tag}"
             fragment_params.append(f"package={package_spec}")
 
-        if path:
-            fragment_params.append(f"path={path}")
+        if params.path:
+            fragment_params.append(f"path={params.path}")
 
         # Auto-detect catalog host if not provided
+        catalog_host = params.catalog_host
         if not catalog_host:
             catalog_host = _get_catalog_host_from_config()
 
@@ -217,22 +225,28 @@ def catalog_uri(
 
         quilt_plus_uri = "".join(uri_parts)
 
-        return {
-            "status": "success",
-            "quilt_plus_uri": quilt_plus_uri,
-            "bucket": bucket,
-            "package_name": package_name,
-            "path": path,
-            "top_hash": top_hash,
-            "tag": tag,
-            "catalog_host": (catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None),
-        }
+        # Clean catalog host for response
+        clean_catalog_host = catalog_host.replace("https://", "").replace("http://", "") if catalog_host else None
+
+        return CatalogUriSuccess(
+            quilt_plus_uri=quilt_plus_uri,
+            bucket=bucket,
+            package_name=params.package_name,
+            path=params.path,
+            top_hash=params.top_hash,
+            tag=params.tag,
+            catalog_host=clean_catalog_host,
+        )
 
     except Exception as e:
-        return {"status": "error", "error": f"Failed to generate Quilt+ URI: {e}"}
+        return CatalogUriError(error=f"Failed to generate Quilt+ URI: {e}")
 
 
-def catalog_configure(catalog_url: str) -> dict[str, Any]:
+# The following functions delegate to service layer and don't need Pydantic migration
+# as they simply pass through dict responses from the service layer
+
+
+def catalog_configure(catalog_url: str) -> dict:
     """Configure Quilt catalog URL - Quilt authentication and catalog navigation workflows
 
     WORKFLOW:
@@ -260,13 +274,13 @@ def catalog_configure(catalog_url: str) -> dict[str, Any]:
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
         # Using a full URL
-        outcome = auth.catalog_configure("https://nightly.quilttest.com")
+        outcome = catalog.catalog_configure("https://nightly.quilttest.com")
 
         # Using a friendly name
-        outcome = auth.catalog_configure("demo")
+        outcome = catalog.catalog_configure("demo")
 
         if outcome["status"] == "success":
             login_hint = outcome["next_steps"][0]
@@ -275,7 +289,7 @@ def catalog_configure(catalog_url: str) -> dict[str, Any]:
     return _configure_catalog(catalog_url)
 
 
-def catalog_info() -> dict[str, Any]:
+def catalog_info() -> dict:
     """Retrieve catalog metadata - Quilt authentication introspection workflows
 
     Returns:
@@ -288,9 +302,9 @@ def catalog_info() -> dict[str, Any]:
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        metadata = auth.catalog_info()
+        metadata = catalog.catalog_info()
         if metadata.get("status") == "success":
             print(metadata["catalog_url"])
         ```
@@ -298,28 +312,28 @@ def catalog_info() -> dict[str, Any]:
     return _catalog_info()
 
 
-def catalog_name() -> dict[str, Any]:
+def catalog_name() -> dict:
     """Report the current catalog name - Quilt authentication introspection workflows
 
     Returns:
         Dict containing the canonical catalog name along with authentication status and the raw configuration payload.
 
     Next step:
-        Pair the catalog name with `auth.catalog_info()` or share the friendly identifier with the user to confirm
+        Pair the catalog name with `catalog.catalog_info()` or share the friendly identifier with the user to confirm
         which Quilt deployment they are interacting with.
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        name_info = auth.catalog_name()
+        name_info = catalog.catalog_name()
         active_name = name_info.get("catalog_name")
         ```
     """
     return _catalog_name()
 
 
-def auth_status() -> dict[str, Any]:
+def auth_status() -> dict:
     """Check Quilt authentication status - Quilt authentication introspection workflows
 
     Returns:
@@ -331,9 +345,9 @@ def auth_status() -> dict[str, Any]:
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        status = auth.auth_status()
+        status = catalog.auth_status()
         if not status.get("is_authenticated"):
             print("Next step: run quilt3 login")
         ```
@@ -341,7 +355,7 @@ def auth_status() -> dict[str, Any]:
     return _auth_status()
 
 
-def filesystem_status() -> dict[str, Any]:
+def filesystem_status() -> dict:
     """Inspect filesystem access - Quilt authentication and local environment workflows
 
     Returns:
@@ -353,9 +367,9 @@ def filesystem_status() -> dict[str, Any]:
 
     Example:
         ```python
-        from quilt_mcp.tools import auth
+        from quilt_mcp.tools import catalog
 
-        fs = auth.filesystem_status()
+        fs = catalog.filesystem_status()
         print(f"Next step: confirm access to {fs['root_path']}")
         ```
     """

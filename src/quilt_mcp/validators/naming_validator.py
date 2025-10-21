@@ -30,7 +30,7 @@ def validate_package_naming(package_name: str) -> Tuple[bool, List[str], List[st
         Tuple of (is_valid, errors, suggestions)
     """
     errors = []
-    suggestions = []
+    suggestions: list[str] = []
     is_valid = True
 
     # Check basic format
@@ -87,7 +87,7 @@ def suggest_package_name(
     Returns:
         List of suggested package names
     """
-    suggestions = []
+    suggestions: list[str] = []
 
     # Extract potential namespace from bucket/prefix
     if not suggested_namespace:
@@ -122,7 +122,7 @@ def suggest_package_name(
 def _validate_name_component(component: str, component_type: str) -> Tuple[bool, List[str], List[str]]:
     """Validate individual name component (namespace or package name)."""
     errors = []
-    suggestions = []
+    suggestions: list[str] = []
     is_valid = True
 
     if not component:
@@ -166,7 +166,7 @@ def _validate_name_component(component: str, component_type: str) -> Tuple[bool,
 
 def _check_naming_practices(namespace: str, name: str) -> List[str]:
     """Check naming against best practices."""
-    suggestions = []
+    suggestions: list[str] = []
 
     # Check for descriptive names
     if len(name) < 5:
@@ -189,7 +189,7 @@ def _check_naming_practices(namespace: str, name: str) -> List[str]:
 
 def _suggest_namespace_improvements(namespace: str) -> List[str]:
     """Suggest namespace improvements based on common patterns."""
-    suggestions = []
+    suggestions: list[str] = []
 
     namespace_lower = namespace.lower()
 

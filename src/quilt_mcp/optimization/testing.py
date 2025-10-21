@@ -243,7 +243,7 @@ class ScenarioRunner:
         total_calls: int,
     ) -> List[str]:
         """Generate optimization suggestions based on test results."""
-        suggestions = []
+        suggestions: list[str] = []
 
         # Analyze execution times
         execution_times = [step["execution_time"] for step in step_results if step["success"]]
@@ -260,7 +260,7 @@ class ScenarioRunner:
                         suggestions.append(f"Optimize slow step: {step['tool_name']}")
 
         # Analyze call patterns
-        tool_counts = {}
+        tool_counts: dict[str, int] = {}
         for step in step_results:
             tool_name = step["tool_name"]
             tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
@@ -309,7 +309,7 @@ class ScenarioRunner:
             all_suggestions.extend(result.optimization_suggestions)
 
         # Count suggestions
-        suggestion_counts = {}
+        suggestion_counts: dict[str, int] = {}
         for suggestion in all_suggestions:
             suggestion_counts[suggestion] = suggestion_counts.get(suggestion, 0) + 1
 
@@ -444,7 +444,7 @@ class OptimizationTester:
 
     def _generate_recommendations(self) -> List[str]:
         """Generate optimization recommendations based on test results."""
-        recommendations = []
+        recommendations: list[str] = []
 
         # Analyze common patterns across scenarios
         performance_summary = self.scenario_runner.get_performance_summary()
