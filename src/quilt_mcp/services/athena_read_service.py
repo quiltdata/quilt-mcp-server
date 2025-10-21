@@ -101,7 +101,7 @@ def athena_databases_list(
             databases = [DatabaseInfo(**db) for db in result["databases"]]
             return AthenaDatabasesListSuccess(
                 databases=databases,
-                data_catalog_name=result["data_catalog_name"],
+                data_catalog_name=result.get("data_catalog_name", data_catalog_name),
                 count=result["count"],
             )
         else:

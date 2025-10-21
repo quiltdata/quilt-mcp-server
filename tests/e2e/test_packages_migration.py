@@ -13,6 +13,11 @@ from quilt_mcp.tools.packages import (
     package_browse,
     package_diff,
 )
+from quilt_mcp.models import (
+    PackagesListParams,
+    PackageBrowseParams,
+    PackageDiffParams,
+)
 
 
 class TestPackagesMigrationValidation:
@@ -27,10 +32,11 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            result = packages_list('s3://test-bucket')
+            params = PackagesListParams(registry='s3://test-bucket')
+            result = packages_list(params)
 
         mock_service.list_packages.assert_called_once_with(registry='s3://test-bucket')
-        assert result == {'packages': ['user/package1', 'user/package2']}
+        assert result.packages == ['user/package1', 'user/package2']
 
     def test_package_browse_uses_quilt_service(self):
         """Test package_browse calls QuiltService.browse_package."""
@@ -50,11 +56,12 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.utils.suppress_stdout'),
             patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
         ):
-            result = package_browse('user/package', 's3://test-bucket')
+            params = PackageBrowseParams(package_name='user/package', registry='s3://test-bucket')
+            result = package_browse(params)
 
         mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
-        assert result['success'] is True
-        assert result['package_name'] == 'user/package'
+        assert result.success is True
+        assert result.package_name == 'user/package'
 
     def test_package_diff_uses_quilt_service(self):
         """Test package_diff calls QuiltService.browse_package for both packages."""
@@ -68,10 +75,15 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            result = package_diff('user/package1', 'user/package2', 's3://test-bucket')
+            params = PackageDiffParams(
+                package1_name='user/package1',
+                package2_name='user/package2',
+                registry='s3://test-bucket'
+            )
+            result = package_diff(params)
 
         assert mock_service.browse_package.call_count == 2
         mock_service.browse_package.assert_any_call('user/package1', registry='s3://test-bucket')
         mock_service.browse_package.assert_any_call('user/package2', registry='s3://test-bucket')
-        assert result['package1'] == 'user/package1'
-        assert result['package2'] == 'user/package2'
+        assert result.package1 == 'user/package1'
+        assert result.package2 == 'user/package2'

@@ -7,7 +7,7 @@ proper validation for tool parameters.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
 from pydantic import BaseModel, Field, conint, constr
 
@@ -314,7 +314,7 @@ class PackageCreateParams(BaseModel):
         ),
     ]
     metadata: Annotated[
-        Optional[dict[str, str | int | float | bool]],
+        Optional[dict[str, Any]],
         Field(
             default=None,
             description="Optional metadata to attach to the package (JSON object)",
@@ -371,7 +371,7 @@ class PackageUpdateParams(BaseModel):
         ),
     ]
     metadata: Annotated[
-        Optional[dict[str, str | int | float | bool]],
+        Optional[dict[str, Any]],
         Field(
             default=None,
             description="Optional metadata to merge with existing package metadata",
@@ -583,7 +583,7 @@ class PackageCreateFromS3Params(BaseModel):
         ),
     ]
     metadata: Annotated[
-        Optional[dict[str, str | int | float | bool]],
+        Optional[dict[str, Any]],
         Field(
             default=None,
             description="Additional user-provided metadata",
