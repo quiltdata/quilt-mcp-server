@@ -180,7 +180,7 @@ class TabulatorService:
         package_pattern: str,
         logical_key_pattern: str,
         parser_config: Dict[str, Any],
-        description: str = None,
+        description: str | None = None,
     ) -> Dict[str, Any]:
         """Create a new tabulator table."""
         try:

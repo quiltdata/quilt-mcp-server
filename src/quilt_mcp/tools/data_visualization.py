@@ -366,7 +366,7 @@ def _create_echarts_boxplot(
             seen.add(category)
             ordered_categories.append(category)
 
-    series_data = []
+    series_data: list[list[float]] = []
     for category in ordered_categories:
         values = data_map.get(category, [])
         if not values:
@@ -485,7 +485,7 @@ def _create_echarts_line(
                 }
             )
     else:
-        points = [_extract_point(row, x_column, y_column) for row in records]
+        points = [p for p in [_extract_point(row, x_column, y_column) for row in records] if p is not None]
         filtered = sorted([pt for pt in points if pt is not None], key=lambda item: item[0])
         series = [
             {

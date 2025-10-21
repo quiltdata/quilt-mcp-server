@@ -189,7 +189,7 @@ def _organize_file_structure(objects: list[dict[str, Any]], auto_organize: bool)
     if not auto_organize:
         return {"": objects}  # No organization, flat structure
 
-    organized = {}
+    organized: dict[str, list[dict[str, Any]]] = {}
 
     for obj in objects:
         key = obj["Key"]
@@ -408,13 +408,13 @@ def _generate_package_metadata(
         metadata["ml"] = {
             "type": "machine_learning",
             "data_stage": "processed",
-            "model_ready": True,
+            "model_ready": True,  # type: ignore[dict-item]
         }
     elif metadata_template == "analytics":
         metadata["analytics"] = {
             "type": "business_analytics",
-            "analysis_ready": True,
-            "report_generated": True,
+            "analysis_ready": True,  # type: ignore[dict-item]
+            "report_generated": True,  # type: ignore[dict-item]
         }
 
     # Add user metadata
@@ -692,7 +692,7 @@ def package_browse(
 
     # Get detailed information about each entry
     entries = []
-    file_tree = {} if recursive else None
+    file_tree: dict[str, Any] | None = {} if recursive else None
     keys = list(pkg.keys())
     total_size = 0
     file_types = set()
@@ -847,11 +847,12 @@ def _format_file_size(size_bytes: int) -> str:
     if size_bytes is None:
         return "Unknown"
 
+    size_float = float(size_bytes)
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.1f} PB"
+        if size_float < 1024.0:
+            return f"{size_float:.1f} {unit}"
+        size_float /= 1024.0
+    return f"{size_float:.1f} PB"
 
 
 def package_diff(
@@ -1218,7 +1219,7 @@ def package_update(
         try:
             combined = {}
             try:
-                combined.update(existing_pkg.meta)  # type: ignore[arg-type]
+                combined.update(existing_pkg.meta)
             except Exception:
                 pass
             combined.update(metadata)
@@ -1585,7 +1586,7 @@ def package_create_from_s3(
             package_name=package_name,
             package_metadata=enhanced_metadata,
             organized_structure=organized_structure,
-            readme_content=final_readme_content,
+            readme_content=final_readme_content or "",
             source_info=source_info,
             metadata_template=metadata_template,
         )

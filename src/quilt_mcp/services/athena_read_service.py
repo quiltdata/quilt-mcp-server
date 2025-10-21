@@ -109,7 +109,9 @@ def athena_tables_list(
     try:
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
-        return service.discover_tables(database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern)
+        return service.discover_tables(
+            database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern or "*"
+        )
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
         return format_error_response(f"Failed to list tables: {str(e)}")

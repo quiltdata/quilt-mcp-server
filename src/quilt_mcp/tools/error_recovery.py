@@ -510,7 +510,7 @@ def _safe_bucket_operation_internal(operation_func: Callable, bucket_name: str) 
     return safe_operation(f"bucket_operation_{bucket_name}", operation_func, fallback_value=fallback())
 
 
-def _safe_athena_operation_internal(operation_func: Callable, query: str = None) -> Dict[str, Any]:
+def _safe_athena_operation_internal(operation_func: Callable, query: str | None = None) -> Dict[str, Any]:
     """Safely execute an Athena operation with common fallbacks."""
 
     def fallback():

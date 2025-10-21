@@ -38,13 +38,13 @@ class QueryAnalysis:
     query_type: QueryType
     scope: SearchScope
     target: Optional[str] = None  # Specific package/bucket when scope is narrow
-    filters: Dict[str, Any] = None
-    keywords: List[str] = None
-    file_extensions: List[str] = None
-    size_filters: Dict[str, Union[str, int]] = None
-    date_filters: Dict[str, str] = None
+    filters: Dict[str, Any] | None = None
+    keywords: List[str] | None = None
+    file_extensions: List[str] | None = None
+    size_filters: Dict[str, Union[str, int]] | None = None
+    date_filters: Dict[str, str] | None = None
     confidence: float = 1.0
-    suggested_backends: List[str] = None
+    suggested_backends: List[str] | None = None
 
     def __post_init__(self):
         if self.filters is None:
@@ -172,7 +172,8 @@ class QueryParser:
         if size_filters:
             filters.update(size_filters)
         if date_filters:
-            filters.update(date_filters)
+            # Cast to Any for update() compatibility
+            filters.update(date_filters)  # type: ignore[arg-type]
 
         # Suggest optimal backends based on query type
         suggested_backends = self._suggest_backends(query_type, filters)
@@ -223,7 +224,7 @@ class QueryParser:
         if not type_scores or max(type_scores.values()) == 0:
             return QueryType.FILE_SEARCH
 
-        return max(type_scores, key=type_scores.get)
+        return max(type_scores, key=lambda k: type_scores[k])
 
     def _extract_keywords(self, query: str) -> List[str]:
         """Extract meaningful keywords from the query."""

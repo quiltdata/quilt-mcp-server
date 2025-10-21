@@ -80,7 +80,7 @@ class SearchSuggestionEngine:
         self,
         partial_query: str,
         context: str = "",
-        suggestion_types: List[str] = None,
+        suggestion_types: List[str] | None = None,
         limit: int = 10,
     ) -> Dict[str, Any]:
         """Generate search suggestions for partial query.
@@ -97,7 +97,7 @@ class SearchSuggestionEngine:
         if suggestion_types is None:
             suggestion_types = ["auto"]
         partial_lower = partial_query.lower().strip()
-        suggestions = {
+        suggestions: dict[str, list[dict[str, Any]]] = {
             "query_completions": [],
             "related_queries": [],
             "domain_suggestions": [],
@@ -149,7 +149,7 @@ class SearchSuggestionEngine:
                     )
 
         # Sort by confidence and limit
-        completions.sort(key=lambda x: x["confidence"], reverse=True)
+        completions.sort(key=lambda x: x["confidence"], reverse=True)  # type: ignore[arg-type,return-value]
         return completions[:limit]
 
     def _generate_related_queries(self, partial: str, limit: int) -> List[Dict[str, Any]]:
@@ -179,7 +179,7 @@ class SearchSuggestionEngine:
 
     def _generate_domain_suggestions(self, partial: str, limit: int) -> List[Dict[str, Any]]:
         """Generate domain-specific suggestions."""
-        suggestions = []
+        suggestions: list[dict[str, Any]] = []
 
         for domain, domain_queries in self.domain_suggestions.items():
             if domain in partial or any(keyword in partial for keyword in domain_queries):
@@ -198,7 +198,7 @@ class SearchSuggestionEngine:
 
     def _generate_file_type_suggestions(self, partial: str, limit: int) -> List[Dict[str, Any]]:
         """Generate file type-specific suggestions."""
-        suggestions = []
+        suggestions: list[dict[str, Any]] = []
 
         # Look for file extensions in the partial query
         file_ext_matches = re.findall(r"\b([a-z]{2,5})\b", partial)
@@ -225,7 +225,7 @@ class SearchSuggestionEngine:
 
     def _generate_context_suggestions(self, partial: str, context: str, limit: int) -> List[Dict[str, Any]]:
         """Generate context-aware suggestions."""
-        suggestions = []
+        suggestions: list[dict[str, Any]] = []
 
         if "/" in context:  # Package context
             suggestions.extend(
@@ -314,7 +314,7 @@ def get_suggestion_engine() -> SearchSuggestionEngine:
 def search_suggest(
     partial_query: str,
     context: str = "",
-    suggestion_types: List[str] = None,
+    suggestion_types: List[str] | None = None,
     limit: int = 10,
 ) -> Dict[str, Any]:
     """

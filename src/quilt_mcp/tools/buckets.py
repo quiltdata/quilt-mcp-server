@@ -101,7 +101,9 @@ def bucket_objects_list(
             prefix=params.prefix or None,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     s3_params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": params.max_keys}
     if params.prefix:
         s3_params["Prefix"] = params.prefix
@@ -193,7 +195,9 @@ def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoRespon
             key=key,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     try:
         # Build params dict and conditionally add VersionId
         head_params = {"Bucket": bucket, "Key": key}
@@ -284,7 +288,9 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
             key=key,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     try:
         # Build params dict and conditionally add VersionId
         get_params = {"Bucket": bucket, "Key": key}
@@ -316,7 +322,7 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
 
     truncated = len(body) > params.max_bytes
     if truncated:
-        body = body[:params.max_bytes]
+        body = body[: params.max_bytes]
 
     try:
         text = body.decode(params.encoding, errors="replace")
@@ -377,7 +383,9 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
             bucket=bkt,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     results: list[UploadResult] = []
     for item in params.items:
         # Validate that exactly one of text or data is provided
@@ -481,7 +489,9 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
             key=key,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     try:
         # Build params dict and conditionally add VersionId
         get_params = {"Bucket": bucket, "Key": key}
@@ -514,7 +524,7 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
 
     truncated = len(body) > params.max_bytes
     if truncated:
-        body = body[:params.max_bytes]
+        body = body[: params.max_bytes]
 
     # Return base64-encoded or text data
     if params.base64_encode:
@@ -608,7 +618,9 @@ def bucket_object_link(params: BucketObjectLinkParams) -> PresignedUrlResponse |
             key=key,
         )
 
+    assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
+    assert client is not None, "s3_client should not be None after authorization"
     try:
         # Build params dict and conditionally add VersionId
         url_params = {"Bucket": bucket, "Key": key}

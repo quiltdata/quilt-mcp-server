@@ -78,8 +78,8 @@ def generate_quilt_summarize_json(
         total_size = sum(sum(obj.get("Size", 0) for obj in files) for files in organized_structure.values())
 
         # Extract file types and sizes
-        file_types = defaultdict(int)
-        file_sizes = defaultdict(int)
+        file_types: dict[str, int] = defaultdict(int)
+        file_sizes: dict[str, int] = defaultdict(int)
         folder_stats = {}
 
         for folder, files in organized_structure.items():
@@ -251,7 +251,7 @@ def generate_package_visualizations(
             labels = [f"{ext} ({count})" for ext, count in sorted_types]
             sizes = [count for _, count in sorted_types]
 
-            wedges, texts, autotexts = ax.pie(
+            wedges, texts, autotexts = ax.pie(  # type: ignore[misc]
                 sizes,
                 labels=labels,
                 autopct="%1.1f%%",
@@ -420,8 +420,8 @@ def generate_package_visualizations(
 
             # Top left: File count by folder
             if "folder_structure" in visualizations:
-                folders = visualizations["folder_structure"]["data"]["folders"]
-                counts = visualizations["folder_structure"]["data"]["file_counts"]
+                folders = visualizations["folder_structure"]["data"]["folders"]  # type: ignore[index]
+                counts = visualizations["folder_structure"]["data"]["file_counts"]  # type: ignore[index]
                 ax1.bar(
                     range(len(folders)),
                     counts,
@@ -434,8 +434,8 @@ def generate_package_visualizations(
 
             # Top right: File type distribution
             if "file_type_distribution" in visualizations:
-                labels = visualizations["file_type_distribution"]["data"]["labels"]
-                values = visualizations["file_type_distribution"]["data"]["values"]
+                labels = visualizations["file_type_distribution"]["data"]["labels"]  # type: ignore[index]
+                values = visualizations["file_type_distribution"]["data"]["values"]  # type: ignore[index]
                 ax2.pie(
                     values,
                     labels=labels,
@@ -446,7 +446,7 @@ def generate_package_visualizations(
 
             # Bottom left: File size distribution
             if "file_size_distribution" in visualizations:
-                sizes = visualizations["file_size_distribution"]["data"]["sizes_mb"]
+                sizes = visualizations["file_size_distribution"]["data"]["sizes_mb"]  # type: ignore[index]
                 ax3.hist(
                     sizes,
                     bins=min(15, len(sizes) // 3),
@@ -616,7 +616,7 @@ def create_quilt_summary_files(
         )
 
         # Extract file types for visualization
-        file_types = {}
+        file_types: dict[str, int] = {}
         for files in organized_structure.values():
             for obj in files:
                 ext = Path(obj["Key"]).suffix.lower().lstrip(".")

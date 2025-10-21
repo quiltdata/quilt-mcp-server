@@ -78,7 +78,7 @@ def workflow_create(
         if workflow_id in _workflows:
             return format_error_response(f"Workflow '{workflow_id}' already exists")
 
-        workflow = {
+        workflow: dict[str, Any] = {
             "id": workflow_id,
             "name": name,
             "description": description,
@@ -546,7 +546,7 @@ def workflow_template_apply(template_name: str, workflow_id: str, params: Dict[s
 
 def _get_workflow_recommendations(workflow: Dict[str, Any]) -> List[str]:
     """Generate recommendations based on workflow state."""
-    recommendations = []
+    recommendations: list[str] = []
 
     if workflow["status"] == WorkflowStatus.CREATED.value:
         recommendations.append("Start the workflow by updating the first step to 'in_progress'")

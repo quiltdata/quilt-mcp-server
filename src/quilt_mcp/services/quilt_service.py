@@ -54,7 +54,7 @@ class QuiltService:
             Catalog URL if authenticated, None otherwise
         """
         try:
-            return quilt3.logged_in()
+            return quilt3.logged_in()  # type: ignore[no-any-return]
         except Exception:
             return None
 
@@ -65,7 +65,7 @@ class QuiltService:
             Configuration dictionary or None if not available
         """
         try:
-            return quilt3.config()
+            return quilt3.config()  # type: ignore[no-any-return]
         except Exception:
             return None
 
@@ -274,7 +274,7 @@ class QuiltService:
         """
         try:
             if hasattr(quilt3.session, "get_registry_url"):
-                return quilt3.session.get_registry_url()
+                return quilt3.session.get_registry_url()  # type: ignore[no-any-return]
             return None
         except Exception:
             return None
@@ -379,7 +379,7 @@ class QuiltService:
         Returns:
             Iterator of package names
         """
-        return quilt3.list_packages(registry=registry)
+        return quilt3.list_packages(registry=registry)  # type: ignore[no-any-return]
 
     # Bucket Operations Methods
     # Based on usage analysis: 4 calls in packages.py and buckets.py
@@ -568,7 +568,7 @@ class QuiltService:
                     logical_path = Path(source_key).name
 
                 # Find matching S3 URI
-                s3_uri = uri_to_key.get(source_key)
+                s3_uri: str | None = uri_to_key.get(source_key)
                 if s3_uri:
                     pkg.set(logical_path, s3_uri)
 
@@ -590,7 +590,7 @@ class QuiltService:
         package_name: str,
         registry: Optional[str],
         message: str,
-        selector_fn: Optional[callable] = None,
+        selector_fn: Any = None,
     ) -> str:
         """Push package to registry and return top hash.
 
@@ -613,7 +613,7 @@ class QuiltService:
         if selector_fn:
             push_args["selector_fn"] = selector_fn
 
-        return pkg.push(package_name, **push_args)
+        return pkg.push(package_name, **push_args)  # type: ignore[no-any-return]
 
     def _build_creation_result(
         self, package_name: str, top_hash: str, registry: Optional[str], message: str
@@ -669,7 +669,7 @@ class QuiltService:
         Returns:
             Dict mapping folder names to lists of file objects
         """
-        organized = {}
+        organized: dict[str, list[dict[str, str]]] = {}
 
         for s3_uri in s3_uris:
             # Extract key from S3 URI

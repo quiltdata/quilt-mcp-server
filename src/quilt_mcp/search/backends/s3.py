@@ -117,10 +117,10 @@ class S3FallbackBackend(SearchBackend):
         prefix = ""
         if "/" in query and not any(op in query.lower() for op in ["find", "search", "get"]):
             prefix = query
-            query_terms = []
+            query_terms: list[str] = []
         else:
             # Better query term extraction for file searches
-            query_terms = []
+            query_terms: list[str] = []
             query_lower = query.lower()
 
             # Handle file extension patterns

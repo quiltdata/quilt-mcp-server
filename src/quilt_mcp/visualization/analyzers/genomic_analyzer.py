@@ -238,7 +238,7 @@ class GenomicAnalyzer:
 
                 # Try to detect genome assembly from headers
                 for header, _ in sequences[:10]:  # Check first 10 sequences
-                    if any(assembly in header.upper() for assembly in self.GENOME_ASSEMBLIES.keys()):
+                    if Any(assembly in header.upper() for assembly in self.GENOME_ASSEMBLIES.keys()):
                         for assembly in self.GENOME_ASSEMBLIES.keys():
                             if assembly.upper() in header.upper():
                                 analysis["genome_assembly"] = assembly

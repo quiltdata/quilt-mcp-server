@@ -120,7 +120,7 @@ class LocalFileTransport(TelemetryTransport):
 
     def read_sessions(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Read sessions from the local file."""
-        sessions = []
+        sessions: list[dict[str, Any]] = []
 
         if not self.file_path.exists():
             return sessions
@@ -214,7 +214,7 @@ class HTTPTransport(TelemetryTransport):
             return False
 
         try:
-            sessions = []
+            sessions: list[dict[str, Any]] = []
             for session_data in batch_data:
                 if hasattr(session_data, "__dict__"):
                     data = session_data.__dict__

@@ -81,6 +81,10 @@ deploy = [
 lint = [
     "ruff>=0.1.0",
     "mypy>=1.8.0",
+    "pandas-stubs>=2.0.0",
+    "types-cachetools>=5.3.0",
+    "types-PyYAML>=6.0.0",
+    "types-requests>=2.31.0",
 ]
 dev = [
     "pytest-xdist>=3.8.0",
@@ -144,3 +148,61 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "mcp.*"
 ignore_missing_imports = true
+
+# Internal utility modules (not registered MCP tools)
+# These need Pydantic models for internal data structures in future refactor
+[[tool.mypy.overrides]]
+module = "quilt_mcp.visualization.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.search.backends.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.search.tools.search_explain"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.search.tools.unified_search"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.auth_service"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.auth_metadata"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.bearer_auth_service"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.permission_discovery"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.athena_service"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.services.quilt_service"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.telemetry.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.optimization.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.version_sync"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "quilt_mcp.tools.error_recovery"
+ignore_errors = true

@@ -40,7 +40,7 @@ class SearchResult:
     logical_key: Optional[str] = None
     size: Optional[int] = None
     last_modified: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: Dict[str, Any] | None = None
     score: float = 0.0
     backend: str = ""
 
