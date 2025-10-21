@@ -305,7 +305,7 @@ class PackageCreateSuccess(SuccessResponse):
     message: str
     files_added: int
     total_size: int = 0  # Default to 0 if not calculated
-    catalog_url: Optional[str] = None
+    package_url: Optional[str] = None  # Catalog URL for viewing the package
     files: list[dict[str, str]] = Field(default_factory=list)  # List of file entries
     warnings: list[str] = Field(default_factory=list)  # Any warnings during creation
     auth_type: Optional[str] = None  # Authentication type used
@@ -332,11 +332,11 @@ class PackageUpdateSuccess(SuccessResponse):
     package_name: str
     registry: str
     top_hash: str
-    new_entries_added: int
-    files_added: list[dict[str, str]]  # List of {"logical_path": str, "source": str}
+    files_added: int  # Number of files added
+    package_url: Optional[str] = None  # Catalog URL for viewing the package
+    files: list[dict[str, str]] = Field(default_factory=list)  # List of {"logical_path": str, "source": str}
     warnings: list[str] = Field(default_factory=list)
     message: str
-    metadata_added: bool
     auth_type: Optional[str] = None
 
 
@@ -413,7 +413,7 @@ class PackageCreateFromS3Success(SuccessResponse):
     package_name: str
     registry: str
     structure: dict  # folders_created, files_organized, readme_generated
-    metadata: dict  # package_size_mb, file_types, organization_applied
+    metadata_info: dict  # package_size_mb, file_types, organization_applied
     confirmation: dict  # bucket_suggested, structure_preview, etc.
     package_hash: Optional[str] = None
     created_at: Optional[str] = None
@@ -428,6 +428,7 @@ class PackageCreateFromS3Error(ErrorResponse):
 
     bucket: Optional[str] = None
     package_name: Optional[str] = None
+    registry: Optional[str] = None
     provided: Optional[str] = None
     expected: Optional[str] = None
     example: Optional[str] = None

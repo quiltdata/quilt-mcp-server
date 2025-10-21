@@ -982,13 +982,13 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         return PackageCreateError(
             error="No S3 URIs provided",
             package_name=params.package_name,
-            suggestions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
+            suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
         )
     if not params.package_name:
         return PackageCreateError(
             error="Package name is required",
             package_name="",
-            suggestions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+            suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
 
     # Process metadata to ensure README content is handled correctly
@@ -1021,7 +1021,7 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
             error=error.get("error", "Authorization failed"),
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=["Check your permissions", "Verify package name format", "Confirm registry access"],
+            suggested_actions=["Check your permissions", "Verify package name format", "Confirm registry access"],
         )
 
     try:
@@ -1043,7 +1043,7 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
                 error=result["error"],
                 package_name=params.package_name,
                 registry=params.registry,
-                suggestions=[
+                suggested_actions=[
                     "Verify S3 URIs are valid and accessible",
                     "Check write permissions for the registry",
                     "Ensure no duplicate logical paths exist",
@@ -1063,6 +1063,8 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         catalog_params = CatalogUrlParams(
             registry=normalized_registry,
             package_name=params.package_name,
+            path="",
+            catalog_host="",
         )
         catalog_result = catalog_url(catalog_params)
         package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
@@ -1084,7 +1086,7 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
             error=f"Failed to create package: {e}",
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=[
+            suggested_actions=[
                 "Check S3 permissions for source files",
                 "Verify registry write access",
                 "Ensure package name is valid",
@@ -1126,13 +1128,13 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
         return PackageUpdateError(
             error="No S3 URIs provided",
             package_name=params.package_name,
-            suggestions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
+            suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
         )
     if not params.package_name:
         return PackageUpdateError(
             error="package_name is required for package_update",
             package_name="",
-            suggestions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+            suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
     warnings: list[str] = []
     normalized_registry = _normalize_registry(params.registry)
@@ -1146,7 +1148,7 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
             error=error.get("error", "Authorization failed"),
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=["Check your permissions", "Verify package exists", "Confirm registry access"],
+            suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
         )
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
@@ -1160,7 +1162,7 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
             error=f"Failed to browse existing package '{params.package_name}': {e}",
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=[
+            suggested_actions=[
                 "Verify package exists in the registry",
                 "Check package name format",
                 "Ensure you have read permissions",
@@ -1174,7 +1176,7 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
             error="No new S3 objects were added",
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=[
+            suggested_actions=[
                 "Check that S3 URIs are valid and accessible",
                 "Verify URIs point to actual files, not directories",
                 "Ensure files don't already exist in package",
@@ -1211,7 +1213,7 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
             error=f"Failed to push updated package: {e}",
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=[
+            suggested_actions=[
                 "Check write permissions for the registry",
                 "Verify network connectivity",
                 "Ensure no conflicts with existing package state",
@@ -1226,6 +1228,8 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
     catalog_params = CatalogUrlParams(
         registry=normalized_registry,
         package_name=params.package_name,
+        path="",
+        catalog_host="",
     )
     catalog_result = catalog_url(catalog_params)
     package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
@@ -1272,7 +1276,7 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
         return PackageDeleteError(
             error="package_name is required for package deletion",
             package_name="",
-            suggestions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+            suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
 
     try:
@@ -1287,7 +1291,7 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
                 error=error.get("error", "Authorization failed"),
                 package_name=params.package_name,
                 registry=params.registry,
-                suggestions=["Check your permissions", "Verify package exists", "Confirm registry access"],
+                suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
             )
 
         # Suppress stdout during delete to avoid JSON-RPC interference
@@ -1307,7 +1311,7 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
             error=f"Failed to delete package '{params.package_name}': {e}",
             package_name=params.package_name,
             registry=params.registry,
-            suggestions=[
+            suggested_actions=[
                 "Verify package exists in the registry",
                 "Check delete permissions for the registry",
                 "Ensure package name is correct",
@@ -1347,14 +1351,14 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             return PackageCreateFromS3Error(
                 error="Invalid package name format. Use 'namespace/name'",
                 package_name=params.package_name,
-                suggestions=["Package name must be in format: namespace/name", "Example: team/dataset"],
+                suggested_actions=["Package name must be in format: namespace/name", "Example: team/dataset"],
             )
 
         if not params.source_bucket:
             return PackageCreateFromS3Error(
                 error="source_bucket is required",
                 package_name=params.package_name,
-                suggestions=["Provide a valid S3 bucket name", "Example: my-data-bucket"],
+                suggested_actions=["Provide a valid S3 bucket name", "Example: my-data-bucket"],
             )
 
         # Handle metadata parameter
@@ -1364,16 +1368,18 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         # Extract README content from metadata and store for later addition as package file
         # readme_content takes priority if both fields exist
         if "readme_content" in processed_metadata:
-            readme_content = processed_metadata.pop("readme_content")
+            readme_value = processed_metadata.pop("readme_content")
+            readme_content = str(readme_value) if readme_value is not None else None
         elif "readme" in processed_metadata:
-            readme_content = processed_metadata.pop("readme")
+            readme_value = processed_metadata.pop("readme")
+            readme_content = str(readme_value) if readme_value is not None else None
 
         # Validate and normalize bucket name
         if params.source_bucket.startswith("s3://"):
             return PackageCreateFromS3Error(
                 error="Invalid bucket name format",
                 package_name=params.package_name,
-                suggestions=[
+                suggested_actions=[
                     "Use bucket name only, not full S3 URI",
                     f"Try using: {params.source_bucket.replace('s3://', '')}",
                     "Example: my-bucket (not s3://my-bucket)",
@@ -1415,7 +1421,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                     error="Cannot create package in target registry",
                     package_name=params.package_name,
                     registry=target_registry,
-                    suggestions=[
+                    suggested_actions=[
                         f"Verify you have s3:PutObject permissions for {target_bucket_name}",
                         "Check if you're connected to the right catalog",
                         "Try a different bucket you own",
@@ -1439,7 +1445,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                 return PackageCreateFromS3Error(
                     error="Cannot access source bucket - insufficient permissions",
                     package_name=params.package_name,
-                    suggestions=[
+                    suggested_actions=[
                         f"Verify you have s3:ListBucket and s3:GetObject permissions for {params.source_bucket}",
                         "Check if the bucket name is correct",
                         "Ensure your AWS credentials are properly configured",
@@ -1451,7 +1457,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                 return PackageCreateFromS3Error(
                     error=f"Cannot access source bucket {params.source_bucket}: {str(e)}",
                     package_name=params.package_name,
-                    suggestions=["Check bucket name", "Verify AWS credentials", "Check network connectivity"],
+                    suggested_actions=["Check bucket name", "Verify AWS credentials", "Check network connectivity"],
                 )
 
         # Discover source objects
@@ -1464,7 +1470,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             return PackageCreateFromS3Error(
                 error="No objects found matching the specified criteria",
                 package_name=params.package_name,
-                suggestions=[
+                suggested_actions=[
                     "Check if source_prefix is correct",
                     "Verify include_patterns and exclude_patterns",
                     "Ensure the bucket contains files",
@@ -1567,6 +1573,13 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
 
         # Create the actual package
         logger.info(f"Creating package {params.package_name} with enhanced structure")
+        # Convert Pydantic model to dict if it's a success response
+        summary_files_dict = None
+        if isinstance(summary_files, dict):
+            summary_files_dict = summary_files
+        elif hasattr(summary_files, 'model_dump'):
+            summary_files_dict = summary_files.model_dump()
+
         package_result = _create_enhanced_package(
             s3_client=s3_client,
             organized_structure=organized_structure,
@@ -1576,7 +1589,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             description=params.description,
             enhanced_metadata=enhanced_metadata,
             readme_content=final_readme_content,
-            summary_files=summary_files,
+            summary_files=summary_files_dict,
             copy_mode=params.copy_mode,
             force=params.force,
         )
@@ -1612,7 +1625,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         return PackageCreateFromS3Error(
             error="AWS credentials not found. Please configure AWS authentication.",
             package_name=params.package_name,
-            suggestions=[
+            suggested_actions=[
                 "Configure AWS credentials using aws configure",
                 "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables",
                 "Check your ~/.aws/credentials file",
@@ -1623,12 +1636,12 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         return PackageCreateFromS3Error(
             error=f"AWS error ({error_code}): {str(e)}",
             package_name=params.package_name,
-            suggestions=["Check AWS permissions", "Verify bucket access", "Check network connectivity"],
+            suggested_actions=["Check AWS permissions", "Verify bucket access", "Check network connectivity"],
         )
     except Exception as e:
         logger.error(f"Error creating package from S3: {str(e)}")
         return PackageCreateFromS3Error(
             error=f"Failed to create package: {str(e)}",
             package_name=params.package_name,
-            suggestions=["Check logs for details", "Verify all parameters", "Ensure source bucket is accessible"],
+            suggested_actions=["Check logs for details", "Verify all parameters", "Ensure source bucket is accessible"],
         )

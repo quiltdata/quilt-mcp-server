@@ -132,7 +132,7 @@ def create_data_visualization(
     """
 
     try:
-        records = _normalize_data(params.data)
+        records = _normalize_data(params.data)  # type: ignore[arg-type]  # Internal function with broader types
         plot_type_normalized = _normalize_plot_type(params.plot_type)
         _validate_plot_requirements(
             records, plot_type_normalized, params.x_column, params.y_column, params.group_column

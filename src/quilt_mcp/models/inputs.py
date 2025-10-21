@@ -629,17 +629,17 @@ class CatalogUrlParams(BaseModel):
         ),
     ]
     path: Annotated[
-        Optional[str],
+        str,
         Field(
-            default=None,
+            default="",
             description="Optional path inside the bucket or package for deep links",
             examples=["data/metrics.csv", "reports/"],
         ),
     ]
     catalog_host: Annotated[
-        Optional[str],
+        str,
         Field(
-            default=None,
+            default="",
             description="Optional override for catalog host (auto-detected if not provided)",
             examples=["catalog.example.com", "https://catalog.example.com"],
         ),

@@ -78,13 +78,14 @@ def catalog_url(params: CatalogUrlParams) -> CatalogUrlSuccess | CatalogUrlError
         bucket = _extract_bucket_from_registry(params.registry)
 
         # Auto-detect catalog host if not provided
-        catalog_host = params.catalog_host
+        catalog_host = params.catalog_host if params.catalog_host else ""
         if not catalog_host:
-            catalog_host = _get_catalog_host_from_config()
-            if not catalog_host:
+            detected_host = _get_catalog_host_from_config()
+            if not detected_host:
                 return CatalogUrlError(
                     error="Could not determine catalog host. Please provide catalog_host parameter or ensure Quilt is configured."
                 )
+            catalog_host = detected_host
 
         # Ensure catalog_host has https protocol
         if not catalog_host.startswith("http"):
@@ -123,7 +124,7 @@ def catalog_url(params: CatalogUrlParams) -> CatalogUrlSuccess | CatalogUrlError
 
         return CatalogUrlSuccess(
             catalog_url=url,
-            view_type=view_type,
+            view_type=view_type,  # type: ignore[arg-type]  # view_type is runtime-determined Literal
             bucket=bucket,
             package_name=params.package_name,
             path=params.path,
