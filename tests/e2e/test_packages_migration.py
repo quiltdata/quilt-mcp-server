@@ -76,9 +76,7 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
             params = PackageDiffParams(
-                package1_name='user/package1',
-                package2_name='user/package2',
-                registry='s3://test-bucket'
+                package1_name='user/package1', package2_name='user/package2', registry='s3://test-bucket'
             )
             result = package_diff(params)
 
