@@ -9,6 +9,8 @@ find what you need quickly.
 
 - [`user/INSTALLATION.md`](user/INSTALLATION.md) - Complete installation guide for all environments
 - [`user/SEARCH_TROUBLESHOOTING.md`](user/SEARCH_TROUBLESHOOTING.md) - Search functionality troubleshooting
+- [`user/MIGRATION_DXT_TO_MCPB.md`](user/MIGRATION_DXT_TO_MCPB.md) - Step-by-step migration from DXT to MCPB packages
+- [`user/MCPB_FAQ.md`](user/MCPB_FAQ.md) - Common MCPB migration questions and answers
 
 ## 👨‍💻 **For Developers**
 
@@ -25,7 +27,7 @@ find what you need quickly.
 
 ### System Architecture
 
-- [`architecture/FEATURE_S3_TO_PACKAGE.md`](architecture/FEATURE_S3_TO_PACKAGE.md) - S3 to Package creation feature
+- [`architecture/FEATURE_S3_TO_PACKAGE.md`](architecture/FEATURE_S3_TO_PACKAGE.md) - S3 to Package creation workflow
 - [`architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md`](architecture/GRAPHQL_PERFORMANCE_ANALYSIS.md) - GraphQL performance analysis
 - [`architecture/MCP_OPTIMIZATION.md`](architecture/MCP_OPTIMIZATION.md) - MCP optimization strategies
 
@@ -35,6 +37,10 @@ find what you need quickly.
 
 - [`api/TOOLS.md`](api/TOOLS.md) - Complete reference for all 84+ MCP tools
 - [`api/QUILT_SUMMARY_FORMAT.md`](api/QUILT_SUMMARY_FORMAT.md) - Quilt summary file format specification
+
+## 📊 **Status & Reports**
+
+- [`reports/MCP_STATUS_SUMMARY.md`](reports/MCP_STATUS_SUMMARY.md) - Consolidated operational status with links to deep-dive reports
 
 ## 📁 **Archive**
 

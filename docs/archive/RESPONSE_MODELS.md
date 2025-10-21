@@ -7,12 +7,14 @@ This document describes the Pydantic models for MCP tool responses, replacing ge
 ## Motivation
 
 Previously, all tools returned `dict[str, Any]`, which:
+
 - ❌ Provides no type safety or validation
 - ❌ Makes it unclear what fields are available
 - ❌ Prevents IDE autocomplete and type checking
 - ❌ Allows inconsistent response structures
 
 With Pydantic models:
+
 - ✅ Full type safety and runtime validation
 - ✅ Clear, documented response structures
 - ✅ IDE autocomplete and type checking
@@ -79,6 +81,7 @@ def catalog_url(registry: str, ...) -> CatalogUrlResponse:
 ### Converting Existing Tools
 
 Before:
+
 ```python
 def my_tool(param: str) -> dict[str, Any]:
     """My tool."""
@@ -97,6 +100,7 @@ def my_tool(param: str) -> dict[str, Any]:
 ```
 
 After:
+
 ```python
 from quilt_mcp.models import SuccessResponse, ErrorResponse
 
@@ -124,14 +128,18 @@ def my_tool(param: str) -> MyToolSuccess | ErrorResponse:
 ### Base Models
 
 #### `SuccessResponse`
+
 Base model for all successful operations.
+
 ```python
 class SuccessResponse(BaseModel):
     success: Literal[True] = True
 ```
 
 #### `ErrorResponse`
+
 Base model for all error responses.
+
 ```python
 class ErrorResponse(BaseModel):
     success: Literal[False] = False
@@ -144,6 +152,7 @@ class ErrorResponse(BaseModel):
 ### Catalog Models
 
 #### `CatalogUrlSuccess`
+
 ```python
 CatalogUrlSuccess(
     status="success",
@@ -157,6 +166,7 @@ CatalogUrlSuccess(
 ```
 
 #### `CatalogUriSuccess`
+
 ```python
 CatalogUriSuccess(
     status="success",
@@ -173,7 +183,9 @@ CatalogUriSuccess(
 ### S3/Bucket Models
 
 #### `S3Object`
+
 Metadata for a single S3 object.
+
 ```python
 S3Object(
     key="data/file.csv",
@@ -188,6 +200,7 @@ S3Object(
 ```
 
 #### `BucketObjectsListSuccess`
+
 ```python
 BucketObjectsListSuccess(
     bucket="my-bucket",
@@ -201,7 +214,9 @@ BucketObjectsListSuccess(
 ```
 
 #### `ObjectMetadata`
+
 Detailed metadata for a single object.
+
 ```python
 ObjectMetadata(
     bucket="my-bucket",
@@ -218,6 +233,7 @@ ObjectMetadata(
 ```
 
 #### `PresignedUrlResponse`
+
 ```python
 PresignedUrlResponse(
     bucket="my-bucket",
@@ -233,6 +249,7 @@ PresignedUrlResponse(
 ### Package Models
 
 #### `PackageFileEntry`
+
 ```python
 PackageFileEntry(
     logical_key="data/file.csv",
@@ -244,6 +261,7 @@ PackageFileEntry(
 ```
 
 #### `PackageMetadata`
+
 ```python
 PackageMetadata(
     user_meta={"description": "My dataset"},
@@ -253,6 +271,7 @@ PackageMetadata(
 ```
 
 #### `PackageBrowseSuccess`
+
 ```python
 PackageBrowseSuccess(
     package_name="team/dataset",
@@ -266,6 +285,7 @@ PackageBrowseSuccess(
 ```
 
 #### `PackageCreateSuccess`
+
 ```python
 PackageCreateSuccess(
     package_name="team/dataset",
@@ -281,6 +301,7 @@ PackageCreateSuccess(
 ### Athena Query Models
 
 #### `QueryExecutionMetadata`
+
 ```python
 QueryExecutionMetadata(
     query_execution_id="abc-123",
@@ -294,6 +315,7 @@ QueryExecutionMetadata(
 ```
 
 #### `AthenaQuerySuccess`
+
 ```python
 AthenaQuerySuccess(
     query="SELECT * FROM table",
@@ -309,6 +331,7 @@ AthenaQuerySuccess(
 ### Data Visualization Models
 
 #### `VisualizationConfig`
+
 ```python
 VisualizationConfig(
     type="boxplot",  # or "scatter", "line", "bar"
@@ -318,6 +341,7 @@ VisualizationConfig(
 ```
 
 #### `VisualizationFile`
+
 ```python
 VisualizationFile(
     key="viz_data_boxplot.csv",
@@ -327,6 +351,7 @@ VisualizationFile(
 ```
 
 #### `DataVisualizationSuccess`
+
 ```python
 DataVisualizationSuccess(
     visualization_config=VisualizationConfig(...),
@@ -340,6 +365,7 @@ DataVisualizationSuccess(
 ### Workflow Models
 
 #### `WorkflowStep`
+
 ```python
 WorkflowStep(
     step_id="step-1",
@@ -355,6 +381,7 @@ WorkflowStep(
 ```
 
 #### `WorkflowCreateSuccess`
+
 ```python
 WorkflowCreateSuccess(
     workflow_id="wf-123",
@@ -491,12 +518,14 @@ if not response.success:
 ### 1. Always Use Specific Models
 
 ❌ Don't:
+
 ```python
 def my_tool() -> dict[str, Any]:
     return {"data": "..."}
 ```
 
 ✅ Do:
+
 ```python
 def my_tool() -> MyToolSuccess | ErrorResponse:
     return MyToolSuccess(data="...")
@@ -505,6 +534,7 @@ def my_tool() -> MyToolSuccess | ErrorResponse:
 ### 2. Include Helpful Error Details
 
 ✅ Good:
+
 ```python
 return ErrorResponse(
     error="Failed to access S3 bucket",

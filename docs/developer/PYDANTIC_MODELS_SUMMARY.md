@@ -7,10 +7,12 @@ This document summarizes the addition of rigorous Pydantic models for MCP tool i
 ## Problem Statement
 
 Previously, all MCP tools used generic types:
+
 - **Inputs**: Individual parameters with basic Python types (str, int, bool)
 - **Responses**: Generic `dict[str, Any]` or `Dict[str, Any]`
 
 This led to:
+
 - ❌ No type safety or validation
 - ❌ Unclear what fields are available in responses
 - ❌ No IDE autocomplete or type checking
@@ -59,6 +61,7 @@ Created comprehensive Pydantic models for tool input parameters with:
 ### 3. Benefits
 
 #### Type Safety
+
 ```python
 # Before (no type safety)
 def bucket_objects_list(...) -> dict[str, Any]:
@@ -70,6 +73,7 @@ def bucket_objects_list(...) -> BucketObjectsListSuccess | BucketObjectsListErro
 ```
 
 #### IDE Autocomplete
+
 ```python
 response = bucket_objects_list(...)
 if isinstance(response, BucketObjectsListSuccess):
@@ -79,6 +83,7 @@ if isinstance(response, BucketObjectsListSuccess):
 ```
 
 #### Runtime Validation
+
 ```python
 # Pydantic validates at runtime
 try:
@@ -91,6 +96,7 @@ except ValidationError as e:
 ```
 
 #### Better MCP Schemas
+
 ```python
 # Automatically generates detailed JSON schema
 schema = BucketObjectsListParams.model_json_schema()
@@ -145,6 +151,7 @@ schema = BucketObjectsListParams.model_json_schema()
 ## Current Status
 
 ### ✅ Completed
+
 - Created comprehensive response models for all major tool types
 - Created input parameter models with rich validation
 - Documented all models with examples
@@ -152,6 +159,7 @@ schema = BucketObjectsListParams.model_json_schema()
 - All models pass validation tests
 
 ### 🔄 Next Steps (Future Work)
+
 1. **Migrate Existing Tools** to use new models (breaking change - plan carefully)
 2. **Add Models for Remaining Tools**:
    - Governance tools (user management, permissions)
@@ -173,6 +181,7 @@ schema = BucketObjectsListParams.model_json_schema()
 Tools can adopt these models incrementally:
 
 ### Option 1: Update Return Type Only
+
 ```python
 from quilt_mcp.models import BucketObjectsListResponse
 
@@ -182,6 +191,7 @@ def bucket_objects_list(...) -> BucketObjectsListResponse:
 ```
 
 ### Option 2: Full Migration
+
 ```python
 from quilt_mcp.models import (
     BucketObjectsListParams,
@@ -207,6 +217,7 @@ def bucket_objects_list(params: BucketObjectsListParams) -> BucketObjectsListSuc
 ## Examples
 
 ### Before (Generic Types)
+
 ```python
 def bucket_objects_list(
     bucket: str = DEFAULT_BUCKET,
@@ -225,6 +236,7 @@ def bucket_objects_list(
 ```
 
 ### After (Rigorous Types)
+
 ```python
 from quilt_mcp.models import BucketObjectsListParams, BucketObjectsListSuccess
 
@@ -245,18 +257,21 @@ def bucket_objects_list(
 ## Impact
 
 ### For Developers
+
 - ✅ Better IDE support (autocomplete, type hints)
 - ✅ Catch errors at development time
 - ✅ Clear contracts for tool inputs/outputs
 - ✅ Self-documenting code
 
 ### For LLMs (via MCP)
+
 - ✅ Detailed JSON schemas with descriptions and examples
 - ✅ Validation constraints in schema (min/max, patterns)
 - ✅ Clear success/error response structures
 - ✅ Better understanding of tool capabilities
 
 ### For Users
+
 - ✅ More consistent tool behavior
 - ✅ Better error messages with suggested fixes
 - ✅ Validated inputs prevent common mistakes
@@ -264,6 +279,7 @@ def bucket_objects_list(
 ## Validation Examples
 
 ### Input Validation
+
 ```python
 # Valid
 params = BucketObjectsListParams(
@@ -280,6 +296,7 @@ params = BucketObjectsListParams(
 ```
 
 ### S3 URI Pattern Validation
+
 ```python
 # Valid
 params = BucketObjectInfoParams(
@@ -318,6 +335,7 @@ print(json.dumps(PackageCreateParams.model_json_schema(), indent=2))
 This implementation provides a foundation for type-safe, well-validated MCP tools. The models can be adopted incrementally, and future work includes migrating existing tools and adding models for remaining tool categories.
 
 The combination of input and response models ensures:
+
 1. **Input Validation**: Parameters are validated before execution
 2. **Type Safety**: Clear contracts for all tool interactions
 3. **Better Schemas**: MCP generates detailed, useful schemas

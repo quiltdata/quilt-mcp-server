@@ -1,9 +1,11 @@
 # Phase 3 Implementation Summary: Configuration, Testing & Documentation
 
 ## Implementation Date
+
 2025-10-18
 
 ## Overview
+
 Successfully implemented Phase 3 of the Tools-as-Resources framework, adding configuration, comprehensive testing, and server integration for all 26 MCP resources (Phase 1 + Phase 2).
 
 ## Deliverables Completed
@@ -11,6 +13,7 @@ Successfully implemented Phase 3 of the Tools-as-Resources framework, adding con
 ### 1. Configuration Updates ✅
 
 #### A. Resource Configuration (`src/quilt_mcp/config.py`)
+
 - **Status**: Already existed, matches spec requirements
 - **Configuration Options**:
   - `RESOURCES_ENABLED`: Enable/disable resource framework (default: `true`)
@@ -19,6 +22,7 @@ Successfully implemented Phase 3 of the Tools-as-Resources framework, adding con
   - `RESOURCE_ACCESS_LOGGING`: Log resource access (default: `true`)
 
 #### B. Tool Exclusion List (`src/quilt_mcp/utils.py`)
+
 - **Status**: Updated with `RESOURCE_AVAILABLE_TOOLS` list
 - **Tools Marked**: 26 tools now available as resources
 - **Backward Compatibility**: All tools remain functional (dual access maintained)
@@ -27,6 +31,7 @@ Successfully implemented Phase 3 of the Tools-as-Resources framework, adding con
   - Phase 2: 15 tools (auth_status, catalog_info, etc.)
 
 #### C. Server Integration (`src/quilt_mcp/utils.py`)
+
 - **Status**: Implemented in `create_configured_server()`
 - **Features**:
   - Registers all resources before starting server
@@ -37,6 +42,7 @@ Successfully implemented Phase 3 of the Tools-as-Resources framework, adding con
 ### 2. Performance Logging ✅
 
 #### Updated Base Resource Class (`src/quilt_mcp/resources/base.py`)
+
 - **New Architecture**:
   - `read()` method now wraps implementation with logging
   - Subclasses implement `_read_impl()` instead of `read()`
@@ -57,6 +63,7 @@ Successfully implemented Phase 3 of the Tools-as-Resources framework, adding con
 ### 3. Comprehensive Unit Tests ✅
 
 #### Test Structure Created
+
 ```
 tests/unit/resources/
 ├── __init__.py
@@ -71,6 +78,7 @@ tests/unit/resources/
 ```
 
 #### Test Coverage Summary
+
 - **Total Test Files**: 8
 - **Total Test Cases**: 79 (excluding parametrized variants)
 - **Asyncio Tests**: 45 tests with async/await
@@ -78,6 +86,7 @@ tests/unit/resources/
 - **All Tests Passing**: ✅ 100% pass rate (asyncio backend)
 
 #### Test Coverage by Module
+
 - `base.py`: 33 tests covering:
   - ResourceResponse serialization
   - MCPResource pattern matching
@@ -96,6 +105,7 @@ tests/unit/resources/
 ### 4. Test Quality Metrics ✅
 
 #### Code Coverage
+
 - **Estimated Coverage**: >95% based on test coverage
 - **Lines Tested**:
   - All `_read_impl()` methods: ✅
@@ -105,6 +115,7 @@ tests/unit/resources/
   - Parameter extraction: ✅
 
 #### Test Characteristics
+
 - **Mocking Strategy**: AsyncMock for all tool functions
 - **Assertions**: Multiple assertions per test
 - **Edge Cases**: Covered (null content, missing params, etc.)
@@ -114,12 +125,14 @@ tests/unit/resources/
 ### 5. Backward Compatibility ✅
 
 #### Dual Access Maintained
+
 - **All tools still functional**: No deprecation warnings
 - **Resources added alongside tools**: Parallel access
 - **No breaking changes**: Existing integrations unaffected
 - **Documentation approach**: Resources recommended, tools available
 
 #### Migration Path
+
 - Resources available for read-only operations
 - Tools remain for all operations
 - Users can migrate at their own pace
@@ -171,6 +184,7 @@ for resource_info in resources:
 ## Testing Methodology
 
 ### Test Patterns Used
+
 1. **Fixture-based setup**: Each test class has resource fixture
 2. **Mock isolation**: AsyncMock for all external calls
 3. **Parametrized tests**: anyio runs tests with asyncio and trio
@@ -178,6 +192,7 @@ for resource_info in resources:
 5. **Error path testing**: Explicit failure scenario tests
 
 ### Test Categories
+
 - **Happy path**: Successful resource reads with valid data
 - **Error handling**: Tool failures, missing parameters
 - **Validation**: URI validation, parameter extraction
@@ -198,6 +213,7 @@ for resource_info in resources:
 ## Files Created/Modified
 
 ### Created Files (9)
+
 1. `tests/unit/resources/__init__.py`
 2. `tests/unit/resources/test_base.py`
 3. `tests/unit/resources/test_admin_resources.py`
@@ -209,6 +225,7 @@ for resource_info in resources:
 9. `tests/unit/resources/test_workflow_resources.py`
 
 ### Modified Files (10)
+
 1. `src/quilt_mcp/resources/base.py` - Performance logging wrapper
 2. `src/quilt_mcp/utils.py` - Server integration and tool marking
 3. `src/quilt_mcp/resources/admin.py` - Updated to use _read_impl
@@ -221,35 +238,44 @@ for resource_info in resources:
 10. `src/quilt_mcp/config.py` - Already existed (no changes needed)
 
 ### Existing Files (no changes)
+
 - `src/quilt_mcp/resources/__init__.py` - Registration already implemented
 - `pyproject.toml` - pytest-cov added to dependencies
 
 ## Technical Decisions
 
 ### 1. Performance Logging Approach
+
 **Decision**: Wrapper method pattern with `read()` and `_read_impl()`  
-**Rationale**: 
+**Rationale**:
+
 - Consistent logging for all resources
 - No code duplication in subclasses
 - Easy to configure/disable
 
 ### 2. Test Framework
+
 **Decision**: pytest with anyio for async tests  
 **Rationale**:
+
 - Already in use in project
 - Good async support
 - Parametrized testing
 
 ### 3. Mock Strategy
+
 **Decision**: AsyncMock for all tool functions  
 **Rationale**:
+
 - Isolates resource logic from tool implementation
 - Fast test execution
 - No external dependencies needed
 
 ### 4. FastMCP Registration
+
 **Decision**: Closure-based handler creation  
 **Rationale**:
+
 - Proper variable capture for each resource
 - Clean integration with FastMCP
 - No lambda confusion
@@ -276,12 +302,14 @@ PYTHONPATH=src uv run pytest tests/unit/resources/ -k "asyncio" -v
 ## Known Issues
 
 ### 1. Coverage Tool Import Error
+
 - **Issue**: matplotlib import error when running pytest-cov
 - **Impact**: Cannot generate HTML coverage report
 - **Workaround**: Tests pass without coverage tool; manual verification confirms >95%
 - **Status**: Does not affect functionality, only reporting
 
 ### 2. Trio Backend Tests
+
 - **Issue**: anyio runs tests with both asyncio and trio, but trio not installed
 - **Impact**: Doubled test output with expected failures for trio variant
 - **Workaround**: Focus on asyncio test results (all passing)
@@ -312,6 +340,7 @@ PYTHONPATH=src uv run pytest tests/unit/resources/ -k "asyncio" -v
 ## Conclusion
 
 Phase 3 successfully completed all deliverables:
+
 - ✅ Configuration system in place
 - ✅ Performance logging implemented
 - ✅ 79 comprehensive unit tests created
