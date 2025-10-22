@@ -21,7 +21,7 @@ class PerformanceMetrics:
     total_calls: int
     memory_usage_mb: Optional[float] = None
     cpu_usage_percent: Optional[float] = None
-    timestamp: datetime = None
+    timestamp: datetime | None = None
 
     def __post_init__(self):
         if self.timestamp is None:

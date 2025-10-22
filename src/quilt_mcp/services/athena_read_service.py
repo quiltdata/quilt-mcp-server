@@ -13,6 +13,30 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional
 from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
+from ..models import (
+    AthenaDatabasesListParams,
+    AthenaDatabasesListResponse,
+    AthenaDatabasesListSuccess,
+    AthenaTablesListParams,
+    AthenaTablesListResponse,
+    AthenaTablesListSuccess,
+    AthenaTableSchemaParams,
+    AthenaTableSchemaResponse,
+    AthenaTableSchemaSuccess,
+    AthenaWorkgroupsListParams,
+    AthenaWorkgroupsListResponse,
+    AthenaWorkgroupsListSuccess,
+    AthenaQueryHistoryParams,
+    AthenaQueryHistoryResponse,
+    AthenaQueryHistorySuccess,
+    DatabaseInfo,
+    TableInfo,
+    ColumnInfo,
+    PartitionInfo,
+    WorkgroupInfo,
+    QueryHistoryEntry,
+    ErrorResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +70,7 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
 def athena_databases_list(
     data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
-) -> Dict[str, Any]:
+) -> AthenaDatabasesListResponse:
     """List available databases in AWS Glue Data Catalog - Athena querying and Glue catalog inspection workflows
 
     Args:
@@ -70,10 +94,21 @@ def athena_databases_list(
     try:
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
-        return service.discover_databases(data_catalog_name=data_catalog_name)
+        result = service.discover_databases(data_catalog_name=data_catalog_name)
+
+        # Convert to Pydantic model
+        if result.get("success"):
+            databases = [DatabaseInfo(**db) for db in result["databases"]]
+            return AthenaDatabasesListSuccess(
+                databases=databases,
+                data_catalog_name=result.get("data_catalog_name", data_catalog_name),
+                count=result["count"],
+            )
+        else:
+            return ErrorResponse(error=result.get("error", "Unknown error"))
     except Exception as e:
         logger.error(f"Failed to list databases: {e}")
-        return format_error_response(f"Failed to list databases: {str(e)}")
+        return ErrorResponse(error=f"Failed to list databases: {str(e)}")
 
 
 def athena_tables_list(
@@ -81,7 +116,7 @@ def athena_tables_list(
     data_catalog_name: str = "AwsDataCatalog",
     table_pattern: Optional[str] = None,
     service: Optional[Any] = None,
-) -> Dict[str, Any]:
+) -> AthenaTablesListResponse:
     """List tables in a specific database - Athena querying and Glue catalog inspection workflows
 
     Args:
@@ -109,10 +144,24 @@ def athena_tables_list(
     try:
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
-        return service.discover_tables(database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern)
+        result = service.discover_tables(
+            database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern or "*"
+        )
+
+        # Convert to Pydantic model
+        if result.get("success"):
+            tables = [TableInfo(**table) for table in result["tables"]]
+            return AthenaTablesListSuccess(
+                tables=tables,
+                database_name=result["database_name"],
+                data_catalog_name=result["data_catalog_name"],
+                count=result["count"],
+            )
+        else:
+            return ErrorResponse(error=result.get("error", "Unknown error"))
     except Exception as e:
         logger.error(f"Failed to list tables: {e}")
-        return format_error_response(f"Failed to list tables: {str(e)}")
+        return ErrorResponse(error=f"Failed to list tables: {str(e)}")
 
 
 def athena_table_schema(
@@ -120,7 +169,7 @@ def athena_table_schema(
     table_name: str,
     data_catalog_name: str = "AwsDataCatalog",
     service: Optional[Any] = None,
-) -> Dict[str, Any]:
+) -> AthenaTableSchemaResponse:
     """Get detailed schema information for a specific table - Athena querying and Glue catalog inspection workflows
 
     Args:
@@ -149,16 +198,37 @@ def athena_table_schema(
     try:
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
-        return service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
+        result = service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
+
+        # Convert to Pydantic model
+        if result.get("success"):
+            columns = [ColumnInfo(**col) for col in result["columns"]]
+            partitions = [PartitionInfo(**part) for part in result["partitions"]]
+            return AthenaTableSchemaSuccess(
+                table_name=result["table_name"],
+                database_name=result["database_name"],
+                data_catalog_name=result["data_catalog_name"],
+                columns=columns,
+                partitions=partitions,
+                table_type=result.get("table_type", ""),
+                description=result.get("description", ""),
+                owner=result.get("owner", ""),
+                create_time=result.get("create_time"),
+                update_time=result.get("update_time"),
+                storage_descriptor=result.get("storage_descriptor", {}),
+                parameters=result.get("parameters", {}),
+            )
+        else:
+            return ErrorResponse(error=result.get("error", "Unknown error"))
     except Exception as e:
         logger.error(f"Failed to get table schema: {e}")
-        return format_error_response(f"Failed to get table schema: {str(e)}")
+        return ErrorResponse(error=f"Failed to get table schema: {str(e)}")
 
 
 def athena_workgroups_list(
     use_quilt_auth: bool = True,
     service: Optional[Any] = None,
-) -> Dict[str, Any]:
+) -> AthenaWorkgroupsListResponse:
     """List available Athena workgroups that the user can access - Athena querying and Glue catalog inspection workflows
 
     Args:
@@ -185,28 +255,23 @@ def athena_workgroups_list(
             service = AthenaQueryService(use_quilt_auth=use_quilt_auth)
 
         # Get workgroups using the service's consolidated method
-        workgroups = service.list_workgroups()
+        workgroups_list = service.list_workgroups()
 
         # Determine region for response metadata
         region = "us-east-1" if use_quilt_auth else os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
 
-        result = {
-            "success": True,
-            "workgroups": workgroups,
-            "region": region,
-            "count": len(workgroups),
-        }
+        # Convert to Pydantic models
+        workgroups = [WorkgroupInfo(**wg) for wg in workgroups_list]
 
-        # Enhance with table formatting for better readability
-        from ..formatting import enhance_result_with_table_format
-
-        result = enhance_result_with_table_format(result)
-
-        return result
+        return AthenaWorkgroupsListSuccess(
+            workgroups=workgroups,
+            region=region,
+            count=len(workgroups),
+        )
 
     except Exception as e:
         logger.error(f"Failed to list workgroups: {e}")
-        return format_error_response(f"Failed to list workgroups: {str(e)}")
+        return ErrorResponse(error=f"Failed to list workgroups: {str(e)}")
 
 
 def athena_query_execute(
@@ -344,7 +409,7 @@ def athena_query_history(
     end_time: Optional[str] = None,
     use_quilt_auth: bool = True,
     service: Optional[Any] = None,
-) -> Dict[str, Any]:
+) -> AthenaQueryHistoryResponse:
     """Retrieve query execution history from Athena - Athena querying and Glue catalog inspection workflows
 
     Args:
@@ -400,12 +465,16 @@ def athena_query_history(
         execution_ids = response.get("QueryExecutionIds", [])
 
         if not execution_ids:
-            return {
-                "success": True,
-                "query_history": [],
-                "count": 0,
-                "message": "No query executions found",
-            }
+            return AthenaQueryHistorySuccess(
+                query_history=[],
+                count=0,
+                filters={
+                    "status_filter": status_filter,
+                    "start_time": start_dt.isoformat(),
+                    "end_time": end_dt.isoformat(),
+                    "max_results": max_results,
+                },
+            )
 
         # Get detailed information for each execution
         batch_response = athena_client.batch_get_query_execution(QueryExecutionIds=execution_ids)
@@ -423,40 +492,39 @@ def athena_query_history(
                 if submission_time < start_dt or submission_time > end_dt:
                     continue
 
-            execution_data = {
-                "query_execution_id": exec_info.get("QueryExecutionId"),
-                "query": exec_info.get("Query", ""),
-                "status": status,
-                "submission_time": (submission_time.isoformat() if submission_time else None),
-                "completion_time": (
+            execution_data = QueryHistoryEntry(
+                query_execution_id=exec_info.get("QueryExecutionId", ""),
+                query=exec_info.get("Query", ""),
+                status=status,
+                submission_time=(submission_time.isoformat() if submission_time else None),
+                completion_time=(
                     exec_info.get("Status", {}).get("CompletionDateTime").isoformat()
                     if exec_info.get("Status", {}).get("CompletionDateTime")
                     else None
                 ),
-                "execution_time_ms": exec_info.get("Statistics", {}).get("TotalExecutionTimeInMillis"),
-                "data_scanned_bytes": exec_info.get("Statistics", {}).get("DataScannedInBytes"),
-                "result_location": exec_info.get("ResultConfiguration", {}).get("OutputLocation"),
-                "work_group": exec_info.get("WorkGroup"),
-                "database": exec_info.get("QueryExecutionContext", {}).get("Database"),
-                "error_message": exec_info.get("Status", {}).get("StateChangeReason"),
-            }
+                execution_time_ms=exec_info.get("Statistics", {}).get("TotalExecutionTimeInMillis"),
+                data_scanned_bytes=exec_info.get("Statistics", {}).get("DataScannedInBytes"),
+                result_location=exec_info.get("ResultConfiguration", {}).get("OutputLocation"),
+                work_group=exec_info.get("WorkGroup"),
+                database=exec_info.get("QueryExecutionContext", {}).get("Database"),
+                error_message=exec_info.get("Status", {}).get("StateChangeReason"),
+            )
             executions.append(execution_data)
 
-        return {
-            "success": True,
-            "query_history": executions,
-            "count": len(executions),
-            "filters": {
+        return AthenaQueryHistorySuccess(
+            query_history=executions,
+            count=len(executions),
+            filters={
                 "status_filter": status_filter,
                 "start_time": start_dt.isoformat(),
                 "end_time": end_dt.isoformat(),
                 "max_results": max_results,
             },
-        }
+        )
 
     except Exception as e:
         logger.error(f"Failed to get query history: {e}")
-        return format_error_response(f"Failed to get query history: {str(e)}")
+        return ErrorResponse(error=f"Failed to get query history: {str(e)}")
 
 
 def athena_query_validate(query: str) -> Dict[str, Any]:

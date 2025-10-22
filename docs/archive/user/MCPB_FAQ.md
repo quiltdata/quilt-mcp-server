@@ -155,7 +155,7 @@ make release-local
 - run: make mcpb-validate
 ```
 
-See our updated [GitHub Actions workflows](.github/workflows/) for examples.
+See our updated [GitHub Actions workflows](../../.github/workflows/) for examples.
 
 ### Migration Issues
 
@@ -242,7 +242,7 @@ uvx --version
 
 1. **Migration Guide**: [MIGRATION_DXT_TO_MCPB.md](MIGRATION_DXT_TO_MCPB.md)
 2. **GitHub Issues**: [Report bugs or ask questions](https://github.com/quiltdata/quilt-mcp-server/issues)
-3. **Documentation**: [Complete documentation](../docs/)
+3. **Documentation**: [Complete documentation](../README.md)
 4. **Troubleshooting**: [README troubleshooting section](../README.md#-troubleshooting)
 
 #### Q: How do I report MCPB-specific issues?

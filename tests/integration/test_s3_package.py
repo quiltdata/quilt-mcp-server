@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
 from quilt_mcp.constants import DEFAULT_BUCKET_NAME, DEFAULT_REGISTRY, KNOWN_TEST_PACKAGE
+from quilt_mcp.models import PackageCreateFromS3Params
 from quilt_mcp.tools.packages import (
     package_create_from_s3,
     _create_enhanced_package,
@@ -28,24 +29,28 @@ class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
     def test_invalid_package_name(self):
-        """Test that invalid package names are rejected."""
-        result = package_create_from_s3(
-            source_bucket=DEFAULT_BUCKET_NAME,
-            package_name="invalid-name",  # Missing namespace
-        )
+        """Test that invalid package names are rejected - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["success"] is False
-        assert "Invalid package name format" in result["error"]
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageCreateFromS3Params(
+                source_bucket=DEFAULT_BUCKET_NAME,
+                package_name="invalid-name",  # Missing namespace
+            )
+
+        # Verify the validation error is about the pattern mismatch
+        assert "String should match pattern" in str(exc_info.value)
 
     def test_missing_required_params(self):
         """Test that missing required parameters are handled."""
-        result = package_create_from_s3(
+        params = PackageCreateFromS3Params(
             source_bucket="",  # Empty bucket
             package_name=KNOWN_TEST_PACKAGE,
         )
+        result = package_create_from_s3(params)
 
-        assert result["success"] is False
-        assert "source_bucket is required" in result["error"]
+        assert result.success is False
+        assert "source_bucket is required" in result.error
 
     @patch("quilt_mcp.tools.packages.get_s3_client")
     @patch("quilt_mcp.tools.packages._validate_bucket_access")
@@ -78,18 +83,19 @@ class TestPackageCreateFromS3:
             "access_summary": {"can_write": True},
         }
 
-        result = package_create_from_s3(
+        params = PackageCreateFromS3Params(
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             target_registry=DEFAULT_REGISTRY,
         )
+        result = package_create_from_s3(params)
 
         # The function should fail because no objects were found in the source bucket
-        assert result["success"] is False
+        assert result.success is False
         # Check for the actual error message - could be about registry access or no objects
         assert (
-            "No objects found matching the specified criteria" in result["error"]
-            or "Cannot create package in target registry" in result["error"]
+            "No objects found matching the specified criteria" in result.error
+            or "Cannot create package in target registry" in result.error
         )
 
     def test_successful_package_creation(self):
@@ -106,40 +112,47 @@ class TestPackageCreateFromS3:
             "Example: export QUILT_DEFAULT_BUCKET=s3://quilt-ernest-staging"
         )
 
-        result = package_create_from_s3(
+        params = PackageCreateFromS3Params(
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             description="Integration test package",
             target_registry=DEFAULT_REGISTRY,
             dry_run=True,  # Use dry_run to avoid creating actual packages in tests
         )
+        result = package_create_from_s3(params)
+
+        # Convert Pydantic model to dict for easier access
+        result_dict = result.model_dump()
 
         # MUST FAIL with helpful error message if the bucket is not accessible
-        assert result.get("success") is True, (
-            f"Package creation failed. Error: {result.get('error', 'Unknown error')}. "
+        assert result_dict.get("success") is True, (
+            f"Package creation failed. Error: {result_dict.get('error', 'Unknown error')}. "
             f"Bucket: {DEFAULT_BUCKET_NAME}. "
             f"This means the bucket is not accessible in the test environment. "
             f"Check AWS credentials and bucket permissions. "
-            f"Full result: {result}"
+            f"Full result: {result_dict}"
         )
 
         # Verify the dry_run returned the expected preview structure
-        assert result.get("action") == "preview", (
-            f"Expected action='preview' for dry_run=True, got {result.get('action')}. Full result: {result}"
+        assert result_dict.get("action") == "preview", (
+            f"Expected action='preview' for dry_run=True, got {result_dict.get('action')}. Full result: {result_dict}"
         )
 
-        assert "package_name" in result, f"Missing 'package_name' in preview result. Full result: {result}"
+        assert "package_name" in result_dict, f"Missing 'package_name' in preview result. Full result: {result_dict}"
 
-        assert result["package_name"] == KNOWN_TEST_PACKAGE, (
-            f"Expected package_name='{KNOWN_TEST_PACKAGE}', got {result.get('package_name')}"
+        assert result_dict["package_name"] == KNOWN_TEST_PACKAGE, (
+            f"Expected package_name='{KNOWN_TEST_PACKAGE}', got {result_dict.get('package_name')}"
         )
 
-        # Verify structure preview is present
-        assert "structure_preview" in result, f"Missing 'structure_preview' in dry_run result. Full result: {result}"
+        # Verify structure preview is present (it's nested in confirmation)
+        assert "confirmation" in result_dict, f"Missing 'confirmation' in dry_run result. Full result: {result_dict}"
+        assert "structure_preview" in result_dict["confirmation"], (
+            f"Missing 'structure_preview' in confirmation. Full result: {result_dict}"
+        )
 
         # Verify registry was set correctly
-        assert result.get("registry") == DEFAULT_REGISTRY, (
-            f"Expected registry='{DEFAULT_REGISTRY}', got {result.get('registry')}"
+        assert result_dict.get("registry") == DEFAULT_REGISTRY, (
+            f"Expected registry='{DEFAULT_REGISTRY}', got {result_dict.get('registry')}"
         )
 
 
@@ -202,11 +215,12 @@ class TestValidation:
             mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
 
             # Call with invalid bucket - should fail before trying to create
-            result = package_create_from_s3(
+            params = PackageCreateFromS3Params(
                 source_bucket="nonexistent",
                 package_name="test/pkg",
                 dry_run=True,
             )
+            result = package_create_from_s3(params)
 
             # Either fails early OR succeeds with preview, but never calls create
             assert mock_create.call_count == 0, "dry_run=True called _create_enhanced_package"
@@ -357,14 +371,18 @@ class TestREADMEContentExtraction:
         test_metadata = {"description": "Test", "readme_content": "# README"}
 
         # Just verify the function accepts metadata without error
-        result = package_create_from_s3(
+        params = PackageCreateFromS3Params(
             source_bucket="nonexistent",
             package_name=KNOWN_TEST_PACKAGE,
             metadata=test_metadata,
         )
+        result = package_create_from_s3(params)
+
+        # Convert result to dict for easier checking
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
 
         # Should either fail gracefully or handle metadata
-        assert "error" in result or "success" in result
+        assert "error" in result_dict or "success" in result_dict
 
 
 class TestCreateEnhancedPackageMigration:

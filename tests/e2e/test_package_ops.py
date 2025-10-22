@@ -6,6 +6,7 @@ including the automatic README content extraction from metadata.
 
 from unittest.mock import Mock, patch, MagicMock
 import io
+import pytest
 
 from quilt_mcp.tools.packages import (
     package_create,
@@ -15,6 +16,7 @@ from quilt_mcp.tools.packages import (
     _normalize_registry,
     _build_selector_fn,
 )
+from quilt_mcp.models import PackageCreateParams, PackageUpdateParams, PackageDeleteParams
 
 
 class TestPackageCreate:
@@ -37,12 +39,13 @@ class TestPackageCreate:
             "tags": ["test", "example"],
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -59,7 +62,7 @@ class TestPackageCreate:
         assert processed_metadata == expected_metadata
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_readme_field_extraction_from_metadata(self, mock_create_revision):
@@ -78,12 +81,13 @@ class TestPackageCreate:
             "version": "1.0.0",
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -100,7 +104,7 @@ class TestPackageCreate:
         assert processed_metadata == expected_metadata
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_both_readme_fields_extraction(self, mock_create_revision):
@@ -120,12 +124,13 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -142,7 +147,7 @@ class TestPackageCreate:
         assert processed_metadata == expected_metadata
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_no_readme_content_in_metadata(self, mock_create_revision):
@@ -157,12 +162,13 @@ class TestPackageCreate:
         # Test metadata without README content
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with metadata as-is
         mock_create_revision.assert_called_once()
@@ -178,7 +184,7 @@ class TestPackageCreate:
         assert processed_metadata == test_metadata
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_readme_file_creation_failure_handling(self, mock_create_revision):
@@ -198,12 +204,13 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -220,7 +227,7 @@ class TestPackageCreate:
         assert processed_metadata == expected_metadata
 
         # Verify success (README failure handling is now internal to create_package_revision)
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_empty_metadata_handling(self, mock_create_revision):
@@ -232,12 +239,13 @@ class TestPackageCreate:
             "entries_added": 1,
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=None,  # No metadata
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with empty metadata
         mock_create_revision.assert_called_once()
@@ -253,7 +261,7 @@ class TestPackageCreate:
         assert processed_metadata == {}
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_metadata_without_readme_fields(self, mock_create_revision):
@@ -274,12 +282,13 @@ class TestPackageCreate:
             "custom_field": "custom_value",
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
+        result = package_create(params)
 
         # Verify create_package_revision was called with metadata unchanged
         mock_create_revision.assert_called_once()
@@ -295,7 +304,7 @@ class TestPackageCreate:
         assert processed_metadata == test_metadata
 
         # Verify success
-        assert result["status"] == "success"
+        assert result.success is True
 
 
 class TestCollectObjectsIntoPackage:
@@ -521,44 +530,56 @@ class TestPackageCreateErrorHandling:
     """Test error handling in package_create function."""
 
     def test_package_create_with_empty_s3_uris(self):
-        """Test package_create with empty S3 URIs list."""
-        result = package_create(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+        """Test package_create with empty S3 URIs list - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["error"] == "No S3 URIs provided"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageCreateParams(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+
+        # Verify the validation error is about list being too short
+        assert "List should have at least 1 item" in str(exc_info.value)
 
     def test_package_create_with_empty_package_name(self):
-        """Test package_create with empty package name."""
-        result = package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
+        """Test package_create with empty package name - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["error"] == "Package name is required"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageCreateParams(
+                package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+            )
+
+        # Verify the validation error is about the pattern mismatch
+        assert "String should match pattern" in str(exc_info.value)
 
     def test_package_create_with_invalid_json_metadata(self):
-        """Test package_create with invalid JSON string metadata."""
-        result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata='{"invalid": json syntax}',  # Invalid JSON
-            registry="s3://test-bucket",
-        )
+        """Test package_create with invalid JSON string metadata - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata format"
-        assert "json_error" in result
-        assert "examples" in result
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageCreateParams(
+                package_name="test/package",
+                s3_uris=["s3://bucket/file.txt"],
+                metadata='{"invalid": json syntax}',  # Invalid JSON - string not dict
+                registry="s3://test-bucket",
+            )
+
+        # Verify the validation error is about expecting a dict
+        assert "Input should be a valid dictionary" in str(exc_info.value)
 
     def test_package_create_with_non_dict_non_string_metadata(self):
-        """Test package_create with metadata that's not a dict or string."""
-        result = package_create(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata=123,  # Invalid type
-            registry="s3://test-bucket",
-        )
+        """Test package_create with metadata that's not a dict - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata type"
-        assert result["provided_type"] == "int"
-        assert "examples" in result
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageCreateParams(
+                package_name="test/package",
+                s3_uris=["s3://bucket/file.txt"],
+                metadata=123,  # Invalid type
+                registry="s3://test-bucket",
+            )
+
+        # Verify the validation error is about expecting a dict
+        assert "Input should be a valid dictionary" in str(exc_info.value)
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_package_create_with_service_error_response(self, mock_create_revision):
@@ -568,9 +589,10 @@ class TestPackageCreateErrorHandling:
             "details": "Some internal error",
         }
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
+        result = package_create(params)
 
         assert result["error"] == "Service failed to create package"
         assert result["package_name"] == "test/package"
@@ -581,9 +603,10 @@ class TestPackageCreateErrorHandling:
         """Test package_create when service raises exception."""
         mock_create_revision.side_effect = Exception("Network error")
 
-        result = package_create(
+        params = PackageCreateParams(
             package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
+        result = package_create(params)
 
         assert "Failed to create package: Network error" in result["error"]
         assert result["package_name"] == "test/package"
@@ -594,42 +617,56 @@ class TestPackageUpdate:
     """Test cases for the package_update function."""
 
     def test_package_update_with_empty_s3_uris(self):
-        """Test package_update with empty S3 URIs list."""
-        result = package_update(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+        """Test package_update with empty S3 URIs list - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["error"] == "No S3 URIs provided"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageUpdateParams(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
+
+        # Verify the validation error is about list being too short
+        assert "List should have at least 1 item" in str(exc_info.value)
 
     def test_package_update_with_empty_package_name(self):
-        """Test package_update with empty package name."""
-        result = package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
+        """Test package_update with empty package name - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["error"] == "package_name is required for package_update"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageUpdateParams(
+                package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+            )
+
+        # Verify the validation error is about the pattern mismatch
+        assert "String should match pattern" in str(exc_info.value)
 
     def test_package_update_with_invalid_json_metadata(self):
-        """Test package_update with invalid JSON string metadata."""
-        result = package_update(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata='{"invalid": json}',  # Invalid JSON
-            registry="s3://test-bucket",
-        )
+        """Test package_update with invalid JSON string metadata - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata format"
-        assert "json_error" in result
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageUpdateParams(
+                package_name="test/package",
+                s3_uris=["s3://bucket/file.txt"],
+                metadata='{"invalid": json}',  # Invalid JSON - string not dict
+                registry="s3://test-bucket",
+            )
+
+        # Verify the validation error is about expecting a dict
+        assert "Input should be a valid dictionary" in str(exc_info.value)
 
     def test_package_update_with_non_dict_metadata(self):
-        """Test package_update with metadata that's not a dict or string."""
-        result = package_update(
-            package_name="test/package",
-            s3_uris=["s3://bucket/file.txt"],
-            metadata=["invalid", "type"],  # Invalid type
-            registry="s3://test-bucket",
-        )
+        """Test package_update with metadata that's not a dict - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["success"] is False
-        assert result["error"] == "Invalid metadata type"
-        assert result["provided_type"] == "list"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageUpdateParams(
+                package_name="test/package",
+                s3_uris=["s3://bucket/file.txt"],
+                metadata=["invalid", "type"],  # Invalid type - list not dict
+                registry="s3://test-bucket",
+            )
+
+        # Verify the validation error is about expecting a dict
+        assert "Input should be a valid dictionary" in str(exc_info.value)
 
     @patch("quilt_mcp.tools.packages.QuiltService")
     @patch("quilt_mcp.utils.suppress_stdout")
@@ -639,9 +676,10 @@ class TestPackageUpdate:
         mock_service.browse_package.side_effect = Exception("Package not found")
         mock_quilt_service_class.return_value = mock_service
 
-        result = package_update(
+        params = PackageUpdateParams(
             package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
         )
+        result = package_update(params)
 
         assert "Failed to browse existing package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"
@@ -651,10 +689,14 @@ class TestPackageDelete:
     """Test cases for the package_delete function."""
 
     def test_package_delete_with_empty_package_name(self):
-        """Test package_delete with empty package name."""
-        result = package_delete(package_name="", registry="s3://test-bucket")
+        """Test package_delete with empty package name - validates at Pydantic level now."""
+        from pydantic import ValidationError
 
-        assert result["error"] == "package_name is required for package deletion"
+        with pytest.raises(ValidationError) as exc_info:
+            params = PackageDeleteParams(package_name="", registry="s3://test-bucket")
+
+        # Verify the validation error is about the pattern mismatch
+        assert "String should match pattern" in str(exc_info.value)
 
     @patch("quilt_mcp.tools.packages.quilt3.delete_package")
     @patch("quilt_mcp.utils.suppress_stdout")
@@ -662,7 +704,8 @@ class TestPackageDelete:
         """Test successful package deletion."""
         mock_delete.return_value = None  # Successful deletion
 
-        result = package_delete(package_name="test/package", registry="s3://test-bucket")
+        params = PackageDeleteParams(package_name="test/package", registry="s3://test-bucket")
+        result = package_delete(params)
 
         assert result["status"] == "success"
         assert result["action"] == "deleted"
@@ -676,7 +719,8 @@ class TestPackageDelete:
         """Test package deletion failure."""
         mock_delete.side_effect = Exception("Deletion failed")
 
-        result = package_delete(package_name="test/package", registry="s3://test-bucket")
+        params = PackageDeleteParams(package_name="test/package", registry="s3://test-bucket")
+        result = package_delete(params)
 
         assert "Failed to delete package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"

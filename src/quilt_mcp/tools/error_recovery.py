@@ -11,6 +11,7 @@ import functools
 import time
 
 from ..utils import format_error_response
+from ..models.responses import HealthCheckSuccess
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ def batch_operation_with_recovery(
     }
 
 
-def health_check_with_recovery() -> Dict[str, Any]:
+def health_check_with_recovery() -> HealthCheckSuccess:
     """
     Perform comprehensive health check with recovery recommendations.
 
@@ -332,14 +333,13 @@ def health_check_with_recovery() -> Dict[str, Any]:
                         _get_recovery_suggestions(result["operation"], Exception(primary_error))
                     )
 
-    return {
-        "success": True,
-        "overall_health": overall_health,
-        "health_results": health_results,
-        "recovery_recommendations": list(set(recovery_recommendations)),  # Remove duplicates
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "next_steps": _get_health_next_steps(overall_health, recovery_recommendations),
-    }
+    return HealthCheckSuccess(
+        overall_health=overall_health,
+        health_results=health_results,
+        recovery_recommendations=list(set(recovery_recommendations)),  # Remove duplicates
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        next_steps=_get_health_next_steps(overall_health, recovery_recommendations),
+    )
 
 
 def _check_auth_status() -> Dict[str, Any]:
@@ -510,7 +510,7 @@ def _safe_bucket_operation_internal(operation_func: Callable, bucket_name: str) 
     return safe_operation(f"bucket_operation_{bucket_name}", operation_func, fallback_value=fallback())
 
 
-def _safe_athena_operation_internal(operation_func: Callable, query: str = None) -> Dict[str, Any]:
+def _safe_athena_operation_internal(operation_func: Callable, query: str | None = None) -> Dict[str, Any]:
     """Safely execute an Athena operation with common fallbacks."""
 
     def fallback():

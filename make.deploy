@@ -86,7 +86,7 @@ python-publish:
 
 # MCPB Package Validation
 mcpb-validate: check-tools mcpb
-	@echo "🔍 Comprehensive MCPB package validation..."
+	@echo "===🔍 Comprehensive MCPB package validation..."
 	@echo "\n1. Validating with MCPB CLI..."
 	@mcpb info $(MCPB_PACKAGE)
 	@echo "\n2. Validating generated manifest.json..."
@@ -114,7 +114,7 @@ mcpb-validate: check-tools mcpb
 	@echo "\n6. Running prerequisites validation..."
 	@bash $(ASSETS_DIR)/check-mcpb.sh >/dev/null 2>&1 || { echo "❌ Prerequisites validation failed"; exit 1; }
 	@echo "✅ Prerequisites validation passed"
-	@echo "\n✅ Comprehensive MCPB package validation passed"
+	@echo "\n===✅ Comprehensive MCPB package validation passed"
 
 
 # Release Bundle Creation

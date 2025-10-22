@@ -246,7 +246,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         # Add size filters
         if filters.get("size_min") or filters.get("size_max"):
-            size_filter = {"range": {"size": {}}}
+            size_filter: dict[str, Any] = {"range": {"size": {}}}
             if filters.get("size_min"):
                 size_filter["range"]["size"]["gte"] = filters["size_min"]
             if filters.get("size_max"):
@@ -255,7 +255,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         # Add date filters
         if filters.get("created_after") or filters.get("created_before"):
-            date_filter = {"range": {"last_modified": {}}}
+            date_filter: dict[str, Any] = {"range": {"last_modified": {}}}
             if filters.get("created_after"):
                 date_filter["range"]["last_modified"]["gte"] = filters["created_after"]
             if filters.get("created_before"):

@@ -11,7 +11,8 @@ Copy and paste these prompts when working with Quilt MCP Server through Claude o
 ### Scenario 1: Create Package from Existing S3 Files
 
 **Prompt:**
-```
+
+```prompt
 I need to create a Quilt package from files that are already in S3.
 
 My files are at:
@@ -24,6 +25,7 @@ Use the "research" metadata template and organize the files automatically.
 ```
 
 **What the LLM will do:**
+
 - Call `package_create()` with your S3 URIs
 - Generate README and visualizations automatically
 - Return package details with catalog URL
@@ -33,7 +35,8 @@ Use the "research" metadata template and organize the files automatically.
 ### Scenario 2: Create Package from Entire S3 Prefix (Bulk Import)
 
 **Prompt:**
-```
+
+```prompt
 I have a lot of data files in S3 at s3://my-data-bucket/experiments/exp-2024-Q4/
 
 Please create a Quilt package named "team/q4-2024-experiment" from all files 
@@ -42,6 +45,7 @@ with visualizations.
 ```
 
 **What the LLM will do:**
+
 - Call `package_create_from_s3()` for bulk import
 - Discover all files in the prefix automatically
 - Organize by file type (data/, docs/, etc.)
@@ -52,7 +56,8 @@ with visualizations.
 ### Scenario 3: Create Package from Local Files (Two-Step)
 
 **Prompt:**
-```
+
+```prompt
 I have local CSV files that I need to package in Quilt:
 - experiment_data.csv (contains: sample_id, measurement_1, measurement_2)
 - sample_info.csv (contains: sample_id, condition, treatment)
@@ -65,6 +70,7 @@ Please:
 ```
 
 **What the LLM will do:**
+
 - Use `bucket_objects_put()` to upload your files
 - Use `package_create()` to create the package from S3 URIs
 - Apply ML template
@@ -75,7 +81,8 @@ Please:
 ### Scenario 4: Create Package with Custom Metadata
 
 **Prompt:**
-```
+
+```prompt
 Create a package named "analytics/monthly-report-oct-2024" from:
 - s3://reports-bucket/october/sales_data.parquet
 - s3://reports-bucket/october/customer_insights.json
@@ -90,6 +97,7 @@ Use the analytics template and include visualizations.
 ```
 
 **What the LLM will do:**
+
 - Create package with custom metadata merged into template
 - Generate visualizations
 - Include all metadata in package
@@ -101,7 +109,8 @@ Use the analytics template and include visualizations.
 ### Scenario 5: Generate Visualizations for Existing Package
 
 **Prompt:**
-```
+
+```prompt
 I have a package named "research/experiment-001" and I want to see 
 visualizations of its contents.
 
@@ -113,6 +122,7 @@ Please show me:
 ```
 
 **What the LLM will do:**
+
 - Browse the package to get structure
 - Generate visualizations showing:
   - Pie chart of file types
@@ -125,7 +135,8 @@ Please show me:
 ### Scenario 6: Create Package with Specific Visualization Style
 
 **Prompt:**
-```
+
+```prompt
 Create a package named "genomics/rnaseq-batch-12" from 
 s3://genomics-data/batch-12/
 
@@ -140,6 +151,7 @@ Include:
 ```
 
 **What the LLM will do:**
+
 - Create package with genomics template
 - Apply genomics color scheme to visualizations
 - Generate all requested visualization types
@@ -152,7 +164,8 @@ Include:
 ### Scenario 7: Dry Run / Preview Before Creating
 
 **Prompt:**
-```
+
+```prompt
 I want to preview what a package would look like before actually creating it.
 
 Please show me a preview of a package from s3://my-bucket/project-alpha/
@@ -166,6 +179,7 @@ Don't create it yet - just show me:
 ```
 
 **What the LLM will do:**
+
 - Call package creation with `dry_run=True`
 - Show preview of structure, README, visualizations
 - No actual package created
@@ -175,7 +189,8 @@ Don't create it yet - just show me:
 ### Scenario 8: Create Package with Exclude Patterns
 
 **Prompt:**
-```
+
+```prompt
 Create a package from s3://data-bucket/project-x/ but exclude:
 - Any files with "temp" or "test" in the name
 - All .log files
@@ -185,6 +200,7 @@ Name it "production/project-x-v1" and use standard template.
 ```
 
 **What the LLM will do:**
+
 - Use `package_create_from_s3()` with `exclude_patterns`
 - Filter out unwanted files
 - Create clean package with only production files
@@ -194,7 +210,8 @@ Name it "production/project-x-v1" and use standard template.
 ### Scenario 9: Update Existing Package with New Files
 
 **Prompt:**
-```
+
+```prompt
 I have an existing package "research/experiment-001" and I want to add new files:
 - s3://my-bucket/data/followup_results.csv
 - s3://my-bucket/docs/final_report.pdf
@@ -204,6 +221,7 @@ Keep all existing files and regenerate visualizations to include the new data.
 ```
 
 **What the LLM will do:**
+
 - Browse existing package to get current files
 - Combine with new files
 - Create new package revision
@@ -214,7 +232,8 @@ Keep all existing files and regenerate visualizations to include the new data.
 ### Scenario 10: Package with Multiple Data Types
 
 **Prompt:**
-```
+
+```prompt
 Create a comprehensive package named "multimodal/study-2024" from:
 
 CSV data:
@@ -238,6 +257,7 @@ Use research template and create visualizations showing:
 ```
 
 **What the LLM will do:**
+
 - Import all file types
 - Organize by type (data/, images/, docs/, notebooks/)
 - Generate comprehensive visualizations
@@ -250,7 +270,8 @@ Use research template and create visualizations showing:
 ### If Upload Fails
 
 **Prompt:**
-```
+
+```prompt
 I tried to create a package but got an error about permissions.
 
 Please:
@@ -262,7 +283,8 @@ Please:
 ### If Package Creation Is Slow
 
 **Prompt:**
-```
+
+```prompt
 I'm trying to package s3://big-data-bucket/large-dataset/ which has thousands of files.
 
 Can you:
@@ -275,7 +297,8 @@ Can you:
 ### If Visualizations Don't Look Right
 
 **Prompt:**
-```
+
+```prompt
 I created a package but the visualizations show wrong file counts.
 
 My package is "team/dataset-123". Please:
@@ -289,13 +312,15 @@ My package is "team/dataset-123". Please:
 ## 💡 Pro Tips for Best Results
 
 ### Tip 1: Be Specific About Structure
-```
+
+```example
 Good: "Organize files into data/, docs/, and notebooks/ folders"
 Better: "Auto-organize files by type using the standard folder structure"
 ```
 
 ### Tip 2: Specify Metadata Template
-```
+
+```example
 Available templates:
 - standard: General purpose packages
 - genomics: Genomics/biology data
@@ -305,13 +330,15 @@ Available templates:
 ```
 
 ### Tip 3: Use Dry Run First
-```
+
+```example
 "First show me a preview (dry run) of the package structure, then if it looks 
 good, create the actual package."
 ```
 
 ### Tip 4: Request Specific Visualizations
-```
+
+```example
 "Generate visualizations showing:
 - File type distribution (pie chart)
 - Folder structure (bar chart)
@@ -324,7 +351,8 @@ good, create the actual package."
 ## 📋 Complete Example: End-to-End Workflow
 
 **Comprehensive Prompt:**
-```
+
+```example
 I need to create a well-documented Quilt package for our Q4 2024 experiment.
 
 Source data:
@@ -357,7 +385,8 @@ Please walk me through each step and confirm before proceeding.
 ### Explore What's Possible
 
 **Prompt:**
-```
+
+```prompt
 I'm new to Quilt. Can you show me:
 1. What package creation tools are available?
 2. A simple example of creating a package
@@ -368,7 +397,8 @@ I'm new to Quilt. Can you show me:
 ### Understand Your Data
 
 **Prompt:**
-```
+
+```prompt
 I have data at s3://my-bucket/project-data/ but I'm not sure what's there.
 
 Can you:
@@ -384,10 +414,13 @@ Can you:
 
 ### Scenario 11: Query and Explore File Contents
 
-**IMPORTANT for LLMs**: When users ask to "query" or "understand" file contents, **execute actual tool calls** to inspect the data. Don't just provide code examples - use the available MCP tools to retrieve and analyze the data.
+**IMPORTANT for LLMs**:
+When users ask to "query" or "understand" file contents, **execute actual tool calls** to inspect the data.
+Don't just provide code examples - use the available MCP tools to retrieve and analyze the data.
 
 **Prompt:**
-```
+
+```prompt
 I have CSV files in s3://my-bucket/data/ and I want to understand their contents.
 
 Please:
@@ -398,6 +431,7 @@ Please:
 ```
 
 **What the LLM SHOULD do:**
+
 - ✅ Call `bucket_objects_list()` to find CSV files
 - ✅ Call `bucket_object_text()` to read file contents
 - ✅ Parse and summarize the data structure
@@ -405,6 +439,7 @@ Please:
 - ✅ If visualization is requested, call `create_data_visualization()` with the actual data
 
 **What the LLM SHOULD NOT do:**
+
 - ❌ Provide Python code examples without executing them
 - ❌ Suggest tools without using them
 - ❌ Give theoretical responses when actual data can be retrieved
@@ -414,7 +449,8 @@ Please:
 ### Scenario 12: Create Visualization from Query Results
 
 **Prompt:**
-```
+
+```prompt
 I have gene expression data in s3://genomics-bucket/data/expression.csv.
 
 Please:
@@ -424,9 +460,11 @@ Please:
 ```
 
 **What the LLM will do:**
+
 - Call `bucket_object_text()` to read the CSV
 - Parse the data to identify columns
 - Call `create_data_visualization()` with:
+
   ```python
   {
     "data": <parsed_csv_data>,
@@ -437,6 +475,7 @@ Please:
     "color_scheme": "genomics"
   }
   ```
+
 - Upload visualization files using `bucket_objects_put()`
 - Create package with `package_create()`
 
@@ -445,7 +484,8 @@ Please:
 ### Scenario 13: Analyze Multiple Data Files
 
 **Prompt:**
-```
+
+```prompt
 I have several CSV files in s3://analysis-bucket/results/:
 - experiment_1.csv
 - experiment_2.csv
@@ -459,6 +499,7 @@ Please:
 ```
 
 **What the LLM will do:**
+
 - Loop through files calling `bucket_object_text()` for each
 - Parse and compare schemas
 - Identify common columns
@@ -471,7 +512,8 @@ Please:
 ### Scenario 14: Interactive Data Exploration
 
 **Prompt:**
-```
+
+```prompt
 I found some data files in s3://nextflowtower/INV377_scRNAseq/ but I don't know what they contain.
 
 Can you:
@@ -483,6 +525,7 @@ Can you:
 ```
 
 **What the LLM will do:**
+
 - Call `bucket_objects_list()` with the prefix
 - Identify file types (CSV, JSON, H5AD, etc.)
 - For readable formats (CSV, JSON, TXT):
@@ -529,7 +572,8 @@ When encountering specialized formats that require specific libraries:
 If a prompt doesn't work as expected, try:
 
 **Debug Prompt:**
-```
+
+```prompt
 Something went wrong with my package creation. The error message was: [paste error]
 
 Can you:
@@ -539,7 +583,8 @@ Can you:
 ```
 
 **Clarification Prompt:**
-```
+
+```prompt
 I don't understand the response about [specific part].
 
 Can you explain:
@@ -553,11 +598,10 @@ Can you explain:
 ## 🚀 Ready to Start?
 
 Pick the scenario that matches your use case, copy the prompt, and customize it with your:
+
 - Bucket names
 - File paths
 - Package names
 - Metadata values
 
 The LLM will handle the rest! 🎉
-
-
