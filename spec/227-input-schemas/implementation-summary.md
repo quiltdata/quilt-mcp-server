@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Issue #227: Implementation Summary
 
 **Date:** 2025-01-06
@@ -19,6 +20,7 @@ Successfully implemented schema improvements for the top 3 most complex tools to
 **Rationale:** Avoid API proliferation (29 tools → 58 tools)
 
 **Alternatives Considered:**
+
 - ❌ Create `*_simple()` functions (e.g., `package_create_from_s3_simple()`)
   - **Pros:** Easier for LLMs initially, smaller schemas
   - **Cons:** Doubles maintenance, risk of divergence, user confusion
@@ -34,7 +36,8 @@ Successfully implemented schema improvements for the top 3 most complex tools to
 
 **Choice:** Four-tier importance hierarchy
 **Implementation:**
-```
+
+```terms
 REQUIRED    → Must provide (e.g., source_bucket, package_name)
 COMMON      → Frequently used (e.g., source_prefix, description)
 ADVANCED    → Fine-tuning (e.g., include_patterns, copy_mode)
@@ -42,11 +45,13 @@ INTERNAL    → Testing/automation flags (e.g., dry_run, force)
 ```
 
 **Rationale:**
+
 - Clear hierarchy guides LLMs to essential parameters first
 - `[ADVANCED]` and `[INTERNAL]` prefixes in descriptions signal importance
 - Reduces cognitive load without changing functionality
 
 **Alternatives Considered:**
+
 - ❌ Three-tier (Required/Optional/Internal) - Less granular
 - ❌ Five-tier - Too complex, diminishing returns
 
@@ -56,6 +61,7 @@ INTERNAL    → Testing/automation flags (e.g., dry_run, force)
 
 **Choice:** Accept both `dict` and Pydantic objects via union type
 **Implementation:**
+
 ```python
 items: list[BucketObjectsPutItem | dict[str, Any]]
 
@@ -66,11 +72,13 @@ def convert_dicts_to_items(cls, v):
 ```
 
 **Rationale:**
+
 - LLMs can use simple dicts without understanding nested structures
 - Internal validation ensures type safety
 - Backward compatible (existing Pydantic objects still work)
 
 **Alternatives Considered:**
+
 - ❌ Dicts only - Loses type safety for Python clients
 - ❌ Pydantic only - Remains complex for LLMs
 - ❌ Separate `*_simple` function - API proliferation
@@ -81,11 +89,13 @@ def convert_dicts_to_items(cls, v):
 
 **Choice:** Include 3 usage examples per complex tool
 **Format:**
+
 1. **Minimal** - Only required parameters
 2. **Common** - Required + commonly used optional
 3. **Full** - All parameters for reference
 
 **Rationale:**
+
 - Shows LLMs the most common usage patterns
 - Reduces trial-and-error
 - Examples embedded in JSON schema
@@ -98,12 +108,14 @@ def convert_dicts_to_items(cls, v):
 
 **Choice:** Maintain 100% backward compatibility
 **Implementation:**
+
 - No parameter removals
 - No signature changes
 - No default value changes (except adding new defaults)
 - All existing code continues working
 
 **Rationale:**
+
 - Low-risk rollout
 - No migration burden on users
 - Can iterate based on usage data
@@ -115,21 +127,25 @@ def convert_dicts_to_items(cls, v):
 ### ⚠️ Tradeoff 1: Schema Size vs. Clarity
 
 **Current State:**
+
 - Schema sizes remain similar (~2,500-3,000 chars for complex tools)
 - Added descriptions and examples may increase token usage slightly
 
 **What We Gained:**
+
 - Significantly reduced **cognitive complexity**
 - Clear parameter hierarchy
 - Helpful examples
 
 **May Want to Revisit:**
+
 - If token costs become prohibitive, consider:
   - Shortening descriptions (use terse [ADV]/[INT] instead of [ADVANCED]/[INTERNAL])
   - Moving examples to external documentation
   - Creating truly minimal variants via breaking changes
 
 **Breaking Change Option (Future):**
+
 ```python
 # Remove rarely-used internal flags entirely
 class PackageCreateFromS3Params(BaseModel):
@@ -148,17 +164,21 @@ class PackageCreateFromS3Params(BaseModel):
 ### ⚠️ Tradeoff 2: Optional Parameter Count
 
 **Current State:**
+
 - PackageCreateFromS3Params: 15 params (2 required, 13 optional)
 - DataVisualizationParams: 11 params (4 required, 7 optional)
 
 **What We Gained:**
+
 - Full flexibility for power users
 - Sensible defaults cover 90% of use cases
 
 **May Want to Revisit:**
+
 - If LLMs still struggle, consider:
   - **Hard limit:** Max 7 total parameters per tool (5 optional)
   - **Split tools by use case:**
+
     ```python
     package_create_from_s3_filtered()  # For pattern-based filtering
     package_create_from_s3_organized()  # For auto-organization
@@ -166,6 +186,7 @@ class PackageCreateFromS3Params(BaseModel):
     ```
 
 **Breaking Change Option (Future):**
+
 - Remove `metadata_template`, `copy_mode`, and internal flags
 - Move to separate configuration object or global settings
 
@@ -176,21 +197,25 @@ class PackageCreateFromS3Params(BaseModel):
 ### ⚠️ Tradeoff 3: Union Types for Nested Params
 
 **Current State:**
+
 - `BucketObjectsPutParams.items: list[BucketObjectsPutItem | dict]`
 - Runtime validation converts dicts to Pydantic objects
 
 **What We Gained:**
+
 - Simple dict usage for LLMs
 - Type safety for Python clients
 - Backward compatible
 
 **May Want to Revisit:**
+
 - If dict validation errors are confusing, consider:
   - Better error messages showing dict→object mapping
   - Stricter dict schema in JSON schema (currently very permissive)
   - Separate `bucket_objects_put_simple(files: dict[str, str])` for common case
 
 **Breaking Change Option (Future):**
+
 ```python
 # Option A: Dicts only (lose type safety)
 items: list[dict[str, Any]]
@@ -210,17 +235,21 @@ def bucket_objects_put(
 ### ⚠️ Tradeoff 4: Metadata Field Standardization
 
 **Current State:**
+
 - `json_schema_extra={"importance": "required|common|advanced|internal"}`
 - Custom metadata not part of MCP/FastMCP standard
 
 **What We Gained:**
+
 - Clear importance signals
 - Extensible for future metadata
 
 **May Want to Revisit:**
+
 - Check if FastMCP/MCP adds native parameter importance support
 - If standard emerges, migrate to that instead of custom metadata
 - Consider adding more metadata:
+
   ```python
   json_schema_extra={
       "importance": "advanced",
@@ -230,6 +259,7 @@ def bucket_objects_put(
   ```
 
 **No Breaking Change Needed:**
+
 - Can enhance metadata without changing schemas
 - Clients that don't understand metadata simply ignore it
 
@@ -322,22 +352,27 @@ def bucket_objects_put(
 ## Testing Verification
 
 ### Unit Tests
+
 ```bash
 uv run pytest tests/ -v
 ```
+
 - **Result:** 318/342 passed
 - **Failures:** 24 pre-existing (async health endpoint issues)
 - **Conclusion:** Schema changes do not break existing functionality
 
 ### Integration Tests
+
 ```bash
 uv run pytest tests/integration/ -v
 ```
+
 - **Result:** 102/131 passed
 - **Failures:** 29 AWS authentication issues (not schema-related)
 - **Conclusion:** Schema changes work correctly with real AWS services
 
 ### Manual Verification
+
 - ✅ Dict conversion works for BucketObjectsPutParams
 - ✅ Pydantic objects still work for BucketObjectsPutParams
 - ✅ Mixed usage (dicts + objects) works
@@ -383,12 +418,14 @@ This implementation successfully reduces cognitive complexity for LLMs without b
 
 The main tradeoff is **schema size vs. simplicity**. If usage data shows LLMs still struggle:
 
-**Option A: Continue Current Approach**
+#### Option A: Continue Current Approach
+
 - Apply pattern to remaining 7 complex tools
 - Add more examples and documentation
 - Keep full flexibility
 
-**Option B: Breaking Changes (v2.0)**
+#### Option B: Breaking Changes (v2.0)**
+
 - Remove rarely-used parameters
 - Split complex tools into focused variants
 - Hard limit on parameter counts
@@ -407,6 +444,7 @@ The main tradeoff is **schema size vs. simplicity**. If usage data shows LLMs st
 ---
 
 **Next Steps:**
+
 1. Push commits to remote
 2. Create PR for review
 3. Merge to main

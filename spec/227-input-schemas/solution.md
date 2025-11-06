@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Issue #227: Solution - Simplifying Input Schemas
 
 ## Executive Summary

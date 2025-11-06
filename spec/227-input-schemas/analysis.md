@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD013 -->
 # Issue #227: Input Schema Complexity Analysis
 
 ## Problem Statement
@@ -240,7 +241,7 @@ def package_create_advanced(params: PackageCreateParams) -> Response:
 
 ## Appendix: Full Complexity Table
 
-```
+```table
 Tool Parameter Complexity Analysis
 ================================================================================
 Name                                     Props    Req   Opt   Nested  Size
