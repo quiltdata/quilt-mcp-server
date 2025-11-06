@@ -74,11 +74,13 @@ class PackageCreateFromS3AdvancedParams(BaseModel):
 ### Risk Assessment
 
 **🔴 Breaking Changes:**
+
 - All existing `package_create_from_s3()` calls break
 - Migration required for all users
 - Documentation must be completely rewritten
 
 **🟢 Benefits:**
+
 - Each tool is trivially simple for LLMs
 - Clear separation of concerns
 - 90% of users need only the simple tool
@@ -86,6 +88,7 @@ class PackageCreateFromS3AdvancedParams(BaseModel):
 **Risk Level:** ⚠️ **CRITICAL** - Requires major version bump (v2.0)
 
 **Mitigation:**
+
 1. Deprecate old tool in v0.9.x with warnings
 2. Provide automatic migration script
 3. Support both old and new for 6 months
@@ -156,11 +159,13 @@ class PackageCreateFromS3Params(BaseModel):
 ### Risk Assessment
 
 **🟡 Medium Risk:**
+
 - Adds statefulness to currently stateless tools
 - Could cause surprising behavior if context not reset
 - Harder to debug ("why is this using the wrong registry?")
 
 **🟢 Benefits:**
+
 - Reduces parameters from 15 → 5-7 for repeat users
 - Better DX for power users
 - Progressive refinement of defaults
@@ -168,6 +173,7 @@ class PackageCreateFromS3Params(BaseModel):
 **Risk Level:** ⚠️ **MODERATE** - Requires careful state management
 
 **Mitigation:**
+
 1. Make context explicit and visible
 2. Add `reset_context()` command
 3. Log when context is applied
@@ -243,11 +249,13 @@ class PackageCreateFromS3Params(BaseModel):
 ### Risk Assessment
 
 **🟡 Medium Risk:**
+
 - Requires MCP/FastMCP support for dynamic schemas
 - Two schemas could diverge over time
 - Adds complexity to schema generation
 
 **🟢 Benefits:**
+
 - Best of both worlds: simple for LLMs, full for power users
 - No breaking changes to API
 - Can optimize each schema independently
@@ -255,6 +263,7 @@ class PackageCreateFromS3Params(BaseModel):
 **Risk Level:** ⚠️ **MODERATE** - Depends on MCP capabilities
 
 **Mitigation:**
+
 1. Auto-generate LLM schema from full schema
 2. Add CI tests to ensure schemas stay in sync
 3. Start with 3 tools as proof of concept
@@ -323,12 +332,14 @@ def parse_file_filter(text: str) -> FilterPatterns:
 ### Risk Assessment
 
 **🔴 High Risk:**
+
 - Adds LLM dependency to tool execution
 - Parsing could fail or be incorrect
 - Latency increase (extra LLM call)
 - Costs increase
 
 **🟢 Benefits:**
+
 - Dramatically simpler for LLMs to call
 - More intuitive for human users too
 - Can evolve parsing without changing API
@@ -336,6 +347,7 @@ def parse_file_filter(text: str) -> FilterPatterns:
 **Risk Level:** ⚠️ **HIGH** - Adds complexity and failure modes
 
 **Mitigation:**
+
 1. Keep structured parameters as fallback
 2. Cache common natural language patterns
 3. Use fast/cheap model for parsing
@@ -429,11 +441,13 @@ class PackageCreateParams(BaseModel):
 ### Risk Assessment
 
 **🟡 Medium Risk:**
+
 - Requires LLMs to understand workflows
 - More tool calls = more latency
 - Could be confusing for simple use cases
 
 **🟢 Benefits:**
+
 - Each tool is dead simple (≤3 params)
 - Extremely flexible compositions
 - Can skip unnecessary steps
@@ -442,6 +456,7 @@ class PackageCreateParams(BaseModel):
 **Risk Level:** ⚠️ **MODERATE** - Requires LLM to orchestrate
 
 **Mitigation:**
+
 1. Keep high-level convenience tools for common cases
 2. Provide workflow templates
 3. Add `package_create_from_s3_quick()` that internally does composition
@@ -521,12 +536,14 @@ def expand_abbreviations(cls, v, info):
 ### Risk Assessment
 
 **🔴 High Risk:**
+
 - Cryptic parameter names hurt readability
 - Could confuse human users
 - Two names for everything (complexity)
 - Not standard practice
 
 **🟢 Benefits:**
+
 - Schema size reduced by 30-40%
 - Token costs reduced
 - Faster LLM processing
@@ -636,11 +653,13 @@ package_create_from_s3(
 ### Risk Assessment
 
 **🟢 Low Risk:**
+
 - Backward compatible (presets are optional)
 - Easy to add/remove presets
 - Clear naming and documentation
 
 **🟢 Benefits:**
+
 - Reduces parameters from 15 → 3-4 for common cases
 - Encodes best practices
 - Domain-specific (ML, genomics, analytics)
@@ -678,12 +697,14 @@ This is low-risk, high-reward. Presets can be added incrementally based on usage
 ### Phase 1: v0.9.x (Low-Risk Wins) - Q1 2025
 
 **Priority 1: Parameter Presets (Action 7)**
+
 - ✅ Low risk, high reward
 - Add 5-7 common presets
 - Document in tool descriptions
 - Measure adoption rate
 
 **Priority 2: LLM-Optimized Schemas (Action 3)**
+
 - Requires MCP capability check
 - Start with top 3 complex tools
 - A/B test with vs without
@@ -692,12 +713,14 @@ This is low-risk, high-reward. Presets can be added incrementally based on usage
 ### Phase 2: v1.5.x (Moderate-Risk Exploration) - Q2 2025
 
 **Experiment: Context-Aware Params (Action 2)**
+
 - Beta feature flag
 - Opt-in for power users
 - Gather feedback on statefulness
 - Decide whether to promote or abandon
 
 **Experiment: Tool Composition (Action 5)**
+
 - Create proof-of-concept for 1 workflow
 - Test with LLM orchestration
 - Measure success rate and latency
@@ -708,18 +731,21 @@ This is low-risk, high-reward. Presets can be added incrementally based on usage
 **Only if v0.9.x data shows <70% LLM success rate:**
 
 **Option A: Hard Parameter Limits (Action 1)**
+
 - Split top 5 complex tools
 - Provide migration scripts
 - 6-month deprecation period
 - Clear upgrade path
 
 **Option B: Tool Composition (Action 5)**
+
 - Full commitment to composable design
 - Rewrite complex tools as workflows
 - Keep high-level convenience wrappers
 - Document all composition patterns
 
 **Do NOT implement:**
+
 - ❌ Action 4 (Natural Language) - Too complex, too risky
 - ❌ Action 6 (Abbreviations) - Poor DX, minimal gain
 
@@ -812,6 +838,7 @@ Before promoting an experimental action to stable:
 ### Top Recommendations
 
 **Implement Now (v0.9.x):**
+
 1. ✅ **Parameter Presets** (Action 7) - Low risk, high reward, easy win
 2. ✅ **LLM-Optimized Schemas** (Action 3) - If MCP supports it
 
