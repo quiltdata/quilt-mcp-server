@@ -986,8 +986,13 @@ class AthenaQueryHistoryParams(BaseModel):
 
 
 class DataVisualizationParams(BaseModel):
-    """Parameters for create_data_visualization tool."""
+    """Parameters for creating data visualizations from tabular data.
 
+    Basic usage requires data, plot_type, x_column, and y_column.
+    All other parameters have sensible defaults for quick visualization.
+    """
+
+    # === REQUIRED: Core Parameters ===
     data: Annotated[
         dict[str, list] | list[dict[str, str | int | float]] | str,
         Field(
@@ -998,12 +1003,14 @@ class DataVisualizationParams(BaseModel):
                 "gene,expression\nBRCA1,42.5\nTP53,38.1",
                 "s3://bucket/data.csv",
             ],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     plot_type: Annotated[
         Literal["boxplot", "scatter", "line", "bar"],
         Field(
             description="Visualization type to generate",
+            json_schema_extra={"importance": "required"},
         ),
     ]
     x_column: Annotated[
@@ -1011,6 +1018,7 @@ class DataVisualizationParams(BaseModel):
         Field(
             description="Column name for x-axis (category or numeric depending on plot type)",
             examples=["gene", "sample_id", "timestamp"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     y_column: Annotated[
@@ -1019,14 +1027,18 @@ class DataVisualizationParams(BaseModel):
             default=None,
             description="Column name for y-axis (required for all plot types)",
             examples=["expression", "value", "count"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
+
+    # === COMMON: Frequently Used Options ===
     group_column: Annotated[
         Optional[str],
         Field(
             default=None,
             description="Optional column for grouping/coloring (scatter/line/bar)",
             examples=["condition", "treatment", "category"],
+            json_schema_extra={"importance": "common"},
         ),
     ]
     title: Annotated[
@@ -1034,43 +1046,89 @@ class DataVisualizationParams(BaseModel):
         Field(
             default="",
             description="Chart title (auto-generated if empty)",
+            json_schema_extra={"importance": "common"},
         ),
     ]
+
+    # === ADVANCED: Fine-tuning Options ===
     xlabel: Annotated[
         str,
         Field(
             default="",
-            description="X-axis label (defaults to x_column name if empty)",
+            description="[ADVANCED] X-axis label (defaults to x_column name if empty)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     ylabel: Annotated[
         str,
         Field(
             default="",
-            description="Y-axis label (defaults to y_column name if empty)",
+            description="[ADVANCED] Y-axis label (defaults to y_column name if empty)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     color_scheme: Annotated[
         Literal["genomics", "ml", "research", "analytics", "default"],
         Field(
             default="genomics",
-            description="Color palette to use for the visualization",
+            description="[ADVANCED] Color palette to use for the visualization",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     template: Annotated[
         str,
         Field(
             default="research",
-            description="Metadata template label for quilt_summarize.json",
+            description="[ADVANCED] Metadata template label for quilt_summarize.json",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     output_format: Annotated[
         Literal["echarts"],
         Field(
             default="echarts",
-            description="Visualization engine (currently only 'echarts' is supported)",
+            description="[ADVANCED] Visualization engine (currently only 'echarts' is supported)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                # Minimal example (most common)
+                {
+                    "data": {"gene": ["BRCA1", "TP53"], "expression": [42.5, 38.1]},
+                    "plot_type": "boxplot",
+                    "x_column": "gene",
+                    "y_column": "expression",
+                },
+                # With grouping
+                {
+                    "data": "s3://bucket/experiment.csv",
+                    "plot_type": "scatter",
+                    "x_column": "time",
+                    "y_column": "measurement",
+                    "group_column": "condition",
+                    "title": "Experimental Results Over Time",
+                },
+                # Full customization
+                {
+                    "data": [
+                        {"gene": "BRCA1", "expression": 42.5, "condition": "control"},
+                        {"gene": "BRCA1", "expression": 45.2, "condition": "treated"},
+                    ],
+                    "plot_type": "bar",
+                    "x_column": "gene",
+                    "y_column": "expression",
+                    "group_column": "condition",
+                    "title": "Gene Expression Comparison",
+                    "xlabel": "Gene Name",
+                    "ylabel": "Expression Level",
+                    "color_scheme": "ml",
+                },
+            ]
+        }
+    }
 
 
 # ============================================================================
