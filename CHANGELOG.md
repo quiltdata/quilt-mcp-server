@@ -6,7 +6,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.3] - UNRELEASED
+## [0.8.4] - UNRELEASED
+
+### Changed
+
+- **Improved Input Schema Usability**: Reorganized Pydantic input schemas to reduce cognitive complexity for LLMs (#227)
+  - **Reordered parameters by importance**: Required → Common → Advanced → Internal
+  - **Added clear labels in descriptions**: `[ADVANCED]` and `[INTERNAL]` tags guide LLM usage
+  - **Included JSON schema examples**: Each complex tool now shows minimal, common, and full usage patterns
+  - **Accept dicts for nested params**: `BucketObjectsPutParams` now accepts simple dicts in addition to Pydantic models
+  - **No API proliferation**: Improved existing 29 tools instead of creating 58 duplicate `_simple` functions
+  - **Maintained backward compatibility**: All existing code continues to work unchanged
+
+### Benefits
+
+- **Reduced cognitive load**: LLMs can easily identify essential parameters vs optional ones
+- **Progressive disclosure**: Parameters grouped by importance (required/common/advanced/internal)
+- **Better guidance**: Field descriptions clearly indicate when parameters are needed
+- **Easier to call**: Complex tools now show examples of minimal usage patterns
+- **Maintainable**: Single implementation per tool, no duplicate functions to maintain
+
+### Documentation
+
+- Added comprehensive analysis in `spec/227-input-schemas/analysis.md`
+  - Analyzed all 29 tool parameter models for complexity
+  - Identified root cause: excessive optional parameters (8-13 per tool)
+  - Only 1 of 29 tools has actual nested types
+- Added detailed solution plan in `spec/227-input-schemas/solution.md`
+  - Comparison of approaches (improved schemas vs duplicate functions)
+  - Implementation checklist with concrete examples
+  - Expected results and success metrics
+
+## [0.8.3] - 2024-10-22
 
 ### Added
 
