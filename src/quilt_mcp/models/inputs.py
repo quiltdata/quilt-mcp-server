@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, Field, conint, constr
+from pydantic import BaseModel, Field, conint, constr, field_validator
 
 
 # ============================================================================
@@ -492,13 +492,19 @@ class PackageDiffParams(BaseModel):
 
 
 class PackageCreateFromS3Params(BaseModel):
-    """Parameters for package_create_from_s3 tool."""
+    """Parameters for creating a Quilt package from S3 bucket contents.
 
+    Basic usage requires only source_bucket and package_name.
+    All other parameters have sensible defaults.
+    """
+
+    # === REQUIRED: Core Parameters ===
     source_bucket: Annotated[
         str,
         Field(
             description="S3 bucket name containing source data (without s3:// prefix)",
             examples=["my-data-bucket", "research-data"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     package_name: Annotated[
@@ -507,102 +513,147 @@ class PackageCreateFromS3Params(BaseModel):
             description="Name for the new package in namespace/name format",
             examples=["username/dataset", "team/research-data"],
             pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+            json_schema_extra={"importance": "required"},
         ),
     ]
+
+    # === COMMON: Frequently Used Options ===
     source_prefix: Annotated[
         str,
         Field(
             default="",
-            description="Optional prefix to filter source objects",
+            description="Optional prefix to filter source objects (e.g., 'data/' to include only data folder)",
             examples=["", "data/2024/", "experiments/"],
-        ),
-    ]
-    target_registry: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Target Quilt registry (auto-suggested if not provided)",
+            json_schema_extra={"importance": "common"},
         ),
     ]
     description: Annotated[
         str,
         Field(
             default="",
-            description="Package description",
+            description="Human-readable description of the package contents",
+            json_schema_extra={"importance": "common"},
+        ),
+    ]
+
+    # === ADVANCED: Fine-tuning Options ===
+    target_registry: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="[ADVANCED] Target Quilt registry (auto-suggested if not provided)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     include_patterns: Annotated[
         Optional[list[str]],
         Field(
             default=None,
-            description="File patterns to include (glob style)",
+            description="[ADVANCED] File patterns to include (glob style, e.g., ['*.csv', '*.json'])",
             examples=[["*.csv", "*.json"], ["data/*.parquet"]],
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     exclude_patterns: Annotated[
         Optional[list[str]],
         Field(
             default=None,
-            description="File patterns to exclude (glob style)",
+            description="[ADVANCED] File patterns to exclude (glob style, e.g., ['*.tmp', '*.log'])",
             examples=[["*.tmp", "*.log"], ["temp/*"]],
-        ),
-    ]
-    auto_organize: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Enable smart folder organization",
-        ),
-    ]
-    generate_readme: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Generate comprehensive README.md",
-        ),
-    ]
-    confirm_structure: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Require user confirmation of structure",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     metadata_template: Annotated[
         Literal["standard", "ml", "analytics"],
         Field(
             default="standard",
-            description="Metadata template to use",
-        ),
-    ]
-    dry_run: Annotated[
-        bool,
-        Field(
-            default=False,
-            description="Preview structure without creating package",
-        ),
-    ]
-    metadata: Annotated[
-        Optional[dict[str, Any]],
-        Field(
-            default=None,
-            description="Additional user-provided metadata",
+            description="[ADVANCED] Metadata template to use for package organization",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     copy_mode: Annotated[
         Literal["all", "same_bucket", "none"],
         Field(
             default="all",
-            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            description="[ADVANCED] Copy policy: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            json_schema_extra={"importance": "advanced"},
+        ),
+    ]
+
+    # === INTERNAL: Developer/Testing Flags ===
+    auto_organize: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Enable smart folder organization (keep True for best results)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    generate_readme: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Generate comprehensive README.md (keep True for best results)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    confirm_structure: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Require user confirmation of structure (set False for automation)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    dry_run: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="[INTERNAL] Preview structure without creating package (for testing)",
+            json_schema_extra={"importance": "internal"},
         ),
     ]
     force: Annotated[
         bool,
         Field(
             default=False,
-            description="Skip confirmation prompts when True—useful for automated ingestion",
+            description="[INTERNAL] Skip confirmation prompts (useful for automated ingestion)",
+            json_schema_extra={"importance": "internal"},
         ),
     ]
+    metadata: Annotated[
+        Optional[dict[str, Any]],
+        Field(
+            default=None,
+            description="[INTERNAL] Additional user-provided metadata (rarely needed)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                # Minimal example (most common)
+                {
+                    "source_bucket": "my-data-bucket",
+                    "package_name": "team/dataset",
+                },
+                # With description
+                {
+                    "source_bucket": "research-data",
+                    "package_name": "team/experiment-results",
+                    "description": "Results from Q1 2024 experiments",
+                },
+                # With filtering
+                {
+                    "source_bucket": "my-data-bucket",
+                    "package_name": "team/csv-data",
+                    "source_prefix": "data/",
+                    "include_patterns": ["*.csv"],
+                },
+            ]
+        }
+    }
 
 
 # ============================================================================
