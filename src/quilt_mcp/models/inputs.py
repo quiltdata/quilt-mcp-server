@@ -206,7 +206,15 @@ class BucketObjectsPutItem(BaseModel):
 
 
 class BucketObjectsPutParams(BaseModel):
-    """Parameters for bucket_objects_put tool."""
+    """Parameters for uploading multiple objects to S3.
+
+    You can provide items as either:
+    1. A list of dicts with keys: key, text/data, content_type, encoding, metadata
+    2. A list of BucketObjectsPutItem objects
+
+    For simple use cases, use dicts:
+    items=[{"key": "file.txt", "text": "content"}]
+    """
 
     bucket: Annotated[
         str,
@@ -216,12 +224,38 @@ class BucketObjectsPutParams(BaseModel):
         ),
     ]
     items: Annotated[
-        list[BucketObjectsPutItem],
+        list[BucketObjectsPutItem | dict[str, Any]],
         Field(
-            description="List of objects to upload, each with key and content",
+            description="List of objects to upload. Each can be a dict with keys: key (required), text OR data (required), content_type, encoding, metadata",
             min_length=1,
+            examples=[
+                # Dict example (simpler for LLMs)
+                [{"key": "hello.txt", "text": "Hello World"}],
+                # Full example
+                [
+                    {
+                        "key": "data.csv",
+                        "text": "col1,col2\n1,2",
+                        "content_type": "text/csv",
+                    }
+                ],
+            ],
         ),
     ]
+
+    @field_validator("items", mode="before")
+    @classmethod
+    def convert_dicts_to_items(cls, v: Any) -> list[BucketObjectsPutItem]:
+        """Convert dict items to BucketObjectsPutItem objects."""
+        if not isinstance(v, list):
+            return v
+        result = []
+        for item in v:
+            if isinstance(item, dict):
+                result.append(BucketObjectsPutItem(**item))
+            else:
+                result.append(item)
+        return result
 
 
 # ============================================================================
