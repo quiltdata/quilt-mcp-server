@@ -21,23 +21,28 @@ After adding Pydantic types (PR #225), some tools became HARDER to call due to d
 ### Key Findings
 
 #### 1. **Too Many Optional Parameters**
-   - `PackageCreateFromS3Params`: 15 parameters (only 2 required, 13 optional)
-   - `DataVisualizationParams`: 11 parameters (only 3 required, 8 optional)
-   - This creates cognitive overload for LLMs trying to understand what's truly needed
+
+- `PackageCreateFromS3Params`: 15 parameters (only 2 required, 13 optional)
+- `DataVisualizationParams`: 11 parameters (only 3 required, 8 optional)
+- This creates cognitive overload for LLMs trying to understand what's truly needed
 
 #### 2. **Nested Type Definitions**
-   - `BucketObjectsPutParams` has nested `BucketObjectsPutItem` with 6 additional properties
-   - While only 1 level deep, the nesting inflates the schema significantly (1,737 chars for just 2 top-level params)
+
+- `BucketObjectsPutParams` has nested `BucketObjectsPutItem` with 6 additional properties
+- While only 1 level deep, the nesting inflates the schema significantly (1,737 chars for just 2 top-level params)
 
 #### 3. **Schema Size Impact**
-   - Top tools have schemas of 2,000-3,000 characters
-   - This is token-expensive for the LLM to process
-   - More importantly, it's cognitively expensive to understand
+
+- Top tools have schemas of 2,000-3,000 characters
+- This is token-expensive for the LLM to process
+- More importantly, it's cognitively expensive to understand
 
 ## Root Causes
 
 ### 1. Feature Creep in Single Tools
+
 Tools like `package_create_from_s3` try to do too much:
+
 - Source bucket specification
 - Package naming and metadata
 - File filtering (include/exclude patterns)
@@ -47,7 +52,9 @@ Tools like `package_create_from_s3` try to do too much:
 - Copy mode configuration
 
 ### 2. Nested Object Definitions
+
 `BucketObjectsPutParams.items` requires a list of `BucketObjectsPutItem` objects, each with:
+
 - key
 - text OR data (mutually exclusive)
 - content_type
@@ -57,6 +64,7 @@ Tools like `package_create_from_s3` try to do too much:
 This nested structure is hard for LLMs to construct correctly.
 
 ### 3. Overly Permissive Type Unions
+
 Many fields use `Optional[X]` or `str | None` with complex default logic, making it unclear when fields are needed.
 
 ## Proposed Solutions
@@ -66,6 +74,7 @@ Many fields use `Optional[X]` or `str | None` with complex default logic, making
 **Problem Tool:** `package_create_from_s3` (15 parameters)
 
 **Solution:** Create focused variants:
+
 ```python
 # Simple version - just the essentials
 def package_create_from_s3_simple(
@@ -85,6 +94,7 @@ def package_create_from_s3_advanced(
 ```
 
 **Benefits:**
+
 - LLMs can easily call the simple version
 - Advanced users still have full control
 - Schema for simple version is <500 chars
@@ -94,6 +104,7 @@ def package_create_from_s3_advanced(
 **Problem Tool:** `BucketObjectsPutParams` (nested items)
 
 **Current approach:**
+
 ```python
 params = BucketObjectsPutParams(
     bucket="my-bucket",
@@ -105,6 +116,7 @@ params = BucketObjectsPutParams(
 ```
 
 **Simplified approach:**
+
 ```python
 # Option A: Accept dict instead of nested Pydantic model
 def bucket_objects_put(
@@ -151,11 +163,13 @@ class PackageCreateParams(BaseModel):
 ### Strategy 4: Use Progressive Disclosure
 
 Organize tools into tiers:
+
 1. **Tier 1: Simple/Common** - Exposed by default, <5 parameters, no nesting
 2. **Tier 2: Advanced** - For power users, can have complex schemas
 3. **Tier 3: Expert** - Internal/testing tools
 
 Mark advanced tools clearly in their descriptions:
+
 ```python
 def package_create_advanced(params: PackageCreateParams) -> Response:
     """[ADVANCED] Create a package with full control over all options.
@@ -167,6 +181,7 @@ def package_create_advanced(params: PackageCreateParams) -> Response:
 ## Recommended Implementation Plan
 
 ### Phase 1: Create Simple Variants (Low Risk)
+
 1. Add `*_simple()` versions of top 3 most complex tools:
    - `package_create_from_s3_simple()`
    - `data_visualization_create_simple()`
@@ -177,11 +192,13 @@ def package_create_advanced(params: PackageCreateParams) -> Response:
 3. Update tool descriptions to guide LLMs toward simple variants
 
 ### Phase 2: Flatten Nested Structures (Medium Risk)
+
 1. Accept `list[dict]` in addition to `list[PydanticModel]` for nested params
 2. Use runtime validation to convert dicts to models internally
 3. Update schemas to show flattened structure
 
 ### Phase 3: Deprecate Complex Signatures (High Risk)
+
 1. Mark overly complex tools as `[ADVANCED]`
 2. Create migration guide for users
 3. Eventually remove or hide from default tool list
@@ -197,15 +214,19 @@ def package_create_advanced(params: PackageCreateParams) -> Response:
 ## Risks and Mitigation
 
 ### Risk 1: API Proliferation
+
 **Mitigation:** Only create simple variants for the most complex tools (top 3-5)
 
 ### Risk 2: Maintenance Burden
+
 **Mitigation:** Simple variants call the same underlying implementation, just with different defaults
 
 ### Risk 3: User Confusion
+
 **Mitigation:** Clear naming (`_simple` vs `_advanced`) and comprehensive documentation
 
 ### Risk 4: Breaking Changes
+
 **Mitigation:** Phase 1 adds new tools without changing existing ones
 
 ## Next Steps

@@ -28,6 +28,7 @@ The solution is to **reorganize parameter ordering** and **improve descriptions*
 #### 1.1 Reorder Parameters by Importance
 
 **Before:**
+
 ```python
 class PackageCreateFromS3Params(BaseModel):
     source_bucket: str
@@ -48,6 +49,7 @@ class PackageCreateFromS3Params(BaseModel):
 ```
 
 **After:**
+
 ```python
 class PackageCreateFromS3Params(BaseModel):
     """Parameters for creating a Quilt package from S3 bucket contents.
@@ -214,7 +216,8 @@ class PackageCreateFromS3Params(BaseModel):
     }
 ```
 
-#### Benefits of This Approach:
+#### Benefits of This Approach
+
 1. **No new functions** - Keeps API surface small
 2. **Clear hierarchy** - LLMs see which params are essential
 3. **Better descriptions** - `[ADVANCED]` and `[INTERNAL]` tags guide usage
@@ -280,6 +283,7 @@ class BucketObjectsPutParams(BaseModel):
 ```
 
 This approach:
+
 - Accepts both dicts and Pydantic models
 - LLMs can use simple dicts without understanding nested structures
 - Schema remains clean and flat
@@ -317,10 +321,12 @@ model_config = {
 ### ❌ Creating _simple Functions (Original Idea)
 
 **Pros:**
+
 - Easier for LLMs to understand at first glance
 - Smaller schemas
 
 **Cons:**
+
 - **Doubles API surface** (29 tools → 58 tools)
 - **High maintenance burden** (every change needs 2 updates)
 - **User confusion** ("Which version do I use?")
@@ -330,6 +336,7 @@ model_config = {
 ### ✅ Improving Existing Schemas (Recommended)
 
 **Pros:**
+
 - **No API proliferation** (stays at 29 tools)
 - **Low maintenance** (single implementation)
 - **No breaking changes** (backward compatible)
@@ -337,48 +344,58 @@ model_config = {
 - **Better UX** (clear guidance in descriptions)
 
 **Cons:**
+
 - Requires some schema engineering
 - May need client support for `importance` metadata
 
 ## Implementation Checklist
 
 ### Step 1: Update Top 3 Complex Tools
+
 - [ ] PackageCreateFromS3Params (15 params → group into required/common/advanced/internal)
 - [ ] DataVisualizationParams (11 params → group by importance)
 - [ ] BucketObjectsPutParams (nested → accept dicts too)
 
 ### Step 2: Update Documentation
+
 - [ ] Add "Quick Start" section to each complex tool's docstring
 - [ ] Show minimal example first, advanced example second
 - [ ] Update CLAUDE.md with guidance on using complex tools
 
 ### Step 3: Add JSON Schema Examples
+
 - [ ] Add 2-3 examples per complex tool (minimal, common, full)
 - [ ] Include examples in `model_config["json_schema_extra"]["examples"]`
 
 ### Step 4: Test with Real LLM
+
 - [ ] Use Claude in inspector to call complex tools
 - [ ] Verify LLM uses only required params by default
 - [ ] Verify LLM can find advanced params when needed
 
 ### Step 5: Document Pattern
+
 - [ ] Create SCHEMA_DESIGN_GUIDE.md for future tool development
 - [ ] Establish rules: max 5 required params, group by importance, use examples
 
 ## Expected Results
 
 ### Before (Current State)
+
 - PackageCreateFromS3Params: 15 params, no guidance, 2,921 char schema
 - LLM sees all 15 params as equal choices
 - High cognitive load → errors and confusion
 
 ### After (With Improvements)
+
 - PackageCreateFromS3Params: 15 params, clear hierarchy, ~3,000 char schema (similar size)
 - LLM sees 2 required, 2 common, rest marked [ADVANCED]/[INTERNAL]
 - Low cognitive load → correct calls on first try
 
 ### Schema Size Impact
+
 Schema size won't change much (may even increase slightly with better descriptions), but **cognitive complexity drops dramatically** through:
+
 1. Clear parameter hierarchy
 2. Descriptive labels ([ADVANCED], [INTERNAL])
 3. Helpful examples in schema
