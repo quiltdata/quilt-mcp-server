@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.4] - UNRELEASED
+## [0.8.4] - 2025-01-06
 
 ### Changed
 
@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Accept dicts for nested params**: `BucketObjectsPutParams` now accepts simple dicts in addition to Pydantic models
   - **No API proliferation**: Improved existing 29 tools instead of creating 58 duplicate `_simple` functions
   - **Maintained backward compatibility**: All existing code continues to work unchanged
+
+### Implemented
+
+- `PackageCreateFromS3Params`: 15 parameters reorganized into 4 importance groups with examples
+  - 2 required (source_bucket, package_name)
+  - 2 common (source_prefix, description)
+  - 5 advanced (target_registry, patterns, templates, copy_mode)
+  - 6 internal (flags for testing/automation)
+- `DataVisualizationParams`: 11 parameters reorganized into 3 importance groups with examples
+  - 4 required (data, plot_type, x_column, y_column)
+  - 2 common (group_column, title)
+  - 5 advanced (labels, color_scheme, template, output_format)
+- `BucketObjectsPutParams`: Added field validator to accept both dicts and Pydantic objects
+  - Simple usage: `items=[{"key": "file.txt", "text": "content"}]`
+  - Full usage: `items=[BucketObjectsPutItem(...)]`
+  - Mixed usage supported
 
 ### Benefits
 
