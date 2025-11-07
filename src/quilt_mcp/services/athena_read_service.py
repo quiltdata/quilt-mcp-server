@@ -10,23 +10,19 @@ from __future__ import annotations
 import os
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Annotated, Literal
+from pydantic import Field
 from ..services.athena_service import AthenaQueryService
 from ..utils import format_error_response
 from ..models import (
-    AthenaDatabasesListParams,
     AthenaDatabasesListResponse,
     AthenaDatabasesListSuccess,
-    AthenaTablesListParams,
     AthenaTablesListResponse,
     AthenaTablesListSuccess,
-    AthenaTableSchemaParams,
     AthenaTableSchemaResponse,
     AthenaTableSchemaSuccess,
-    AthenaWorkgroupsListParams,
     AthenaWorkgroupsListResponse,
     AthenaWorkgroupsListSuccess,
-    AthenaQueryHistoryParams,
     AthenaQueryHistoryResponse,
     AthenaQueryHistorySuccess,
     DatabaseInfo,
@@ -68,8 +64,21 @@ def _suggest_query_fix(query: str, error_message: str) -> str:
 
 
 def athena_databases_list(
-    data_catalog_name: str = "AwsDataCatalog",
-    service: Optional[Any] = None,
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog to query",
+            examples=["AwsDataCatalog"],
+        ),
+    ] = "AwsDataCatalog",
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> AthenaDatabasesListResponse:
     """List available databases in AWS Glue Data Catalog - Athena querying and Glue catalog inspection workflows
 
@@ -112,10 +121,36 @@ def athena_databases_list(
 
 
 def athena_tables_list(
-    database_name: str,
-    data_catalog_name: str = "AwsDataCatalog",
-    table_pattern: Optional[str] = None,
-    service: Optional[Any] = None,
+    database_name: Annotated[
+        str,
+        Field(
+            description="Name of the database to list tables from",
+            examples=["my_database", "analytics_db"],
+        ),
+    ],
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog",
+            examples=["AwsDataCatalog"],
+        ),
+    ] = "AwsDataCatalog",
+    table_pattern: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional pattern to filter table names (SQL LIKE pattern)",
+            examples=["user_%", "fact_*"],
+        ),
+    ] = None,
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> AthenaTablesListResponse:
     """List tables in a specific database - Athena querying and Glue catalog inspection workflows
 
@@ -165,10 +200,35 @@ def athena_tables_list(
 
 
 def athena_table_schema(
-    database_name: str,
-    table_name: str,
-    data_catalog_name: str = "AwsDataCatalog",
-    service: Optional[Any] = None,
+    database_name: Annotated[
+        str,
+        Field(
+            description="Name of the database containing the table",
+            examples=["my_database"],
+        ),
+    ],
+    table_name: Annotated[
+        str,
+        Field(
+            description="Name of the table to get schema for",
+            examples=["user_events", "sales_data"],
+        ),
+    ],
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Name of the data catalog",
+            examples=["AwsDataCatalog"],
+        ),
+    ] = "AwsDataCatalog",
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> AthenaTableSchemaResponse:
     """Get detailed schema information for a specific table - Athena querying and Glue catalog inspection workflows
 
@@ -226,8 +286,20 @@ def athena_table_schema(
 
 
 def athena_workgroups_list(
-    use_quilt_auth: bool = True,
-    service: Optional[Any] = None,
+    use_quilt_auth: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use quilt3 assumed role credentials if available",
+        ),
+    ] = True,
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> AthenaWorkgroupsListResponse:
     """List available Athena workgroups that the user can access - Athena querying and Glue catalog inspection workflows
 
@@ -275,14 +347,67 @@ def athena_workgroups_list(
 
 
 def athena_query_execute(
-    query: str,
-    database_name: Optional[str] = None,
-    workgroup_name: Optional[str] = None,
-    data_catalog_name: str = "AwsDataCatalog",
-    max_results: int = 1000,
-    output_format: str = "json",
-    use_quilt_auth: bool = True,
-    service: Optional[Any] = None,
+    query: Annotated[
+        str,
+        Field(
+            description="SQL query to execute (use double quotes for identifiers, not backticks)",
+            examples=[
+                'SELECT * FROM "my-table" LIMIT 10',
+                "SELECT COUNT(*) FROM dataset WHERE status = 'READY'",
+            ],
+        ),
+    ],
+    database_name: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Default database for query context (auto-discovered if not provided)",
+        ),
+    ] = None,
+    workgroup_name: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Athena workgroup to use (auto-discovered if not provided)",
+        ),
+    ] = None,
+    data_catalog_name: Annotated[
+        str,
+        Field(
+            default="AwsDataCatalog",
+            description="Data catalog to use",
+        ),
+    ] = "AwsDataCatalog",
+    max_results: Annotated[
+        int,
+        Field(
+            default=1000,
+            ge=1,
+            le=10000,
+            description="Maximum number of results to return (1-10000)",
+        ),
+    ] = 1000,
+    output_format: Annotated[
+        Literal["json", "csv", "parquet", "table"],
+        Field(
+            default="json",
+            description="Output format for results",
+        ),
+    ] = "json",
+    use_quilt_auth: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use Quilt assumed role credentials if available",
+        ),
+    ] = True,
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> Dict[str, Any]:
     """Execute SQL query against Athena using SQLAlchemy/PyAthena - Athena querying and Glue catalog inspection workflows
 
@@ -403,12 +528,53 @@ def athena_query_execute(
 
 
 def athena_query_history(
-    max_results: int = 50,
-    status_filter: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    use_quilt_auth: bool = True,
-    service: Optional[Any] = None,
+    max_results: Annotated[
+        int,
+        Field(
+            default=50,
+            ge=1,
+            le=500,
+            description="Maximum number of queries to return (1-500)",
+        ),
+    ] = 50,
+    status_filter: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Filter by query status (SUCCEEDED, FAILED, CANCELLED, RUNNING, QUEUED)",
+            examples=["SUCCEEDED", "FAILED"],
+        ),
+    ] = None,
+    start_time: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Start time for query range (ISO format)",
+            examples=["2024-01-01T00:00:00Z"],
+        ),
+    ] = None,
+    end_time: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="End time for query range (ISO format)",
+            examples=["2024-12-31T23:59:59Z"],
+        ),
+    ] = None,
+    use_quilt_auth: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use quilt3 assumed role credentials if available",
+        ),
+    ] = True,
+    service: Annotated[
+        Optional[Any],
+        Field(
+            default=None,
+            description="Optional pre-configured AthenaQueryService for dependency injection/testing",
+        ),
+    ] = None,
 ) -> AthenaQueryHistoryResponse:
     """Retrieve query execution history from Athena - Athena querying and Glue catalog inspection workflows
 
@@ -527,7 +693,15 @@ def athena_query_history(
         return ErrorResponse(error=f"Failed to get query history: {str(e)}")
 
 
-def athena_query_validate(query: str) -> Dict[str, Any]:
+def athena_query_validate(
+    query: Annotated[
+        str,
+        Field(
+            description="SQL query to validate (without executing)",
+            examples=['SELECT * FROM "my-table"'],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Validate SQL query syntax without executing it - Athena querying and Glue catalog inspection workflows
 
     Args:

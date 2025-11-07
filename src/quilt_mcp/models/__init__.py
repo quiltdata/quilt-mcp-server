@@ -1,14 +1,6 @@
 """Pydantic models for structured, type-safe MCP tool inputs and responses."""
 
 from .inputs import (
-    # Athena input models
-    AthenaDatabasesListParams,
-    AthenaQueryExecuteParams,
-    AthenaQueryHistoryParams,
-    AthenaQueryValidateParams,
-    AthenaTableSchemaParams,
-    AthenaTablesListParams,
-    AthenaWorkgroupsListParams,
     # Bucket input models
     BucketObjectFetchParams,
     BucketObjectInfoParams,
@@ -161,14 +153,6 @@ from .responses import (
 )
 
 __all__ = [
-    # Input models - Athena
-    "AthenaDatabasesListParams",
-    "AthenaQueryExecuteParams",
-    "AthenaQueryHistoryParams",
-    "AthenaQueryValidateParams",
-    "AthenaTableSchemaParams",
-    "AthenaTablesListParams",
-    "AthenaWorkgroupsListParams",
     # Input models - Bucket
     "BucketObjectFetchParams",
     "BucketObjectInfoParams",
