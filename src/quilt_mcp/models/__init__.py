@@ -14,7 +14,6 @@ from .inputs import (
     BucketObjectInfoParams,
     BucketObjectLinkParams,
     BucketObjectTextParams,
-    BucketObjectsPutItem,
     BucketObjectsPutParams,
     BucketObjectsListParams,
     # Catalog input models
@@ -175,7 +174,6 @@ __all__ = [
     "BucketObjectInfoParams",
     "BucketObjectLinkParams",
     "BucketObjectTextParams",
-    "BucketObjectsPutItem",
     "BucketObjectsPutParams",
     "BucketObjectsListParams",
     # Input models - Catalog

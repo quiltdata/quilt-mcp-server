@@ -157,63 +157,18 @@ class BucketObjectTextParams(BaseModel):
     ]
 
 
-class BucketObjectsPutItem(BaseModel):
-    """A single item to upload to S3."""
-
-    key: Annotated[
-        str,
-        Field(
-            description="S3 key (path) for the object",
-            examples=["data/results.csv", "reports/summary.txt"],
-        ),
-    ]
-    text: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Text content to upload (use this OR data, not both)",
-        ),
-    ]
-    data: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Base64-encoded binary content to upload (use this OR text, not both)",
-        ),
-    ]
-    content_type: Annotated[
-        str,
-        Field(
-            default="application/octet-stream",
-            description="MIME type of the content",
-            examples=["text/csv", "application/json", "image/png"],
-        ),
-    ]
-    encoding: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Text encoding (e.g., 'utf-8') when uploading text",
-        ),
-    ]
-    metadata: Annotated[
-        Optional[dict[str, str]],
-        Field(
-            default=None,
-            description="Custom metadata key-value pairs to attach to the object",
-        ),
-    ]
-
-
 class BucketObjectsPutParams(BaseModel):
     """Parameters for uploading multiple objects to S3.
 
-    You can provide items as either:
-    1. A list of dicts with keys: key, text/data, content_type, encoding, metadata
-    2. A list of BucketObjectsPutItem objects
+    Items are provided as a list of dicts with the following structure:
+    - key (required): S3 key (path) for the object
+    - text OR data (required): Text content or base64-encoded binary content (not both)
+    - content_type (optional): MIME type, defaults to "application/octet-stream"
+    - encoding (optional): Text encoding (e.g., 'utf-8') when uploading text
+    - metadata (optional): Custom metadata key-value pairs
 
-    For simple use cases, use dicts:
-    items=[{"key": "file.txt", "text": "content"}]
+    Simple example:
+    items=[{"key": "file.txt", "text": "Hello World"}]
     """
 
     bucket: Annotated[
@@ -224,14 +179,22 @@ class BucketObjectsPutParams(BaseModel):
         ),
     ]
     items: Annotated[
-        list[BucketObjectsPutItem],
+        list[dict[str, Any]],
         Field(
-            description="List of objects to upload. Each can be a dict with keys: key (required), text OR data (required), content_type, encoding, metadata",
+            description=(
+                "List of objects to upload. Each item is a dict with:\n"
+                "- key (str, required): S3 key (path) for the object\n"
+                "- text (str, optional): Text content to upload (use this OR data, not both)\n"
+                "- data (str, optional): Base64-encoded binary content (use this OR text, not both)\n"
+                "- content_type (str, optional): MIME type, defaults to 'application/octet-stream'\n"
+                "- encoding (str, optional): Text encoding (e.g., 'utf-8') when uploading text\n"
+                "- metadata (dict[str, str], optional): Custom metadata key-value pairs"
+            ),
             min_length=1,
             examples=[
-                # Dict example (simpler for LLMs)
+                # Minimal example
                 [{"key": "hello.txt", "text": "Hello World"}],
-                # Full example
+                # With content type
                 [
                     {
                         "key": "data.csv",
@@ -239,25 +202,70 @@ class BucketObjectsPutParams(BaseModel):
                         "content_type": "text/csv",
                     }
                 ],
+                # Binary data
+                [
+                    {
+                        "key": "image.png",
+                        "data": "iVBORw0KGgo...",
+                        "content_type": "image/png",
+                    }
+                ],
+                # With metadata
+                [
+                    {
+                        "key": "report.txt",
+                        "text": "Report content",
+                        "content_type": "text/plain",
+                        "encoding": "utf-8",
+                        "metadata": {"author": "system", "version": "1.0"},
+                    }
+                ],
             ],
         ),
     ]
 
-    @field_validator("items", mode="before")
+    @field_validator("items")
     @classmethod
-    def convert_dicts_to_items(cls, v: Any) -> list[BucketObjectsPutItem]:
-        """Convert dict items to BucketObjectsPutItem objects."""
+    def validate_items(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Validate items structure with enhanced error messages."""
         if not isinstance(v, list):
-            raise TypeError(f"items must be a list, got {type(v).__name__}")
-        result: list[BucketObjectsPutItem] = []
-        for item in v:
-            if isinstance(item, dict):
-                result.append(BucketObjectsPutItem(**item))
-            elif isinstance(item, BucketObjectsPutItem):
-                result.append(item)
-            else:
-                raise TypeError(f"items must be BucketObjectsPutItem or dict, got {type(item).__name__}")
-        return result
+            raise ValueError("items must be a list")
+
+        for idx, item in enumerate(v):
+            if not isinstance(item, dict):
+                raise ValueError(f"Item at index {idx} must be a dict, got {type(item).__name__}")
+
+            # Validate required key field
+            if "key" not in item or not item["key"]:
+                error_lines = [
+                    f"Invalid item at index {idx}: Missing required 'key' field",
+                    "",
+                    "Each item must have:",
+                    "  - 'key' (required): S3 key/path for the object",
+                    "  - 'text' OR 'data' (required): Content to upload",
+                    "",
+                    "Example:",
+                    '  {"key": "file.txt", "text": "Hello World"}',
+                ]
+                raise ValueError("\n".join(error_lines))
+
+            # Validate exactly one of text or data is present
+            has_text = "text" in item and item["text"] is not None
+            has_data = "data" in item and item["data"] is not None
+
+            if not has_text and not has_data:
+                raise ValueError(
+                    f"Item at index {idx}: Must provide either 'text' or 'data' field\n"
+                    f"Provided keys: {list(item.keys())}"
+                )
+
+            if has_text and has_data:
+                raise ValueError(
+                    f"Item at index {idx}: Cannot provide both 'text' and 'data' fields\n"
+                    "Use only one: 'text' for strings, 'data' for base64-encoded binary"
+                )
+
+        return v
 
 
 # ============================================================================

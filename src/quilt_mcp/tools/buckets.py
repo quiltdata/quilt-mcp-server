@@ -361,9 +361,9 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectsPutParams, BucketObjectsPutItem
+        from quilt_mcp.models import BucketObjectsPutParams
 
-        items = [BucketObjectsPutItem(key="file.txt", text="Hello World")]
+        items = [{"key": "file.txt", "text": "Hello World"}]
         params = BucketObjectsPutParams(bucket="my-bucket", items=items)
         result = buckets.bucket_objects_put(params)
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
@@ -388,46 +388,50 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
     assert client is not None, "s3_client should not be None after authorization"
     results: list[UploadResult] = []
     for item in params.items:
-        # Validate that exactly one of text or data is provided
-        if (item.text is None) == (item.data is None):
-            results.append(UploadResult(key=item.key, error="provide exactly one of text or data"))
-            continue
+        # Get item key (validated by Pydantic already)
+        key = item["key"]
+
+        # Get content (validated by Pydantic to have exactly one)
+        text = item.get("text")
+        data = item.get("data")
 
         # Encode the body
-        if item.text is not None:
-            encoding = item.encoding or "utf-8"
+        if text is not None:
+            encoding = item.get("encoding", "utf-8")
             try:
-                body = item.text.encode(encoding)
+                body = text.encode(encoding)
             except Exception as e:
-                results.append(UploadResult(key=item.key, error=f"encode failed: {e}"))
+                results.append(UploadResult(key=key, error=f"encode failed: {e}"))
                 continue
         else:
             try:
-                body = base64.b64decode(str(item.data), validate=True)
+                body = base64.b64decode(str(data), validate=True)
             except Exception as e:
-                results.append(UploadResult(key=item.key, error=f"base64 decode failed: {e}"))
+                results.append(UploadResult(key=key, error=f"base64 decode failed: {e}"))
                 continue
 
         # Build put_object kwargs
-        put_kwargs: dict[str, Any] = {"Bucket": bkt, "Key": item.key, "Body": body}
-        if item.content_type:
-            put_kwargs["ContentType"] = item.content_type
-        if item.metadata:
-            put_kwargs["Metadata"] = item.metadata
+        put_kwargs: dict[str, Any] = {"Bucket": bkt, "Key": key, "Body": body}
+        content_type = item.get("content_type")
+        if content_type:
+            put_kwargs["ContentType"] = content_type
+        metadata = item.get("metadata")
+        if metadata:
+            put_kwargs["Metadata"] = metadata
 
         # Upload the object
         try:
             resp = client.put_object(**put_kwargs)
             results.append(
                 UploadResult(
-                    key=item.key,
+                    key=key,
                     etag=resp.get("ETag"),
                     size=len(body),
                     content_type=put_kwargs.get("ContentType"),
                 )
             )
         except Exception as e:
-            results.append(UploadResult(key=item.key, error=str(e)))
+            results.append(UploadResult(key=key, error=str(e)))
 
     successes = sum(1 for r in results if r.etag is not None)
     failed = len(results) - successes
