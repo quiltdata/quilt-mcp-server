@@ -40,7 +40,7 @@ class TestPackageCreateFromS3:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            params = PackageCreateFromS3Params(
+            params = PackageCreateFromS3Params(  # noqa: F821
                 source_bucket=DEFAULT_BUCKET_NAME,
                 package_name="invalid-name",  # Missing namespace
             )
@@ -50,7 +50,7 @@ class TestPackageCreateFromS3:
 
     def test_missing_required_params(self):
         """Test that missing required parameters are handled."""
-        params = PackageCreateFromS3Params(
+        params = PackageCreateFromS3Params(  # noqa: F821
             source_bucket="",  # Empty bucket
             package_name=KNOWN_TEST_PACKAGE,
         )
@@ -90,7 +90,7 @@ class TestPackageCreateFromS3:
             "access_summary": {"can_write": True},
         }
 
-        params = PackageCreateFromS3Params(
+        params = PackageCreateFromS3Params(  # noqa: F821
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             target_registry=DEFAULT_REGISTRY,
@@ -119,7 +119,7 @@ class TestPackageCreateFromS3:
             "Example: export QUILT_DEFAULT_BUCKET=s3://quilt-ernest-staging"
         )
 
-        params = PackageCreateFromS3Params(
+        params = PackageCreateFromS3Params(  # noqa: F821
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             description="Integration test package",
@@ -222,7 +222,7 @@ class TestValidation:
             mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
 
             # Call with invalid bucket - should fail before trying to create
-            params = PackageCreateFromS3Params(
+            params = PackageCreateFromS3Params(  # noqa: F821
                 source_bucket="nonexistent",
                 package_name="test/pkg",
                 dry_run=True,
@@ -378,7 +378,7 @@ class TestREADMEContentExtraction:
         test_metadata = {"description": "Test", "readme_content": "# README"}
 
         # Just verify the function accepts metadata without error
-        params = PackageCreateFromS3Params(
+        params = PackageCreateFromS3Params(  # noqa: F821
             source_bucket="nonexistent",
             package_name=KNOWN_TEST_PACKAGE,
             metadata=test_metadata,

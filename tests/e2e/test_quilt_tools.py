@@ -299,7 +299,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            params = PackageDiffParams(  # noqa: F821
                 package1_name="user/package1",
                 package2_name="user/package2",
                 package1_hash="abc123",
@@ -330,7 +330,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            params = PackageDiffParams(  # noqa: F821
                 package1_name="user/package",
                 package2_name="user/package",
                 package1_hash="old_hash",
@@ -356,7 +356,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            params = PackageDiffParams(  # noqa: F821
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
@@ -373,7 +373,7 @@ class TestQuiltTools:
     def test_package_diff_browse_error(self):
         """Test package_diff with package browse error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            params = PackageDiffParams(
+            params = PackageDiffParams(  # noqa: F821
                 package1_name="user/nonexistent1",
                 package2_name="user/nonexistent2",
             )
@@ -393,7 +393,7 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            params = PackageDiffParams(  # noqa: F821
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
