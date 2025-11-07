@@ -15,7 +15,6 @@ from quilt_mcp.models import (
     BucketObjectFetchParams,
     BucketObjectInfoParams,
     BucketObjectLinkParams,
-    BucketObjectsPutItem,
     BucketObjectsPutParams,
     BucketObjectsListParams,
     BucketObjectTextParams,
@@ -97,8 +96,8 @@ def test_bucket_objects_put_success():
     timestamp = int(time.time())
 
     items = [
-        BucketObjectsPutItem(key=f"test-{timestamp}-a.txt", text="hello world"),
-        BucketObjectsPutItem(key=f"test-{timestamp}-b.bin", data="aGVsbG8="),
+        {"key": f"test-{timestamp}-a.txt", "text": "hello world"},
+        {"key": f"test-{timestamp}-b.bin", "data": "aGVsbG8="},
     ]
     params = BucketObjectsPutParams(bucket=DEFAULT_BUCKET, items=items)
     result = bucket_objects_put(params)
