@@ -6,16 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Future Parameter Flattening
-
-### Documentation
-
-**Parameter Flattening Specification** (#229):
-- Added specification for post-#227 parameter simplification in `spec/227-input-schemas/05-flatten-models.md`
-- Documents approach for eliminating params wrapper pattern
-- Plans for future implementation after #227 schema improvements are merged
-- Removes exploration code that won't be implemented (presets, filter parsing)
-
+## [Unreleased]
 
 ## [0.8.4] - 2025-01-06
 
@@ -28,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Accept dicts for nested params**: `BucketObjectsPutParams` now accepts simple dicts in addition to Pydantic models
   - **No API proliferation**: Improved existing 29 tools instead of creating 58 duplicate `_simple` functions
   - **Maintained backward compatibility**: All existing code continues to work unchanged
+
+- **BucketObjectsPutParams Simplified** (#229):
+  - Removed nested `BucketObjectsPutItem` class - use plain dicts instead
+  - Changed `items` parameter from `list[BucketObjectsPutItem]` to `list[dict[str, Any]]`
+  - Enhanced validation with clearer error messages showing exact issue and examples
+  - Updated tool examples to use dict literals: `[{"key": "file.txt", "text": "Hello"}]`
+  - **Breaking change**: Remove `from quilt_mcp.models import BucketObjectsPutItem` imports
 
 ### Implemented
 
@@ -63,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comparison of approaches (improved schemas vs duplicate functions)
   - Implementation checklist with concrete examples
   - Expected results and success metrics
+- **Parameter Flattening Specification** (#229):
+  - Added spec for eliminating nested parameter models in `spec/227-input-schemas/05-flatten-models.md`
+  - Removed exploration docs for unimplemented features (presets, natural language filters)
+  - Documents future approach for eliminating `params` wrapper pattern
 
 ## [0.8.3] - 2024-10-22
 
