@@ -5,7 +5,7 @@ import quilt3
 
 from quilt_mcp.tools import packages
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
-from quilt_mcp.models import PackageCreateParams, PackageCreateError, CatalogUrlSuccess
+from quilt_mcp.models import PackageCreateError, CatalogUrlSuccess
 
 
 class FakeQuiltService:
@@ -72,11 +72,10 @@ def test_package_create_attaches_auth_type(monkeypatch, fake_service):
 
     monkeypatch.setattr(packages.quilt3, "Package", lambda: MockPackage())
 
-    params = PackageCreateParams(
+    result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )
-    result = packages.package_create(params)
 
     # Verify the result is a success response with proper auth_type
     assert result.success is True
@@ -95,11 +94,10 @@ def test_package_create_respects_strict_mode(monkeypatch, fake_service):
     )
     monkeypatch.setattr(packages, "check_package_authorization", lambda *_, **__: strict_ctx)
 
-    params = PackageCreateParams(
+    result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
     )
-    result = packages.package_create(params)
 
     # The result should be an error since authorization failed
     assert isinstance(result, PackageCreateError)

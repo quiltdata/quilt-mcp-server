@@ -30,7 +30,6 @@ from quilt_mcp.tools.packages import (
     packages_list,
 )
 from quilt_mcp.models import (
-    PackageBrowseParams,
     PackagesListParams,
     PackageDiffParams,
     BucketObjectsListParams,
@@ -66,12 +65,10 @@ class TestQuiltAPI:
         """Browse the known package once to reuse across tests."""
 
         result = package_browse(
-            PackageBrowseParams(
-                package_name=KNOWN_PACKAGE,
-                registry=TEST_REGISTRY,
-                include_file_info=False,
-                include_signed_urls=False,
-            )
+            package_name=KNOWN_PACKAGE,
+            registry=TEST_REGISTRY,
+            include_file_info=False,
+            include_signed_urls=False,
         )
 
         # Check if error response (has 'error' attribute)
@@ -349,7 +346,7 @@ class TestQuiltAPI:
 
     def test_package_browse_nonexistent_fails(self):
         """Test that browsing non-existent package returns error response."""
-        result = package_browse(PackageBrowseParams(package_name="definitely/nonexistent"))
+        result = package_browse(package_name="definitely/nonexistent")
 
         # The function now returns an error response instead of raising an exception
         assert hasattr(result, "success"), "Result should have 'success' attribute"
