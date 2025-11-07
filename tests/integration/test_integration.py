@@ -39,8 +39,6 @@ from quilt_mcp.models import (
     BucketObjectFetchParams,
     BucketObjectLinkParams,
     BucketObjectsPutParams,
-    CatalogUrlParams,
-    CatalogUriParams,
 )
 
 # Test configuration - using constants
@@ -271,7 +269,7 @@ class TestQuiltAPI:
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
         result = catalog_url(
-            CatalogUrlParams(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
         )
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
@@ -289,7 +287,7 @@ class TestQuiltAPI:
 
     def test_catalog_url_bucket_view(self):
         """Test catalog_url generates valid bucket view URLs."""
-        result = catalog_url(CatalogUrlParams(registry=TEST_REGISTRY, path="test/data.csv"))
+        result = catalog_url(registry=TEST_REGISTRY, path="test/data.csv")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -306,7 +304,7 @@ class TestQuiltAPI:
     def test_catalog_uri_package_reference(self):
         """Test catalog_uri generates valid Quilt+ URIs."""
         result = catalog_uri(
-            CatalogUriParams(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
+            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
         )
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
@@ -322,12 +320,10 @@ class TestQuiltAPI:
         """Test catalog_uri generates versioned Quilt+ URIs."""
         test_hash = "abc123def456"
         result = catalog_uri(
-            CatalogUriParams(
-                registry=TEST_REGISTRY,
-                package_name="raw/salmon-rnaseq",
-                path="README.md",
-                top_hash=test_hash,
-            )
+            registry=TEST_REGISTRY,
+            package_name="raw/salmon-rnaseq",
+            path="README.md",
+            top_hash=test_hash,
         )
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"

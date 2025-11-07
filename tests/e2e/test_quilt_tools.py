@@ -1,8 +1,6 @@
 from unittest.mock import Mock, patch
 
 from quilt_mcp.models import (
-    CatalogUrlParams,
-    CatalogUriParams,
     PackagesListParams,
     PackageBrowseParams,
     PackageDiffParams,
@@ -216,12 +214,11 @@ class TestQuiltTools:
     def test_catalog_url_package_view(self):
         """Test catalog_url for package view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUrlParams(
+            result = catalog_url(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 path="data.csv",
             )
-            result = catalog_url(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -235,8 +232,7 @@ class TestQuiltTools:
     def test_catalog_url_bucket_view(self):
         """Test catalog_url for bucket view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", path="data/file.csv")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", path="data/file.csv")
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -247,12 +243,11 @@ class TestQuiltTools:
     def test_catalog_uri_basic(self):
         """Test catalog_uri with basic parameters."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(
+            result = catalog_uri(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 path="data.csv",
             )
-            result = catalog_uri(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -265,12 +260,11 @@ class TestQuiltTools:
     def test_catalog_uri_with_version(self):
         """Test catalog_uri with version hash."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(
+            result = catalog_uri(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 top_hash="abc123def456",
             )
-            result = catalog_uri(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -280,8 +274,7 @@ class TestQuiltTools:
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with version tag."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
