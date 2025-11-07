@@ -6,149 +6,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0] - 2025-01-06
-
-### BREAKING CHANGES
-
-This release dramatically simplifies tool schemas for better LLM usability. Breaking changes are intentional and necessary for v0.9.0.
-
-#### Parameter Removals
-
-**Removed Internal Testing Flags** (from all tools):
-- `dry_run` - Preview mode removed, tools now always execute
-- `force` - Confirmation skipping removed, tools are non-interactive by design
-- `confirm_structure` - User confirmation workflows removed
-- `auto_organize` - Now always enabled (best practice)
-- `generate_readme` - Now always enabled (best practice)
-
-**PackageCreateFromS3Params Simplified** (15 → 5 parameters):
-- Removed: `target_registry` (auto-discovered), `include_patterns` (use presets or filter), `exclude_patterns` (use presets or filter), `metadata_template` (bundled in presets), `copy_mode` (bundled in presets)
-- Renamed: `source_prefix` → `prefix` (brevity)
-- Kept: `source_bucket`, `package_name`, `prefix`, `description`, `preset`
-
-**BucketObjectsPutParams Flattened**:
-- Removed: `BucketObjectsPutItem` nested model
-- Changed: `items: list[BucketObjectsPutItem | dict]` → `items: list[dict[str, Any]]`
-- Use dicts directly: `{"key": "file.txt", "text": "content"}`
-
-### Added
-
-**Intelligent Parameter Presets** (#227):
-- `PackageImportPresets`: 5 presets (simple, csv-only, ml-model, genomics, analytics)
-- `VisualizationPresets`: 5 presets (basic-plot, publication-quality, interactive-dashboard, genomics, ml-metrics)
-- `WorkflowPresets`: 4 presets (simple-pipeline, ml-workflow, data-ingestion, analytics-pipeline)
-- Each preset bundles 5-7 commonly-used parameters into a single name
-- Reduces average tool calls from 5-7 params → 2-3 params
-
-**Natural Language Filter Parsing** (#227):
-- Added `filter` parameter to `PackageCreateFromS3Params`
-- Accepts natural language like "include CSV and JSON but exclude temp files"
-- Server-side parsing converts text → glob patterns using Claude Haiku
-- Explicit `include_patterns`/`exclude_patterns` override natural language
-- Fast (~200-500ms), cheap (~$0.0001 per parse), accurate
-- Requires `ANTHROPIC_API_KEY` environment variable
-
-**Enhanced Validation Messages** (#227):
-- Dict-to-Pydantic conversion errors now show:
-  - Exact index of problematic item
-  - Required vs provided fields
-  - Example of correct structure
-  - Actionable error messages
-- Example: "Invalid item at index 0: Missing required 'key' field. Example: {'key': 'file.txt', 'text': 'Hello'}"
-
-### Changed
-
-**Applied Importance Pattern to All Complex Tools** (#227):
-- Updated 7 remaining tools: `PackageUpdateParams`, `PackageCreateParams`, `AthenaQueryExecuteParams`, `PackageBrowseParams`, `WorkflowAddStepParams`, `CatalogUriParams`
-- All tools now group parameters: Required → Common → Advanced
-- Added `[COMMON]` and `[ADVANCED]` prefixes to descriptions
-- Added 3-4 usage examples per tool (minimal/common/full)
-- Added `json_schema_extra={"importance": "required|common|advanced"}` metadata
-
-**Standardized on Flat Structures** (#227):
-- Eliminated all nested Pydantic models
-- All parameters now use primitives, lists, or flat dicts
-- Better MCP schema generation
-- Simpler for LLMs to construct tool calls
-
-**Enhanced Presets System** (#227):
-- Presets now bundle registry hints for auto-discovery
-- Preset names simplified: `filtered-csv` → `csv-only`, `ml-experiment` → `ml-model`
-- Presets include all advanced settings (metadata_template, copy_mode, patterns)
-- Explicit parameters always override preset values
-
-### Migration Guide
-
-**Removing `dry_run`:**
-```python
-# Before (v0.8.x)
-package_create_from_s3(..., dry_run=True)  # Preview
-
-# After (v0.9.0)
-# No preview mode - tools always execute
-# Use presets or tool composition for complex workflows
-```
-
-**PackageCreateFromS3Params Simplification:**
-```python
-# Before (v0.8.x) - 9 parameters
-package_create_from_s3(
-    source_bucket="ml-experiments",
-    package_name="team/model-v1",
-    source_prefix="models/",
-    include_patterns=["*.pkl", "*.h5"],
-    exclude_patterns=["*.tmp"],
-    metadata_template="ml",
-    copy_mode="all",
-    target_registry="s3://ml-registry",
-    description="Best model"
-)
-
-# After (v0.9.0) - 5 parameters with preset
-package_create_from_s3(
-    source_bucket="ml-experiments",
-    package_name="team/model-v1",
-    prefix="models/",
-    preset="ml-model",  # Bundles all the settings above
-    description="Best model"
-)
-
-# Or with natural language filter
-package_create_from_s3(
-    source_bucket="ml-experiments",
-    package_name="team/model-v1",
-    filter="include pickle and H5 files but exclude temp files",
-    description="Best model"
-)
-```
-
-**BucketObjectsPutParams Flattening:**
-```python
-# Before (v0.8.x)
-from quilt_mcp.models import BucketObjectsPutItem
-
-items = [BucketObjectsPutItem(key="file.txt", text="content")]
-
-# After (v0.9.0)
-items = [{"key": "file.txt", "text": "content"}]
-```
-
-### Dependencies
-
-- Added `anthropic>=0.39.0` for natural language filter parsing
+## [Unreleased] - Future Parameter Flattening
 
 ### Documentation
 
-- Created `/docs/natural-language-filters.md` - Guide for using natural language filters
-- Created `/docs/migration-v0.9-parameter-simplification.md` - Complete migration guide
-- Updated all tool docstrings with preset examples
-- Added importance metadata to all complex tool schemas
+**Parameter Flattening Specification** (#229):
+- Added specification for post-#227 parameter simplification in `spec/227-input-schemas/05-flatten-models.md`
+- Documents approach for eliminating params wrapper pattern
+- Plans for future implementation after #227 schema improvements are merged
+- Removes exploration code that won't be implemented (presets, filter parsing)
 
-### Performance
-
-- Reduced schema token count by ~56% (450 → 200 tokens for complex tools)
-- Natural language filter parsing adds ~200-500ms latency (opt-in)
-- Expected LLM success rate improvement: 70% → 90%+
 
 ## [0.8.4] - 2025-01-06
 
