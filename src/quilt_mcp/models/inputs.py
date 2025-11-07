@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, Field, conint, constr
+from pydantic import BaseModel, Field, conint, constr, field_validator
 
 
 # ============================================================================
@@ -206,7 +206,15 @@ class BucketObjectsPutItem(BaseModel):
 
 
 class BucketObjectsPutParams(BaseModel):
-    """Parameters for bucket_objects_put tool."""
+    """Parameters for uploading multiple objects to S3.
+
+    You can provide items as either:
+    1. A list of dicts with keys: key, text/data, content_type, encoding, metadata
+    2. A list of BucketObjectsPutItem objects
+
+    For simple use cases, use dicts:
+    items=[{"key": "file.txt", "text": "content"}]
+    """
 
     bucket: Annotated[
         str,
@@ -218,10 +226,38 @@ class BucketObjectsPutParams(BaseModel):
     items: Annotated[
         list[BucketObjectsPutItem],
         Field(
-            description="List of objects to upload, each with key and content",
+            description="List of objects to upload. Each can be a dict with keys: key (required), text OR data (required), content_type, encoding, metadata",
             min_length=1,
+            examples=[
+                # Dict example (simpler for LLMs)
+                [{"key": "hello.txt", "text": "Hello World"}],
+                # Full example
+                [
+                    {
+                        "key": "data.csv",
+                        "text": "col1,col2\n1,2",
+                        "content_type": "text/csv",
+                    }
+                ],
+            ],
         ),
     ]
+
+    @field_validator("items", mode="before")
+    @classmethod
+    def convert_dicts_to_items(cls, v: Any) -> list[BucketObjectsPutItem]:
+        """Convert dict items to BucketObjectsPutItem objects."""
+        if not isinstance(v, list):
+            raise TypeError(f"items must be a list, got {type(v).__name__}")
+        result: list[BucketObjectsPutItem] = []
+        for item in v:
+            if isinstance(item, dict):
+                result.append(BucketObjectsPutItem(**item))
+            elif isinstance(item, BucketObjectsPutItem):
+                result.append(item)
+            else:
+                raise TypeError(f"items must be BucketObjectsPutItem or dict, got {type(item).__name__}")
+        return result
 
 
 # ============================================================================
@@ -492,13 +528,19 @@ class PackageDiffParams(BaseModel):
 
 
 class PackageCreateFromS3Params(BaseModel):
-    """Parameters for package_create_from_s3 tool."""
+    """Parameters for creating a Quilt package from S3 bucket contents.
 
+    Basic usage requires only source_bucket and package_name.
+    All other parameters have sensible defaults.
+    """
+
+    # === REQUIRED: Core Parameters ===
     source_bucket: Annotated[
         str,
         Field(
             description="S3 bucket name containing source data (without s3:// prefix)",
             examples=["my-data-bucket", "research-data"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     package_name: Annotated[
@@ -507,102 +549,147 @@ class PackageCreateFromS3Params(BaseModel):
             description="Name for the new package in namespace/name format",
             examples=["username/dataset", "team/research-data"],
             pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+            json_schema_extra={"importance": "required"},
         ),
     ]
+
+    # === COMMON: Frequently Used Options ===
     source_prefix: Annotated[
         str,
         Field(
             default="",
-            description="Optional prefix to filter source objects",
+            description="Optional prefix to filter source objects (e.g., 'data/' to include only data folder)",
             examples=["", "data/2024/", "experiments/"],
-        ),
-    ]
-    target_registry: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Target Quilt registry (auto-suggested if not provided)",
+            json_schema_extra={"importance": "common"},
         ),
     ]
     description: Annotated[
         str,
         Field(
             default="",
-            description="Package description",
+            description="Human-readable description of the package contents",
+            json_schema_extra={"importance": "common"},
+        ),
+    ]
+
+    # === ADVANCED: Fine-tuning Options ===
+    target_registry: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="[ADVANCED] Target Quilt registry (auto-suggested if not provided)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     include_patterns: Annotated[
         Optional[list[str]],
         Field(
             default=None,
-            description="File patterns to include (glob style)",
+            description="[ADVANCED] File patterns to include (glob style, e.g., ['*.csv', '*.json'])",
             examples=[["*.csv", "*.json"], ["data/*.parquet"]],
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     exclude_patterns: Annotated[
         Optional[list[str]],
         Field(
             default=None,
-            description="File patterns to exclude (glob style)",
+            description="[ADVANCED] File patterns to exclude (glob style, e.g., ['*.tmp', '*.log'])",
             examples=[["*.tmp", "*.log"], ["temp/*"]],
-        ),
-    ]
-    auto_organize: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Enable smart folder organization",
-        ),
-    ]
-    generate_readme: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Generate comprehensive README.md",
-        ),
-    ]
-    confirm_structure: Annotated[
-        bool,
-        Field(
-            default=True,
-            description="Require user confirmation of structure",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     metadata_template: Annotated[
         Literal["standard", "ml", "analytics"],
         Field(
             default="standard",
-            description="Metadata template to use",
-        ),
-    ]
-    dry_run: Annotated[
-        bool,
-        Field(
-            default=False,
-            description="Preview structure without creating package",
-        ),
-    ]
-    metadata: Annotated[
-        Optional[dict[str, Any]],
-        Field(
-            default=None,
-            description="Additional user-provided metadata",
+            description="[ADVANCED] Metadata template to use for package organization",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     copy_mode: Annotated[
         Literal["all", "same_bucket", "none"],
         Field(
             default="all",
-            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            description="[ADVANCED] Copy policy: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+            json_schema_extra={"importance": "advanced"},
+        ),
+    ]
+
+    # === INTERNAL: Developer/Testing Flags ===
+    auto_organize: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Enable smart folder organization (keep True for best results)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    generate_readme: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Generate comprehensive README.md (keep True for best results)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    confirm_structure: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="[INTERNAL] Require user confirmation of structure (set False for automation)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+    dry_run: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="[INTERNAL] Preview structure without creating package (for testing)",
+            json_schema_extra={"importance": "internal"},
         ),
     ]
     force: Annotated[
         bool,
         Field(
             default=False,
-            description="Skip confirmation prompts when True—useful for automated ingestion",
+            description="[INTERNAL] Skip confirmation prompts (useful for automated ingestion)",
+            json_schema_extra={"importance": "internal"},
         ),
     ]
+    metadata: Annotated[
+        Optional[dict[str, Any]],
+        Field(
+            default=None,
+            description="[INTERNAL] Additional user-provided metadata (rarely needed)",
+            json_schema_extra={"importance": "internal"},
+        ),
+    ]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                # Minimal example (most common)
+                {
+                    "source_bucket": "my-data-bucket",
+                    "package_name": "team/dataset",
+                },
+                # With description
+                {
+                    "source_bucket": "research-data",
+                    "package_name": "team/experiment-results",
+                    "description": "Results from Q1 2024 experiments",
+                },
+                # With filtering
+                {
+                    "source_bucket": "my-data-bucket",
+                    "package_name": "team/csv-data",
+                    "source_prefix": "data/",
+                    "include_patterns": ["*.csv"],
+                },
+            ]
+        }
+    }
 
 
 # ============================================================================
@@ -935,8 +1022,13 @@ class AthenaQueryHistoryParams(BaseModel):
 
 
 class DataVisualizationParams(BaseModel):
-    """Parameters for create_data_visualization tool."""
+    """Parameters for creating data visualizations from tabular data.
 
+    Basic usage requires data, plot_type, x_column, and y_column.
+    All other parameters have sensible defaults for quick visualization.
+    """
+
+    # === REQUIRED: Core Parameters ===
     data: Annotated[
         dict[str, list] | list[dict[str, str | int | float]] | str,
         Field(
@@ -947,12 +1039,14 @@ class DataVisualizationParams(BaseModel):
                 "gene,expression\nBRCA1,42.5\nTP53,38.1",
                 "s3://bucket/data.csv",
             ],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     plot_type: Annotated[
         Literal["boxplot", "scatter", "line", "bar"],
         Field(
             description="Visualization type to generate",
+            json_schema_extra={"importance": "required"},
         ),
     ]
     x_column: Annotated[
@@ -960,6 +1054,7 @@ class DataVisualizationParams(BaseModel):
         Field(
             description="Column name for x-axis (category or numeric depending on plot type)",
             examples=["gene", "sample_id", "timestamp"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
     y_column: Annotated[
@@ -968,14 +1063,18 @@ class DataVisualizationParams(BaseModel):
             default=None,
             description="Column name for y-axis (required for all plot types)",
             examples=["expression", "value", "count"],
+            json_schema_extra={"importance": "required"},
         ),
     ]
+
+    # === COMMON: Frequently Used Options ===
     group_column: Annotated[
         Optional[str],
         Field(
             default=None,
             description="Optional column for grouping/coloring (scatter/line/bar)",
             examples=["condition", "treatment", "category"],
+            json_schema_extra={"importance": "common"},
         ),
     ]
     title: Annotated[
@@ -983,43 +1082,89 @@ class DataVisualizationParams(BaseModel):
         Field(
             default="",
             description="Chart title (auto-generated if empty)",
+            json_schema_extra={"importance": "common"},
         ),
     ]
+
+    # === ADVANCED: Fine-tuning Options ===
     xlabel: Annotated[
         str,
         Field(
             default="",
-            description="X-axis label (defaults to x_column name if empty)",
+            description="[ADVANCED] X-axis label (defaults to x_column name if empty)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     ylabel: Annotated[
         str,
         Field(
             default="",
-            description="Y-axis label (defaults to y_column name if empty)",
+            description="[ADVANCED] Y-axis label (defaults to y_column name if empty)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     color_scheme: Annotated[
         Literal["genomics", "ml", "research", "analytics", "default"],
         Field(
             default="genomics",
-            description="Color palette to use for the visualization",
+            description="[ADVANCED] Color palette to use for the visualization",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     template: Annotated[
         str,
         Field(
             default="research",
-            description="Metadata template label for quilt_summarize.json",
+            description="[ADVANCED] Metadata template label for quilt_summarize.json",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
     output_format: Annotated[
         Literal["echarts"],
         Field(
             default="echarts",
-            description="Visualization engine (currently only 'echarts' is supported)",
+            description="[ADVANCED] Visualization engine (currently only 'echarts' is supported)",
+            json_schema_extra={"importance": "advanced"},
         ),
     ]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                # Minimal example (most common)
+                {
+                    "data": {"gene": ["BRCA1", "TP53"], "expression": [42.5, 38.1]},
+                    "plot_type": "boxplot",
+                    "x_column": "gene",
+                    "y_column": "expression",
+                },
+                # With grouping
+                {
+                    "data": "s3://bucket/experiment.csv",
+                    "plot_type": "scatter",
+                    "x_column": "time",
+                    "y_column": "measurement",
+                    "group_column": "condition",
+                    "title": "Experimental Results Over Time",
+                },
+                # Full customization
+                {
+                    "data": [
+                        {"gene": "BRCA1", "expression": 42.5, "condition": "control"},
+                        {"gene": "BRCA1", "expression": 45.2, "condition": "treated"},
+                    ],
+                    "plot_type": "bar",
+                    "x_column": "gene",
+                    "y_column": "expression",
+                    "group_column": "condition",
+                    "title": "Gene Expression Comparison",
+                    "xlabel": "Gene Name",
+                    "ylabel": "Expression Level",
+                    "color_scheme": "ml",
+                },
+            ]
+        }
+    }
 
 
 # ============================================================================
