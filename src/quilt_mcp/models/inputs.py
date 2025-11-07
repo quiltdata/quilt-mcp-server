@@ -224,7 +224,7 @@ class BucketObjectsPutParams(BaseModel):
         ),
     ]
     items: Annotated[
-        list[BucketObjectsPutItem | dict[str, Any]],
+        list[BucketObjectsPutItem],
         Field(
             description="List of objects to upload. Each can be a dict with keys: key (required), text OR data (required), content_type, encoding, metadata",
             min_length=1,
@@ -248,13 +248,15 @@ class BucketObjectsPutParams(BaseModel):
     def convert_dicts_to_items(cls, v: Any) -> list[BucketObjectsPutItem]:
         """Convert dict items to BucketObjectsPutItem objects."""
         if not isinstance(v, list):
-            return v
-        result = []
+            raise TypeError(f"items must be a list, got {type(v).__name__}")
+        result: list[BucketObjectsPutItem] = []
         for item in v:
             if isinstance(item, dict):
                 result.append(BucketObjectsPutItem(**item))
-            else:
+            elif isinstance(item, BucketObjectsPutItem):
                 result.append(item)
+            else:
+                raise TypeError(f"items must be BucketObjectsPutItem or dict, got {type(item).__name__}")
         return result
 
 
