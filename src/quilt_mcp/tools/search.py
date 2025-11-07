@@ -4,30 +4,91 @@ This module exposes the unified search functionality as MCP tools.
 """
 
 import asyncio
-from typing import Dict, List, Any, Optional
+from typing import Annotated, Any, Dict, List, Optional
+
+from pydantic import Field
 
 from ..models.responses import (
-    SearchExplainSuccess,
     SearchExplainError,
-    SearchGraphQLSuccess,
+    SearchExplainSuccess,
     SearchGraphQLError,
+    SearchGraphQLSuccess,
 )
-from ..search.tools.unified_search import unified_search as _unified_search
-from ..search.tools.search_suggest import search_suggest as _search_suggest
 from ..search.tools.search_explain import search_explain as _search_explain
+from ..search.tools.search_suggest import search_suggest as _search_suggest
+from ..search.tools.unified_search import unified_search as _unified_search
 
 
 def search_catalog(
-    query: str,
-    scope: str = "global",
-    target: str = "",
-    backends: Optional[List[str]] = None,
-    limit: int = 50,
-    include_metadata: bool = True,
-    include_content_preview: bool = False,
-    explain_query: bool = False,
-    filters: Optional[Dict[str, Any]] = None,
-    count_only: bool = False,
+    query: Annotated[
+        str,
+        Field(
+            description='Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")',
+        ),
+    ],
+    scope: Annotated[
+        str,
+        Field(
+            default="global",
+            description='Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)',
+        ),
+    ] = "global",
+    target: Annotated[
+        str,
+        Field(
+            default="",
+            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")',
+        ),
+    ] = "",
+    backends: Annotated[
+        Optional[List[str]],
+        Field(
+            default=None,
+            description='Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations',
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            default=50,
+            description="Maximum number of results to return (default: 50)",
+        ),
+    ] = 50,
+    include_metadata: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Include rich metadata in results (default: True)",
+        ),
+    ] = True,
+    include_content_preview: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Include content previews for files (default: False)",
+        ),
+    ] = False,
+    explain_query: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Include query execution explanation and backend selection reasoning (default: False)",
+        ),
+    ] = False,
+    filters: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            default=None,
+            description='Additional filters as dict - e.g., {"file_extensions": ["csv"], "size_gt": "100MB", "date_after": "2023-01-01"}',
+        ),
+    ] = None,
+    count_only: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Return aggregated counts only (skips fetching full result payloads) when True.",
+        ),
+    ] = False,
 ) -> Dict[str, Any]:
     """Intelligent unified search across Quilt catalogs, packages, and S3 buckets - Catalog and package search experiences
 
@@ -138,10 +199,33 @@ def search_catalog(
 
 
 def search_suggest(
-    partial_query: str,
-    context: str = "",
-    suggestion_types: Optional[List[str]] = None,
-    limit: int = 10,
+    partial_query: Annotated[
+        str,
+        Field(
+            description="Partial or incomplete search query",
+        ),
+    ],
+    context: Annotated[
+        str,
+        Field(
+            default="",
+            description="Additional context to improve suggestions",
+        ),
+    ] = "",
+    suggestion_types: Annotated[
+        Optional[List[str]],
+        Field(
+            default=None,
+            description='Types of suggestions to generate - ["auto"], ["query"], ["filter"], ["scope"]',
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            default=10,
+            description="Maximum number of suggestions to return",
+        ),
+    ] = 10,
 ) -> Dict[str, Any]:
     """Get intelligent search suggestions based on partial queries and context - Catalog and package search experiences
 
@@ -185,7 +269,28 @@ def search_suggest(
         }
 
 
-def search_explain(query: str, scope: str = "global", target: str = "") -> SearchExplainSuccess | SearchExplainError:
+def search_explain(
+    query: Annotated[
+        str,
+        Field(
+            description="Search query to explain",
+        ),
+    ],
+    scope: Annotated[
+        str,
+        Field(
+            default="global",
+            description="Search scope",
+        ),
+    ] = "global",
+    target: Annotated[
+        str,
+        Field(
+            default="",
+            description="Target for scoped searches",
+        ),
+    ] = "",
+) -> SearchExplainSuccess | SearchExplainError:
     """Explain how a search query would be processed and executed - Catalog and package search experiences
 
     Args:
@@ -256,7 +361,21 @@ def _get_graphql_endpoint():
         return None, None
 
 
-def search_graphql(query: str, variables: Optional[Dict] = None) -> SearchGraphQLSuccess | SearchGraphQLError:
+def search_graphql(
+    query: Annotated[
+        str,
+        Field(
+            description="GraphQL query string",
+        ),
+    ],
+    variables: Annotated[
+        Optional[Dict],
+        Field(
+            default=None,
+            description="Variables dictionary to bind",
+        ),
+    ] = None,
+) -> SearchGraphQLSuccess | SearchGraphQLError:
     """Execute an arbitrary GraphQL query against the configured Quilt Catalog - Catalog and package search experiences
 
     Args:
@@ -302,10 +421,37 @@ def search_graphql(query: str, variables: Optional[Dict] = None) -> SearchGraphQ
 
 
 def search_objects_graphql(
-    bucket: str,
-    object_filter: Optional[Dict] = None,
-    first: int = 100,
-    after: str = "",
+    bucket: Annotated[
+        str,
+        Field(
+            description="S3 bucket name or s3:// URI",
+            examples=["my-bucket", "s3://my-bucket"],
+        ),
+    ],
+    object_filter: Annotated[
+        Optional[Dict],
+        Field(
+            default=None,
+            description="Dictionary of filter fields compatible with the catalog schema",
+            examples=[{"extension": "csv"}, {"size_gt": 1000000}],
+        ),
+    ] = None,
+    first: Annotated[
+        int,
+        Field(
+            default=100,
+            ge=1,
+            le=1000,
+            description="Page size (default 100)",
+        ),
+    ] = 100,
+    after: Annotated[
+        str,
+        Field(
+            default="",
+            description="Cursor for pagination",
+        ),
+    ] = "",
 ) -> Dict[str, Any]:
     """Search for objects within a bucket via Quilt GraphQL - Catalog and package search experiences
 
