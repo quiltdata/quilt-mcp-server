@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, Field, conint, constr, field_validator
+from pydantic import BaseModel, Field, conint, constr, field_validator, model_validator
+
+from quilt_mcp.models.presets import (
+    PackageImportPresets,
+    VisualizationPresets,
+    WorkflowPresets,
+)
 
 
 # ============================================================================
@@ -157,63 +163,18 @@ class BucketObjectTextParams(BaseModel):
     ]
 
 
-class BucketObjectsPutItem(BaseModel):
-    """A single item to upload to S3."""
-
-    key: Annotated[
-        str,
-        Field(
-            description="S3 key (path) for the object",
-            examples=["data/results.csv", "reports/summary.txt"],
-        ),
-    ]
-    text: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Text content to upload (use this OR data, not both)",
-        ),
-    ]
-    data: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Base64-encoded binary content to upload (use this OR text, not both)",
-        ),
-    ]
-    content_type: Annotated[
-        str,
-        Field(
-            default="application/octet-stream",
-            description="MIME type of the content",
-            examples=["text/csv", "application/json", "image/png"],
-        ),
-    ]
-    encoding: Annotated[
-        Optional[str],
-        Field(
-            default=None,
-            description="Text encoding (e.g., 'utf-8') when uploading text",
-        ),
-    ]
-    metadata: Annotated[
-        Optional[dict[str, str]],
-        Field(
-            default=None,
-            description="Custom metadata key-value pairs to attach to the object",
-        ),
-    ]
-
-
 class BucketObjectsPutParams(BaseModel):
     """Parameters for uploading multiple objects to S3.
 
-    You can provide items as either:
-    1. A list of dicts with keys: key, text/data, content_type, encoding, metadata
-    2. A list of BucketObjectsPutItem objects
+    Items are provided as a list of dicts with the following structure:
+    - key (required): S3 key (path) for the object
+    - text OR data (required): Text content or base64-encoded binary content (not both)
+    - content_type (optional): MIME type, defaults to "application/octet-stream"
+    - encoding (optional): Text encoding (e.g., 'utf-8') when uploading text
+    - metadata (optional): Custom metadata key-value pairs
 
-    For simple use cases, use dicts:
-    items=[{"key": "file.txt", "text": "content"}]
+    Simple example:
+    items=[{"key": "file.txt", "text": "Hello World"}]
     """
 
     bucket: Annotated[
@@ -224,14 +185,22 @@ class BucketObjectsPutParams(BaseModel):
         ),
     ]
     items: Annotated[
-        list[BucketObjectsPutItem | dict[str, Any]],
+        list[dict[str, Any]],
         Field(
-            description="List of objects to upload. Each can be a dict with keys: key (required), text OR data (required), content_type, encoding, metadata",
+            description=(
+                "List of objects to upload. Each item is a dict with:\n"
+                "- key (str, required): S3 key (path) for the object\n"
+                "- text (str, optional): Text content to upload (use this OR data, not both)\n"
+                "- data (str, optional): Base64-encoded binary content (use this OR text, not both)\n"
+                "- content_type (str, optional): MIME type, defaults to 'application/octet-stream'\n"
+                "- encoding (str, optional): Text encoding (e.g., 'utf-8') when uploading text\n"
+                "- metadata (dict[str, str], optional): Custom metadata key-value pairs"
+            ),
             min_length=1,
             examples=[
-                # Dict example (simpler for LLMs)
+                # Minimal example
                 [{"key": "hello.txt", "text": "Hello World"}],
-                # Full example
+                # With content type
                 [
                     {
                         "key": "data.csv",
@@ -239,23 +208,70 @@ class BucketObjectsPutParams(BaseModel):
                         "content_type": "text/csv",
                     }
                 ],
+                # Binary data
+                [
+                    {
+                        "key": "image.png",
+                        "data": "iVBORw0KGgo...",
+                        "content_type": "image/png",
+                    }
+                ],
+                # With metadata
+                [
+                    {
+                        "key": "report.txt",
+                        "text": "Report content",
+                        "content_type": "text/plain",
+                        "encoding": "utf-8",
+                        "metadata": {"author": "system", "version": "1.0"},
+                    }
+                ],
             ],
         ),
     ]
 
-    @field_validator("items", mode="before")
+    @field_validator("items")
     @classmethod
-    def convert_dicts_to_items(cls, v: Any) -> list[BucketObjectsPutItem]:
-        """Convert dict items to BucketObjectsPutItem objects."""
+    def validate_items(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Validate items structure with enhanced error messages."""
         if not isinstance(v, list):
-            return v
-        result = []
-        for item in v:
-            if isinstance(item, dict):
-                result.append(BucketObjectsPutItem(**item))
-            else:
-                result.append(item)
-        return result
+            raise ValueError("items must be a list")
+
+        for idx, item in enumerate(v):
+            if not isinstance(item, dict):
+                raise ValueError(f"Item at index {idx} must be a dict, got {type(item).__name__}")
+
+            # Validate required key field
+            if "key" not in item or not item["key"]:
+                error_lines = [
+                    f"Invalid item at index {idx}: Missing required 'key' field",
+                    "",
+                    "Each item must have:",
+                    "  - 'key' (required): S3 key/path for the object",
+                    "  - 'text' OR 'data' (required): Content to upload",
+                    "",
+                    "Example:",
+                    '  {"key": "file.txt", "text": "Hello World"}',
+                ]
+                raise ValueError("\n".join(error_lines))
+
+            # Validate exactly one of text or data is present
+            has_text = "text" in item and item["text"] is not None
+            has_data = "data" in item and item["data"] is not None
+
+            if not has_text and not has_data:
+                raise ValueError(
+                    f"Item at index {idx}: Must provide either 'text' or 'data' field\n"
+                    f"Provided keys: {list(item.keys())}"
+                )
+
+            if has_text and has_data:
+                raise ValueError(
+                    f"Item at index {idx}: Cannot provide both 'text' and 'data' fields\n"
+                    "Use only one: 'text' for strings, 'data' for base64-encoded binary"
+                )
+
+        return v
 
 
 # ============================================================================
@@ -551,6 +567,20 @@ class PackageCreateFromS3Params(BaseModel):
         ),
     ]
 
+    # === PRESET: Quick Configuration ===
+    preset: Annotated[
+        Optional[Literal["simple", "filtered-csv", "ml-experiment", "genomics-data", "analytics"]],
+        Field(
+            default=None,
+            description="Apply a preset configuration bundle for common use cases. "
+                       "Explicit parameters override preset values. Available presets: "
+                       "'simple' (basic import), 'filtered-csv' (CSV files only), "
+                       "'ml-experiment' (ML artifacts), 'genomics-data' (genomics files), "
+                       "'analytics' (analytics files)",
+            json_schema_extra={"importance": "common"},
+        ),
+    ]
+
     # === COMMON: Frequently Used Options ===
     source_prefix: Annotated[
         str,
@@ -566,6 +596,25 @@ class PackageCreateFromS3Params(BaseModel):
         Field(
             default="",
             description="Human-readable description of the package contents",
+            json_schema_extra={"importance": "common"},
+        ),
+    ]
+    filter: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Natural language filter description for file selection. "
+                       "Examples: 'include CSV and JSON files but exclude temp files', "
+                       "'only parquet files in the data folder', "
+                       "'all images except thumbnails'. "
+                       "This is parsed server-side into glob patterns. "
+                       "Explicit include_patterns/exclude_patterns override this.",
+            examples=[
+                "include CSV and JSON files but exclude temp files",
+                "only parquet files in the data folder",
+                "all images except thumbnails",
+                "Python files excluding tests and __pycache__",
+            ],
             json_schema_extra={"importance": "common"},
         ),
     ]
@@ -688,6 +737,87 @@ class PackageCreateFromS3Params(BaseModel):
             ]
         }
     }
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_preset(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Apply preset configuration if specified.
+
+        Presets are applied BEFORE explicit parameters, so explicit parameters
+        always take precedence.
+
+        This validator runs in 'before' mode to populate default values from presets
+        before Pydantic's field validation and default assignment.
+        """
+        preset_name = values.get("preset")
+        if not preset_name:
+            return values
+
+        try:
+            # Get preset configuration
+            preset_config = PackageImportPresets.get_preset(preset_name)
+
+            # Apply preset values only if not explicitly set
+            for key, preset_value in preset_config.items():
+                if key not in values or values[key] is None:
+                    values[key] = preset_value
+
+        except ValueError as e:
+            # Invalid preset name - let Pydantic handle the validation error
+            raise ValueError(f"Invalid preset: {e}") from e
+
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_natural_language_filter(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Parse natural language filter into glob patterns if provided.
+
+        This validator runs in 'before' mode AFTER apply_preset, so it can override
+        preset patterns if a filter is specified.
+
+        Priority order: explicit params > filter > preset
+
+        This validator:
+        1. Checks if a natural language filter is provided
+        2. Parses the filter to get include/exclude patterns
+        3. Only applies parsed patterns if not explicitly set by user
+        4. This allows filter to override preset patterns
+
+        Explicit include_patterns/exclude_patterns always take precedence over filter.
+        """
+        filter_text = values.get("filter")
+        if not filter_text:
+            return values
+
+        # Check if user explicitly provided patterns (not from preset)
+        # We need to parse the filter if patterns weren't explicitly provided by user
+        has_explicit_include = "include_patterns" in values and values.get("include_patterns") is not None
+        has_explicit_exclude = "exclude_patterns" in values and values.get("exclude_patterns") is not None
+
+        # If user provided ANY explicit pattern, don't parse filter at all
+        if has_explicit_include or has_explicit_exclude:
+            return values
+
+        try:
+            # Import here to avoid circular dependency and lazy load
+            from quilt_mcp.services.filter_parser import parse_file_filter
+
+            parsed = parse_file_filter(filter_text)
+
+            # Apply filter patterns
+            if parsed.include:
+                values["include_patterns"] = parsed.include
+            if parsed.exclude:
+                values["exclude_patterns"] = parsed.exclude
+
+        except Exception as e:
+            # Re-raise with context about which filter failed
+            raise ValueError(
+                f"Failed to parse natural language filter '{filter_text}': {e}"
+            ) from e
+
+        return values
 
 
 # ============================================================================
@@ -1065,6 +1195,20 @@ class DataVisualizationParams(BaseModel):
         ),
     ]
 
+    # === PRESET: Quick Configuration ===
+    preset: Annotated[
+        Optional[Literal["basic-plot", "publication-quality", "interactive-dashboard", "genomics", "ml-metrics"]],
+        Field(
+            default=None,
+            description="Apply a preset configuration bundle for common visualization types. "
+                       "Explicit parameters override preset values. Available presets: "
+                       "'basic-plot' (simple default styling), 'publication-quality' (research-grade), "
+                       "'interactive-dashboard' (analytics dashboards), 'genomics' (genomics color schemes), "
+                       "'ml-metrics' (ML experiment metrics)",
+            json_schema_extra={"importance": "common"},
+        ),
+    ]
+
     # === COMMON: Frequently Used Options ===
     group_column: Annotated[
         Optional[str],
@@ -1164,6 +1308,36 @@ class DataVisualizationParams(BaseModel):
         }
     }
 
+    @model_validator(mode="before")
+    @classmethod
+    def apply_preset(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Apply preset configuration if specified.
+
+        Presets are applied BEFORE explicit parameters, so explicit parameters
+        always take precedence.
+
+        This validator runs in 'before' mode to populate default values from presets
+        before Pydantic's field validation and default assignment.
+        """
+        preset_name = values.get("preset")
+        if not preset_name:
+            return values
+
+        try:
+            # Get preset configuration
+            preset_config = VisualizationPresets.get_preset(preset_name)
+
+            # Apply preset values only if not explicitly set
+            for key, preset_value in preset_config.items():
+                if key not in values or values[key] is None or values[key] == "":
+                    values[key] = preset_value
+
+        except ValueError as e:
+            # Invalid preset name - let Pydantic handle the validation error
+            raise ValueError(f"Invalid preset: {e}") from e
+
+        return values
+
 
 # ============================================================================
 # Workflow Input Models
@@ -1187,6 +1361,17 @@ class WorkflowCreateParams(BaseModel):
             examples=["Data Processing Pipeline", "Analysis Workflow"],
         ),
     ]
+    preset: Annotated[
+        Optional[Literal["simple-pipeline", "ml-workflow", "data-ingestion", "analytics-pipeline"]],
+        Field(
+            default=None,
+            description="Apply a preset configuration bundle for common workflow types. "
+                       "Explicit parameters override preset values. Available presets: "
+                       "'simple-pipeline' (basic data processing), 'ml-workflow' (ML experiments), "
+                       "'data-ingestion' (data loading and validation), "
+                       "'analytics-pipeline' (analytics processing and reporting)",
+        ),
+    ]
     description: Annotated[
         str,
         Field(
@@ -1201,6 +1386,36 @@ class WorkflowCreateParams(BaseModel):
             description="Optional metadata dictionary for the workflow",
         ),
     ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_preset(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Apply preset configuration if specified.
+
+        Presets are applied BEFORE explicit parameters, so explicit parameters
+        always take precedence.
+
+        This validator runs in 'before' mode to populate default values from presets
+        before Pydantic's field validation and default assignment.
+        """
+        preset_name = values.get("preset")
+        if not preset_name:
+            return values
+
+        try:
+            # Get preset configuration
+            preset_config = WorkflowPresets.get_preset(preset_name)
+
+            # Apply preset values only if not explicitly set
+            for key, preset_value in preset_config.items():
+                if key not in values or values[key] is None or values[key] == "":
+                    values[key] = preset_value
+
+        except ValueError as e:
+            # Invalid preset name - let Pydantic handle the validation error
+            raise ValueError(f"Invalid preset: {e}") from e
+
+        return values
 
 
 class WorkflowAddStepParams(BaseModel):
