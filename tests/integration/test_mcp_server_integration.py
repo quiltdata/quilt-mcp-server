@@ -20,8 +20,8 @@ def test_quilt_tools():
 
     # Basic listing call should return Pydantic model (mocked in unit runs)
     try:
-        params =   # Uses default registry
-        pkgs = packages_list(params)
+        # Uses default registry
+        pkgs = packages_list(registry="s3://quilt-ernest-staging")
         assert hasattr(pkgs, 'success') or hasattr(pkgs, 'error')
     except Exception as e:
         if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e) or "Authentication failed" in str(e):
@@ -31,8 +31,7 @@ def test_quilt_tools():
             raise
 
     # Browse nonexistent package should return error response, not raise
-    browse_params = package_name="nonexistent/package"
-    browse = package_browse(browse_params)
+    browse = package_browse(package_name="nonexistent/package")
     assert hasattr(browse, 'success') or hasattr(browse, 'error')
 
     # Searching within nonexistent package should also return a dict response

@@ -256,9 +256,7 @@ class TestQuiltAPI:
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
-        result = catalog_url(
-            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
-        )
+        result = catalog_url(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -291,9 +289,7 @@ class TestQuiltAPI:
 
     def test_catalog_uri_package_reference(self):
         """Test catalog_uri generates valid Quilt+ URIs."""
-        result = catalog_uri(
-            registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md"
-        )
+        result = catalog_uri(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -479,9 +475,7 @@ class TestQuiltAPI:
 
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""
-        result = package_diff(
-            package1_name=KNOWN_PACKAGE, package2_name=KNOWN_PACKAGE, registry=TEST_REGISTRY
-        )
+        result = package_diff(package1_name=KNOWN_PACKAGE, package2_name=KNOWN_PACKAGE, registry=TEST_REGISTRY)
 
         if hasattr(result, "error"):
             # Some packages might not support diff operations

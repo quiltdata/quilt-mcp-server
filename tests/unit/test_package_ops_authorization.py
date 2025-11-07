@@ -46,7 +46,7 @@ def test_package_create_attaches_auth_type(monkeypatch, fake_service):
     monkeypatch.setattr(packages, "get_s3_client", lambda: MockS3Client())
 
     # Mock catalog_url to avoid dependency on catalog module
-    def mock_catalog_url(params):
+    def mock_catalog_url(registry, package_name=None, path="", catalog_host=""):
         return CatalogUrlSuccess(
             catalog_url="https://example.com/b/test-bucket/packages/team/example",
             view_type="package",

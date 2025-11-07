@@ -40,11 +40,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -82,11 +82,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -125,11 +125,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -163,11 +163,11 @@ class TestPackageCreate:
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with metadata as-is
@@ -205,11 +205,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
@@ -240,11 +240,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=None,  # No metadata
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with empty metadata
@@ -283,11 +283,11 @@ class TestPackageCreate:
         }
 
         package_create(
-                package_name="test/package",
+            package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
-            )
+        )
         result = package_create(params)
 
         # Verify create_package_revision was called with metadata unchanged
@@ -544,9 +544,7 @@ class TestPackageCreateErrorHandling:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            package_create(
-                package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-            )
+            package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
         # Verify the validation error is about the pattern mismatch
         assert "String should match pattern" in str(exc_info.value)
@@ -589,9 +587,7 @@ class TestPackageCreateErrorHandling:
             "details": "Some internal error",
         }
 
-        package_create(
-                package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-            )
+        package_create(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
         result = package_create(params)
 
         assert result["error"] == "Service failed to create package"
@@ -603,9 +599,7 @@ class TestPackageCreateErrorHandling:
         """Test package_create when service raises exception."""
         mock_create_revision.side_effect = Exception("Network error")
 
-        package_create(
-                package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-            )
+        package_create(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
         result = package_create(params)
 
         assert "Failed to create package: Network error" in result["error"]
@@ -631,9 +625,7 @@ class TestPackageUpdate:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError) as exc_info:
-            package_update(
-                package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-            )
+            package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
         # Verify the validation error is about the pattern mismatch
         assert "String should match pattern" in str(exc_info.value)
@@ -676,9 +668,7 @@ class TestPackageUpdate:
         mock_service.browse_package.side_effect = Exception("Package not found")
         mock_quilt_service_class.return_value = mock_service
 
-        package_update(
-                package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
-            )
+        package_update(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
         result = package_update(params)
 
         assert "Failed to browse existing package 'test/package':" in result["error"]

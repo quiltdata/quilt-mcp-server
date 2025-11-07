@@ -1836,9 +1836,7 @@ def package_create_from_s3(
 
         # Discover source objects
         logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
-        objects = _discover_s3_objects(
-            s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns
-        )
+        objects = _discover_s3_objects(s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns)
 
         if not objects:
             return PackageCreateFromS3Error(
@@ -1860,9 +1858,7 @@ def package_create_from_s3(
             "bucket": source_bucket,
             "prefix": source_prefix,
             "source_description": (
-                f"s3://{source_bucket}/{source_prefix}"
-                if source_prefix
-                else f"s3://{source_bucket}"
+                f"s3://{source_bucket}/{source_prefix}" if source_prefix else f"s3://{source_bucket}"
             ),
         }
 
