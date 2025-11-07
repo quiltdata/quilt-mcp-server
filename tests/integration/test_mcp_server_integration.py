@@ -10,7 +10,6 @@ from quilt_mcp.tools.packages import (
     package_browse,
 )
 from quilt_mcp.tools.search import search_catalog
-from quilt_mcp.models import PackagesListParams, PackageBrowseParams
 
 
 @pytest.mark.integration
@@ -21,7 +20,7 @@ def test_quilt_tools():
 
     # Basic listing call should return Pydantic model (mocked in unit runs)
     try:
-        params = PackagesListParams()  # Uses default registry
+        params =   # Uses default registry
         pkgs = packages_list(params)
         assert hasattr(pkgs, 'success') or hasattr(pkgs, 'error')
     except Exception as e:
@@ -32,7 +31,7 @@ def test_quilt_tools():
             raise
 
     # Browse nonexistent package should return error response, not raise
-    browse_params = PackageBrowseParams(package_name="nonexistent/package")
+    browse_params = package_name="nonexistent/package"
     browse = package_browse(browse_params)
     assert hasattr(browse, 'success') or hasattr(browse, 'error')
 

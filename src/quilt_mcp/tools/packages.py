@@ -1242,15 +1242,13 @@ def package_create(
 
         # Build package URL
         from .catalog import catalog_url
-        from ..models import CatalogUrlParams
 
-        catalog_params = CatalogUrlParams(
+        catalog_result = catalog_url(
             registry=normalized_registry,
             package_name=package_name,
             path="",
             catalog_host="",
         )
-        catalog_result = catalog_url(catalog_params)
         package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
         return PackageCreateSuccess(
@@ -1464,15 +1462,13 @@ def package_update(
 
     # Build package URL
     from .catalog import catalog_url
-    from ..models import CatalogUrlParams
 
-    catalog_params = CatalogUrlParams(
+    catalog_result = catalog_url(
         registry=normalized_registry,
         package_name=package_name,
         path="",
         catalog_host="",
     )
-    catalog_result = catalog_url(catalog_params)
     package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
     return PackageUpdateSuccess(

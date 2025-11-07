@@ -56,7 +56,7 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-            params = PackagesListParams()  # Uses default registry
+            params =   # Uses default registry
             result = packages_list(params)
 
             # Result now has packages structure
@@ -79,7 +79,7 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-            params = PackagesListParams(prefix="user/")
+            params = prefix="user/"
             result = packages_list(params)
 
             # Result now has packages structure
@@ -94,7 +94,7 @@ class TestQuiltTools:
     def test_packages_list_error(self):
         """Test packages_list with error."""
         with patch("quilt3.list_packages", side_effect=Exception("Test error")):
-            params = PackagesListParams()
+            params = 
             result = packages_list(params)
 
             # Should return an error response, not raise exception
@@ -120,7 +120,7 @@ class TestQuiltTools:
         mock_package.__getitem__ = lambda self, key: mock_entries.get(key)
 
         with patch("quilt3.Package.browse", return_value=mock_package):
-            params = PackageBrowseParams(package_name="user/test-package")
+            params = package_name="user/test-package"
             result = package_browse(params)
 
             assert hasattr(result, 'success')
@@ -135,7 +135,7 @@ class TestQuiltTools:
     def test_package_browse_error(self):
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            params = PackageBrowseParams(package_name="user/nonexistent")
+            params = package_name="user/nonexistent"
             result = package_browse(params)
 
             assert hasattr(result, 'success')

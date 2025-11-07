@@ -32,7 +32,7 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            params = PackagesListParams(registry='s3://test-bucket')
+            params = registry='s3://test-bucket'
             result = packages_list(params)
 
         mock_service.list_packages.assert_called_once_with(registry='s3://test-bucket')
@@ -56,7 +56,7 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.utils.suppress_stdout'),
             patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
         ):
-            params = PackageBrowseParams(package_name='user/package', registry='s3://test-bucket')
+            params = package_name='user/package', registry='s3://test-bucket'
             result = package_browse(params)
 
         mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
