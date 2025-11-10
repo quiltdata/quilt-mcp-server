@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added metadata validation after parameter flattening
 - Removed duplicate function calls with undefined params variable
 
-## [0.8.4] - 2025-01-06
+## [0.8.4] - 2025-10-21
 
 ### Changed
 
@@ -94,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed exploration docs for unimplemented features (presets, natural language filters)
   - Documents future approach for eliminating `params` wrapper pattern
 
-## [0.8.3] - 2024-10-22
+## [0.8.3] - 2025-10-21
 
 ### Added
 
@@ -162,7 +162,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ⏸️ Test Migration: Started - 2/80 tests updated in test_bucket_tools.py
 - 📋 Remaining: Continue migration to other tool files (packages.py, catalog.py, etc.)
 
-## [0.8.2] - 2024-10-20
+## [0.8.2] - 2025-10-20
 
 ### Changed
 
