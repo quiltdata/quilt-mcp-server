@@ -11,7 +11,7 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name, filesystem_status
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info, filesystem_status
 from quilt_mcp.tools.catalog import catalog_uri, catalog_url
 from quilt_mcp.tools.buckets import (
     bucket_object_fetch,
@@ -233,9 +233,9 @@ class TestQuiltAPI:
             assert isinstance(result["is_authenticated"], bool)
             assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
 
-    def test_catalog_name_returns_name(self):
-        """Test catalog_name returns the catalog name and detection method."""
-        result = catalog_name()
+    def test_catalog_info_includes_detection_method(self):
+        """Test catalog_info returns the catalog name and detection method."""
+        result = catalog_info()
 
         assert isinstance(result, dict)
         assert "catalog_name" in result

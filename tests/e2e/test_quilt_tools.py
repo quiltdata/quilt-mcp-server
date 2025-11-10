@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info
 from quilt_mcp.tools.catalog import catalog_uri, catalog_url
 from quilt_mcp.tools.packages import (
     package_browse,
@@ -173,13 +173,13 @@ class TestQuiltTools:
             assert result["catalog_name"] == "test.catalog.com"
             assert result["is_authenticated"] is False
 
-    def test_catalog_name_from_authentication(self):
-        """Test catalog_name when detected from authentication."""
+    def test_catalog_info_detection_from_authentication(self):
+        """Test catalog_info detection_method when detected from authentication."""
         with (
             patch("quilt3.logged_in", return_value="https://test.catalog.com"),
             patch("quilt3.config", return_value={}),
         ):
-            result = catalog_name()
+            result = catalog_info()
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -187,8 +187,8 @@ class TestQuiltTools:
             assert result["detection_method"] == "authentication"
             assert result["is_authenticated"] is True
 
-    def test_catalog_name_from_config(self):
-        """Test catalog_name when detected from config."""
+    def test_catalog_info_detection_from_config(self):
+        """Test catalog_info detection_method when detected from config."""
         with (
             patch("quilt3.logged_in", return_value=None),
             patch(
@@ -196,7 +196,7 @@ class TestQuiltTools:
                 return_value={"navigator_url": "https://config.catalog.com"},
             ),
         ):
-            result = catalog_name()
+            result = catalog_info()
 
             assert isinstance(result, dict)
             assert result["status"] == "success"

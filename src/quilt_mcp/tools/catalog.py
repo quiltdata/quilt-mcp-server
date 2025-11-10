@@ -20,7 +20,6 @@ from quilt_mcp.services.auth_metadata import (
     _get_catalog_info,
     auth_status as _auth_status,
     catalog_info as _catalog_info,
-    catalog_name as _catalog_name,
     configure_catalog as _configure_catalog,
     filesystem_status as _filesystem_status,
 )
@@ -380,27 +379,6 @@ def catalog_info() -> dict:
         ```
     """
     return _catalog_info()
-
-
-def catalog_name() -> dict:
-    """Report the current catalog name - Quilt authentication introspection workflows
-
-    Returns:
-        Dict containing the canonical catalog name along with authentication status and the raw configuration payload.
-
-    Next step:
-        Pair the catalog name with `catalog.catalog_info()` or share the friendly identifier with the user to confirm
-        which Quilt deployment they are interacting with.
-
-    Example:
-        ```python
-        from quilt_mcp.tools import catalog
-
-        name_info = catalog.catalog_name()
-        active_name = name_info.get("catalog_name")
-        ```
-    """
-    return _catalog_name()
 
 
 def auth_status() -> dict:

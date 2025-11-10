@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 from quilt_mcp.resources.auth import (
     AuthStatusResource,
     CatalogInfoResource,
-    CatalogNameResource,
     FilesystemStatusResource,
 )
 
@@ -58,30 +57,6 @@ class TestCatalogInfoResource:
             response = await resource.read("auth://catalog/info")
 
             assert response.uri == "auth://catalog/info"
-            assert response.content == mock_result
-
-
-class TestCatalogNameResource:
-    """Test CatalogNameResource."""
-
-    @pytest.fixture
-    def resource(self):
-        return CatalogNameResource()
-
-    @pytest.mark.anyio
-    async def test_read_success(self, resource):
-        """Test successful catalog name retrieval."""
-        mock_result = {
-            "status": "success",
-            "catalog_name": "my-catalog",
-        }
-
-        with patch("quilt_mcp.resources.auth.catalog_name") as mock_tool:
-            mock_tool.return_value = mock_result
-
-            response = await resource.read("auth://catalog/name")
-
-            assert response.uri == "auth://catalog/name"
             assert response.content == mock_result
 
 
