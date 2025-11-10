@@ -39,13 +39,12 @@ class TestPackageCreate:
             "tags": ["test", "example"],
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -81,13 +80,12 @@ class TestPackageCreate:
             "version": "1.0.0",
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -124,13 +122,12 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -162,13 +159,12 @@ class TestPackageCreate:
         # Test metadata without README content
         test_metadata = {"description": "Test package", "tags": ["test", "example"]}
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with metadata as-is
         mock_create_revision.assert_called_once()
@@ -204,13 +200,12 @@ class TestPackageCreate:
             "tags": ["test"],
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with processed metadata (without README)
         mock_create_revision.assert_called_once()
@@ -239,13 +234,12 @@ class TestPackageCreate:
             "entries_added": 1,
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=None,  # No metadata
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with empty metadata
         mock_create_revision.assert_called_once()
@@ -282,13 +276,12 @@ class TestPackageCreate:
             "custom_field": "custom_value",
         }
 
-        package_create(
+        result = package_create(
             package_name="test/package",
             s3_uris=["s3://bucket/test.txt"],
             metadata=test_metadata,
             registry="s3://test-bucket",
         )
-        result = package_create(params)
 
         # Verify create_package_revision was called with metadata unchanged
         mock_create_revision.assert_called_once()
@@ -587,8 +580,9 @@ class TestPackageCreateErrorHandling:
             "details": "Some internal error",
         }
 
-        package_create(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
-        result = package_create(params)
+        result = package_create(
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+        )
 
         assert result["error"] == "Service failed to create package"
         assert result["package_name"] == "test/package"
@@ -599,8 +593,9 @@ class TestPackageCreateErrorHandling:
         """Test package_create when service raises exception."""
         mock_create_revision.side_effect = Exception("Network error")
 
-        package_create(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
-        result = package_create(params)
+        result = package_create(
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+        )
 
         assert "Failed to create package: Network error" in result["error"]
         assert result["package_name"] == "test/package"
@@ -668,8 +663,9 @@ class TestPackageUpdate:
         mock_service.browse_package.side_effect = Exception("Package not found")
         mock_quilt_service_class.return_value = mock_service
 
-        package_update(package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
-        result = package_update(params)
+        result = package_update(
+            package_name="test/package", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket"
+        )
 
         assert "Failed to browse existing package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"
@@ -694,8 +690,7 @@ class TestPackageDelete:
         """Test successful package deletion."""
         mock_delete.return_value = None  # Successful deletion
 
-        package_delete(package_name="test/package", registry="s3://test-bucket")
-        result = package_delete(params)
+        result = package_delete(package_name="test/package", registry="s3://test-bucket")
 
         assert result["status"] == "success"
         assert result["action"] == "deleted"
@@ -709,8 +704,7 @@ class TestPackageDelete:
         """Test package deletion failure."""
         mock_delete.side_effect = Exception("Deletion failed")
 
-        package_delete(package_name="test/package", registry="s3://test-bucket")
-        result = package_delete(params)
+        result = package_delete(package_name="test/package", registry="s3://test-bucket")
 
         assert "Failed to delete package 'test/package':" in result["error"]
         assert result["package_name"] == "test/package"
