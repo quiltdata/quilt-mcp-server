@@ -4,10 +4,11 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal, Optional
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
+from pydantic import Field
 
 from ..constants import DEFAULT_REGISTRY
 from .quilt_summary import create_quilt_summary_files
@@ -16,24 +17,17 @@ from ..services.quilt_service import QuiltService
 from ..utils import format_error_response, generate_signed_url, get_s3_client, validate_package_name
 from .auth_helpers import AuthorizationContext, check_package_authorization
 from ..models import (
-    PackageBrowseParams,
     PackageBrowseSuccess,
-    PackageCreateParams,
     PackageCreateSuccess,
     PackageCreateError,
-    PackageUpdateParams,
     PackageUpdateSuccess,
     PackageUpdateError,
-    PackageDeleteParams,
     PackageDeleteSuccess,
     PackageDeleteError,
-    PackagesListParams,
     PackagesListSuccess,
     PackagesListError,
-    PackageDiffParams,
     PackageDiffSuccess,
     PackageDiffError,
-    PackageCreateFromS3Params,
     PackageCreateFromS3Success,
     PackageCreateFromS3Error,
     PackageSummary,
@@ -590,11 +584,37 @@ def _create_enhanced_package(
         raise
 
 
-def packages_list(params: PackagesListParams) -> PackagesListSuccess | PackagesListError:
+def packages_list(
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI to list packages from",
+        ),
+    ],
+    limit: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Maximum number of packages to return, 0 for unlimited",
+        ),
+    ] = 0,
+    prefix: Annotated[
+        str,
+        Field(
+            default="",
+            description="Filter packages by name prefix",
+            examples=["", "team/", "user/analysis-"],
+        ),
+    ] = "",
+) -> PackagesListSuccess | PackagesListError:
     """List all available Quilt packages in a registry - Quilt package discovery and comparison tasks
 
     Args:
-        params: PackagesListParams with registry, limit, and prefix
+        registry: Quilt registry S3 URI to list packages from
+        limit: Maximum number of packages to return, 0 for unlimited
+        prefix: Filter packages by name prefix
 
     Returns:
         PackagesListSuccess with list of package names, or PackagesListError on failure.
@@ -605,16 +625,14 @@ def packages_list(params: PackagesListParams) -> PackagesListSuccess | PackagesL
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackagesListParams
 
-        params = PackagesListParams(registry="s3://my-bucket", limit=10)
-        result = packages.packages_list(params)
+        result = packages.packages_list(registry="s3://my-bucket", limit=10)
         # Next step: Surface package details to the user or feed identifiers into downstream package tools.
         ```
     """
     try:
         # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
-        normalized_registry = _normalize_registry(params.registry)
+        normalized_registry = _normalize_registry(registry)
         # Suppress stdout during list_packages to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
@@ -623,44 +641,104 @@ def packages_list(params: PackagesListParams) -> PackagesListSuccess | PackagesL
             pkgs = list(quilt_service.list_packages(registry=normalized_registry))  # Convert generator to list
 
         # Apply prefix filtering if specified
-        if params.prefix:
-            pkgs = [pkg for pkg in pkgs if pkg.startswith(params.prefix)]
+        if prefix:
+            pkgs = [pkg for pkg in pkgs if pkg.startswith(prefix)]
 
         # Apply limit if specified
-        if params.limit > 0:
-            pkgs = pkgs[: params.limit]
+        if limit > 0:
+            pkgs = pkgs[:limit]
 
         return PackagesListSuccess(
             packages=pkgs,
             count=len(pkgs),
-            registry=params.registry,
-            prefix_filter=params.prefix if params.prefix else None,
+            registry=registry,
+            prefix_filter=prefix if prefix else None,
         )
     except Exception as e:
         return PackagesListError(
             error=f"Failed to list packages: {str(e)}",
-            registry=params.registry,
+            registry=registry,
         )
 
 
-def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorResponse:
+def package_browse(
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name of the package in namespace/name format",
+            examples=["username/dataset", "team/analysis-results"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI",
+            examples=["s3://my-bucket", "s3://quilt-example"],
+        ),
+    ] = "s3://quilt-ernest-staging",
+    recursive: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Show full file tree (true) or just top-level entries (false)",
+        ),
+    ] = True,
+    include_file_info: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Include file sizes, types, and modification dates",
+        ),
+    ] = True,
+    max_depth: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Maximum directory depth to show (0 for unlimited)",
+        ),
+    ] = 0,
+    top: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Limit number of entries returned (0 for unlimited)",
+        ),
+    ] = 0,
+    include_signed_urls: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Include presigned download URLs for S3 objects",
+        ),
+    ] = True,
+) -> PackageBrowseSuccess | ErrorResponse:
     """Browse the contents of a Quilt package with enhanced file information - Quilt package discovery and comparison tasks
 
     Args:
-        params: PackageBrowseParams with package_name, registry, and browsing options
+        package_name: Name of the package in namespace/name format
+        registry: Quilt registry S3 URI
+        recursive: Show full file tree (true) or just top-level entries (false)
+        include_file_info: Include file sizes, types, and modification dates
+        max_depth: Maximum directory depth to show (0 for unlimited)
+        top: Limit number of entries returned (0 for unlimited)
+        include_signed_urls: Include presigned download URLs for S3 objects
 
     Returns:
         PackageBrowseSuccess with comprehensive package contents, or ErrorResponse on failure.
 
     Examples:
         Basic browsing:
-        package_browse(PackageBrowseParams(package_name="team/dataset"))
+        package_browse(package_name="team/dataset")
 
         Flat view (top-level only):
-        package_browse(PackageBrowseParams(package_name="team/dataset", recursive=False))
+        package_browse(package_name="team/dataset", recursive=False)
 
         Limited depth:
-        package_browse(PackageBrowseParams(package_name="team/dataset", max_depth=2))
+        package_browse(package_name="team/dataset", max_depth=2)
 
     Next step:
         Surface package details to the user or feed identifiers into downstream package tools.
@@ -668,26 +746,24 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageBrowseParams
 
-        params = PackageBrowseParams(package_name="team/dataset")
-        result = packages.package_browse(params)
+        result = packages.package_browse(package_name="team/dataset")
         # Next step: Surface package details to the user or feed identifiers into downstream package tools.
         ```
     """
     # Use the provided registry
-    normalized_registry = _normalize_registry(params.registry)
+    normalized_registry = _normalize_registry(registry)
     try:
         # Suppress stdout during browse to avoid JSON-RPC interference
         from ..utils import suppress_stdout
 
         quilt_service = QuiltService()
         with suppress_stdout():
-            pkg = quilt_service.browse_package(params.package_name, registry=normalized_registry)
+            pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
 
     except Exception as e:
         return ErrorResponse(
-            error=f"Failed to browse package '{params.package_name}'",
+            error=f"Failed to browse package '{package_name}'",
             cause=str(e),
             possible_fixes=[
                 "Verify the package name is correct",
@@ -695,21 +771,21 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
                 "Ensure the package exists in the specified registry",
             ],
             suggested_actions=[
-                f"Try: packages_list(registry='{params.registry}') to see available packages",
-                f"Try: unified_search(query='{params.package_name.split('/')[-1]}', scope='catalog') to find similar packages",
+                f"Try: packages_list(registry='{registry}') to see available packages",
+                f"Try: unified_search(query='{package_name.split('/')[-1]}', scope='catalog') to find similar packages",
             ],
         )
 
     # Get detailed information about each entry
     entries = []
-    file_tree: dict[str, Any] | None = {} if params.recursive else None
+    file_tree: dict[str, Any] | None = {} if recursive else None
     keys = list(pkg.keys())
     total_size = 0
     file_types = set()
 
     # Apply top limit if specified
-    if params.top > 0:
-        keys = keys[: params.top]
+    if top > 0:
+        keys = keys[:top]
 
     for logical_key in keys:
         try:
@@ -740,7 +816,7 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
             }
 
             # Add enhanced file info if requested
-            if params.include_file_info and physical_key and physical_key.startswith("s3://"):
+            if include_file_info and physical_key and physical_key.startswith("s3://"):
                 try:
                     # Try to get additional S3 metadata
                     import boto3
@@ -767,7 +843,7 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
             if physical_key and physical_key.startswith("s3://"):
                 entry_data["s3_uri"] = physical_key
 
-                if params.include_signed_urls:
+                if include_signed_urls:
                     signed_url = generate_signed_url(physical_key)
                     if signed_url:
                         entry_data["download_url"] = signed_url
@@ -775,8 +851,8 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
             entries.append(entry_data)
 
             # Build file tree structure for recursive view
-            if params.recursive and file_tree is not None:
-                _add_to_file_tree(file_tree, logical_key, entry_data, params.max_depth)
+            if recursive and file_tree is not None:
+                _add_to_file_tree(file_tree, logical_key, entry_data, max_depth)
 
         except Exception as e:
             # Include entry with error info
@@ -809,12 +885,12 @@ def package_browse(params: PackageBrowseParams) -> PackageBrowseSuccess | ErrorR
         pass
 
     return PackageBrowseSuccess(
-        package_name=params.package_name,
-        registry=params.registry,
+        package_name=package_name,
+        registry=registry,
         total_entries=len(entries),
         summary=summary,
-        view_type="recursive" if params.recursive else "flat",
-        file_tree=file_tree if params.recursive and file_tree else None,
+        view_type="recursive" if recursive else "flat",
+        file_tree=file_tree if recursive and file_tree else None,
         entries=entries,
         metadata=pkg_metadata,
     )
@@ -861,11 +937,53 @@ def _format_file_size(size_bytes: int) -> str:
     return f"{size_float:.1f} PB"
 
 
-def package_diff(params: PackageDiffParams) -> PackageDiffSuccess | PackageDiffError:
+def package_diff(
+    package1_name: Annotated[
+        str,
+        Field(
+            description="Name of the first package in namespace/name format",
+            examples=["username/dataset", "team/analysis-v1"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    package2_name: Annotated[
+        str,
+        Field(
+            description="Name of the second package in namespace/name format",
+            examples=["username/dataset", "team/analysis-v2"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI",
+        ),
+    ] = "s3://quilt-ernest-staging",
+    package1_hash: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional specific hash for first package (empty string for latest)",
+        ),
+    ] = "",
+    package2_hash: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional specific hash for second package (empty string for latest)",
+        ),
+    ] = "",
+) -> PackageDiffSuccess | PackageDiffError:
     """Compare two package versions and show differences - Quilt package discovery and comparison tasks
 
     Args:
-        params: PackageDiffParams with package names, registry, and optional hashes
+        package1_name: Name of the first package in namespace/name format
+        package2_name: Name of the second package in namespace/name format
+        registry: Quilt registry S3 URI
+        package1_hash: Optional specific hash for first package (empty string for latest)
+        package2_hash: Optional specific hash for second package (empty string for latest)
 
     Returns:
         PackageDiffSuccess with differences, or PackageDiffError on failure.
@@ -876,17 +994,15 @@ def package_diff(params: PackageDiffParams) -> PackageDiffSuccess | PackageDiffE
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageDiffParams
 
-        params = PackageDiffParams(
+        result = packages.package_diff(
             package1_name="team/dataset-v1",
             package2_name="team/dataset-v2",
         )
-        result = packages.package_diff(params)
         # Next step: Surface package details to the user or feed identifiers into downstream package tools.
         ```
     """
-    normalized_registry = _normalize_registry(params.registry)
+    normalized_registry = _normalize_registry(registry)
 
     try:
         # Browse packages with optional hash specification
@@ -895,25 +1011,25 @@ def package_diff(params: PackageDiffParams) -> PackageDiffSuccess | PackageDiffE
 
         quilt_service = QuiltService()
         with suppress_stdout():
-            if params.package1_hash:
+            if package1_hash:
                 pkg1 = quilt_service.browse_package(
-                    params.package1_name, registry=normalized_registry, top_hash=params.package1_hash
+                    package1_name, registry=normalized_registry, top_hash=package1_hash
                 )
             else:
-                pkg1 = quilt_service.browse_package(params.package1_name, registry=normalized_registry)
+                pkg1 = quilt_service.browse_package(package1_name, registry=normalized_registry)
 
-            if params.package2_hash:
+            if package2_hash:
                 pkg2 = quilt_service.browse_package(
-                    params.package2_name, registry=normalized_registry, top_hash=params.package2_hash
+                    package2_name, registry=normalized_registry, top_hash=package2_hash
                 )
             else:
-                pkg2 = quilt_service.browse_package(params.package2_name, registry=normalized_registry)
+                pkg2 = quilt_service.browse_package(package2_name, registry=normalized_registry)
 
     except Exception as e:
         return PackageDiffError(
             error=f"Failed to browse packages: {e}",
-            package1=params.package1_name,
-            package2=params.package2_name,
+            package1=package1_name,
+            package2=package2_name,
         )
 
     try:
@@ -933,41 +1049,100 @@ def package_diff(params: PackageDiffParams) -> PackageDiffSuccess | PackageDiffE
             diff_dict = diff_result if isinstance(diff_result, dict) else {"raw": [str(diff_result)]}
 
         return PackageDiffSuccess(
-            package1=params.package1_name,
-            package2=params.package2_name,
-            package1_hash=params.package1_hash if params.package1_hash else "latest",
-            package2_hash=params.package2_hash if params.package2_hash else "latest",
-            registry=params.registry,
+            package1=package1_name,
+            package2=package2_name,
+            package1_hash=package1_hash if package1_hash else "latest",
+            package2_hash=package2_hash if package2_hash else "latest",
+            registry=registry,
             diff=diff_dict,
         )
 
     except Exception as e:
         return PackageDiffError(
             error=f"Failed to diff packages: {e}",
-            package1=params.package1_name,
-            package2=params.package2_name,
+            package1=package1_name,
+            package2=package2_name,
         )
 
 
-def package_create(params: PackageCreateParams) -> PackageCreateSuccess | PackageCreateError:
+def package_create(
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name for the new package in namespace/name format",
+            examples=["username/dataset", "team/analysis-results"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    s3_uris: Annotated[
+        list[str],
+        Field(
+            description="List of S3 URIs to include in the package",
+            examples=[["s3://bucket/file1.csv", "s3://bucket/file2.json"]],
+            min_length=1,
+        ),
+    ],
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Target Quilt registry S3 URI",
+        ),
+    ] = "s3://quilt-ernest-staging",
+    metadata: Annotated[
+        Optional[dict[str, Any]],
+        Field(
+            default=None,
+            description="Optional metadata to attach to the package (JSON object)",
+            examples=[{"description": "My dataset", "version": "1.0"}],
+        ),
+    ] = None,
+    message: Annotated[
+        str,
+        Field(
+            default="Created via package_create tool",
+            description="Commit message for package creation",
+        ),
+    ] = "Created via package_create tool",
+    flatten: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
+        ),
+    ] = True,
+    copy_mode: Annotated[
+        Literal["all", "same_bucket", "none"],
+        Field(
+            default="all",
+            description="Copy policy for the underlying data: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+        ),
+    ] = "all",
+) -> PackageCreateSuccess | PackageCreateError:
     """Create a new Quilt package from S3 objects - Core package creation, update, and deletion workflows
 
     Args:
-        params: PackageCreateParams with package details and S3 URIs
+        package_name: Name for the new package in namespace/name format
+        s3_uris: List of S3 URIs to include in the package
+        registry: Target Quilt registry S3 URI
+        metadata: Optional metadata to attach to the package (JSON object)
+        message: Commit message for package creation
+        flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
+        copy_mode: Copy policy for the underlying data
 
     Returns:
         PackageCreateSuccess with package details, or PackageCreateError on failure.
 
     Examples:
         Basic package creation:
-        package_create(PackageCreateParams(package_name="my-team/dataset", s3_uris=["s3://bucket/file.csv"]))
+        package_create(package_name="my-team/dataset", s3_uris=["s3://bucket/file.csv"])
 
         With metadata:
-        package_create(PackageCreateParams(
+        package_create(
             package_name="my-team/dataset",
             s3_uris=["s3://bucket/file.csv"],
             metadata={"description": "My dataset", "type": "research"}
-        ))
+        )
 
     Next step:
         Report the package operation result or continue the workflow (e.g., metadata updates).
@@ -975,13 +1150,11 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageCreateParams
 
-        params = PackageCreateParams(
+        result = packages.package_create(
             package_name="team/dataset",
             s3_uris=["s3://example-bucket/data.csv"],
         )
-        result = packages.package_create(params)
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
@@ -989,21 +1162,28 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
     auth_ctx: AuthorizationContext | None = None
 
     warnings: list[str] = []
-    if not params.s3_uris:
+    if not s3_uris:
         return PackageCreateError(
             error="No S3 URIs provided",
-            package_name=params.package_name,
+            package_name=package_name,
             suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
         )
-    if not params.package_name:
+    if not package_name:
         return PackageCreateError(
             error="Package name is required",
             package_name="",
             suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
+    if metadata is not None and not isinstance(metadata, dict):
+        return PackageCreateError(
+            error="Metadata must be a dictionary",
+            package_name=package_name,
+            provided_type=type(metadata).__name__,
+            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'My dataset'}"],
+        )
 
     # Process metadata to ensure README content is handled correctly
-    processed_metadata = params.metadata.copy() if params.metadata else {}
+    processed_metadata = metadata.copy() if metadata else {}
 
     # Extract README content from metadata (it will be handled by create_package_revision)
     # readme_content takes priority if both fields exist
@@ -1020,18 +1200,18 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         processed_metadata.pop("readme")
         warnings.append("Removed duplicate 'readme' field from metadata")
 
-    normalized_registry = _normalize_registry(params.registry)
+    normalized_registry = _normalize_registry(registry)
 
     auth_ctx, error = _authorize_package(
         "package_create",
-        {"package_name": params.package_name, "registry": normalized_registry},
-        context={"package_name": params.package_name, "registry": normalized_registry},
+        {"package_name": package_name, "registry": normalized_registry},
+        context={"package_name": package_name, "registry": normalized_registry},
     )
     if error:
         return PackageCreateError(
             error=error.get("error", "Authorization failed"),
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             suggested_actions=["Check your permissions", "Verify package name format", "Confirm registry access"],
         )
 
@@ -1039,21 +1219,21 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         # Use the new create_package_revision method with auto_organize=False
         # to preserve the existing flattening behavior
         result = quilt_service.create_package_revision(
-            package_name=params.package_name,
-            s3_uris=params.s3_uris,
+            package_name=package_name,
+            s3_uris=s3_uris,
             metadata=processed_metadata,
             registry=normalized_registry,
-            message=params.message,
+            message=message,
             auto_organize=False,  # Preserve flattening behavior like _collect_objects_into_package
-            copy=params.copy_mode,
+            copy=copy_mode,
         )
 
         # Handle the result based on its structure
         if result.get("error"):
             return PackageCreateError(
                 error=result["error"],
-                package_name=params.package_name,
-                registry=params.registry,
+                package_name=package_name,
+                registry=registry,
                 suggested_actions=[
                     "Verify S3 URIs are valid and accessible",
                     "Check write permissions for the registry",
@@ -1064,30 +1244,28 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
 
         # Extract the top_hash from the result
         top_hash = result.get("top_hash")
-        entries_added = result.get("entries_added", len(params.s3_uris))
+        entries_added = result.get("entries_added", len(s3_uris))
         files = result.get("files", [])
 
         # Build package URL
         from .catalog import catalog_url
-        from ..models import CatalogUrlParams
 
-        catalog_params = CatalogUrlParams(
+        catalog_result = catalog_url(
             registry=normalized_registry,
-            package_name=params.package_name,
+            package_name=package_name,
             path="",
             catalog_host="",
         )
-        catalog_result = catalog_url(catalog_params)
         package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
         return PackageCreateSuccess(
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             top_hash=str(top_hash),
             files_added=entries_added,
             package_url=package_url,
             files=files,
-            message=params.message,
+            message=message,
             warnings=warnings,
             auth_type=auth_ctx.auth_type if auth_ctx else None,
         )
@@ -1095,8 +1273,8 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
     except Exception as e:
         return PackageCreateError(
             error=f"Failed to create package: {e}",
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             suggested_actions=[
                 "Check S3 permissions for source files",
                 "Verify registry write access",
@@ -1107,11 +1285,70 @@ def package_create(params: PackageCreateParams) -> PackageCreateSuccess | Packag
         )
 
 
-def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | PackageUpdateError:
+def package_update(
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name of the existing package to update in namespace/name format",
+            examples=["username/dataset", "team/analysis-results"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    s3_uris: Annotated[
+        list[str],
+        Field(
+            description="List of S3 URIs to add to the package",
+            examples=[["s3://bucket/newfile.csv", "s3://bucket/updated.json"]],
+            min_length=1,
+        ),
+    ],
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Target Quilt registry S3 URI",
+        ),
+    ] = "s3://quilt-ernest-staging",
+    metadata: Annotated[
+        Optional[dict[str, Any]],
+        Field(
+            default=None,
+            description="Optional metadata to merge with existing package metadata",
+            examples=[{"updated": "true", "version": "2.0"}],
+        ),
+    ] = None,
+    message: Annotated[
+        str,
+        Field(
+            default="Added objects via package_update tool",
+            description="Commit message for package update",
+        ),
+    ] = "Added objects via package_update tool",
+    flatten: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Use only filenames as logical paths (true) instead of full S3 keys (false)",
+        ),
+    ] = True,
+    copy_mode: Annotated[
+        Literal["all", "same_bucket", "none"],
+        Field(
+            default="all",
+            description="Copy policy for the source objects: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+        ),
+    ] = "all",
+) -> PackageUpdateSuccess | PackageUpdateError:
     """Update an existing Quilt package by adding new S3 objects - Core package creation, update, and deletion workflows
 
     Args:
-        params: PackageUpdateParams with package details and S3 URIs to add
+        package_name: Name of the existing package to update in namespace/name format
+        s3_uris: List of S3 URIs to add to the package
+        registry: Target Quilt registry S3 URI
+        metadata: Optional metadata to merge with existing package metadata
+        message: Commit message for package update
+        flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
+        copy_mode: Copy policy for the source objects
 
     Returns:
         PackageUpdateSuccess with update details, or PackageUpdateError on failure.
@@ -1122,43 +1359,47 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageUpdateParams
 
-        params = PackageUpdateParams(
+        result = packages.package_update(
             package_name="team/dataset",
             s3_uris=["s3://example-bucket/data.csv"],
         )
-        result = packages.package_update(params)
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
     # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
     auth_ctx: AuthorizationContext | None = None
 
-    if not params.s3_uris:
+    if not s3_uris:
         return PackageUpdateError(
             error="No S3 URIs provided",
-            package_name=params.package_name,
+            package_name=package_name,
             suggested_actions=["Provide at least one S3 URI", "Example: s3://bucket/path/to/file.csv"],
         )
-    if not params.package_name:
+    if not package_name:
         return PackageUpdateError(
             error="package_name is required for package_update",
             package_name="",
             suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
+    if metadata is not None and not isinstance(metadata, dict):
+        return PackageUpdateError(
+            error="Metadata must be a dictionary",
+            package_name=package_name,
+            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'Updated dataset'}"],
+        )
     warnings: list[str] = []
-    normalized_registry = _normalize_registry(params.registry)
+    normalized_registry = _normalize_registry(registry)
     auth_ctx, error = _authorize_package(
         "package_update",
-        {"package_name": params.package_name, "registry": normalized_registry},
-        context={"package_name": params.package_name, "registry": normalized_registry},
+        {"package_name": package_name, "registry": normalized_registry},
+        context={"package_name": package_name, "registry": normalized_registry},
     )
     if error:
         return PackageUpdateError(
             error=error.get("error", "Authorization failed"),
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
         )
     try:
@@ -1167,12 +1408,12 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
 
         with suppress_stdout():
             quilt_service = QuiltService()
-            existing_pkg = quilt_service.browse_package(params.package_name, registry=normalized_registry)
+            existing_pkg = quilt_service.browse_package(package_name, registry=normalized_registry)
     except Exception as e:
         return PackageUpdateError(
-            error=f"Failed to browse existing package '{params.package_name}': {e}",
-            package_name=params.package_name,
-            registry=params.registry,
+            error=f"Failed to browse existing package '{package_name}': {e}",
+            package_name=package_name,
+            registry=registry,
             suggested_actions=[
                 "Verify package exists in the registry",
                 "Check package name format",
@@ -1181,12 +1422,12 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
         )
     # Use the existing package as the base instead of creating a new one
     updated_pkg = existing_pkg
-    added = _collect_objects_into_package(updated_pkg, params.s3_uris, params.flatten, warnings)
+    added = _collect_objects_into_package(updated_pkg, s3_uris, flatten, warnings)
     if not added:
         return PackageUpdateError(
             error="No new S3 objects were added",
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             suggested_actions=[
                 "Check that S3 URIs are valid and accessible",
                 "Verify URIs point to actual files, not directories",
@@ -1194,14 +1435,14 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
             ],
             warnings=warnings,
         )
-    if params.metadata:
+    if metadata:
         try:
             combined = {}
             try:
                 combined.update(existing_pkg.meta)
             except Exception:
                 pass
-            combined.update(params.metadata)
+            combined.update(metadata)
             updated_pkg.set_meta(combined)
         except Exception as e:
             warnings.append(f"Failed to set merged metadata: {e}")
@@ -1210,11 +1451,11 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            selector_fn = _build_selector_fn(params.copy_mode, normalized_registry)
+            selector_fn = _build_selector_fn(copy_mode, normalized_registry)
             top_hash = updated_pkg.push(
-                params.package_name,
+                package_name,
                 registry=normalized_registry,
-                message=params.message,
+                message=message,
                 selector_fn=selector_fn,
                 force=True,
             )
@@ -1222,8 +1463,8 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
     except Exception as e:
         return PackageUpdateError(
             error=f"Failed to push updated package: {e}",
-            package_name=params.package_name,
-            registry=params.registry,
+            package_name=package_name,
+            registry=registry,
             suggested_actions=[
                 "Check write permissions for the registry",
                 "Verify network connectivity",
@@ -1234,35 +1475,50 @@ def package_update(params: PackageUpdateParams) -> PackageUpdateSuccess | Packag
 
     # Build package URL
     from .catalog import catalog_url
-    from ..models import CatalogUrlParams
 
-    catalog_params = CatalogUrlParams(
+    catalog_result = catalog_url(
         registry=normalized_registry,
-        package_name=params.package_name,
+        package_name=package_name,
         path="",
         catalog_host="",
     )
-    catalog_result = catalog_url(catalog_params)
     package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
 
     return PackageUpdateSuccess(
-        package_name=params.package_name,
-        registry=params.registry,
+        package_name=package_name,
+        registry=registry,
         top_hash=str(top_hash),
         files_added=len(added),
         package_url=package_url,
         files=added,
-        message=params.message,
+        message=message,
         warnings=warnings,
         auth_type=auth_ctx.auth_type if auth_ctx else None,
     )
 
 
-def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | PackageDeleteError:
+def package_delete(
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name of the package to delete in namespace/name format",
+            examples=["username/dataset", "team/old-analysis"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    registry: Annotated[
+        str,
+        Field(
+            default="s3://quilt-ernest-staging",
+            description="Quilt registry S3 URI where the package resides",
+        ),
+    ] = "s3://quilt-ernest-staging",
+) -> PackageDeleteSuccess | PackageDeleteError:
     """Delete a Quilt package from the registry - Core package creation, update, and deletion workflows
 
     Args:
-        params: PackageDeleteParams with package name and registry
+        package_name: Name of the package to delete in namespace/name format
+        registry: Quilt registry S3 URI where the package resides
 
     Returns:
         PackageDeleteSuccess with confirmation, or PackageDeleteError on failure.
@@ -1273,17 +1529,15 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageDeleteParams
 
-        params = PackageDeleteParams(package_name="team/dataset")
-        result = packages.package_delete(params)
+        result = packages.package_delete(package_name="team/dataset")
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
     # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
     auth_ctx: AuthorizationContext | None = None
 
-    if not params.package_name:
+    if not package_name:
         return PackageDeleteError(
             error="package_name is required for package deletion",
             package_name="",
@@ -1291,17 +1545,17 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
         )
 
     try:
-        normalized_registry = _normalize_registry(params.registry)
+        normalized_registry = _normalize_registry(registry)
         auth_ctx, error = _authorize_package(
             "package_delete",
-            {"package_name": params.package_name, "registry": normalized_registry},
-            context={"package_name": params.package_name, "registry": normalized_registry},
+            {"package_name": package_name, "registry": normalized_registry},
+            context={"package_name": package_name, "registry": normalized_registry},
         )
         if error:
             return PackageDeleteError(
                 error=error.get("error", "Authorization failed"),
-                package_name=params.package_name,
-                registry=params.registry,
+                package_name=package_name,
+                registry=registry,
                 suggested_actions=["Check your permissions", "Verify package exists", "Confirm registry access"],
             )
 
@@ -1309,19 +1563,19 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
         from ..utils import suppress_stdout
 
         with suppress_stdout():
-            quilt3.delete_package(params.package_name, registry=normalized_registry)
+            quilt3.delete_package(package_name, registry=normalized_registry)
 
         return PackageDeleteSuccess(
-            package_name=params.package_name,
-            registry=params.registry,
-            message=f"Package {params.package_name} deleted successfully",
+            package_name=package_name,
+            registry=registry,
+            message=f"Package {package_name} deleted successfully",
             auth_type=auth_ctx.auth_type if auth_ctx else None,
         )
     except Exception as e:
         return PackageDeleteError(
-            error=f"Failed to delete package '{params.package_name}': {e}",
-            package_name=params.package_name,
-            registry=params.registry,
+            error=f"Failed to delete package '{package_name}': {e}",
+            package_name=package_name,
+            registry=registry,
             suggested_actions=[
                 "Verify package exists in the registry",
                 "Check delete permissions for the registry",
@@ -1331,11 +1585,135 @@ def package_delete(params: PackageDeleteParams) -> PackageDeleteSuccess | Packag
         )
 
 
-def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFromS3Success | PackageCreateFromS3Error:
+def package_create_from_s3(
+    source_bucket: Annotated[
+        str,
+        Field(
+            description="S3 bucket name containing source data (without s3:// prefix)",
+            examples=["my-data-bucket", "research-data"],
+        ),
+    ],
+    package_name: Annotated[
+        str,
+        Field(
+            description="Name for the new package in namespace/name format",
+            examples=["username/dataset", "team/research-data"],
+            pattern=r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$",
+        ),
+    ],
+    source_prefix: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional prefix to filter source objects",
+            examples=["", "data/2024/", "experiments/"],
+        ),
+    ] = "",
+    description: Annotated[
+        str,
+        Field(
+            default="",
+            description="Package description",
+        ),
+    ] = "",
+    target_registry: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Target Quilt registry (auto-suggested if not provided)",
+        ),
+    ] = None,
+    include_patterns: Annotated[
+        Optional[list[str]],
+        Field(
+            default=None,
+            description="File patterns to include (glob style)",
+            examples=[["*.csv", "*.json"], ["data/*.parquet"]],
+        ),
+    ] = None,
+    exclude_patterns: Annotated[
+        Optional[list[str]],
+        Field(
+            default=None,
+            description="File patterns to exclude (glob style)",
+            examples=[["*.tmp", "*.log"], ["temp/*"]],
+        ),
+    ] = None,
+    metadata_template: Annotated[
+        Literal["standard", "ml", "analytics"],
+        Field(
+            default="standard",
+            description="Metadata template to use",
+        ),
+    ] = "standard",
+    copy_mode: Annotated[
+        Literal["all", "same_bucket", "none"],
+        Field(
+            default="all",
+            description="Copy policy for package materialization: 'all' (copy everything), 'same_bucket' (copy only if different bucket), 'none' (reference only)",
+        ),
+    ] = "all",
+    auto_organize: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Enable smart folder organization",
+        ),
+    ] = True,
+    generate_readme: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Generate comprehensive README.md",
+        ),
+    ] = True,
+    confirm_structure: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Require user confirmation of structure",
+        ),
+    ] = True,
+    dry_run: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Preview structure without creating package",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Skip confirmation prompts when True",
+        ),
+    ] = False,
+    metadata: Annotated[
+        Optional[dict[str, Any]],
+        Field(
+            default=None,
+            description="Additional user-provided metadata",
+        ),
+    ] = None,
+) -> PackageCreateFromS3Success | PackageCreateFromS3Error:
     """Create a well-organized Quilt package from S3 bucket contents with smart organization - Bulk S3-to-package ingestion workflows
 
     Args:
-        params: PackageCreateFromS3Params with all configuration options
+        source_bucket: S3 bucket name containing source data (without s3:// prefix)
+        package_name: Name for the new package in namespace/name format
+        source_prefix: Optional prefix to filter source objects
+        description: Package description
+        target_registry: Target Quilt registry (auto-suggested if not provided)
+        include_patterns: File patterns to include (glob style)
+        exclude_patterns: File patterns to exclude (glob style)
+        metadata_template: Metadata template to use
+        copy_mode: Copy policy for package materialization
+        auto_organize: Enable smart folder organization
+        generate_readme: Generate comprehensive README.md
+        confirm_structure: Require user confirmation of structure
+        dry_run: Preview structure without creating package
+        force: Skip confirmation prompts when True
+        metadata: Additional user-provided metadata
 
     Returns:
         PackageCreateFromS3Success with package details, or PackageCreateFromS3Error on failure.
@@ -1346,34 +1724,32 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
     Example:
         ```python
         from quilt_mcp.tools import packages
-        from quilt_mcp.models import PackageCreateFromS3Params
 
-        params = PackageCreateFromS3Params(
+        result = packages.package_create_from_s3(
             source_bucket="my-data-bucket",
             package_name="team/dataset",
         )
-        result = packages.package_create_from_s3(params)
         # Next step: Review the dry-run output then hand the planned manifest to package_ops.create_package.
         ```
     """
     try:
         # Validate inputs
-        if not validate_package_name(params.package_name):
+        if not validate_package_name(package_name):
             return PackageCreateFromS3Error(
                 error="Invalid package name format. Use 'namespace/name'",
-                package_name=params.package_name,
+                package_name=package_name,
                 suggested_actions=["Package name must be in format: namespace/name", "Example: team/dataset"],
             )
 
-        if not params.source_bucket:
+        if not source_bucket:
             return PackageCreateFromS3Error(
                 error="source_bucket is required",
-                package_name=params.package_name,
+                package_name=package_name,
                 suggested_actions=["Provide a valid S3 bucket name", "Example: my-data-bucket"],
             )
 
         # Handle metadata parameter
-        processed_metadata = params.metadata.copy() if params.metadata else {}
+        processed_metadata = metadata.copy() if metadata else {}
         readme_content = None
 
         # Extract README content from metadata and store for later addition as package file
@@ -1386,24 +1762,24 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             readme_content = str(readme_value) if readme_value is not None else None
 
         # Validate and normalize bucket name
-        if params.source_bucket.startswith("s3://"):
+        if source_bucket.startswith("s3://"):
             return PackageCreateFromS3Error(
                 error="Invalid bucket name format",
-                package_name=params.package_name,
+                package_name=package_name,
                 suggested_actions=[
                     "Use bucket name only, not full S3 URI",
-                    f"Try using: {params.source_bucket.replace('s3://', '')}",
+                    f"Try using: {source_bucket.replace('s3://', '')}",
                     "Example: my-bucket (not s3://my-bucket)",
                 ],
             )
 
         # Suggest target registry if not provided using permissions discovery
-        target_registry = params.target_registry
-        if not target_registry:
+        resolved_target_registry = target_registry
+        if not resolved_target_registry:
             # Try to get smart recommendations based on actual permissions
             try:
                 recommendations = bucket_recommendations_get(
-                    source_bucket=params.source_bucket, operation_type="package_creation"
+                    source_bucket=source_bucket, operation_type="package_creation"
                 )
 
                 if recommendations.get("success") and recommendations.get("recommendations", {}).get(
@@ -1411,27 +1787,27 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                 ):
                     # Use the top recommendation
                     top_rec = recommendations["recommendations"]["primary_recommendations"][0]
-                    target_registry = f"s3://{top_rec['bucket_name']}"
-                    logger.info(f"Using permission-based recommendation: {target_registry}")
+                    resolved_target_registry = f"s3://{top_rec['bucket_name']}"
+                    logger.info(f"Using permission-based recommendation: {resolved_target_registry}")
                 else:
                     # Fallback to pattern-based suggestion
-                    target_registry = _suggest_target_registry(params.source_bucket, params.source_prefix)
-                    logger.info(f"Using pattern-based suggestion: {target_registry}")
+                    resolved_target_registry = _suggest_target_registry(source_bucket, source_prefix)
+                    logger.info(f"Using pattern-based suggestion: {resolved_target_registry}")
 
             except Exception as e:
                 logger.warning(f"Permission-based recommendation failed, using pattern-based: {e}")
-                target_registry = _suggest_target_registry(params.source_bucket, params.source_prefix)
-                logger.info(f"Fallback suggestion: {target_registry}")
+                resolved_target_registry = _suggest_target_registry(source_bucket, source_prefix)
+                logger.info(f"Fallback suggestion: {resolved_target_registry}")
 
         # Validate target registry permissions
-        target_bucket_name = target_registry.replace("s3://", "")
+        target_bucket_name = resolved_target_registry.replace("s3://", "")
         try:
             access_check = check_bucket_access(target_bucket_name)
             if not access_check.get("success") or not access_check.get("access_summary", {}).get("can_write"):
                 return PackageCreateFromS3Error(
                     error="Cannot create package in target registry",
-                    package_name=params.package_name,
-                    registry=target_registry,
+                    package_name=package_name,
+                    registry=resolved_target_registry,
                     suggested_actions=[
                         f"Verify you have s3:PutObject permissions for {target_bucket_name}",
                         "Check if you're connected to the right catalog",
@@ -1448,16 +1824,16 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
 
         # Validate source bucket access
         try:
-            _validate_bucket_access(s3_client, params.source_bucket)
+            _validate_bucket_access(s3_client, source_bucket)
         except Exception as e:
             # Provide friendly error message with helpful suggestions
             error_msg = str(e)
             if "Access denied" in error_msg or "AccessDenied" in error_msg:
                 return PackageCreateFromS3Error(
                     error="Cannot access source bucket - insufficient permissions",
-                    package_name=params.package_name,
+                    package_name=package_name,
                     suggested_actions=[
-                        f"Verify you have s3:ListBucket and s3:GetObject permissions for {params.source_bucket}",
+                        f"Verify you have s3:ListBucket and s3:GetObject permissions for {source_bucket}",
                         "Check if the bucket name is correct",
                         "Ensure your AWS credentials are properly configured",
                         "Try: check_bucket_access() to diagnose specific permission issues",
@@ -1466,21 +1842,19 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
                 )
             else:
                 return PackageCreateFromS3Error(
-                    error=f"Cannot access source bucket {params.source_bucket}: {str(e)}",
-                    package_name=params.package_name,
+                    error=f"Cannot access source bucket {source_bucket}: {str(e)}",
+                    package_name=package_name,
                     suggested_actions=["Check bucket name", "Verify AWS credentials", "Check network connectivity"],
                 )
 
         # Discover source objects
-        logger.info(f"Discovering objects in s3://{params.source_bucket}/{params.source_prefix}")
-        objects = _discover_s3_objects(
-            s3_client, params.source_bucket, params.source_prefix, params.include_patterns, params.exclude_patterns
-        )
+        logger.info(f"Discovering objects in s3://{source_bucket}/{source_prefix}")
+        objects = _discover_s3_objects(s3_client, source_bucket, source_prefix, include_patterns, exclude_patterns)
 
         if not objects:
             return PackageCreateFromS3Error(
                 error="No objects found matching the specified criteria",
-                package_name=params.package_name,
+                package_name=package_name,
                 suggested_actions=[
                     "Check if source_prefix is correct",
                     "Verify include_patterns and exclude_patterns",
@@ -1489,26 +1863,24 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             )
 
         # Organize file structure
-        organized_structure = _organize_file_structure(objects, params.auto_organize)
+        organized_structure = _organize_file_structure(objects, auto_organize)
         total_size = sum(obj.get("Size", 0) for obj in objects)
 
         # Prepare source information
         source_info = {
-            "bucket": params.source_bucket,
-            "prefix": params.source_prefix,
+            "bucket": source_bucket,
+            "prefix": source_prefix,
             "source_description": (
-                f"s3://{params.source_bucket}/{params.source_prefix}"
-                if params.source_prefix
-                else f"s3://{params.source_bucket}"
+                f"s3://{source_bucket}/{source_prefix}" if source_prefix else f"s3://{source_bucket}"
             ),
         }
 
         # Generate comprehensive metadata
         enhanced_metadata = _generate_package_metadata(
-            package_name=params.package_name,
+            package_name=package_name,
             source_info=source_info,
             organized_structure=organized_structure,
-            metadata_template=params.metadata_template,
+            metadata_template=metadata_template,
             user_metadata=processed_metadata,
         )
 
@@ -1520,29 +1892,29 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         if readme_content:
             final_readme_content = readme_content
             logger.info("Using README content extracted from metadata")
-        elif params.generate_readme:
+        elif generate_readme:
             final_readme_content = _generate_readme_content(
-                package_name=params.package_name,
-                description=params.description,
+                package_name=package_name,
+                description=description,
                 organized_structure=organized_structure,
                 total_size=total_size,
                 source_info=source_info,
-                metadata_template=params.metadata_template,
+                metadata_template=metadata_template,
             )
             logger.info("Generated new README content")
 
         summary_files = create_quilt_summary_files(
-            package_name=params.package_name,
+            package_name=package_name,
             package_metadata=enhanced_metadata,
             organized_structure=organized_structure,
             readme_content=final_readme_content or "",
             source_info=source_info,
-            metadata_template=params.metadata_template,
+            metadata_template=metadata_template,
         )
 
         # Prepare confirmation information
         confirmation_info = {
-            "bucket_suggested": target_registry,
+            "bucket_suggested": resolved_target_registry,
             "structure_preview": {
                 folder: {
                     "file_count": len(files),
@@ -1553,17 +1925,17 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             },
             "total_files": len(objects),
             "total_size_mb": round(total_size / (1024 * 1024), 2),
-            "organization_applied": params.auto_organize,
-            "readme_generated": params.generate_readme,
+            "organization_applied": auto_organize,
+            "readme_generated": generate_readme,
             "summary_files_generated": summary_files.get("success", False),
             "visualization_count": summary_files.get("visualization_count", 0),
         }
 
         # If dry run, return preview without creating
-        if params.dry_run:
+        if dry_run:
             return PackageCreateFromS3Success(
-                package_name=params.package_name,
-                registry=target_registry,
+                package_name=package_name,
+                registry=resolved_target_registry,
                 action="preview",
                 structure={"folders_created": list(organized_structure.keys()), "files_organized": len(objects)},
                 metadata_info={
@@ -1577,13 +1949,13 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
             )
 
         # User confirmation step (in real implementation, this would be interactive)
-        if params.confirm_structure and not params.force:
+        if confirm_structure and not force:
             # For now, we'll proceed as if confirmed
             # In a real implementation, this would present the preview to the user
             logger.info("Structure confirmation: proceeding with package creation")
 
         # Create the actual package
-        logger.info(f"Creating package {params.package_name} with enhanced structure")
+        logger.info(f"Creating package {package_name} with enhanced structure")
         # Convert Pydantic model to dict if it's a success response
         summary_files_dict = None
         if isinstance(summary_files, dict):
@@ -1594,32 +1966,32 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         package_result = _create_enhanced_package(
             s3_client=s3_client,
             organized_structure=organized_structure,
-            source_bucket=params.source_bucket,
-            package_name=params.package_name,
-            target_registry=target_registry,
-            description=params.description,
+            source_bucket=source_bucket,
+            package_name=package_name,
+            target_registry=resolved_target_registry,
+            description=description,
             enhanced_metadata=enhanced_metadata,
             readme_content=final_readme_content,
             summary_files=summary_files_dict,
-            copy_mode=params.copy_mode,
-            force=params.force,
+            copy_mode=copy_mode,
+            force=force,
         )
 
         return PackageCreateFromS3Success(
-            package_name=params.package_name,
-            registry=target_registry,
+            package_name=package_name,
+            registry=resolved_target_registry,
             action="created",
             structure={
                 "folders_created": list(organized_structure.keys()),
                 "files_organized": len(objects),
-                "readme_generated": params.generate_readme,
+                "readme_generated": generate_readme,
             },
             metadata_info={
                 "package_size_mb": round(total_size / (1024 * 1024), 2),
                 "file_types": list(
                     set(Path(obj["Key"]).suffix.lower().lstrip(".") for obj in objects if Path(obj["Key"]).suffix)
                 ),
-                "organization_applied": ("logical_hierarchy" if params.auto_organize else "flat"),
+                "organization_applied": ("logical_hierarchy" if auto_organize else "flat"),
             },
             confirmation=confirmation_info,
             package_hash=package_result.get("top_hash"),
@@ -1635,7 +2007,7 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
     except NoCredentialsError:
         return PackageCreateFromS3Error(
             error="AWS credentials not found. Please configure AWS authentication.",
-            package_name=params.package_name,
+            package_name=package_name,
             suggested_actions=[
                 "Configure AWS credentials using aws configure",
                 "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables",
@@ -1646,14 +2018,14 @@ def package_create_from_s3(params: PackageCreateFromS3Params) -> PackageCreateFr
         error_code = e.response.get("Error", {}).get("Code", "Unknown")
         return PackageCreateFromS3Error(
             error=f"AWS error ({error_code}): {str(e)}",
-            package_name=params.package_name,
+            package_name=package_name,
             suggested_actions=["Check AWS permissions", "Verify bucket access", "Check network connectivity"],
         )
     except Exception as e:
         logger.error(f"Error creating package from S3: {str(e)}")
         return PackageCreateFromS3Error(
             error=f"Failed to create package: {str(e)}",
-            package_name=params.package_name,
+            package_name=package_name,
             suggested_actions=[
                 "Check logs for details",
                 "Verify all parameters",

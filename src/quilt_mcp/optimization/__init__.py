@@ -7,17 +7,17 @@ improvement mechanisms.
 """
 
 from .interceptor import ToolCallInterceptor, OptimizationContext
-from .testing import TestScenario, TestStep, ScenarioRunner, TestScenarioType
+from .testing import Scenario, ScenarioStep, ScenarioRunner, ScenarioType
 from .autonomous import AutonomousOptimizer, OptimizationRule
 from .scenarios import create_all_test_scenarios
 
 __all__ = [
     "ToolCallInterceptor",
     "OptimizationContext",
-    "TestScenario",
-    "TestStep",
+    "Scenario",
+    "ScenarioStep",
     "ScenarioRunner",
-    "TestScenarioType",
+    "ScenarioType",
     "AutonomousOptimizer",
     "OptimizationRule",
     "create_all_test_scenarios",

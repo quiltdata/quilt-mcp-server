@@ -526,8 +526,15 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     return app
 
 
-def run_server() -> None:
-    """Run the MCP server with proper error handling."""
+def run_server(skip_banner: bool = False) -> None:
+    """Run the MCP server with proper error handling.
+
+    Args:
+        skip_banner: If True, skip the FastMCP startup banner display.
+                    Useful for multi-server setups where banner output can
+                    interfere with JSON-RPC communication over stdio.
+                    Defaults to False (show banner).
+    """
     try:
         # Create and configure the server
         mcp = create_configured_server()
@@ -544,7 +551,7 @@ def run_server() -> None:
 
         if transport == "stdio":
             set_default_environment("desktop-stdio")
-            mcp.run(transport=transport)
+            mcp.run(transport=transport, show_banner=not skip_banner)
             return
 
         set_default_environment("web-service")
@@ -559,7 +566,7 @@ def run_server() -> None:
             uvicorn.run(app, host=host, port=port, log_level="info")
             return
 
-        mcp.run(transport=transport)
+        mcp.run(transport=transport, show_banner=not skip_banner)
 
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout

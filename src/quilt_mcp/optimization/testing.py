@@ -19,8 +19,8 @@ import statistics
 logger = logging.getLogger(__name__)
 
 
-class TestScenarioType(Enum):
-    """Types of test scenarios."""
+class ScenarioType(Enum):
+    """Types of optimization test scenarios."""
 
     PACKAGE_CREATION = "package_creation"
     DATA_DISCOVERY = "data_discovery"
@@ -32,8 +32,8 @@ class TestScenarioType(Enum):
 
 
 @dataclass
-class TestStep:
-    """A single step in a test scenario."""
+class ScenarioStep:
+    """A single step in an optimization test scenario."""
 
     tool_name: str
     args: Dict[str, Any]
@@ -45,13 +45,13 @@ class TestStep:
 
 
 @dataclass
-class TestScenario:
+class Scenario:
     """A complete test scenario for optimization analysis."""
 
     name: str
     description: str
-    scenario_type: TestScenarioType
-    steps: List[TestStep]
+    scenario_type: ScenarioType
+    steps: List[ScenarioStep]
     expected_total_time: float = 60.0
     expected_call_count: int = 0
     success_criteria: List[str] = field(default_factory=list)
@@ -93,7 +93,7 @@ class ScenarioRunner:
             if not name.startswith("_"):
                 self.tool_registry[name] = func
 
-    async def run_scenario(self, scenario: TestScenario) -> TestResult:
+    async def run_scenario(self, scenario: Scenario) -> TestResult:
         """Run a single test scenario."""
         logger.info(f"Running test scenario: {scenario.name}")
 
@@ -214,7 +214,7 @@ class ScenarioRunner:
             return await loop.run_in_executor(None, lambda: tool_func(**args))
 
     def _calculate_efficiency_score(
-        self, scenario: TestScenario, total_time: float, total_calls: int, success: bool
+        self, scenario: Scenario, total_time: float, total_calls: int, success: bool
     ) -> float:
         """Calculate efficiency score for a test result."""
         if not success:
@@ -237,7 +237,7 @@ class ScenarioRunner:
 
     def _generate_optimization_suggestions(
         self,
-        scenario: TestScenario,
+        scenario: Scenario,
         step_results: List[Dict[str, Any]],
         total_time: float,
         total_calls: int,
@@ -323,10 +323,10 @@ class OptimizationTester:
 
     def __init__(self):
         self.scenario_runner = ScenarioRunner()
-        self.scenarios: List[TestScenario] = []
+        self.scenarios: List[Scenario] = []
         self.baseline_results: Dict[str, TestResult] = {}
 
-    def add_scenario(self, scenario: TestScenario) -> None:
+    def add_scenario(self, scenario: Scenario) -> None:
         """Add a test scenario."""
         self.scenarios.append(scenario)
 
@@ -339,11 +339,11 @@ class OptimizationTester:
             scenario = self._create_scenario_from_dict(scenario_data)
             self.add_scenario(scenario)
 
-    def _create_scenario_from_dict(self, data: Dict[str, Any]) -> TestScenario:
-        """Create a TestScenario from dictionary data."""
+    def _create_scenario_from_dict(self, data: Dict[str, Any]) -> Scenario:
+        """Create a Scenario from dictionary data."""
         steps = []
         for step_data in data.get("steps", []):
-            step = TestStep(
+            step = ScenarioStep(
                 tool_name=step_data["tool_name"],
                 args=step_data.get("args", {}),
                 expected_success=step_data.get("expected_success", True),
@@ -352,10 +352,10 @@ class OptimizationTester:
             )
             steps.append(step)
 
-        return TestScenario(
+        return Scenario(
             name=data["name"],
             description=data.get("description", ""),
-            scenario_type=TestScenarioType(data.get("scenario_type", "package_creation")),
+            scenario_type=ScenarioType(data.get("scenario_type", "package_creation")),
             steps=steps,
             expected_total_time=data.get("expected_total_time", 60.0),
             expected_call_count=data.get("expected_call_count", len(steps)),

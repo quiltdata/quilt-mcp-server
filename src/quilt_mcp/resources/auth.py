@@ -7,7 +7,6 @@ from quilt_mcp.resources.base import MCPResource, ResourceResponse
 from quilt_mcp.services.auth_metadata import (
     auth_status,
     catalog_info,
-    catalog_name,
     filesystem_status,
 )
 
@@ -57,30 +56,6 @@ class CatalogInfoResource(MCPResource):
 
     async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
         result = await asyncio.to_thread(catalog_info)
-        return ResourceResponse(uri=uri, content=result)
-
-
-class CatalogNameResource(MCPResource):
-    """Catalog name identifier."""
-
-    @property
-    def uri_scheme(self) -> str:
-        return "auth"
-
-    @property
-    def uri_pattern(self) -> str:
-        return "auth://catalog/name"
-
-    @property
-    def name(self) -> str:
-        return "Catalog Name"
-
-    @property
-    def description(self) -> str:
-        return "Catalog name and detection method"
-
-    async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        result = await asyncio.to_thread(catalog_name)
         return ResourceResponse(uri=uri, content=result)
 
 

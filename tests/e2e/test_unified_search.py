@@ -149,25 +149,24 @@ class TestElasticsearchBackend:
 class TestS3FallbackBackend:
     """Test cases for S3 fallback backend."""
 
-    @patch("quilt_mcp.search.backends.s3.boto3")
-    def test_s3_access_check(self, mock_boto3):
+    @patch("quilt_mcp.search.backends.s3.get_sts_client")
+    @patch("quilt_mcp.search.backends.s3.get_s3_client")
+    def test_s3_access_check(self, mock_get_s3_client, mock_get_sts_client):
         """Test S3 access checking."""
         mock_s3_client = Mock()
         mock_sts_client = Mock()
         mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
 
-        mock_boto3.client.side_effect = lambda service: {
-            "s3": mock_s3_client,
-            "sts": mock_sts_client,
-        }[service]
+        mock_get_s3_client.return_value = mock_s3_client
+        mock_get_sts_client.return_value = mock_sts_client
 
         backend = S3FallbackBackend()
         assert backend.status == BackendStatus.AVAILABLE
 
+    @patch("quilt_mcp.search.backends.s3.get_sts_client")
     @patch("quilt_mcp.search.backends.s3.get_s3_client")
-    @patch("quilt_mcp.search.backends.s3.boto3")
     @pytest.mark.asyncio
-    async def test_bucket_search(self, mock_boto3, mock_get_s3_client):
+    async def test_bucket_search(self, mock_get_s3_client, mock_get_sts_client):
         """Test S3 bucket search functionality."""
         # Mock S3 client and paginator
         mock_s3_client = Mock()
@@ -191,13 +190,9 @@ class TestS3FallbackBackend:
         mock_sts_client = Mock()
         mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
 
-        # Mock both the direct boto3 calls and our centralized helper
-        mock_boto3.client.side_effect = lambda service: {
-            "s3": mock_s3_client,
-            "sts": mock_sts_client,
-        }[service]
-
+        # Mock both helper functions
         mock_get_s3_client.return_value = mock_s3_client
+        mock_get_sts_client.return_value = mock_sts_client
 
         backend = S3FallbackBackend()
         response = await backend.search("csv", scope="bucket", target="test-bucket")

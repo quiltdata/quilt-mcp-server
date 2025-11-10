@@ -87,9 +87,20 @@ def catalog_info() -> Dict[str, Any]:
     try:
         info = _get_catalog_info()
 
+        # Determine detection method
+        if info["logged_in_url"]:
+            detection_method = "authentication"
+        elif info["navigator_url"]:
+            detection_method = "navigator_config"
+        elif info["registry_url"]:
+            detection_method = "registry_config"
+        else:
+            detection_method = "unknown"
+
         result: Dict[str, Any] = {
             "catalog_name": info["catalog_name"],
             "is_authenticated": info["is_authenticated"],
+            "detection_method": detection_method,
             "status": "success",
         }
 
@@ -116,35 +127,6 @@ def catalog_info() -> Dict[str, Any]:
         return {
             "status": "error",
             "error": f"Failed to get catalog info: {exc}",
-            "catalog_name": "unknown",
-        }
-
-
-def catalog_name() -> Dict[str, Any]:
-    """Identify the active catalog hostname and how it was detected."""
-    try:
-        info = _get_catalog_info()
-
-        if info["logged_in_url"]:
-            detection_method = "authentication"
-        elif info["navigator_url"]:
-            detection_method = "navigator_config"
-        elif info["registry_url"]:
-            detection_method = "registry_config"
-        else:
-            detection_method = "unknown"
-
-        return {
-            "catalog_name": info["catalog_name"],
-            "detection_method": detection_method,
-            "is_authenticated": info["is_authenticated"],
-            "status": "success",
-        }
-
-    except Exception as exc:
-        return {
-            "status": "error",
-            "error": f"Failed to detect catalog name: {exc}",
             "catalog_name": "unknown",
             "detection_method": "error",
         }
@@ -417,7 +399,6 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
 __all__ = [
     "auth_status",
     "catalog_info",
-    "catalog_name",
     "configure_catalog",
     "filesystem_status",
     "_extract_catalog_name_from_url",

@@ -1,13 +1,8 @@
 from unittest.mock import Mock, patch
 
-from quilt_mcp.models import (
-    CatalogUrlParams,
-    CatalogUriParams,
-    PackagesListParams,
-    PackageBrowseParams,
-    PackageDiffParams,
-)
-from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name
+import pytest
+
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info
 from quilt_mcp.tools.catalog import catalog_uri, catalog_url
 from quilt_mcp.tools.packages import (
     package_browse,
@@ -58,8 +53,8 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-            params = PackagesListParams()  # Uses default registry
-            result = packages_list(params)
+            # Uses default registry - TODO: fix after parameter flattening
+            result = packages_list(registry="s3://quilt-ernest-staging")
 
             # Result now has packages structure
             assert hasattr(result, 'success')
@@ -81,8 +76,7 @@ class TestQuiltTools:
             patch("quilt3.list_packages", return_value=mock_packages),
             patch("quilt3.Package.browse", return_value=mock_package),
         ):
-            params = PackagesListParams(prefix="user/")
-            result = packages_list(params)
+            result = packages_list(registry="s3://quilt-ernest-staging", prefix="user/")
 
             # Result now has packages structure
             assert hasattr(result, 'success')
@@ -96,8 +90,7 @@ class TestQuiltTools:
     def test_packages_list_error(self):
         """Test packages_list with error."""
         with patch("quilt3.list_packages", side_effect=Exception("Test error")):
-            params = PackagesListParams()
-            result = packages_list(params)
+            result = packages_list(registry="s3://quilt-ernest-staging")
 
             # Should return an error response, not raise exception
             assert hasattr(result, 'success')
@@ -122,8 +115,7 @@ class TestQuiltTools:
         mock_package.__getitem__ = lambda self, key: mock_entries.get(key)
 
         with patch("quilt3.Package.browse", return_value=mock_package):
-            params = PackageBrowseParams(package_name="user/test-package")
-            result = package_browse(params)
+            result = package_browse(package_name="user/test-package")
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -137,8 +129,7 @@ class TestQuiltTools:
     def test_package_browse_error(self):
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            params = PackageBrowseParams(package_name="user/nonexistent")
-            result = package_browse(params)
+            result = package_browse(package_name="user/nonexistent")
 
             assert hasattr(result, 'success')
             assert result.success is False
@@ -182,13 +173,13 @@ class TestQuiltTools:
             assert result["catalog_name"] == "test.catalog.com"
             assert result["is_authenticated"] is False
 
-    def test_catalog_name_from_authentication(self):
-        """Test catalog_name when detected from authentication."""
+    def test_catalog_info_detection_from_authentication(self):
+        """Test catalog_info detection_method when detected from authentication."""
         with (
             patch("quilt3.logged_in", return_value="https://test.catalog.com"),
             patch("quilt3.config", return_value={}),
         ):
-            result = catalog_name()
+            result = catalog_info()
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -196,8 +187,8 @@ class TestQuiltTools:
             assert result["detection_method"] == "authentication"
             assert result["is_authenticated"] is True
 
-    def test_catalog_name_from_config(self):
-        """Test catalog_name when detected from config."""
+    def test_catalog_info_detection_from_config(self):
+        """Test catalog_info detection_method when detected from config."""
         with (
             patch("quilt3.logged_in", return_value=None),
             patch(
@@ -205,7 +196,7 @@ class TestQuiltTools:
                 return_value={"navigator_url": "https://config.catalog.com"},
             ),
         ):
-            result = catalog_name()
+            result = catalog_info()
 
             assert isinstance(result, dict)
             assert result["status"] == "success"
@@ -216,12 +207,11 @@ class TestQuiltTools:
     def test_catalog_url_package_view(self):
         """Test catalog_url for package view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUrlParams(
+            result = catalog_url(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 path="data.csv",
             )
-            result = catalog_url(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -235,8 +225,7 @@ class TestQuiltTools:
     def test_catalog_url_bucket_view(self):
         """Test catalog_url for bucket view."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", path="data/file.csv")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", path="data/file.csv")
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -247,12 +236,11 @@ class TestQuiltTools:
     def test_catalog_uri_basic(self):
         """Test catalog_uri with basic parameters."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(
+            result = catalog_uri(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 path="data.csv",
             )
-            result = catalog_uri(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -265,12 +253,11 @@ class TestQuiltTools:
     def test_catalog_uri_with_version(self):
         """Test catalog_uri with version hash."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(
+            result = catalog_uri(
                 registry="s3://test-bucket",
                 package_name="user/package",
                 top_hash="abc123def456",
             )
-            result = catalog_uri(params)
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -280,8 +267,7 @@ class TestQuiltTools:
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with version tag."""
         with patch("quilt3.logged_in", return_value="https://test.catalog.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
 
             assert isinstance(result, dict) or hasattr(result, 'success')
             assert result.success is True
@@ -302,13 +288,12 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
                 package1_hash="abc123",
                 package2_hash="def456",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -333,13 +318,12 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name="user/package",
                 package2_name="user/package",
                 package1_hash="old_hash",
                 package2_hash="new_hash",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -359,11 +343,10 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -376,11 +359,10 @@ class TestQuiltTools:
     def test_package_diff_browse_error(self):
         """Test package_diff with package browse error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name="user/nonexistent1",
                 package2_name="user/nonexistent2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is False
@@ -396,11 +378,10 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is False

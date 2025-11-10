@@ -10,7 +10,6 @@ from quilt_mcp.tools.packages import (
     package_browse,
 )
 from quilt_mcp.tools.search import search_catalog
-from quilt_mcp.models import PackagesListParams, PackageBrowseParams
 
 
 @pytest.mark.integration
@@ -21,8 +20,8 @@ def test_quilt_tools():
 
     # Basic listing call should return Pydantic model (mocked in unit runs)
     try:
-        params = PackagesListParams()  # Uses default registry
-        pkgs = packages_list(params)
+        # Uses default registry
+        pkgs = packages_list(registry="s3://quilt-ernest-staging")
         assert hasattr(pkgs, 'success') or hasattr(pkgs, 'error')
     except Exception as e:
         if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e) or "Authentication failed" in str(e):
@@ -32,10 +31,17 @@ def test_quilt_tools():
             raise
 
     # Browse nonexistent package should return error response, not raise
-    browse_params = PackageBrowseParams(package_name="nonexistent/package")
-    browse = package_browse(browse_params)
+    browse = package_browse(package_name="nonexistent/package")
     assert hasattr(browse, 'success') or hasattr(browse, 'error')
 
     # Searching within nonexistent package should also return a dict response
     search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)
+
+    # Test backend parameter defaults to "auto"
+    search_default = search_catalog(query="test")
+    assert isinstance(search_default, dict)
+
+    # Test explicit backend parameter
+    search_explicit = search_catalog(query="test", backend="s3")
+    assert isinstance(search_explicit, dict)

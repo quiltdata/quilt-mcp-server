@@ -7,10 +7,11 @@ import json
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from statistics import mean, median, quantiles, StatisticsError
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Annotated, Any, Dict, Iterable, List, Literal, Optional, Sequence, Tuple
+
+from pydantic import Field
 
 from ..models import (
-    DataVisualizationParams,
     DataVisualizationSuccess,
     DataVisualizationError,
     VisualizationConfig,
@@ -39,7 +40,89 @@ Records = List[Dict[str, Any]]
 
 
 def create_data_visualization(
-    params: DataVisualizationParams,
+    data: Annotated[
+        dict[str, list] | list[dict[str, str | int | float]] | str,
+        Field(
+            description="Source data as dict of columns, list of row dicts, CSV/TSV string, or S3 URI",
+            examples=[
+                {"gene": ["BRCA1", "TP53"], "expression": [42.5, 38.1]},
+                [{"gene": "BRCA1", "expression": 42.5}, {"gene": "TP53", "expression": 38.1}],
+                "gene,expression\nBRCA1,42.5\nTP53,38.1",
+                "s3://bucket/data.csv",
+            ],
+        ),
+    ],
+    plot_type: Annotated[
+        Literal["boxplot", "scatter", "line", "bar"],
+        Field(
+            description="Visualization type to generate",
+        ),
+    ],
+    x_column: Annotated[
+        str,
+        Field(
+            description="Column name for x-axis (category or numeric depending on plot type)",
+            examples=["gene", "sample_id", "timestamp"],
+        ),
+    ],
+    y_column: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Column name for y-axis (required for all plot types)",
+            examples=["expression", "value", "count"],
+        ),
+    ] = None,
+    group_column: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional column for grouping/coloring (scatter/line/bar)",
+            examples=["condition", "treatment", "category"],
+        ),
+    ] = None,
+    title: Annotated[
+        str,
+        Field(
+            default="",
+            description="Chart title (auto-generated if empty)",
+        ),
+    ] = "",
+    xlabel: Annotated[
+        str,
+        Field(
+            default="",
+            description="X-axis label (defaults to x_column name if empty)",
+        ),
+    ] = "",
+    ylabel: Annotated[
+        str,
+        Field(
+            default="",
+            description="Y-axis label (defaults to y_column name if empty)",
+        ),
+    ] = "",
+    color_scheme: Annotated[
+        Literal["genomics", "ml", "research", "analytics", "default"],
+        Field(
+            default="genomics",
+            description="Color palette to use for the visualization",
+        ),
+    ] = "genomics",
+    template: Annotated[
+        str,
+        Field(
+            default="research",
+            description="Metadata template label for quilt_summarize.json",
+        ),
+    ] = "research",
+    output_format: Annotated[
+        Literal["echarts"],
+        Field(
+            default="echarts",
+            description="Visualization engine (currently only 'echarts' is supported)",
+        ),
+    ] = "echarts",
 ) -> DataVisualizationSuccess | DataVisualizationError:
     """Create interactive data visualization for Quilt packages - Generate ECharts configurations from tabular data.
 
@@ -55,18 +138,17 @@ def create_data_visualization(
         - Ensure S3 keys match exactly what's in quilt_summarize.json
 
     Args:
-        params: DataVisualizationParams containing:
-            - data: Source data accepted as dict of columns, list of row dicts, CSV/TSV string, or S3 URI
-            - plot_type: Visualization type ("boxplot", "scatter", "line", "bar")
-            - x_column: Column used for x-axis (category or numeric depending on plot)
-            - y_column: Column used for y-axis (required for all four plot types)
-            - group_column: Optional grouping/color column (scatter/line/bar)
-            - title: Chart title override (auto-generated when empty)
-            - xlabel: X-axis label override (defaults to x_column)
-            - ylabel: Y-axis label override (defaults to y_column)
-            - color_scheme: Palette name ("genomics", "ml", "research", "analytics", "default")
-            - template: Metadata template label written into quilt_summarize metadata
-            - output_format: Visualization engine, currently "echarts" only
+        data: Source data accepted as dict of columns, list of row dicts, CSV/TSV string, or S3 URI
+        plot_type: Visualization type ("boxplot", "scatter", "line", "bar")
+        x_column: Column used for x-axis (category or numeric depending on plot)
+        y_column: Column used for y-axis (required for all four plot types)
+        group_column: Optional grouping/color column (scatter/line/bar)
+        title: Chart title override (auto-generated when empty)
+        xlabel: X-axis label override (defaults to x_column)
+        ylabel: Y-axis label override (defaults to y_column)
+        color_scheme: Palette name ("genomics", "ml", "research", "analytics", "default")
+        template: Metadata template label written into quilt_summarize metadata
+        output_format: Visualization engine, currently "echarts" only
 
     Returns:
         DataVisualizationSuccess on success containing:
@@ -132,38 +214,32 @@ def create_data_visualization(
     """
 
     try:
-        records = _normalize_data(params.data)  # type: ignore[arg-type]  # Internal function with broader types
-        plot_type_normalized = _normalize_plot_type(params.plot_type)
-        _validate_plot_requirements(
-            records, plot_type_normalized, params.x_column, params.y_column, params.group_column
-        )
+        records = _normalize_data(data)  # type: ignore[arg-type]  # Internal function with broader types
+        plot_type_normalized = _normalize_plot_type(plot_type)
+        _validate_plot_requirements(records, plot_type_normalized, x_column, y_column, group_column)
 
         viz = _create_visualization_config(
             records=records,
             plot_type=plot_type_normalized,
-            x_column=params.x_column,
-            y_column=params.y_column or "",
-            group_column=params.group_column,
-            title=params.title,
-            xlabel=params.xlabel or params.x_column,
-            ylabel=params.ylabel or (params.y_column or ""),
-            color_scheme=params.color_scheme,
-            output_format=params.output_format,
+            x_column=x_column,
+            y_column=y_column or "",
+            group_column=group_column,
+            title=title,
+            xlabel=xlabel or x_column,
+            ylabel=ylabel or (y_column or ""),
+            color_scheme=color_scheme,
+            output_format=output_format,
         )
 
-        data_file = _create_data_file(
-            records, plot_type_normalized, params.x_column, params.y_column, params.group_column
-        )
+        data_file = _create_data_file(records, plot_type_normalized, x_column, y_column, group_column)
         quilt_sum = _generate_quilt_summarize(
             viz_config=viz,
             data_file=data_file,
-            title=params.title or viz.option.get("title", {}).get("text") or "Visualization",
-            description=_build_description(
-                plot_type_normalized, params.xlabel or params.x_column, params.ylabel or (params.y_column or "")
-            ),
-            template=params.template,
+            title=title or viz.option.get("title", {}).get("text") or "Visualization",
+            description=_build_description(plot_type_normalized, xlabel or x_column, ylabel or (y_column or "")),
+            template=template,
         )
-        stats = _calculate_statistics(records, params.y_column)
+        stats = _calculate_statistics(records, y_column)
 
         files_to_upload = [
             VisualizationFile(
@@ -205,16 +281,16 @@ def create_data_visualization(
                 "statistics": stats,
                 "data_points": len(records),
                 "visualization_engine": viz.engine,
-                "columns_used": [params.x_column, params.y_column, params.group_column],
+                "columns_used": [x_column, y_column, group_column],
             },
         )
     except Exception as exc:  # noqa: BLE001
         return DataVisualizationError(
             error=str(exc),
             possible_fixes=[_get_error_suggestion(exc)],
-            plot_type=getattr(params, "plot_type", None),
-            x_column=getattr(params, "x_column", None),
-            y_column=getattr(params, "y_column", None),
+            plot_type=plot_type,
+            x_column=x_column,
+            y_column=y_column,
         )
 
 

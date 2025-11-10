@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 
@@ -376,7 +376,7 @@ def _tabulator_query(
     database_name: Optional[str] = None,
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
-    output_format: str = "json",
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
     use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a query against the Tabulator catalog."""
@@ -538,7 +538,7 @@ async def tabulator_bucket_query(
     query: str,
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
-    output_format: str = "json",
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
     use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a bucket-scoped tabulator query (legacy tool signature)."""

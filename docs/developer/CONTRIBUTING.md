@@ -24,7 +24,46 @@ make test
 make coverage
 ```
 
-### 2. Branch Naming Convention
+### 2. Testing with Claude Desktop
+
+To test your local changes with Claude Desktop, configure it to use your local development version:
+
+**macOS/Linux:**
+Edit `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "quilt-uvx": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "/absolute/path/to/your/quilt-mcp-server",
+        "quilt-mcp"
+      ]
+    }
+  }
+}
+```
+
+**Windows:**
+Edit `%APPDATA%\Claude\claude_desktop_config.json` with the same configuration.
+
+**Activating changes:**
+1. Save the configuration file
+2. Quit Claude Desktop completely (Cmd+Q on macOS)
+3. Restart Claude Desktop
+4. Your local MCP server will initialize with your development code
+
+**Testing workflow:**
+1. Make code changes in your local repository
+2. Restart Claude Desktop to pick up changes
+3. Test the functionality in Claude Desktop
+4. Iterate until satisfied
+5. Run tests: `make test && make coverage`
+6. Commit and push your changes
+
+### 3. Branch Naming Convention
 
 We use a structured branch naming system:
 
@@ -37,7 +76,7 @@ We use a structured branch naming system:
 | `refactor/` | Code refactoring | `refactor/search-architecture` |
 | `chore/` | Maintenance tasks | `chore/update-dependencies` |
 
-### 3. Development Workflow
+### 4. Development Workflow
 
 ```bash
 # 1. Create feature branch

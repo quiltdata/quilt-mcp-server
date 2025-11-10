@@ -23,7 +23,6 @@ from .tools.catalog import (
 from .services.auth_metadata import (
     auth_status,
     catalog_info,
-    catalog_name,
     filesystem_status,
 )
 from .tools.buckets import (
@@ -82,7 +81,6 @@ __all__ = [
     # Auth tools
     "auth_status",
     "catalog_info",
-    "catalog_name",
     "catalog_url",
     "catalog_uri",
     "catalog_configure",

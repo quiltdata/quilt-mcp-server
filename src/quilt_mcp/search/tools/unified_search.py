@@ -41,12 +41,11 @@ class UnifiedSearchEngine:
         query: str,
         scope: str = "global",
         target: str = "",
-        backends: Optional[List[str]] = None,
+        backend: Optional[str] = None,
         limit: int = 50,
         include_metadata: bool = True,
         include_content_preview: bool = False,
         explain_query: bool = False,
-        filters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Execute unified search across multiple backends.
 
@@ -54,12 +53,11 @@ class UnifiedSearchEngine:
             query: Natural language search query
             scope: Search scope (global, catalog, package, bucket)
             target: Specific target when scope is narrow
-            backends: Preferred backends (auto, elasticsearch, graphql, s3)
+            backend: Preferred backend (auto, elasticsearch, graphql, s3)
             limit: Maximum results to return
             include_metadata: Include rich metadata in results
             include_content_preview: Include content previews for files
             explain_query: Include query execution explanation
-            filters: Additional filters
 
         Returns:
             Unified search results with metadata and explanations
@@ -69,19 +67,17 @@ class UnifiedSearchEngine:
         # Parse and analyze the query
         analysis = parse_query(query, scope, target)
 
-        # Merge filters from query analysis and explicit filters
-        combined_filters = {**analysis.filters}
-        if filters:
-            combined_filters.update(filters)
+        # Use filters extracted from query analysis
+        combined_filters = analysis.filters
 
         # Determine which backends to use
-        if backends is None:
-            backends = ["auto"]
+        if backend is None:
+            backend = "auto"
 
-        if backends == ["auto"] or "auto" in backends:
+        if backend == "auto":
             selected_backends = self._select_backends(analysis)
         else:
-            selected_backends = self._get_backends_by_name(backends)
+            selected_backends = self._get_backends_by_name([backend])
 
         # Execute searches in parallel
         backend_responses = await self._execute_parallel_searches(
@@ -330,12 +326,11 @@ async def unified_search(
     query: str,
     scope: str = "global",
     target: str = "",
-    backends: Optional[List[str]] = None,
+    backend: Optional[str] = None,
     limit: int = 50,
     include_metadata: bool = True,
     include_content_preview: bool = False,
     explain_query: bool = False,
-    filters: Optional[Dict[str, Any]] = None,
     count_only: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -351,12 +346,11 @@ async def unified_search(
         query: Natural language search query
         scope: Search scope (global, catalog, package, bucket)
         target: Specific target when scope is narrow (package/bucket name)
-        backends: Preferred backends (auto, elasticsearch, graphql, s3)
+        backend: Preferred backend (auto, elasticsearch, graphql, s3)
         limit: Maximum results to return
         include_metadata: Include rich metadata in results
         include_content_preview: Include content previews for files
         explain_query: Include query execution explanation
-        filters: Additional filters (size, date, type, etc.)
 
     Returns:
         Unified search results with metadata, explanations, and suggestions
@@ -365,13 +359,18 @@ async def unified_search(
         unified_search("CSV files in genomics packages")
         unified_search("packages created last month", scope="catalog")
         unified_search("README files", scope="package", target="user/dataset")
-        unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
+        unified_search("files larger than 100MB")
+        unified_search("CSV data created after 2023-01-01")
     """
     try:
         if count_only:
             # For count-only mode, use the Elasticsearch backend's get_total_count method
             engine = get_search_engine()
             elasticsearch_backend = None
+
+            # Parse query to extract filters
+            analysis = parse_query(query, scope, target)
+            query_filters = analysis.filters
 
             # Find the Elasticsearch backend
             available_backends = engine.registry.get_available_backends()
@@ -383,7 +382,7 @@ async def unified_search(
 
             if elasticsearch_backend:
                 try:
-                    total_count = elasticsearch_backend.get_total_count(query, filters)
+                    total_count = elasticsearch_backend.get_total_count(query, query_filters)
                     return {
                         "success": True,
                         "total_count": total_count,
@@ -414,12 +413,11 @@ async def unified_search(
             query=query,
             scope=scope,
             target=target,
-            backends=backends,
+            backend=backend,
             limit=limit,
             include_metadata=include_metadata,
             include_content_preview=include_content_preview,
             explain_query=explain_query,
-            filters=filters,
         )
     except Exception as e:
         return {

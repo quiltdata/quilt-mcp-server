@@ -38,18 +38,6 @@ class TestAuthResources:
         assert "status" in result.content
 
     @pytest.mark.anyio
-    async def test_catalog_name_resource(self):
-        """Test that catalog name resource returns valid data."""
-        from quilt_mcp.resources.auth import CatalogNameResource
-
-        resource = CatalogNameResource()
-        result = await resource.read("auth://catalog/name")
-
-        assert result.uri == "auth://catalog/name"
-        assert isinstance(result.content, dict)
-        assert "status" in result.content
-
-    @pytest.mark.anyio
     async def test_filesystem_status_resource(self):
         """Test that filesystem status resource returns valid data."""
         from quilt_mcp.resources.auth import FilesystemStatusResource

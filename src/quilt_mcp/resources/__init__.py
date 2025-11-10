@@ -30,7 +30,6 @@ from quilt_mcp.resources.tabulator import TabulatorBucketsResource, TabulatorTab
 from quilt_mcp.resources.auth import (
     AuthStatusResource,
     CatalogInfoResource,
-    CatalogNameResource,
     FilesystemStatusResource,
 )
 from quilt_mcp.resources.permissions import (
@@ -52,7 +51,6 @@ def register_all_resources():
     # Phase 2: Auth resources
     registry.register(AuthStatusResource())
     registry.register(CatalogInfoResource())
-    registry.register(CatalogNameResource())
     registry.register(FilesystemStatusResource())
 
     # Phase 2: Permissions resources

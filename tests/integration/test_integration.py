@@ -11,7 +11,7 @@ from quilt_mcp import (
     KNOWN_TEST_PACKAGE,
     KNOWN_TEST_S3_OBJECT,
 )
-from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name, filesystem_status
+from quilt_mcp.services.auth_metadata import auth_status, catalog_info, filesystem_status
 from quilt_mcp.tools.catalog import catalog_uri, catalog_url
 from quilt_mcp.tools.buckets import (
     bucket_object_fetch,
@@ -29,19 +29,7 @@ from quilt_mcp.tools.packages import (
     package_update,
     packages_list,
 )
-from quilt_mcp.models import (
-    PackageBrowseParams,
-    PackagesListParams,
-    PackageDiffParams,
-    BucketObjectsListParams,
-    BucketObjectInfoParams,
-    BucketObjectTextParams,
-    BucketObjectFetchParams,
-    BucketObjectLinkParams,
-    BucketObjectsPutParams,
-    CatalogUrlParams,
-    CatalogUriParams,
-)
+# Models removed - using flattened parameters directly
 
 # Test configuration - using constants
 TEST_REGISTRY = DEFAULT_REGISTRY
@@ -68,12 +56,10 @@ class TestQuiltAPI:
         """Browse the known package once to reuse across tests."""
 
         result = package_browse(
-            PackageBrowseParams(
-                package_name=KNOWN_PACKAGE,
-                registry=TEST_REGISTRY,
-                include_file_info=False,
-                include_signed_urls=False,
-            )
+            package_name=KNOWN_PACKAGE,
+            registry=TEST_REGISTRY,
+            include_file_info=False,
+            include_signed_urls=False,
         )
 
         # Check if error response (has 'error' attribute)
@@ -85,7 +71,7 @@ class TestQuiltAPI:
     def test_packages_list_returns_data(self):
         """Test that packages_list returns actual packages from configured registry."""
         try:
-            result = packages_list(PackagesListParams(registry=TEST_REGISTRY))
+            result = packages_list(registry=TEST_REGISTRY)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
                 pytest.fail(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
@@ -107,7 +93,7 @@ class TestQuiltAPI:
         # Extract prefix from known test package
         test_prefix = KNOWN_PACKAGE.split("/")[0] if "/" in KNOWN_PACKAGE else KNOWN_PACKAGE
         try:
-            result = packages_list(PackagesListParams(registry=TEST_REGISTRY, prefix=test_prefix))
+            result = packages_list(registry=TEST_REGISTRY, prefix=test_prefix)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
                 pytest.fail(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
@@ -150,7 +136,7 @@ class TestQuiltAPI:
 
     def test_bucket_objects_list_returns_data(self):
         """Test that bucket listing returns actual objects."""
-        result = bucket_objects_list(BucketObjectsListParams(bucket=KNOWN_BUCKET, max_keys=10))
+        result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=10)
 
         assert hasattr(result, "objects"), "Result should have 'objects' attribute"
         assert hasattr(result, "bucket"), "Result should have 'bucket' attribute"
@@ -164,7 +150,7 @@ class TestQuiltAPI:
 
     def test_bucket_object_info_known_file(self):
         """Test getting info for a known public file."""
-        result = bucket_object_info(BucketObjectInfoParams(s3_uri=EXPECTED_S3_OBJECT))
+        result = bucket_object_info(s3_uri=EXPECTED_S3_OBJECT)
 
         if hasattr(result, "error"):
             pytest.fail(f"Known file not accessible: {result.error}")
@@ -179,7 +165,7 @@ class TestQuiltAPI:
         """Test reading text from the configured test file."""
         # Use the configured test entry which should be a text file
         test_uri = KNOWN_TEST_S3_OBJECT
-        result = bucket_object_text(BucketObjectTextParams(s3_uri=test_uri, max_bytes=1000))
+        result = bucket_object_text(s3_uri=test_uri, max_bytes=1000)
 
         if hasattr(result, "error"):
             pytest.fail(f"Test file not accessible: {result.error}")
@@ -247,9 +233,9 @@ class TestQuiltAPI:
             assert isinstance(result["is_authenticated"], bool)
             assert len(result["catalog_name"]) > 0, "Catalog name should not be empty"
 
-    def test_catalog_name_returns_name(self):
-        """Test catalog_name returns the catalog name and detection method."""
-        result = catalog_name()
+    def test_catalog_info_includes_detection_method(self):
+        """Test catalog_info returns the catalog name and detection method."""
+        result = catalog_info()
 
         assert isinstance(result, dict)
         assert "catalog_name" in result
@@ -270,9 +256,7 @@ class TestQuiltAPI:
 
     def test_catalog_url_package_view(self):
         """Test catalog_url generates valid package view URLs."""
-        result = catalog_url(
-            CatalogUrlParams(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
-        )
+        result = catalog_url(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -289,7 +273,7 @@ class TestQuiltAPI:
 
     def test_catalog_url_bucket_view(self):
         """Test catalog_url generates valid bucket view URLs."""
-        result = catalog_url(CatalogUrlParams(registry=TEST_REGISTRY, path="test/data.csv"))
+        result = catalog_url(registry=TEST_REGISTRY, path="test/data.csv")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -305,9 +289,7 @@ class TestQuiltAPI:
 
     def test_catalog_uri_package_reference(self):
         """Test catalog_uri generates valid Quilt+ URIs."""
-        result = catalog_uri(
-            CatalogUriParams(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
-        )
+        result = catalog_uri(registry=TEST_REGISTRY, package_name="raw/salmon-rnaseq", path="README.md")
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
 
@@ -322,12 +304,10 @@ class TestQuiltAPI:
         """Test catalog_uri generates versioned Quilt+ URIs."""
         test_hash = "abc123def456"
         result = catalog_uri(
-            CatalogUriParams(
-                registry=TEST_REGISTRY,
-                package_name="raw/salmon-rnaseq",
-                path="README.md",
-                top_hash=test_hash,
-            )
+            registry=TEST_REGISTRY,
+            package_name="raw/salmon-rnaseq",
+            path="README.md",
+            top_hash=test_hash,
         )
 
         assert hasattr(result, "status"), "Result should have 'status' attribute"
@@ -340,7 +320,7 @@ class TestQuiltAPI:
 
     def test_packages_list_invalid_registry_fails(self):
         """Test that invalid registry fails gracefully with proper error."""
-        result = packages_list(PackagesListParams(registry="s3://definitely-nonexistent-bucket-xyz"))
+        result = packages_list(registry="s3://definitely-nonexistent-bucket-xyz")
 
         # Should return an error response
         assert hasattr(result, "error"), "Result should have 'error' attribute"
@@ -353,7 +333,7 @@ class TestQuiltAPI:
 
     def test_package_browse_nonexistent_fails(self):
         """Test that browsing non-existent package returns error response."""
-        result = package_browse(PackageBrowseParams(package_name="definitely/nonexistent"))
+        result = package_browse(package_name="definitely/nonexistent")
 
         # The function now returns an error response instead of raising an exception
         assert hasattr(result, "success"), "Result should have 'success' attribute"
@@ -373,7 +353,7 @@ class TestQuiltAPI:
 
     def test_bucket_object_info_nonexistent_fails(self):
         """Test that non-existent object returns error."""
-        result = bucket_object_info(BucketObjectInfoParams(s3_uri=f"{KNOWN_BUCKET}/definitely/nonexistent/file.txt"))
+        result = bucket_object_info(s3_uri=f"{KNOWN_BUCKET}/definitely/nonexistent/file.txt")
 
         assert hasattr(result, "error"), "Non-existent file should return error"
         assert hasattr(result, "bucket"), "Result should have 'bucket' attribute"
@@ -382,7 +362,7 @@ class TestQuiltAPI:
     def test_bucket_object_fetch_returns_data(self):
         """Test fetching object data from S3."""
         # Use a small object from bucket listing
-        objects_result = bucket_objects_list(BucketObjectsListParams(bucket=KNOWN_BUCKET, max_keys=5))
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
         if not objects_result.objects:
             pytest.fail("No objects found to test fetch")
 
@@ -399,7 +379,7 @@ class TestQuiltAPI:
         # Static type assurance (helps static analysis)
         assert small_obj is not None  # noqa: F821
         s3_uri = f"s3://{objects_result.bucket}/{small_obj.key}"
-        result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=s3_uri, max_bytes=1000))
+        result = bucket_object_fetch(s3_uri=s3_uri, max_bytes=1000)
 
         if hasattr(result, "error"):
             pytest.fail(f"Object not accessible: {result.error}")
@@ -413,7 +393,7 @@ class TestQuiltAPI:
     def test_bucket_object_link_integration(self):
         """Test bucket_object_link integration with real AWS."""
         # Use a small object from bucket listing
-        objects_result = bucket_objects_list(BucketObjectsListParams(bucket=KNOWN_BUCKET, max_keys=5))
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
         if not objects_result.objects:
             pytest.fail("No objects found to test presigned URL generation")
 
@@ -421,7 +401,7 @@ class TestQuiltAPI:
         test_object = objects_result.objects[0]
         s3_uri = f"s3://{objects_result.bucket}/{test_object.key}"
 
-        result = bucket_object_link(BucketObjectLinkParams(s3_uri=s3_uri, expiration=7200))
+        result = bucket_object_link(s3_uri=s3_uri, expiration=7200)
 
         if hasattr(result, "error"):
             pytest.fail(f"Object not accessible for URL generation: {result.error}")
@@ -452,7 +432,7 @@ class TestQuiltAPI:
             },
         ]
 
-        result = bucket_objects_put(BucketObjectsPutParams(bucket=test_bucket, items=test_items))
+        result = bucket_objects_put(bucket=test_bucket, items=test_items)
 
         assert hasattr(result, "bucket"), "Result should have 'bucket' attribute"
         assert hasattr(result, "requested"), "Result should have 'requested' attribute"
@@ -487,7 +467,7 @@ class TestQuiltAPI:
         try:
             for item in test_items:
                 # Verify file was uploaded, then we could delete it if there was a delete tool
-                info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=f"{KNOWN_BUCKET}/{item['key']}"))
+                info_result = bucket_object_info(s3_uri=f"{KNOWN_BUCKET}/{item['key']}")
                 if not hasattr(info_result, "error"):
                     print(f"Test file uploaded successfully: {item['key']}")
         except Exception:
@@ -495,9 +475,7 @@ class TestQuiltAPI:
 
     def test_package_diff_known_package_with_itself(self):
         """Test package_diff comparing known package with itself (should show no differences)."""
-        result = package_diff(
-            PackageDiffParams(package1_name=KNOWN_PACKAGE, package2_name=KNOWN_PACKAGE, registry=TEST_REGISTRY)
-        )
+        result = package_diff(package1_name=KNOWN_PACKAGE, package2_name=KNOWN_PACKAGE, registry=TEST_REGISTRY)
 
         if hasattr(result, "error"):
             # Some packages might not support diff operations
@@ -520,7 +498,7 @@ class TestQuiltAPI:
         """Test package_diff comparing two different packages."""
         # Get available packages first
         try:
-            packages_result = packages_list(PackagesListParams(registry=TEST_REGISTRY, limit=3))
+            packages_result = packages_list(registry=TEST_REGISTRY, limit=3)
         except Exception as e:
             if "AccessDenied" in str(e) or "S3NoValidClientError" in str(e):
                 pytest.fail(f"Access denied to {TEST_REGISTRY} - check AWS permissions: {e}")
@@ -532,7 +510,7 @@ class TestQuiltAPI:
         packages = packages_result.packages
         pkg1, pkg2 = packages[0], packages[1]
 
-        result = package_diff(PackageDiffParams(package1_name=pkg1, package2_name=pkg2, registry=TEST_REGISTRY))
+        result = package_diff(package1_name=pkg1, package2_name=pkg2, registry=TEST_REGISTRY)
 
         if hasattr(result, "error"):
             # Some packages might not support diff operations or might not exist
@@ -551,11 +529,9 @@ class TestQuiltAPI:
     def test_package_diff_nonexistent_packages(self):
         """Test package_diff with non-existent packages."""
         result = package_diff(
-            PackageDiffParams(
-                package1_name="definitely/nonexistent1",
-                package2_name="definitely/nonexistent2",
-                registry=TEST_REGISTRY,
-            )
+            package1_name="definitely/nonexistent1",
+            package2_name="definitely/nonexistent2",
+            registry=TEST_REGISTRY,
         )
 
         assert hasattr(result, "error"), "Result should have 'error' attribute"
@@ -578,17 +554,10 @@ class TestBucketObjectVersionConsistency:
 
     def test_bucket_object_functions_consistency_with_real_object(self):
         """Test that all bucket_object_* functions work consistently with a real S3 object."""
-        from quilt_mcp.models import (
-            BucketObjectsListParams,
-            BucketObjectInfoParams,
-            BucketObjectTextParams,
-            BucketObjectFetchParams,
-            BucketObjectLinkParams,
-        )
+        # Models removed - using flattened parameters directly
 
         # Get a real object from the test bucket
-        params = BucketObjectsListParams(bucket=KNOWN_BUCKET, max_keys=5)
-        objects_result = bucket_objects_list(params)
+        objects_result = bucket_objects_list(bucket=KNOWN_BUCKET, max_keys=5)
         if not objects_result.objects:
             pytest.fail(f"No objects found in test bucket {KNOWN_BUCKET}")
 
@@ -596,10 +565,10 @@ class TestBucketObjectVersionConsistency:
         test_s3_uri = test_object.s3_uri
 
         # Call all four functions with the same URI
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=test_s3_uri))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri=test_s3_uri, max_bytes=1024))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=test_s3_uri, max_bytes=1024))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri))
+        info_result = bucket_object_info(s3_uri=test_s3_uri)
+        text_result = bucket_object_text(s3_uri=test_s3_uri, max_bytes=1024)
+        fetch_result = bucket_object_fetch(s3_uri=test_s3_uri, max_bytes=1024)
+        link_result = bucket_object_link(s3_uri=test_s3_uri)
 
         # All should succeed (or all should fail consistently)
         all_succeed = all(
@@ -624,42 +593,31 @@ class TestBucketObjectVersionConsistency:
 
     def test_invalid_uri_handling_consistency(self):
         """Test that all functions handle invalid URIs consistently."""
-        from quilt_mcp.models import (
-            BucketObjectInfoParams,
-            BucketObjectTextParams,
-            BucketObjectFetchParams,
-            BucketObjectLinkParams,
-        )
-        from pydantic import ValidationError
+        # Models removed - using flattened parameters directly
 
         invalid_uri = "not-a-valid-s3-uri"
 
-        # All functions should raise ValidationError for invalid URIs
-        for params_class, func in [
-            (BucketObjectInfoParams, bucket_object_info),
-            (BucketObjectTextParams, bucket_object_text),
-            (BucketObjectFetchParams, bucket_object_fetch),
-            (BucketObjectLinkParams, bucket_object_link),
+        # All functions should return error responses for invalid URIs
+        for func in [
+            bucket_object_info,
+            bucket_object_text,
+            bucket_object_fetch,
+            bucket_object_link,
         ]:
-            with pytest.raises(ValidationError):
-                params = params_class(s3_uri=invalid_uri)
-                func(params)
+            result = func(s3_uri=invalid_uri)
+            # Should return error response (validation happens inside the function)
+            assert hasattr(result, "error"), f"{func.__name__} should return error for invalid URI"
 
     def test_nonexistent_object_handling_consistency(self):
         """Test that all functions handle non-existent objects consistently."""
-        from quilt_mcp.models import (
-            BucketObjectInfoParams,
-            BucketObjectTextParams,
-            BucketObjectFetchParams,
-            BucketObjectLinkParams,
-        )
+        # Models removed - using flattened parameters directly
 
         nonexistent_uri = f"{KNOWN_BUCKET}/definitely-does-not-exist-{int(time.time())}.txt"
 
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=nonexistent_uri))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri=nonexistent_uri))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=nonexistent_uri))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=nonexistent_uri))
+        info_result = bucket_object_info(s3_uri=nonexistent_uri)
+        text_result = bucket_object_text(s3_uri=nonexistent_uri)
+        fetch_result = bucket_object_fetch(s3_uri=nonexistent_uri)
+        link_result = bucket_object_link(s3_uri=nonexistent_uri)
 
         # info, text, and fetch should fail with error (they access the object)
         assert hasattr(info_result, "error")

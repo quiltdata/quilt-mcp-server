@@ -20,10 +20,10 @@ from quilt_mcp.telemetry.collector import (
 from quilt_mcp.telemetry.privacy import PrivacyManager, DataAnonymizer
 from quilt_mcp.optimization.interceptor import ToolCallInterceptor, OptimizationContext
 from quilt_mcp.optimization.testing import (
-    TestScenario,
-    TestStep,
+    Scenario,
+    ScenarioStep,
     ScenarioRunner,
-    TestScenarioType,
+    ScenarioType,
 )
 from quilt_mcp.optimization.autonomous import AutonomousOptimizer, OptimizationRule
 from quilt_mcp.optimization.scenarios import create_all_test_scenarios
@@ -219,18 +219,18 @@ class TestOptimizationTesting:
     def test_test_scenario_creation(self):
         """Test test scenario creation."""
         steps = [
-            TestStep(tool_name="auth_status", args={}, description="Check authentication"),
-            TestStep(
+            ScenarioStep(tool_name="auth_status", args={}, description="Check authentication"),
+            ScenarioStep(
                 tool_name="packages_list",
                 args={"limit": 10},
                 description="List packages",
             ),
         ]
 
-        scenario = TestScenario(
+        scenario = Scenario(
             name="test_scenario",
             description="Test scenario for testing",
-            scenario_type=TestScenarioType.PACKAGE_CREATION,
+            scenario_type=ScenarioType.PACKAGE_CREATION,
             steps=steps,
             expected_total_time=10.0,
             expected_call_count=2,
@@ -256,13 +256,13 @@ class TestOptimizationTesting:
         runner.register_tool("packages_list", mock_packages_list)
 
         # Create test scenario
-        scenario = TestScenario(
+        scenario = Scenario(
             name="mock_scenario",
             description="Mock scenario for testing",
-            scenario_type=TestScenarioType.PACKAGE_CREATION,
+            scenario_type=ScenarioType.PACKAGE_CREATION,
             steps=[
-                TestStep("auth_status", {}),
-                TestStep("packages_list", {"limit": 5}),
+                ScenarioStep("auth_status", {}),
+                ScenarioStep("packages_list", {"limit": 5}),
             ],
             expected_total_time=5.0,
             expected_call_count=2,

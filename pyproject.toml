@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.8.4"
+version = "0.8.5"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -104,6 +104,8 @@ markers = [
     "integration: marks tests that require AWS credentials, network access, or external services (deselect with '-m \"not integration\"')",
     "search: marks tests that require Elasticsearch search functionality (deselect with '-m \"not search\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+    "asyncio: marks tests as async tests that require pytest-asyncio",
 ]
 
 [tool.ruff]
