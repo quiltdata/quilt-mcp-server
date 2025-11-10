@@ -8,6 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2025-01-10
+
+### Changed
+
+- **Flattened Tool Parameters**: Simplified MCP tool interfaces by removing nested Pydantic models (#227, #229)
+  - Tools now accept flat parameter lists instead of wrapper objects (e.g., `params: PackageBrowseParams`)
+  - Reduced JSON schema depth from 3+ levels to 1-2 levels for better LLM comprehension
+  - **Breaking change**: All tool signatures changed from `tool(params: FooParams)` to `tool(field1, field2, ...)`
+  - Updated 29 tools across 8 modules: catalog, packages, buckets, search, athena_glue, governance, workflow, visualization
+  - Maintained parameter validation and type safety through Pydantic function decorators
+
+- **Search API Improvements**:
+  - Removed `filters` parameter from `search_catalog` (already redundant with query syntax)
+  - Changed `backends` from array to scalar `backend` parameter (single backend per call)
+  - Added `catalog_info` with detection method tracking, replacing standalone `catalog_name`
+
+- **Testing & Performance**:
+  - Optimized e2e tests: 80s → 8s (10.7x faster) through parallel execution
+  - Added pytest-asyncio configuration and proper test markers
+  - Added `--skip-banner` CLI flag to disable FastMCP startup banner in tests
+
+### Fixed
+
+- Corrected test mocking for S3 and GraphQL search backends
+- Resolved pytest warnings for test collection and async markers
+- Added metadata validation after parameter flattening
+- Removed duplicate function calls with undefined params variable
+
 ## [0.8.4] - 2025-01-06
 
 ### Changed
