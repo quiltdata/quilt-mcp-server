@@ -37,3 +37,11 @@ def test_quilt_tools():
     # Searching within nonexistent package should also return a dict response
     search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)
+
+    # Test backends parameter defaults to ["auto"]
+    search_default = search_catalog(query="test")
+    assert isinstance(search_default, dict)
+
+    # Test explicit backends parameter
+    search_explicit = search_catalog(query="test", backends=["s3"])
+    assert isinstance(search_explicit, dict)

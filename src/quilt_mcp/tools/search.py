@@ -44,7 +44,8 @@ def search_catalog(
         Optional[List[str]],
         Field(
             default=None,
-            description='Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations',
+            description='Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations. Defaults to ["auto"] if not specified.',
+            json_schema_extra={"default": ["auto"]},
         ),
     ] = None,
     limit: Annotated[
