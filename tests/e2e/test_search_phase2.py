@@ -118,8 +118,10 @@ class TestSearchExplanations:
 class TestGraphQLBackend:
     """Test cases for Enterprise GraphQL backend."""
 
+    @patch("quilt_mcp.tools.search.search_graphql")
+    @patch("quilt_mcp.tools.search._get_graphql_endpoint")
     @patch("quilt_mcp.search.backends.graphql.quilt3")
-    def test_graphql_initialization(self, mock_quilt3):
+    def test_graphql_initialization(self, mock_quilt3, mock_get_endpoint, mock_search_graphql):
         """Test GraphQL backend initialization."""
         mock_session = Mock()
         mock_session.post.return_value.status_code = 200
@@ -127,6 +129,10 @@ class TestGraphQLBackend:
 
         mock_quilt3.session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session.get_session.return_value = mock_session
+
+        # Mock the GraphQL endpoint and search function
+        mock_get_endpoint.return_value = (mock_session, "https://test-catalog.com/graphql")
+        mock_search_graphql.return_value = {"success": True, "data": {"bucketConfigs": []}}
 
         backend = EnterpriseGraphQLBackend()
         assert backend.status == BackendStatus.AVAILABLE
@@ -140,15 +146,21 @@ class TestGraphQLBackend:
         backend = EnterpriseGraphQLBackend()
         assert backend.status == BackendStatus.UNAVAILABLE
 
+    @patch("quilt_mcp.tools.search.search_graphql")
+    @patch("quilt_mcp.tools.search._get_graphql_endpoint")
     @patch("quilt_mcp.search.backends.graphql.quilt3")
     @pytest.mark.asyncio
-    async def test_graphql_health_check(self, mock_quilt3):
+    async def test_graphql_health_check(self, mock_quilt3, mock_get_endpoint, mock_search_graphql):
         """Test GraphQL backend health checking."""
         mock_session = Mock()
         mock_session.post.return_value.status_code = 200
 
         mock_quilt3.session.get_registry_url.return_value = "https://test-catalog.com"
         mock_quilt3.session.get_session.return_value = mock_session
+
+        # Mock the GraphQL endpoint and search function
+        mock_get_endpoint.return_value = (mock_session, "https://test-catalog.com/graphql")
+        mock_search_graphql.return_value = {"success": True, "data": {"bucketConfigs": []}}
 
         backend = EnterpriseGraphQLBackend()
         is_healthy = await backend.health_check()
