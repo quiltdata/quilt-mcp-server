@@ -523,54 +523,46 @@ class TestPackageCreateErrorHandling:
     """Test error handling in package_create function."""
 
     def test_package_create_with_empty_s3_uris(self):
-        """Test package_create with empty S3 URIs list - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_create with empty S3 URIs list - returns error response after flattening."""
+        result = package_create(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_create(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
-
-        # Verify the validation error is about list being too short
-        assert "List should have at least 1 item" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "No S3 URIs provided" in result["error"]
 
     def test_package_create_with_empty_package_name(self):
-        """Test package_create with empty package name - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_create with empty package name - returns error response after flattening."""
+        result = package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_create(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
-
-        # Verify the validation error is about the pattern mismatch
-        assert "String should match pattern" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "Package name is required" in result["error"]
 
     def test_package_create_with_invalid_json_metadata(self):
-        """Test package_create with invalid JSON string metadata - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_create with invalid metadata type - returns error response after flattening."""
+        result = package_create(
+            package_name="test/package",
+            s3_uris=["s3://bucket/file.txt"],
+            metadata='{"invalid": json syntax}',  # String not dict
+            registry="s3://test-bucket",
+        )
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_create(
-                package_name="test/package",
-                s3_uris=["s3://bucket/file.txt"],
-                metadata='{"invalid": json syntax}',  # Invalid JSON - string not dict
-                registry="s3://test-bucket",
-            )
-
-        # Verify the validation error is about expecting a dict
-        assert "Input should be a valid dictionary" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "Metadata must be a dictionary" in result["error"]
 
     def test_package_create_with_non_dict_non_string_metadata(self):
-        """Test package_create with metadata that's not a dict - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_create with metadata that's not a dict - returns error response after flattening."""
+        result = package_create(
+            package_name="test/package",
+            s3_uris=["s3://bucket/file.txt"],
+            metadata=123,  # Invalid type
+            registry="s3://test-bucket",
+        )
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_create(
-                package_name="test/package",
-                s3_uris=["s3://bucket/file.txt"],
-                metadata=123,  # Invalid type
-                registry="s3://test-bucket",
-            )
-
-        # Verify the validation error is about expecting a dict
-        assert "Input should be a valid dictionary" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "Metadata must be a dictionary" in result["error"]
 
     @patch("quilt_mcp.tools.packages.quilt_service.create_package_revision")
     def test_package_create_with_service_error_response(self, mock_create_revision):
@@ -606,54 +598,46 @@ class TestPackageUpdate:
     """Test cases for the package_update function."""
 
     def test_package_update_with_empty_s3_uris(self):
-        """Test package_update with empty S3 URIs list - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_update with empty S3 URIs list - returns error response after flattening."""
+        result = package_update(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_update(package_name="test/package", s3_uris=[], registry="s3://test-bucket")
-
-        # Verify the validation error is about list being too short
-        assert "List should have at least 1 item" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "No S3 URIs provided" in result["error"]
 
     def test_package_update_with_empty_package_name(self):
-        """Test package_update with empty package name - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_update with empty package name - returns error response after flattening."""
+        result = package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_update(package_name="", s3_uris=["s3://bucket/file.txt"], registry="s3://test-bucket")
-
-        # Verify the validation error is about the pattern mismatch
-        assert "String should match pattern" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "package_name is required" in result["error"]
 
     def test_package_update_with_invalid_json_metadata(self):
-        """Test package_update with invalid JSON string metadata - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_update with invalid JSON string metadata - returns error response after flattening."""
+        result = package_update(
+            package_name="test/package",
+            s3_uris=["s3://bucket/file.txt"],
+            metadata='{"invalid": json}',  # Invalid JSON - string not dict
+            registry="s3://test-bucket",
+        )
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_update(
-                package_name="test/package",
-                s3_uris=["s3://bucket/file.txt"],
-                metadata='{"invalid": json}',  # Invalid JSON - string not dict
-                registry="s3://test-bucket",
-            )
-
-        # Verify the validation error is about expecting a dict
-        assert "Input should be a valid dictionary" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "Metadata must be a dictionary" in result["error"]
 
     def test_package_update_with_non_dict_metadata(self):
-        """Test package_update with metadata that's not a dict - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_update with metadata that's not a dict - returns error response after flattening."""
+        result = package_update(
+            package_name="test/package",
+            s3_uris=["s3://bucket/file.txt"],
+            metadata=["invalid", "type"],  # Invalid type - list not dict
+            registry="s3://test-bucket",
+        )
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_update(
-                package_name="test/package",
-                s3_uris=["s3://bucket/file.txt"],
-                metadata=["invalid", "type"],  # Invalid type - list not dict
-                registry="s3://test-bucket",
-            )
-
-        # Verify the validation error is about expecting a dict
-        assert "Input should be a valid dictionary" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "Metadata must be a dictionary" in result["error"]
 
     @patch("quilt_mcp.tools.packages.QuiltService")
     @patch("quilt_mcp.utils.suppress_stdout")
@@ -675,14 +659,12 @@ class TestPackageDelete:
     """Test cases for the package_delete function."""
 
     def test_package_delete_with_empty_package_name(self):
-        """Test package_delete with empty package name - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test package_delete with empty package name - returns error response after flattening."""
+        result = package_delete(package_name="", registry="s3://test-bucket")
 
-        with pytest.raises(ValidationError) as exc_info:
-            package_delete(package_name="", registry="s3://test-bucket")
-
-        # Verify the validation error is about the pattern mismatch
-        assert "String should match pattern" in str(exc_info.value)
+        # Verify error response instead of raising ValidationError
+        assert result["success"] is False
+        assert "package_name is required" in result["error"]
 
     @patch("quilt_mcp.tools.packages.quilt3.delete_package")
     @patch("quilt_mcp.utils.suppress_stdout")

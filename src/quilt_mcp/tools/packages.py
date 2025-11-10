@@ -1174,6 +1174,13 @@ def package_create(
             package_name="",
             suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
         )
+    if metadata is not None and not isinstance(metadata, dict):
+        return PackageCreateError(
+            error="Metadata must be a dictionary",
+            package_name=package_name,
+            provided_type=type(metadata).__name__,
+            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'My dataset'}"],
+        )
 
     # Process metadata to ensure README content is handled correctly
     processed_metadata = metadata.copy() if metadata else {}
@@ -1374,6 +1381,12 @@ def package_update(
             error="package_name is required for package_update",
             package_name="",
             suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+        )
+    if metadata is not None and not isinstance(metadata, dict):
+        return PackageUpdateError(
+            error="Metadata must be a dictionary",
+            package_name=package_name,
+            suggested_actions=["Provide metadata as a dict", "Example: {'description': 'Updated dataset'}"],
         )
     warnings: list[str] = []
     normalized_registry = _normalize_registry(registry)
