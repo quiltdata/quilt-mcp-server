@@ -5,8 +5,9 @@ import os
 import boto3
 import pytest
 import tempfile
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Any
+from typing import Callable, Dict, Any
 
 # Load environment variables from .env file
 try:
@@ -49,6 +50,10 @@ def pytest_configure(config):
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
         boto3.setup_default_session(profile_name=os.getenv("AWS_PROFILE"))
+
+    # Set default Athena workgroup to skip discovery in tests
+    if not os.getenv("ATHENA_WORKGROUP"):
+        os.environ["ATHENA_WORKGROUP"] = "primary"
 
     # Add custom markers
     config.addinivalue_line("markers", "integration: mark test as integration test")
