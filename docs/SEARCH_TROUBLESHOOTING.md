@@ -84,7 +84,9 @@ The GraphQL backend may show as unavailable with error messages like:
    ```
 
 2. **Optimize Query**:
-   - Add file extension filters: `"CSV files"` vs `"files"`
+   - Use natural language filters: `"CSV files"` vs `"files"`
+   - Specify sizes: `"files larger than 100MB"` vs `"files"`
+   - Include dates: `"created after 2023-01-01"` or `"in the last 30 days"`
    - Use specific scope: `scope="bucket"` vs `scope="global"`
    - Limit results: `limit=10` vs `limit=100`
 
@@ -142,7 +144,10 @@ result = asyncio.run(unified_search("query"))
 ### Query Optimization
 
 - **Be Specific**: `"CSV files in genomics packages"` vs `"data"`
-- **Use Filters**: Include size, date, or type constraints
+- **Use Natural Language Filters**:
+  - File types: `"CSV files"`, `"JSON data"`, `"Parquet files"`
+  - Sizes: `"files larger than 100MB"`, `"smaller than 1GB"`
+  - Dates: `"created after 2023-01-01"`, `"in the last 30 days"`, `"modified this week"`
 - **Scope Appropriately**: Use `bucket` or `package` scope when possible
 
 ### Error Handling

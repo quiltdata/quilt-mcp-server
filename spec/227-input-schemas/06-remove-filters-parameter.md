@@ -275,11 +275,15 @@ search_catalog(query="CSV data")
 ## Rollout Plan
 
 1. ✅ Create spec (this document)
-2. Update code to remove `filters` parameter
-3. Update all tests to use natural language queries
-4. Update documentation with natural language examples
-5. Add migration guide to CHANGELOG
-6. Bump minor version (breaking change)
+2. ✅ Update code to remove `filters` parameter
+3. ✅ Update all tests to use natural language queries
+4. ✅ Update documentation with natural language examples
+5. ✅ Add migration guide to CHANGELOG
+6. ✅ Bump minor version (breaking change)
+
+## Status: COMPLETED
+
+The `filters` parameter has been successfully removed from `search_catalog()`. All documentation has been updated to emphasize natural language query capabilities.
 
 ## Notes
 

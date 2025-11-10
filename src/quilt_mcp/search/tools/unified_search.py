@@ -46,7 +46,6 @@ class UnifiedSearchEngine:
         include_metadata: bool = True,
         include_content_preview: bool = False,
         explain_query: bool = False,
-        filters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Execute unified search across multiple backends.
 
@@ -59,7 +58,6 @@ class UnifiedSearchEngine:
             include_metadata: Include rich metadata in results
             include_content_preview: Include content previews for files
             explain_query: Include query execution explanation
-            filters: Additional filters
 
         Returns:
             Unified search results with metadata and explanations
@@ -69,10 +67,8 @@ class UnifiedSearchEngine:
         # Parse and analyze the query
         analysis = parse_query(query, scope, target)
 
-        # Merge filters from query analysis and explicit filters
-        combined_filters = {**analysis.filters}
-        if filters:
-            combined_filters.update(filters)
+        # Use filters extracted from query analysis
+        combined_filters = analysis.filters
 
         # Determine which backends to use
         if backend is None:
@@ -335,7 +331,6 @@ async def unified_search(
     include_metadata: bool = True,
     include_content_preview: bool = False,
     explain_query: bool = False,
-    filters: Optional[Dict[str, Any]] = None,
     count_only: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -356,7 +351,6 @@ async def unified_search(
         include_metadata: Include rich metadata in results
         include_content_preview: Include content previews for files
         explain_query: Include query execution explanation
-        filters: Additional filters (size, date, type, etc.)
 
     Returns:
         Unified search results with metadata, explanations, and suggestions
@@ -365,13 +359,18 @@ async def unified_search(
         unified_search("CSV files in genomics packages")
         unified_search("packages created last month", scope="catalog")
         unified_search("README files", scope="package", target="user/dataset")
-        unified_search("files larger than 100MB", filters={"size_gt": "100MB"})
+        unified_search("files larger than 100MB")
+        unified_search("CSV data created after 2023-01-01")
     """
     try:
         if count_only:
             # For count-only mode, use the Elasticsearch backend's get_total_count method
             engine = get_search_engine()
             elasticsearch_backend = None
+
+            # Parse query to extract filters
+            analysis = parse_query(query, scope, target)
+            query_filters = analysis.filters
 
             # Find the Elasticsearch backend
             available_backends = engine.registry.get_available_backends()
@@ -383,7 +382,7 @@ async def unified_search(
 
             if elasticsearch_backend:
                 try:
-                    total_count = elasticsearch_backend.get_total_count(query, filters)
+                    total_count = elasticsearch_backend.get_total_count(query, query_filters)
                     return {
                         "success": True,
                         "total_count": total_count,
@@ -419,7 +418,6 @@ async def unified_search(
             include_metadata=include_metadata,
             include_content_preview=include_content_preview,
             explain_query=explain_query,
-            filters=filters,
         )
     except Exception as e:
         return {

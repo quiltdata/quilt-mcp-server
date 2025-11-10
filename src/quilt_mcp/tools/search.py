@@ -75,13 +75,6 @@ def search_catalog(
             description="Include query execution explanation and backend selection reasoning (default: False)",
         ),
     ] = False,
-    filters: Annotated[
-        Optional[Dict[str, Any]],
-        Field(
-            default=None,
-            description='Additional filters as dict - e.g., {"file_extensions": ["csv"], "size_gt": "100MB", "date_after": "2023-01-01"}',
-        ),
-    ] = None,
     count_only: Annotated[
         bool,
         Field(
@@ -93,10 +86,16 @@ def search_catalog(
     """Intelligent unified search across Quilt catalogs, packages, and S3 buckets - Catalog and package search experiences
 
     This tool automatically:
-    - Parses natural language queries
+    - Parses natural language queries to extract filters (file types, sizes, dates)
     - Selects optimal search backends
     - Aggregates and ranks results
     - Provides context and explanations
+
+    Natural Language Query Capabilities:
+    - File types: "CSV files", "JSON data", "Parquet files"
+    - Sizes: "files larger than 100MB", "smaller than 1GB"
+    - Dates: "created after 2023-01-01", "in the last 30 days", "modified this week"
+    - Combined: "CSV files larger than 100MB created after 2024-01-01"
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
@@ -107,7 +106,6 @@ def search_catalog(
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
         explain_query: Include query execution explanation and backend selection reasoning (default: False)
-        filters: Additional filters as dict - e.g., {"file_extensions": ["csv"], "size_gt": "100MB", "date_after": "2023-01-01"}
         count_only: Return aggregated counts only (skips fetching full result payloads) when True.
 
     Returns:
@@ -115,10 +113,10 @@ def search_catalog(
 
     Examples:
         search_catalog("CSV files in genomics packages")
+        search_catalog("files larger than 100MB created after 2024-01-01")
         search_catalog("packages created last month", scope="catalog")
         search_catalog("README files", scope="package", target="user/dataset")
-        search_catalog("files larger than 100MB", filters={"size_gt": "100MB"})
-        search_catalog("*.csv", scope="bucket", target="s3://quilt-example")
+        search_catalog("Parquet files smaller than 500MB", scope="bucket", target="s3://quilt-example")
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -157,7 +155,6 @@ def search_catalog(
                         include_metadata=include_metadata,
                         include_content_preview=include_content_preview,
                         explain_query=explain_query,
-                        filters=filters,
                         count_only=count_only,
                     ),
                 )
@@ -174,7 +171,6 @@ def search_catalog(
                     include_metadata=include_metadata,
                     include_content_preview=include_content_preview,
                     explain_query=explain_query,
-                    filters=filters,
                     count_only=count_only,
                 )
             )
