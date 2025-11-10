@@ -1,13 +1,6 @@
 from unittest.mock import Mock, patch
 
-# TODO: Update tests after parameter flattening (#227)
-# Parameter models were removed in favor of direct parameters
-# This file needs systematic refactoring to use flattened parameters
-
 import pytest
-
-# Mark entire file as skipped until refactored
-pytestmark = pytest.mark.skip(reason="Needs refactoring after parameter flattening (issue #227)")
 
 from quilt_mcp.services.auth_metadata import auth_status, catalog_info, catalog_name
 from quilt_mcp.tools.catalog import catalog_uri, catalog_url
@@ -98,8 +91,6 @@ class TestQuiltTools:
         """Test packages_list with error."""
         with patch("quilt3.list_packages", side_effect=Exception("Test error")):
             result = packages_list(registry="s3://quilt-ernest-staging")
-            #
-            result = packages_list(params)
 
             # Should return an error response, not raise exception
             assert hasattr(result, 'success')
@@ -125,7 +116,6 @@ class TestQuiltTools:
 
         with patch("quilt3.Package.browse", return_value=mock_package):
             result = package_browse(package_name="user/test-package")
-            result = package_browse(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -140,7 +130,6 @@ class TestQuiltTools:
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
             result = package_browse(package_name="user/nonexistent")
-            result = package_browse(params)
 
             assert hasattr(result, 'success')
             assert result.success is False
@@ -299,13 +288,12 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(  # noqa: F821
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
                 package1_hash="abc123",
                 package2_hash="def456",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -330,13 +318,12 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(  # noqa: F821
+            result = package_diff(
                 package1_name="user/package",
                 package2_name="user/package",
                 package1_hash="old_hash",
                 package2_hash="new_hash",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -356,11 +343,10 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(  # noqa: F821
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -373,11 +359,10 @@ class TestQuiltTools:
     def test_package_diff_browse_error(self):
         """Test package_diff with package browse error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            params = PackageDiffParams(  # noqa: F821
+            result = package_diff(
                 package1_name="user/nonexistent1",
                 package2_name="user/nonexistent2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is False
@@ -393,11 +378,10 @@ class TestQuiltTools:
         with patch("quilt3.Package.browse") as mock_browse:
             mock_browse.side_effect = [mock_pkg1, mock_pkg2]
 
-            params = PackageDiffParams(  # noqa: F821
+            result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
             )
-            result = package_diff(params)
 
             assert hasattr(result, 'success')
             assert result.success is False

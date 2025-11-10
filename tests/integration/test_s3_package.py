@@ -25,36 +25,28 @@ from quilt_mcp.validators import (
 )
 
 
-# TODO: This test file needs significant updates after parameter flattening.
-# The PackageCreateFromS3Params model was removed and replaced with individual parameters.
-# Mark as skipped until the test can be properly refactored.
-pytestmark = pytest.mark.skip(reason="Needs refactoring after parameter flattening (issue #227)")
-
-
 @pytest.mark.integration
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
     def test_invalid_package_name(self):
-        """Test that invalid package names are rejected - validates at Pydantic level now."""
-        from pydantic import ValidationError
+        """Test that invalid package names are rejected - validation happens inside function."""
+        # Call function directly with invalid package name
+        result = package_create_from_s3(
+            source_bucket=DEFAULT_BUCKET_NAME,
+            package_name="invalid-name",  # Missing namespace
+        )
 
-        with pytest.raises(ValidationError) as exc_info:
-            params = PackageCreateFromS3Params(  # noqa: F821
-                source_bucket=DEFAULT_BUCKET_NAME,
-                package_name="invalid-name",  # Missing namespace
-            )
-
-        # Verify the validation error is about the pattern mismatch
-        assert "String should match pattern" in str(exc_info.value)
+        # Verify the function returns an error response
+        assert result.success is False
+        assert "Invalid package name format" in result.error
 
     def test_missing_required_params(self):
         """Test that missing required parameters are handled."""
-        params = PackageCreateFromS3Params(  # noqa: F821
+        result = package_create_from_s3(
             source_bucket="",  # Empty bucket
             package_name=KNOWN_TEST_PACKAGE,
         )
-        result = package_create_from_s3(params)
 
         assert result.success is False
         assert "source_bucket is required" in result.error
@@ -90,12 +82,11 @@ class TestPackageCreateFromS3:
             "access_summary": {"can_write": True},
         }
 
-        params = PackageCreateFromS3Params(  # noqa: F821
+        result = package_create_from_s3(
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             target_registry=DEFAULT_REGISTRY,
         )
-        result = package_create_from_s3(params)
 
         # The function should fail because no objects were found in the source bucket
         assert result.success is False
@@ -119,14 +110,13 @@ class TestPackageCreateFromS3:
             "Example: export QUILT_DEFAULT_BUCKET=s3://quilt-ernest-staging"
         )
 
-        params = PackageCreateFromS3Params(  # noqa: F821
+        result = package_create_from_s3(
             source_bucket=DEFAULT_BUCKET_NAME,
             package_name=KNOWN_TEST_PACKAGE,
             description="Integration test package",
             target_registry=DEFAULT_REGISTRY,
             dry_run=True,  # Use dry_run to avoid creating actual packages in tests
         )
-        result = package_create_from_s3(params)
 
         # Convert Pydantic model to dict for easier access
         result_dict = result.model_dump()
@@ -222,12 +212,11 @@ class TestValidation:
             mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
 
             # Call with invalid bucket - should fail before trying to create
-            params = PackageCreateFromS3Params(  # noqa: F821
+            result = package_create_from_s3(
                 source_bucket="nonexistent",
                 package_name="test/pkg",
                 dry_run=True,
             )
-            result = package_create_from_s3(params)
 
             # Either fails early OR succeeds with preview, but never calls create
             assert mock_create.call_count == 0, "dry_run=True called _create_enhanced_package"
@@ -378,12 +367,11 @@ class TestREADMEContentExtraction:
         test_metadata = {"description": "Test", "readme_content": "# README"}
 
         # Just verify the function accepts metadata without error
-        params = PackageCreateFromS3Params(  # noqa: F821
+        result = package_create_from_s3(
             source_bucket="nonexistent",
             package_name=KNOWN_TEST_PACKAGE,
             metadata=test_metadata,
         )
-        result = package_create_from_s3(params)
 
         # Convert result to dict for easier checking
         result_dict = result.model_dump() if hasattr(result, 'model_dump') else result

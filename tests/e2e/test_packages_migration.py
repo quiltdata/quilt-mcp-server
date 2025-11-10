@@ -9,16 +9,11 @@ from __future__ import annotations
 from unittest.mock import Mock, patch
 import pytest
 
-# TODO: Update tests after parameter flattening (#227)
-# Mark entire file as skipped until refactored
-pytestmark = pytest.mark.skip(reason="Needs refactoring after parameter flattening (issue #227)")
-
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
     package_diff,
 )
-# Note: Parameter models removed after flattening - use direct parameters
 
 
 class TestPackagesMigrationValidation:
@@ -74,10 +69,9 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name='user/package1', package2_name='user/package2', registry='s3://test-bucket'
             )
-            result = package_diff(params)
 
         assert mock_service.browse_package.call_count == 2
         mock_service.browse_package.assert_any_call('user/package1', registry='s3://test-bucket')

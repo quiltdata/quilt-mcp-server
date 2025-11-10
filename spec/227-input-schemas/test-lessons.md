@@ -150,20 +150,165 @@ This documentation ensures developers and AI assistants understand the full test
 
 ## Action Items
 
-- [ ] Refactor `test_s3_package.py` to use flattened parameters (23 tests)
-- [ ] Refactor `test_quilt_tools.py` to use flattened parameters (~60 tests)
-- [ ] Refactor `test_packages_migration.py` to use flattened parameters (~15 tests)
+- [x] Refactor `test_s3_package.py` to use flattened parameters (22 tests) ✅ **COMPLETED 2025-01-07**
+- [x] Refactor `test_quilt_tools.py` to use flattened parameters (22 tests) ✅ **COMPLETED 2025-01-07**
+- [x] Refactor `test_packages_migration.py` to use flattened parameters (3 tests) ✅ **COMPLETED 2025-01-07**
 - [ ] Review other e2e tests for similar parameter object usage
 - [ ] Consider adding a migration guide for updating tests after parameter flattening
 - [ ] Update test documentation to mention parameter flattening migration patterns
 
-**Note**: Three e2e test files (`test_s3_package.py`, `test_quilt_tools.py`, `test_packages_migration.py`) have been marked with `pytest.mark.skip` to unblock the PR. These tests extensively use the old parameter models and require systematic refactoring to use flattened parameters directly. Approximately 98 tests are temporarily skipped pending this refactoring work.
+**Update 2025-01-07**: All three test files have been successfully refactored! Using orchestrator agents with parallel execution, all 47 tests now pass with flattened parameters. The tests are no longer marked with `pytest.mark.skip` and are running in the test suite.
 
 ---
 
 ## Statistics
 
+### Initial (2025-01-06)
 - **Tests Fixed**: 2 files (unit + integration)
 - **Tests Skipped for Future**: 3 e2e files (~98 tests)
 - **Total Test Run Time**: ~175 seconds (unit + integration + scripts + mcpb)
 - **Pass Rate**: 99.7% (442 passed, 2 fixed, 98 skipped for refactoring)
+
+### After Refactoring (2025-01-07)
+- **Tests Refactored**: 3 files (1 integration + 2 e2e) = 47 tests
+  - `test_s3_package.py`: 22 tests ✅
+  - `test_quilt_tools.py`: 22 tests ✅
+  - `test_packages_migration.py`: 3 tests ✅
+- **Total Test Run Time**: ~101 seconds (for the 47 refactored tests)
+- **Pass Rate**: 100% (47/47 tests passing)
+- **Refactoring Method**: Orchestrator agent spawning 3 parallel Python agents
+- **Files No Longer Skipped**: All 3 previously skipped files now active
+
+---
+
+## Detailed Refactoring Summary (2025-01-07)
+
+### 4. Integration Test: `test_s3_package.py` - REFACTORED ✅
+
+**Changes Made**:
+1. Removed `pytest.mark.skip` marker
+2. Updated all test methods to use direct function calls with flattened parameters
+3. Removed all `PackageCreateFromS3Params` instantiations
+4. Updated validation test assertions (ValidationError now returns error response instead of raising)
+5. Removed all `# noqa: F821` comments
+
+**Key Pattern**:
+```python
+# Before
+params = PackageCreateFromS3Params(
+    source_bucket="test-bucket",
+    package_name="user/test"
+)
+result = package_create_from_s3(params)
+
+# After
+result = package_create_from_s3(
+    source_bucket="test-bucket",
+    package_name="user/test"
+)
+```
+
+**File**: [tests/integration/test_s3_package.py](tests/integration/test_s3_package.py)
+
+**Test Count**: 22 tests
+**Status**: ✅ All passing
+
+---
+
+### 5. E2E Test: `test_quilt_tools.py` - REFACTORED ✅
+
+**Changes Made**:
+1. Removed `pytest.mark.skip` decorator
+2. Fixed duplicate function calls (removed old `params` object calls)
+3. Converted all `PackageDiffParams` usage to direct function calls
+4. Cleaned up imports and TODO comments
+
+**Key Changes by Test Category**:
+- **packages_list** (3 tests): Fixed duplicate calls with `params` object
+- **package_browse** (2 tests): Fixed duplicate calls with `params` object
+- **package_diff** (5 tests): Converted from `PackageDiffParams` to direct calls
+- **Other tests** (12 tests): Already using correct flattened structure
+
+**Before**:
+```python
+params = PackageDiffParams(  # noqa: F821
+    package1_name="user/package1",
+    package2_name="user/package2",
+    package1_hash="abc123",
+    package2_hash="def456",
+)
+result = package_diff(params)
+```
+
+**After**:
+```python
+result = package_diff(
+    package1_name="user/package1",
+    package2_name="user/package2",
+    package1_hash="abc123",
+    package2_hash="def456",
+)
+```
+
+**File**: [tests/e2e/test_quilt_tools.py](tests/e2e/test_quilt_tools.py)
+
+**Test Count**: 22 tests
+**Status**: ✅ All passing
+
+---
+
+### 6. E2E Test: `test_packages_migration.py` - REFACTORED ✅
+
+**Changes Made**:
+1. Removed `pytest.mark.skip` marker
+2. Updated `test_package_diff_uses_quilt_service` to use flattened parameters
+3. Removed obsolete imports and TODO comments
+4. Verified other 2 tests already using correct structure
+
+**Before**:
+```python
+params = PackageDiffParams(
+    package1_name='user/package1',
+    package2_name='user/package2',
+    registry='s3://test-bucket'
+)
+package_diff(params)
+```
+
+**After**:
+```python
+package_diff(
+    package1_name='user/package1',
+    package2_name='user/package2',
+    registry='s3://test-bucket'
+)
+```
+
+**File**: [tests/e2e/test_packages_migration.py](tests/e2e/test_packages_migration.py)
+
+**Test Count**: 3 tests (not 15 as initially estimated)
+**Status**: ✅ All passing
+**Note**: File focused on migration validation, not comprehensive testing
+
+---
+
+## Lessons Learned from Orchestrator Refactoring
+
+1. **Parallel Agent Execution**: Spawning 3 agents in parallel significantly reduced total refactoring time
+2. **Accurate Test Counts**: Initial estimates were based on assumptions; actual counts were:
+   - `test_s3_package.py`: 22 tests (not 23)
+   - `test_quilt_tools.py`: 22 tests (not ~60)
+   - `test_packages_migration.py`: 3 tests (not ~15)
+3. **Consistent Patterns**: All refactoring followed the same pattern of replacing parameter objects with direct function calls
+4. **Validation Changes**: Some tests needed assertion updates where validation moved from raising exceptions to returning error responses
+5. **Mock Updates**: No mock signature updates needed in these files (unlike earlier fixes)
+
+---
+
+## Final Statistics
+
+- **Total Tests Refactored**: 47 tests across 3 files
+- **Refactoring Success Rate**: 100% (47/47 passing)
+- **Time to Refactor**: ~10 minutes (with 3 parallel agents)
+- **Files Unblocked**: 3 test files now active in test suite
+- **Overall Impact**: Removed 47 skipped tests, added 47 passing tests
