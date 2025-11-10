@@ -359,9 +359,9 @@ class TestMCPServerConfiguration(unittest.TestCase):
         with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
             run_server()
 
-        # Verify server was created and run was called
+        # Verify server was created and run was called with default show_banner=True
         mock_create_server.assert_called_once()
-        mock_server.run.assert_called_once_with(transport="stdio")
+        mock_server.run.assert_called_once_with(transport="stdio", show_banner=True)
 
     @patch("quilt_mcp.utils.build_http_app")
     @patch("quilt_mcp.utils.create_configured_server")
@@ -445,8 +445,21 @@ class TestMCPServerConfiguration(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             run_server()
 
-        # Verify default transport is used
-        mock_server.run.assert_called_once_with(transport="stdio")
+        # Verify default transport is used with default show_banner=True
+        mock_server.run.assert_called_once_with(transport="stdio", show_banner=True)
+
+    @patch("quilt_mcp.utils.create_configured_server")
+    def test_run_server_skip_banner(self, mock_create_server):
+        """Test run_server with skip_banner=True."""
+        mock_server = Mock(spec=FastMCP)
+        mock_create_server.return_value = mock_server
+
+        # Test with skip_banner=True
+        with patch.dict(os.environ, {"FASTMCP_TRANSPORT": "stdio"}):
+            run_server(skip_banner=True)
+
+        # Verify run was called with show_banner=False
+        mock_server.run.assert_called_once_with(transport="stdio", show_banner=False)
 
     @patch("quilt_mcp.utils.create_configured_server")
     def test_run_server_error_handling(self, mock_create_server):
