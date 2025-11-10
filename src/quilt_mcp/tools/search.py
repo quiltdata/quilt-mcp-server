@@ -40,14 +40,13 @@ def search_catalog(
             description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")',
         ),
     ] = "",
-    backends: Annotated[
-        Optional[List[str]],
+    backend: Annotated[
+        str,
         Field(
-            default=None,
-            description='Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations. Defaults to ["auto"] if not specified.',
-            json_schema_extra={"default": ["auto"]},
+            default="auto",
+            description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"',
         ),
-    ] = None,
+    ] = "auto",
     limit: Annotated[
         int,
         Field(
@@ -103,7 +102,7 @@ def search_catalog(
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
         scope: Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)
         target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")
-        backends: Preferred backends - ["auto"] (intelligent selection), ["elasticsearch"], ["graphql"], ["s3"], or combinations
+        backend: Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
@@ -135,9 +134,9 @@ def search_catalog(
         ```
     """
     try:
-        # Set default backends if None
-        if backends is None:
-            backends = ["auto"]
+        # Set default backend if None or empty
+        if not backend:
+            backend = "auto"
 
         # Handle async execution properly for MCP tools
         try:
@@ -153,7 +152,7 @@ def search_catalog(
                         query=query,
                         scope=scope,
                         target=target,
-                        backends=backends,
+                        backend=backend,
                         limit=limit,
                         include_metadata=include_metadata,
                         include_content_preview=include_content_preview,
@@ -170,7 +169,7 @@ def search_catalog(
                     query=query,
                     scope=scope,
                     target=target,
-                    backends=backends,
+                    backend=backend,
                     limit=limit,
                     include_metadata=include_metadata,
                     include_content_preview=include_content_preview,
@@ -194,7 +193,7 @@ def search_catalog(
                     "packages created this month",
                 ],
                 "scopes": ["global", "catalog", "package", "bucket"],
-                "backends": ["auto", "elasticsearch", "graphql", "s3"],
+                "backend": ["auto", "elasticsearch", "graphql", "s3"],
             },
         }
 

@@ -89,8 +89,8 @@ The GraphQL backend may show as unavailable with error messages like:
    - Limit results: `limit=10` vs `limit=100`
 
 3. **Backend Selection**:
-   - Force fast backend: `backends=["elasticsearch"]`
-   - Skip slow backends: `backends=["elasticsearch", "s3"]`
+   - Force fast backend: `backend="elasticsearch"`
+   - Use specific backend: `backend="s3"`
 
 ### No Results Found
 
@@ -111,7 +111,7 @@ The GraphQL backend may show as unavailable with error messages like:
    ```
 
 3. **Check Backend Availability**:
-   - Elasticsearch down → Try S3: `backends=["s3"]`
+   - Elasticsearch down → Try S3: `backend="s3"`
    - All backends down → Check authentication and network
 
 ## Integration Issues

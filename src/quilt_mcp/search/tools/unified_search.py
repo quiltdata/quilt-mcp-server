@@ -41,7 +41,7 @@ class UnifiedSearchEngine:
         query: str,
         scope: str = "global",
         target: str = "",
-        backends: Optional[List[str]] = None,
+        backend: Optional[str] = None,
         limit: int = 50,
         include_metadata: bool = True,
         include_content_preview: bool = False,
@@ -54,7 +54,7 @@ class UnifiedSearchEngine:
             query: Natural language search query
             scope: Search scope (global, catalog, package, bucket)
             target: Specific target when scope is narrow
-            backends: Preferred backends (auto, elasticsearch, graphql, s3)
+            backend: Preferred backend (auto, elasticsearch, graphql, s3)
             limit: Maximum results to return
             include_metadata: Include rich metadata in results
             include_content_preview: Include content previews for files
@@ -75,13 +75,13 @@ class UnifiedSearchEngine:
             combined_filters.update(filters)
 
         # Determine which backends to use
-        if backends is None:
-            backends = ["auto"]
+        if backend is None:
+            backend = "auto"
 
-        if backends == ["auto"] or "auto" in backends:
+        if backend == "auto":
             selected_backends = self._select_backends(analysis)
         else:
-            selected_backends = self._get_backends_by_name(backends)
+            selected_backends = self._get_backends_by_name([backend])
 
         # Execute searches in parallel
         backend_responses = await self._execute_parallel_searches(
@@ -330,7 +330,7 @@ async def unified_search(
     query: str,
     scope: str = "global",
     target: str = "",
-    backends: Optional[List[str]] = None,
+    backend: Optional[str] = None,
     limit: int = 50,
     include_metadata: bool = True,
     include_content_preview: bool = False,
@@ -351,7 +351,7 @@ async def unified_search(
         query: Natural language search query
         scope: Search scope (global, catalog, package, bucket)
         target: Specific target when scope is narrow (package/bucket name)
-        backends: Preferred backends (auto, elasticsearch, graphql, s3)
+        backend: Preferred backend (auto, elasticsearch, graphql, s3)
         limit: Maximum results to return
         include_metadata: Include rich metadata in results
         include_content_preview: Include content previews for files
@@ -414,7 +414,7 @@ async def unified_search(
             query=query,
             scope=scope,
             target=target,
-            backends=backends,
+            backend=backend,
             limit=limit,
             include_metadata=include_metadata,
             include_content_preview=include_content_preview,
