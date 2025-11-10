@@ -87,9 +87,20 @@ def catalog_info() -> Dict[str, Any]:
     try:
         info = _get_catalog_info()
 
+        # Determine detection method
+        if info["logged_in_url"]:
+            detection_method = "authentication"
+        elif info["navigator_url"]:
+            detection_method = "navigator_config"
+        elif info["registry_url"]:
+            detection_method = "registry_config"
+        else:
+            detection_method = "unknown"
+
         result: Dict[str, Any] = {
             "catalog_name": info["catalog_name"],
             "is_authenticated": info["is_authenticated"],
+            "detection_method": detection_method,
             "status": "success",
         }
 
@@ -117,6 +128,7 @@ def catalog_info() -> Dict[str, Any]:
             "status": "error",
             "error": f"Failed to get catalog info: {exc}",
             "catalog_name": "unknown",
+            "detection_method": "error",
         }
 
 

@@ -107,7 +107,6 @@ markers = [
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
     "asyncio: marks tests as async tests that require pytest-asyncio",
 ]
-asyncio_mode = "auto"
 
 [tool.ruff]
 # Use external configuration file
