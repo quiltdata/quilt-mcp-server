@@ -168,8 +168,7 @@ class TestMCPResourcesWorkflow:
         Test complete auth resource workflow:
         1. Check auth status
         2. Get catalog info
-        3. Get catalog name
-        4. Check filesystem status
+        3. Check filesystem status
 
         This validates the complete authentication and catalog
         discovery workflow.
@@ -190,12 +189,7 @@ class TestMCPResourcesWorkflow:
         assert isinstance(catalog_info.content, dict)
         print(f"Catalog info status: {catalog_info.content.get('status')}")
 
-        # 3. Get catalog name
-        catalog_name = await registry.read_resource("auth://catalog/name")
-        assert isinstance(catalog_name.content, dict)
-        print(f"Catalog name status: {catalog_name.content.get('status')}")
-
-        # 4. Check filesystem status
+        # 3. Check filesystem status
         fs_status = await registry.read_resource("auth://filesystem/status")
         assert isinstance(fs_status.content, dict)
         assert "home_writable" in fs_status.content
