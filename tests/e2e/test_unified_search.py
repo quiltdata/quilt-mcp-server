@@ -107,6 +107,8 @@ class TestElasticsearchBackend:
         mock_quilt3.session.get_registry_url.return_value = "https://example.com"
 
         backend = Quilt3ElasticsearchBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.AVAILABLE
 
     @patch("quilt_mcp.services.quilt_service.quilt3")
@@ -115,6 +117,8 @@ class TestElasticsearchBackend:
         mock_quilt3.session.get_registry_url.return_value = None
 
         backend = Quilt3ElasticsearchBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.UNAVAILABLE
 
     @patch("quilt_mcp.services.quilt_service.quilt3")

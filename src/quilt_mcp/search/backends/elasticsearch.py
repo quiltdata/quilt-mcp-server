@@ -34,6 +34,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         super().__init__(BackendType.ELASTICSEARCH)
         self.quilt_service = quilt_service or QuiltService()
         self._session_available = False
+        # Do not check session during initialization - use lazy initialization
+
+    def _initialize(self):
+        """Initialize backend by checking quilt3 session availability.
+
+        This method is called lazily on first use via ensure_initialized().
+        Authentication checks are deferred until the backend is actually needed.
+        """
         self._check_session()
 
     def _check_session(self):
@@ -83,6 +91,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         limit: int = 50,
     ) -> BackendResponse:
         """Execute search using quilt3.Bucket.search() or packages search API."""
+        # Ensure backend is initialized before searching
+        self.ensure_initialized()
+
         start_time = time.time()
 
         if not self._session_available:

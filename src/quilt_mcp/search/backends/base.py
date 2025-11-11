@@ -72,6 +72,7 @@ class SearchBackend(ABC):
         self.backend_type = backend_type
         self._status = BackendStatus.UNAVAILABLE
         self._last_error: Optional[str] = None
+        self._initialized = False
 
     @property
     def status(self) -> BackendStatus:
@@ -82,6 +83,46 @@ class SearchBackend(ABC):
     def last_error(self) -> Optional[str]:
         """Get last error message."""
         return self._last_error
+
+    @property
+    def initialized(self) -> bool:
+        """Check if backend has been initialized."""
+        return self._initialized
+
+    def ensure_initialized(self):
+        """Ensure backend is initialized before use.
+
+        This method performs lazy initialization, deferring authentication checks
+        and resource allocation until the backend is actually needed.
+        Subclasses should override _initialize() to implement their specific
+        initialization logic.
+        """
+        if not self._initialized:
+            self._initialize()
+            self._initialized = True
+
+    @abstractmethod
+    def _initialize(self):
+        """Initialize backend resources and check availability.
+
+        This method is called by ensure_initialized() on first use.
+        Subclasses must implement this to perform authentication checks,
+        resource setup, and availability verification.
+
+        Should update status and set error messages appropriately.
+        """
+        pass
+
+    async def refresh_status(self) -> bool:
+        """Re-check backend availability and update status.
+
+        This method allows re-evaluation of backend availability without
+        full reinitialization. Useful for recovering from transient failures.
+
+        Returns:
+            True if backend is available, False otherwise
+        """
+        return await self.health_check()
 
     @abstractmethod
     async def search(

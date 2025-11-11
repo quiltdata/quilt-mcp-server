@@ -34,6 +34,14 @@ class EnterpriseGraphQLBackend(SearchBackend):
         super().__init__(BackendType.GRAPHQL)
         self._registry_url = None
         self._session = None
+        # Do not check GraphQL access during initialization - use lazy initialization
+
+    def _initialize(self):
+        """Initialize backend by checking GraphQL access.
+
+        This method is called lazily on first use via ensure_initialized().
+        Authentication checks are deferred until the backend is actually needed.
+        """
         self._check_graphql_access()
 
     def _check_graphql_access(self):
@@ -129,6 +137,9 @@ class EnterpriseGraphQLBackend(SearchBackend):
         limit: int = 50,
     ) -> BackendResponse:
         """Execute search using Enterprise GraphQL."""
+        # Ensure backend is initialized before searching
+        self.ensure_initialized()
+
         start_time = time.time()
 
         if self.status != BackendStatus.AVAILABLE:

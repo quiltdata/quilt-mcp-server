@@ -135,6 +135,8 @@ class TestGraphQLBackend:
         mock_search_graphql.return_value = {"success": True, "data": {"bucketConfigs": []}}
 
         backend = EnterpriseGraphQLBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.AVAILABLE
 
     @patch("quilt_mcp.tools.search._get_graphql_endpoint")
@@ -144,6 +146,8 @@ class TestGraphQLBackend:
         mock_get_endpoint.return_value = (None, None)
 
         backend = EnterpriseGraphQLBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.UNAVAILABLE
 
     @patch("quilt_mcp.tools.search.search_graphql")

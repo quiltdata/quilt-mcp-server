@@ -181,6 +181,11 @@ class UnifiedSearchEngine:
             "error": backend_response.error_message,
         }
 
+        # Add comprehensive backend status for debugging
+        from ..utils import get_search_backend_status
+
+        response["backend_info"] = get_search_backend_status()
+
         return response
 
     def _process_backend_results(self, backend_response, limit: int) -> List[Dict[str, Any]]:

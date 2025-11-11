@@ -98,6 +98,8 @@ class TestErrorHandlingIntegration:
             mock_service.return_value.get_registry_url.return_value = None
 
             backend = Quilt3ElasticsearchBackend()
+            # Backend uses lazy initialization - must explicitly initialize
+            backend.ensure_initialized()
 
             # Verify backend is unavailable and has auth error
             assert backend.status == BackendStatus.UNAVAILABLE
