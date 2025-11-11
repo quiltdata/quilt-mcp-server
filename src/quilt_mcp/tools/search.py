@@ -41,7 +41,7 @@ def search_catalog(
         ),
     ] = "",
     backend: Annotated[
-        str,
+        Literal["auto", "elasticsearch", "graphql"],
         Field(
             default="auto",
             description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql"',
