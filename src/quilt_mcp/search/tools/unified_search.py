@@ -95,8 +95,38 @@ class UnifiedSearchEngine:
         # Build response
         total_time = (time.time() - start_time) * 1000
 
+        # Check for backend failures
+        failed_backends = [
+            resp for resp in backend_responses if resp.status == BackendStatus.ERROR
+        ]
+        successful_backends = [
+            resp for resp in backend_responses if resp.status == BackendStatus.AVAILABLE
+        ]
+
+        # Determine overall success status
+        # Success is True only if:
+        # 1. At least one backend succeeded, AND
+        # 2. No backends failed (complete success)
+        # If some backends failed but others succeeded, it's a partial failure
+        has_failures = len(failed_backends) > 0
+        has_successes = len(successful_backends) > 0
+
+        # Overall success is True only if no backends failed
+        overall_success = not has_failures and has_successes
+
+        # Build warnings for partial failures
+        warnings = []
+        if has_failures and has_successes:
+            warnings.append("Partial failure: Some backends could not be queried")
+            for resp in failed_backends:
+                warnings.append(f"{resp.backend_type.value}: {resp.error_message}")
+        elif has_failures and not has_successes:
+            warnings.append("Complete failure: All backends failed")
+            for resp in failed_backends:
+                warnings.append(f"{resp.backend_type.value}: {resp.error_message}")
+
         response = {
-            "success": True,
+            "success": overall_success,
             "query": query,
             "scope": scope,
             "target": target,
@@ -119,19 +149,24 @@ class UnifiedSearchEngine:
             ),
         }
 
+        # Add warnings if any backends failed
+        if warnings:
+            response["warnings"] = warnings
+            response["partial_failure"] = has_successes and has_failures
+
         # Add query explanation if requested
         if explain_query:
             response["explanation"] = self._generate_explanation(analysis, backend_responses, selected_backends)
 
         # Add backend status information
         response["backend_status"] = {
-            backend_type.value: {
+            resp.backend_type.value: {
                 "status": resp.status.value,
                 "query_time_ms": resp.query_time_ms,
                 "result_count": len(resp.results),
                 "error": resp.error_message,
             }
-            for backend_type, resp in zip([b.backend_type for b in selected_backends], backend_responses)
+            for resp in backend_responses
         }
 
         return response

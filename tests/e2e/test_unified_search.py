@@ -270,3 +270,106 @@ class TestUnifiedSearchTool:
 
         assert result["success"] is False
         assert "Test error" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_partial_backend_failure(self):
+        """Test that partial backend failures are properly reported."""
+        engine = UnifiedSearchEngine()
+
+        # Mock backend responses: one success, one failure
+        with patch.object(engine, "_execute_parallel_searches") as mock_execute:
+            # Successful backend
+            success_response = Mock()
+            success_response.backend_type = BackendType.GRAPHQL
+            success_response.status = BackendStatus.AVAILABLE
+            success_response.results = [
+                SearchResult(
+                    id="test-1",
+                    type="file",
+                    title="test.csv",
+                    logical_key="test.csv",
+                    score=0.9,
+                    backend="graphql",
+                )
+            ]
+            success_response.query_time_ms = 50.0
+            success_response.error_message = None
+
+            # Failed backend (simulating 403 error like in the example)
+            failed_response = Mock()
+            failed_response.backend_type = BackendType.ELASTICSEARCH
+            failed_response.status = BackendStatus.ERROR
+            failed_response.results = []
+            failed_response.query_time_ms = 100.0
+            failed_response.error_message = "Catalog search failed: Unexpected failure: error 403"
+
+            mock_execute.return_value = [success_response, failed_response]
+
+            result = await engine.search("test query")
+
+            # Should report failure because a backend failed
+            assert result["success"] is False
+
+            # Should include warnings about the partial failure
+            assert "warnings" in result
+            assert any("Partial failure" in w for w in result["warnings"])
+            assert any("403" in w for w in result["warnings"])
+
+            # Should indicate partial failure
+            assert result.get("partial_failure") is True
+
+            # Should still return results from successful backend
+            assert len(result["results"]) == 1
+            assert result["results"][0]["title"] == "test.csv"
+
+            # Should show only successful backends in backends_used
+            assert "graphql" in result["backends_used"]
+            assert "elasticsearch" not in result["backends_used"]
+
+            # Should show both backends in backend_status
+            assert "elasticsearch" in result["backend_status"]
+            assert result["backend_status"]["elasticsearch"]["status"] == "error"
+            assert "403" in result["backend_status"]["elasticsearch"]["error"]
+
+    @pytest.mark.asyncio
+    async def test_complete_backend_failure(self):
+        """Test that complete backend failures (all backends fail) are properly reported."""
+        engine = UnifiedSearchEngine()
+
+        # Mock backend responses: all failures
+        with patch.object(engine, "_execute_parallel_searches") as mock_execute:
+            # Failed backend 1
+            failed_response1 = Mock()
+            failed_response1.backend_type = BackendType.ELASTICSEARCH
+            failed_response1.status = BackendStatus.ERROR
+            failed_response1.results = []
+            failed_response1.query_time_ms = 100.0
+            failed_response1.error_message = "Connection timeout"
+
+            # Failed backend 2
+            failed_response2 = Mock()
+            failed_response2.backend_type = BackendType.GRAPHQL
+            failed_response2.status = BackendStatus.ERROR
+            failed_response2.results = []
+            failed_response2.query_time_ms = 100.0
+            failed_response2.error_message = "Authentication failed"
+
+            mock_execute.return_value = [failed_response1, failed_response2]
+
+            result = await engine.search("test query")
+
+            # Should report failure
+            assert result["success"] is False
+
+            # Should include warnings about complete failure
+            assert "warnings" in result
+            assert any("Complete failure" in w for w in result["warnings"])
+
+            # Should NOT indicate partial failure (since nothing succeeded)
+            assert result.get("partial_failure") is not True
+
+            # Should return no results
+            assert len(result["results"]) == 0
+
+            # Should show no backends in backends_used
+            assert len(result["backends_used"]) == 0
