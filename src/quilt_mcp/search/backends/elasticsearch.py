@@ -18,6 +18,11 @@ from .base import (
     BackendResponse,
 )
 from ...services.quilt_service import QuiltService
+from ..exceptions import (
+    AuthenticationRequired,
+    BackendError,
+    InvalidQueryError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +46,18 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 self._update_status(BackendStatus.AVAILABLE)
             else:
                 self._update_status(BackendStatus.UNAVAILABLE, "No quilt3 session configured")
+                # Store authentication error for later retrieval
+                self._auth_error = AuthenticationRequired(
+                    catalog_url=None,
+                    cause="No quilt3 session configured",
+                )
         except Exception as e:
             self._session_available = False
             self._update_status(BackendStatus.ERROR, f"Session check failed: {e}")
+            self._auth_error = AuthenticationRequired(
+                catalog_url=None,
+                cause=f"Session check failed: {e}",
+            )
 
     async def health_check(self) -> bool:
         """Check if Elasticsearch backend is healthy."""
@@ -72,11 +86,18 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         start_time = time.time()
 
         if not self._session_available:
+            # Return structured authentication error
+            auth_error = getattr(self, "_auth_error", None)
+            if auth_error:
+                error_msg = f"{auth_error.message}: {auth_error.cause}"
+            else:
+                error_msg = "Quilt3 session not available - authentication required"
+
             return BackendResponse(
                 backend_type=self.backend_type,
                 status=BackendStatus.UNAVAILABLE,
                 results=[],
-                error_message="Quilt3 session not available",
+                error_message=error_msg,
             )
 
         try:
@@ -100,7 +121,8 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 query_time_ms=query_time,
             )
 
-        except Exception as e:
+        except InvalidQueryError as e:
+            # Re-raise query validation errors with full context
             query_time = (time.time() - start_time) * 1000
             self._update_status(BackendStatus.ERROR, str(e))
 
@@ -109,7 +131,27 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 status=BackendStatus.ERROR,
                 results=[],
                 query_time_ms=query_time,
-                error_message=str(e),
+                error_message=f"Invalid query: {e.message}",
+            )
+
+        except Exception as e:
+            # Wrap unexpected errors as BackendError
+            query_time = (time.time() - start_time) * 1000
+            self._update_status(BackendStatus.ERROR, str(e))
+
+            backend_error = BackendError(
+                backend_name="elasticsearch",
+                cause=str(e),
+                authenticated=self._session_available,
+                catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
+            )
+
+            return BackendResponse(
+                backend_type=self.backend_type,
+                status=BackendStatus.ERROR,
+                results=[],
+                query_time_ms=query_time,
+                error_message=backend_error.message,
             )
 
     async def _search_bucket(

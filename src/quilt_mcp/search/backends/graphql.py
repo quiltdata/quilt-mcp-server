@@ -19,6 +19,12 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
+from ..exceptions import (
+    AuthenticationRequired,
+    BackendError,
+    InvalidQueryError,
+    SearchNotAvailable,
+)
 
 
 class EnterpriseGraphQLBackend(SearchBackend):
@@ -40,6 +46,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
 
             if not session or not graphql_url:
                 self._update_status(BackendStatus.UNAVAILABLE, "GraphQL endpoint or session unavailable")
+                self._auth_error = AuthenticationRequired(
+                    catalog_url=None,
+                    cause="GraphQL endpoint or session unavailable",
+                )
                 return
 
             self._session = session
@@ -60,11 +70,26 @@ class EnterpriseGraphQLBackend(SearchBackend):
                         BackendStatus.UNAVAILABLE,
                         "GraphQL endpoint not available (likely not Enterprise catalog)",
                     )
+                    self._not_available_error = SearchNotAvailable(
+                        authenticated=True,
+                        catalog_url=self._registry_url,
+                        cause="GraphQL endpoint not available (likely not Enterprise catalog)",
+                    )
                 else:
                     self._update_status(BackendStatus.ERROR, f"GraphQL test failed: {error_msg}")
+                    self._backend_error = BackendError(
+                        backend_name="graphql",
+                        cause=error_msg,
+                        authenticated=True,
+                        catalog_url=self._registry_url,
+                    )
 
         except Exception as e:
             self._update_status(BackendStatus.ERROR, f"GraphQL access check failed: {e}")
+            self._auth_error = AuthenticationRequired(
+                catalog_url=None,
+                cause=f"GraphQL access check failed: {e}",
+            )
 
     async def health_check(self) -> bool:
         """Check if GraphQL backend is healthy."""
@@ -107,11 +132,22 @@ class EnterpriseGraphQLBackend(SearchBackend):
         start_time = time.time()
 
         if self.status != BackendStatus.AVAILABLE:
+            # Return structured error based on stored exception
+            error_msg = self.last_error or "GraphQL backend not available"
+
+            # Check if we have specific error context
+            if hasattr(self, "_auth_error"):
+                error_msg = f"{self._auth_error.message}: {self._auth_error.cause}"
+            elif hasattr(self, "_not_available_error"):
+                error_msg = f"{self._not_available_error.message}: {self._not_available_error.cause}"
+            elif hasattr(self, "_backend_error"):
+                error_msg = f"{self._backend_error.message}: {self._backend_error.cause}"
+
             return BackendResponse(
                 backend_type=self.backend_type,
                 status=self.status,
                 results=[],
-                error_message=self.last_error,
+                error_message=error_msg,
             )
 
         try:
@@ -135,7 +171,8 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 query_time_ms=query_time,
             )
 
-        except Exception as e:
+        except InvalidQueryError as e:
+            # Re-raise query validation errors with full context
             query_time = (time.time() - start_time) * 1000
 
             return BackendResponse(
@@ -143,7 +180,26 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 status=BackendStatus.ERROR,
                 results=[],
                 query_time_ms=query_time,
-                error_message=str(e),
+                error_message=f"Invalid query: {e.message}",
+            )
+
+        except Exception as e:
+            # Wrap unexpected errors as BackendError
+            query_time = (time.time() - start_time) * 1000
+
+            backend_error = BackendError(
+                backend_name="graphql",
+                cause=str(e),
+                authenticated=bool(self._session),
+                catalog_url=self._registry_url,
+            )
+
+            return BackendResponse(
+                backend_type=self.backend_type,
+                status=BackendStatus.ERROR,
+                results=[],
+                query_time_ms=query_time,
+                error_message=backend_error.message,
             )
 
     async def _search_bucket_objects(

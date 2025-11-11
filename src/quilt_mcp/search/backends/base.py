@@ -165,6 +165,38 @@ class BackendRegistry:
         except ValueError:
             return None
 
+    def _select_primary_backend(self) -> Optional[SearchBackend]:
+        """Select single primary backend based on availability and preference.
+
+        Selection priority:
+        1. GraphQL (Enterprise features) - if available
+        2. Elasticsearch (Standard) - if available
+        3. None - if no backends available
+
+        Returns:
+            The selected backend, or None if no backends available
+        """
+        # Prefer GraphQL if available (Enterprise features)
+        graphql_backend = self.get_backend(BackendType.GRAPHQL)
+        if graphql_backend and graphql_backend.status == BackendStatus.AVAILABLE:
+            return graphql_backend
+
+        # Fallback to Elasticsearch (standard)
+        elasticsearch_backend = self.get_backend(BackendType.ELASTICSEARCH)
+        if elasticsearch_backend and elasticsearch_backend.status == BackendStatus.AVAILABLE:
+            return elasticsearch_backend
+
+        # No backends available
+        return None
+
+    def get_backend_statuses(self) -> Dict[str, str]:
+        """Get status of all registered backends.
+
+        Returns:
+            Dictionary mapping backend names to status strings
+        """
+        return {backend.backend_type.value: backend.status.value for backend in self._backends.values()}
+
     async def health_check_all(self) -> Dict[BackendType, bool]:
         """Run health checks on all registered backends."""
         results = {}
