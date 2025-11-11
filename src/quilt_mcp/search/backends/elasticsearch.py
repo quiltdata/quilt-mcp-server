@@ -157,12 +157,15 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
             )
 
+            # Include both the generic message and the detailed cause
+            error_message = f"{backend_error.message}: {backend_error.cause}"
+
             return BackendResponse(
                 backend_type=self.backend_type,
                 status=BackendStatus.ERROR,
                 results=[],
                 query_time_ms=query_time,
-                error_message=backend_error.message,
+                error_message=error_message,
             )
 
     async def _search_bucket(
