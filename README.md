@@ -52,33 +52,7 @@ Add to your `mcp.json`:
 }
 ```
 
-## 🎓 Workshop Materials
-
-Running a workshop or training session? We have complete workshop materials with AWS Bedrock integration:
-
-**[📚 Workshop Guide →](./workshop/)**
-
-Includes:
-- **Step-by-step participant guide** - Installation, configuration, hands-on exercises
-- **Instructor guide** - Timeline, talking points, troubleshooting
-- **Email templates** - HubSpot-compatible templates for sending AWS credentials
-- **Quick reference cards** - Common prompts and tool categories
-- **Pre-event checklist** - What participants need to install beforehand
-
-Perfect for:
-- Team training sessions
-- Conference workshops
-- Educational courses
-- Internal enablement
-
 ## Configuration
-
-### Authentication
-
-quilt-mcp supports **dual-mode authentication** at runtime:
-
-- **JWT (web deployments):** When the HTTP transport provides a bearer token, the server verifies it and uses the JWT-derived AWS session for all tools.
-- **IAM/quilt3 (desktop & CLIs):** Without a JWT, the server transparently falls back to the existing quilt3 login flow so local workflows keep working.
 
 Configure or refresh quilt3 credentials with:
 
@@ -87,7 +61,7 @@ Configure or refresh quilt3 credentials with:
 quilt3 config
 
 # Or set directly
-quilt3 config https://your-catalog.quiltdata.com
+quilt3 config https://your-stack.your-company.com
 
 # Login (opens browser for SSO, or prompts for credentials)
 quilt3 login
@@ -103,8 +77,7 @@ Override defaults via environment or MCP config:
 
 - `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL (e.g., `your-catalog.quiltdata.com`)
 - `QUILT_DEFAULT_BUCKET` - Default S3 bucket (e.g., `s3://your-bucket`)
-- `AWS_PROFILE` - AWS credentials profile for S3 access
-- `MCP_REQUIRE_JWT` - Set to `true` to reject IAM/quilt3 fallback and enforce JWT-only access
+- `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 
 ## Development
 
@@ -124,8 +97,7 @@ make test
 ## Documentation
 
 - [MCP Protocol](https://modelcontextprotocol.io)
-- [Quilt Documentation](https://docs.quiltdata.com)
-- [API Reference](./docs/api.md)
+- [Quilt Documentation](https://docs.quilt.bio)
 - [Contributing](./docs/developer/CONTRIBUTING.md)
 
 ## Troubleshooting
