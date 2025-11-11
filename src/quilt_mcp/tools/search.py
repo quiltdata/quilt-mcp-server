@@ -44,7 +44,7 @@ def search_catalog(
         str,
         Field(
             default="auto",
-            description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"',
+            description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql"',
         ),
     ] = "auto",
     limit: Annotated[
@@ -83,7 +83,7 @@ def search_catalog(
         ),
     ] = False,
 ) -> Dict[str, Any]:
-    """Intelligent unified search across Quilt catalogs, packages, and S3 buckets - Catalog and package search experiences
+    """Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL) - Catalog and package search experiences
 
     This tool automatically:
     - Parses natural language queries to extract filters (file types, sizes, dates)
@@ -101,7 +101,7 @@ def search_catalog(
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
         scope: Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)
         target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")
-        backend: Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"
+        backend: Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql"
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
@@ -189,7 +189,7 @@ def search_catalog(
                     "packages created this month",
                 ],
                 "scopes": ["global", "catalog", "package", "bucket"],
-                "backend": ["auto", "elasticsearch", "graphql", "s3"],
+                "backend": ["auto", "elasticsearch", "graphql"],
             },
         }
 

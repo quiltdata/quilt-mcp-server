@@ -11,7 +11,6 @@ from typing import Dict, List, Any, Optional, Union
 from ..core.query_parser import parse_query, QueryType, SearchScope
 from ..backends.base import BackendRegistry, BackendType, BackendStatus
 from ..backends.elasticsearch import Quilt3ElasticsearchBackend
-from ..backends.s3 import S3FallbackBackend
 from ..backends.graphql import EnterpriseGraphQLBackend
 
 
@@ -27,10 +26,6 @@ class UnifiedSearchEngine:
         # Register Elasticsearch backend (wraps quilt3)
         es_backend = Quilt3ElasticsearchBackend()
         self.registry.register(es_backend)
-
-        # Register S3 fallback backend
-        s3_backend = S3FallbackBackend()
-        self.registry.register(s3_backend)
 
         # Register GraphQL backend
         graphql_backend = EnterpriseGraphQLBackend()
@@ -53,7 +48,7 @@ class UnifiedSearchEngine:
             query: Natural language search query
             scope: Search scope (global, catalog, package, bucket)
             target: Specific target when scope is narrow
-            backend: Preferred backend (auto, elasticsearch, graphql, s3)
+            backend: Preferred backend (auto, elasticsearch, graphql)
             limit: Maximum results to return
             include_metadata: Include rich metadata in results
             include_content_preview: Include content previews for files
@@ -96,12 +91,8 @@ class UnifiedSearchEngine:
         total_time = (time.time() - start_time) * 1000
 
         # Check for backend failures
-        failed_backends = [
-            resp for resp in backend_responses if resp.status == BackendStatus.ERROR
-        ]
-        successful_backends = [
-            resp for resp in backend_responses if resp.status == BackendStatus.AVAILABLE
-        ]
+        failed_backends = [resp for resp in backend_responses if resp.status == BackendStatus.ERROR]
+        successful_backends = [resp for resp in backend_responses if resp.status == BackendStatus.AVAILABLE]
 
         # Determine overall success status
         # Success is True only if:
@@ -369,7 +360,7 @@ async def unified_search(
     count_only: bool = False,
 ) -> Dict[str, Any]:
     """
-    Intelligent unified search across Quilt catalogs, packages, and S3 buckets.
+    Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL).
 
     This tool automatically:
     - Parses natural language queries
@@ -381,7 +372,7 @@ async def unified_search(
         query: Natural language search query
         scope: Search scope (global, catalog, package, bucket)
         target: Specific target when scope is narrow (package/bucket name)
-        backend: Preferred backend (auto, elasticsearch, graphql, s3)
+        backend: Preferred backend (auto, elasticsearch, graphql)
         limit: Maximum results to return
         include_metadata: Include rich metadata in results
         include_content_preview: Include content previews for files

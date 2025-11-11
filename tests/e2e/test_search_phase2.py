@@ -201,11 +201,11 @@ class TestIntegratedPhase2:
         # Create actual engine to test backend registration
         engine = UnifiedSearchEngine()
 
-        # Should have all three backend types registered
+        # Should have two backend types registered (elasticsearch and graphql)
+        # Note: S3 backend was removed in Phase 1 of search catalog specification
         all_backends = list(engine.registry._backends.keys())
-        assert len(all_backends) == 3  # elasticsearch, s3, graphql
+        assert len(all_backends) == 2  # elasticsearch, graphql
 
         backend_names = [bt.value for bt in all_backends]
         assert "elasticsearch" in backend_names
-        assert "s3" in backend_names
         assert "graphql" in backend_names

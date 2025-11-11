@@ -14,7 +14,6 @@ class BackendType(Enum):
 
     ELASTICSEARCH = "elasticsearch"
     GRAPHQL = "graphql"
-    S3 = "s3"
 
 
 class BackendStatus(Enum):

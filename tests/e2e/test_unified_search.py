@@ -16,7 +16,6 @@ from quilt_mcp.search.backends.base import (
     BackendType,
 )
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
-from quilt_mcp.search.backends.s3 import S3FallbackBackend
 from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine, unified_search
 
 
@@ -146,63 +145,6 @@ class TestElasticsearchBackend:
         assert response.results[0].logical_key == "data.csv"
 
 
-class TestS3FallbackBackend:
-    """Test cases for S3 fallback backend."""
-
-    @patch("quilt_mcp.search.backends.s3.get_sts_client")
-    @patch("quilt_mcp.search.backends.s3.get_s3_client")
-    def test_s3_access_check(self, mock_get_s3_client, mock_get_sts_client):
-        """Test S3 access checking."""
-        mock_s3_client = Mock()
-        mock_sts_client = Mock()
-        mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
-
-        mock_get_s3_client.return_value = mock_s3_client
-        mock_get_sts_client.return_value = mock_sts_client
-
-        backend = S3FallbackBackend()
-        assert backend.status == BackendStatus.AVAILABLE
-
-    @patch("quilt_mcp.search.backends.s3.get_sts_client")
-    @patch("quilt_mcp.search.backends.s3.get_s3_client")
-    @pytest.mark.asyncio
-    async def test_bucket_search(self, mock_get_s3_client, mock_get_sts_client):
-        """Test S3 bucket search functionality."""
-        # Mock S3 client and paginator
-        mock_s3_client = Mock()
-        mock_paginator = Mock()
-        mock_page_iterator = [
-            {
-                "Contents": [
-                    {
-                        "Key": "data/test.csv",
-                        "Size": 1000,
-                        "LastModified": Mock(isoformat=Mock(return_value="2024-01-01T00:00:00Z")),
-                        "StorageClass": "STANDARD",
-                    }
-                ]
-            }
-        ]
-
-        mock_paginator.paginate.return_value = mock_page_iterator
-        mock_s3_client.get_paginator.return_value = mock_paginator
-
-        mock_sts_client = Mock()
-        mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
-
-        # Mock both helper functions
-        mock_get_s3_client.return_value = mock_s3_client
-        mock_get_sts_client.return_value = mock_sts_client
-
-        backend = S3FallbackBackend()
-        response = await backend.search("csv", scope="bucket", target="test-bucket")
-
-        assert response.status == BackendStatus.AVAILABLE
-        assert len(response.results) == 1
-        assert response.results[0].type == "file"
-        assert response.results[0].logical_key == "data/test.csv"
-
-
 class TestUnifiedSearchEngine:
     """Test cases for the unified search engine."""
 
@@ -330,6 +272,27 @@ class TestUnifiedSearchTool:
             assert "elasticsearch" in result["backend_status"]
             assert result["backend_status"]["elasticsearch"]["status"] == "error"
             assert "403" in result["backend_status"]["elasticsearch"]["error"]
+
+    @pytest.mark.asyncio
+    async def test_no_backends_available(self):
+        """Test that search fails explicitly when no backends are available."""
+        engine = UnifiedSearchEngine()
+
+        # Mock that no backends are available
+        with patch.object(engine.registry, "get_available_backends", return_value=[]):
+            result = await engine.search("test query")
+
+            # Should report failure
+            assert result["success"] is False
+
+            # Should return no results
+            assert len(result["results"]) == 0
+
+            # Should show no backends used
+            assert len(result["backends_used"]) == 0
+
+            # Should have backend_status showing all backends unavailable
+            assert "backend_status" in result
 
     @pytest.mark.asyncio
     async def test_complete_backend_failure(self):
