@@ -87,6 +87,12 @@ def get_search_backend_status() -> Dict[str, Any]:
         # Get the search engine instance
         engine = get_search_engine()
 
+        # Ensure all backends are initialized before checking status
+        for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
+            backend = engine.registry.get_backend(backend_type)
+            if backend:
+                backend.ensure_initialized()
+
         # Check which backend is selected as primary
         primary_backend = engine.registry._select_primary_backend()
 

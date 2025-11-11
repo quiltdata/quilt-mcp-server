@@ -28,7 +28,6 @@ class SearchScope(Enum):
     CATALOG = "catalog"  # Current catalog only
     PACKAGE = "package"  # Within specific package
     BUCKET = "bucket"  # Within specific bucket
-    REGISTRY = "registry"  # Within specific registry
 
 
 @dataclass

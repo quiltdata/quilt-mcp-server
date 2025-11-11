@@ -4,7 +4,7 @@ This module exposes the unified search functionality as MCP tools.
 """
 
 import asyncio
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
@@ -27,7 +27,7 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        str,
+        Literal["global", "catalog", "package", "bucket"],
         Field(
             default="global",
             description='Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)',
@@ -273,7 +273,7 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        str,
+        Literal["global", "catalog", "package", "bucket"],
         Field(
             default="global",
             description="Search scope",
