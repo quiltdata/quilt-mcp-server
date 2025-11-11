@@ -169,9 +169,7 @@ class TestCatalogInfoIntegration:
 
     @patch("quilt_mcp.services.auth_metadata._get_catalog_info")
     @patch("quilt_mcp.search.utils.get_search_backend_status")
-    def test_catalog_info_handles_backend_status_errors(
-        self, mock_backend_status, mock_catalog_info
-    ):
+    def test_catalog_info_handles_backend_status_errors(self, mock_backend_status, mock_catalog_info):
         """Test that catalog_info handles backend status errors gracefully."""
         from quilt_mcp.services.auth_metadata import catalog_info
 
