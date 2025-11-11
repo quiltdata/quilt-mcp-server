@@ -198,10 +198,31 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         return []
 
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Global search across all stack buckets using the catalog search API."""
+        """Global search across all stack buckets using the catalog search API.
+
+        Falls back to searching the default registry bucket if stack-wide search fails.
+        """
         search_response = self._execute_catalog_search(query=query, limit=limit, filters=filters)
 
         if "error" in search_response:
+            # Check if this is a permission error (403) or index not found error
+            error_msg = search_response["error"]
+            is_permission_error = "403" in str(error_msg) or "Forbidden" in str(error_msg)
+            is_index_error = "index_not_found" in str(error_msg).lower()
+
+            if is_permission_error or is_index_error:
+                # Fall back to searching just the default registry bucket
+                try:
+                    from ...constants import DEFAULT_REGISTRY
+
+                    if DEFAULT_REGISTRY:
+                        bucket_uri = DEFAULT_REGISTRY
+                        # Try bucket-specific search as fallback
+                        return await self._search_bucket(query, bucket_uri, filters, limit)
+                except Exception:
+                    # If fallback also fails, raise the original error
+                    pass
+
             raise Exception(search_response["error"])
 
         hits = search_response.get("hits", {}).get("hits", [])

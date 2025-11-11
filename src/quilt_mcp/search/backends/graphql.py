@@ -219,49 +219,60 @@ class EnterpriseGraphQLBackend(SearchBackend):
     async def _search_bucket_objects(
         self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
-        """Search objects within a specific bucket using GraphQL."""
-        # Uses the GraphQL query pattern shared with the legacy bucket search helper
-        graphql_query = """
-        query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
-            objects(bucket: $bucket, filter: $filter, first: $first) {
-                edges {
-                    node {
-                        key
-                        size
-                        updated
-                        contentType
-                        extension
-                        package {
-                            name
-                            topHash
-                            tag
+        """Search objects within a specific bucket using GraphQL.
+
+        Falls back to returning empty results if bucket-specific queries aren't supported.
+        The Elasticsearch backend will handle bucket searches if GraphQL can't.
+        """
+        try:
+            # Uses the GraphQL query pattern shared with the legacy bucket search helper
+            graphql_query = """
+            query SearchBucketObjects($bucket: String!, $filter: ObjectFilterInput, $first: Int!) {
+                objects(bucket: $bucket, filter: $filter, first: $first) {
+                    edges {
+                        node {
+                            key
+                            size
+                            updated
+                            contentType
+                            extension
+                            package {
+                                name
+                                topHash
+                                tag
+                            }
                         }
+                        cursor
                     }
-                    cursor
-                }
-                pageInfo {
-                    endCursor
-                    hasNextPage
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                    }
                 }
             }
-        }
-        """
+            """
 
-        # Build filter from query and filters
-        object_filter = self._build_graphql_filter(query, filters)
+            # Build filter from query and filters
+            object_filter = self._build_graphql_filter(query, filters)
 
-        variables = {
-            "bucket": bucket.replace("s3://", ""),
-            "filter": object_filter,
-            "first": limit,
-        }
+            variables = {
+                "bucket": bucket.replace("s3://", ""),
+                "filter": object_filter,
+                "first": limit,
+            }
 
-        result = await self._execute_graphql_query(graphql_query, variables)
+            result = await self._execute_graphql_query(graphql_query, variables)
 
-        if result.get("errors"):
-            raise Exception(f"GraphQL errors: {result['errors']}")
+            if result.get("errors"):
+                # If the query has errors, fall back gracefully
+                # (Elasticsearch backend will handle bucket search)
+                return []
 
-        return self._convert_bucket_objects_results(result, bucket)
+            return self._convert_bucket_objects_results(result, bucket)
+        except Exception:
+            # If bucket-specific GraphQL query fails, return empty results
+            # The unified search will use other backends (Elasticsearch) for bucket search
+            return []
 
     async def _search_packages_global(
         self, query: str, filters: Optional[Dict[str, Any]], limit: int
@@ -477,13 +488,36 @@ class EnterpriseGraphQLBackend(SearchBackend):
                 error_details.append(f"Error: {result['error']}")
 
             if result.get("errors"):
-                for error in result["errors"]:
-                    error_msg = error.get("message", "Unknown error")
-                    error_path = " -> ".join(error.get("path", []))
-                    error_location = error.get("locations", [{}])[0]
-                    location_str = f"line {error_location.get('line', '?')}, col {error_location.get('column', '?')}"
+                # Handle both list and dict error formats
+                errors = result["errors"]
+                if isinstance(errors, list):
+                    for error in errors:
+                        if isinstance(error, dict):
+                            error_msg = error.get("message", str(error))
+                            error_path = error.get("path")
+                            error_locations = error.get("locations")
 
-                    error_details.append(f"GraphQL Error: {error_msg} (path: {error_path}, location: {location_str})")
+                            # Build path string if available
+                            path_str = ""
+                            if error_path:
+                                path_str = f" (path: {' -> '.join(str(p) for p in error_path)})"
+
+                            # Build location string if available
+                            location_str = ""
+                            if error_locations and isinstance(error_locations, list) and len(error_locations) > 0:
+                                loc = error_locations[0]
+                                if isinstance(loc, dict):
+                                    line = loc.get('line', '?')
+                                    col = loc.get('column', '?')
+                                    location_str = f" at line {line}, col {col}"
+
+                            error_details.append(f"GraphQL Error: {error_msg}{path_str}{location_str}")
+                        else:
+                            # Handle non-dict error entries
+                            error_details.append(f"GraphQL Error: {error}")
+                else:
+                    # Handle non-list error format
+                    error_details.append(f"GraphQL Errors: {errors}")
 
             detailed_error = "; ".join(error_details) if error_details else "Unknown GraphQL error"
             raise Exception(f"GraphQL query failed: {detailed_error}")

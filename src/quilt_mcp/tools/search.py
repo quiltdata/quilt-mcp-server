@@ -8,6 +8,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
+from ..constants import DEFAULT_BUCKET
 from ..models.responses import (
     SearchCatalogError,
     SearchCatalogSuccess,
@@ -32,24 +33,24 @@ def search_catalog(
     scope: Annotated[
         Literal["global", "catalog", "package", "bucket"],
         Field(
-            default="global",
-            description='Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)',
+            default="bucket",
+            description='Search scope - "bucket" (specific bucket, default), "catalog" (current catalog), "package" (specific package), "global" (all)',
         ),
-    ] = "global",
+    ] = "bucket",
     target: Annotated[
         str,
         Field(
             default="",
-            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")',
+            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Defaults to DEFAULT_BUCKET from environment when scope is "bucket" and target is empty.',
         ),
     ] = "",
     backend: Annotated[
         Literal["auto", "elasticsearch", "graphql"],
         Field(
-            default="auto",
-            description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql"',
+            default="elasticsearch",
+            description='Preferred backend - "elasticsearch" (default, most reliable), "auto" (intelligent selection), "graphql"',
         ),
-    ] = "auto",
+    ] = "elasticsearch",
     limit: Annotated[
         int,
         Field(
@@ -102,9 +103,9 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)
-        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")
-        backend: Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql"
+        scope: Search scope - "bucket" (default, searches default bucket), "catalog" (current catalog), "package" (specific package), "global" (all)
+        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
+        backend: Preferred backend - "elasticsearch" (default, most reliable), "auto" (intelligent selection), "graphql"
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
@@ -115,11 +116,11 @@ def search_catalog(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        search_catalog("CSV files in genomics packages")
-        search_catalog("files larger than 100MB created after 2024-01-01")
-        search_catalog("packages created last month", scope="catalog")
-        search_catalog("README files", scope="package", target="user/dataset")
-        search_catalog("Parquet files smaller than 500MB", scope="bucket", target="s3://quilt-example")
+        search_catalog("CSV files")  # Uses default bucket scope + elasticsearch
+        search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
+        search_catalog("packages created last month", scope="catalog")  # Catalog-wide search
+        search_catalog("README files", scope="package", target="user/dataset")  # Package search
+        search_catalog("Parquet files", scope="bucket", target="s3://other-bucket")  # Specific bucket
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -137,7 +138,12 @@ def search_catalog(
     try:
         # Set default backend if None or empty
         if not backend:
-            backend = "auto"
+            backend = "elasticsearch"
+
+        # Set default target to DEFAULT_BUCKET when scope is "bucket" and target is empty
+        if scope == "bucket" and not target:
+            if DEFAULT_BUCKET:
+                target = DEFAULT_BUCKET
 
         # Handle async execution properly for MCP tools
         try:
