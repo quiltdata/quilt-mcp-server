@@ -208,6 +208,34 @@ interface SearchErrorResponse {
 - Response format changed (single `backend_used` not array)
 - No longer returns results when backends unavailable
 - Error response format changed (added structured fields)
+- Return type changed to structured response models (`SearchCatalogSuccess | SearchCatalogError`)
+
+---
+
+## MCP Response Semantics
+
+**Important**: MCP tools have two layers of success/failure:
+
+### 1. Tool Execution Layer (MCP Framework)
+
+- **"Tool Result: Success"**: The Python function executed without raising an exception
+- **"Tool Result: Error"**: The Python function raised an exception
+
+### 2. Application Layer (Tool Response)
+
+- **`success: true`**: The search operation succeeded and returned results
+- **`success: false`**: The search operation failed (not authenticated, no backends available, etc.)
+
+**Example**: When `search_catalog` returns `SearchCatalogError` with `success: false`:
+
+- MCP Inspector shows: **"Tool Result: Success"** ✅ (tool executed)
+- Response content shows: **`success: false`** ❌ (operation failed)
+
+This is **correct behavior** following MCP best practices:
+
+- Tools return structured response models (not exceptions for expected failures)
+- Exceptions are reserved for unexpected/catastrophic failures
+- The `success` field in the response indicates the operation outcome
 
 ---
 

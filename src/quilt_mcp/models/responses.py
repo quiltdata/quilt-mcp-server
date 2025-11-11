@@ -918,9 +918,73 @@ WorkflowGetStatusResponse = WorkflowGetStatusSuccess | ErrorResponse
 WorkflowListAllResponse = WorkflowListAllSuccess | ErrorResponse
 WorkflowTemplateApplyResponse = WorkflowTemplateApplySuccess | ErrorResponse
 
+class SearchResult(BaseModel):
+    """A single search result item."""
+
+    id: str
+    type: str  # "package", "file", "bucket"
+    title: str
+    description: Optional[str] = None
+    score: float = 0.0
+    backend: str  # "elasticsearch", "graphql"
+    s3_uri: Optional[str] = None
+    package_name: Optional[str] = None
+    logical_key: Optional[str] = None
+    size: Optional[int] = None
+    last_modified: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchAnalysis(BaseModel):
+    """Analysis of the search query."""
+
+    query_type: str
+    confidence: float
+    keywords: list[str] = Field(default_factory=list)
+    file_extensions: list[str] = Field(default_factory=list)
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchBackendStatus(BaseModel):
+    """Status of a search backend."""
+
+    status: str  # "available", "unavailable", "error", "not_authenticated"
+    query_time_ms: Optional[float] = None
+    result_count: Optional[int] = None
+    error: Optional[str] = None
+
+
+class SearchCatalogSuccess(SuccessResponse):
+    """Response from search_catalog when successful."""
+
+    query: str
+    scope: str
+    target: str
+    results: list[SearchResult] = Field(default_factory=list)
+    total_results: int = 0
+    query_time_ms: float
+    backend_used: Optional[str] = None
+    analysis: Optional[SearchAnalysis] = None
+    backend_status: Optional[SearchBackendStatus] = None
+    backend_info: Optional[dict[str, Any]] = None
+    explanation: Optional[dict[str, Any]] = None
+
+
+class SearchCatalogError(ErrorResponse):
+    """Response from search_catalog when failed."""
+
+    query: str
+    scope: str = "global"
+    target: str = ""
+    backend_used: Optional[str] = None
+    backend_status: Optional[dict[str, Any]] = None
+    help: Optional[dict[str, Any]] = None
+
+
 # Search responses
 SearchExplainResponse = SearchExplainSuccess | SearchExplainError
 SearchGraphQLResponse = SearchGraphQLSuccess | SearchGraphQLError
+SearchCatalogResponse = SearchCatalogSuccess | SearchCatalogError
 
 # Quilt summary responses
 QuiltSummarizeJsonResponse = QuiltSummarizeJson | QuiltSummarizeJsonError

@@ -9,10 +9,13 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 from pydantic import Field
 
 from ..models.responses import (
+    SearchCatalogError,
+    SearchCatalogSuccess,
     SearchExplainError,
     SearchExplainSuccess,
     SearchGraphQLError,
     SearchGraphQLSuccess,
+    SearchResult,
 )
 from ..search.tools.search_explain import search_explain as _search_explain
 from ..search.tools.search_suggest import search_suggest as _search_suggest
@@ -82,7 +85,7 @@ def search_catalog(
             description="Return aggregated counts only (skips fetching full result payloads) when True.",
         ),
     ] = False,
-) -> Dict[str, Any]:
+) -> Dict[str, Any]:  # Returns dict on success, raises exception on failure
     """Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL) - Catalog and package search experiences
 
     This tool automatically:
@@ -158,10 +161,10 @@ def search_catalog(
                         count_only=count_only,
                     ),
                 )
-                return future.result(timeout=30)
+                result = future.result(timeout=30)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
-            return asyncio.run(
+            result = asyncio.run(
                 _unified_search(
                     query=query,
                     scope=scope,
@@ -174,24 +177,38 @@ def search_catalog(
                     count_only=count_only,
                 )
             )
-    except (RuntimeError, asyncio.TimeoutError, OSError) as e:
-        return {
-            "success": False,
-            "error": f"Unified search failed: {e}",
-            "query": query,
-            "scope": scope,
-            "target": target,
-            "help": {
-                "common_queries": [
-                    "CSV files",
-                    "genomics data",
-                    "files larger than 100MB",
-                    "packages created this month",
-                ],
-                "scopes": ["global", "catalog", "package", "bucket"],
-                "backend": ["auto", "elasticsearch", "graphql"],
-            },
-        }
+
+        # Convert result dict to proper response model, then serialize to dict
+        if result.get("success", False):
+            return SearchCatalogSuccess(
+                query=result["query"],
+                scope=result["scope"],
+                target=result["target"],
+                results=[SearchResult(**r) for r in result.get("results", [])],
+                total_results=result.get("total_results", 0),
+                query_time_ms=result.get("query_time_ms", 0.0),
+                backend_used=result.get("backend_used"),
+                analysis=result.get("analysis"),
+                backend_status=result.get("backend_status"),
+                backend_info=result.get("backend_info"),
+                explanation=result.get("explanation"),
+            ).model_dump()
+        else:
+            # Raise exception with structured error info to make MCP show "Tool Result: Error"
+            error_model = SearchCatalogError(
+                error=result.get("error", "Search failed"),
+                query=result["query"],
+                scope=result.get("scope", scope),
+                target=result.get("target", target),
+                backend_used=result.get("backend_used"),
+                backend_status=result.get("backend_status"),
+            )
+            # Raise with structured error message
+            raise RuntimeError(f"{error_model.error}\n{error_model.model_dump_json(indent=2)}")
+    except asyncio.TimeoutError as e:
+        raise RuntimeError(f"Search timeout: {e}")
+    except OSError as e:
+        raise RuntimeError(f"Search I/O error: {e}")
 
 
 def search_suggest(
