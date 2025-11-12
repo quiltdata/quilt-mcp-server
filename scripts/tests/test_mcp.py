@@ -420,6 +420,9 @@ def run_tests_stdio(
         skip_count = 0
         request_id = 2
 
+        # Store failed test details for summary at the end
+        failed_tests = []
+
         # Store discovered test data from search
         discovered_data = {
             'package_name': None,
@@ -486,7 +489,15 @@ def run_tests_stdio(
                 # Check for JSON-RPC level errors
                 if "error" in result:
                     fail_count += 1
-                    print(f"  ❌ {tool_name}: {result['error'].get('message', 'Unknown error')} ({elapsed:.2f}s)")
+                    error_msg = result['error'].get('message', 'Unknown error')
+                    print(f"  ❌ {tool_name}: {error_msg} ({elapsed:.2f}s)")
+                    failed_tests.append({
+                        'tool_name': tool_name,
+                        'error': error_msg,
+                        'elapsed': elapsed,
+                        'request': tool_request,
+                        'response': result
+                    })
                     if verbose:
                         print(f"     {result}")
                     continue
@@ -573,10 +584,22 @@ def run_tests_stdio(
                     print(f"  ⏭️  {tool_name}: {failure_reason} ({elapsed:.2f}s)")
                 elif test_failed:
                     fail_count += 1
-                    # Truncate long error messages
+                    # Truncate long error messages for inline display
+                    display_reason = failure_reason
                     if len(failure_reason) > 200:
-                        failure_reason = failure_reason[:200] + "..."
-                    print(f"  ❌ {tool_name}: {failure_reason} ({elapsed:.2f}s)")
+                        display_reason = failure_reason[:200] + "..."
+                    print(f"  ❌ {tool_name}: {display_reason} ({elapsed:.2f}s)")
+
+                    # Store full details for summary
+                    failed_tests.append({
+                        'tool_name': tool_name,
+                        'error': failure_reason,  # Full error message
+                        'elapsed': elapsed,
+                        'request': tool_request,
+                        'response': result,
+                        'tool_result_text': tool_result_text
+                    })
+
                     if verbose and tool_result_text:
                         if len(tool_result_text) > 500:
                             print(f"     Result: {tool_result_text[:500]}...")
@@ -597,12 +620,62 @@ def run_tests_stdio(
 
             except Exception as e:
                 fail_count += 1
-                print(f"  ❌ {tool_name}: {e}")
+                error_msg = str(e)
+                print(f"  ❌ {tool_name}: {error_msg}")
+                failed_tests.append({
+                    'tool_name': tool_name,
+                    'error': error_msg,
+                    'elapsed': 0,
+                    'exception': True,
+                    'traceback': None
+                })
                 if verbose:
                     import traceback
-                    print(f"     {traceback.format_exc()}")
+                    tb = traceback.format_exc()
+                    failed_tests[-1]['traceback'] = tb
+                    print(f"     {tb}")
 
         print(f"\n📊 Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {len(test_tools)} total)")
+
+        # Print detailed failure summary if there were failures
+        if failed_tests:
+            print(f"\n{'='*80}")
+            print("❌ FAILED TESTS SUMMARY")
+            print(f"{'='*80}")
+            for i, failure in enumerate(failed_tests, 1):
+                print(f"\n[{i}] {failure['tool_name']}")
+                print(f"    Error: {failure['error']}")
+                print(f"    Time: {failure['elapsed']:.2f}s")
+
+                # Show request details
+                if 'request' in failure:
+                    print(f"    Request:")
+                    print(f"      Method: {failure['request']['method']}")
+                    print(f"      Arguments: {json.dumps(failure['request']['params'].get('arguments', {}), indent=8)}")
+
+                # Show response/result details
+                if 'tool_result_text' in failure and failure['tool_result_text']:
+                    print(f"    Tool Result:")
+                    result_text = failure['tool_result_text']
+                    # Truncate very long results
+                    if len(result_text) > 1000:
+                        print(f"      {result_text[:1000]}...")
+                    else:
+                        print(f"      {result_text}")
+                elif 'response' in failure:
+                    print(f"    Response: {json.dumps(failure['response'], indent=8)[:500]}")
+
+                # Show traceback for exceptions
+                if failure.get('exception') and failure.get('traceback'):
+                    print(f"    Traceback:")
+                    for line in failure['traceback'].split('\n'):
+                        if line.strip():
+                            print(f"      {line}")
+
+            print(f"\n{'='*80}")
+            print(f"Total Failures: {len(failed_tests)}")
+            print(f"{'='*80}\n")
+
         return fail_count == 0
 
     except Exception as e:
