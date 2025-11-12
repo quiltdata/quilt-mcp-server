@@ -41,19 +41,18 @@ DEFAULT_PORT = 8765
 
 
 class DockerMCPServer:
-    """Manages Docker container lifecycle for MCP server testing."""
+    """Manages Docker container lifecycle for MCP server testing (stdio transport)."""
 
     def __init__(self, image: str = DEFAULT_IMAGE, port: int = DEFAULT_PORT):
         self.image = image
-        self.port = port
+        self.port = port  # Not used in stdio mode, kept for compatibility
         self.container_name = f"mcp-test-{uuid.uuid4().hex[:8]}"
-        self.container_id: Optional[str] = None
+        self.process: Optional[subprocess.Popen] = None
 
     def start(self) -> bool:
-        """Start MCP server in Docker container."""
-        print(f"🚀 Starting MCP server in Docker...")
+        """Start MCP server in Docker container with stdio transport."""
+        print(f"🚀 Starting MCP server in Docker (stdio transport)...")
         print(f"   Image: {self.image}")
-        print(f"   Port: {self.port}")
         print(f"   Container: {self.container_name}")
 
         try:
@@ -68,13 +67,11 @@ class DockerMCPServer:
                 subprocess.run(["docker", "pull", self.image], check=True)
 
             # Build docker run command with AWS credentials
-            # Best practice: Mount ~/.aws directory as read-only volume
-            # This supports AWS profiles, SSO, MFA, and credential rotation
+            # Use stdio transport for testing - simpler and no session issues
             aws_creds_path = Path.home() / ".aws"
             docker_cmd = [
-                "docker", "run", "-d",
+                "docker", "run", "-i",  # Interactive for stdio
                 "--name", self.container_name,
-                "-p", f"{self.port}:8000",
             ]
 
             # Mount AWS credentials if they exist
@@ -91,85 +88,86 @@ class DockerMCPServer:
             docker_cmd.extend([
                 "-e", f"AWS_REGION={aws_region}",
                 "-e", f"AWS_PROFILE={aws_profile}",
+                "-e", "FASTMCP_TRANSPORT=stdio",  # Use stdio instead of HTTP
             ])
 
             docker_cmd.extend([
-                "-e", "QUILT_MCP_DEBUG=true",
-                self.image
+                self.image,
+                "quilt-mcp", "--skip-banner"  # Run with stdio transport
             ])
 
-            # Start container
-            result = subprocess.run(
+            # Start container as interactive process
+            self.process = subprocess.Popen(
                 docker_cmd,
-                capture_output=True,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                check=True
+                bufsize=1  # Line buffered
             )
 
-            self.container_id = result.stdout.strip()
-            print(f"✅ Container started: {self.container_id[:12]}")
+            # Wait a moment for startup
+            time.sleep(2)
 
-            # Wait for server to be ready
-            print("⏳ Waiting for server to be ready...")
-            return self._wait_for_ready()
+            # Check if process is still running
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read() if self.process.stderr else ""
+                print(f"❌ Container exited immediately")
+                print(f"   stderr: {stderr}")
+                return False
+
+            print(f"✅ Container started with stdio transport")
+            return True
 
         except subprocess.CalledProcessError as e:
             print(f"❌ Failed to start container: {e}")
             print(f"   stdout: {e.stdout}")
             print(f"   stderr: {e.stderr}")
             return False
-
-    def _wait_for_ready(self, timeout: int = 30) -> bool:
-        """Wait for MCP server to respond to health checks."""
-        import requests
-
-        endpoint = f"http://localhost:{self.port}/health"
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                response = requests.get(endpoint, timeout=2)
-                if response.status_code == 200:
-                    print(f"✅ Server ready at http://localhost:{self.port}")
-                    return True
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                pass
-
-            time.sleep(1)
-            print(".", end="", flush=True)
-
-        print("\n❌ Server failed to become ready within timeout")
-        return False
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            return False
 
     def stop(self):
         """Stop and remove Docker container."""
-        if not self.container_id:
+        if not self.process:
             return
 
         print(f"\n🛑 Stopping container {self.container_name}...")
         try:
+            # Terminate the process
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                print("⚠️  Timeout, force killing...")
+                self.process.kill()
+                self.process.wait()
+
+            # Remove the container
             subprocess.run(
-                ["docker", "stop", self.container_name],
-                capture_output=True,
-                timeout=10
-            )
-            subprocess.run(
-                ["docker", "rm", self.container_name],
+                ["docker", "rm", "-f", self.container_name],
                 capture_output=True,
                 timeout=10
             )
             print("✅ Container cleaned up")
-        except subprocess.TimeoutExpired:
-            print("⚠️  Timeout stopping container, force removing...")
+        except Exception as e:
+            print(f"⚠️  Error during cleanup: {e}")
             subprocess.run(["docker", "rm", "-f", self.container_name], capture_output=True)
 
     def logs(self, tail: int = 50):
         """Print container logs."""
-        if not self.container_id:
+        if not self.process:
             return
 
-        print(f"\n📋 Container logs (last {tail} lines):")
-        subprocess.run(["docker", "logs", "--tail", str(tail), self.container_name])
+        print(f"\n📋 Container stderr output:")
+        if self.process.stderr:
+            try:
+                stderr_lines = self.process.stderr.readlines()
+                for line in stderr_lines[-tail:]:
+                    print(line.rstrip())
+            except Exception as e:
+                print(f"Could not read stderr: {e}")
 
 
 def generate_test_config() -> bool:
@@ -211,69 +209,120 @@ def filter_tests_by_idempotence(config_path: Path, idempotent_only: bool) -> lis
     return filtered
 
 
-def run_tests(
-    endpoint: str,
+def run_tests_stdio(
+    server: DockerMCPServer,
     config_path: Path,
     tools: Optional[list[str]] = None,
     verbose: bool = False
 ) -> bool:
-    """Run mcp-test.py with specified configuration."""
-    print(f"\n🧪 Running MCP tests...")
-    print(f"   Endpoint: {endpoint}")
+    """Run MCP tests using stdio transport."""
+    import json
+
+    print(f"\n🧪 Running MCP tests (stdio)...")
     print(f"   Config: {config_path}")
 
     if tools:
         print(f"   Testing {len(tools)} tools")
+
+    if not server.process or server.process.poll() is not None:
+        print("❌ Server process not running")
+        return False
+
+    try:
+        # Load test configuration
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        test_tools = config.get("test_tools", {})
+        if tools:
+            test_tools = {k: v for k, v in test_tools.items() if k in tools}
+
+        # Send initialize
+        init_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1.0"}
+            }
+        }
+
+        server.process.stdin.write(json.dumps(init_request) + "\n")
+        server.process.stdin.flush()
+        response = server.process.stdout.readline()
+
         if verbose:
-            print(f"   Tools: {', '.join(tools[:5])}" + ("..." if len(tools) > 5 else ""))
+            print(f"Initialize: {response[:100]}")
 
-    cmd = [
-        sys.executable,
-        str(MCP_TEST_SCRIPT),
-        endpoint,
-        "--config", str(config_path),
-        "-t"  # Run tools test
-    ]
+        if not response or "error" in response:
+            print(f"❌ Initialize failed: {response}")
+            return False
 
-    if verbose:
-        cmd.append("-v")
-
-    # Run each tool individually for better progress tracking
-    if tools:
+        # Test each tool
         success_count = 0
         fail_count = 0
+        request_id = 2
 
-        for tool in tools:
-            tool_cmd = cmd + ["-T", tool]
+        for tool_name, test_config in test_tools.items():
             try:
-                result = subprocess.run(
-                    tool_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                if result.returncode == 0:
-                    success_count += 1
-                    print(f"  ✅ {tool}")
-                else:
-                    fail_count += 1
-                    print(f"  ❌ {tool}")
-                    if verbose:
-                        print(f"     {result.stderr}")
-            except subprocess.TimeoutExpired:
-                fail_count += 1
-                print(f"  ⏱️  {tool} (timeout)")
+                test_args = test_config.get("arguments", {})
 
-        print(f"\n📊 Test Results: {success_count}/{len(tools)} passed")
+                # Call the tool
+                tool_request = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "tools/call",
+                    "params": {
+                        "name": tool_name,
+                        "arguments": test_args
+                    }
+                }
+
+                if verbose:
+                    print(f"\nRequest: {json.dumps(tool_request, indent=2)}")
+
+                server.process.stdin.write(json.dumps(tool_request) + "\n")
+                server.process.stdin.flush()
+                response = server.process.stdout.readline()
+
+                if verbose:
+                    print(f"Response: {response[:200]}")
+
+                if not response:
+                    fail_count += 1
+                    print(f"  ❌ {tool_name}: No response")
+                    continue
+
+                result = json.loads(response)
+                if "error" in result:
+                    fail_count += 1
+                    print(f"  ❌ {tool_name}: {result['error'].get('message', 'Unknown error')}")
+                    if verbose:
+                        print(f"     {result}")
+                else:
+                    success_count += 1
+                    print(f"  ✅ {tool_name}")
+
+                request_id += 1
+
+            except Exception as e:
+                fail_count += 1
+                print(f"  ❌ {tool_name}: {e}")
+                if verbose:
+                    import traceback
+                    print(f"     {traceback.format_exc()}")
+
+        print(f"\n📊 Test Results: {success_count}/{len(test_tools)} passed")
         return fail_count == 0
-    else:
-        # Run all tests at once
-        try:
-            result = subprocess.run(cmd, check=True)
-            return result.returncode == 0
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Tests failed: {e}")
-            return False
+
+    except Exception as e:
+        print(f"❌ Test execution failed: {e}")
+        if verbose:
+            import traceback
+            print(traceback.format_exc())
+        return False
 
 
 def main():
@@ -299,7 +348,7 @@ Examples:
   python scripts/tests/test_mcp.py -v
 
   # Skip Docker, test existing server
-  python scripts/tests/test_mcp.py --no-docker --endpoint http://localhost:8000/mcp/
+  python scripts/tests/test_mcp.py --no-docker --endpoint http://localhost:8000/mcp
         """
     )
 
@@ -316,7 +365,7 @@ Examples:
     parser.add_argument(
         "--endpoint",
         default=None,
-        help="MCP endpoint URL (default: http://localhost:{port}/mcp/)"
+        help="MCP endpoint URL (default: http://localhost:{port}/mcp)"
     )
     parser.add_argument(
         "--image",
@@ -378,12 +427,13 @@ Examples:
         if not server.start():
             sys.exit(1)
 
-    # Determine endpoint
-    endpoint = args.endpoint or f"http://localhost:{args.port}/mcp/"
-
     try:
-        # Run tests
-        success = run_tests(endpoint, TEST_CONFIG_PATH, tools, args.verbose)
+        # Run tests using stdio transport
+        if server:
+            success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
+        else:
+            print("❌ No server available for testing")
+            success = False
 
         # Show logs if requested
         if args.logs and server:
@@ -397,7 +447,7 @@ Examples:
             server.stop()
         elif server and args.keep_container:
             print(f"\n💡 Container kept running: {server.container_name}")
-            print(f"   Stop with: docker stop {server.container_name}")
+            print(f"   Note: Container is using stdio, cannot connect externally")
 
 
 if __name__ == "__main__":

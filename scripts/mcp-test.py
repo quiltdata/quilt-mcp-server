@@ -48,13 +48,13 @@ class MCPTester:
         }
         if params:
             request_data["params"] = params
-            
+
         self.request_id += 1
-        
+
         self._log(f"Making request: {method}", "DEBUG")
         if self.verbose and params:
             self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
-            
+
         try:
             response = self.session.post(
                 self.endpoint,
@@ -62,15 +62,35 @@ class MCPTester:
                 timeout=10
             )
             response.raise_for_status()
-            
-            result = response.json()
+
+            # Handle SSE (Server-Sent Events) response format
+            content_type = response.headers.get('content-type', '')
+            if 'text/event-stream' in content_type:
+                # Parse SSE format: "event: message\ndata: {...}"
+                text = response.text.strip()
+                lines = text.split('\n')
+                json_data = None
+
+                for line in lines:
+                    if line.startswith('data: '):
+                        json_data = line[6:]  # Remove "data: " prefix
+                        break
+
+                if json_data:
+                    result = json.loads(json_data)
+                else:
+                    raise Exception("No data field found in SSE response")
+            else:
+                # Regular JSON response
+                result = response.json()
+
             self._log(f"Response: {json.dumps(result, indent=2)}", "DEBUG")
-            
+
             if "error" in result:
                 raise Exception(f"JSON-RPC error: {result['error']}")
-                
+
             return result.get("result", {})
-            
+
         except requests.exceptions.RequestException as e:
             raise Exception(f"HTTP request failed: {e}")
         except json.JSONDecodeError as e:
