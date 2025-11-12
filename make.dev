@@ -93,13 +93,36 @@ test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 		echo "No script tests found"; \
 	fi
 	@echo "\n===🧪 Running MCP server integration tests (idempotent only)..."
-	@uv run python scripts/tests/test_mcp.py --image quilt-mcp:test
+	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
 
-test-mcp: docker-build
-	@echo "===🧪 Running MCP server integration tests..."
+# Default - uses local server (fast)
+test-mcp:
+	@echo "===🧪 Running MCP server integration tests (local mode)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py --image quilt-mcp:test -v
+	@uv run python scripts/tests/test_mcp.py
+
+# Explicit local mode with verbose output
+test-mcp-local:
+	@echo "===🧪 Running MCP server integration tests (local mode, verbose)..."
+	@uv sync --group test
+	@uv run python scripts/tests/test_mcp.py --local -v
+
+# Docker mode (requires docker-build)
+test-mcp-docker: docker-build
+	@echo "===🧪 Running MCP server integration tests (Docker mode, verbose)..."
+	@uv sync --group test
+	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
+
+# CI mode - runs both local and Docker for comprehensive testing
+test-mcp-ci: docker-build
+	@echo "===🧪 Running MCP server integration tests (CI mode - both local and Docker)..."
+	@uv sync --group test
+	@echo "\n===📍 Step 1/2: Running local mode tests..."
+	@uv run python scripts/tests/test_mcp.py --local -v
+	@echo "\n===📍 Step 2/2: Running Docker mode tests..."
+	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
+	@echo "\n===✅ Both local and Docker mode tests passed"
 
 # Code Quality Targets
 lint:
