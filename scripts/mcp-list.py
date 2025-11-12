@@ -189,37 +189,21 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
     bucket_name = default_bucket.replace("s3://", "").split("/")[0]
 
-    # Define test execution order and custom configurations
-    # Phase 1: Setup, Phase 2: Discovery, Phase 3-N: Use discovered data
-    tool_order = [
-        # Phase 1: Setup
-        "catalog_configure",
-        # Phase 2: Discovery - list real objects first
-        "bucket_objects_list",
-        "search_catalog",
-        "search_explain",
-        "search_suggest",
-        # Phase 3: Catalog operations
-        "catalog_uri",
-        "catalog_url",
-        # Phase 4: Bucket operations
-        "bucket_object_info",
-        "bucket_object_link",
-        "bucket_object_text",
-        "bucket_object_fetch",
-        # Phase 5: Package operations
-        "package_browse",
-        "package_diff",
-        # Phase 6: Query operations
-        "athena_query_validate",
-        "athena_query_execute",
-        "tabulator_bucket_query",
-        # Phase 7: Admin operations (may require auth)
-        "tabulator_open_query_status",
-        "tabulator_table_rename",
-        # Phase 8: Workflow operations
-        "workflow_template_apply",
-    ]
+    # Auto-generate tool order from all discovered tools
+    # Special case: bucket_objects_list runs FIRST to discover real objects
+    all_tool_names = list(server_tools.keys())
+
+    # Separate bucket_objects_list from others
+    priority_tools = []
+    if "bucket_objects_list" in all_tool_names:
+        priority_tools.append("bucket_objects_list")
+        all_tool_names.remove("bucket_objects_list")
+
+    # Sort remaining tools alphabetically for deterministic ordering
+    all_tool_names.sort()
+
+    # Final order: priority tools first, then all others
+    tool_order = priority_tools + all_tool_names
 
     # Tools with multiple test variants based on parameter combinations
     # Format: tool_name -> {"param_name": [test_value1, test_value2, ...]}
@@ -232,28 +216,52 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
     # Custom test configurations for specific tools
     # For tools with variants, use tool_name.variant_value format
+    # Note: Empty dict {} means tool has no required params (will be auto-filled by effect classifier)
     custom_configs = {
+        # Catalog operations
         "catalog_configure": {"catalog_url": catalog_domain},
+        "catalog_uri": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
+        "catalog_url": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
+
+        # Bucket operations (discovery)
         "bucket_objects_list": {"bucket": bucket_name, "prefix": f"{test_package}/", "max_keys": 5},
+        "bucket_object_info": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
+        "bucket_object_link": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
+        "bucket_object_text": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_fetch": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        # bucket_objects_put: Intentionally omitted - will be skipped as 'create' effect
+
+        # Package operations (read-only)
+        "package_browse": {"package_name": test_package, "registry": default_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
+        "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": default_bucket},
+        # package_create, package_update, package_delete: Omitted - 'create'/'update'/'remove' effects
+        # package_create_from_s3: Omitted - 'create' effect
+
+        # Search operations
         "search_catalog.global": {"query": test_entry, "limit": 10, "scope": "global"},
         "search_catalog.bucket": {"query": test_entry, "limit": 10, "scope": "bucket", "target": default_bucket},
         "search_catalog.package": {"query": test_package, "limit": 10, "scope": "package"},
         "search_explain": {"query": "CSV files"},
         "search_suggest": {"partial_query": test_package[:5], "limit": 5},
-        "catalog_uri": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
-        "catalog_url": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
-        "bucket_object_info": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
-        "bucket_object_link": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
-        "bucket_object_text": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
-        "bucket_object_fetch": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
-        "package_browse": {"package_name": test_package, "registry": default_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
-        "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": default_bucket},
+
+        # Query operations
         "athena_query_validate": {"query": "SHOW TABLES"},
         "athena_query_execute": {"query": "SELECT 1 as test_value", "max_results": 10},
         "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
         "tabulator_open_query_status": {},
-        "tabulator_table_rename": {"bucket_name": bucket_name, "table_name": "test_table_nonexistent", "new_table_name": "test_renamed"},
+        # tabulator_open_query_toggle: Omitted - 'configure' effect
+        # tabulator_table_create, tabulator_table_delete, tabulator_table_rename: Omitted - write effects
+
+        # Workflow operations
         "workflow_template_apply": {"template_name": "cross-package-aggregation", "workflow_id": "test-wf-001", "params": {"source_packages": [test_package], "target_package": f"{test_package}-agg"}},
+        # workflow_create, workflow_add_step, workflow_update_step: Omitted - write effects
+
+        # Visualization operations
+        # create_data_visualization: Omitted - 'create' effect
+        # create_quilt_summary_files, generate_package_visualizations, generate_quilt_summarize_json: Omitted - 'create'/'generate' effects
+
+        # Admin/Governance operations (all omitted - require special permissions and have side effects)
+        # admin_user_*, admin_sso_*, admin_tabulator_*: All omitted
     }
 
     # Process tools in defined order
