@@ -689,6 +689,295 @@ def run_tests_stdio(
         return False
 
 
+def initialize_server_session(server, verbose: bool = False) -> bool:
+    """Initialize MCP server session with proper handshake.
+
+    Args:
+        server: Running Docker/Local MCP server instance
+        verbose: Enable verbose output
+
+    Returns:
+        True if initialization succeeded, False otherwise
+    """
+    import json
+
+    # Send initialize request
+    init_request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1.0"}
+        }
+    }
+
+    server.process.stdin.write(json.dumps(init_request) + "\n")
+    server.process.stdin.flush()
+    response = server.process.stdout.readline()
+
+    if verbose:
+        print(f"Initialize: {response[:100]}")
+
+    if not response or "error" in response:
+        print(f"❌ Initialize failed: {response}")
+        return False
+
+    # Send notifications/initialized notification (required by MCP protocol)
+    initialized_notification = {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized"
+    }
+
+    server.process.stdin.write(json.dumps(initialized_notification) + "\n")
+    server.process.stdin.flush()
+
+    # Give server a moment to process notification (no response expected)
+    time.sleep(0.5)
+
+    if verbose:
+        print("Sent notifications/initialized")
+
+    return True
+
+
+def run_resource_tests_stdio(
+    server,
+    config_path: Path,
+    resources: Optional[list[str]] = None,
+    verbose: bool = False,
+    skip_init: bool = False
+) -> bool:
+    """Run MCP resource tests using stdio transport.
+
+    Args:
+        server: Running Docker/Local MCP server instance
+        config_path: Path to mcp-test.yaml configuration
+        resources: Optional list of resource URIs to test (None = all)
+        verbose: Enable verbose output
+        skip_init: Skip server initialization (if already initialized)
+
+    Returns:
+        True if all resource tests passed, False otherwise
+    """
+    import json
+
+    print(f"\n🗂️  Running MCP resource tests (stdio)...")
+    print(f"   Config: {config_path}")
+
+    if not server.process or server.process.poll() is not None:
+        print("❌ Server process not running")
+        return False
+
+    try:
+        # Initialize server if needed
+        if not skip_init:
+            if not initialize_server_session(server, verbose):
+                return False
+
+        # Load test configuration
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        test_resources = config.get("test_resources", {})
+        if resources:
+            test_resources = {k: v for k, v in test_resources.items() if k in resources}
+
+        if not test_resources:
+            print("⚠️  No resources configured for testing")
+            return True
+
+        # First, list all available resources
+        list_request = {
+            "jsonrpc": "2.0",
+            "id": 1000,  # Use high ID to avoid conflicts
+            "method": "resources/list",
+            "params": {}
+        }
+
+        server.process.stdin.write(json.dumps(list_request) + "\n")
+        server.process.stdin.flush()
+        response = server.process.stdout.readline()
+
+        if verbose:
+            print(f"resources/list response: {response[:200]}")
+
+        if not response or "error" in response:
+            print(f"❌ resources/list failed: {response}")
+            return False
+
+        list_result = json.loads(response)
+        if "error" in list_result:
+            print(f"❌ resources/list error: {list_result['error']}")
+            return False
+
+        available_resources = list_result.get("result", {}).get("resources", [])
+        available_uris = {r["uri"] for r in available_resources}
+
+        print(f"📋 Server provides {len(available_resources)} resources")
+        if verbose:
+            for uri in sorted(available_uris):
+                print(f"   - {uri}")
+
+        # Test each resource
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
+        request_id = 1001
+
+        for uri_pattern, test_config in test_resources.items():
+            try:
+                start_time = time.time()
+
+                # Substitute URI variables if needed
+                uri = uri_pattern
+                uri_vars = test_config.get("uri_variables", {})
+                skip_resource = False
+
+                for var_name, var_value in uri_vars.items():
+                    if var_value.startswith("CONFIGURE_"):
+                        skip_count += 1
+                        print(f"  ⏭️  {uri_pattern}: Skipped (needs configuration: {var_name})")
+                        skip_resource = True
+                        break
+                    uri = uri.replace(f"{{{var_name}}}", var_value)
+
+                if skip_resource:
+                    continue
+
+                # Check if resource exists
+                if uri not in available_uris:
+                    fail_count += 1
+                    print(f"  ❌ {uri}: Resource not found in server")
+                    continue
+
+                # Read the resource
+                read_request = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "resources/read",
+                    "params": {
+                        "uri": uri
+                    }
+                }
+
+                if verbose:
+                    print(f"\nRequest: {json.dumps(read_request, indent=2)}")
+
+                server.process.stdin.write(json.dumps(read_request) + "\n")
+                server.process.stdin.flush()
+                response = server.process.stdout.readline()
+                elapsed = time.time() - start_time
+
+                if verbose:
+                    print(f"Response: {response[:200]}")
+
+                if not response:
+                    fail_count += 1
+                    print(f"  ❌ {uri}: No response ({elapsed:.2f}s)")
+                    continue
+
+                result = json.loads(response)
+                if "error" in result:
+                    fail_count += 1
+                    error_msg = result['error'].get('message', 'Unknown error')
+                    print(f"  ❌ {uri}: {error_msg} ({elapsed:.2f}s)")
+                    if verbose:
+                        print(f"     {result}")
+                    continue
+
+                # Validate resource content
+                resource_data = result.get("result", {})
+                contents = resource_data.get("contents", [])
+
+                if not contents:
+                    fail_count += 1
+                    print(f"  ❌ {uri}: Empty contents ({elapsed:.2f}s)")
+                    continue
+
+                content = contents[0]  # MCP resources return array of content items
+
+                # Validate MIME type
+                expected_mime = test_config.get("expected_mime_type", "text/plain")
+                actual_mime = content.get("mimeType", "text/plain")
+
+                if expected_mime != actual_mime:
+                    print(f"  ⚠️  {uri}: MIME type mismatch (expected {expected_mime}, got {actual_mime})")
+
+                # Validate content based on type
+                validation = test_config.get("content_validation", {})
+                content_type = validation.get("type", "text")
+
+                if content_type == "text":
+                    text = content.get("text", "")
+                    min_len = validation.get("min_length", 0)
+                    max_len = validation.get("max_length", float('inf'))
+
+                    if len(text) < min_len:
+                        fail_count += 1
+                        print(f"  ❌ {uri}: Content too short ({len(text)} < {min_len}) ({elapsed:.2f}s)")
+                        continue
+
+                    if len(text) > max_len:
+                        fail_count += 1
+                        print(f"  ❌ {uri}: Content too long ({len(text)} > {max_len}) ({elapsed:.2f}s)")
+                        continue
+
+                elif content_type == "json":
+                    # Parse and validate JSON content
+                    text = content.get("text", "")
+                    try:
+                        json_data = json.loads(text)
+
+                        # Validate against schema if provided
+                        if "schema" in validation and validation["schema"]:
+                            try:
+                                from jsonschema import validate as validate_schema
+                                validate_schema(json_data, validation["schema"])
+                            except ImportError:
+                                if verbose:
+                                    print(f"  ⚠️  jsonschema not available for validation")
+                            except Exception as e:
+                                fail_count += 1
+                                print(f"  ❌ {uri}: Schema validation failed ({e}) ({elapsed:.2f}s)")
+                                continue
+
+                    except json.JSONDecodeError as e:
+                        fail_count += 1
+                        print(f"  ❌ {uri}: Invalid JSON content ({e}) ({elapsed:.2f}s)")
+                        continue
+
+                elif content_type == "blob":
+                    blob = content.get("blob", "")
+                    if not blob:
+                        fail_count += 1
+                        print(f"  ❌ {uri}: Empty blob content ({elapsed:.2f}s)")
+                        continue
+
+                success_count += 1
+                print(f"  ✅ {uri} ({elapsed:.2f}s)")
+
+                request_id += 1
+
+            except Exception as e:
+                fail_count += 1
+                print(f"  ❌ {uri_pattern}: {e}")
+                if verbose:
+                    import traceback
+                    print(f"     {traceback.format_exc()}")
+
+        print(f"\n📊 Resource Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {len(test_resources)} total)")
+        return fail_count == 0
+
+    except Exception as e:
+        print(f"❌ Resource test execution failed: {e}")
+        if verbose:
+            import traceback
+            print(traceback.format_exc())
+        return False
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -775,6 +1064,21 @@ Examples:
         action="store_true",
         help="Verbose output"
     )
+    parser.add_argument(
+        "--resources-only",
+        action="store_true",
+        help="Run only resource tests (skip tool tests)"
+    )
+    parser.add_argument(
+        "--skip-resources",
+        action="store_true",
+        help="Skip resource tests (run only tool tests)"
+    )
+    parser.add_argument(
+        "--resource",
+        metavar="URI",
+        help="Test specific resource by URI"
+    )
 
     args = parser.parse_args()
 
@@ -813,14 +1117,48 @@ Examples:
             sys.exit(1)
 
     try:
-        # Run tests using stdio transport (works with both modes)
-        success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
+        # Run tool tests (unless --resources-only)
+        tool_success = True
+        if not args.resources_only:
+            if server:
+                tool_success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
+            else:
+                print("❌ No server available for testing")
+                tool_success = False
+
+        # Run resource tests (unless --skip-resources)
+        resource_success = True
+        if not args.skip_resources:
+            if server:
+                # Get list of resources to test
+                resource_uris = [args.resource] if args.resource else None
+                # Skip init if tool tests already ran (session already initialized)
+                skip_init = not args.resources_only and tool_success
+                resource_success = run_resource_tests_stdio(
+                    server, TEST_CONFIG_PATH, resource_uris, args.verbose, skip_init
+                )
+            else:
+                print("❌ No server available for resource testing")
+                resource_success = False
+
+        # Combined success
+        overall_success = tool_success and resource_success
+
+        # Print summary
+        if not args.resources_only and not args.skip_resources:
+            print(f"\n{'='*80}")
+            print("📊 OVERALL TEST SUMMARY")
+            print(f"{'='*80}")
+            print(f"   Tools: {'✅ PASSED' if tool_success else '❌ FAILED'}")
+            print(f"   Resources: {'✅ PASSED' if resource_success else '❌ FAILED'}")
+            print(f"   Overall: {'✅ ALL TESTS PASSED' if overall_success else '❌ SOME TESTS FAILED'}")
+            print(f"{'='*80}\n")
 
         # Show logs if requested
         if args.logs and server:
             server.logs()
 
-        sys.exit(0 if success else 1)
+        sys.exit(0 if overall_success else 1)
 
     finally:
         # Clean up server

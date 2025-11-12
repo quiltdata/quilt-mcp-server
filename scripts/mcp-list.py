@@ -150,10 +150,11 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
 
 
 async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str]):
-    """Generate mcp-test.yaml configuration with all available tools.
+    """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
     Each tool gets a basic test case that can be customized as needed.
+    Each resource gets test configuration with URI patterns and validation rules.
     Environment configuration from .env is embedded for self-contained testing.
     """
     # Extract test-relevant configuration from environment
@@ -169,6 +170,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
             "QUILT_TEST_ENTRY": env_vars.get("QUILT_TEST_ENTRY", ""),
         },
         "test_tools": {},
+        "test_resources": {},
         "test_config": {
             "timeout": 30,
             "retry_attempts": 2,
@@ -326,6 +328,58 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
             }
 
             test_config["test_tools"][tool_name] = test_case
+
+    # Generate resource test configuration
+    print("🗂️  Generating resource test configuration...")
+    registry = create_default_registry()
+
+    import re
+    for resource in registry._resources:
+        uri_pattern = resource.uri_pattern
+        resource_class = resource.__class__
+        doc = inspect.getdoc(resource_class) or "No description available"
+
+        # Build basic test case structure
+        test_case = {
+            "description": doc.split('\n')[0],
+            "idempotent": True,  # Resources are generally read-only
+            "uri": uri_pattern,
+            "uri_variables": {},
+            "expected_mime_type": "text/plain",  # Default
+            "content_validation": {
+                "type": "text",
+                "min_length": 1,
+                "max_length": 100000
+            }
+        }
+
+        # Detect URI template variables (e.g., {database}, {table})
+        variables = re.findall(r'\{(\w+)\}', uri_pattern)
+        for var in variables:
+            # Mark as needing configuration
+            test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
+
+        # Infer content type from resource class or URI pattern
+        class_name = resource_class.__name__.lower()
+        uri_lower = uri_pattern.lower()
+
+        # JSON resources
+        if any(keyword in class_name for keyword in ['status', 'info', 'list', 'config', 'history']):
+            test_case["expected_mime_type"] = "application/json"
+            test_case["content_validation"]["type"] = "json"
+            test_case["content_validation"]["schema"] = {
+                "type": "object",
+                "description": "Auto-generated basic schema - customize as needed"
+            }
+        # HTML/markdown resources (docs, troubleshooting, examples)
+        elif any(keyword in class_name for keyword in ['troubleshooting', 'example', 'template']):
+            test_case["expected_mime_type"] = "text/html"
+            test_case["content_validation"]["type"] = "text"
+            test_case["content_validation"]["min_length"] = 50
+
+        test_config["test_resources"][uri_pattern] = test_case
+
+    print(f"   Generated {len(test_config['test_resources'])} resource test cases")
 
     # Write YAML with nice formatting
     with open(output_file, 'w', encoding='utf-8') as f:

@@ -130,9 +130,29 @@ class MCPTester:
         params: Dict[str, Any] = {"name": name}
         if arguments:
             params["arguments"] = arguments
-            
+
         result = self._make_request("tools/call", params)
         self._log(f"✅ Tool {name} executed successfully")
+        return result
+
+    def list_resources(self) -> List[Dict[str, Any]]:
+        """List available resources from MCP server."""
+        self._log("Querying available resources...")
+
+        result = self._make_request("resources/list")
+        resources = result.get("resources", [])
+
+        self._log(f"✅ Found {len(resources)} resources")
+        return resources
+
+    def read_resource(self, uri: str) -> Dict[str, Any]:
+        """Read a specific resource."""
+        self._log(f"Reading resource: {uri}")
+
+        params = {"uri": uri}
+        result = self._make_request("resources/read", params)
+
+        self._log(f"✅ Resource {uri} read successfully")
         return result
 
 
@@ -152,18 +172,18 @@ def load_test_config(config_path: Path) -> Dict[str, Any]:
 def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Optional[str] = None) -> bool:
     """Run comprehensive tools test."""
     test_tools = config.get("test_tools", {})
-    
+
     if specific_tool:
         if specific_tool not in test_tools:
             print(f"❌ Tool '{specific_tool}' not found in test config")
             return False
         test_tools = {specific_tool: test_tools[specific_tool]}
-    
+
     success_count = 0
     total_count = len(test_tools)
-    
+
     print(f"\n🧪 Running tools test ({total_count} tools)...")
-    
+
     for tool_name, test_config in test_tools.items():
         try:
             print(f"\n--- Testing tool: {tool_name} ---")
@@ -176,20 +196,157 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
 
             # Call the tool
             result = tester.call_tool(actual_tool_name, test_args)
-            
+
             # Validate response if schema provided
             if "response_schema" in test_config:
                 validate(result, test_config["response_schema"])
                 tester._log("✅ Response schema validation passed")
-            
+
             success_count += 1
             print(f"✅ {tool_name}: PASSED")
-            
+
         except Exception as e:
             print(f"❌ {tool_name}: FAILED - {e}")
-    
+
     print(f"\n📊 Test Results: {success_count}/{total_count} tools passed")
     return success_count == total_count
+
+
+def run_resources_test(
+    tester: MCPTester,
+    config: Dict[str, Any],
+    specific_resource: Optional[str] = None
+) -> bool:
+    """Run comprehensive resources test."""
+    test_resources = config.get("test_resources", {})
+
+    if specific_resource:
+        if specific_resource not in test_resources:
+            print(f"❌ Resource '{specific_resource}' not found in test config")
+            return False
+        test_resources = {specific_resource: test_resources[specific_resource]}
+
+    if not test_resources:
+        print("⚠️  No resources configured for testing")
+        return True
+
+    success_count = 0
+    fail_count = 0
+    skip_count = 0
+    total_count = len(test_resources)
+
+    print(f"\n🗂️  Running resources test ({total_count} resources)...")
+
+    # First, list available resources
+    try:
+        available_resources = tester.list_resources()
+        available_uris = {r["uri"] for r in available_resources}
+        print(f"📋 Server provides {len(available_resources)} resources")
+    except Exception as e:
+        print(f"❌ Failed to list resources: {e}")
+        return False
+
+    # Test each resource
+    for uri_pattern, test_config in test_resources.items():
+        try:
+            print(f"\n--- Testing resource: {uri_pattern} ---")
+
+            # Substitute URI variables if needed
+            uri = uri_pattern
+            uri_vars = test_config.get("uri_variables", {})
+            skip_resource = False
+
+            for var_name, var_value in uri_vars.items():
+                if var_value.startswith("CONFIGURE_"):
+                    skip_count += 1
+                    print(f"  ⏭️  Skipped (needs configuration: {var_name})")
+                    skip_resource = True
+                    break
+                uri = uri.replace(f"{{{var_name}}}", var_value)
+
+            if skip_resource:
+                continue
+
+            # Check if resource exists
+            if uri not in available_uris:
+                fail_count += 1
+                print(f"  ❌ Resource not found in server")
+                continue
+
+            # Read the resource
+            result = tester.read_resource(uri)
+
+            # Validate resource content
+            contents = result.get("contents", [])
+            if not contents:
+                fail_count += 1
+                print(f"  ❌ Empty contents")
+                continue
+
+            content = contents[0]
+
+            # Validate MIME type
+            expected_mime = test_config.get("expected_mime_type", "text/plain")
+            actual_mime = content.get("mimeType", "text/plain")
+
+            if expected_mime != actual_mime:
+                print(f"  ⚠️  MIME type mismatch (expected {expected_mime}, got {actual_mime})")
+
+            # Validate content based on type
+            validation = test_config.get("content_validation", {})
+            content_type = validation.get("type", "text")
+
+            if content_type == "text":
+                text = content.get("text", "")
+                min_len = validation.get("min_length", 0)
+                max_len = validation.get("max_length", float('inf'))
+
+                if len(text) < min_len:
+                    fail_count += 1
+                    print(f"  ❌ Content too short ({len(text)} < {min_len})")
+                    continue
+
+                if len(text) > max_len:
+                    fail_count += 1
+                    print(f"  ❌ Content too long ({len(text)} > {max_len})")
+                    continue
+
+            elif content_type == "json":
+                # Parse and validate JSON content
+                text = content.get("text", "")
+                try:
+                    json_data = json.loads(text)
+
+                    # Validate against schema if provided
+                    if "schema" in validation and validation["schema"]:
+                        validate(json_data, validation["schema"])
+                        tester._log("✅ Schema validation passed")
+
+                except json.JSONDecodeError as e:
+                    fail_count += 1
+                    print(f"  ❌ Invalid JSON content: {e}")
+                    continue
+                except Exception as e:
+                    fail_count += 1
+                    print(f"  ❌ Schema validation failed: {e}")
+                    continue
+
+            elif content_type == "blob":
+                blob = content.get("blob", "")
+                if not blob:
+                    fail_count += 1
+                    print(f"  ❌ Empty blob content")
+                    continue
+
+            success_count += 1
+            print(f"✅ {uri}: PASSED")
+
+        except Exception as e:
+            fail_count += 1
+            print(f"❌ {uri_pattern}: FAILED - {e}")
+
+    print(f"\n📊 Resource Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {total_count} total)")
+    return fail_count == 0
 
 
 def main():
@@ -201,12 +358,18 @@ def main():
     
     parser.add_argument("endpoint", help="MCP endpoint URL to test")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("-t", "--tools-test", action="store_true", 
+    parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
                        help="Test specific tool by name")
     parser.add_argument("--list-tools", action="store_true",
                        help="List available tools from MCP server")
+    parser.add_argument("--list-resources", action="store_true",
+                       help="List available resources from MCP server")
+    parser.add_argument("-r", "--resources-test", action="store_true",
+                       help="Run resources test with test configurations")
+    parser.add_argument("-R", "--test-resource", metavar="RESOURCE_URI",
+                       help="Test specific resource by URI")
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
                        help="Path to test configuration file (auto-generated by mcp-list.py)")
@@ -219,7 +382,7 @@ def main():
     try:
         # Initialize session
         tester.initialize()
-        
+
         if args.list_tools:
             # List available tools
             tools = tester.list_tools()
@@ -227,20 +390,40 @@ def main():
             for tool in tools:
                 print(f"  • {tool.get('name', 'Unknown')}: {tool.get('description', 'No description')}")
             return
-        
+
+        if args.list_resources:
+            # List available resources
+            resources = tester.list_resources()
+            print(f"\n🗂️  Available Resources ({len(resources)}):")
+            for resource in resources:
+                print(f"  • {resource.get('uri', 'Unknown')}: {resource.get('name', 'No name')}")
+                if 'description' in resource:
+                    print(f"    {resource['description']}")
+            return
+
         if args.tools_test or args.test_tool:
             # Load test configuration
             config = load_test_config(args.config)
-            
+
             # Run tools test
             success = run_tools_test(tester, config, args.test_tool)
             sys.exit(0 if success else 1)
-        
+
+        if args.resources_test or args.test_resource:
+            # Load test configuration
+            config = load_test_config(args.config)
+
+            # Run resources test
+            success = run_resources_test(tester, config, args.test_resource)
+            sys.exit(0 if success else 1)
+
         # Default: basic connectivity test
         tools = tester.list_tools()
+        resources = tester.list_resources()
         print(f"✅ Successfully connected to MCP endpoint")
         print(f"📋 Server has {len(tools)} available tools")
-        
+        print(f"🗂️  Server has {len(resources)} available resources")
+
     except Exception as e:
         print(f"❌ Test failed: {e}")
         sys.exit(1)
