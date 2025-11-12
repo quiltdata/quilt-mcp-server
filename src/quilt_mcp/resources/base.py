@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 import json
 import logging
@@ -11,6 +13,36 @@ import time
 from quilt_mcp.config import resource_config
 
 logger = logging.getLogger(__name__)
+
+
+class MCPJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Enums, datetime objects, and Pydantic models."""
+
+    def default(self, obj):
+        """Convert non-serializable objects to JSON-compatible formats."""
+        # Handle Enums
+        if isinstance(obj, Enum):
+            return obj.value
+
+        # Handle datetime objects
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+
+        # Handle Pydantic models (BaseModel)
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+
+        # Handle dataclasses
+        if hasattr(obj, "__dataclass_fields__"):
+            from dataclasses import asdict
+            return asdict(obj)
+
+        # Handle NamedTuples
+        if hasattr(obj, "_asdict"):
+            return obj._asdict()
+
+        # Fallback to default behavior
+        return super().default(obj)
 
 
 @dataclass
@@ -32,7 +64,7 @@ class ResourceResponse:
     def _serialize_content(self) -> str:
         """Serialize content to string based on mime type."""
         if self.mime_type == "application/json":
-            return json.dumps(self.content, indent=2)
+            return json.dumps(self.content, indent=2, cls=MCPJSONEncoder)
         return str(self.content)
 
 
