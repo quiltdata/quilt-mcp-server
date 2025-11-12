@@ -241,7 +241,7 @@ class TestScopeSemantics:
 
         # Expected behavior:
         # - bucket_results = search(scope="bucket", target="s3://my-bucket")
-        # - catalog_results = search(scope="catalog")
+        # - catalog_results = search(scope="package")
         # - assert len(catalog_results) >= len(bucket_results)
 
         # The fix ensures:
@@ -253,7 +253,7 @@ class TestScopeSemantics:
     async def test_global_is_superset_of_catalog(self):
         """Global scope should return at least as many results as catalog scope."""
         # Expected behavior:
-        # - catalog_results = search(scope="catalog")
+        # - catalog_results = search(scope="package")
         # - global_results = search(scope="global")
         # - assert len(global_results) >= len(catalog_results)
 

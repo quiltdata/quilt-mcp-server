@@ -31,10 +31,10 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        Literal["global", "catalog", "package", "bucket"],
+        Literal["global", "package", "bucket"],
         Field(
             default="bucket",
-            description='Search scope - "bucket" (specific bucket, default), "catalog" (current catalog), "package" (specific package), "global" (all)',
+            description='Search scope - "bucket" (specific bucket, default), "package" (current catalog), "package" (specific package), "global" (all)',
         ),
     ] = "bucket",
     target: Annotated[
@@ -103,7 +103,7 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "bucket" (default, searches default bucket), "catalog" (current catalog), "package" (specific package), "global" (all)
+        scope: Search scope - "bucket" (default, searches default bucket), "package" (current catalog), "package" (specific package), "global" (all)
         target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
         backend: Preferred backend - "elasticsearch" (default, most reliable), "auto" (intelligent selection), "graphql"
         limit: Maximum number of results to return (default: 50)
@@ -118,7 +118,7 @@ def search_catalog(
     Examples:
         search_catalog("CSV files")  # Uses default bucket scope + elasticsearch
         search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
-        search_catalog("packages created last month", scope="catalog")  # Catalog-wide search
+        search_catalog("packages created last month", scope="package")  # Catalog-wide search
         search_catalog("README files", scope="package", target="user/dataset")  # Package search
         search_catalog("Parquet files", scope="bucket", target="s3://other-bucket")  # Specific bucket
 
@@ -296,7 +296,7 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        Literal["global", "catalog", "package", "bucket"],
+        Literal["global", "package", "bucket"],
         Field(
             default="global",
             description="Search scope",

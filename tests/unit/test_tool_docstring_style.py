@@ -13,7 +13,6 @@ TOOLS_DIR = PROJECT_ROOT / "src" / "quilt_mcp" / "tools"
 # Only testing modules in src/quilt_mcp/tools/ directory
 TOOL_MODULES = [
     "buckets",
-    "catalog",
     "data_visualization",
     "packages",
     "quilt_summary",

@@ -13,6 +13,7 @@ from quilt_mcp.tools.search import search_catalog
 
 
 @pytest.mark.integration
+@pytest.mark.search
 def test_quilt_tools():
     # Auth tool returns a Pydantic model or dict
     result = auth_status()

@@ -116,14 +116,14 @@ class TestSearchDefaults:
     @patch("quilt_mcp.tools.search.asyncio.run")
     @patch("quilt_mcp.tools.search._unified_search")
     def test_catalog_scope_doesnt_set_default_target(self, mock_unified, mock_asyncio_run):
-        """Test that DEFAULT_BUCKET is NOT used when scope is 'catalog'."""
+        """Test that DEFAULT_BUCKET is NOT used when scope is 'package'."""
         # Setup mocks
         mock_asyncio_run.return_value = self._create_mock_response(
-            "test", "catalog", "", "elasticsearch"
+            "test", "package", "", "elasticsearch"
         )
 
         # Call with catalog scope, no target
-        result = search_catalog(query="test", scope="catalog")
+        result = search_catalog(query="test", scope="package")
 
         # Verify target remained empty (not set to DEFAULT_BUCKET)
         mock_unified.assert_called_once()

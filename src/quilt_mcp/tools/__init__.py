@@ -32,7 +32,7 @@ from types import ModuleType
 from typing import Dict
 
 _MODULE_PATHS = {
-    "catalog": "quilt_mcp.tools.catalog",
+    "package": "quilt_mcp.tools.catalog",
     "buckets": "quilt_mcp.tools.buckets",
     "packages": "quilt_mcp.tools.packages",
     "quilt_summary": "quilt_mcp.tools.quilt_summary",

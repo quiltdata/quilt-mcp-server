@@ -346,7 +346,7 @@ async def unified_search(
 
     Examples:
         unified_search("CSV files in genomics packages")
-        unified_search("packages created last month", scope="catalog")
+        unified_search("packages created last month", scope="package")
         unified_search("README files", scope="package", target="user/dataset")
         unified_search("files larger than 100MB")
         unified_search("CSV data created after 2023-01-01")

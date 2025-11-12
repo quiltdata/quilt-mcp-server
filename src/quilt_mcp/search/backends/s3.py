@@ -78,7 +78,7 @@ class S3FallbackBackend(SearchBackend):
         try:
             if scope == "bucket" and target:
                 results = await self._search_bucket(query, target, filters, limit)
-            elif scope in ["global", "catalog"]:
+            elif scope in ["global", "package"]:
                 # For global/catalog scope, try to search the default bucket
                 default_bucket = "s3://quilt-example"
                 results = await self._search_bucket(query, default_bucket, filters, limit)

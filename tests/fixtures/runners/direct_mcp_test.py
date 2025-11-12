@@ -179,7 +179,7 @@ class DirectMCPTester:
                     "unified_search",
                     {
                         "query": "CSV files",
-                        "scope": "catalog",
+                        "scope": "package",
                         "limit": 3,
                         "explain_query": True,
                     },
@@ -295,7 +295,7 @@ class DirectMCPTester:
             unified_tests = [
                 {
                     "query": "CSV files",
-                    "scope": "catalog",
+                    "scope": "package",
                     "limit": 3,
                     "explain_query": True,
                 },
