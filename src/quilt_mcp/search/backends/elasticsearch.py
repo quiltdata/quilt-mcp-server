@@ -27,6 +27,40 @@ from ..exceptions import (
 logger = logging.getLogger(__name__)
 
 
+def escape_elasticsearch_query(query: str) -> str:
+    r"""Escape special characters in Elasticsearch query_string queries.
+
+    Elasticsearch query_string syntax treats certain characters as operators.
+    This function escapes them to allow literal searches.
+
+    Special characters that need escaping:
+    + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /
+
+    Args:
+        query: Raw query string
+
+    Returns:
+        Escaped query string safe for query_string queries
+
+    Examples:
+        >>> escape_elasticsearch_query("team/dataset")
+        'team\\/dataset'
+        >>> escape_elasticsearch_query("size>100")
+        'size\\>100'
+    """
+    # Characters that need to be escaped in Elasticsearch query_string
+    # Order matters: escape backslash first to avoid double-escaping
+    special_chars = ['\\', '+', '-', '=', '>', '<', '!', '(', ')', '{', '}',
+                     '[', ']', '^', '"', '~', '*', '?', ':', '/']
+
+    # Escape each special character with a backslash
+    escaped = query
+    for char in special_chars:
+        escaped = escaped.replace(char, '\\' + char)
+
+    return escaped
+
+
 class Quilt3ElasticsearchBackend(SearchBackend):
     """Elasticsearch backend using existing quilt3.Bucket.search() API."""
 
@@ -258,10 +292,12 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             return {"error": f"Search API unavailable: {exc}"}
 
         if isinstance(query, str) and not query.strip().startswith("{"):
+            # Escape special characters in the query string
+            escaped_query = escape_elasticsearch_query(query)
             dsl_query: Dict[str, Any] = {
                 "from": max(from_, 0),
                 "size": max(limit, 0),
-                "query": {"query_string": {"query": query}},
+                "query": {"query_string": {"query": escaped_query}},
             }
         else:
             import json
@@ -305,10 +341,12 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     def _build_elasticsearch_query(self, query: str, filters: Optional[Dict[str, Any]]) -> Union[str, Dict[str, Any]]:
         """Build Elasticsearch query from natural language and filters."""
         if not filters:
-            return query
+            # Even without filters, escape the query string
+            return escape_elasticsearch_query(query)
 
-        # Build DSL query with filters
-        dsl_query = {"query": {"bool": {"must": [{"query_string": {"query": query}}], "filter": []}}}
+        # Build DSL query with filters - escape the query string
+        escaped_query = escape_elasticsearch_query(query)
+        dsl_query = {"query": {"bool": {"must": [{"query_string": {"query": escaped_query}}], "filter": []}}}
 
         # Add file extension filters using the proper 'ext' field
         if filters.get("file_extensions"):
