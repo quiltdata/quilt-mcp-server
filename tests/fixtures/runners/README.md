@@ -17,8 +17,6 @@ These test runners serve different purposes from regular unit/integration tests:
 
 ### Core MCP Testing
 
-- **`direct_mcp_test.py`** - Tests MCP tools by calling underlying functions directly
-- **`interactive_mcp_test.py`** - Interactive testing of the MCP server functionality
 - **`mock_llm_mcp_test.py`** - Mock LLM interaction testing
 
 ### Domain-Specific Testing
@@ -42,12 +40,6 @@ python tests/fixtures/runners/ccle_computational_biology_test_runner.py
 
 # Run performance benchmarks
 python tests/fixtures/runners/mcp_comprehensive_test_simulation.py
-
-# Interactive MCP testing
-python tests/fixtures/runners/interactive_mcp_test.py
-
-# Direct tool testing
-python tests/fixtures/runners/direct_mcp_test.py
 ```
 
 ## Important Notes
