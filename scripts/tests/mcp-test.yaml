@@ -11,7 +11,7 @@ test_tools:
   catalog_configure:
     description: Configure Quilt catalog URL - Quilt authentication and catalog navigation
       workflows
-    idempotent: true
+    effect: configure
     arguments:
       catalog_url: nightly.quilttest.com
     response_schema:
@@ -26,7 +26,7 @@ test_tools:
   bucket_objects_list:
     description: List objects in an S3 bucket with optional prefix filtering - S3
       bucket exploration and object retrieval tasks
-    idempotent: true
+    effect: none
     arguments:
       bucket: quilt-ernest-staging
       prefix: raw/test/
@@ -44,7 +44,7 @@ test_tools:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
-    idempotent: true
+    effect: none
     arguments:
       query: README.md
       limit: 10
@@ -62,7 +62,7 @@ test_tools:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
-    idempotent: true
+    effect: none
     arguments:
       query: README.md
       limit: 10
@@ -81,7 +81,7 @@ test_tools:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
-    idempotent: true
+    effect: none
     arguments:
       query: raw/test
       limit: 10
@@ -98,7 +98,7 @@ test_tools:
   search_explain:
     description: Explain how a search query would be processed and executed - Catalog
       and package search experiences
-    idempotent: true
+    effect: none
     arguments:
       query: CSV files
     response_schema:
@@ -113,7 +113,7 @@ test_tools:
   search_suggest:
     description: Get intelligent search suggestions based on partial queries and context
       - Catalog and package search experiences
-    idempotent: true
+    effect: none
     arguments:
       partial_query: raw/t
       limit: 5
@@ -128,7 +128,7 @@ test_tools:
       - content
   catalog_uri:
     description: Build Quilt+ URI - Quilt authentication and catalog navigation workflows
-    idempotent: true
+    effect: none
     arguments:
       registry: s3://quilt-ernest-staging
       package_name: raw/test
@@ -145,7 +145,7 @@ test_tools:
   catalog_url:
     description: Generate Quilt catalog URL - Quilt authentication and catalog navigation
       workflows
-    idempotent: true
+    effect: none
     arguments:
       registry: s3://quilt-ernest-staging
       package_name: raw/test
@@ -162,7 +162,7 @@ test_tools:
   bucket_object_info:
     description: Get metadata information for a specific S3 object - S3 bucket exploration
       and object retrieval tasks
-    idempotent: true
+    effect: none
     arguments:
       s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
@@ -177,7 +177,7 @@ test_tools:
   bucket_object_link:
     description: Generate a presigned URL for downloading an S3 object - S3 bucket
       exploration and object retrieval tasks
-    idempotent: true
+    effect: none
     arguments:
       s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
@@ -192,7 +192,7 @@ test_tools:
   bucket_object_text:
     description: Read text content from an S3 object - S3 bucket exploration and object
       retrieval tasks
-    idempotent: true
+    effect: none
     arguments:
       s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
@@ -208,7 +208,7 @@ test_tools:
   bucket_object_fetch:
     description: Fetch binary or text data from an S3 object - S3 bucket exploration
       and object retrieval tasks
-    idempotent: true
+    effect: none
     arguments:
       s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
@@ -224,7 +224,7 @@ test_tools:
   package_browse:
     description: Browse the contents of a Quilt package with enhanced file information
       - Quilt package discovery and comparison tasks
-    idempotent: true
+    effect: none
     arguments:
       package_name: raw/test
       registry: s3://quilt-ernest-staging
@@ -243,7 +243,7 @@ test_tools:
   package_diff:
     description: Compare two package versions and show differences - Quilt package
       discovery and comparison tasks
-    idempotent: true
+    effect: none
     arguments:
       package1_name: raw/test
       package2_name: raw/test
@@ -260,7 +260,7 @@ test_tools:
   athena_query_validate:
     description: Validate SQL query syntax without executing it - Athena querying
       and Glue catalog inspection workflows
-    idempotent: true
+    effect: none
     arguments:
       query: SHOW TABLES
     response_schema:
@@ -275,7 +275,7 @@ test_tools:
   athena_query_execute:
     description: Execute SQL query against Athena using SQLAlchemy/PyAthena - Athena
       querying and Glue catalog inspection workflows
-    idempotent: true
+    effect: configure
     arguments:
       query: SELECT 1 as test_value
       max_results: 10
@@ -290,7 +290,7 @@ test_tools:
       - content
   tabulator_bucket_query:
     description: Execute a bucket-scoped tabulator query (legacy tool signature).
-    idempotent: true
+    effect: none
     arguments:
       bucket_name: quilt-ernest-staging
       query: SELECT 1 as test_value
@@ -306,7 +306,7 @@ test_tools:
       - content
   tabulator_open_query_status:
     description: Return tabulator open query flag.
-    idempotent: true
+    effect: none
     arguments: {}
     response_schema:
       type: object
@@ -319,7 +319,7 @@ test_tools:
       - content
   tabulator_table_rename:
     description: Rename tabulator table (legacy tool signature).
-    idempotent: false
+    effect: update
     arguments:
       bucket_name: quilt-ernest-staging
       table_name: test_table_nonexistent
@@ -336,7 +336,7 @@ test_tools:
   workflow_template_apply:
     description: Apply a pre-defined workflow template - Workflow tracking and orchestration
       tasks
-    idempotent: true
+    effect: configure
     arguments:
       template_name: cross-package-aggregation
       workflow_id: test-wf-001
@@ -356,7 +356,7 @@ test_tools:
 test_resources:
   admin://users:
     description: List all users in the registry.
-    idempotent: true
+    effect: none
     uri: admin://users
     uri_variables: {}
     expected_mime_type: application/json
@@ -369,7 +369,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   admin://roles:
     description: List all available roles.
-    idempotent: true
+    effect: none
     uri: admin://roles
     uri_variables: {}
     expected_mime_type: application/json
@@ -382,7 +382,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   admin://config:
     description: Combined admin configuration resource.
-    idempotent: true
+    effect: none
     uri: admin://config
     uri_variables: {}
     expected_mime_type: application/json
@@ -395,7 +395,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   auth://status:
     description: Authentication status and configuration.
-    idempotent: true
+    effect: none
     uri: auth://status
     uri_variables: {}
     expected_mime_type: application/json
@@ -408,7 +408,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   auth://catalog/info:
     description: Catalog configuration details.
-    idempotent: true
+    effect: none
     uri: auth://catalog/info
     uri_variables: {}
     expected_mime_type: application/json
@@ -421,7 +421,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   auth://filesystem/status:
     description: Filesystem access status.
-    idempotent: true
+    effect: none
     uri: auth://filesystem/status
     uri_variables: {}
     expected_mime_type: application/json
@@ -434,7 +434,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   permissions://discover:
     description: AWS permissions discovery.
-    idempotent: true
+    effect: none
     uri: permissions://discover
     uri_variables: {}
     expected_mime_type: application/json
@@ -447,7 +447,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   permissions://recommendations:
     description: Bucket recommendations based on permissions.
-    idempotent: true
+    effect: none
     uri: permissions://recommendations
     uri_variables: {}
     expected_mime_type: application/json
@@ -460,7 +460,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   permissions://buckets/{bucket}/access:
     description: Bucket-specific access check.
-    idempotent: true
+    effect: none
     uri: permissions://buckets/{bucket}/access
     uri_variables:
       bucket: quilt-ernest-staging
@@ -474,7 +474,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   admin://config/sso:
     description: SSO configuration.
-    idempotent: true
+    effect: none
     uri: admin://config/sso
     uri_variables: {}
     expected_mime_type: application/json
@@ -487,7 +487,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   admin://config/tabulator:
     description: Tabulator open query configuration.
-    idempotent: true
+    effect: none
     uri: admin://config/tabulator
     uri_variables: {}
     expected_mime_type: application/json
@@ -500,7 +500,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   admin://users/{name}:
     description: Get specific user details.
-    idempotent: true
+    effect: none
     uri: admin://users/{name}
     uri_variables:
       name: test_user
@@ -514,7 +514,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   athena://databases:
     description: List available Athena databases.
-    idempotent: true
+    effect: none
     uri: athena://databases
     uri_variables: {}
     expected_mime_type: application/json
@@ -527,7 +527,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   athena://workgroups:
     description: List available Athena workgroups.
-    idempotent: true
+    effect: none
     uri: athena://workgroups
     uri_variables: {}
     expected_mime_type: application/json
@@ -540,7 +540,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   athena://queries/history:
     description: Athena query execution history.
-    idempotent: true
+    effect: none
     uri: athena://queries/history
     uri_variables: {}
     expected_mime_type: application/json
@@ -553,7 +553,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   athena://databases/{database}/tables/{table}/schema:
     description: Get table schema.
-    idempotent: true
+    effect: none
     uri: athena://databases/{database}/tables/{table}/schema
     uri_variables:
       database: default
@@ -568,7 +568,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   metadata://templates:
     description: List available metadata templates.
-    idempotent: true
+    effect: none
     uri: metadata://templates
     uri_variables: {}
     expected_mime_type: application/json
@@ -581,7 +581,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   metadata://examples:
     description: Show metadata usage examples.
-    idempotent: true
+    effect: none
     uri: metadata://examples
     uri_variables: {}
     expected_mime_type: application/json
@@ -594,7 +594,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   metadata://troubleshooting:
     description: Metadata validation troubleshooting guide.
-    idempotent: true
+    effect: none
     uri: metadata://troubleshooting
     uri_variables: {}
     expected_mime_type: application/json
@@ -607,7 +607,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   metadata://templates/{name}:
     description: Get a specific metadata template.
-    idempotent: true
+    effect: none
     uri: metadata://templates/{name}
     uri_variables:
       name: test_user
@@ -621,7 +621,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   workflow://workflows:
     description: List all workflows.
-    idempotent: true
+    effect: none
     uri: workflow://workflows
     uri_variables: {}
     expected_mime_type: application/json
@@ -634,7 +634,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   workflow://workflows/{id}:
     description: Get specific workflow status.
-    idempotent: true
+    effect: none
     uri: workflow://workflows/{id}
     uri_variables:
       id: test-workflow-001
@@ -648,7 +648,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   tabulator://buckets:
     description: List all buckets in Tabulator catalog.
-    idempotent: true
+    effect: none
     uri: tabulator://buckets
     uri_variables: {}
     expected_mime_type: application/json
@@ -661,7 +661,7 @@ test_resources:
         description: Auto-generated basic schema - customize as needed
   tabulator://buckets/{bucket}/tables:
     description: List tables for a specific bucket.
-    idempotent: true
+    effect: none
     uri: tabulator://buckets/{bucket}/tables
     uri_variables:
       bucket: quilt-ernest-staging

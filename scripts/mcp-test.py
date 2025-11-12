@@ -182,14 +182,15 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
     success_count = 0
     total_count = len(test_tools)
 
-    # Track non-idempotent tools
-    all_non_idempotent = set()
-    tested_non_idempotent = set()
+    # Track tools by effect type
+    all_side_effects = set()  # Tools with side effects (not 'none')
+    tested_side_effects = set()
 
-    # First pass: identify all non-idempotent tools in config
+    # First pass: identify all tools with side effects in config
     for tool_name, tool_config in config.get("test_tools", {}).items():
-        if not tool_config.get("idempotent", True):
-            all_non_idempotent.add(tool_name)
+        effect = tool_config.get("effect", "none")
+        if effect != "none":
+            all_side_effects.add(tool_name)
 
     print(f"\n🧪 Running tools test ({total_count} tools)...")
 
@@ -214,23 +215,26 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
             success_count += 1
             print(f"✅ {tool_name}: PASSED")
 
-            # Track if non-idempotent tool was tested
-            if not test_config.get("idempotent", True):
-                tested_non_idempotent.add(tool_name)
+            # Track if tool with side effects was tested
+            effect = test_config.get("effect", "none")
+            if effect != "none":
+                tested_side_effects.add(tool_name)
 
         except Exception as e:
             print(f"❌ {tool_name}: FAILED - {e}")
 
     print(f"\n📊 Test Results: {success_count}/{total_count} tools passed")
 
-    # Report untested non-idempotent tools
-    untested_non_idempotent = all_non_idempotent - tested_non_idempotent
-    if untested_non_idempotent:
-        print(f"\n⚠️  Non-idempotent tools NOT tested ({len(untested_non_idempotent)}):")
-        for tool in sorted(untested_non_idempotent):
-            print(f"  • {tool}")
-    elif all_non_idempotent:
-        print(f"\n✅ All {len(all_non_idempotent)} non-idempotent tools were tested")
+    # Report untested tools with side effects
+    untested_side_effects = all_side_effects - tested_side_effects
+    if untested_side_effects:
+        print(f"\n⚠️  Tools with side effects NOT tested ({len(untested_side_effects)}):")
+        for tool in sorted(untested_side_effects):
+            # Get effect type for each untested tool
+            effect = config.get("test_tools", {}).get(tool, {}).get("effect", "unknown")
+            print(f"  • {tool} (effect: {effect})")
+    elif all_side_effects:
+        print(f"\n✅ All {len(all_side_effects)} tools with side effects were tested")
 
     return success_count == total_count
 
@@ -260,11 +264,19 @@ def run_resources_test(
 
     print(f"\n🗂️  Running resources test ({total_count} resources)...")
 
-    # First, list available resources
+    # First, list available resources and templates
     try:
-        available_resources = tester.list_resources()
+        result = tester.list_resources()
+
+        # FastMCP returns both 'resources' (static) and 'resourceTemplates' (templated)
+        available_resources = result.get("resources", [])
+        available_templates = result.get("resourceTemplates", [])
+
+        # Combine URIs from both lists
         available_uris = {r["uri"] for r in available_resources}
-        print(f"📋 Server provides {len(available_resources)} resources")
+        available_template_patterns = {t["uriTemplate"] for t in available_templates}
+
+        print(f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates")
     except Exception as e:
         print(f"❌ Failed to list resources: {e}")
         return False
@@ -290,11 +302,20 @@ def run_resources_test(
             if skip_resource:
                 continue
 
-            # Check if resource exists
-            if uri not in available_uris:
-                fail_count += 1
-                print(f"  ❌ Resource not found in server")
-                continue
+            # Check if resource exists (check both static resources and templates)
+            is_templated = '{' in uri_pattern
+            if is_templated:
+                # For templates, check if the pattern is in resourceTemplates
+                if uri_pattern not in available_template_patterns:
+                    fail_count += 1
+                    print(f"  ❌ Template not found in server resourceTemplates")
+                    continue
+            else:
+                # For static resources, check if URI is in resources list
+                if uri not in available_uris:
+                    fail_count += 1
+                    print(f"  ❌ Resource not found in server resources")
+                    continue
 
             # Read the resource
             result = tester.read_resource(uri)
