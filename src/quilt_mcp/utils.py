@@ -389,15 +389,16 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
             description = resource_info["description"]
             mime_type = resource_info["mimeType"]
 
-            # Register with FastMCP using the new Resource.from_function API
-            resource = Resource.from_function(
+            # Use add_resource_fn which automatically detects whether this is a template
+            # (based on URI containing {params} and/or function having parameters)
+            # and registers it as either a resource or template appropriately
+            mcp.add_resource_fn(
                 fn=create_handler(uri),
                 uri=uri,
                 name=name,
                 description=description,
                 mime_type=mime_type,
             )
-            mcp.add_resource(resource)
 
         if verbose:
             print(f"Registered {len(resources)} MCP resources", file=sys.stderr)

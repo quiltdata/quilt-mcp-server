@@ -264,9 +264,25 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         handler = server_tools[tool_name]
         doc = inspect.getdoc(handler.fn) or "No description available"
 
-        # Determine if operation is idempotent
-        non_idempotent_keywords = ['create', 'update', 'delete', 'put', 'upload', 'set', 'add', 'remove', 'reset', 'rename']
-        is_idempotent = not any(keyword in tool_name.lower() for keyword in non_idempotent_keywords)
+        # Classify tool by effect type
+        def classify_effect(name: str) -> str:
+            """Classify tool effect based on operation keywords in name."""
+            name_lower = name.lower()
+
+            # Order matters: check more specific patterns first
+            if any(kw in name_lower for kw in ['create', 'put', 'upload', 'set']):
+                return 'create'
+            if any(kw in name_lower for kw in ['delete', 'remove', 'reset']):
+                return 'remove'
+            if any(kw in name_lower for kw in ['update', 'add', 'rename']):
+                return 'update'
+            if any(kw in name_lower for kw in ['configure', 'toggle', 'apply', 'execute', 'generate']):
+                return 'configure'
+
+            # Default: read-only operation
+            return 'none'
+
+        effect = classify_effect(tool_name)
 
         # Check if this tool has variants
         if tool_name in tool_variants:
@@ -290,7 +306,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
                     test_case = {
                         "tool": tool_name,  # Store the actual tool name
                         "description": doc.split('\n')[0],
-                        "idempotent": is_idempotent,
+                        "effect": effect,
                         "arguments": arguments,
                         "response_schema": {
                             "type": "object",
@@ -311,7 +327,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
             # Single test case for tools without variants
             test_case = {
                 "description": doc.split('\n')[0],
-                "idempotent": is_idempotent,
+                "effect": effect,
                 "arguments": custom_configs.get(tool_name, {}),
                 "response_schema": {
                     "type": "object",
@@ -342,7 +358,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         # Build basic test case structure - default to JSON since most resources return JSON
         test_case = {
             "description": doc.split('\n')[0],
-            "idempotent": True,  # Resources are generally read-only
+            "effect": "none",  # Resources are read-only
             "uri": uri_pattern,
             "uri_variables": {},
             "expected_mime_type": "application/json",  # Default to JSON
@@ -358,23 +374,32 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         }
 
         # Detect URI template variables (e.g., {database}, {table}, {bucket})
+        # FastMCP supports templated URIs when registered with add_resource_fn
+        # The client expands templates with actual values, and FastMCP handles routing
         variables = re.findall(r'\{(\w+)\}', uri_pattern)
         for var in variables:
-            # NOTE: FastMCP doesn't currently support testing templated resources via MCP protocol
-            # The template URIs are registered with FastMCP, but when you send a request with
-            # actual values (like permissions://buckets/my-bucket/access), FastMCP returns
-            # "Unknown resource" instead of matching the pattern and extracting parameters.
-            #
-            # Until FastMCP properly supports URI template matching in resources/read requests,
-            # we mark all templated resources as needing configuration (skipped in tests).
-            #
-            # TODO: Once FastMCP supports templated resource URIs, we can substitute:
-            #   - bucket: use bucket_name from QUILT_DEFAULT_BUCKET
-            #   - database: could use a test database name
-            #   - table: could use a test table name
-            #   - name: could use a test user name
-            #   - id: could use a test workflow ID
-            test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
+            # Substitute test values for common template variables
+            if var == "bucket":
+                # Use bucket name from QUILT_DEFAULT_BUCKET environment variable
+                default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+                # Extract bucket name from s3:// URI
+                bucket_name = default_bucket.replace("s3://", "").split("/")[0] if default_bucket.startswith("s3://") else default_bucket
+                test_case["uri_variables"][var] = bucket_name
+            elif var == "database":
+                # Use default test database
+                test_case["uri_variables"][var] = "default"
+            elif var == "table":
+                # Use a test table name
+                test_case["uri_variables"][var] = "test_table"
+            elif var == "name":
+                # Use a test user name
+                test_case["uri_variables"][var] = "test_user"
+            elif var == "id":
+                # Use a test workflow ID
+                test_case["uri_variables"][var] = "test-workflow-001"
+            else:
+                # For unknown variables, mark as needing configuration
+                test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
 
         # Infer content type from resource class or URI pattern
         # Most resources return JSON by default (via ResourceResponse default mime_type)
