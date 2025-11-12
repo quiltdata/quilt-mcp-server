@@ -173,6 +173,112 @@ class DockerMCPServer:
                 print(f"Could not read stderr: {e}")
 
 
+class LocalMCPServer:
+    """Manages local MCP server process lifecycle for testing."""
+
+    def __init__(self, python_path: Optional[str] = None):
+        """Initialize local server configuration.
+
+        Args:
+            python_path: Path to Python executable (default: uv's Python)
+        """
+        self.python_path = python_path or sys.executable
+        self.process: Optional[subprocess.Popen] = None
+        self.server_id = f"local-{uuid.uuid4().hex[:8]}"
+
+    def start(self) -> bool:
+        """Start MCP server as local subprocess with stdio transport.
+
+        Returns:
+            True if server started successfully, False otherwise
+        """
+        print(f"🚀 Starting local MCP server...")
+        print(f"   Python: {self.python_path}")
+        print(f"   Server ID: {self.server_id}")
+
+        try:
+            # Build environment with necessary variables
+            env = os.environ.copy()
+            env["FASTMCP_TRANSPORT"] = "stdio"
+
+            # Optional: inherit AWS credentials from environment
+            # (already present in env if user is configured)
+
+            # Start server process using uv
+            cmd = [
+                "uv", "run",
+                "python", "src/main.py",
+                "--skip-banner"
+            ]
+
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,  # Line buffered
+                cwd=REPO_ROOT,  # Run from repo root
+                env=env
+            )
+
+            # Brief wait for startup
+            time.sleep(0.5)  # Much faster than Docker's 2s
+
+            # Check if process is still running
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read() if self.process.stderr else ""
+                print(f"❌ Server exited immediately")
+                print(f"   stderr: {stderr}")
+                return False
+
+            print(f"✅ Server started (PID: {self.process.pid})")
+            return True
+
+        except Exception as e:
+            print(f"❌ Failed to start server: {e}")
+            return False
+
+    def stop(self):
+        """Stop local server process."""
+        if not self.process:
+            return
+
+        print(f"\n🛑 Stopping server {self.server_id}...")
+        try:
+            # Send SIGTERM for graceful shutdown
+            self.process.terminate()
+            try:
+                # Wait for graceful shutdown (shorter timeout than Docker)
+                self.process.wait(timeout=3)
+                print("✅ Server stopped gracefully")
+            except subprocess.TimeoutExpired:
+                print("⚠️  Timeout, force killing...")
+                self.process.kill()
+                self.process.wait()
+                print("✅ Server force-stopped")
+        except Exception as e:
+            print(f"⚠️  Error during cleanup: {e}")
+            if self.process:
+                try:
+                    self.process.kill()
+                except:
+                    pass
+
+    def logs(self, tail: int = 50):
+        """Print server stderr output."""
+        if not self.process or not self.process.stderr:
+            return
+
+        print(f"\n📋 Server stderr output:")
+        try:
+            stderr_lines = self.process.stderr.readlines()
+            for line in stderr_lines[-tail:]:
+                print(line.rstrip())
+        except Exception as e:
+            print(f"Could not read stderr: {e}")
+
+
 def generate_test_config() -> bool:
     """Generate test configuration using mcp-list.py."""
     print("🔧 Generating test configuration...")
