@@ -295,12 +295,14 @@ Simple, consistent result structure:
 ### Context Management Parameters
 
 **`include_metadata` (default: True)**
+
 - Controls whether rich metadata is included in result objects
 - Set to `False` for lightweight responses when you only need basic info (title, URI)
 - Useful for context management when you want to minimize token usage
 - Example: List of files vs. detailed file information
 
 **`explain_query` (default: False)**
+
 - When `True`, includes query execution details in response
 - Shows backend selection reasoning, index selection, query parsing
 - Useful for debugging and understanding how searches work
