@@ -360,9 +360,20 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         # Detect URI template variables (e.g., {database}, {table}, {bucket})
         variables = re.findall(r'\{(\w+)\}', uri_pattern)
         for var in variables:
-            # Templated resources can't be tested directly - they need specific values
-            # Mark all templated resources as needing configuration for now
-            # TODO: In future, we could add test data for common resource patterns
+            # NOTE: FastMCP doesn't currently support testing templated resources via MCP protocol
+            # The template URIs are registered with FastMCP, but when you send a request with
+            # actual values (like permissions://buckets/my-bucket/access), FastMCP returns
+            # "Unknown resource" instead of matching the pattern and extracting parameters.
+            #
+            # Until FastMCP properly supports URI template matching in resources/read requests,
+            # we mark all templated resources as needing configuration (skipped in tests).
+            #
+            # TODO: Once FastMCP supports templated resource URIs, we can substitute:
+            #   - bucket: use bucket_name from QUILT_DEFAULT_BUCKET
+            #   - database: could use a test database name
+            #   - table: could use a test table name
+            #   - name: could use a test user name
+            #   - id: could use a test workflow ID
             test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
 
         # Infer content type from resource class or URI pattern
