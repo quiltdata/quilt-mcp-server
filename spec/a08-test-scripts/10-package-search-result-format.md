@@ -374,3 +374,9 @@ package_name = result.package_name
 - [ ] All unit tests pass
 - [ ] Integration test confirms format improvement
 - [ ] No regression in bucket search results
+
+## NOTES
+
+1. package search with '/' causes errors
+2. grapqhl package search returns bucket search
+

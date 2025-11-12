@@ -167,12 +167,15 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
     for tool_name, test_config in test_tools.items():
         try:
             print(f"\n--- Testing tool: {tool_name} ---")
-            
+
             # Get test arguments
             test_args = test_config.get("arguments", {})
-            
+
+            # Get actual tool name (for variants, use "tool" field)
+            actual_tool_name = test_config.get("tool", tool_name)
+
             # Call the tool
-            result = tester.call_tool(tool_name, test_args)
+            result = tester.call_tool(actual_tool_name, test_args)
             
             # Validate response if schema provided
             if "response_schema" in test_config:

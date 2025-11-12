@@ -40,15 +40,52 @@ test_tools:
             type: object
       required:
       - content
-  search_catalog:
-    description: Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL)
+  search_catalog.global:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    idempotent: true
+    arguments:
+      query: README.md
+      limit: 10
+      scope: global
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_catalog.bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    idempotent: true
+    arguments:
+      query: README.md
+      limit: 10
+      scope: bucket
+      target: s3://quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_catalog.package:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
     idempotent: true
     arguments:
       query: raw/test
       limit: 10
-      scope: bucket
-      target: s3://quilt-ernest-staging
+      scope: package
     response_schema:
       type: object
       properties:

@@ -184,6 +184,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
     default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
     catalog_domain = env_vars.get("QUILT_CATALOG_DOMAIN", "open.quiltdata.com")
     test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
+    test_entry = env_vars.get("QUILT_TEST_ENTRY", ".timestamp")
     bucket_name = default_bucket.replace("s3://", "").split("/")[0]
 
     # Define test execution order and custom configurations
@@ -218,11 +219,23 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         "workflow_template_apply",
     ]
 
+    # Tools with multiple test variants based on parameter combinations
+    # Format: tool_name -> {"param_name": [test_value1, test_value2, ...]}
+    # Special handling: if variant name contains "package", uses QUILT_TEST_PACKAGE, else QUILT_TEST_ENTRY
+    tool_variants = {
+        "search_catalog": {
+            "scope": ["global", "bucket", "package"]
+        }
+    }
+
     # Custom test configurations for specific tools
+    # For tools with variants, use tool_name.variant_value format
     custom_configs = {
         "catalog_configure": {"catalog_url": catalog_domain},
         "bucket_objects_list": {"bucket": bucket_name, "prefix": f"{test_package}/", "max_keys": 5},
-        "search_catalog": {"query": test_package, "limit": 10, "scope": "bucket", "target": default_bucket},
+        "search_catalog.global": {"query": test_entry, "limit": 10, "scope": "global"},
+        "search_catalog.bucket": {"query": test_entry, "limit": 10, "scope": "bucket", "target": default_bucket},
+        "search_catalog.package": {"query": test_package, "limit": 10, "scope": "package"},
         "search_explain": {"query": "CSV files"},
         "search_suggest": {"partial_query": test_package[:5], "limit": 5},
         "catalog_uri": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
@@ -253,26 +266,66 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         non_idempotent_keywords = ['create', 'update', 'delete', 'put', 'upload', 'set', 'add', 'remove', 'reset', 'rename']
         is_idempotent = not any(keyword in tool_name.lower() for keyword in non_idempotent_keywords)
 
-        # Build test case
-        test_case = {
-            "description": doc.split('\n')[0],
-            "idempotent": is_idempotent,
-            "arguments": custom_configs.get(tool_name, {}),
-            "response_schema": {
-                "type": "object",
-                "properties": {
-                    "content": {
-                        "type": "array",
-                        "items": {
-                            "type": "object"
+        # Check if this tool has variants
+        if tool_name in tool_variants:
+            # Generate test cases for each variant
+            for param_name, param_values in tool_variants[tool_name].items():
+                for param_value in param_values:
+                    variant_key = f"{tool_name}.{param_value}"
+
+                    # Get custom config or use the variant value
+                    if variant_key in custom_configs:
+                        arguments = custom_configs[variant_key]
+                    else:
+                        # Auto-generate based on variant: "package" uses TEST_PACKAGE, others use TEST_ENTRY
+                        query_value = test_package if "package" in param_value else test_entry
+                        arguments = {"query": query_value, "limit": 10, param_name: param_value}
+
+                        # Add target for bucket scope
+                        if param_value == "bucket":
+                            arguments["target"] = default_bucket
+
+                    test_case = {
+                        "tool": tool_name,  # Store the actual tool name
+                        "description": doc.split('\n')[0],
+                        "idempotent": is_idempotent,
+                        "arguments": arguments,
+                        "response_schema": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            },
+                            "required": ["content"]
                         }
                     }
-                },
-                "required": ["content"]
-            }
-        }
 
-        test_config["test_tools"][tool_name] = test_case
+                    test_config["test_tools"][variant_key] = test_case
+        else:
+            # Single test case for tools without variants
+            test_case = {
+                "description": doc.split('\n')[0],
+                "idempotent": is_idempotent,
+                "arguments": custom_configs.get(tool_name, {}),
+                "response_schema": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "required": ["content"]
+                }
+            }
+
+            test_config["test_tools"][tool_name] = test_case
 
     # Write YAML with nice formatting
     with open(output_file, 'w', encoding='utf-8') as f:
