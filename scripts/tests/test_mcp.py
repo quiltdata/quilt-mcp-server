@@ -436,8 +436,11 @@ def run_tests_stdio(
                 start_time = time.time()
                 test_args = test_config.get("arguments", {}).copy()
 
+                # Get actual tool name (for variants, use "tool" field)
+                actual_tool_name = test_config.get("tool", tool_name)
+
                 # Use discovered data to populate test arguments dynamically
-                if tool_name == 'search_catalog':
+                if actual_tool_name == 'search_catalog':
                     # Search runs first to discover data
                     pass
                 elif discovered_data['package_name']:
@@ -463,7 +466,7 @@ def run_tests_stdio(
                     "id": request_id,
                     "method": "tools/call",
                     "params": {
-                        "name": tool_name,
+                        "name": actual_tool_name,
                         "arguments": test_args
                     }
                 }
@@ -561,7 +564,7 @@ def run_tests_stdio(
                         failure_reason = tool_result_text
 
                 # Extract test data from successful search results
-                if not test_failed and not test_skipped and tool_name == 'search_catalog' and tool_result_data:
+                if not test_failed and not test_skipped and actual_tool_name == 'search_catalog' and tool_result_data:
                     if tool_result_data.get("success") and tool_result_data.get("results"):
                         results = tool_result_data["results"]
                         if len(results) > 0:
