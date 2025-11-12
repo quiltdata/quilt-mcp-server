@@ -702,6 +702,9 @@ Examples:
 
     args = parser.parse_args()
 
+    # Determine mode
+    mode = determine_server_mode(args)
+
     # Generate test configuration
     if not args.no_generate:
         if not generate_test_config():
@@ -716,25 +719,26 @@ Examples:
         print("🔓 Running ALL tests (including write operations)")
         tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=False)
     else:
-        print("===🧪 Running MCP server integration tests (idempotent only)...")
+        mode_desc = "local" if mode == "local" else "Docker"
+        print(f"🧪 Running MCP server integration tests ({mode_desc} mode, idempotent only)...")
         tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=True)
 
     print(f"📋 Selected {len(tools)} tools for testing")
 
-    # Start Docker container if needed
+    # Start server based on mode
     server = None
-    if not args.no_docker:
+    if mode == "local":
+        server = LocalMCPServer(python_path=args.python)
+        if not server.start():
+            sys.exit(1)
+    else:  # docker
         server = DockerMCPServer(image=args.image, port=args.port)
         if not server.start():
             sys.exit(1)
 
     try:
-        # Run tests using stdio transport
-        if server:
-            success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
-        else:
-            print("❌ No server available for testing")
-            success = False
+        # Run tests using stdio transport (works with both modes)
+        success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
 
         # Show logs if requested
         if args.logs and server:
@@ -743,12 +747,17 @@ Examples:
         sys.exit(0 if success else 1)
 
     finally:
-        # Clean up Docker container
+        # Clean up server
         if server and not args.keep_container:
             server.stop()
-        elif server and args.keep_container:
-            print(f"\n💡 Container kept running: {server.container_name}")
-            print(f"   Note: Container is using stdio, cannot connect externally")
+        elif server:
+            if mode == "local":
+                print(f"\n💡 Server kept running: {server.server_id}")
+                print(f"   PID: {server.process.pid}")
+                print(f"   Note: Server is using stdio, cannot connect externally")
+            else:
+                print(f"\n💡 Container kept running: {server.container_name}")
+                print(f"   Note: Container is using stdio, cannot connect externally")
 
 
 if __name__ == "__main__":
