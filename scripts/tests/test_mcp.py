@@ -4,25 +4,26 @@ Comprehensive MCP server testing script.
 
 This script:
 1. Generates test configuration using mcp-list.py
-2. Launches MCP server in Docker container
-3. Runs tool tests via stdio transport with configurable test selection
-4. Cleans up Docker container on exit
+2. Launches MCP server (Docker container or local process)
+3. Runs tool/resource tests via stdio transport (delegates to mcp-test.py)
+4. Cleans up server on exit
 
 By default, only runs idempotent (read-only) tests.
 
-Note: This script does NOT use mcp-test.py (that's a separate HTTP-based manual testing tool).
-This script implements its own stdio-based testing via run_tests_stdio().
+Architecture:
+- This script manages server lifecycle (Docker/Local)
+- mcp-test.py handles all test execution logic (single source of truth)
+- Test logic is NOT duplicated here
 """
 
 import argparse
-import asyncio
 import os
 import subprocess
 import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 try:
     import yaml
@@ -326,34 +327,67 @@ def generate_test_config() -> bool:
         return False
 
 
-def filter_tests_by_idempotence(config_path: Path, idempotent_only: bool) -> list[str]:
-    """Filter test tools based on idempotence flag."""
+def filter_tests_by_idempotence(config_path: Path, idempotent_only: bool) -> tuple[list[str], dict]:
+    """Filter test tools based on effect classification.
+
+    Returns:
+        Tuple of (filtered_tool_names, stats_dict) where stats_dict contains:
+        - total_tools: total number of tools in config
+        - total_resources: total number of resources in config
+        - selected_tools: number of tools selected
+        - effect_counts: dict of effect type -> count of selected tools
+    """
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
     test_tools = config.get('test_tools', {})
+    test_resources = config.get('test_resources', {})
     filtered = []
+    effect_counts = {}
 
     for tool_name, tool_config in test_tools.items():
-        is_idempotent = tool_config.get('idempotent', True)
-        if idempotent_only and is_idempotent:
+        effect = tool_config.get('effect', 'none')
+
+        # Count by effect type
+        effect_counts[effect] = effect_counts.get(effect, 0) + 1
+
+        # Filter: idempotent_only means only 'none' effect
+        if idempotent_only and effect == 'none':
             filtered.append(tool_name)
         elif not idempotent_only:
             filtered.append(tool_name)
 
-    return filtered
+    stats = {
+        'total_tools': len(test_tools),
+        'total_resources': len(test_resources),
+        'selected_tools': len(filtered),
+        'effect_counts': effect_counts
+    }
+
+    return filtered, stats
 
 
 def run_tests_stdio(
-    server: DockerMCPServer,
+    server: Union[DockerMCPServer, LocalMCPServer],
     config_path: Path,
     tools: Optional[list[str]] = None,
     verbose: bool = False
 ) -> bool:
-    """Run MCP tests using stdio transport."""
-    import json
+    """Run MCP tests by delegating to mcp-test.py with stdio transport.
 
-    print(f"\n🧪 Running MCP tests (stdio)...")
+    This function eliminates code duplication by calling mcp-test.py as a module,
+    passing the server process object for direct stdio communication.
+
+    Args:
+        server: Running Docker/Local MCP server instance
+        config_path: Path to test configuration YAML
+        tools: Optional list of tool names to test (None = all tools in config)
+        verbose: Enable verbose test output
+
+    Returns:
+        True if all tests passed, False otherwise
+    """
+    print(f"\n🧪 Running MCP tests (stdio via mcp-test.py)...")
     print(f"   Config: {config_path}")
 
     if tools:
@@ -364,406 +398,82 @@ def run_tests_stdio(
         return False
 
     try:
+        # Import mcp-test as a module to use its functionality directly
+        sys.path.insert(0, str(SCRIPTS_DIR))
+        try:
+            from mcp_test import MCPTester, run_tools_test, load_test_config
+        except ImportError as e:
+            # Handle module name with dash by trying alternative import
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("mcp_test", MCP_TEST_SCRIPT)
+            if spec and spec.loader:
+                mcp_test = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mcp_test)
+                MCPTester = mcp_test.MCPTester
+                run_tools_test = mcp_test.run_tools_test
+                load_test_config = mcp_test.load_test_config
+            else:
+                print(f"❌ Failed to import mcp-test.py: {e}")
+                return False
+
+        # Create tester with stdio transport using server's process
+        tester = MCPTester(
+            process=server.process,
+            verbose=verbose,
+            transport="stdio"
+        )
+
+        # Initialize MCP session
+        tester.initialize()
+
         # Load test configuration
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_test_config(config_path)
 
-        test_tools = config.get("test_tools", {})
+        # Filter to specific tools if requested
         if tools:
-            test_tools = {k: v for k, v in test_tools.items() if k in tools}
+            test_tools = config.get("test_tools", {})
+            config["test_tools"] = {k: v for k, v in test_tools.items() if k in tools}
 
-        # Send initialize
-        init_request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "test", "version": "1.0"}
-            }
-        }
+        # Run tools test
+        success, results = run_tools_test(tester, config)
 
-        server.process.stdin.write(json.dumps(init_request) + "\n")
-        server.process.stdin.flush()
-        response = server.process.stdout.readline()
-
-        if verbose:
-            print(f"Initialize: {response[:100]}")
-
-        if not response or "error" in response:
-            print(f"❌ Initialize failed: {response}")
-            return False
-
-        # ✅ FIX: Send notifications/initialized notification (required by MCP protocol)
-        # This notification must be sent after receiving initialize response
-        # and before making any tool calls. Without it, the server remains in
-        # "initializing" state and rejects tool calls with error -32602.
-        initialized_notification = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized"
-            # Note: No "id" field - this is a notification, not a request
-        }
-
-        server.process.stdin.write(json.dumps(initialized_notification) + "\n")
-        server.process.stdin.flush()
-
-        # Give server a moment to process notification (no response expected)
-        time.sleep(0.5)
-
-        if verbose:
-            print("Sent notifications/initialized")
-
-        # Test each tool
-        success_count = 0
-        fail_count = 0
-        skip_count = 0
-        request_id = 2
-
-        # Store failed test details for summary at the end
-        failed_tests = []
-
-        # Store discovered test data from search
-        discovered_data = {
-            'package_name': None,
-            's3_uri': None,
-            'bucket': None,
-            'prefix': None
-        }
-
-        for tool_name, test_config in test_tools.items():
-            try:
-                start_time = time.time()
-                test_args = test_config.get("arguments", {}).copy()
-
-                # Get actual tool name (for variants, use "tool" field)
-                actual_tool_name = test_config.get("tool", tool_name)
-
-                # Use discovered data to populate test arguments dynamically
-                if actual_tool_name == 'search_catalog':
-                    # Search runs first to discover data
-                    pass
-                elif discovered_data['package_name']:
-                    # Use discovered data if available
-                    if 'package_name' in test_args and test_args.get('package_name') == 'DISCOVER':
-                        test_args['package_name'] = discovered_data['package_name']
-                    if 's3_uri' in test_args and test_args.get('s3_uri') == 'DISCOVER':
-                        test_args['s3_uri'] = discovered_data['s3_uri']
-                    if 'bucket' in test_args and test_args.get('bucket') == 'DISCOVER':
-                        test_args['bucket'] = discovered_data['bucket']
-                    if 'prefix' in test_args and test_args.get('prefix') == 'DISCOVER':
-                        test_args['prefix'] = discovered_data['prefix']
-
-                # Skip tests with unresolved CONFIGURE_ placeholders
-                if any(isinstance(v, str) and v.startswith('CONFIGURE_') for v in test_args.values()):
-                    skip_count += 1
-                    print(f"  ⏭️  {tool_name}: Skipped (needs configuration)")
-                    continue
-
-                # Call the tool
-                tool_request = {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "method": "tools/call",
-                    "params": {
-                        "name": actual_tool_name,
-                        "arguments": test_args
-                    }
-                }
-
-                if verbose:
-                    print(f"\nRequest: {json.dumps(tool_request, indent=2)}")
-
-                server.process.stdin.write(json.dumps(tool_request) + "\n")
-                server.process.stdin.flush()
-                response = server.process.stdout.readline()
-                elapsed = time.time() - start_time
-
-                if verbose:
-                    print(f"Response: {response[:200]}")
-
-                if not response:
-                    fail_count += 1
-                    print(f"  ❌ {tool_name}: No response ({elapsed:.2f}s)")
-                    continue
-
-                result = json.loads(response)
-
-                # Check for JSON-RPC level errors
-                if "error" in result:
-                    fail_count += 1
-                    error_msg = result['error'].get('message', 'Unknown error')
-                    print(f"  ❌ {tool_name}: {error_msg} ({elapsed:.2f}s)")
-                    failed_tests.append({
-                        'tool_name': tool_name,
-                        'error': error_msg,
-                        'elapsed': elapsed,
-                        'request': tool_request,
-                        'response': result
-                    })
-                    if verbose:
-                        print(f"     {result}")
-                    continue
-
-                # Extract tool result content
-                tool_result_text = None
-                tool_result_data = None
-                is_error = False
-
-                if "result" in result:
-                    tool_result = result["result"]
-
-                    # Check for isError flag
-                    if tool_result.get("isError"):
-                        is_error = True
-
-                    if "content" in tool_result:
-                        content = tool_result["content"]
-                        if isinstance(content, list) and len(content) > 0:
-                            first_item = content[0]
-                            if isinstance(first_item, dict) and "text" in first_item:
-                                tool_result_text = first_item["text"]
-                                # Try to parse as JSON to check for status/error fields
-                                try:
-                                    tool_result_data = json.loads(tool_result_text)
-                                except:
-                                    pass
-                        elif isinstance(content, str):
-                            tool_result_text = content
-                            try:
-                                tool_result_data = json.loads(content)
-                            except:
-                                pass
-
-                # Check tool result for error conditions
-                test_failed = False
-                test_skipped = False
-                failure_reason = None
-
-                if is_error:
-                    test_failed = True
-                    failure_reason = tool_result_text or "Tool marked as error"
-                elif tool_result_data:
-                    # Check for authorization failures (should skip, not fail)
-                    error_msg = tool_result_data.get("error", "")
-                    if "Unauthorized" in error_msg or "Access denied" in error_msg or "Forbidden" in error_msg:
-                        test_skipped = True
-                        failure_reason = "Authorization required"
-                    # Check various error patterns
-                    elif tool_result_data.get("status") == "error":
-                        test_failed = True
-                        failure_reason = tool_result_data.get("error") or tool_result_data.get("message") or "Status: error"
-                    elif tool_result_data.get("success") is False:
-                        test_failed = True
-                        failure_reason = tool_result_data.get("error") or "success: false"
-                    elif "error" in tool_result_data and tool_result_data["error"]:
-                        test_failed = True
-                        failure_reason = tool_result_data["error"]
-                    elif "Input validation error" in (tool_result_text or ""):
-                        test_failed = True
-                        failure_reason = tool_result_text
-
-                # Extract test data from successful search results
-                if not test_failed and not test_skipped and actual_tool_name == 'search_catalog' and tool_result_data:
-                    if tool_result_data.get("success") and tool_result_data.get("results"):
-                        results = tool_result_data["results"]
-                        if len(results) > 0:
-                            first_result = results[0]
-                            # Try to extract package info
-                            if first_result.get("package_name"):
-                                discovered_data['package_name'] = first_result["package_name"]
-                            # Try to extract S3 URI
-                            if first_result.get("s3_uri"):
-                                discovered_data['s3_uri'] = first_result["s3_uri"]
-                                # Parse bucket from S3 URI
-                                if discovered_data['s3_uri'].startswith('s3://'):
-                                    parts = discovered_data['s3_uri'][5:].split('/', 1)
-                                    discovered_data['bucket'] = parts[0]
-                                    if len(parts) > 1:
-                                        discovered_data['prefix'] = parts[1].rsplit('/', 1)[0]
-
-                if test_skipped:
-                    skip_count += 1
-                    print(f"  ⏭️  {tool_name}: {failure_reason} ({elapsed:.2f}s)")
-                elif test_failed:
-                    fail_count += 1
-                    # Truncate long error messages for inline display
-                    display_reason = failure_reason
-                    if len(failure_reason) > 200:
-                        display_reason = failure_reason[:200] + "..."
-                    print(f"  ❌ {tool_name}: {display_reason} ({elapsed:.2f}s)")
-
-                    # Store full details for summary
-                    failed_tests.append({
-                        'tool_name': tool_name,
-                        'error': failure_reason,  # Full error message
-                        'elapsed': elapsed,
-                        'request': tool_request,
-                        'response': result,
-                        'tool_result_text': tool_result_text
-                    })
-
-                    if verbose and tool_result_text:
-                        if len(tool_result_text) > 500:
-                            print(f"     Result: {tool_result_text[:500]}...")
-                        else:
-                            print(f"     Result: {tool_result_text}")
-                else:
-                    success_count += 1
-                    print(f"  ✅ {tool_name} ({elapsed:.2f}s)")
-
-                    # Show tool result content in verbose mode
-                    if verbose and tool_result_text:
-                        if len(tool_result_text) > 500:
-                            print(f"     Result: {tool_result_text[:500]}...")
-                        else:
-                            print(f"     Result: {tool_result_text}")
-
-                request_id += 1
-
-            except Exception as e:
-                fail_count += 1
-                error_msg = str(e)
-                print(f"  ❌ {tool_name}: {error_msg}")
-                failed_tests.append({
-                    'tool_name': tool_name,
-                    'error': error_msg,
-                    'elapsed': 0,
-                    'exception': True,
-                    'traceback': None
-                })
-                if verbose:
-                    import traceback
-                    tb = traceback.format_exc()
-                    failed_tests[-1]['traceback'] = tb
-                    print(f"     {tb}")
-
-        print(f"\n📊 Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {len(test_tools)} total)")
-
-        # Print detailed failure summary if there were failures
-        if failed_tests:
-            print(f"\n{'='*80}")
-            print("❌ FAILED TESTS SUMMARY")
-            print(f"{'='*80}")
-            for i, failure in enumerate(failed_tests, 1):
-                print(f"\n[{i}] {failure['tool_name']}")
-                print(f"    Error: {failure['error']}")
-                print(f"    Time: {failure['elapsed']:.2f}s")
-
-                # Show request details
-                if 'request' in failure:
-                    print(f"    Request:")
-                    print(f"      Method: {failure['request']['method']}")
-                    print(f"      Arguments: {json.dumps(failure['request']['params'].get('arguments', {}), indent=8)}")
-
-                # Show response/result details
-                if 'tool_result_text' in failure and failure['tool_result_text']:
-                    print(f"    Tool Result:")
-                    result_text = failure['tool_result_text']
-                    # Truncate very long results
-                    if len(result_text) > 1000:
-                        print(f"      {result_text[:1000]}...")
-                    else:
-                        print(f"      {result_text}")
-                elif 'response' in failure:
-                    print(f"    Response: {json.dumps(failure['response'], indent=8)[:500]}")
-
-                # Show traceback for exceptions
-                if failure.get('exception') and failure.get('traceback'):
-                    print(f"    Traceback:")
-                    for line in failure['traceback'].split('\n'):
-                        if line.strip():
-                            print(f"      {line}")
-
-            print(f"\n{'='*80}")
-            print(f"Total Failures: {len(failed_tests)}")
-            print(f"{'='*80}\n")
-
-        return fail_count == 0
+        return success
 
     except Exception as e:
         print(f"❌ Test execution failed: {e}")
         if verbose:
             import traceback
-            print(traceback.format_exc())
+            traceback.print_exc()
         return False
-
-
-def initialize_server_session(server, verbose: bool = False) -> bool:
-    """Initialize MCP server session with proper handshake.
-
-    Args:
-        server: Running Docker/Local MCP server instance
-        verbose: Enable verbose output
-
-    Returns:
-        True if initialization succeeded, False otherwise
-    """
-    import json
-
-    # Send initialize request
-    init_request = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "test", "version": "1.0"}
-        }
-    }
-
-    server.process.stdin.write(json.dumps(init_request) + "\n")
-    server.process.stdin.flush()
-    response = server.process.stdout.readline()
-
-    if verbose:
-        print(f"Initialize: {response[:100]}")
-
-    if not response or "error" in response:
-        print(f"❌ Initialize failed: {response}")
-        return False
-
-    # Send notifications/initialized notification (required by MCP protocol)
-    initialized_notification = {
-        "jsonrpc": "2.0",
-        "method": "notifications/initialized"
-    }
-
-    server.process.stdin.write(json.dumps(initialized_notification) + "\n")
-    server.process.stdin.flush()
-
-    # Give server a moment to process notification (no response expected)
-    time.sleep(0.5)
-
-    if verbose:
-        print("Sent notifications/initialized")
-
-    return True
+    finally:
+        # Clean up sys.path
+        if str(SCRIPTS_DIR) in sys.path:
+            sys.path.remove(str(SCRIPTS_DIR))
 
 
 def run_resource_tests_stdio(
-    server,
+    server: Union[DockerMCPServer, LocalMCPServer],
     config_path: Path,
     resources: Optional[list[str]] = None,
     verbose: bool = False,
     skip_init: bool = False
 ) -> bool:
-    """Run MCP resource tests using stdio transport.
+    """Run MCP resource tests by delegating to mcp-test.py with stdio transport.
+
+    This function eliminates code duplication by calling mcp-test.py as a module,
+    passing the server process object for direct stdio communication.
 
     Args:
         server: Running Docker/Local MCP server instance
-        config_path: Path to mcp-test.yaml configuration
-        resources: Optional list of resource URIs to test (None = all)
-        verbose: Enable verbose output
+        config_path: Path to test configuration YAML
+        resources: Optional list of resource URIs to test (None = all resources)
+        verbose: Enable verbose test output
         skip_init: Skip server initialization (if already initialized)
 
     Returns:
         True if all resource tests passed, False otherwise
     """
-    import json
-
-    print(f"\n🗂️  Running MCP resource tests (stdio)...")
+    print(f"\n🗂️  Running resource tests (stdio via mcp-test.py)...")
     print(f"   Config: {config_path}")
 
     if not server.process or server.process.poll() is not None:
@@ -771,225 +481,58 @@ def run_resource_tests_stdio(
         return False
 
     try:
-        # Initialize server if needed
-        if not skip_init:
-            if not initialize_server_session(server, verbose):
+        # Import mcp-test as a module to use its functionality directly
+        sys.path.insert(0, str(SCRIPTS_DIR))
+        try:
+            from mcp_test import MCPTester, run_resources_test, load_test_config
+        except ImportError as e:
+            # Handle module name with dash by trying alternative import
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("mcp_test", MCP_TEST_SCRIPT)
+            if spec and spec.loader:
+                mcp_test = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mcp_test)
+                MCPTester = mcp_test.MCPTester
+                run_resources_test = mcp_test.run_resources_test
+                load_test_config = mcp_test.load_test_config
+            else:
+                print(f"❌ Failed to import mcp-test.py: {e}")
                 return False
 
+        # Create tester with stdio transport using server's process
+        tester = MCPTester(
+            process=server.process,
+            verbose=verbose,
+            transport="stdio"
+        )
+
+        # Initialize MCP session if needed
+        if not skip_init:
+            tester.initialize()
+
         # Load test configuration
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_test_config(config_path)
 
-        test_resources = config.get("test_resources", {})
+        # Filter to specific resources if requested
         if resources:
-            test_resources = {k: v for k, v in test_resources.items() if k in resources}
+            test_resources = config.get("test_resources", {})
+            config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
 
-        if not test_resources:
-            print("⚠️  No resources configured for testing")
-            return True
+        # Run resources test
+        success, results = run_resources_test(tester, config)
 
-        # First, list all available resources
-        list_request = {
-            "jsonrpc": "2.0",
-            "id": 1000,  # Use high ID to avoid conflicts
-            "method": "resources/list",
-            "params": {}
-        }
-
-        server.process.stdin.write(json.dumps(list_request) + "\n")
-        server.process.stdin.flush()
-        response = server.process.stdout.readline()
-
-        if verbose:
-            print(f"resources/list response: {response[:200]}")
-
-        if not response or "error" in response:
-            print(f"❌ resources/list failed: {response}")
-            return False
-
-        list_result = json.loads(response)
-        if "error" in list_result:
-            print(f"❌ resources/list error: {list_result['error']}")
-            return False
-
-        available_resources = list_result.get("result", {}).get("resources", [])
-        available_uris = {r["uri"] for r in available_resources}
-
-        print(f"📋 Server provides {len(available_resources)} resources")
-        if verbose:
-            for uri in sorted(available_uris):
-                print(f"   - {uri}")
-
-        # Test each resource
-        success_count = 0
-        fail_count = 0
-        skip_count = 0
-        request_id = 1001
-
-        for uri_pattern, test_config in test_resources.items():
-            try:
-                start_time = time.time()
-
-                # Substitute URI variables if needed
-                uri = uri_pattern
-                uri_vars = test_config.get("uri_variables", {})
-                skip_resource = False
-
-                for var_name, var_value in uri_vars.items():
-                    if var_value.startswith("CONFIGURE_"):
-                        skip_count += 1
-                        print(f"  ⏭️  {uri_pattern}: Skipped (needs configuration: {var_name})")
-                        skip_resource = True
-                        break
-                    uri = uri.replace(f"{{{var_name}}}", var_value)
-
-                if skip_resource:
-                    continue
-
-                # Check if resource pattern exists (don't check substituted URIs for templated resources)
-                # For templated resources, check if the pattern (with {variables}) exists
-                # For non-templated resources, check if the exact URI exists
-                has_variables = bool(uri_vars)
-                resource_exists = False
-
-                if has_variables:
-                    # Check if the URI pattern exists (may be URL-encoded in the list)
-                    import urllib.parse
-                    encoded_pattern = uri_pattern.replace("{", "%7B").replace("}", "%7D")
-                    resource_exists = uri_pattern in available_uris or encoded_pattern in available_uris
-                else:
-                    # Check if the exact URI exists
-                    resource_exists = uri in available_uris
-
-                if not resource_exists:
-                    fail_count += 1
-                    print(f"  ❌ {uri}: Resource pattern not found in server (pattern: {uri_pattern})")
-                    continue
-
-                # Read the resource
-                read_request = {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "method": "resources/read",
-                    "params": {
-                        "uri": uri
-                    }
-                }
-
-                if verbose:
-                    print(f"\nRequest: {json.dumps(read_request, indent=2)}")
-
-                server.process.stdin.write(json.dumps(read_request) + "\n")
-                server.process.stdin.flush()
-                response = server.process.stdout.readline()
-                elapsed = time.time() - start_time
-
-                if verbose:
-                    print(f"Response: {response[:200]}")
-
-                if not response:
-                    fail_count += 1
-                    print(f"  ❌ {uri}: No response ({elapsed:.2f}s)")
-                    continue
-
-                result = json.loads(response)
-                if "error" in result:
-                    fail_count += 1
-                    error_msg = result['error'].get('message', 'Unknown error')
-                    print(f"  ❌ {uri}: {error_msg} ({elapsed:.2f}s)")
-                    if verbose:
-                        print(f"     {result}")
-                    continue
-
-                # Validate resource content
-                resource_data = result.get("result", {})
-                contents = resource_data.get("contents", [])
-
-                if not contents:
-                    fail_count += 1
-                    print(f"  ❌ {uri}: Empty contents ({elapsed:.2f}s)")
-                    continue
-
-                content = contents[0]  # MCP resources return array of content items
-
-                # Validate MIME type
-                expected_mime = test_config.get("expected_mime_type", "text/plain")
-                actual_mime = content.get("mimeType", "text/plain")
-
-                if expected_mime != actual_mime:
-                    print(f"  ⚠️  {uri}: MIME type mismatch (expected {expected_mime}, got {actual_mime})")
-
-                # Validate content based on type
-                validation = test_config.get("content_validation", {})
-                content_type = validation.get("type", "text")
-
-                if content_type == "text":
-                    text = content.get("text", "")
-                    min_len = validation.get("min_length", 0)
-                    max_len = validation.get("max_length", float('inf'))
-
-                    if len(text) < min_len:
-                        fail_count += 1
-                        print(f"  ❌ {uri}: Content too short ({len(text)} < {min_len}) ({elapsed:.2f}s)")
-                        continue
-
-                    if len(text) > max_len:
-                        fail_count += 1
-                        print(f"  ❌ {uri}: Content too long ({len(text)} > {max_len}) ({elapsed:.2f}s)")
-                        continue
-
-                elif content_type == "json":
-                    # Parse and validate JSON content
-                    text = content.get("text", "")
-                    try:
-                        json_data = json.loads(text)
-
-                        # Validate against schema if provided
-                        if "schema" in validation and validation["schema"]:
-                            try:
-                                from jsonschema import validate as validate_schema
-                                validate_schema(json_data, validation["schema"])
-                            except ImportError:
-                                if verbose:
-                                    print(f"  ⚠️  jsonschema not available for validation")
-                            except Exception as e:
-                                fail_count += 1
-                                print(f"  ❌ {uri}: Schema validation failed ({e}) ({elapsed:.2f}s)")
-                                continue
-
-                    except json.JSONDecodeError as e:
-                        fail_count += 1
-                        print(f"  ❌ {uri}: Invalid JSON content ({e}) ({elapsed:.2f}s)")
-                        continue
-
-                elif content_type == "blob":
-                    blob = content.get("blob", "")
-                    if not blob:
-                        fail_count += 1
-                        print(f"  ❌ {uri}: Empty blob content ({elapsed:.2f}s)")
-                        continue
-
-                success_count += 1
-                print(f"  ✅ {uri} ({elapsed:.2f}s)")
-
-                request_id += 1
-
-            except Exception as e:
-                fail_count += 1
-                print(f"  ❌ {uri_pattern}: {e}")
-                if verbose:
-                    import traceback
-                    print(f"     {traceback.format_exc()}")
-
-        print(f"\n📊 Resource Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {len(test_resources)} total)")
-        return fail_count == 0
+        return success
 
     except Exception as e:
         print(f"❌ Resource test execution failed: {e}")
         if verbose:
             import traceback
-            print(traceback.format_exc())
+            traceback.print_exc()
         return False
+    finally:
+        # Clean up sys.path
+        if str(SCRIPTS_DIR) in sys.path:
+            sys.path.remove(str(SCRIPTS_DIR))
 
 
 def main():
@@ -1111,13 +654,26 @@ Examples:
     # Filter tests based on idempotence
     if args.all:
         print("🔓 Running ALL tests (including write operations)")
-        tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=False)
+        tools, stats = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=False)
     else:
         mode_desc = "local" if mode == "local" else "Docker"
         print(f"🧪 Running MCP server integration tests ({mode_desc} mode, idempotent only)...")
-        tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=True)
+        tools, stats = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=True)
 
-    print(f"📋 Selected {len(tools)} tools for testing")
+    # Display detailed selection statistics
+    print(f"📋 Selected {stats['selected_tools']}/{stats['total_tools']} tools for testing")
+    if args.all:
+        # Show breakdown by effect type when running all tests
+        effect_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(stats['effect_counts'].items()))
+        print(f"   Effect breakdown: {effect_summary}")
+    else:
+        # Show what was filtered out when running idempotent only
+        filtered_out = stats['total_tools'] - stats['selected_tools']
+        if filtered_out > 0:
+            non_none_effects = {k: v for k, v in stats['effect_counts'].items() if k != 'none'}
+            skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
+            print(f"   Skipped {filtered_out} non-idempotent tools ({skipped_summary})")
+    print(f"   Resources: {stats['total_resources']} configured for testing")
 
     # Start server based on mode
     server = None

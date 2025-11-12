@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-Modern MCP endpoint testing tool.
+Modern MCP endpoint testing tool with unified transport support.
 
-Replaces the legacy bash script with a cleaner Python implementation
-using requests library for HTTP handling and proper JSON schema validation.
+Supports both HTTP and stdio transports for flexible testing scenarios:
+- HTTP: For testing deployed endpoints and manual testing
+- stdio: For integration testing with local/Docker servers via pipes
+
+This tool is the single source of truth for MCP test execution logic.
 """
 
 import argparse
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 import yaml
@@ -19,18 +23,65 @@ from jsonschema import validate
 
 
 class MCPTester:
-    """MCP endpoint testing client with JSON-RPC support."""
-    
-    def __init__(self, endpoint: str, verbose: bool = False):
-        self.endpoint = endpoint
+    """MCP endpoint testing client supporting both stdio and HTTP transports."""
+
+    def __init__(
+        self,
+        endpoint: Optional[str] = None,
+        process: Optional[subprocess.Popen] = None,
+        stdin_fd: Optional[int] = None,
+        stdout_fd: Optional[int] = None,
+        verbose: bool = False,
+        transport: str = "http"
+    ):
+        """Initialize MCP tester with specified transport.
+
+        Args:
+            endpoint: HTTP endpoint URL (required for HTTP transport)
+            process: Running subprocess with stdio pipes (for stdio transport)
+            stdin_fd: File descriptor for stdin (alternative to process)
+            stdout_fd: File descriptor for stdout (alternative to process)
+            verbose: Enable verbose output
+            transport: "http" or "stdio"
+        """
+        self.transport = transport
         self.verbose = verbose
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/json',
-            'Accept': 'application/json, text/event-stream'
-        })
         self.request_id = 1
-        
+
+        if transport == "http":
+            if not endpoint:
+                raise ValueError("endpoint required for HTTP transport")
+            self.endpoint = endpoint
+            self.session = requests.Session()
+            self.session.headers.update({
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/event-stream'
+            })
+            self.process = None
+            self.stdin_file = None
+            self.stdout_file = None
+
+        elif transport == "stdio":
+            if process:
+                # Use provided process
+                self.process = process
+                self.stdin_file = process.stdin
+                self.stdout_file = process.stdout
+            elif stdin_fd is not None and stdout_fd is not None:
+                # Use file descriptors (for subprocess invocation)
+                import os
+                self.process = None
+                # Open file objects from file descriptors
+                self.stdin_file = os.fdopen(stdin_fd, 'w', buffering=1)
+                self.stdout_file = os.fdopen(stdout_fd, 'r', buffering=1)
+            else:
+                raise ValueError("process or (stdin_fd and stdout_fd) required for stdio transport")
+            self.endpoint = None
+            self.session = None
+
+        else:
+            raise ValueError(f"Unsupported transport: {transport}")
+
     def _log(self, message: str, level: str = "INFO") -> None:
         """Log message with timestamp."""
         if level == "DEBUG" and not self.verbose:
@@ -38,9 +89,16 @@ class MCPTester:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         prefix = "🔍" if level == "DEBUG" else "ℹ️" if level == "INFO" else "❌"
         print(f"[{timestamp}] {prefix} {message}")
-        
+
     def _make_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Make JSON-RPC request to MCP endpoint."""
+        """Make JSON-RPC request using configured transport."""
+        if self.transport == "http":
+            return self._make_http_request(method, params)
+        else:
+            return self._make_stdio_request(method, params)
+
+    def _make_http_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Make JSON-RPC request via HTTP transport."""
         request_data = {
             "jsonrpc": "2.0",
             "id": self.request_id,
@@ -95,11 +153,82 @@ class MCPTester:
             raise Exception(f"HTTP request failed: {e}")
         except json.JSONDecodeError as e:
             raise Exception(f"Invalid JSON response: {e}")
-    
+
+    def _make_stdio_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Make JSON-RPC request via stdio transport."""
+        request_data = {
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": method
+        }
+        if params:
+            request_data["params"] = params
+
+        self.request_id += 1
+
+        self._log(f"Making request: {method}", "DEBUG")
+        if self.verbose and params:
+            self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
+
+        try:
+            # Write request to stdin
+            request_json = json.dumps(request_data) + "\n"
+            self.stdin_file.write(request_json)
+            self.stdin_file.flush()
+
+            # Read response from stdout
+            response_line = self.stdout_file.readline()
+            if not response_line:
+                raise Exception("No response from server (EOF)")
+
+            result = json.loads(response_line)
+
+            self._log(f"Response: {json.dumps(result, indent=2)}", "DEBUG")
+
+            if "error" in result:
+                raise Exception(f"JSON-RPC error: {result['error']}")
+
+            return result.get("result", {})
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"Invalid JSON response: {e}")
+        except Exception as e:
+            # Re-raise with more context
+            raise Exception(f"stdio request failed: {e}")
+
+    def _send_notification(self, method: str, params: Optional[Dict[str, Any]] = None) -> None:
+        """Send JSON-RPC notification (no response expected).
+
+        Notifications are one-way messages with no "id" field.
+        Used for events like notifications/initialized.
+        """
+        if self.transport != "stdio":
+            # HTTP transport doesn't use notifications
+            return
+
+        notification = {
+            "jsonrpc": "2.0",
+            "method": method
+        }
+        if params:
+            notification["params"] = params
+
+        self._log(f"Sending notification: {method}", "DEBUG")
+        if self.verbose and params:
+            self._log(f"Params: {json.dumps(params, indent=2)}", "DEBUG")
+
+        # Write notification to stdin
+        notification_json = json.dumps(notification) + "\n"
+        self.stdin_file.write(notification_json)
+        self.stdin_file.flush()
+
+        # Brief pause for server processing
+        time.sleep(0.1)
+
     def initialize(self) -> Dict[str, Any]:
         """Initialize MCP session."""
         self._log("Initializing MCP session...")
-        
+
         params = {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
@@ -108,21 +237,27 @@ class MCPTester:
                 "version": "1.0.0"
             }
         }
-        
+
         result = self._make_request("initialize", params)
+
+        # stdio transport requires notifications/initialized after initialize
+        if self.transport == "stdio":
+            self._log("Sending notifications/initialized...", "DEBUG")
+            self._send_notification("notifications/initialized")
+
         self._log("✅ Session initialized successfully")
         return result
-    
+
     def list_tools(self) -> List[Dict[str, Any]]:
         """List available tools from MCP server."""
         self._log("Querying available tools...")
-        
+
         result = self._make_request("tools/list")
         tools = result.get("tools", [])
-        
+
         self._log(f"✅ Found {len(tools)} tools")
         return tools
-    
+
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Call a specific tool."""
         self._log(f"Calling tool: {name}")
@@ -143,7 +278,7 @@ class MCPTester:
         resources = result.get("resources", [])
 
         self._log(f"✅ Found {len(resources)} resources")
-        return resources
+        return result  # Return full result to preserve resourceTemplates
 
     def read_resource(self, uri: str) -> Dict[str, Any]:
         """Read a specific resource."""
@@ -320,7 +455,7 @@ def run_resources_test(
         print(f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates")
     except Exception as e:
         print(f"❌ Failed to list resources: {e}")
-        return False
+        return False, {"total": total_count, "passed": 0, "failed": total_count, "skipped": 0}
 
     # Test each resource
     for uri_pattern, test_config in test_resources.items():
@@ -612,11 +747,64 @@ def print_detailed_summary(tools_results: Optional[Dict[str, Any]] = None,
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Modern MCP endpoint testing tool",
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        description="Modern MCP endpoint testing tool with unified transport support",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Transport modes:
+  HTTP (default):
+    mcp-test.py http://localhost:8000/mcp --tools-test
+
+  stdio (for integration testing):
+    mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
+
+Examples:
+  # Test HTTP endpoint with all tests
+  mcp-test.py http://localhost:8000/mcp --tools-test --resources-test
+
+  # Test specific tool via HTTP
+  mcp-test.py http://localhost:8000/mcp --test-tool bucket_objects_list
+
+  # List available tools
+  mcp-test.py http://localhost:8000/mcp --list-tools
+
+  # stdio mode (typically called by test orchestrator)
+  mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
+        """
     )
-    
-    parser.add_argument("endpoint", help="MCP endpoint URL to test")
+
+    # Endpoint argument (optional for stdio mode)
+    parser.add_argument(
+        "endpoint",
+        nargs="?",
+        help="MCP endpoint URL (required for HTTP transport, ignored for stdio)"
+    )
+
+    # Transport selection
+    transport_group = parser.add_mutually_exclusive_group()
+    transport_group.add_argument(
+        "--http",
+        action="store_true",
+        help="Use HTTP transport (default)"
+    )
+    transport_group.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Use stdio transport (for integration testing)"
+    )
+
+    # stdio-specific options
+    parser.add_argument(
+        "--stdin-fd",
+        type=int,
+        help="File descriptor for stdin (required for stdio transport)"
+    )
+    parser.add_argument(
+        "--stdout-fd",
+        type=int,
+        help="File descriptor for stdout (required for stdio transport)"
+    )
+
+    # Test options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
@@ -633,12 +821,41 @@ def main():
     parser.add_argument("--config", type=Path,
                        default=Path(__file__).parent / "tests" / "mcp-test.yaml",
                        help="Path to test configuration file (auto-generated by mcp-list.py)")
-    
+
     args = parser.parse_args()
-    
+
+    # Determine transport mode
+    if args.stdio:
+        transport = "stdio"
+        if args.stdin_fd is None or args.stdout_fd is None:
+            print("❌ --stdin-fd and --stdout-fd required for stdio transport")
+            sys.exit(1)
+    else:
+        transport = "http"
+        if not args.endpoint:
+            print("❌ endpoint URL required for HTTP transport")
+            parser.print_help()
+            sys.exit(1)
+
     # Create tester instance
-    tester = MCPTester(args.endpoint, args.verbose)
-    
+    try:
+        if transport == "http":
+            tester = MCPTester(
+                endpoint=args.endpoint,
+                verbose=args.verbose,
+                transport="http"
+            )
+        else:  # stdio
+            tester = MCPTester(
+                stdin_fd=args.stdin_fd,
+                stdout_fd=args.stdout_fd,
+                verbose=args.verbose,
+                transport="stdio"
+            )
+    except Exception as e:
+        print(f"❌ Failed to create tester: {e}")
+        sys.exit(1)
+
     try:
         # Initialize session
         tester.initialize()
@@ -653,47 +870,63 @@ def main():
 
         if args.list_resources:
             # List available resources
-            resources = tester.list_resources()
-            print(f"\n🗂️  Available Resources ({len(resources)}):")
+            result = tester.list_resources()
+            resources = result.get("resources", [])
+            templates = result.get("resourceTemplates", [])
+            print(f"\n🗂️  Available Resources ({len(resources)} static, {len(templates)} templates):")
             for resource in resources:
                 print(f"  • {resource.get('uri', 'Unknown')}: {resource.get('name', 'No name')}")
                 if 'description' in resource:
                     print(f"    {resource['description']}")
+            if templates:
+                print(f"\n  Resource Templates:")
+                for template in templates:
+                    print(f"  • {template.get('uriTemplate', 'Unknown')}: {template.get('name', 'No name')}")
             return
+
+        tools_results = None
+        resources_results = None
 
         if args.tools_test or args.test_tool:
             # Load test configuration
             config = load_test_config(args.config)
 
             # Run tools test
-            success, results = run_tools_test(tester, config, args.test_tool)
-
-            # Print detailed summary
-            print_detailed_summary(tools_results=results)
-
-            sys.exit(0 if success else 1)
+            success, tools_results = run_tools_test(tester, config, args.test_tool)
 
         if args.resources_test or args.test_resource:
             # Load test configuration
             config = load_test_config(args.config)
 
             # Run resources test
-            success, results = run_resources_test(tester, config, args.test_resource)
+            success, resources_results = run_resources_test(tester, config, args.test_resource)
 
-            # Print detailed summary
-            print_detailed_summary(resources_results=results)
+        # Print detailed summary if we ran any tests
+        if tools_results or resources_results:
+            print_detailed_summary(tools_results=tools_results, resources_results=resources_results)
 
-            sys.exit(0 if success else 1)
+            # Determine overall success
+            tools_ok = not tools_results or tools_results['failed'] == 0
+            resources_ok = not resources_results or resources_results['failed'] == 0
+            overall_success = tools_ok and resources_ok
+
+            sys.exit(0 if overall_success else 1)
 
         # Default: basic connectivity test
-        tools = tester.list_tools()
-        resources = tester.list_resources()
-        print(f"✅ Successfully connected to MCP endpoint")
-        print(f"📋 Server has {len(tools)} available tools")
-        print(f"🗂️  Server has {len(resources)} available resources")
+        if not (args.list_tools or args.list_resources or args.tools_test or args.test_tool or args.resources_test or args.test_resource):
+            tools = tester.list_tools()
+            result = tester.list_resources()
+            resources = result.get("resources", [])
+            templates = result.get("resourceTemplates", [])
+            print(f"✅ Successfully connected to MCP endpoint")
+            print(f"📋 Server has {len(tools)} available tools")
+            print(f"🗂️  Server has {len(resources)} static resources and {len(templates)} templates")
 
     except Exception as e:
         print(f"❌ Test failed: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
