@@ -1,8 +1,9 @@
 """Tests for search scope semantic fixes.
 
-This module tests fixes for two issues:
+This module tests fixes for three issues:
 1. Bucket scope returns results but catalog/global don't (403 fallback)
 2. GraphQL error handling improvements
+3. Package search returns mixed file/package results (packages_only fix)
 """
 
 import pytest
@@ -11,6 +12,41 @@ from unittest.mock import Mock, patch, AsyncMock
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.search.backends.graphql import EnterpriseGraphQLBackend
 from quilt_mcp.search.backends.base import BackendStatus, SearchResult
+from quilt_mcp.tools.stack_buckets import build_stack_search_indices
+
+
+class TestStackSearchIndices:
+    """Test stack search index pattern generation."""
+
+    def test_build_stack_search_indices_packages_only_false(self):
+        """Should include both object and package indices when packages_only=False."""
+        buckets = ["bucket1", "bucket2"]
+        indices = build_stack_search_indices(buckets, packages_only=False)
+
+        # Should include both bucket and bucket_packages for each bucket
+        assert indices == "bucket1,bucket1_packages,bucket2,bucket2_packages"
+
+    def test_build_stack_search_indices_packages_only_true(self):
+        """Should only include package indices when packages_only=True."""
+        buckets = ["bucket1", "bucket2"]
+        indices = build_stack_search_indices(buckets, packages_only=True)
+
+        # Should only include bucket_packages for each bucket
+        assert indices == "bucket1_packages,bucket2_packages"
+
+    def test_build_stack_search_indices_single_bucket_packages_only(self):
+        """Should work correctly with a single bucket and packages_only=True."""
+        buckets = ["my-bucket"]
+        indices = build_stack_search_indices(buckets, packages_only=True)
+
+        assert indices == "my-bucket_packages"
+
+    def test_build_stack_search_indices_empty_buckets(self):
+        """Should return empty string when bucket list is empty."""
+        buckets = []
+        indices = build_stack_search_indices(buckets, packages_only=True)
+
+        assert indices == ""
 
 
 class TestElasticsearchScopeFallback:
@@ -228,6 +264,155 @@ class TestGraphQLErrorHandling:
             )
 
             assert results == []
+
+
+class TestPackageSearchImplementation:
+    """Test Issue 3 fix: Implement _search_packages() for package-only search."""
+
+    @pytest.mark.anyio
+    async def test_catalog_wide_package_search_uses_packages_only_indices(self):
+        """Catalog-wide package search should only search *_packages indices."""
+        backend = Quilt3ElasticsearchBackend()
+
+        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
+             patch.object(backend, '_convert_catalog_results') as mock_convert:
+
+            # Simulate successful package search
+            mock_catalog_search.return_value = {
+                "hits": {
+                    "hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]
+                }
+            }
+            mock_convert.return_value = [
+                SearchResult(
+                    id="test-pkg",
+                    type="package",
+                    title="team/dataset",
+                    description="Test package",
+                    score=1.0,
+                    backend="elasticsearch",
+                )
+            ]
+
+            # Execute catalog-wide package search (no target)
+            results = await backend._search_packages(query="*", package_name="", filters={}, limit=10)
+
+            # Should call _execute_catalog_search with packages_only=True
+            mock_catalog_search.assert_called_once()
+            call_kwargs = mock_catalog_search.call_args[1]
+            assert call_kwargs['packages_only'] is True, "Should only search package indices"
+
+            # Should return package results
+            assert len(results) == 1
+            assert results[0].type == "package"
+
+    @pytest.mark.anyio
+    async def test_specific_package_search_adds_package_filter(self):
+        """Specific package search should add package_name filter."""
+        backend = Quilt3ElasticsearchBackend()
+
+        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
+             patch.object(backend, '_convert_catalog_results') as mock_convert:
+
+            # Simulate successful package search
+            mock_catalog_search.return_value = {
+                "hits": {
+                    "hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]
+                }
+            }
+            mock_convert.return_value = [
+                SearchResult(
+                    id="test-pkg",
+                    type="package",
+                    title="team/dataset",
+                    description="Test package",
+                    score=1.0,
+                    backend="elasticsearch",
+                )
+            ]
+
+            # Execute specific package search
+            results = await backend._search_packages(
+                query="README",
+                package_name="team/dataset",
+                filters={},
+                limit=10
+            )
+
+            # Should call _execute_catalog_search with package_name filter
+            mock_catalog_search.assert_called_once()
+            call_kwargs = mock_catalog_search.call_args[1]
+            assert call_kwargs['packages_only'] is True
+            assert 'package_name' in call_kwargs['filters']
+            assert call_kwargs['filters']['package_name'] == "team/dataset"
+
+    @pytest.mark.anyio
+    async def test_package_search_handles_errors_gracefully(self):
+        """Package search should return empty list on errors, not raise."""
+        backend = Quilt3ElasticsearchBackend()
+
+        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search:
+            # Simulate search error
+            mock_catalog_search.return_value = {
+                "error": "Search failed: some error"
+            }
+
+            # Should return empty list, not raise
+            results = await backend._search_packages(query="*", package_name="", filters={}, limit=10)
+            assert results == []
+
+    @pytest.mark.anyio
+    async def test_search_router_calls_search_packages_for_package_scope(self):
+        """search() method should call _search_packages() when scope='package'."""
+        backend = Quilt3ElasticsearchBackend()
+        backend._session_available = True
+
+        with patch.object(backend, '_search_packages') as mock_search_packages:
+            mock_search_packages.return_value = [
+                SearchResult(
+                    id="test-pkg",
+                    type="package",
+                    title="team/dataset",
+                    description="Test package",
+                    score=1.0,
+                    backend="elasticsearch",
+                )
+            ]
+
+            # Call search with scope="package"
+            response = await backend.search(
+                query="*",
+                scope="package",
+                target="",
+                filters={},
+                limit=10
+            )
+
+            # Should call _search_packages
+            mock_search_packages.assert_called_once_with("*", "", {}, 10)
+            assert len(response.results) == 1
+            assert response.results[0].type == "package"
+
+    @pytest.mark.anyio
+    async def test_search_router_calls_search_packages_with_target(self):
+        """search() method should pass target to _search_packages()."""
+        backend = Quilt3ElasticsearchBackend()
+        backend._session_available = True
+
+        with patch.object(backend, '_search_packages') as mock_search_packages:
+            mock_search_packages.return_value = []
+
+            # Call search with scope="package" and target
+            await backend.search(
+                query="README",
+                scope="package",
+                target="team/dataset",
+                filters={},
+                limit=10
+            )
+
+            # Should call _search_packages with target as package_name
+            mock_search_packages.assert_called_once_with("README", "team/dataset", {}, 10)
 
 
 class TestScopeSemantics:

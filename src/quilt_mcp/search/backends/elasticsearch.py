@@ -149,9 +149,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             if scope == "bucket" and target:
                 # Use bucket-specific search
                 results = await self._search_bucket(query, target, filters, limit)
-            elif scope == "package" and target:
-                # Search within specific package (dedicated package-scoped logic pending)
-                results = await self._search_package(query, target, filters, limit)
+            elif scope == "package":
+                # Search packages (catalog-wide OR specific package)
+                results = await self._search_packages(query, target, filters, limit)
             else:
                 # Global/catalog search using packages search API
                 results = await self._search_global(query, filters, limit)
@@ -220,16 +220,51 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return self._convert_bucket_results(raw_results, bucket)
 
-    async def _search_package(
+    async def _search_packages(
         self,
         query: str,
-        package_name: str,
-        filters: Optional[Dict[str, Any]],
-        limit: int,
+        package_name: str = "",
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
     ) -> List[SearchResult]:
-        """Search within a specific package."""
-        # TODO: implement package-scoped search directly via search API if needed
-        return []
+        """Search packages across catalog or within specific package.
+
+        Args:
+            query: Search query
+            package_name: Optional package name. If empty, searches all packages.
+                         If specified, searches within that package only.
+            filters: Optional filters
+            limit: Max results
+
+        Returns:
+            List of package search results
+        """
+        if package_name:
+            # Search within specific package
+            # Use package-specific index with package name filter
+            search_response = self._execute_catalog_search(
+                query=query,
+                limit=limit,
+                filters={**(filters or {}), "package_name": package_name},
+                packages_only=True,
+            )
+        else:
+            # Catalog-wide package search
+            # Use all *_packages indices
+            search_response = self._execute_catalog_search(
+                query=query,
+                limit=limit,
+                filters=filters,
+                packages_only=True,
+            )
+
+        if "error" in search_response:
+            # Log error but don't raise - return empty results
+            logger.warning(f"Package search failed: {search_response['error']}")
+            return []
+
+        hits = search_response.get("hits", {}).get("hits", [])
+        return self._convert_catalog_results(hits)
 
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
         """Global search across all stack buckets using the catalog search API.
@@ -284,8 +319,17 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         *,
         filters: Optional[Dict[str, Any]] = None,
         from_: int = 0,
+        packages_only: bool = False,
     ) -> Dict[str, Any]:
-        """Execute a catalog search query via quilt3 search API."""
+        """Execute a catalog search query via quilt3 search API.
+
+        Args:
+            query: Query string or DSL query dict
+            limit: Maximum number of results
+            filters: Optional filters to apply
+            from_: Starting offset for pagination
+            packages_only: If True, only search *_packages indices (not object indices)
+        """
         try:
             search_api = self.quilt_service.get_search_api()
         except Exception as exc:
@@ -315,6 +359,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 filter_clauses.append({"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}})
             if filters.get("size_gt"):
                 filter_clauses.append({"range": {"size": {"gt": filters["size_gt"]}}})
+            if filters.get("package_name"):
+                # Add package name filter for package-specific searches
+                filter_clauses.append({"term": {"ptr_name": filters["package_name"]}})
             if filter_clauses:
                 dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
                     filter_clauses
@@ -324,7 +371,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         index_name = None
         try:
-            index_name = build_stack_search_indices()
+            index_name = build_stack_search_indices(packages_only=packages_only)
         except Exception:
             index_name = None
 
