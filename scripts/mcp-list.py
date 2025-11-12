@@ -213,35 +213,43 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
         test_entry = env_vars.get("QUILT_TEST_ENTRY", "README.md")
 
-        for param_name, param in sig.parameters.items():
-            if param_name in ['ctx', 'arguments']:
-                continue
+        # Special case: optimize package_browse for fast testing
+        if tool_name == "package_browse":
+            test_case["arguments"]["package_name"] = test_package
+            test_case["arguments"]["registry"] = default_bucket
+            test_case["arguments"]["recursive"] = False
+            test_case["arguments"]["include_signed_urls"] = False
+            test_case["arguments"]["top"] = 5
+        else:
+            for param_name, param in sig.parameters.items():
+                if param_name in ['ctx', 'arguments']:
+                    continue
 
-            # Add example arguments for common parameter patterns
-            # Prioritize .env values for test resources
-            if 'bucket' in param_name.lower():
-                # Extract bucket name without s3:// prefix if needed
-                bucket_name = default_bucket.replace("s3://", "").split("/")[0]
-                test_case["arguments"][param_name] = bucket_name
-            elif param_name in ['query', 'search']:
-                test_case["arguments"][param_name] = "test"
-            elif 'limit' in param_name.lower() or 'max' in param_name.lower():
-                test_case["arguments"][param_name] = 10
-            elif param_name in ['registry', 'registry_url', 'catalog_url']:
-                test_case["arguments"][param_name] = default_bucket
-            elif 'package' in param_name.lower() and 'name' in param_name.lower():
-                test_case["arguments"][param_name] = test_package
-            elif param_name == 's3_uri':
-                # Build full S3 URI from bucket + entry
-                test_case["arguments"][param_name] = f"{default_bucket}/{test_entry}"
-            elif param_name in ['path', 'prefix', 'key']:
-                test_case["arguments"][param_name] = test_entry
-            # For optional params with defaults, skip them
-            elif param.default != inspect.Parameter.empty:
-                continue
-            else:
-                # Mark as needing configuration
-                test_case["arguments"][param_name] = f"CONFIGURE_{param_name.upper()}"
+                # Add example arguments for common parameter patterns
+                # Prioritize .env values for test resources
+                if 'bucket' in param_name.lower():
+                    # Extract bucket name without s3:// prefix if needed
+                    bucket_name = default_bucket.replace("s3://", "").split("/")[0]
+                    test_case["arguments"][param_name] = bucket_name
+                elif param_name in ['query', 'search']:
+                    test_case["arguments"][param_name] = "test"
+                elif 'limit' in param_name.lower() or 'max' in param_name.lower():
+                    test_case["arguments"][param_name] = 10
+                elif param_name in ['registry', 'registry_url', 'catalog_url']:
+                    test_case["arguments"][param_name] = default_bucket
+                elif 'package' in param_name.lower() and 'name' in param_name.lower():
+                    test_case["arguments"][param_name] = test_package
+                elif param_name == 's3_uri':
+                    # Build full S3 URI from bucket + entry
+                    test_case["arguments"][param_name] = f"{default_bucket}/{test_entry}"
+                elif param_name in ['path', 'prefix', 'key']:
+                    test_case["arguments"][param_name] = test_entry
+                # For optional params with defaults, skip them
+                elif param.default != inspect.Parameter.empty:
+                    continue
+                else:
+                    # Mark as needing configuration
+                    test_case["arguments"][param_name] = f"CONFIGURE_{param_name.upper()}"
 
         test_config["test_tools"][tool_name] = test_case
 

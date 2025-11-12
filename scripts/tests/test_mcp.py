@@ -5,10 +5,13 @@ Comprehensive MCP server testing script.
 This script:
 1. Generates test configuration using mcp-list.py
 2. Launches MCP server in Docker container
-3. Runs mcp-test.py with configurable test selection
+3. Runs tool tests via stdio transport with configurable test selection
 4. Cleans up Docker container on exit
 
 By default, only runs idempotent (read-only) tests.
+
+Note: This script does NOT use mcp-test.py (that's a separate HTTP-based manual testing tool).
+This script implements its own stdio-based testing via run_tests_stdio().
 """
 
 import argparse
@@ -286,6 +289,7 @@ def run_tests_stdio(
 
         for tool_name, test_config in test_tools.items():
             try:
+                start_time = time.time()
                 test_args = test_config.get("arguments", {})
 
                 # Call the tool
@@ -305,24 +309,45 @@ def run_tests_stdio(
                 server.process.stdin.write(json.dumps(tool_request) + "\n")
                 server.process.stdin.flush()
                 response = server.process.stdout.readline()
+                elapsed = time.time() - start_time
 
                 if verbose:
                     print(f"Response: {response[:200]}")
 
                 if not response:
                     fail_count += 1
-                    print(f"  ❌ {tool_name}: No response")
+                    print(f"  ❌ {tool_name}: No response ({elapsed:.2f}s)")
                     continue
 
                 result = json.loads(response)
                 if "error" in result:
                     fail_count += 1
-                    print(f"  ❌ {tool_name}: {result['error'].get('message', 'Unknown error')}")
+                    print(f"  ❌ {tool_name}: {result['error'].get('message', 'Unknown error')} ({elapsed:.2f}s)")
                     if verbose:
                         print(f"     {result}")
                 else:
                     success_count += 1
-                    print(f"  ✅ {tool_name}")
+                    print(f"  ✅ {tool_name} ({elapsed:.2f}s)")
+
+                    # Show tool result content in verbose mode
+                    if verbose and "result" in result:
+                        tool_result = result["result"]
+                        if "content" in tool_result:
+                            content = tool_result["content"]
+                            if isinstance(content, list) and len(content) > 0:
+                                # Show first content item
+                                first_item = content[0]
+                                if isinstance(first_item, dict) and "text" in first_item:
+                                    # Truncate long text responses
+                                    text = first_item["text"]
+                                    if len(text) > 500:
+                                        print(f"     Result: {text[:500]}...")
+                                    else:
+                                        print(f"     Result: {text}")
+                                else:
+                                    print(f"     Result: {json.dumps(first_item, indent=6)[:500]}")
+                            elif isinstance(content, str):
+                                print(f"     Result: {content[:500]}")
 
                 request_id += 1
 

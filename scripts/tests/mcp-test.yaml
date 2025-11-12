@@ -158,7 +158,9 @@ test_tools:
     arguments:
       package_name: raw/test
       registry: s3://quilt-ernest-staging
-      max_depth: 10
+      recursive: false
+      include_signed_urls: false
+      top: 5
     response_schema:
       type: object
       properties:

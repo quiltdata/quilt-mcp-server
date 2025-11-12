@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -95,6 +95,11 @@ test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "\n===🧪 Running MCP server integration tests (idempotent only)..."
 	@uv run python scripts/tests/test_mcp.py --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
+
+test-mcp: docker-build
+	@echo "===🧪 Running MCP server integration tests..."
+	@uv sync --group test
+	@uv run python scripts/tests/test_mcp.py --image quilt-mcp:test -v
 
 # Code Quality Targets
 lint:

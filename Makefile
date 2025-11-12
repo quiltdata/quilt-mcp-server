@@ -24,6 +24,7 @@ help:
 	@echo "  make test-integration - Run integration tests (with AWS)"
 	@echo "  make test-e2e         - Run end-to-end workflow tests"
 	@echo "  make test-scripts     - Run script validation tests"
+	@echo "  make test-mcp         - Run MCP server integration tests (idempotent only)"
 	@echo "  make test-ci          - Run CI-optimized tests (excludes slow/search)"
 	@echo "  make lint             - Code formatting and type checking"
 	@echo "  make coverage         - Generate combined coverage analysis CSV + validate thresholds"
