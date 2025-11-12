@@ -182,6 +182,15 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
     success_count = 0
     total_count = len(test_tools)
 
+    # Track non-idempotent tools
+    all_non_idempotent = set()
+    tested_non_idempotent = set()
+
+    # First pass: identify all non-idempotent tools in config
+    for tool_name, tool_config in config.get("test_tools", {}).items():
+        if not tool_config.get("idempotent", True):
+            all_non_idempotent.add(tool_name)
+
     print(f"\n🧪 Running tools test ({total_count} tools)...")
 
     for tool_name, test_config in test_tools.items():
@@ -205,10 +214,24 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
             success_count += 1
             print(f"✅ {tool_name}: PASSED")
 
+            # Track if non-idempotent tool was tested
+            if not test_config.get("idempotent", True):
+                tested_non_idempotent.add(tool_name)
+
         except Exception as e:
             print(f"❌ {tool_name}: FAILED - {e}")
 
     print(f"\n📊 Test Results: {success_count}/{total_count} tools passed")
+
+    # Report untested non-idempotent tools
+    untested_non_idempotent = all_non_idempotent - tested_non_idempotent
+    if untested_non_idempotent:
+        print(f"\n⚠️  Non-idempotent tools NOT tested ({len(untested_non_idempotent)}):")
+        for tool in sorted(untested_non_idempotent):
+            print(f"  • {tool}")
+    elif all_non_idempotent:
+        print(f"\n✅ All {len(all_non_idempotent)} non-idempotent tools were tested")
+
     return success_count == total_count
 
 
