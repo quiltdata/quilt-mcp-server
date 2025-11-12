@@ -149,7 +149,7 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
-async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str]):
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None]):
     """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
@@ -183,10 +183,10 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
     server_tools = await server.get_tools()
 
     # Load values from .env
-    default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
-    catalog_domain = env_vars.get("QUILT_CATALOG_DOMAIN", "open.quiltdata.com")
-    test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
-    test_entry = env_vars.get("QUILT_TEST_ENTRY", ".timestamp")
+    default_bucket: str = env_vars.get("QUILT_DEFAULT_BUCKET") or "s3://quilt-example"
+    catalog_domain: str = env_vars.get("QUILT_CATALOG_DOMAIN") or "open.quiltdata.com"
+    test_package: str = env_vars.get("QUILT_TEST_PACKAGE") or "examples/wellplates"
+    test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
     bucket_name = default_bucket.replace("s3://", "").split("/")[0]
 
     # Define test execution order and custom configurations
@@ -276,7 +276,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
                 return 'remove'
             if any(kw in name_lower for kw in ['update', 'add', 'rename']):
                 return 'update'
-            if any(kw in name_lower for kw in ['configure', 'toggle', 'apply', 'execute', 'generate']):
+            if any(kw in name_lower for kw in ['configure', 'toggle', 'apply', 'execute', 'generate', 'rename']):
                 return 'configure'
 
             # Default: read-only operation
@@ -380,11 +380,10 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         for var in variables:
             # Substitute test values for common template variables
             if var == "bucket":
-                # Use bucket name from QUILT_DEFAULT_BUCKET environment variable
-                default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+                # Use bucket name from QUILT_DEFAULT_BUCKET environment variable (already loaded above)
                 # Extract bucket name from s3:// URI
-                bucket_name = default_bucket.replace("s3://", "").split("/")[0] if default_bucket.startswith("s3://") else default_bucket
-                test_case["uri_variables"][var] = bucket_name
+                bucket_name_var = default_bucket.replace("s3://", "").split("/")[0] if default_bucket.startswith("s3://") else default_bucket
+                test_case["uri_variables"][var] = bucket_name_var
             elif var == "database":
                 # Use default test database
                 test_case["uri_variables"][var] = "default"
