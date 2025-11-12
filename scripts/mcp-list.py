@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+import yaml
+
 # Add src to path for imports
 script_dir = Path(__file__).parent
 repo_root = script_dir.parent
@@ -145,6 +147,92 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
+async def generate_test_yaml(server, output_file: str):
+    """Generate mcp-test.yaml configuration with all available tools.
+
+    This creates test configurations for mcp-test.py to validate the MCP server.
+    Each tool gets a basic test case that can be customized as needed.
+    """
+    test_config = {
+        "_generated_by": "scripts/mcp-list.py - Auto-generated test configuration",
+        "_note": "Edit test cases below to customize arguments and validation",
+        "test_tools": {},
+        "test_config": {
+            "timeout": 30,
+            "retry_attempts": 2,
+            "fail_fast": False
+        }
+    }
+
+    # Get all registered tools
+    server_tools = await server.get_tools()
+    for tool_name, handler in server_tools.items():
+        # Get function signature to extract parameters
+        sig = inspect.signature(handler.fn)
+        doc = inspect.getdoc(handler.fn) or "No description available"
+
+        # Determine if operation is idempotent (read-only)
+        # Non-idempotent operations typically: create, update, delete, put, set, upload
+        non_idempotent_keywords = ['create', 'update', 'delete', 'put', 'upload', 'set', 'add', 'remove', 'reset']
+        is_idempotent = not any(keyword in tool_name.lower() for keyword in non_idempotent_keywords)
+
+        # Build basic test case structure
+        test_case = {
+            "description": doc.split('\n')[0],
+            "idempotent": is_idempotent,
+            "arguments": {},
+            "response_schema": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "required": ["content"]
+            }
+        }
+
+        # Try to add sensible default arguments based on parameter names
+        for param_name, param in sig.parameters.items():
+            if param_name in ['ctx', 'arguments']:
+                continue
+
+            # Add example arguments for common parameter patterns
+            if 'bucket' in param_name.lower():
+                test_case["arguments"][param_name] = "quilt-example"
+            elif param_name in ['query', 'search']:
+                test_case["arguments"][param_name] = "test"
+            elif 'limit' in param_name.lower() or 'max' in param_name.lower():
+                test_case["arguments"][param_name] = 10
+            elif param_name in ['registry', 'registry_url', 'catalog_url']:
+                test_case["arguments"][param_name] = "s3://quilt-ernest-staging"
+            elif 'package' in param_name.lower() and 'name' in param_name.lower():
+                test_case["arguments"][param_name] = "examples/wellplates"
+            elif param_name == 's3_uri':
+                test_case["arguments"][param_name] = "s3://quilt-example/README.md"
+            elif param_name in ['path', 'prefix', 'key']:
+                test_case["arguments"][param_name] = ""
+            # For optional params with defaults, skip them
+            elif param.default != inspect.Parameter.empty:
+                continue
+            else:
+                # Mark as needing configuration
+                test_case["arguments"][param_name] = f"CONFIGURE_{param_name.upper()}"
+
+        test_config["test_tools"][tool_name] = test_case
+
+    # Write YAML with nice formatting
+    with open(output_file, 'w', encoding='utf-8') as f:
+        yaml.dump(test_config, f,
+                  default_flow_style=False,
+                  sort_keys=False,
+                  allow_unicode=True,
+                  indent=2)
+
+
 async def main():
     """Generate all canonical tool and resource listings."""
     print("🔍 Extracting tools from MCP server...")
@@ -166,6 +254,7 @@ async def main():
     # Generate outputs
     output_dir = Path(__file__).parent.parent
     tests_fixtures_dir = output_dir / "tests" / "fixtures"
+    scripts_tests_dir = Path(__file__).parent / "tests"
 
     print("📝 Generating CSV output...")
     generate_csv_output(all_items, str(tests_fixtures_dir / "mcp-list.csv"))
@@ -173,10 +262,14 @@ async def main():
     print("📋 Generating JSON metadata...")
     generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
+    print("🧪 Generating test configuration YAML...")
+    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"))
+
     print("✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")
     print("   - tests/fixtures/mcp-list.csv")
     print("   - build/tools_metadata.json")
+    print("   - scripts/tests/mcp-test.yaml")
     print(f"📈 Summary:")
     print(f"   - {len(tools)} tools")
     print(f"   - {len(resources)} resources")
