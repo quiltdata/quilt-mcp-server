@@ -339,43 +339,40 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
         resource_class = resource.__class__
         doc = inspect.getdoc(resource_class) or "No description available"
 
-        # Build basic test case structure
+        # Build basic test case structure - default to JSON since most resources return JSON
         test_case = {
             "description": doc.split('\n')[0],
             "idempotent": True,  # Resources are generally read-only
             "uri": uri_pattern,
             "uri_variables": {},
-            "expected_mime_type": "text/plain",  # Default
+            "expected_mime_type": "application/json",  # Default to JSON
             "content_validation": {
-                "type": "text",
+                "type": "json",
                 "min_length": 1,
-                "max_length": 100000
+                "max_length": 100000,
+                "schema": {
+                    "type": "object",
+                    "description": "Auto-generated basic schema - customize as needed"
+                }
             }
         }
 
-        # Detect URI template variables (e.g., {database}, {table})
+        # Detect URI template variables (e.g., {database}, {table}, {bucket})
         variables = re.findall(r'\{(\w+)\}', uri_pattern)
         for var in variables:
-            # Mark as needing configuration
+            # Templated resources can't be tested directly - they need specific values
+            # Mark all templated resources as needing configuration for now
+            # TODO: In future, we could add test data for common resource patterns
             test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
 
         # Infer content type from resource class or URI pattern
+        # Most resources return JSON by default (via ResourceResponse default mime_type)
+        # Only override if we know the resource returns something else
         class_name = resource_class.__name__.lower()
         uri_lower = uri_pattern.lower()
 
-        # JSON resources
-        if any(keyword in class_name for keyword in ['status', 'info', 'list', 'config', 'history']):
-            test_case["expected_mime_type"] = "application/json"
-            test_case["content_validation"]["type"] = "json"
-            test_case["content_validation"]["schema"] = {
-                "type": "object",
-                "description": "Auto-generated basic schema - customize as needed"
-            }
-        # HTML/markdown resources (docs, troubleshooting, examples)
-        elif any(keyword in class_name for keyword in ['troubleshooting', 'example', 'template']):
-            test_case["expected_mime_type"] = "text/html"
-            test_case["content_validation"]["type"] = "text"
-            test_case["content_validation"]["min_length"] = 50
+        # No special cases needed - all resources currently return JSON
+        # (metadata resources return JSON data structures, not HTML)
 
         test_config["test_resources"][uri_pattern] = test_case
 

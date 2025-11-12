@@ -359,21 +359,27 @@ test_resources:
     idempotent: true
     uri: admin://users
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   admin://roles:
     description: List all available roles.
     idempotent: true
     uri: admin://roles
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   admin://config:
     description: Combined admin configuration resource.
     idempotent: true
@@ -431,32 +437,41 @@ test_resources:
     idempotent: true
     uri: permissions://discover
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   permissions://recommendations:
     description: Bucket recommendations based on permissions.
     idempotent: true
     uri: permissions://recommendations
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   permissions://buckets/{bucket}/access:
     description: Bucket-specific access check.
     idempotent: true
     uri: permissions://buckets/{bucket}/access
     uri_variables:
       bucket: CONFIGURE_BUCKET
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   admin://config/sso:
     description: SSO configuration.
     idempotent: true
@@ -489,31 +504,40 @@ test_resources:
     uri: admin://users/{name}
     uri_variables:
       name: CONFIGURE_NAME
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   athena://databases:
     description: List available Athena databases.
     idempotent: true
     uri: athena://databases
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   athena://workgroups:
     description: List available Athena workgroups.
     idempotent: true
     uri: athena://workgroups
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   athena://queries/history:
     description: Athena query execution history.
     idempotent: true
@@ -534,62 +558,80 @@ test_resources:
     uri_variables:
       database: CONFIGURE_DATABASE
       table: CONFIGURE_TABLE
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   metadata://templates:
     description: List available metadata templates.
     idempotent: true
     uri: metadata://templates
     uri_variables: {}
-    expected_mime_type: text/html
+    expected_mime_type: application/json
     content_validation:
-      type: text
-      min_length: 50
+      type: json
+      min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   metadata://examples:
     description: Show metadata usage examples.
     idempotent: true
     uri: metadata://examples
     uri_variables: {}
-    expected_mime_type: text/html
+    expected_mime_type: application/json
     content_validation:
-      type: text
-      min_length: 50
+      type: json
+      min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   metadata://troubleshooting:
     description: Metadata validation troubleshooting guide.
     idempotent: true
     uri: metadata://troubleshooting
     uri_variables: {}
-    expected_mime_type: text/html
+    expected_mime_type: application/json
     content_validation:
-      type: text
-      min_length: 50
+      type: json
+      min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   metadata://templates/{name}:
     description: Get a specific metadata template.
     idempotent: true
     uri: metadata://templates/{name}
     uri_variables:
       name: CONFIGURE_NAME
-    expected_mime_type: text/html
+    expected_mime_type: application/json
     content_validation:
-      type: text
-      min_length: 50
+      type: json
+      min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   workflow://workflows:
     description: List all workflows.
     idempotent: true
     uri: workflow://workflows
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   workflow://workflows/{id}:
     description: Get specific workflow status.
     idempotent: true
@@ -609,22 +651,28 @@ test_resources:
     idempotent: true
     uri: tabulator://buckets
     uri_variables: {}
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   tabulator://buckets/{bucket}/tables:
     description: List tables for a specific bucket.
     idempotent: true
     uri: tabulator://buckets/{bucket}/tables
     uri_variables:
       bucket: CONFIGURE_BUCKET
-    expected_mime_type: text/plain
+    expected_mime_type: application/json
     content_validation:
-      type: text
+      type: json
       min_length: 1
       max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
 test_config:
   timeout: 30
   retry_attempts: 2

@@ -846,10 +846,24 @@ def run_resource_tests_stdio(
                 if skip_resource:
                     continue
 
-                # Check if resource exists
-                if uri not in available_uris:
+                # Check if resource pattern exists (don't check substituted URIs for templated resources)
+                # For templated resources, check if the pattern (with {variables}) exists
+                # For non-templated resources, check if the exact URI exists
+                has_variables = bool(uri_vars)
+                resource_exists = False
+
+                if has_variables:
+                    # Check if the URI pattern exists (may be URL-encoded in the list)
+                    import urllib.parse
+                    encoded_pattern = uri_pattern.replace("{", "%7B").replace("}", "%7D")
+                    resource_exists = uri_pattern in available_uris or encoded_pattern in available_uris
+                else:
+                    # Check if the exact URI exists
+                    resource_exists = uri in available_uris
+
+                if not resource_exists:
                     fail_count += 1
-                    print(f"  ❌ {uri}: Resource not found in server")
+                    print(f"  ❌ {uri}: Resource pattern not found in server (pattern: {uri_pattern})")
                     continue
 
                 # Read the resource
