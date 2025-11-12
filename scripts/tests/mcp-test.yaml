@@ -1,5 +1,12 @@
 _generated_by: scripts/mcp-list.py - Auto-generated test configuration
 _note: Edit test cases below to customize arguments and validation
+environment:
+  AWS_PROFILE: default
+  AWS_DEFAULT_REGION: us-east-1
+  QUILT_CATALOG_DOMAIN: nightly.quilttest.com
+  QUILT_DEFAULT_BUCKET: s3://quilt-ernest-staging
+  QUILT_TEST_PACKAGE: raw/test
+  QUILT_TEST_ENTRY: README.md
 test_tools:
   catalog_configure:
     description: Configure Quilt catalog URL - Quilt authentication and catalog navigation
@@ -21,8 +28,8 @@ test_tools:
     idempotent: true
     arguments:
       registry: s3://quilt-ernest-staging
-      package_name: examples/wellplates
-      path: ''
+      package_name: raw/test
+      path: README.md
     response_schema:
       type: object
       properties:
@@ -38,8 +45,8 @@ test_tools:
     idempotent: true
     arguments:
       registry: s3://quilt-ernest-staging
-      package_name: examples/wellplates
-      path: ''
+      package_name: raw/test
+      path: README.md
     response_schema:
       type: object
       properties:
@@ -54,7 +61,7 @@ test_tools:
       and object retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-example/README.md
+      s3_uri: s3://quilt-ernest-staging/README.md
       max_bytes: 10
     response_schema:
       type: object
@@ -70,7 +77,7 @@ test_tools:
       and object retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-example/README.md
+      s3_uri: s3://quilt-ernest-staging/README.md
     response_schema:
       type: object
       properties:
@@ -85,7 +92,7 @@ test_tools:
       exploration and object retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-example/README.md
+      s3_uri: s3://quilt-ernest-staging/README.md
     response_schema:
       type: object
       properties:
@@ -100,7 +107,7 @@ test_tools:
       retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-example/README.md
+      s3_uri: s3://quilt-ernest-staging/README.md
       max_bytes: 10
     response_schema:
       type: object
@@ -116,8 +123,8 @@ test_tools:
       bucket exploration and object retrieval tasks
     idempotent: true
     arguments:
-      bucket: quilt-example
-      prefix: ''
+      bucket: quilt-ernest-staging
+      prefix: README.md
       max_keys: 10
     response_schema:
       type: object
@@ -133,7 +140,7 @@ test_tools:
       object retrieval tasks
     idempotent: false
     arguments:
-      bucket: quilt-example
+      bucket: quilt-ernest-staging
       items: CONFIGURE_ITEMS
     response_schema:
       type: object
@@ -149,7 +156,7 @@ test_tools:
       - Quilt package discovery and comparison tasks
     idempotent: true
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       registry: s3://quilt-ernest-staging
       max_depth: 10
     response_schema:
@@ -166,7 +173,7 @@ test_tools:
       update, and deletion workflows
     idempotent: false
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       s3_uris: CONFIGURE_S3_URIS
       registry: s3://quilt-ernest-staging
     response_schema:
@@ -183,8 +190,8 @@ test_tools:
       smart organization - Bulk S3-to-package ingestion workflows
     idempotent: false
     arguments:
-      source_bucket: quilt-example
-      package_name: examples/wellplates
+      source_bucket: quilt-ernest-staging
+      package_name: raw/test
     response_schema:
       type: object
       properties:
@@ -199,7 +206,7 @@ test_tools:
       update, and deletion workflows
     idempotent: false
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       registry: s3://quilt-ernest-staging
     response_schema:
       type: object
@@ -215,8 +222,8 @@ test_tools:
       discovery and comparison tasks
     idempotent: true
     arguments:
-      package1_name: examples/wellplates
-      package2_name: examples/wellplates
+      package1_name: raw/test
+      package2_name: raw/test
       registry: s3://quilt-ernest-staging
     response_schema:
       type: object
@@ -232,7 +239,7 @@ test_tools:
       package creation, update, and deletion workflows
     idempotent: false
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       s3_uris: CONFIGURE_S3_URIS
       registry: s3://quilt-ernest-staging
     response_schema:
@@ -249,7 +256,7 @@ test_tools:
       generation tasks
     idempotent: false
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       package_metadata: CONFIGURE_PACKAGE_METADATA
       organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
       readme_content: CONFIGURE_README_CONTENT
@@ -268,7 +275,7 @@ test_tools:
       file generation tasks
     idempotent: true
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
       file_types: CONFIGURE_FILE_TYPES
     response_schema:
@@ -285,7 +292,7 @@ test_tools:
       standards - Quilt summary file generation tasks
     idempotent: true
     arguments:
-      package_name: examples/wellplates
+      package_name: raw/test
       package_metadata: CONFIGURE_PACKAGE_METADATA
       organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
       readme_content: CONFIGURE_README_CONTENT
@@ -398,7 +405,7 @@ test_tools:
     description: Execute a bucket-scoped tabulator query (legacy tool signature).
     idempotent: true
     arguments:
-      bucket_name: quilt-example
+      bucket_name: quilt-ernest-staging
       query: test
       max_results: 10
     response_schema:
@@ -441,7 +448,7 @@ test_tools:
     description: Create tabulator table (legacy tool signature).
     idempotent: false
     arguments:
-      bucket_name: quilt-example
+      bucket_name: quilt-ernest-staging
       table_name: CONFIGURE_TABLE_NAME
       schema: CONFIGURE_SCHEMA
       package_pattern: CONFIGURE_PACKAGE_PATTERN
@@ -460,7 +467,7 @@ test_tools:
     description: Delete tabulator table (legacy tool signature).
     idempotent: false
     arguments:
-      bucket_name: quilt-example
+      bucket_name: quilt-ernest-staging
       table_name: CONFIGURE_TABLE_NAME
     response_schema:
       type: object
@@ -475,7 +482,7 @@ test_tools:
     description: Rename tabulator table (legacy tool signature).
     idempotent: true
     arguments:
-      bucket_name: quilt-example
+      bucket_name: quilt-ernest-staging
       table_name: CONFIGURE_TABLE_NAME
       new_table_name: CONFIGURE_NEW_TABLE_NAME
     response_schema:

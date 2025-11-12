@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -64,13 +64,18 @@ $(RESULTS_DIR)/coverage-e2e.xml: tests/e2e/test_*.py | $(RESULTS_DIR)
 		echo '<?xml version="1.0" ?><coverage></coverage>' > $(RESULTS_DIR)/coverage-e2e.xml; \
 	fi
 
-coverage: $(RESULTS_DIR)/coverage-analysis.csv | $(RESULTS_DIR)
+coverage: $(RESULTS_DIR)/coverage-analysis.csv coverage-results | $(RESULTS_DIR)
 
 $(RESULTS_DIR)/coverage-analysis.csv: $(RESULTS_DIR)/coverage-unit.xml $(RESULTS_DIR)/coverage-integration.xml $(RESULTS_DIR)/coverage-e2e.xml scripts/coverage_analysis.py | $(RESULTS_DIR)
 	@echo "Generating coverage analysis report..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python scripts/coverage_analysis.py
-	@echo "TBD: Checking coverage threshold..."
+
+coverage-results: $(RESULTS_DIR)/coverage-analysis.csv scripts/tests/coverage_required.yaml scripts/tests/test_coverage_analysis.py
+	@echo "Validating coverage thresholds..."
+	@uv sync --group test
+	@export PYTHONPATH="src" && uv run python scripts/tests/test_coverage_analysis.py || (echo "❌ Coverage thresholds not met! See scripts/tests/coverage_results.yaml for details" && exit 1)
+	@echo "✅ Coverage validation passed - results in scripts/tests/coverage_results.yaml"
 
 coverage-html:
 	@echo "Running tests with HTML coverage report..."
@@ -79,15 +84,17 @@ coverage-html:
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
-test-scripts: scripts/tests/test_*.py | $(RESULTS_DIR)
+test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
-	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "*.py" | wc -l)" -gt 0 ]; then \
+	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "test_*.py" | wc -l)" -gt 0 ]; then \
 		export PYTHONPATH="src" && uv run python -m pytest scripts/tests/ -v; \
 	else \
 		echo "No script tests found"; \
 	fi
-	@echo "\n===✅ Finished script tests"
+	@echo "\n===🧪 Running MCP server integration tests (idempotent only)..."
+	@uv run python scripts/tests/test_mcp.py --image quilt-mcp:test
+	@echo "\n===✅ Finished all script tests"
 
 # Code Quality Targets
 lint:

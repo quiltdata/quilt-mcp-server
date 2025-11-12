@@ -9,11 +9,13 @@ Resources are distinguished from tools with a 'type' column in the CSV output.
 import csv
 import inspect
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
+from dotenv import dotenv_values
 
 # Add src to path for imports
 script_dir = Path(__file__).parent
@@ -147,15 +149,25 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
-async def generate_test_yaml(server, output_file: str):
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str]):
     """Generate mcp-test.yaml configuration with all available tools.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
     Each tool gets a basic test case that can be customized as needed.
+    Environment configuration from .env is embedded for self-contained testing.
     """
+    # Extract test-relevant configuration from environment
     test_config = {
         "_generated_by": "scripts/mcp-list.py - Auto-generated test configuration",
         "_note": "Edit test cases below to customize arguments and validation",
+        "environment": {
+            "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
+            "AWS_DEFAULT_REGION": env_vars.get("AWS_DEFAULT_REGION", "us-east-1"),
+            "QUILT_CATALOG_DOMAIN": env_vars.get("QUILT_CATALOG_DOMAIN", ""),
+            "QUILT_DEFAULT_BUCKET": env_vars.get("QUILT_DEFAULT_BUCKET", ""),
+            "QUILT_TEST_PACKAGE": env_vars.get("QUILT_TEST_PACKAGE", ""),
+            "QUILT_TEST_ENTRY": env_vars.get("QUILT_TEST_ENTRY", ""),
+        },
         "test_tools": {},
         "test_config": {
             "timeout": 30,
@@ -196,25 +208,34 @@ async def generate_test_yaml(server, output_file: str):
         }
 
         # Try to add sensible default arguments based on parameter names
+        # Use values from .env when available
+        default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+        test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
+        test_entry = env_vars.get("QUILT_TEST_ENTRY", "README.md")
+
         for param_name, param in sig.parameters.items():
             if param_name in ['ctx', 'arguments']:
                 continue
 
             # Add example arguments for common parameter patterns
+            # Prioritize .env values for test resources
             if 'bucket' in param_name.lower():
-                test_case["arguments"][param_name] = "quilt-example"
+                # Extract bucket name without s3:// prefix if needed
+                bucket_name = default_bucket.replace("s3://", "").split("/")[0]
+                test_case["arguments"][param_name] = bucket_name
             elif param_name in ['query', 'search']:
                 test_case["arguments"][param_name] = "test"
             elif 'limit' in param_name.lower() or 'max' in param_name.lower():
                 test_case["arguments"][param_name] = 10
             elif param_name in ['registry', 'registry_url', 'catalog_url']:
-                test_case["arguments"][param_name] = "s3://quilt-ernest-staging"
+                test_case["arguments"][param_name] = default_bucket
             elif 'package' in param_name.lower() and 'name' in param_name.lower():
-                test_case["arguments"][param_name] = "examples/wellplates"
+                test_case["arguments"][param_name] = test_package
             elif param_name == 's3_uri':
-                test_case["arguments"][param_name] = "s3://quilt-example/README.md"
+                # Build full S3 URI from bucket + entry
+                test_case["arguments"][param_name] = f"{default_bucket}/{test_entry}"
             elif param_name in ['path', 'prefix', 'key']:
-                test_case["arguments"][param_name] = ""
+                test_case["arguments"][param_name] = test_entry
             # For optional params with defaults, skip them
             elif param.default != inspect.Parameter.empty:
                 continue
@@ -235,6 +256,19 @@ async def generate_test_yaml(server, output_file: str):
 
 async def main():
     """Generate all canonical tool and resource listings."""
+    # Load environment configuration from .env
+    repo_root = Path(__file__).parent.parent
+    env_file = repo_root / ".env"
+    env_vars = dotenv_values(env_file)
+
+    if env_vars:
+        print(f"📋 Loaded configuration from .env")
+        print(f"   AWS_PROFILE: {env_vars.get('AWS_PROFILE', 'not set')}")
+        print(f"   AWS_DEFAULT_REGION: {env_vars.get('AWS_DEFAULT_REGION', 'not set')}")
+        print(f"   QUILT_DEFAULT_BUCKET: {env_vars.get('QUILT_DEFAULT_BUCKET', 'not set')}")
+    else:
+        print("⚠️  No .env file found - using default test configuration")
+
     print("🔍 Extracting tools from MCP server...")
 
     # Create server instance to introspect tools
@@ -263,7 +297,7 @@ async def main():
     generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
     print("🧪 Generating test configuration YAML...")
-    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"))
+    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars)
 
     print("✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")

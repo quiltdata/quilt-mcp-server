@@ -265,8 +265,13 @@ class DockerManager:
         if not self._check_docker():
             return False
 
-        # For local builds, use simple tagging
-        local_tag = f"{self.registry}/{self.image_name}:{version}"
+        # For local builds, use simple tagging without registry prefix
+        # Extract just the image name without any path separators
+        # e.g., "quiltdata/mcp" -> "quilt-mcp" for local testing
+        simple_name = self.image_name.split("/")[-1]
+        if simple_name == "mcp":
+            simple_name = "quilt-mcp"  # Use full name for clarity
+        local_tag = f"{simple_name}:{version}"
 
         print(f"INFO: Building Docker image locally", file=sys.stderr)
         if not self.build(local_tag):

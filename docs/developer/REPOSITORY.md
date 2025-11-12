@@ -66,15 +66,33 @@ src/
 
 ## 🔧 Development Infrastructure
 
-### `bin/` - Executable Scripts
+### `scripts/` - Development Scripts
 
 Development and testing utilities:
+
+```text
+scripts/
+├── 📄 mcp-list.py            # Generate canonical tool listings & test configs
+├── 📄 mcp-test.py            # MCP endpoint testing (uses auto-generated config)
+└── 📁 tests/
+    └── 📄 mcp-test.yaml      # Auto-generated test configuration
+```
+
+**Key Scripts:**
+- `mcp-list.py` - Introspects MCP server to generate:
+  - `tests/fixtures/mcp-list.csv` - Tool and resource catalog
+  - `build/tools_metadata.json` - Structured metadata
+  - `scripts/tests/mcp-test.yaml` - Test configuration for mcp-test.py
+- `mcp-test.py` - Tests MCP server endpoints using generated YAML config
+
+### `bin/` - Shell Scripts
+
+Shell utilities for development and release:
 
 ```text
 bin/
 ├── 📄 check-dev.sh           # Development environment validation
 ├── 📄 common.sh              # Common shell functions
-├── 📄 mcp-test.py            # Modern MCP endpoint testing (Python)
 ├── 📄 release.sh             # Release management
 ├── 📄 test-prereqs.sh        # Legacy prerequisites check
 └── 📄 version.sh             # Version management utilities
@@ -87,7 +105,6 @@ Comprehensive test coverage with multiple test types:
 ```text
 tests/
 ├── 📁 fixtures/              # Test data and fixtures
-│   ├── 📄 mcp-test.yaml     # MCP testing configuration
 │   └── 📁 runners/           # Test runner scripts
 ├── 📄 test_*.py              # Unit and integration tests
 └── 📄 conftest.py            # Pytest configuration
@@ -217,8 +234,9 @@ spec/
 
 1. **Clone and setup**: `git clone` → `uv sync` → `cp env.example .env`
 2. **Development**: `make run` (server) → `make test` (verify)
-3. **Testing**: `bin/mcp-test.py http://localhost:8000/mcp/`
-4. **Building**: `make mcpb` (MCPB) → `make release` (distribution)
+3. **Generate test config**: `uv run python scripts/mcp-list.py`
+4. **Testing**: `uv run python scripts/mcp-test.py http://localhost:8000/mcp/ -t`
+5. **Building**: `make mcpb` (MCPB) → `make release` (distribution)
 
 ---
 

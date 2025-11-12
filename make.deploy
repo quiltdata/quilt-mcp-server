@@ -154,7 +154,7 @@ docker-tools:
 
 docker-build: docker-tools
 	@echo "🐳 Building Docker image locally..."
-	@uv run python scripts/docker.py build
+	@uv run python scripts/docker.py build --version test
 	@echo "✅ Docker build completed"
 
 docker-push: docker-tools

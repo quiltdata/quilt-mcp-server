@@ -67,16 +67,40 @@ class DockerMCPServer:
                 print(f"📥 Pulling Docker image: {self.image}")
                 subprocess.run(["docker", "pull", self.image], check=True)
 
+            # Build docker run command with AWS credentials
+            # Best practice: Mount ~/.aws directory as read-only volume
+            # This supports AWS profiles, SSO, MFA, and credential rotation
+            aws_creds_path = Path.home() / ".aws"
+            docker_cmd = [
+                "docker", "run", "-d",
+                "--name", self.container_name,
+                "-p", f"{self.port}:8000",
+            ]
+
+            # Mount AWS credentials if they exist
+            if aws_creds_path.exists():
+                docker_cmd.extend([
+                    "-v", f"{aws_creds_path}:/root/.aws:ro",  # Read-only mount
+                ])
+
+            # Add environment variables from test config or environment
+            # Priority: environment variable > test config > defaults
+            aws_region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+            aws_profile = os.getenv("AWS_PROFILE", "default")
+
+            docker_cmd.extend([
+                "-e", f"AWS_REGION={aws_region}",
+                "-e", f"AWS_PROFILE={aws_profile}",
+            ])
+
+            docker_cmd.extend([
+                "-e", "QUILT_MCP_DEBUG=true",
+                self.image
+            ])
+
             # Start container
             result = subprocess.run(
-                [
-                    "docker", "run", "-d",
-                    "--name", self.container_name,
-                    "-p", f"{self.port}:8000",
-                    "-e", "AWS_REGION=us-east-1",
-                    "-e", "QUILT_MCP_DEBUG=true",
-                    self.image
-                ],
+                docker_cmd,
                 capture_output=True,
                 text=True,
                 check=True
