@@ -7,10 +7,10 @@
 
 # Overall project coverage thresholds
 summary:
-  unit_pct_covered: 37.5           # Minimum unit test coverage (current baseline)
-  integration_pct_covered: 0.0     # Minimum integration test coverage
-  e2e_pct_covered: 0.0             # Minimum end-to-end test coverage
-  combined_pct_covered: 37.5        # Minimum combined coverage across all test types
+  unit_pct_covered: 35.0           # Minimum unit test coverage (current baseline)
+  integration_pct_covered: 45.0     # Minimum integration test coverage
+  e2e_pct_covered: 35.0             # Minimum end-to-end test coverage
+  combined_pct_covered: 50.0        # Minimum combined coverage across all test types
 
 # Per-file coverage thresholds (optional)
 # Files listed here must meet their specified thresholds
