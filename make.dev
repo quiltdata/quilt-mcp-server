@@ -96,11 +96,11 @@ test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test
 	@echo "\n===✅ Finished all script tests"
 
-# Default - uses local server (fast)
+# Default - uses local server (fast) with verbose output
 test-mcp:
-	@echo "===🧪 Running MCP server integration tests (local mode)..."
+	@echo "===🧪 Running MCP server integration tests (local mode, verbose)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py
+	@uv run python scripts/tests/test_mcp.py -v
 
 # Explicit local mode with verbose output
 test-mcp-local:
