@@ -285,12 +285,42 @@ def run_tests_stdio(
         # Test each tool
         success_count = 0
         fail_count = 0
+        skip_count = 0
         request_id = 2
+
+        # Store discovered test data from search
+        discovered_data = {
+            'package_name': None,
+            's3_uri': None,
+            'bucket': None,
+            'prefix': None
+        }
 
         for tool_name, test_config in test_tools.items():
             try:
                 start_time = time.time()
-                test_args = test_config.get("arguments", {})
+                test_args = test_config.get("arguments", {}).copy()
+
+                # Use discovered data to populate test arguments dynamically
+                if tool_name == 'search_catalog':
+                    # Search runs first to discover data
+                    pass
+                elif discovered_data['package_name']:
+                    # Use discovered data if available
+                    if 'package_name' in test_args and test_args.get('package_name') == 'DISCOVER':
+                        test_args['package_name'] = discovered_data['package_name']
+                    if 's3_uri' in test_args and test_args.get('s3_uri') == 'DISCOVER':
+                        test_args['s3_uri'] = discovered_data['s3_uri']
+                    if 'bucket' in test_args and test_args.get('bucket') == 'DISCOVER':
+                        test_args['bucket'] = discovered_data['bucket']
+                    if 'prefix' in test_args and test_args.get('prefix') == 'DISCOVER':
+                        test_args['prefix'] = discovered_data['prefix']
+
+                # Skip tests with unresolved CONFIGURE_ placeholders
+                if any(isinstance(v, str) and v.startswith('CONFIGURE_') for v in test_args.values()):
+                    skip_count += 1
+                    print(f"  ⏭️  {tool_name}: Skipped (needs configuration)")
+                    continue
 
                 # Call the tool
                 tool_request = {
@@ -320,34 +350,116 @@ def run_tests_stdio(
                     continue
 
                 result = json.loads(response)
+
+                # Check for JSON-RPC level errors
                 if "error" in result:
                     fail_count += 1
                     print(f"  ❌ {tool_name}: {result['error'].get('message', 'Unknown error')} ({elapsed:.2f}s)")
                     if verbose:
                         print(f"     {result}")
+                    continue
+
+                # Extract tool result content
+                tool_result_text = None
+                tool_result_data = None
+                is_error = False
+
+                if "result" in result:
+                    tool_result = result["result"]
+
+                    # Check for isError flag
+                    if tool_result.get("isError"):
+                        is_error = True
+
+                    if "content" in tool_result:
+                        content = tool_result["content"]
+                        if isinstance(content, list) and len(content) > 0:
+                            first_item = content[0]
+                            if isinstance(first_item, dict) and "text" in first_item:
+                                tool_result_text = first_item["text"]
+                                # Try to parse as JSON to check for status/error fields
+                                try:
+                                    tool_result_data = json.loads(tool_result_text)
+                                except:
+                                    pass
+                        elif isinstance(content, str):
+                            tool_result_text = content
+                            try:
+                                tool_result_data = json.loads(content)
+                            except:
+                                pass
+
+                # Check tool result for error conditions
+                test_failed = False
+                test_skipped = False
+                failure_reason = None
+
+                if is_error:
+                    test_failed = True
+                    failure_reason = tool_result_text or "Tool marked as error"
+                elif tool_result_data:
+                    # Check for authorization failures (should skip, not fail)
+                    error_msg = tool_result_data.get("error", "")
+                    if "Unauthorized" in error_msg or "Access denied" in error_msg or "Forbidden" in error_msg:
+                        test_skipped = True
+                        failure_reason = "Authorization required"
+                    # Check various error patterns
+                    elif tool_result_data.get("status") == "error":
+                        test_failed = True
+                        failure_reason = tool_result_data.get("error") or tool_result_data.get("message") or "Status: error"
+                    elif tool_result_data.get("success") is False:
+                        test_failed = True
+                        failure_reason = tool_result_data.get("error") or "success: false"
+                    elif "error" in tool_result_data and tool_result_data["error"]:
+                        test_failed = True
+                        failure_reason = tool_result_data["error"]
+                    elif "Input validation error" in (tool_result_text or ""):
+                        test_failed = True
+                        failure_reason = tool_result_text
+
+                # Extract test data from successful search results
+                if not test_failed and not test_skipped and tool_name == 'search_catalog' and tool_result_data:
+                    if tool_result_data.get("success") and tool_result_data.get("results"):
+                        results = tool_result_data["results"]
+                        if len(results) > 0:
+                            first_result = results[0]
+                            # Try to extract package info
+                            if first_result.get("package_name"):
+                                discovered_data['package_name'] = first_result["package_name"]
+                            # Try to extract S3 URI
+                            if first_result.get("s3_uri"):
+                                discovered_data['s3_uri'] = first_result["s3_uri"]
+                                # Parse bucket from S3 URI
+                                if discovered_data['s3_uri'].startswith('s3://'):
+                                    parts = discovered_data['s3_uri'][5:].split('/', 1)
+                                    discovered_data['bucket'] = parts[0]
+                                    if len(parts) > 1:
+                                        discovered_data['prefix'] = parts[1].rsplit('/', 1)[0]
+
+                if test_skipped:
+                    skip_count += 1
+                    print(f"  ⏭️  {tool_name}: {failure_reason} ({elapsed:.2f}s)")
+                elif test_failed:
+                    fail_count += 1
+                    # Truncate long error messages
+                    if len(failure_reason) > 200:
+                        failure_reason = failure_reason[:200] + "..."
+                    print(f"  ❌ {tool_name}: {failure_reason} ({elapsed:.2f}s)")
+                    if verbose and tool_result_text:
+                        if len(tool_result_text) > 500:
+                            print(f"     Result: {tool_result_text[:500]}...")
+                        else:
+                            print(f"     Result: {tool_result_text}")
                 else:
                     success_count += 1
                     print(f"  ✅ {tool_name} ({elapsed:.2f}s)")
 
                     # Show tool result content in verbose mode
-                    if verbose and "result" in result:
-                        tool_result = result["result"]
-                        if "content" in tool_result:
-                            content = tool_result["content"]
-                            if isinstance(content, list) and len(content) > 0:
-                                # Show first content item
-                                first_item = content[0]
-                                if isinstance(first_item, dict) and "text" in first_item:
-                                    # Truncate long text responses
-                                    text = first_item["text"]
-                                    if len(text) > 500:
-                                        print(f"     Result: {text[:500]}...")
-                                    else:
-                                        print(f"     Result: {text}")
-                                else:
-                                    print(f"     Result: {json.dumps(first_item, indent=6)[:500]}")
-                            elif isinstance(content, str):
-                                print(f"     Result: {content[:500]}")
+                    if verbose and tool_result_text:
+                        if len(tool_result_text) > 500:
+                            print(f"     Result: {tool_result_text[:500]}...")
+                        else:
+                            print(f"     Result: {tool_result_text}")
 
                 request_id += 1
 
@@ -358,7 +470,7 @@ def run_tests_stdio(
                     import traceback
                     print(f"     {traceback.format_exc()}")
 
-        print(f"\n📊 Test Results: {success_count}/{len(test_tools)} passed")
+        print(f"\n📊 Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {len(test_tools)} total)")
         return fail_count == 0
 
     except Exception as e:

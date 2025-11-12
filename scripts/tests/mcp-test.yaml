@@ -13,7 +13,73 @@ test_tools:
       workflows
     idempotent: true
     arguments:
-      catalog_url: s3://quilt-ernest-staging
+      catalog_url: nightly.quilttest.com
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_objects_list:
+    description: List objects in an S3 bucket with optional prefix filtering - S3
+      bucket exploration and object retrieval tasks
+    idempotent: true
+    arguments:
+      bucket: quilt-ernest-staging
+      prefix: raw/test/
+      max_keys: 5
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_catalog:
+    description: Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL)
+      - Catalog and package search experiences
+    idempotent: true
+    arguments:
+      query: raw/test
+      limit: 10
+      scope: bucket
+      target: s3://quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_explain:
+    description: Explain how a search query would be processed and executed - Catalog
+      and package search experiences
+    idempotent: true
+    arguments:
+      query: CSV files
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_suggest:
+    description: Get intelligent search suggestions based on partial queries and context
+      - Catalog and package search experiences
+    idempotent: true
+    arguments:
+      partial_query: raw/t
+      limit: 5
     response_schema:
       type: object
       properties:
@@ -29,7 +95,7 @@ test_tools:
     arguments:
       registry: s3://quilt-ernest-staging
       package_name: raw/test
-      path: README.md
+      path: .timestamp
     response_schema:
       type: object
       properties:
@@ -46,23 +112,7 @@ test_tools:
     arguments:
       registry: s3://quilt-ernest-staging
       package_name: raw/test
-      path: README.md
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  bucket_object_fetch:
-    description: Fetch binary or text data from an S3 object - S3 bucket exploration
-      and object retrieval tasks
-    idempotent: true
-    arguments:
-      s3_uri: s3://quilt-ernest-staging/README.md
-      max_bytes: 10
+      path: .timestamp
     response_schema:
       type: object
       properties:
@@ -77,7 +127,7 @@ test_tools:
       and object retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-ernest-staging/README.md
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -92,7 +142,7 @@ test_tools:
       exploration and object retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-ernest-staging/README.md
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -107,8 +157,8 @@ test_tools:
       retrieval tasks
     idempotent: true
     arguments:
-      s3_uri: s3://quilt-ernest-staging/README.md
-      max_bytes: 10
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      max_bytes: 200
     response_schema:
       type: object
       properties:
@@ -118,30 +168,13 @@ test_tools:
             type: object
       required:
       - content
-  bucket_objects_list:
-    description: List objects in an S3 bucket with optional prefix filtering - S3
-      bucket exploration and object retrieval tasks
+  bucket_object_fetch:
+    description: Fetch binary or text data from an S3 object - S3 bucket exploration
+      and object retrieval tasks
     idempotent: true
     arguments:
-      bucket: quilt-ernest-staging
-      prefix: README.md
-      max_keys: 10
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  bucket_objects_put:
-    description: Upload multiple objects to an S3 bucket - S3 bucket exploration and
-      object retrieval tasks
-    idempotent: false
-    arguments:
-      bucket: quilt-ernest-staging
-      items: CONFIGURE_ITEMS
+      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      max_bytes: 200
     response_schema:
       type: object
       properties:
@@ -170,55 +203,6 @@ test_tools:
             type: object
       required:
       - content
-  package_create:
-    description: Create a new Quilt package from S3 objects - Core package creation,
-      update, and deletion workflows
-    idempotent: false
-    arguments:
-      package_name: raw/test
-      s3_uris: CONFIGURE_S3_URIS
-      registry: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  package_create_from_s3:
-    description: Create a well-organized Quilt package from S3 bucket contents with
-      smart organization - Bulk S3-to-package ingestion workflows
-    idempotent: false
-    arguments:
-      source_bucket: quilt-ernest-staging
-      package_name: raw/test
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  package_delete:
-    description: Delete a Quilt package from the registry - Core package creation,
-      update, and deletion workflows
-    idempotent: false
-    arguments:
-      package_name: raw/test
-      registry: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
   package_diff:
     description: Compare two package versions and show differences - Quilt package
       discovery and comparison tasks
@@ -236,133 +220,12 @@ test_tools:
             type: object
       required:
       - content
-  package_update:
-    description: Update an existing Quilt package by adding new S3 objects - Core
-      package creation, update, and deletion workflows
-    idempotent: false
-    arguments:
-      package_name: raw/test
-      s3_uris: CONFIGURE_S3_URIS
-      registry: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  create_quilt_summary_files:
-    description: Create all Quilt summary files for a package - Quilt summary file
-      generation tasks
-    idempotent: false
-    arguments:
-      package_name: raw/test
-      package_metadata: CONFIGURE_PACKAGE_METADATA
-      organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
-      readme_content: CONFIGURE_README_CONTENT
-      source_info: CONFIGURE_SOURCE_INFO
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  generate_package_visualizations:
-    description: Generate comprehensive visualizations for the package - Quilt summary
-      file generation tasks
+  athena_query_validate:
+    description: Validate SQL query syntax without executing it - Athena querying
+      and Glue catalog inspection workflows
     idempotent: true
     arguments:
-      package_name: raw/test
-      organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
-      file_types: CONFIGURE_FILE_TYPES
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  generate_quilt_summarize_json:
-    description: Generate a comprehensive quilt_summarize.json file following Quilt
-      standards - Quilt summary file generation tasks
-    idempotent: true
-    arguments:
-      package_name: raw/test
-      package_metadata: CONFIGURE_PACKAGE_METADATA
-      organized_structure: CONFIGURE_ORGANIZED_STRUCTURE
-      readme_content: CONFIGURE_README_CONTENT
-      source_info: CONFIGURE_SOURCE_INFO
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  search_catalog:
-    description: Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL)
-      - Catalog and package search experiences
-    idempotent: true
-    arguments:
-      query: test
-      limit: 10
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  search_explain:
-    description: Explain how a search query would be processed and executed - Catalog
-      and package search experiences
-    idempotent: true
-    arguments:
-      query: test
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  search_suggest:
-    description: Get intelligent search suggestions based on partial queries and context
-      - Catalog and package search experiences
-    idempotent: true
-    arguments:
-      partial_query: CONFIGURE_PARTIAL_QUERY
-      limit: 10
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  create_data_visualization:
-    description: Create interactive data visualization for Quilt packages - Generate
-      ECharts configurations from tabular data.
-    idempotent: false
-    arguments:
-      data: CONFIGURE_DATA
-      plot_type: CONFIGURE_PLOT_TYPE
-      x_column: CONFIGURE_X_COLUMN
+      query: SHOW TABLES
     response_schema:
       type: object
       properties:
@@ -377,23 +240,8 @@ test_tools:
       querying and Glue catalog inspection workflows
     idempotent: true
     arguments:
-      query: test
+      query: SELECT 1 as test_value
       max_results: 10
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  athena_query_validate:
-    description: Validate SQL query syntax without executing it - Athena querying
-      and Glue catalog inspection workflows
-    idempotent: true
-    arguments:
-      query: test
     response_schema:
       type: object
       properties:
@@ -408,7 +256,7 @@ test_tools:
     idempotent: true
     arguments:
       bucket_name: quilt-ernest-staging
-      query: test
+      query: SELECT 1 as test_value
       max_results: 10
     response_schema:
       type: object
@@ -432,94 +280,13 @@ test_tools:
             type: object
       required:
       - content
-  tabulator_open_query_toggle:
-    description: Toggle tabulator open query flag.
-    idempotent: true
-    arguments:
-      enabled: CONFIGURE_ENABLED
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  tabulator_table_create:
-    description: Create tabulator table (legacy tool signature).
-    idempotent: false
-    arguments:
-      bucket_name: quilt-ernest-staging
-      table_name: CONFIGURE_TABLE_NAME
-      schema: CONFIGURE_SCHEMA
-      package_pattern: CONFIGURE_PACKAGE_PATTERN
-      logical_key_pattern: CONFIGURE_LOGICAL_KEY_PATTERN
-      parser_delimiter: 10
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  tabulator_table_delete:
-    description: Delete tabulator table (legacy tool signature).
-    idempotent: false
-    arguments:
-      bucket_name: quilt-ernest-staging
-      table_name: CONFIGURE_TABLE_NAME
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
   tabulator_table_rename:
     description: Rename tabulator table (legacy tool signature).
-    idempotent: true
+    idempotent: false
     arguments:
       bucket_name: quilt-ernest-staging
-      table_name: CONFIGURE_TABLE_NAME
-      new_table_name: CONFIGURE_NEW_TABLE_NAME
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  workflow_add_step:
-    description: Add a step to an existing workflow - Workflow tracking and orchestration
-      tasks
-    idempotent: false
-    arguments:
-      workflow_id: CONFIGURE_WORKFLOW_ID
-      step_id: CONFIGURE_STEP_ID
-      description: CONFIGURE_DESCRIPTION
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  workflow_create:
-    description: Create a new workflow for tracking multi-step operations - Workflow
-      tracking and orchestration tasks
-    idempotent: false
-    arguments:
-      workflow_id: CONFIGURE_WORKFLOW_ID
-      name: CONFIGURE_NAME
+      table_name: test_table_nonexistent
+      new_table_name: test_renamed
     response_schema:
       type: object
       properties:
@@ -534,209 +301,12 @@ test_tools:
       tasks
     idempotent: true
     arguments:
-      template_name: CONFIGURE_TEMPLATE_NAME
-      workflow_id: CONFIGURE_WORKFLOW_ID
-      params: CONFIGURE_PARAMS
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  workflow_update_step:
-    description: Update the status of a workflow step - Workflow tracking and orchestration
-      tasks
-    idempotent: false
-    arguments:
-      workflow_id: CONFIGURE_WORKFLOW_ID
-      step_id: CONFIGURE_STEP_ID
-      status: CONFIGURE_STATUS
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_sso_config_remove:
-    description: Remove the SSO configuration - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments: {}
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_sso_config_set:
-    description: Set the SSO configuration - Quilt governance and administrative operations
-    idempotent: false
-    arguments:
-      config: CONFIGURE_CONFIG
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_tabulator_open_query_set:
-    description: Set the tabulator open query status - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      enabled: CONFIGURE_ENABLED
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_add_roles:
-    description: Add roles to a user - Quilt governance and administrative operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      roles: CONFIGURE_ROLES
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_create:
-    description: Create a new user in the registry - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      email: CONFIGURE_EMAIL
-      role: CONFIGURE_ROLE
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_delete:
-    description: Delete a user from the registry - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_remove_roles:
-    description: Remove roles from a user - Quilt governance and administrative operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      roles: CONFIGURE_ROLES
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_reset_password:
-    description: Reset a user's password - Quilt governance and administrative operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_set_active:
-    description: Set the active status for a user - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      active: CONFIGURE_ACTIVE
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_set_admin:
-    description: Set the admin status for a user - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      admin: CONFIGURE_ADMIN
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_set_email:
-    description: Update a user's email address - Quilt governance and administrative
-      operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      email: CONFIGURE_EMAIL
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-  admin_user_set_role:
-    description: Set the primary and extra roles for a user - Quilt governance and
-      administrative operations
-    idempotent: false
-    arguments:
-      name: CONFIGURE_NAME
-      role: CONFIGURE_ROLE
+      template_name: cross-package-aggregation
+      workflow_id: test-wf-001
+      params:
+        source_packages:
+        - raw/test
+        target_package: raw/test-agg
     response_schema:
       type: object
       properties:

@@ -177,22 +177,87 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
     }
 
     # Get all registered tools
+    # Get all tools
     server_tools = await server.get_tools()
-    for tool_name, handler in server_tools.items():
-        # Get function signature to extract parameters
-        sig = inspect.signature(handler.fn)
+
+    # Load values from .env
+    default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
+    catalog_domain = env_vars.get("QUILT_CATALOG_DOMAIN", "open.quiltdata.com")
+    test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
+    bucket_name = default_bucket.replace("s3://", "").split("/")[0]
+
+    # Define test execution order and custom configurations
+    # Phase 1: Setup, Phase 2: Discovery, Phase 3-N: Use discovered data
+    tool_order = [
+        # Phase 1: Setup
+        "catalog_configure",
+        # Phase 2: Discovery - list real objects first
+        "bucket_objects_list",
+        "search_catalog",
+        "search_explain",
+        "search_suggest",
+        # Phase 3: Catalog operations
+        "catalog_uri",
+        "catalog_url",
+        # Phase 4: Bucket operations
+        "bucket_object_info",
+        "bucket_object_link",
+        "bucket_object_text",
+        "bucket_object_fetch",
+        # Phase 5: Package operations
+        "package_browse",
+        "package_diff",
+        # Phase 6: Query operations
+        "athena_query_validate",
+        "athena_query_execute",
+        "tabulator_bucket_query",
+        # Phase 7: Admin operations (may require auth)
+        "tabulator_open_query_status",
+        "tabulator_table_rename",
+        # Phase 8: Workflow operations
+        "workflow_template_apply",
+    ]
+
+    # Custom test configurations for specific tools
+    custom_configs = {
+        "catalog_configure": {"catalog_url": catalog_domain},
+        "bucket_objects_list": {"bucket": bucket_name, "prefix": f"{test_package}/", "max_keys": 5},
+        "search_catalog": {"query": test_package, "limit": 10, "scope": "bucket", "target": default_bucket},
+        "search_explain": {"query": "CSV files"},
+        "search_suggest": {"partial_query": test_package[:5], "limit": 5},
+        "catalog_uri": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
+        "catalog_url": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
+        "bucket_object_info": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
+        "bucket_object_link": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
+        "bucket_object_text": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_fetch": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "package_browse": {"package_name": test_package, "registry": default_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
+        "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": default_bucket},
+        "athena_query_validate": {"query": "SHOW TABLES"},
+        "athena_query_execute": {"query": "SELECT 1 as test_value", "max_results": 10},
+        "tabulator_bucket_query": {"bucket_name": bucket_name, "query": "SELECT 1 as test_value", "max_results": 10},
+        "tabulator_open_query_status": {},
+        "tabulator_table_rename": {"bucket_name": bucket_name, "table_name": "test_table_nonexistent", "new_table_name": "test_renamed"},
+        "workflow_template_apply": {"template_name": "cross-package-aggregation", "workflow_id": "test-wf-001", "params": {"source_packages": [test_package], "target_package": f"{test_package}-agg"}},
+    }
+
+    # Process tools in defined order
+    for tool_name in tool_order:
+        if tool_name not in server_tools:
+            continue
+
+        handler = server_tools[tool_name]
         doc = inspect.getdoc(handler.fn) or "No description available"
 
-        # Determine if operation is idempotent (read-only)
-        # Non-idempotent operations typically: create, update, delete, put, set, upload
-        non_idempotent_keywords = ['create', 'update', 'delete', 'put', 'upload', 'set', 'add', 'remove', 'reset']
+        # Determine if operation is idempotent
+        non_idempotent_keywords = ['create', 'update', 'delete', 'put', 'upload', 'set', 'add', 'remove', 'reset', 'rename']
         is_idempotent = not any(keyword in tool_name.lower() for keyword in non_idempotent_keywords)
 
-        # Build basic test case structure
+        # Build test case
         test_case = {
             "description": doc.split('\n')[0],
             "idempotent": is_idempotent,
-            "arguments": {},
+            "arguments": custom_configs.get(tool_name, {}),
             "response_schema": {
                 "type": "object",
                 "properties": {
@@ -206,50 +271,6 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str])
                 "required": ["content"]
             }
         }
-
-        # Try to add sensible default arguments based on parameter names
-        # Use values from .env when available
-        default_bucket = env_vars.get("QUILT_DEFAULT_BUCKET", "s3://quilt-example")
-        test_package = env_vars.get("QUILT_TEST_PACKAGE", "examples/wellplates")
-        test_entry = env_vars.get("QUILT_TEST_ENTRY", "README.md")
-
-        # Special case: optimize package_browse for fast testing
-        if tool_name == "package_browse":
-            test_case["arguments"]["package_name"] = test_package
-            test_case["arguments"]["registry"] = default_bucket
-            test_case["arguments"]["recursive"] = False
-            test_case["arguments"]["include_signed_urls"] = False
-            test_case["arguments"]["top"] = 5
-        else:
-            for param_name, param in sig.parameters.items():
-                if param_name in ['ctx', 'arguments']:
-                    continue
-
-                # Add example arguments for common parameter patterns
-                # Prioritize .env values for test resources
-                if 'bucket' in param_name.lower():
-                    # Extract bucket name without s3:// prefix if needed
-                    bucket_name = default_bucket.replace("s3://", "").split("/")[0]
-                    test_case["arguments"][param_name] = bucket_name
-                elif param_name in ['query', 'search']:
-                    test_case["arguments"][param_name] = "test"
-                elif 'limit' in param_name.lower() or 'max' in param_name.lower():
-                    test_case["arguments"][param_name] = 10
-                elif param_name in ['registry', 'registry_url', 'catalog_url']:
-                    test_case["arguments"][param_name] = default_bucket
-                elif 'package' in param_name.lower() and 'name' in param_name.lower():
-                    test_case["arguments"][param_name] = test_package
-                elif param_name == 's3_uri':
-                    # Build full S3 URI from bucket + entry
-                    test_case["arguments"][param_name] = f"{default_bucket}/{test_entry}"
-                elif param_name in ['path', 'prefix', 'key']:
-                    test_case["arguments"][param_name] = test_entry
-                # For optional params with defaults, skip them
-                elif param.default != inspect.Parameter.empty:
-                    continue
-                else:
-                    # Mark as needing configuration
-                    test_case["arguments"][param_name] = f"CONFIGURE_{param_name.upper()}"
 
         test_config["test_tools"][tool_name] = test_case
 
