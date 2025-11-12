@@ -261,7 +261,10 @@ class DockerManager:
         return True
 
     def build_local(self, version: str = "dev") -> bool:
-        """Build Docker image locally without pushing."""
+        """Build Docker image locally without pushing.
+
+        Uses native platform for fast local builds (no emulation).
+        """
         if not self._check_docker():
             return False
 
@@ -273,8 +276,20 @@ class DockerManager:
             simple_name = "quilt-mcp"  # Use full name for clarity
         local_tag = f"{simple_name}:{version}"
 
-        print(f"INFO: Building Docker image locally", file=sys.stderr)
-        if not self.build(local_tag):
+        # Detect native platform for fast local builds
+        import platform as platform_module
+        machine = platform_module.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            native_platform = "linux/arm64"
+        elif machine in ("x86_64", "amd64"):
+            native_platform = "linux/amd64"
+        else:
+            # Fallback to docker's default behavior
+            native_platform = "linux/amd64"
+            print(f"WARNING: Unknown machine type {machine}, using {native_platform}", file=sys.stderr)
+
+        print(f"INFO: Building Docker image locally for native platform ({native_platform})", file=sys.stderr)
+        if not self.build(local_tag, platform=native_platform):
             return False
 
         print(f"INFO: Local build completed: {local_tag}", file=sys.stderr)

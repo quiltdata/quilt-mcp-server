@@ -260,6 +260,25 @@ def run_tests_stdio(
             print(f"❌ Initialize failed: {response}")
             return False
 
+        # ✅ FIX: Send notifications/initialized notification (required by MCP protocol)
+        # This notification must be sent after receiving initialize response
+        # and before making any tool calls. Without it, the server remains in
+        # "initializing" state and rejects tool calls with error -32602.
+        initialized_notification = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+            # Note: No "id" field - this is a notification, not a request
+        }
+
+        server.process.stdin.write(json.dumps(initialized_notification) + "\n")
+        server.process.stdin.flush()
+
+        # Give server a moment to process notification (no response expected)
+        time.sleep(0.5)
+
+        if verbose:
+            print("Sent notifications/initialized")
+
         # Test each tool
         success_count = 0
         fail_count = 0
@@ -415,7 +434,7 @@ Examples:
         print("🔓 Running ALL tests (including write operations)")
         tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=False)
     else:
-        print("🔒 Running IDEMPOTENT tests only (read-only operations)")
+        print("===🧪 Running MCP server integration tests (idempotent only)...")
         tools = filter_tests_by_idempotence(TEST_CONFIG_PATH, idempotent_only=True)
 
     print(f"📋 Selected {len(tools)} tools for testing")
