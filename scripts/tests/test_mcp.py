@@ -279,6 +279,32 @@ class LocalMCPServer:
             print(f"Could not read stderr: {e}")
 
 
+def determine_server_mode(args) -> str:
+    """Determine which server mode to use based on arguments and environment.
+
+    Priority:
+    1. Explicit --docker flag → docker
+    2. Explicit --local flag → local
+    3. Environment variable QUILT_MCP_TEST_MODE → mode
+    4. Default → local
+
+    Returns:
+        "local" or "docker"
+    """
+    if args.docker:
+        return "docker"
+    if args.local:
+        return "local"
+
+    # Check environment variable
+    env_mode = os.environ.get("QUILT_MCP_TEST_MODE", "local").lower()
+    if env_mode in ["docker", "local"]:
+        return env_mode
+
+    # Default to local
+    return "local"
+
+
 def generate_test_config() -> bool:
     """Generate test configuration using mcp-list.py."""
     print("🔧 Generating test configuration...")
@@ -614,31 +640,44 @@ Examples:
         """
     )
 
+    # Server mode selection (mutually exclusive)
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--local",
+        action="store_true",
+        default=False,  # Don't set default here
+        help="Run tests against local server (default)"
+    )
+    mode_group.add_argument(
+        "--docker",
+        action="store_true",
+        help="Run tests against Docker container"
+    )
+
     parser.add_argument(
         "--all",
         action="store_true",
         help="Run all tests including non-idempotent (write) operations"
     )
-    parser.add_argument(
-        "--no-docker",
-        action="store_true",
-        help="Skip Docker container launch, use existing server"
-    )
-    parser.add_argument(
-        "--endpoint",
-        default=None,
-        help="MCP endpoint URL (default: http://localhost:{port}/mcp)"
-    )
+
+    # Docker-specific options
     parser.add_argument(
         "--image",
         default=DEFAULT_IMAGE,
-        help=f"Docker image to use (default: {DEFAULT_IMAGE})"
+        help=f"Docker image to use (default: {DEFAULT_IMAGE}, only used with --docker)"
     )
     parser.add_argument(
         "--port",
         type=int,
         default=DEFAULT_PORT,
-        help=f"Port to expose Docker container on (default: {DEFAULT_PORT})"
+        help=f"Port for Docker container (default: {DEFAULT_PORT}, only used with --docker)"
+    )
+
+    # Local-specific options
+    parser.add_argument(
+        "--python",
+        default=None,
+        help="Python executable path for local mode (default: uv's Python)"
     )
     parser.add_argument(
         "--no-generate",
