@@ -38,10 +38,6 @@ def test_quilt_tools():
     search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)
 
-    # Test backend parameter defaults to "auto"
+    # Test default search (backend is automatically selected)
     search_default = search_catalog(query="test")
     assert isinstance(search_default, dict)
-
-    # Test explicit backend parameter (elasticsearch or graphql are valid backends)
-    search_explicit = search_catalog(query="test", backend="elasticsearch")
-    assert isinstance(search_explicit, dict)
