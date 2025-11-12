@@ -100,7 +100,7 @@ test-scripts: docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 test-mcp:
 	@echo "===🧪 Running MCP server integration tests (local mode, verbose)..."
 	@uv sync --group test
-	@uv run python scripts/tests/test_mcp.py -v
+	@uv run python scripts/tests/test_mcp.py
 
 # Explicit local mode with verbose output
 test-mcp-local:
