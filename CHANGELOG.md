@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-11-12
+
+### Added
+
+- **MCP Testing Infrastructure**: Comprehensive testing system for MCP protocol compliance (#232)
+  - Local server mode for faster testing without Docker
+  - Coverage validation with YAML configuration
+  - Protocol diagnostics and schema inspection tools
+
+### Changed
+
+- **Search API Simplification** (Breaking Change):
+  - Removed S3 backend (use Elasticsearch or GraphQL only)
+  - Smart backend selection with automatic fallback (Elasticsearch → GraphQL)
+  - Lazy initialization with status checking
+  - Scope parameter uses Literal type for validation
+
+- **Tool Classification**: Replaced `idempotent` flag with granular `effect` (create/remove/update/configure/none)
+
+- **Resource System**: Consolidated 9 modules into single file, converted list operations to standard tools
+
+### Fixed
+
+- **Elasticsearch**: Special character escaping, improved error messages
+- **Search Results**: Package search returns packages (not objects), proper GraphQL filtering
+- **Docker**: Build platform and ECR configuration
+
 ## [0.8.5] - 2025-11-10
 
 ### Changed
