@@ -373,15 +373,43 @@ def run_tests_stdio(
     tools: Optional[list[str]] = None,
     verbose: bool = False
 ) -> bool:
-    """Run MCP tests by delegating to mcp-test.py with stdio transport.
+    """DEPRECATED: Use run_unified_tests() instead.
 
-    This function eliminates code duplication by calling mcp-test.py as a module,
-    passing the server process object for direct stdio communication.
+    This function is kept for backwards compatibility but should not be used
+    for new code. It calls run_test_suite separately for tools only.
+    """
+    return run_unified_tests(
+        server=server,
+        config_path=config_path,
+        tools=tools,
+        resources=None,
+        run_tools=True,
+        run_resources=False,
+        verbose=verbose
+    )
+
+
+def run_unified_tests(
+    server: Union[DockerMCPServer, LocalMCPServer],
+    config_path: Path,
+    tools: Optional[list[str]] = None,
+    resources: Optional[list[str]] = None,
+    run_tools: bool = True,
+    run_resources: bool = True,
+    verbose: bool = False
+) -> bool:
+    """Run BOTH tool and resource tests with ONE call to mcp-test.py.
+
+    This function calls MCPTester.run_test_suite() ONCE with both run_tools and
+    run_resources flags, which prints ONE unified summary covering both test types.
 
     Args:
         server: Running Docker/Local MCP server instance
         config_path: Path to test configuration YAML
         tools: Optional list of tool names to test (None = all tools in config)
+        resources: Optional list of resource URIs to test (None = all resources)
+        run_tools: Whether to run tool tests
+        run_resources: Whether to run resource tests
         verbose: Enable verbose test output
 
     Returns:
@@ -389,9 +417,10 @@ def run_tests_stdio(
     """
     print(f"\n🧪 Running MCP tests (stdio via mcp-test.py)...")
     print(f"   Config: {config_path}")
-
-    if tools:
-        print(f"   Testing {len(tools)} tools")
+    if run_tools and tools:
+        print(f"   Testing {len(tools)} specific tools")
+    if run_resources and resources:
+        print(f"   Testing {len(resources)} specific resources")
 
     if not server.process or server.process.poll() is not None:
         print("❌ Server process not running")
@@ -418,7 +447,7 @@ def run_tests_stdio(
         # Load test configuration
         config = load_test_config(config_path)
 
-        # Filter to specific tools if requested
+        # Filter tools if specific ones requested
         specific_tool = None
         if tools:
             if len(tools) == 1:
@@ -427,16 +456,25 @@ def run_tests_stdio(
                 test_tools = config.get("test_tools", {})
                 config["test_tools"] = {k: v for k, v in test_tools.items() if k in tools}
 
-        # Run tools test using run_test_suite
-        # Note: run_test_suite now prints detailed summary internally and returns boolean
+        # Filter resources if specific ones requested
+        specific_resource = None
+        if resources:
+            if len(resources) == 1:
+                specific_resource = resources[0]
+            else:
+                test_resources = config.get("test_resources", {})
+                config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
+
+        # ONE call runs BOTH tools and resources, prints ONE unified summary
         success = MCPTester.run_test_suite(
             process=server.process,
             transport="stdio",
             verbose=verbose,
             config=config,
-            run_tools=True,
-            run_resources=False,
-            specific_tool=specific_tool
+            run_tools=run_tools,
+            run_resources=run_resources,
+            specific_tool=specific_tool,
+            specific_resource=specific_resource
         )
 
         return success
@@ -460,82 +498,20 @@ def run_resource_tests_stdio(
     verbose: bool = False,
     skip_init: bool = False
 ) -> bool:
-    """Run MCP resource tests by delegating to mcp-test.py with stdio transport.
+    """DEPRECATED: Use run_unified_tests() instead.
 
-    This function eliminates code duplication by calling mcp-test.py as a module,
-    passing the server process object for direct stdio communication.
-
-    Args:
-        server: Running Docker/Local MCP server instance
-        config_path: Path to test configuration YAML
-        resources: Optional list of resource URIs to test (None = all resources)
-        verbose: Enable verbose test output
-        skip_init: Skip server initialization (if already initialized)
-
-    Returns:
-        True if all resource tests passed, False otherwise
+    This function is kept for backwards compatibility but should not be used
+    for new code. It calls run_test_suite separately for resources only.
     """
-    print(f"\n🗂️  Running resource tests (stdio via mcp-test.py)...")
-    print(f"   Config: {config_path}")
-
-    if not server.process or server.process.poll() is not None:
-        print("❌ Server process not running")
-        return False
-
-    try:
-        # Import mcp-test as a module to use its functionality directly
-        sys.path.insert(0, str(SCRIPTS_DIR))
-        try:
-            from mcp_test import MCPTester, load_test_config
-        except ImportError as e:
-            # Handle module name with dash by trying alternative import
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("mcp_test", MCP_TEST_SCRIPT)
-            if spec and spec.loader:
-                mcp_test = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mcp_test)
-                MCPTester = mcp_test.MCPTester
-                load_test_config = mcp_test.load_test_config
-            else:
-                print(f"❌ Failed to import mcp-test.py: {e}")
-                return False
-
-        # Load test configuration
-        config = load_test_config(config_path)
-
-        # Filter to specific resources if requested
-        specific_resource = None
-        if resources:
-            if len(resources) == 1:
-                specific_resource = resources[0]
-            else:
-                test_resources = config.get("test_resources", {})
-                config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
-
-        # Run resources test using run_test_suite
-        # Note: run_test_suite now prints detailed summary internally and returns boolean
-        success = MCPTester.run_test_suite(
-            process=server.process,
-            transport="stdio",
-            verbose=verbose,
-            config=config,
-            run_tools=False,
-            run_resources=True,
-            specific_resource=specific_resource
-        )
-
-        return success
-
-    except Exception as e:
-        print(f"❌ Resource test execution failed: {e}")
-        if verbose:
-            import traceback
-            traceback.print_exc()
-        return False
-    finally:
-        # Clean up sys.path
-        if str(SCRIPTS_DIR) in sys.path:
-            sys.path.remove(str(SCRIPTS_DIR))
+    return run_unified_tests(
+        server=server,
+        config_path=config_path,
+        tools=None,
+        resources=resources,
+        run_tools=False,
+        run_resources=True,
+        verbose=verbose
+    )
 
 
 def main():
@@ -690,48 +666,27 @@ Examples:
             sys.exit(1)
 
     try:
-        # Run tool tests (unless --resources-only)
-        tool_success = True
-        if not args.resources_only:
-            if server:
-                tool_success = run_tests_stdio(server, TEST_CONFIG_PATH, tools, args.verbose)
-            else:
-                print("❌ No server available for testing")
-                tool_success = False
+        # Run BOTH tool and resource tests with ONE call to run_test_suite
+        if not server:
+            print("❌ No server available for testing")
+            sys.exit(1)
 
-        # Run resource tests (unless --skip-resources)
-        resource_success = True
-        if not args.skip_resources:
-            if server:
-                # Get list of resources to test
-                resource_uris = [args.resource] if args.resource else None
-                # Skip init if tool tests already ran (session already initialized)
-                skip_init = not args.resources_only and tool_success
-                resource_success = run_resource_tests_stdio(
-                    server, TEST_CONFIG_PATH, resource_uris, args.verbose, skip_init
-                )
-            else:
-                print("❌ No server available for resource testing")
-                resource_success = False
-
-        # Combined success
-        overall_success = tool_success and resource_success
-
-        # Print summary
-        if not args.resources_only and not args.skip_resources:
-            print(f"\n{'='*80}")
-            print("📊 OVERALL TEST SUMMARY")
-            print(f"{'='*80}")
-            print(f"   Tools: {'✅ PASSED' if tool_success else '❌ FAILED'}")
-            print(f"   Resources: {'✅ PASSED' if resource_success else '❌ FAILED'}")
-            print(f"   Overall: {'✅ ALL TESTS PASSED' if overall_success else '❌ SOME TESTS FAILED'}")
-            print(f"{'='*80}\n")
+        # Single call runs BOTH tools and resources, prints ONE unified summary
+        success = run_unified_tests(
+            server=server,
+            config_path=TEST_CONFIG_PATH,
+            tools=tools if not args.resources_only else None,
+            resources=[args.resource] if args.resource else None,
+            run_tools=not args.resources_only,
+            run_resources=not args.skip_resources,
+            verbose=args.verbose
+        )
 
         # Show logs if requested
-        if args.logs and server:
+        if args.logs:
             server.logs()
 
-        sys.exit(0 if overall_success else 1)
+        sys.exit(0 if success else 1)
 
     finally:
         # Clean up server

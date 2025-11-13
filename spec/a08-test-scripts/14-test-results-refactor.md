@@ -139,23 +139,65 @@ def run_test_suite(
 **Logic**:
 1. If `run_tools`: create ToolsTester, initialize, run_all_tests, get dict
 2. If `run_resources`: create ResourcesTester, initialize, run_all_tests, get dict
-3. **Call `print_detailed_summary(tools_results, resources_results)` internally**
+3. **Call `print_detailed_summary(tools_results, resources_results)` ONCE at the end**
 4. Return boolean success status (True if no failures)
 
-**Critical Design Decision**: This method MUST print the detailed summary itself. This ensures:
+**Critical Design Decisions**:
 
-- Summary is ALWAYS printed when tests run (impossible to forget)
-- Single point of responsibility (run tests + report results)
-- Callers just get simple boolean success status
-- No code duplication between CLI and programmatic usage
+1. **Single unified summary**: `print_detailed_summary()` is called ONCE with BOTH tools
+   and resources results, producing ONE cohesive report showing:
+   - Tools section (if tools were run)
+   - Resources section (if resources were run)
+   - Overall status combining both
 
-### 6. Simplify main()
+2. **Supports running both test types**: When `run_tools=True` AND `run_resources=True`,
+   both test suites execute and ONE summary covers everything
+
+3. **Single point of responsibility**: This method runs tests + reports results atomically
+
+4. **Prevents duplicate summaries**: Callers MUST NOT print their own summaries since
+   the detailed summary is already printed
+
+### 6. Usage from test_mcp.py
+
+**CORRECT usage** (ONE call for both tools and resources):
+
+```python
+def main():
+    # ... setup server ...
+
+    # Single call runs BOTH tools and resources, prints ONE summary
+    success = MCPTester.run_test_suite(
+        process=server.process,
+        transport="stdio",
+        verbose=args.verbose,
+        config=config,
+        run_tools=not args.resources_only,
+        run_resources=not args.skip_resources,
+        specific_tool=args.test_tool if args.test_tool else None,
+        specific_resource=args.test_resource if args.test_resource else None
+    )
+
+    # NO additional summary printing here - already done by run_test_suite()
+    sys.exit(0 if success else 1)
+```
+
+**INCORRECT usage** (multiple calls - DO NOT DO THIS):
+
+```python
+# ❌ WRONG - This calls run_test_suite() twice, printing TWO summaries
+tool_success = MCPTester.run_test_suite(..., run_tools=True, run_resources=False)
+resource_success = MCPTester.run_test_suite(..., run_tools=False, run_resources=True)
+# Now you have duplicate output and no unified summary!
+```
+
+### 7. Simplify mcp-test.py main()
 
 **Changes**:
 - Keep argument parsing (unchanged)
 - Keep list operations (create temporary MCPTester, list tools/resources)
-- Replace test execution with: `success = MCPTester.run_test_suite(...)`
-- **Remove** `print_detailed_summary()` call (now handled inside run_test_suite)
+- **ONE call** to `run_test_suite()` with both `run_tools` and `run_resources` flags
+- **Remove** any manual `print_detailed_summary()` call (now handled inside run_test_suite)
 - Exit with: `sys.exit(0 if success else 1)`
 
 ### 7. Remove Old Functions
