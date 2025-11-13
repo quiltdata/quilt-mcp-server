@@ -512,7 +512,7 @@ def workflow_get_status(
         )
 
     except Exception as e:
-        logger.error(f"Failed to get workflow status {workflow_id}: {e}")
+        logger.error(f"Failed to get workflow status {id}: {e}")
         return ErrorResponse(error=f"Failed to get workflow status: {str(e)}")
 
 
