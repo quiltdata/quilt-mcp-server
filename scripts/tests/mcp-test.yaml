@@ -107,6 +107,20 @@ test_tools:
             type: object
       required:
       - content
+  admin_user_get:
+    description: Get detailed information about a specific user - Quilt governance
+      and administrative operations
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   admin_user_remove_roles:
     description: Remove roles from a user - Quilt governance and administrative operations
     effect: remove
@@ -211,6 +225,34 @@ test_tools:
     effect: none
     arguments:
       query: SHOW TABLES
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_table_schema:
+    description: Get detailed schema information for a specific table - Athena querying
+      and Glue catalog inspection workflows
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_tables_list:
+    description: List tables in a specific database - Athena querying and Glue catalog
+      inspection workflows
+    effect: none
+    arguments: {}
     response_schema:
       type: object
       properties:
@@ -344,6 +386,19 @@ test_tools:
             type: object
       required:
       - content
+  check_bucket_access:
+    description: Check the caller's access to ``bucket``.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   create_data_visualization:
     description: Create interactive data visualization for Quilt packages - Generate
       ECharts configurations from tabular data.
@@ -372,6 +427,19 @@ test_tools:
             type: object
       required:
       - content
+  discover_permissions:
+    description: Discover AWS permissions for the current principal.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   generate_package_visualizations:
     description: Generate comprehensive visualizations for the package - Quilt summary
       file generation tasks
@@ -390,6 +458,19 @@ test_tools:
     description: Generate a comprehensive quilt_summarize.json file following Quilt
       standards - Quilt summary file generation tasks
     effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  get_permission_discovery:
+    description: Return the singleton :class:`AWSPermissionDiscovery` instance.
+    effect: none
     arguments: {}
     response_schema:
       type: object
@@ -649,6 +730,19 @@ test_tools:
   tabulator_table_rename:
     description: Rename tabulator table (legacy tool signature).
     effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_tables_list:
+    description: Async wrapper mirroring the legacy tool interface for listing tables.
+    effect: none
     arguments: {}
     response_schema:
       type: object
@@ -943,63 +1037,6 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  permissions://buckets/{bucket}/access:
-    description: No description
-    effect: none
-    uri: permissions://buckets/{bucket}/access
-    uri_variables:
-      bucket: quilt-ernest-staging
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  admin://users/{name}:
-    description: No description
-    effect: none
-    uri: admin://users/{name}
-    uri_variables:
-      name: test_user
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  athena://databases/{database}/tables:
-    description: No description
-    effect: none
-    uri: athena://databases/{database}/tables
-    uri_variables:
-      database: default
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  athena://databases/{database}/tables/{table}/schema:
-    description: No description
-    effect: none
-    uri: athena://databases/{database}/tables/{table}/schema
-    uri_variables:
-      database: default
-      table: test_table
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
   metadata://templates/{template}:
     description: No description
     effect: none
@@ -1020,20 +1057,6 @@ test_resources:
     uri: workflow://workflows/{workflow_id}/status
     uri_variables:
       workflow_id: CONFIGURE_WORKFLOW_ID
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  tabulator://buckets/{bucket}/tables:
-    description: No description
-    effect: none
-    uri: tabulator://buckets/{bucket}/tables
-    uri_variables:
-      bucket: quilt-ernest-staging
     expected_mime_type: application/json
     content_validation:
       type: json
