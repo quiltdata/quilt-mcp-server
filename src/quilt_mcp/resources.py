@@ -15,10 +15,24 @@ Resources are organized by category:
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+
+def _serialize_result(result: Any) -> str:
+    """Serialize result to JSON, handling Pydantic models and datetime objects.
+
+    Args:
+        result: The result to serialize (dict, Pydantic model, or other)
+
+    Returns:
+        JSON string representation
+    """
+    if hasattr(result, 'model_dump'):
+        return json.dumps(result.model_dump(), indent=2, default=str)
+    return json.dumps(result, indent=2, default=str)
 
 
 def register_resources(mcp: "FastMCP") -> None:
@@ -43,7 +57,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.auth_metadata import auth_status
 
         result = await asyncio.to_thread(auth_status)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "auth://catalog/info",
@@ -56,7 +70,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.auth_metadata import catalog_info
 
         result = await asyncio.to_thread(catalog_info)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "auth://filesystem/status",
@@ -69,7 +83,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.auth_metadata import filesystem_status
 
         result = await asyncio.to_thread(filesystem_status)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Permissions Resources
@@ -86,7 +100,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.permissions_service import discover_permissions
 
         result = await asyncio.to_thread(discover_permissions)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "permissions://recommendations",
@@ -99,7 +113,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.permissions_service import bucket_recommendations_get
 
         result = await asyncio.to_thread(bucket_recommendations_get)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "permissions://buckets/{bucket}/access",
@@ -112,7 +126,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.permissions_service import check_bucket_access
 
         result = await asyncio.to_thread(check_bucket_access, bucket=bucket)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Admin Resources
@@ -129,7 +143,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_users_list
 
         result = await admin_users_list()
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "admin://roles",
@@ -142,7 +156,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_roles_list
 
         result = await admin_roles_list()
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "admin://users/{name}",
@@ -155,7 +169,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_user_get
 
         result = await asyncio.to_thread(admin_user_get, name=name)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "admin://config/sso",
@@ -168,7 +182,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_sso_config_get
 
         result = await admin_sso_config_get()
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "admin://config/tabulator",
@@ -181,7 +195,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_tabulator_open_query_get
 
         result = await admin_tabulator_open_query_get()
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Athena Resources
@@ -198,7 +212,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_databases_list
 
         result = await asyncio.to_thread(athena_databases_list)
-        return json.dumps(result.model_dump() if hasattr(result, 'model_dump') else result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "athena://workgroups",
@@ -211,7 +225,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_workgroups_list
 
         result = await asyncio.to_thread(athena_workgroups_list)
-        return json.dumps(result.model_dump() if hasattr(result, 'model_dump') else result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "athena://query/history",
@@ -224,7 +238,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_query_history
 
         result = await asyncio.to_thread(athena_query_history)
-        return json.dumps(result.model_dump() if hasattr(result, 'model_dump') else result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "athena://databases/{database}/tables",
@@ -237,7 +251,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_tables_list
 
         result = await asyncio.to_thread(athena_tables_list, database=database)
-        return json.dumps(result.model_dump() if hasattr(result, 'model_dump') else result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "athena://databases/{database}/tables/{table}/schema",
@@ -250,7 +264,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_table_schema
 
         result = await asyncio.to_thread(athena_table_schema, database=database, table=table)
-        return json.dumps(result.model_dump() if hasattr(result, 'model_dump') else result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Metadata Resources
@@ -267,7 +281,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.metadata_service import list_metadata_templates
 
         result = await asyncio.to_thread(list_metadata_templates)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "metadata://examples",
@@ -280,7 +294,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.metadata_service import show_metadata_examples
 
         result = await asyncio.to_thread(show_metadata_examples)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "metadata://troubleshooting",
@@ -292,7 +306,7 @@ def register_resources(mcp: "FastMCP") -> None:
         """Get troubleshooting guide."""
         # This function doesn't exist, create a simple placeholder
         result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "metadata://templates/{template}",
@@ -305,7 +319,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.metadata_service import get_metadata_template
 
         result = await asyncio.to_thread(get_metadata_template, name=template)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Workflow Resources
@@ -322,7 +336,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.workflow_service import workflow_list_all
 
         result = await asyncio.to_thread(workflow_list_all)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     @mcp.resource(
         "workflow://workflows/{workflow_id}/status",
@@ -335,7 +349,7 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.workflow_service import workflow_get_status
 
         result = await asyncio.to_thread(workflow_get_status, id=workflow_id)
-        return json.dumps(result, indent=2)
+        return _serialize_result(result)
 
     # ====================
     # Tabulator Resources
@@ -351,8 +365,8 @@ def register_resources(mcp: "FastMCP") -> None:
         """List tabulator buckets."""
         from quilt_mcp.services.tabulator_service import tabulator_buckets_list
 
-        result = await asyncio.to_thread(tabulator_buckets_list)
-        return json.dumps(result, indent=2)
+        result = await tabulator_buckets_list()
+        return _serialize_result(result)
 
     @mcp.resource(
         "tabulator://buckets/{bucket}/tables",
@@ -364,5 +378,5 @@ def register_resources(mcp: "FastMCP") -> None:
         """List tables in bucket."""
         from quilt_mcp.services.tabulator_service import tabulator_tables_list
 
-        result = await asyncio.to_thread(tabulator_tables_list, bucket_name=bucket)
-        return json.dumps(result, indent=2)
+        result = await tabulator_tables_list(bucket_name=bucket)
+        return _serialize_result(result)
