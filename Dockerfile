@@ -52,7 +52,6 @@ RUN apt-get update \
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/src /app/src
 COPY --from=builder /app/pyproject.toml /app/pyproject.toml
-COPY --from=builder /app/spec/feature-docker-container /app/spec/feature-docker-container
 
 ENV PATH="/app/.venv/bin:$PATH"
 
