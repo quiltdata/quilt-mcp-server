@@ -132,14 +132,15 @@ class TestFastMCPIntegration:
             result = await get_resource(uri=uri)
             return result.model_dump()
 
-        # Execute tool
-        result = await get_resource_tool(uri="auth://status")
+        # Execute tool directly (FastMCP decorators create FunctionTool objects)
+        # We call the underlying function directly in tests
+        result = await get_resource(uri="auth://status")
 
         # Verify result structure
-        assert isinstance(result, dict)
-        assert result["success"] is True
-        assert "uri" in result
-        assert "data" in result
+        assert isinstance(result, (GetResourceSuccess, GetResourceError))
+        assert result.success is True
+        assert hasattr(result, "uri")
+        assert hasattr(result, "data")
 
 
 class TestServiceLayerIntegration:
@@ -167,11 +168,10 @@ class TestServiceLayerIntegration:
         from quilt_mcp.services.governance_service import admin_users_list
 
         # Mock the async service function
-        with patch('quilt_mcp.services.governance_service.admin_users_list') as mock_users:
-            mock_users.return_value = asyncio.coroutine(
-                lambda: {"users": [{"name": "user1", "role": "admin"}, {"name": "user2", "role": "viewer"}]}
-            )()
+        async def mock_admin_users():
+            return {"users": [{"name": "user1", "role": "admin"}, {"name": "user2", "role": "viewer"}]}
 
+        with patch('quilt_mcp.services.governance_service.admin_users_list', new=mock_admin_users):
             # Call via tool
             result = await get_resource(uri="admin://users")
 
