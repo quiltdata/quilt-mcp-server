@@ -23,30 +23,24 @@ RESOURCE_SERVICE_MAP = {
     "auth://status": ("quilt_mcp.services.auth_metadata", "auth_status", False),
     "auth://catalog/info": ("quilt_mcp.services.auth_metadata", "catalog_info", False),
     "auth://filesystem/status": ("quilt_mcp.services.auth_metadata", "filesystem_status", False),
-
     # Permissions resources
     "permissions://discover": ("quilt_mcp.services.permissions_service", "discover_permissions", False),
     "permissions://recommendations": ("quilt_mcp.services.permissions_service", "bucket_recommendations_get", False),
-
     # Admin resources (all async)
     "admin://users": ("quilt_mcp.services.governance_service", "admin_users_list", True),
     "admin://roles": ("quilt_mcp.services.governance_service", "admin_roles_list", True),
     "admin://config/sso": ("quilt_mcp.services.governance_service", "admin_sso_config_get", True),
     "admin://config/tabulator": ("quilt_mcp.services.governance_service", "admin_tabulator_open_query_get", True),
-
     # Athena resources
     "athena://databases": ("quilt_mcp.services.athena_read_service", "athena_databases_list", False),
     "athena://workgroups": ("quilt_mcp.services.athena_read_service", "athena_workgroups_list", False),
     "athena://query/history": ("quilt_mcp.services.athena_read_service", "athena_query_history", False),
-
     # Metadata resources
     "metadata://templates": ("quilt_mcp.services.metadata_service", "list_metadata_templates", False),
     "metadata://examples": ("quilt_mcp.services.metadata_service", "show_metadata_examples", False),
     "metadata://troubleshooting": (None, None, False),  # Static response
-
     # Workflow resources
     "workflow://workflows": ("quilt_mcp.services.workflow_service", "workflow_list_all", False),
-
     # Tabulator resources
     "tabulator://buckets": ("quilt_mcp.services.tabulator_service", "tabulator_buckets_list", True),
 }
@@ -134,10 +128,12 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
         if uri is None or uri == "":
             resources_list = []
             for resource_uri in RESOURCE_SERVICE_MAP.keys():
-                resources_list.append({
-                    "uri": resource_uri,
-                    "description": _get_resource_description(resource_uri),
-                })
+                resources_list.append(
+                    {
+                        "uri": resource_uri,
+                        "description": _get_resource_description(resource_uri),
+                    }
+                )
 
             return GetResourceSuccess(
                 uri="discovery://resources",
@@ -162,11 +158,11 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
         module_path, function_name, is_async = RESOURCE_SERVICE_MAP[uri]
 
         # Handle static responses
-        if module_path is None:
+        if module_path is None or function_name is None:
             if uri == "metadata://troubleshooting":
                 data = {
                     "status": "info",
-                    "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"
+                    "message": "For metadata troubleshooting, use fix_metadata_validation_issues()",
                 }
                 return GetResourceSuccess(
                     uri=uri,
@@ -174,8 +170,14 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
                     data=data,
                     mime_type="application/json",
                 )
+            # Shouldn't reach here - all static URIs should be handled above
+            return GetResourceError(
+                error=f"Static resource not implemented: {uri}",
+                cause="NotImplementedError",
+                possible_fixes=["Report this issue - static resource handler missing"],
+            )
 
-        # Import and invoke the service function
+        # Import and invoke the service function (module_path and function_name are guaranteed non-None here)
         module = import_module(module_path)
         service_func = getattr(module, function_name)
 
@@ -190,6 +192,7 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
         if uri == "athena://query/history":
             # This function needs default parameters
             from quilt_mcp.services.athena_read_service import athena_query_history
+
             result = await asyncio.to_thread(
                 athena_query_history,
                 max_results=50,
