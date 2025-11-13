@@ -83,6 +83,6 @@ class BucketAccessResource(MCPResource):
             raise ValueError("Bucket name required in URI")
 
         bucket_name = params["bucket"]
-        result = await asyncio.to_thread(check_bucket_access, bucket_name=bucket_name)
+        result = await asyncio.to_thread(check_bucket_access, bucket=bucket_name)
 
         return ResourceResponse(uri=uri, content=result)

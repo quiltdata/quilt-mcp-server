@@ -71,7 +71,7 @@ class WorkflowStatusResource(MCPResource):
             raise ValueError("Workflow ID required in URI")
 
         workflow_id = params["id"]
-        result = await asyncio.to_thread(workflow_get_status, workflow_id=workflow_id)
+        result = await asyncio.to_thread(workflow_get_status, id=workflow_id)
 
         if not result.get("success"):
             raise Exception(f"Failed to get workflow status: {result.get('error', 'Unknown error')}")

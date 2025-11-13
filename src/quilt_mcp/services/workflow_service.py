@@ -434,7 +434,7 @@ def workflow_update_step(
 
 
 def workflow_get_status(
-    workflow_id: Annotated[
+    id: Annotated[
         str,
         Field(
             description="ID of the workflow to get status for",
@@ -445,7 +445,7 @@ def workflow_get_status(
     """Get the current status of a workflow - Workflow tracking and orchestration tasks
 
     Args:
-        workflow_id: ID of the workflow to check
+        id: ID of the workflow to check
 
     Returns:
         Comprehensive workflow status information
@@ -458,16 +458,16 @@ def workflow_get_status(
         from quilt_mcp.tools import workflow_orchestration
 
         result = workflow_orchestration.workflow_get_status(
-            workflow_id="wf-123",
+            id="wf-123",
         )
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
     try:
-        if workflow_id not in _workflows:
-            return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
+        if id not in _workflows:
+            return ErrorResponse(error=f"Workflow '{id}' not found")
 
-        workflow = _workflows[workflow_id]
+        workflow = _workflows[id]
 
         # Calculate progress metrics
         total_steps = workflow["total_steps"]

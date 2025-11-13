@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from quilt_mcp.resources.athena import (
     AthenaDatabasesResource,
+    AthenaTablesResource,
     AthenaWorkgroupsResource,
     AthenaTableSchemaResource,
     AthenaQueryHistoryResource,
@@ -80,6 +81,55 @@ class TestAthenaWorkgroupsResource:
             assert response.content["metadata"]["total_count"] == 2
 
 
+class TestAthenaTablesResource:
+    """Test AthenaTablesResource (parameterized)."""
+
+    @pytest.fixture
+    def resource(self):
+        return AthenaTablesResource()
+
+    @pytest.mark.anyio
+    async def test_read_with_params(self, resource):
+        """Test reading tables list with parameters."""
+        mock_result = {
+            "success": True,
+            "tables": [
+                {"table_name": "users", "table_type": "EXTERNAL_TABLE"},
+                {"table_name": "orders", "table_type": "EXTERNAL_TABLE"},
+            ],
+            "count": 2,
+        }
+
+        with patch("quilt_mcp.resources.athena.athena_tables_list") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            params = {"database": "mydb"}
+            response = await resource.read("athena://databases/mydb/tables", params)
+
+            assert response.uri == "athena://databases/mydb/tables"
+            assert response.content["items"] == mock_result["tables"]
+            assert response.content["metadata"]["total_count"] == 2
+            mock_tool.assert_called_once_with(database="mydb")
+
+    @pytest.mark.anyio
+    async def test_read_missing_params(self, resource):
+        """Test reading without required parameters raises error."""
+        with pytest.raises(ValueError, match="Database name required"):
+            await resource.read("athena://databases/mydb/tables", params=None)
+
+    @pytest.mark.anyio
+    async def test_read_failure(self, resource):
+        """Test tables list retrieval failure."""
+        mock_result = {"success": False, "error": "Database not found"}
+
+        with patch("quilt_mcp.resources.athena.athena_tables_list") as mock_tool:
+            mock_tool.return_value = mock_result
+
+            params = {"database": "mydb"}
+            with pytest.raises(Exception, match="Failed to list tables"):
+                await resource.read("athena://databases/mydb/tables", params)
+
+
 class TestAthenaTableSchemaResource:
     """Test AthenaTableSchemaResource (parameterized)."""
 
@@ -106,7 +156,7 @@ class TestAthenaTableSchemaResource:
 
             assert response.uri == "athena://databases/mydb/tables/mytable/schema"
             assert response.content == mock_result
-            mock_tool.assert_called_once_with(database_name="mydb", table_name="mytable")
+            mock_tool.assert_called_once_with(database="mydb", table="mytable")
 
     @pytest.mark.anyio
     async def test_read_missing_params(self, resource):

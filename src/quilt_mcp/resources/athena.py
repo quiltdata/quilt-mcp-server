@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from quilt_mcp.resources.base import MCPResource, ResourceResponse
 from quilt_mcp.services.athena_read_service import (
     athena_databases_list,
+    athena_tables_list,
     athena_workgroups_list,
     athena_table_schema,
     athena_query_history,
@@ -49,6 +50,49 @@ class AthenaDatabasesResource(MCPResource):
                 "items": result_dict.get("databases", []),
                 "metadata": {
                     "total_count": len(result_dict.get("databases", [])),
+                    "has_more": False,
+                },
+            },
+        )
+
+
+class AthenaTablesResource(MCPResource):
+    """List tables in a specific Athena database."""
+
+    @property
+    def uri_scheme(self) -> str:
+        return "athena"
+
+    @property
+    def uri_pattern(self) -> str:
+        return "athena://databases/{database}/tables"
+
+    @property
+    def name(self) -> str:
+        return "Athena Tables"
+
+    @property
+    def description(self) -> str:
+        return "List all tables in a specific database"
+
+    async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
+        if not params or "database" not in params:
+            raise ValueError("Database name required in URI")
+
+        result = await asyncio.to_thread(athena_tables_list, database=params["database"])
+
+        # Convert Pydantic model to dict
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result
+
+        if not result_dict.get("success"):
+            raise Exception(f"Failed to list tables: {result_dict.get('error', 'Unknown error')}")
+
+        return ResourceResponse(
+            uri=uri,
+            content={
+                "items": result_dict.get("tables", []),
+                "metadata": {
+                    "total_count": len(result_dict.get("tables", [])),
                     "has_more": False,
                 },
             },
@@ -122,7 +166,7 @@ class AthenaTableSchemaResource(MCPResource):
             raise ValueError("Database and table names required in URI")
 
         result = await asyncio.to_thread(
-            athena_table_schema, database_name=params["database"], table_name=params["table"]
+            athena_table_schema, database=params["database"], table=params["table"]
         )
 
         # Convert Pydantic model to dict

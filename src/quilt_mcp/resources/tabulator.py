@@ -71,7 +71,7 @@ class TabulatorTablesResource(MCPResource):
             raise ValueError("Bucket name required in URI")
 
         bucket_name = params["bucket"]
-        result = await asyncio.to_thread(list_tabulator_tables, bucket_name)
+        result = await asyncio.to_thread(list_tabulator_tables, bucket=bucket_name)
 
         if not result.get("success"):
             raise Exception(f"Failed to list tables: {result.get('error', 'Unknown error')}")

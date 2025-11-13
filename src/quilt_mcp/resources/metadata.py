@@ -120,6 +120,6 @@ class MetadataTemplateResource(MCPResource):
             raise ValueError("Template name required in URI")
 
         template_name = params["name"]
-        result = await asyncio.to_thread(get_metadata_template, template_name=template_name)
+        result = await asyncio.to_thread(get_metadata_template, name=template_name)
 
         return ResourceResponse(uri=uri, content=result)

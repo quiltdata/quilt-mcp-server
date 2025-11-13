@@ -132,14 +132,14 @@ class TabulatorService:
 
         return errors
 
-    def list_tables(self, bucket_name: str) -> Dict[str, Any]:
+    def list_tables(self, bucket: str) -> Dict[str, Any]:
         """List all tabulator tables for a bucket."""
         try:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
             admin_tabulator = quilt_service.get_tabulator_admin()
-            tables = admin_tabulator.list_tables(bucket_name)
+            tables = admin_tabulator.list_tables(bucket)
 
             enriched_tables = []
             for table in tables:
@@ -162,7 +162,7 @@ class TabulatorService:
             result = {
                 "success": True,
                 "tables": enriched_tables,
-                "bucket_name": bucket_name,
+                "bucket_name": bucket,
                 "count": len(enriched_tables),
             }
 
@@ -433,11 +433,11 @@ def list_tabulator_buckets() -> Dict[str, Any]:
         return format_error_response(f"Failed to list tabulator buckets: {exc}")
 
 
-def list_tabulator_tables(bucket_name: str) -> Dict[str, Any]:
+def list_tabulator_tables(bucket: str) -> Dict[str, Any]:
     """List tables for a specific tabulator bucket."""
     try:
         service = get_tabulator_service()
-        return service.list_tables(bucket_name)
+        return service.list_tables(bucket)
     except Exception as exc:
         logger.error(f"Failed to list tabulator tables: {exc}")
         return format_error_response(f"Failed to list tabulator tables: {exc}")

@@ -121,7 +121,7 @@ def athena_databases_list(
 
 
 def athena_tables_list(
-    database_name: Annotated[
+    database: Annotated[
         str,
         Field(
             description="Name of the database to list tables from",
@@ -155,7 +155,7 @@ def athena_tables_list(
     """List tables in a specific database - Athena querying and Glue catalog inspection workflows
 
     Args:
-        database_name: Name of the database
+        database: Name of the database
         data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
         table_pattern: Optional pattern to filter table names
         service: Optional pre-configured AthenaQueryService for dependency injection/testing.
@@ -171,7 +171,7 @@ def athena_tables_list(
         from quilt_mcp.tools import athena_glue
 
         result = athena_glue.athena_tables_list(
-            database_name="example_value",
+            database="example_value",
         )
         # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
         ```
@@ -180,7 +180,7 @@ def athena_tables_list(
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
         result = service.discover_tables(
-            database_name, data_catalog_name=data_catalog_name, table_pattern=table_pattern or "*"
+            database, data_catalog_name=data_catalog_name, table_pattern=table_pattern or "*"
         )
 
         # Convert to Pydantic model
@@ -200,14 +200,14 @@ def athena_tables_list(
 
 
 def athena_table_schema(
-    database_name: Annotated[
+    database: Annotated[
         str,
         Field(
             description="Name of the database containing the table",
             examples=["my_database"],
         ),
     ],
-    table_name: Annotated[
+    table: Annotated[
         str,
         Field(
             description="Name of the table to get schema for",
@@ -233,8 +233,8 @@ def athena_table_schema(
     """Get detailed schema information for a specific table - Athena querying and Glue catalog inspection workflows
 
     Args:
-        database_name: Name of the database
-        table_name: Name of the table
+        database: Name of the database
+        table: Name of the table
         data_catalog_name: Name of the data catalog (default: AwsDataCatalog)
         service: Optional pre-configured AthenaQueryService for dependency injection/testing.
 
@@ -249,8 +249,8 @@ def athena_table_schema(
         from quilt_mcp.tools import athena_glue
 
         result = athena_glue.athena_table_schema(
-            database_name="example_value",
-            table_name="summary",
+            database="example_value",
+            table="summary",
         )
         # Next step: Pass identifiers or results on to analytics tooling or report them to the user.
         ```
@@ -258,7 +258,7 @@ def athena_table_schema(
     try:
         if service is None:
             service = AthenaQueryService(data_catalog_name=data_catalog_name)
-        result = service.get_table_metadata(database_name, table_name, data_catalog_name=data_catalog_name)
+        result = service.get_table_metadata(database, table, data_catalog_name=data_catalog_name)
 
         # Convert to Pydantic model
         if result.get("success"):
