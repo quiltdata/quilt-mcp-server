@@ -96,8 +96,7 @@ async def test_parameterized_handler_constructs_correct_uri():
         # If it fails, verify it's not due to URI construction
         # (access errors are expected in test environment)
         error_msg = str(e)
-        assert "Missing required parameter" not in error_msg, \
-            f"Handler failed due to URI construction: {error_msg}"
+        assert "Missing required parameter" not in error_msg, f"Handler failed due to URI construction: {error_msg}"
 
 
 def test_fastmcp_can_detect_template_parameters():
@@ -117,8 +116,7 @@ def test_fastmcp_can_detect_template_parameters():
     detected_params = list(sig.parameters.keys())
 
     # FastMCP should detect 'bucket' as a parameter
-    assert "bucket" in detected_params, \
-        f"FastMCP should detect 'bucket' parameter, got: {detected_params}"
+    assert "bucket" in detected_params, f"FastMCP should detect 'bucket' parameter, got: {detected_params}"
 
     # Verify the parameter doesn't use *args or **kwargs
     for param_name, param in sig.parameters.items():
@@ -137,8 +135,9 @@ def test_handler_function_name_is_descriptive():
     handler = create_resource_handler(resource, uri, param_names)
 
     # Should have a descriptive name
-    assert handler.__name__ == "resource_handler_bucket", \
+    assert handler.__name__ == "resource_handler_bucket", (
         f"Expected 'resource_handler_bucket', got '{handler.__name__}'"
+    )
 
 
 if __name__ == "__main__":

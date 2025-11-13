@@ -536,6 +536,10 @@ class MCPTester:
         Returns:
             True if all tests passed (no failures), False otherwise
         """
+        # FIXME: Refactor to reuse MCP session instead of creating separate sessions
+        # for tools and resources tests. Current implementation initializes twice which
+        # is redundant. Should create one base tester, initialize once, then share the
+        # session state between ToolsTester and ResourcesTester instances.
         tools_results = None
         resources_results = None
 
@@ -686,6 +690,7 @@ class ToolsTester(MCPTester):
 
         # Report results
         print(f"\n📊 Test Results: {self.results.passed}/{self.results.total} tools passed")
+        print("\n" + "=" * 80)
 
         # Report untested tools with side effects
         untested_side_effects = self.all_side_effects - self.tested_side_effects

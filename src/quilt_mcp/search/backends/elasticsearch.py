@@ -50,8 +50,28 @@ def escape_elasticsearch_query(query: str) -> str:
     """
     # Characters that need to be escaped in Elasticsearch query_string
     # Order matters: escape backslash first to avoid double-escaping
-    special_chars = ['\\', '+', '-', '=', '>', '<', '!', '(', ')', '{', '}',
-                     '[', ']', '^', '"', '~', '*', '?', ':', '/']
+    special_chars = [
+        '\\',
+        '+',
+        '-',
+        '=',
+        '>',
+        '<',
+        '!',
+        '(',
+        ')',
+        '{',
+        '}',
+        '[',
+        ']',
+        '^',
+        '"',
+        '~',
+        '*',
+        '?',
+        ':',
+        '/',
+    ]
 
     # Escape each special character with a backslash
     escaped = query

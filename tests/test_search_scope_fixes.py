@@ -58,13 +58,12 @@ class TestElasticsearchScopeFallback:
         backend = Quilt3ElasticsearchBackend()
 
         # Mock the dependencies
-        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
-             patch.object(backend, '_search_bucket') as mock_bucket_search:
-
+        with (
+            patch.object(backend, '_execute_catalog_search') as mock_catalog_search,
+            patch.object(backend, '_search_bucket') as mock_bucket_search,
+        ):
             # Simulate 403 error from catalog search
-            mock_catalog_search.return_value = {
-                "error": "Catalog search failed: Unexpected failure: error 403"
-            }
+            mock_catalog_search.return_value = {"error": "Catalog search failed: Unexpected failure: error 403"}
 
             # Simulate successful bucket search
             mock_bucket_search.return_value = [
@@ -96,13 +95,12 @@ class TestElasticsearchScopeFallback:
         """When stack search returns index_not_found, should fall back to bucket search."""
         backend = Quilt3ElasticsearchBackend()
 
-        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
-             patch.object(backend, '_search_bucket') as mock_bucket_search:
-
+        with (
+            patch.object(backend, '_execute_catalog_search') as mock_catalog_search,
+            patch.object(backend, '_search_bucket') as mock_bucket_search,
+        ):
             # Simulate index_not_found error
-            mock_catalog_search.return_value = {
-                "error": "Catalog search failed: index_not_found_exception"
-            }
+            mock_catalog_search.return_value = {"error": "Catalog search failed: index_not_found_exception"}
 
             mock_bucket_search.return_value = [
                 SearchResult(
@@ -128,9 +126,7 @@ class TestElasticsearchScopeFallback:
 
         with patch.object(backend, '_execute_catalog_search') as mock_catalog_search:
             # Simulate a different error
-            mock_catalog_search.return_value = {
-                "error": "Network timeout"
-            }
+            mock_catalog_search.return_value = {"error": "Network timeout"}
 
             # Should raise the original error, not fall back
             with pytest.raises(Exception, match="Network timeout"):
@@ -141,16 +137,13 @@ class TestElasticsearchScopeFallback:
         """When catalog search works, should not fall back."""
         backend = Quilt3ElasticsearchBackend()
 
-        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
-             patch.object(backend, '_search_bucket') as mock_bucket_search, \
-             patch.object(backend, '_convert_catalog_results') as mock_convert:
-
+        with (
+            patch.object(backend, '_execute_catalog_search') as mock_catalog_search,
+            patch.object(backend, '_search_bucket') as mock_bucket_search,
+            patch.object(backend, '_convert_catalog_results') as mock_convert,
+        ):
             # Simulate successful catalog search
-            mock_catalog_search.return_value = {
-                "hits": {
-                    "hits": [{"_id": "test-1", "_source": {"key": "test.csv"}}]
-                }
-            }
+            mock_catalog_search.return_value = {"hits": {"hits": [{"_id": "test-1", "_source": {"key": "test.csv"}}]}}
             mock_convert.return_value = [
                 SearchResult(
                     id="test-1",
@@ -188,9 +181,9 @@ class TestGraphQLErrorHandling:
                     {
                         "message": "Field 'objects' not found",
                         "path": ["objects"],
-                        "locations": [{"line": 2, "column": 3}]
+                        "locations": [{"line": 2, "column": 3}],
                     }
-                ]
+                ],
             }
 
             # Should raise exception with clear error message
@@ -204,12 +197,7 @@ class TestGraphQLErrorHandling:
 
         with patch('quilt_mcp.tools.search.search_graphql') as mock_search:
             # Simulate error without path/locations
-            mock_search.return_value = {
-                "success": False,
-                "errors": [
-                    {"message": "Authentication required"}
-                ]
-            }
+            mock_search.return_value = {"success": False, "errors": [{"message": "Authentication required"}]}
 
             with pytest.raises(Exception, match="Authentication required"):
                 await backend._execute_graphql_query("query {}", {})
@@ -221,10 +209,7 @@ class TestGraphQLErrorHandling:
 
         with patch('quilt_mcp.tools.search.search_graphql') as mock_search:
             # Simulate malformed error (not a dict)
-            mock_search.return_value = {
-                "success": False,
-                "errors": ["Some error string"]
-            }
+            mock_search.return_value = {"success": False, "errors": ["Some error string"]}
 
             with pytest.raises(Exception, match="Some error string"):
                 await backend._execute_graphql_query("query {}", {})
@@ -236,10 +221,7 @@ class TestGraphQLErrorHandling:
 
         with patch('quilt_mcp.tools.search.search_graphql') as mock_search:
             # Simulate errors as a dict instead of list
-            mock_search.return_value = {
-                "success": False,
-                "errors": {"message": "Something went wrong"}
-            }
+            mock_search.return_value = {"success": False, "errors": {"message": "Something went wrong"}}
 
             with pytest.raises(Exception, match="Something went wrong"):
                 await backend._execute_graphql_query("query {}", {})
@@ -256,12 +238,7 @@ class TestGraphQLErrorHandling:
             mock_execute.side_effect = Exception("Query failed")
 
             # Should return empty results, not raise
-            results = await backend._search_bucket_objects(
-                query="*",
-                bucket="s3://test-bucket",
-                filters={},
-                limit=10
-            )
+            results = await backend._search_bucket_objects(query="*", bucket="s3://test-bucket", filters={}, limit=10)
 
             assert results == []
 
@@ -274,14 +251,13 @@ class TestPackageSearchImplementation:
         """Catalog-wide package search should only search *_packages indices."""
         backend = Quilt3ElasticsearchBackend()
 
-        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
-             patch.object(backend, '_convert_catalog_results') as mock_convert:
-
+        with (
+            patch.object(backend, '_execute_catalog_search') as mock_catalog_search,
+            patch.object(backend, '_convert_catalog_results') as mock_convert,
+        ):
             # Simulate successful package search
             mock_catalog_search.return_value = {
-                "hits": {
-                    "hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]
-                }
+                "hits": {"hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]}
             }
             mock_convert.return_value = [
                 SearchResult(
@@ -311,14 +287,13 @@ class TestPackageSearchImplementation:
         """Specific package search should add package_name filter."""
         backend = Quilt3ElasticsearchBackend()
 
-        with patch.object(backend, '_execute_catalog_search') as mock_catalog_search, \
-             patch.object(backend, '_convert_catalog_results') as mock_convert:
-
+        with (
+            patch.object(backend, '_execute_catalog_search') as mock_catalog_search,
+            patch.object(backend, '_convert_catalog_results') as mock_convert,
+        ):
             # Simulate successful package search
             mock_catalog_search.return_value = {
-                "hits": {
-                    "hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]
-                }
+                "hits": {"hits": [{"_id": "test-pkg", "_source": {"ptr_name": "team/dataset"}}]}
             }
             mock_convert.return_value = [
                 SearchResult(
@@ -332,12 +307,7 @@ class TestPackageSearchImplementation:
             ]
 
             # Execute specific package search
-            results = await backend._search_packages(
-                query="README",
-                package_name="team/dataset",
-                filters={},
-                limit=10
-            )
+            results = await backend._search_packages(query="README", package_name="team/dataset", filters={}, limit=10)
 
             # Should call _execute_catalog_search with package_name filter
             mock_catalog_search.assert_called_once()
@@ -353,9 +323,7 @@ class TestPackageSearchImplementation:
 
         with patch.object(backend, '_execute_catalog_search') as mock_catalog_search:
             # Simulate search error
-            mock_catalog_search.return_value = {
-                "error": "Search failed: some error"
-            }
+            mock_catalog_search.return_value = {"error": "Search failed: some error"}
 
             # Should return empty list, not raise
             results = await backend._search_packages(query="*", package_name="", filters={}, limit=10)
@@ -380,13 +348,7 @@ class TestPackageSearchImplementation:
             ]
 
             # Call search with scope="package"
-            response = await backend.search(
-                query="*",
-                scope="package",
-                target="",
-                filters={},
-                limit=10
-            )
+            response = await backend.search(query="*", scope="package", target="", filters={}, limit=10)
 
             # Should call _search_packages
             mock_search_packages.assert_called_once_with("*", "", {}, 10)
@@ -403,13 +365,7 @@ class TestPackageSearchImplementation:
             mock_search_packages.return_value = []
 
             # Call search with scope="package" and target
-            await backend.search(
-                query="README",
-                scope="package",
-                target="team/dataset",
-                filters={},
-                limit=10
-            )
+            await backend.search(query="README", scope="package", target="team/dataset", filters={}, limit=10)
 
             # Should call _search_packages with target as package_name
             mock_search_packages.assert_called_once_with("README", "team/dataset", {}, 10)

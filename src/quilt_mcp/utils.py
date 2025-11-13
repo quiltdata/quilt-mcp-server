@@ -349,6 +349,7 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
 
     if resource_config.RESOURCES_ENABLED:
         from quilt_mcp.resources import register_resources
+
         register_resources(mcp)
 
         if verbose:

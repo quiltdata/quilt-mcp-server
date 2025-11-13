@@ -918,6 +918,7 @@ WorkflowGetStatusResponse = WorkflowGetStatusSuccess | ErrorResponse
 WorkflowListAllResponse = WorkflowListAllSuccess | ErrorResponse
 WorkflowTemplateApplyResponse = WorkflowTemplateApplySuccess | ErrorResponse
 
+
 class SearchResult(BaseModel):
     """A single search result item."""
 
