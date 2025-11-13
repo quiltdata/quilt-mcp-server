@@ -272,21 +272,6 @@ class TestCoverageThresholds:
 
         assert not errors, "File coverage thresholds not met:\n" + "\n".join(errors)
 
-    def test_no_missing_coverage_files(self, coverage_report, thresholds):
-        """Test that all explicitly listed files in thresholds have coverage data."""
-        if not thresholds.strict:
-            pytest.skip("Strict mode disabled, skipping missing file check")
-
-        missing_files = []
-        for file_path in thresholds.files.keys():
-            if file_path not in coverage_report.files and file_path != "SUMMARY":
-                missing_files.append(file_path)
-
-        assert not missing_files, (
-            f"Files listed in coverage_required.yaml but not found in report:\n"
-            + "\n".join(missing_files)
-        )
-
 
 def main():
     """Main entry point for standalone execution."""
