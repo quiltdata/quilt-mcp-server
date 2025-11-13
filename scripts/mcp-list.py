@@ -27,8 +27,6 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 from quilt_mcp.utils import create_configured_server
-from quilt_mcp.resources import create_default_registry
-from quilt_mcp.resources.base import ResourceRegistry
 
 async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered tools."""
@@ -68,39 +66,46 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     tools.sort(key=lambda x: (x["module"], x["name"]))
     return tools
 
-async def extract_resource_metadata(registry: ResourceRegistry) -> List[Dict[str, Any]]:
-    """Extract comprehensive metadata from all registered resources."""
+async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
+    """Extract comprehensive metadata from all registered resources via FastMCP."""
     resources = []
 
-    # Access the internal _resources list to iterate through registered resources
-    for resource in registry._resources:
-        # Get resource class information
-        resource_class = resource.__class__
-        module = inspect.getmodule(resource_class)
-        module_name = module.__name__ if module else "unknown"
+    # Get resources from FastMCP server
+    static_resources = await server.get_resources()
+    resource_templates = await server.get_resource_templates()
 
-        # Extract module short name (last component)
-        short_module = module_name.split('.')[-1]
-
-        # Get class docstring
-        doc = inspect.getdoc(resource_class) or "No description available"
-
-        # Build signature string showing the URI pattern
-        uri_pattern = resource.uri_pattern
-        signature_str = f"{resource_class.__name__}(uri='{uri_pattern}')"
-
-        # Check if _read_impl method exists and is async
-        is_async = hasattr(resource, '_read_impl') and inspect.iscoroutinefunction(resource._read_impl)
+    # Process static resources
+    for resource in static_resources:
+        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
+        name = resource.name if hasattr(resource, 'name') else "Unknown"
+        description = resource.description if hasattr(resource, 'description') else "No description"
 
         resources.append({
             "type": "resource",
-            "name": uri_pattern,
-            "module": short_module,
-            "signature": signature_str,
-            "description": doc.split('\n')[0],  # First line only
-            "is_async": is_async,
-            "full_module_path": module_name,
-            "handler_class": resource_class.__name__
+            "name": uri,
+            "module": "resources",
+            "signature": f"@mcp.resource('{uri}')",
+            "description": description,
+            "is_async": True,
+            "full_module_path": "quilt_mcp.resources",
+            "handler_class": "FastMCP Resource"
+        })
+
+    # Process resource templates
+    for template in resource_templates:
+        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
+        name = template.name if hasattr(template, 'name') else "Unknown"
+        description = template.description if hasattr(template, 'description') else "No description"
+
+        resources.append({
+            "type": "resource",
+            "name": uri_template,
+            "module": "resources",
+            "signature": f"@mcp.resource('{uri_template}')",
+            "description": description,
+            "is_async": True,
+            "full_module_path": "quilt_mcp.resources",
+            "handler_class": "FastMCP Template"
         })
 
     # Sort by URI pattern for consistent ordering
@@ -148,7 +153,7 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
-async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None], registry: ResourceRegistry):
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None]):
     """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
@@ -356,10 +361,23 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     print("🗂️  Generating resource test configuration...")
 
     import re
-    for resource in registry._resources:
-        uri_pattern = resource.uri_pattern
-        resource_class = resource.__class__
-        doc = inspect.getdoc(resource_class) or "No description available"
+    # Get resources from FastMCP server
+    static_resources = await server.get_resources()
+    resource_templates = await server.get_resource_templates()
+
+    # Process both static resources and templates
+    all_resources = []
+    for resource in static_resources:
+        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
+        desc = resource.description if hasattr(resource, 'description') else "No description"
+        all_resources.append((uri, desc))
+
+    for template in resource_templates:
+        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
+        desc = template.description if hasattr(template, 'description') else "No description"
+        all_resources.append((uri_template, desc))
+
+    for uri_pattern, doc in all_resources:
 
         # Build basic test case structure - default to JSON since most resources return JSON
         test_case = {
@@ -406,14 +424,8 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                 # For unknown variables, mark as needing configuration
                 test_case["uri_variables"][var] = f"CONFIGURE_{var.upper()}"
 
-        # Infer content type from resource class or URI pattern
-        # Most resources return JSON by default (via ResourceResponse default mime_type)
-        # Only override if we know the resource returns something else
-        class_name = resource_class.__name__.lower()
-        uri_lower = uri_pattern.lower()
-
-        # No special cases needed - all resources currently return JSON
-        # (metadata resources return JSON data structures, not HTML)
+        # All resources return JSON by default
+        # (FastMCP decorator-based resources all return JSON)
 
         test_config["test_resources"][uri_pattern] = test_case
 
@@ -451,10 +463,9 @@ async def main():
 
     print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
 
-    print("🔍 Extracting resources from MCP registry...")
-    # Create registry once and reuse for both resource extraction and test generation
-    registry = create_default_registry()
-    resources = await extract_resource_metadata(registry)
+    print("🔍 Extracting resources from MCP server...")
+    # Get resources directly from FastMCP server
+    resources = await extract_resource_metadata(server)
 
     print(f"📊 Found {len(resources)} resources across {len(set(resource['module'] for resource in resources))} modules")
 
@@ -473,7 +484,7 @@ async def main():
     generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
     print("🧪 Generating test configuration YAML...")
-    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars, registry)
+    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars)
 
     print("✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")

@@ -396,7 +396,8 @@ def run_unified_tests(
     resources: Optional[list[str]] = None,
     run_tools: bool = True,
     run_resources: bool = True,
-    verbose: bool = False
+    verbose: bool = False,
+    selection_stats: Optional[dict] = None
 ) -> bool:
     """Run BOTH tool and resource tests with ONE call to mcp-test.py.
 
@@ -411,6 +412,7 @@ def run_unified_tests(
         run_tools: Whether to run tool tests
         run_resources: Whether to run resource tests
         verbose: Enable verbose test output
+        selection_stats: Optional test selection statistics for summary
 
     Returns:
         True if all tests passed, False otherwise
@@ -474,7 +476,8 @@ def run_unified_tests(
             run_tools=run_tools,
             run_resources=run_resources,
             specific_tool=specific_tool,
-            specific_resource=specific_resource
+            specific_resource=specific_resource,
+            selection_stats=selection_stats
         )
 
         return success
@@ -679,7 +682,8 @@ Examples:
             resources=[args.resource] if args.resource else None,
             run_tools=not args.resources_only,
             run_resources=not args.skip_resources,
-            verbose=args.verbose
+            verbose=args.verbose,
+            selection_stats=stats  # Pass selection stats for intelligent summary
         )
 
         # Show logs if requested

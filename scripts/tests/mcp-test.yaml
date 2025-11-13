@@ -722,34 +722,8 @@ test_tools:
       required:
       - content
 test_resources:
-  admin://users:
-    description: List all users in the registry.
-    effect: none
-    uri: admin://users
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  admin://roles:
-    description: List all available roles.
-    effect: none
-    uri: admin://roles
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
   auth://status:
-    description: Authentication status and configuration.
+    description: No description
     effect: none
     uri: auth://status
     uri_variables: {}
@@ -762,7 +736,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://catalog/info:
-    description: Catalog configuration details.
+    description: No description
     effect: none
     uri: auth://catalog/info
     uri_variables: {}
@@ -775,7 +749,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://filesystem/status:
-    description: Filesystem access status.
+    description: No description
     effect: none
     uri: auth://filesystem/status
     uri_variables: {}
@@ -788,7 +762,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   permissions://discover:
-    description: AWS permissions discovery.
+    description: No description
     effect: none
     uri: permissions://discover
     uri_variables: {}
@@ -801,7 +775,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   permissions://recommendations:
-    description: Bucket recommendations based on permissions.
+    description: No description
     effect: none
     uri: permissions://recommendations
     uri_variables: {}
@@ -813,12 +787,24 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  permissions://buckets/{bucket}/access:
-    description: Bucket-specific access check.
+  admin://users:
+    description: No description
     effect: none
-    uri: permissions://buckets/{bucket}/access
-    uri_variables:
-      bucket: quilt-ernest-staging
+    uri: admin://users
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://roles:
+    description: No description
+    effect: none
+    uri: admin://roles
+    uri_variables: {}
     expected_mime_type: application/json
     content_validation:
       type: json
@@ -828,7 +814,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/sso:
-    description: SSO configuration.
+    description: No description
     effect: none
     uri: admin://config/sso
     uri_variables: {}
@@ -841,7 +827,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/tabulator:
-    description: Tabulator open query configuration.
+    description: No description
     effect: none
     uri: admin://config/tabulator
     uri_variables: {}
@@ -853,22 +839,8 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  admin://users/{name}:
-    description: Get specific user details.
-    effect: none
-    uri: admin://users/{name}
-    uri_variables:
-      name: test_user
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
   athena://databases:
-    description: List available Athena databases.
+    description: No description
     effect: none
     uri: athena://databases
     uri_variables: {}
@@ -881,7 +853,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://workgroups:
-    description: List available Athena workgroups.
+    description: No description
     effect: none
     uri: athena://workgroups
     uri_variables: {}
@@ -893,10 +865,10 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  athena://queries/history:
-    description: Athena query execution history.
+  athena://query/history:
+    description: No description
     effect: none
-    uri: athena://queries/history
+    uri: athena://query/history
     uri_variables: {}
     expected_mime_type: application/json
     content_validation:
@@ -906,8 +878,101 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
+  metadata://templates:
+    description: No description
+    effect: none
+    uri: metadata://templates
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  metadata://examples:
+    description: No description
+    effect: none
+    uri: metadata://examples
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  metadata://troubleshooting:
+    description: No description
+    effect: none
+    uri: metadata://troubleshooting
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  workflow://workflows:
+    description: No description
+    effect: none
+    uri: workflow://workflows
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  tabulator://buckets:
+    description: No description
+    effect: none
+    uri: tabulator://buckets
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  permissions://buckets/{bucket}/access:
+    description: No description
+    effect: none
+    uri: permissions://buckets/{bucket}/access
+    uri_variables:
+      bucket: quilt-ernest-staging
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://users/{name}:
+    description: No description
+    effect: none
+    uri: admin://users/{name}
+    uri_variables:
+      name: test_user
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   athena://databases/{database}/tables:
-    description: List tables in a specific Athena database.
+    description: No description
     effect: none
     uri: athena://databases/{database}/tables
     uri_variables:
@@ -921,7 +986,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://databases/{database}/tables/{table}/schema:
-    description: Get table schema.
+    description: No description
     effect: none
     uri: athena://databases/{database}/tables/{table}/schema
     uri_variables:
@@ -935,51 +1000,12 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  metadata://templates:
-    description: List available metadata templates.
+  metadata://templates/{template}:
+    description: No description
     effect: none
-    uri: metadata://templates
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  metadata://examples:
-    description: Show metadata usage examples.
-    effect: none
-    uri: metadata://examples
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  metadata://troubleshooting:
-    description: Metadata validation troubleshooting guide.
-    effect: none
-    uri: metadata://troubleshooting
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  metadata://templates/{name}:
-    description: Get a specific metadata template.
-    effect: none
-    uri: metadata://templates/{name}
+    uri: metadata://templates/{template}
     uri_variables:
-      name: test_user
+      template: CONFIGURE_TEMPLATE
     expected_mime_type: application/json
     content_validation:
       type: json
@@ -988,38 +1014,12 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  workflow://workflows:
-    description: List all workflows.
+  workflow://workflows/{workflow_id}/status:
+    description: No description
     effect: none
-    uri: workflow://workflows
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  workflow://workflows/{id}:
-    description: Get specific workflow status.
-    effect: none
-    uri: workflow://workflows/{id}
+    uri: workflow://workflows/{workflow_id}/status
     uri_variables:
-      id: test-workflow-001
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  tabulator://buckets:
-    description: List all buckets in Tabulator catalog.
-    effect: none
-    uri: tabulator://buckets
-    uri_variables: {}
+      workflow_id: CONFIGURE_WORKFLOW_ID
     expected_mime_type: application/json
     content_validation:
       type: json
@@ -1029,7 +1029,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   tabulator://buckets/{bucket}/tables:
-    description: List tables for a specific bucket.
+    description: No description
     effect: none
     uri: tabulator://buckets/{bucket}/tables
     uri_variables:

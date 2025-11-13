@@ -506,7 +506,8 @@ class MCPTester:
         run_resources: bool = False,
         specific_tool: str = None,
         specific_resource: str = None,
-        process: Optional[subprocess.Popen] = None
+        process: Optional[subprocess.Popen] = None,
+        selection_stats: Optional[Dict[str, Any]] = None
     ) -> bool:
         """Run test suite with tools and/or resources tests, print summary, return success.
 
@@ -530,6 +531,7 @@ class MCPTester:
             specific_tool: Test specific tool only
             specific_resource: Test specific resource only
             process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
+            selection_stats: Stats from filter_tests_by_idempotence() (optional)
 
         Returns:
             True if all tests passed (no failures), False otherwise
@@ -566,7 +568,12 @@ class MCPTester:
             resources_results = tester.to_dict()
 
         # ALWAYS print detailed summary when tests run
-        print_detailed_summary(tools_results=tools_results, resources_results=resources_results)
+        print_detailed_summary(
+            tools_results=tools_results,
+            resources_results=resources_results,
+            selection_stats=selection_stats,
+            verbose=verbose
+        )
 
         # Calculate and return success status
         tools_ok = not tools_results or tools_results['failed'] == 0
@@ -969,89 +976,217 @@ def load_test_config(config_path: Path) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def print_detailed_summary(tools_results: Optional[Dict[str, Any]] = None,
-                          resources_results: Optional[Dict[str, Any]] = None) -> None:
-    """Print detailed test summary with failures and skips."""
+def print_detailed_summary(
+    tools_results: Optional[Dict[str, Any]] = None,
+    resources_results: Optional[Dict[str, Any]] = None,
+    selection_stats: Optional[Dict[str, Any]] = None,
+    server_info: Optional[Dict[str, Any]] = None,
+    verbose: bool = False
+) -> None:
+    """Print intelligent test summary with context and pattern analysis.
 
+    Args:
+        tools_results: Tool test results from ToolsTester.to_dict()
+        resources_results: Resource test results from ResourcesTester.to_dict()
+        selection_stats: Stats from filter_tests_by_idempotence() including:
+            - total_tools: total number of tools in config
+            - total_resources: total number of resources in config
+            - selected_tools: number of tools selected for testing
+            - effect_counts: dict of effect type -> count
+        server_info: Server capabilities from initialize() (optional)
+        verbose: Include detailed configuration and analysis (optional)
+    """
     print("\n" + "=" * 80)
-    print("📊 OVERALL TEST SUMMARY")
+    print("📊 TEST SUITE SUMMARY")
     print("=" * 80)
 
     # Tools summary
     if tools_results:
-        print("\n🔧 Tools Tests:")
-        print(f"   Total: {tools_results['total']}")
-        print(f"   ✅ Passed: {tools_results['passed']}")
-        print(f"   ❌ Failed: {tools_results['failed']}")
+        total_tools = selection_stats.get('total_tools', tools_results['total']) if selection_stats else tools_results['total']
+        selected_tools = tools_results['total']
+        skipped_tools = total_tools - selected_tools
 
-        if tools_results['failed_tests']:
-            print(f"\n   Failed Tools ({len(tools_results['failed_tests'])}):")
+        # Header with selection context
+        if skipped_tools > 0:
+            print(f"\n🔧 TOOLS ({selected_tools}/{total_tools} tested, {skipped_tools} skipped)")
+            # Show reason for skipping
+            if selection_stats:
+                effect_counts = selection_stats.get('effect_counts', {})
+                non_none_effects = {k: v for k, v in effect_counts.items() if k != 'none'}
+                if non_none_effects:
+                    skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
+                    print(f"   Selection: Idempotent only ({skipped_summary} skipped)")
+        else:
+            print(f"\n🔧 TOOLS ({selected_tools}/{total_tools} tested)")
+
+        # Results line with conditional display
+        print(format_results_line(tools_results['passed'], tools_results['failed']))
+
+        # Show failures if any
+        if tools_results['failed'] > 0 and tools_results['failed_tests']:
+            print(f"\n   ❌ Failed Tools ({len(tools_results['failed_tests'])}):")
             for test in tools_results['failed_tests']:
-                print(f"\n   • {test['name']}")
-                print(f"     Tool: {test['actual_tool']}")
+                print(f"\n      • {test['name']}")
+                print(f"        Tool: {test['actual_tool']}")
                 if test['arguments']:
-                    print(f"     Input: {json.dumps(test['arguments'], indent=6)}")
-                print(f"     Error: {test['error']}")
-                print(f"     Error Type: {test['error_type']}")
+                    print(f"        Input: {json.dumps(test['arguments'], indent=9)}")
+                print(f"        Error: {test['error']}")
+                print(f"        Error Type: {test['error_type']}")
 
         if tools_results.get('untested_side_effects'):
             print(f"\n   ⚠️  Untested Tools with Side Effects ({len(tools_results['untested_side_effects'])}):")
             for tool in tools_results['untested_side_effects']:
-                print(f"     • {tool}")
+                print(f"      • {tool}")
 
     # Resources summary
     if resources_results:
-        print(f"\n🗂️  Resources Tests:")
-        print(f"   Total: {resources_results['total']}")
-        print(f"   ✅ Passed: {resources_results['passed']}")
-        print(f"   ❌ Failed: {resources_results['failed']}")
-        print(f"   ⏭️  Skipped: {resources_results['skipped']}")
+        total_resources = selection_stats.get('total_resources', resources_results['total']) if selection_stats else resources_results['total']
 
-        if resources_results['failed_tests']:
-            print(f"\n   Failed Resources ({len(resources_results['failed_tests'])}):")
-            for test in resources_results['failed_tests']:
-                print(f"\n   • {test['uri']}")
-                if test.get('resolved_uri') != test['uri']:
-                    print(f"     Resolved URI: {test['resolved_uri']}")
-                if test.get('uri_variables'):
-                    print(f"     Variables: {json.dumps(test['uri_variables'], indent=6)}")
-                print(f"     Error: {test['error']}")
-                if 'error_type' in test:
-                    print(f"     Error Type: {test['error_type']}")
-                # Show additional context if available
-                for key in ['content_length', 'expected_min', 'expected_max', 'content_preview']:
-                    if key in test:
-                        print(f"     {key.replace('_', ' ').title()}: {test[key]}")
+        # Header - resources always test all configured
+        print(f"\n🗂️  RESOURCES ({total_resources}/{total_resources} tested)")
 
-        if resources_results['skipped_tests']:
+        # Count static vs template resources based on failure patterns
+        static_count = 0
+        template_count = 0
+        for test in resources_results.get('passed_tests', []):
+            if test.get('uri_variables'):
+                template_count += 1
+            else:
+                static_count += 1
+        for test in resources_results.get('failed_tests', []):
+            if test.get('uri_variables') or '{' in test.get('uri', ''):
+                template_count += 1
+            else:
+                static_count += 1
+
+        if static_count > 0 or template_count > 0:
+            print(f"   Type Breakdown: {static_count} static URIs, {template_count} templates")
+
+        # Results line with conditional display
+        print(format_results_line(
+            resources_results['passed'],
+            resources_results['failed'],
+            resources_results.get('skipped', 0)
+        ))
+
+        # Analyze failure patterns if there are failures
+        if resources_results['failed'] > 0 and resources_results['failed_tests']:
+            analysis = analyze_failure_patterns(resources_results['failed_tests'])
+
+            # Show concise failure summary based on pattern
+            if analysis['dominant_pattern'] == ResourceFailureType.TEMPLATE_NOT_REGISTERED:
+                if analysis['pattern_count'] == analysis['total_failures']:
+                    # All failures are template registration
+                    print(f"\n   ⚠️  All {analysis['total_failures']} failures: Template registration issues")
+                    print(f"      Templates not registered by server:")
+                    for test in resources_results['failed_tests']:
+                        print(f"      - {test['uri']}")
+
+                    print(f"\n   📋 Likely Causes:")
+                    print(f"      • Features require activation (env vars, feature flags)")
+                    print(f"      • Dynamic registration based on runtime config")
+                    print(f"      • Expected behavior for optional features")
+
+                    print(f"\n   📊 Impact Assessment:")
+                    if static_count > 0:
+                        print(f"      ✅ Core MCP protocol working (all static resources pass)")
+                    if tools_results and tools_results['failed'] == 0:
+                        print(f"      ✅ All idempotent tools working")
+                    print(f"      ⚠️  Some advanced features unavailable")
+                else:
+                    # Mixed failure types
+                    print(f"\n   ❌ Failed Resources ({len(resources_results['failed_tests'])}):")
+                    for test in resources_results['failed_tests']:
+                        print(f"\n      • {test['uri']}")
+                        if test.get('resolved_uri') != test['uri']:
+                            print(f"        Resolved URI: {test['resolved_uri']}")
+                        if test.get('uri_variables'):
+                            print(f"        Variables: {json.dumps(test['uri_variables'], indent=9)}")
+                        print(f"        Error: {test['error']}")
+                        if 'error_type' in test:
+                            print(f"        Error Type: {test['error_type']}")
+            else:
+                # Non-template failures - show detailed list
+                print(f"\n   ❌ Failed Resources ({len(resources_results['failed_tests'])}):")
+                for test in resources_results['failed_tests']:
+                    print(f"\n      • {test['uri']}")
+                    if test.get('resolved_uri') != test['uri']:
+                        print(f"        Resolved URI: {test['resolved_uri']}")
+                    if test.get('uri_variables'):
+                        print(f"        Variables: {json.dumps(test['uri_variables'], indent=9)}")
+                    print(f"        Error: {test['error']}")
+                    if 'error_type' in test:
+                        print(f"        Error Type: {test['error_type']}")
+
+        if resources_results.get('skipped', 0) > 0 and resources_results['skipped_tests']:
             print(f"\n   Skipped Resources ({len(resources_results['skipped_tests'])}):")
             for test in resources_results['skipped_tests']:
-                print(f"\n   • {test['uri']}")
-                print(f"     Reason: {test['reason']}")
+                print(f"\n      • {test['uri']}")
+                print(f"        Reason: {test['reason']}")
                 if test.get('config_needed'):
-                    print(f"     Configuration Needed: {test['config_needed']}")
+                    print(f"        Configuration Needed: {test['config_needed']}")
 
-    # Overall status
+    # Overall status with intelligent assessment
     print("\n" + "=" * 80)
     tools_ok = not tools_results or tools_results['failed'] == 0
     resources_ok = not resources_results or resources_results['failed'] == 0
 
-    if tools_results and resources_results:
-        tools_status = "✅ PASSED" if tools_ok else "❌ FAILED"
-        resources_status = "✅ PASSED" if resources_ok else "❌ FAILED"
-        overall_status = "✅ ALL TESTS PASSED" if (tools_ok and resources_ok) else "❌ SOME TESTS FAILED"
+    # Analyze severity for nuanced status
+    severity = 'info'
+    if resources_results and resources_results['failed'] > 0:
+        analysis = analyze_failure_patterns(resources_results.get('failed_tests', []))
+        severity = analysis.get('severity', 'warning')
 
-        print(f"   Tools: {tools_status}")
-        print(f"   Resources: {resources_status}")
-        print(f"   Overall: {overall_status}")
-    elif tools_results:
-        overall_status = "✅ ALL TESTS PASSED" if tools_ok else "❌ TESTS FAILED"
-        print(f"   Tools: {overall_status}")
-    elif resources_results:
-        overall_status = "✅ ALL TESTS PASSED" if resources_ok else "❌ TESTS FAILED"
-        print(f"   Resources: {overall_status}")
+    # Determine overall status
+    if tools_ok and resources_ok:
+        overall_status = "✅ ALL TESTS PASSED"
+        detail_lines = []
+        if tools_results:
+            detail_lines.append(f"- {tools_results['passed']} idempotent tools verified")
+        if resources_results:
+            detail_lines.append(f"- {resources_results['passed']} resources verified")
+        detail_lines.append("- No failures detected")
+    elif not tools_ok:
+        overall_status = "❌ CRITICAL FAILURE"
+        detail_lines = [
+            f"- {tools_results['failed']}/{tools_results['total']} core tools failing",
+            "- Immediate action required"
+        ]
+    elif severity == 'warning':
+        overall_status = "⚠️  PARTIAL PASS"
+        detail_lines = []
+        if tools_results:
+            detail_lines.append(f"- Core functionality verified ({tools_results['passed']}/{tools_results['total']} tools)")
+        if resources_results:
+            passed_static = sum(1 for t in resources_results.get('passed_tests', []) if not t.get('uri_variables'))
+            if passed_static > 0:
+                detail_lines.append(f"- {passed_static} static resources verified")
+            detail_lines.append(f"- {resources_results['failed']} optional templates not registered (may be expected)")
+        detail_lines.append("- No critical failures detected")
+    else:
+        overall_status = "❌ FAILURE"
+        detail_lines = [
+            f"- {resources_results['failed']} resource tests failed",
+            "- Review failures and address issues"
+        ]
 
+    print(f"   Overall Status: {overall_status}")
+    for line in detail_lines:
+        print(f"   {line}")
     print("=" * 80)
+
+    # Show next steps if applicable
+    if severity == 'warning' and resources_results and resources_results['failed'] > 0:
+        analysis = analyze_failure_patterns(resources_results.get('failed_tests', []))
+        if analysis.get('recommendations'):
+            print(f"\n💡 Next Steps:")
+            for rec in analysis['recommendations']:
+                print(f"   • {rec}")
+            if selection_stats and selection_stats.get('total_tools', 0) > selection_stats.get('selected_tools', 0):
+                print(f"   • Run with --all to test write operations")
+            if not verbose:
+                print(f"   • Run with --verbose for detailed analysis")
+            print()
 
 
 def main():
