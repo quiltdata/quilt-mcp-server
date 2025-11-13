@@ -22,6 +22,82 @@ import yaml
 from jsonschema import validate
 
 
+class TestResults:
+    """Tracks test results with consistent structure for all outcomes.
+
+    Ensures that result dictionaries ALWAYS contain all required keys,
+    fixing the bug where incomplete dictionaries cause print_detailed_summary() to fail.
+    """
+
+    def __init__(self):
+        """Initialize counters and lists to empty state."""
+        self.total = 0
+        self.passed = 0
+        self.failed = 0
+        self.skipped = 0
+        self.passed_tests = []
+        self.failed_tests = []
+        self.skipped_tests = []
+
+    def record_pass(self, test_info: dict) -> None:
+        """Record a successful test.
+
+        Args:
+            test_info: Dict with test details (input, output, metadata)
+        """
+        self.total += 1
+        self.passed += 1
+        self.passed_tests.append(test_info)
+
+    def record_failure(self, test_info: dict) -> None:
+        """Record a failed test.
+
+        Args:
+            test_info: Dict with test details (input, partial output, error)
+        """
+        self.total += 1
+        self.failed += 1
+        self.failed_tests.append(test_info)
+
+    def record_skip(self, test_info: dict) -> None:
+        """Record a skipped test.
+
+        Args:
+            test_info: Dict with test details (what was skipped, reason)
+        """
+        self.total += 1
+        self.skipped += 1
+        self.skipped_tests.append(test_info)
+
+    def is_success(self) -> bool:
+        """Check if all tests passed (no failures).
+
+        Returns:
+            True if no failures, False otherwise
+        """
+        return self.failed == 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert results to dictionary with ALL required keys.
+
+        This method guarantees that the returned dictionary always has
+        the complete structure expected by print_detailed_summary().
+
+        Returns:
+            Dict with keys: total, passed, failed, skipped,
+                           passed_tests, failed_tests, skipped_tests
+        """
+        return {
+            "total": self.total,
+            "passed": self.passed,
+            "failed": self.failed,
+            "skipped": self.skipped,
+            "passed_tests": self.passed_tests,
+            "failed_tests": self.failed_tests,
+            "skipped_tests": self.skipped_tests
+        }
+
+
 class MCPTester:
     """MCP endpoint testing client supporting both stdio and HTTP transports."""
 
@@ -291,53 +367,104 @@ class MCPTester:
         return result
 
 
-def load_test_config(config_path: Path) -> Dict[str, Any]:
-    """Load test configuration from YAML file."""
-    try:
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        print(f"❌ Test config not found: {config_path}")
-        sys.exit(1)
-    except yaml.YAMLError as e:
-        print(f"❌ Invalid YAML config: {e}")
-        sys.exit(1)
+    @staticmethod
+    def run_test_suite(
+        endpoint: str = None,
+        stdin_fd: int = None,
+        stdout_fd: int = None,
+        transport: str = "http",
+        verbose: bool = False,
+        config: dict = None,
+        run_tools: bool = False,
+        run_resources: bool = False,
+        specific_tool: str = None,
+        specific_resource: str = None,
+        process: Optional[subprocess.Popen] = None
+    ) -> tuple[Optional[Dict], Optional[Dict]]:
+        """Run test suite with tools and/or resources tests.
+
+        Args:
+            endpoint: HTTP endpoint URL (for HTTP transport)
+            stdin_fd: File descriptor for stdin (for stdio transport)
+            stdout_fd: File descriptor for stdout (for stdio transport)
+            transport: "http" or "stdio"
+            verbose: Enable verbose output
+            config: Test configuration dictionary
+            run_tools: Run tools tests
+            run_resources: Run resources tests
+            specific_tool: Test specific tool only
+            specific_resource: Test specific resource only
+            process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
+
+        Returns:
+            Tuple of (tools_results_dict, resources_results_dict)
+            Either may be None if that test type wasn't run
+        """
+        tools_results = None
+        resources_results = None
+
+        if run_tools:
+            # Create ToolsTester instance
+            if transport == "http":
+                tester = ToolsTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config)
+            elif process:
+                tester = ToolsTester(process=process, verbose=verbose, transport=transport, config=config)
+            else:
+                tester = ToolsTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
+
+            # Initialize and run tests
+            tester.initialize()
+            tester.run_all_tests(specific_tool=specific_tool)
+            tools_results = tester.to_dict()
+
+        if run_resources:
+            # Create ResourcesTester instance
+            if transport == "http":
+                tester = ResourcesTester(endpoint=endpoint, verbose=verbose, transport=transport, config=config)
+            elif process:
+                tester = ResourcesTester(process=process, verbose=verbose, transport=transport, config=config)
+            else:
+                tester = ResourcesTester(stdin_fd=stdin_fd, stdout_fd=stdout_fd, verbose=verbose, transport=transport, config=config)
+
+            # Initialize and run tests
+            tester.initialize()
+            tester.run_all_tests(specific_resource=specific_resource)
+            resources_results = tester.to_dict()
+
+        return tools_results, resources_results
 
 
-def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Optional[str] = None) -> tuple[bool, Dict[str, Any]]:
-    """Run comprehensive tools test.
+class ToolsTester(MCPTester):
+    """Tool testing subclass with integrated result tracking."""
 
-    Returns:
-        Tuple of (success: bool, results: Dict with detailed test information)
-    """
-    test_tools = config.get("test_tools", {})
+    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+        """Initialize ToolsTester with test configuration.
 
-    if specific_tool:
-        if specific_tool not in test_tools:
-            print(f"❌ Tool '{specific_tool}' not found in test config")
-            return False, {}
-        test_tools = {specific_tool: test_tools[specific_tool]}
+        Args:
+            config: Test configuration dictionary
+            **kwargs: Passed to MCPTester parent
+        """
+        super().__init__(**kwargs)
+        self.config = config or {}
+        self.results = TestResults()
 
-    success_count = 0
-    total_count = len(test_tools)
+        # Track tools with side effects
+        self.all_side_effects = set()
+        self.tested_side_effects = set()
 
-    # Track tools by effect type
-    all_side_effects = set()  # Tools with side effects (not 'none')
-    tested_side_effects = set()
+        # Identify all tools with side effects in config
+        for tool_name, tool_config in self.config.get("test_tools", {}).items():
+            effect = tool_config.get("effect", "none")
+            if effect != "none":
+                self.all_side_effects.add(tool_name)
 
-    # Track detailed results
-    failed_tests = []
-    passed_tests = []
+    def run_test(self, tool_name: str, test_config: Dict[str, Any]) -> None:
+        """Run a single tool test and record the result.
 
-    # First pass: identify all tools with side effects in config
-    for tool_name, tool_config in config.get("test_tools", {}).items():
-        effect = tool_config.get("effect", "none")
-        if effect != "none":
-            all_side_effects.add(tool_name)
-
-    print(f"\n🧪 Running tools test ({total_count} tools)...")
-
-    for tool_name, test_config in test_tools.items():
+        Args:
+            tool_name: Name of the tool in config
+            test_config: Test configuration for this tool
+        """
         try:
             print(f"\n--- Testing tool: {tool_name} ---")
 
@@ -348,17 +475,17 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
             actual_tool_name = test_config.get("tool", tool_name)
 
             # Call the tool
-            result = tester.call_tool(actual_tool_name, test_args)
+            result = self.call_tool(actual_tool_name, test_args)
 
             # Validate response if schema provided
             if "response_schema" in test_config:
                 validate(result, test_config["response_schema"])
-                tester._log("✅ Response schema validation passed")
+                self._log("✅ Response schema validation passed")
 
-            success_count += 1
             print(f"✅ {tool_name}: PASSED")
 
-            passed_tests.append({
+            # Record success
+            self.results.record_pass({
                 "name": tool_name,
                 "actual_tool": actual_tool_name,
                 "arguments": test_args,
@@ -368,12 +495,13 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
             # Track if tool with side effects was tested
             effect = test_config.get("effect", "none")
             if effect != "none":
-                tested_side_effects.add(tool_name)
+                self.tested_side_effects.add(tool_name)
 
         except Exception as e:
             print(f"❌ {tool_name}: FAILED - {e}")
 
-            failed_tests.append({
+            # Record failure
+            self.results.record_failure({
                 "name": tool_name,
                 "actual_tool": test_config.get("tool", tool_name),
                 "arguments": test_config.get("arguments", {}),
@@ -381,153 +509,208 @@ def run_tools_test(tester: MCPTester, config: Dict[str, Any], specific_tool: Opt
                 "error_type": type(e).__name__
             })
 
-    print(f"\n📊 Test Results: {success_count}/{total_count} tools passed")
+    def run_all_tests(self, specific_tool: str = None) -> None:
+        """Run all configured tool tests.
 
-    # Report untested tools with side effects
-    untested_side_effects = all_side_effects - tested_side_effects
-    if untested_side_effects:
-        print(f"\n⚠️  Tools with side effects NOT tested ({len(untested_side_effects)}):")
-        for tool in sorted(untested_side_effects):
-            # Get effect type for each untested tool
-            effect = config.get("test_tools", {}).get(tool, {}).get("effect", "unknown")
-            print(f"  • {tool} (effect: {effect})")
-    elif all_side_effects:
-        print(f"\n✅ All {len(all_side_effects)} tools with side effects were tested")
+        Args:
+            specific_tool: If provided, run only this tool's test
+        """
+        test_tools = self.config.get("test_tools", {})
 
-    results = {
-        "total": total_count,
-        "passed": success_count,
-        "failed": len(failed_tests),
-        "passed_tests": passed_tests,
-        "failed_tests": failed_tests,
-        "untested_side_effects": sorted(untested_side_effects)
-    }
+        if specific_tool:
+            if specific_tool not in test_tools:
+                print(f"❌ Tool '{specific_tool}' not found in test config")
+                # Record as failure
+                self.results.record_failure({
+                    "name": specific_tool,
+                    "actual_tool": specific_tool,
+                    "arguments": {},
+                    "error": "Tool not found in test config",
+                    "error_type": "ConfigurationError"
+                })
+                return
+            test_tools = {specific_tool: test_tools[specific_tool]}
 
-    return success_count == total_count, results
+        total_count = len(test_tools)
+        print(f"\n🧪 Running tools test ({total_count} tools)...")
+
+        for tool_name, test_config in test_tools.items():
+            self.run_test(tool_name, test_config)
+
+        # Report results
+        print(f"\n📊 Test Results: {self.results.passed}/{self.results.total} tools passed")
+
+        # Report untested tools with side effects
+        untested_side_effects = self.all_side_effects - self.tested_side_effects
+        if untested_side_effects:
+            print(f"\n⚠️  Tools with side effects NOT tested ({len(untested_side_effects)}):")
+            for tool in sorted(untested_side_effects):
+                effect = self.config.get("test_tools", {}).get(tool, {}).get("effect", "unknown")
+                print(f"  • {tool} (effect: {effect})")
+        elif self.all_side_effects:
+            print(f"\n✅ All {len(self.all_side_effects)} tools with side effects were tested")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert test results to dictionary.
+
+        Returns:
+            Dictionary with all standard keys plus untested_side_effects
+        """
+        result = self.results.to_dict()
+        untested_side_effects = self.all_side_effects - self.tested_side_effects
+        result["untested_side_effects"] = sorted(untested_side_effects)
+        return result
 
 
-def run_resources_test(
-    tester: MCPTester,
-    config: Dict[str, Any],
-    specific_resource: Optional[str] = None
-) -> tuple[bool, Dict[str, Any]]:
-    """Run comprehensive resources test.
+class ResourcesTester(MCPTester):
+    """Resource testing subclass with integrated result tracking."""
 
-    Returns:
-        Tuple of (success: bool, results: Dict with detailed test information)
-    """
-    test_resources = config.get("test_resources", {})
+    def __init__(self, config: Dict[str, Any] = None, **kwargs):
+        """Initialize ResourcesTester with test configuration.
 
-    if specific_resource:
-        if specific_resource not in test_resources:
-            print(f"❌ Resource '{specific_resource}' not found in test config")
-            return False, {}
-        test_resources = {specific_resource: test_resources[specific_resource]}
+        Args:
+            config: Test configuration dictionary
+            **kwargs: Passed to MCPTester parent
+        """
+        super().__init__(**kwargs)
+        self.config = config or {}
+        self.results = TestResults()
 
-    if not test_resources:
-        print("⚠️  No resources configured for testing")
-        return True, {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+        # Track available resources
+        self.available_uris = set()
+        self.available_templates = set()
 
-    success_count = 0
-    fail_count = 0
-    skip_count = 0
-    total_count = len(test_resources)
+    def _initialize_resources(self) -> bool:
+        """Query server for available resources.
 
-    # Track detailed results
-    passed_tests = []
-    failed_tests = []
-    skipped_tests = []
+        Returns:
+            True if successful, False on error
+        """
+        try:
+            result = self.list_resources()
 
-    print(f"\n🗂️  Running resources test ({total_count} resources)...")
+            # FastMCP returns both 'resources' (static) and 'resourceTemplates' (templated)
+            available_resources = result.get("resources", [])
+            available_templates = result.get("resourceTemplates", [])
 
-    # First, list available resources and templates
-    try:
-        result = tester.list_resources()
+            # Store URIs
+            self.available_uris = {r["uri"] for r in available_resources}
+            self.available_templates = {t["uriTemplate"] for t in available_templates}
 
-        # FastMCP returns both 'resources' (static) and 'resourceTemplates' (templated)
-        available_resources = result.get("resources", [])
-        available_templates = result.get("resourceTemplates", [])
+            print(f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates")
+            return True
 
-        # Combine URIs from both lists
-        available_uris = {r["uri"] for r in available_resources}
-        available_template_patterns = {t["uriTemplate"] for t in available_templates}
+        except Exception as e:
+            print(f"❌ Failed to list resources: {e}")
+            return False
 
-        print(f"📋 Server provides {len(available_resources)} static resources, {len(available_templates)} templates")
-    except Exception as e:
-        print(f"❌ Failed to list resources: {e}")
-        return False, {"total": total_count, "passed": 0, "failed": total_count, "skipped": 0}
+    def _validate_content(self, content: dict, validation: dict) -> Optional[str]:
+        """Validate resource content based on validation config.
 
-    # Test each resource
-    for uri_pattern, test_config in test_resources.items():
+        Args:
+            content: Content dict from resource response
+            validation: Validation configuration
+
+        Returns:
+            Error message if validation failed, None if passed
+        """
+        content_type = validation.get("type", "text")
+
+        if content_type == "text":
+            text = content.get("text", "")
+            min_len = validation.get("min_length", 0)
+            max_len = validation.get("max_length", float('inf'))
+
+            if len(text) < min_len:
+                return f"Content too short ({len(text)} < {min_len})"
+            if len(text) > max_len:
+                return f"Content too long ({len(text)} > {max_len})"
+
+        elif content_type == "json":
+            text = content.get("text", "")
+            try:
+                json_data = json.loads(text)
+
+                # Validate against schema if provided
+                if "schema" in validation and validation["schema"]:
+                    validate(json_data, validation["schema"])
+                    self._log("✅ Schema validation passed")
+
+            except json.JSONDecodeError as e:
+                return f"Invalid JSON content: {e}"
+            except Exception as e:
+                return f"Schema validation failed: {e}"
+
+        elif content_type == "blob":
+            blob = content.get("blob", "")
+            if not blob:
+                return "Empty blob content"
+
+        return None  # Validation passed
+
+    def run_test(self, uri_pattern: str, test_config: Dict[str, Any]) -> None:
+        """Run a single resource test and record the result.
+
+        Args:
+            uri_pattern: URI pattern from config (may contain variables)
+            test_config: Test configuration for this resource
+        """
         try:
             print(f"\n--- Testing resource: {uri_pattern} ---")
 
             # Substitute URI variables if needed
             uri = uri_pattern
             uri_vars = test_config.get("uri_variables", {})
-            skip_resource = False
 
             for var_name, var_value in uri_vars.items():
                 if var_value.startswith("CONFIGURE_"):
-                    skip_count += 1
+                    # Skip resource that needs configuration
                     print(f"  ⏭️  Skipped (needs configuration: {var_name})")
-                    skip_resource = True
-                    skipped_tests.append({
+                    self.results.record_skip({
                         "uri": uri_pattern,
                         "reason": f"Needs configuration: {var_name}",
                         "config_needed": var_name
                     })
-                    break
+                    return
                 uri = uri.replace(f"{{{var_name}}}", var_value)
 
-            if skip_resource:
-                continue
-
-            # Check if resource exists (check both static resources and templates)
+            # Check if resource exists
             is_templated = '{' in uri_pattern
             if is_templated:
-                # For templates, check if the pattern is in resourceTemplates
-                if uri_pattern not in available_template_patterns:
-                    fail_count += 1
-                    error_msg = "Template not found in server resourceTemplates"
-                    print(f"  ❌ {error_msg}")
-                    failed_tests.append({
+                if uri_pattern not in self.available_templates:
+                    print(f"  ❌ Template not found in server resourceTemplates")
+                    self.results.record_failure({
                         "uri": uri_pattern,
                         "resolved_uri": uri,
-                        "error": error_msg,
+                        "error": "Template not found in server resourceTemplates",
                         "uri_variables": uri_vars
                     })
-                    continue
+                    return
             else:
-                # For static resources, check if URI is in resources list
-                if uri not in available_uris:
-                    fail_count += 1
-                    error_msg = "Resource not found in server resources"
-                    print(f"  ❌ {error_msg}")
-                    failed_tests.append({
+                if uri not in self.available_uris:
+                    print(f"  ❌ Resource not found in server resources")
+                    self.results.record_failure({
                         "uri": uri_pattern,
                         "resolved_uri": uri,
-                        "error": error_msg,
+                        "error": "Resource not found in server resources",
                         "uri_variables": uri_vars
                     })
-                    continue
+                    return
 
             # Read the resource
-            result = tester.read_resource(uri)
+            result = self.read_resource(uri)
 
             # Validate resource content
             contents = result.get("contents", [])
             if not contents:
-                fail_count += 1
-                error_msg = "Empty contents"
-                print(f"  ❌ {error_msg}")
-                failed_tests.append({
+                print(f"  ❌ Empty contents")
+                self.results.record_failure({
                     "uri": uri_pattern,
                     "resolved_uri": uri,
-                    "error": error_msg,
+                    "error": "Empty contents",
                     "result": result
                 })
-                continue
+                return
 
             content = contents[0]
 
@@ -540,123 +723,110 @@ def run_resources_test(
                 mime_mismatch = f"expected {expected_mime}, got {actual_mime}"
                 print(f"  ⚠️  MIME type mismatch ({mime_mismatch})")
 
-            # Validate content based on type
+            # Validate content
             validation = test_config.get("content_validation", {})
-            content_type = validation.get("type", "text")
-            validation_error = None
+            validation_error = self._validate_content(content, validation)
 
-            if content_type == "text":
-                text = content.get("text", "")
-                min_len = validation.get("min_length", 0)
-                max_len = validation.get("max_length", float('inf'))
+            if validation_error:
+                print(f"  ❌ {validation_error}")
+                self.results.record_failure({
+                    "uri": uri_pattern,
+                    "resolved_uri": uri,
+                    "error": validation_error,
+                    "content_length": len(content.get("text", "")),
+                    "expected_min": validation.get("min_length"),
+                    "expected_max": validation.get("max_length")
+                })
+                return
 
-                if len(text) < min_len:
-                    fail_count += 1
-                    validation_error = f"Content too short ({len(text)} < {min_len})"
-                    print(f"  ❌ {validation_error}")
-                    failed_tests.append({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": validation_error,
-                        "content_length": len(text),
-                        "expected_min": min_len
-                    })
-                    continue
-
-                if len(text) > max_len:
-                    fail_count += 1
-                    validation_error = f"Content too long ({len(text)} > {max_len})"
-                    print(f"  ❌ {validation_error}")
-                    failed_tests.append({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": validation_error,
-                        "content_length": len(text),
-                        "expected_max": max_len
-                    })
-                    continue
-
-            elif content_type == "json":
-                # Parse and validate JSON content
-                text = content.get("text", "")
-                try:
-                    json_data = json.loads(text)
-
-                    # Validate against schema if provided
-                    if "schema" in validation and validation["schema"]:
-                        validate(json_data, validation["schema"])
-                        tester._log("✅ Schema validation passed")
-
-                except json.JSONDecodeError as e:
-                    fail_count += 1
-                    validation_error = f"Invalid JSON content: {e}"
-                    print(f"  ❌ {validation_error}")
-                    failed_tests.append({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": validation_error,
-                        "content_preview": text[:200] if len(text) > 200 else text
-                    })
-                    continue
-                except Exception as e:
-                    fail_count += 1
-                    validation_error = f"Schema validation failed: {e}"
-                    print(f"  ❌ {validation_error}")
-                    failed_tests.append({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": validation_error,
-                        "parsed_content": json_data if 'json_data' in locals() else None
-                    })
-                    continue
-
-            elif content_type == "blob":
-                blob = content.get("blob", "")
-                if not blob:
-                    fail_count += 1
-                    validation_error = "Empty blob content"
-                    print(f"  ❌ {validation_error}")
-                    failed_tests.append({
-                        "uri": uri_pattern,
-                        "resolved_uri": uri,
-                        "error": validation_error
-                    })
-                    continue
-
-            success_count += 1
+            # Success!
             print(f"✅ {uri}: PASSED")
-            passed_tests.append({
+            self.results.record_pass({
                 "uri": uri_pattern,
                 "resolved_uri": uri,
                 "mime_type": actual_mime,
                 "mime_mismatch": mime_mismatch,
-                "content_type": content_type,
+                "content_type": validation.get("type", "text"),
                 "uri_variables": uri_vars if uri_vars else None
             })
 
         except Exception as e:
-            fail_count += 1
             print(f"❌ {uri_pattern}: FAILED - {e}")
-            failed_tests.append({
+            self.results.record_failure({
                 "uri": uri_pattern,
                 "resolved_uri": uri if 'uri' in locals() else uri_pattern,
                 "error": str(e),
                 "error_type": type(e).__name__
             })
 
-    print(f"\n📊 Resource Test Results: {success_count} passed, {fail_count} failed, {skip_count} skipped (out of {total_count} total)")
+    def run_all_tests(self, specific_resource: str = None) -> None:
+        """Run all configured resource tests.
 
-    results = {
-        "total": total_count,
-        "passed": success_count,
-        "failed": fail_count,
-        "skipped": skip_count,
-        "passed_tests": passed_tests,
-        "failed_tests": failed_tests,
-        "skipped_tests": skipped_tests
-    }
+        Args:
+            specific_resource: If provided, run only this resource's test
+        """
+        test_resources = self.config.get("test_resources", {})
 
-    return fail_count == 0, results
+        if specific_resource:
+            if specific_resource not in test_resources:
+                print(f"❌ Resource '{specific_resource}' not found in test config")
+                self.results.record_failure({
+                    "uri": specific_resource,
+                    "resolved_uri": specific_resource,
+                    "error": "Resource not found in test config",
+                    "error_type": "ConfigurationError"
+                })
+                return
+            test_resources = {specific_resource: test_resources[specific_resource]}
+
+        if not test_resources:
+            print("⚠️  No resources configured for testing")
+            return
+
+        total_count = len(test_resources)
+        print(f"\n🗂️  Running resources test ({total_count} resources)...")
+
+        # Initialize: list available resources
+        if not self._initialize_resources():
+            # Failed to list resources - record failure for all tests
+            for uri_pattern in test_resources.keys():
+                self.results.record_failure({
+                    "uri": uri_pattern,
+                    "resolved_uri": uri_pattern,
+                    "error": "Failed to list resources from server",
+                    "error_type": "InitializationError"
+                })
+            return
+
+        # Test each resource
+        for uri_pattern, test_config in test_resources.items():
+            self.run_test(uri_pattern, test_config)
+
+        # Report results
+        print(f"\n📊 Resource Test Results: {self.results.passed} passed, {self.results.failed} failed, {self.results.skipped} skipped (out of {self.results.total} total)")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert test results to dictionary.
+
+        Returns:
+            Dictionary with all standard keys
+        """
+        return self.results.to_dict()
+
+
+
+
+def load_test_config(config_path: Path) -> Dict[str, Any]:
+    """Load test configuration from YAML file."""
+    try:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"❌ Test config not found: {config_path}")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"❌ Invalid YAML config: {e}")
+        sys.exit(1)
 
 
 def print_detailed_summary(tools_results: Optional[Dict[str, Any]] = None,
@@ -887,19 +1057,38 @@ Examples:
         tools_results = None
         resources_results = None
 
-        if args.tools_test or args.test_tool:
+        # Determine which tests to run
+        run_tools = args.tools_test or args.test_tool
+        run_resources = args.resources_test or args.test_resource
+
+        if run_tools or run_resources:
             # Load test configuration
             config = load_test_config(args.config)
 
-            # Run tools test
-            success, tools_results = run_tools_test(tester, config, args.test_tool)
-
-        if args.resources_test or args.test_resource:
-            # Load test configuration
-            config = load_test_config(args.config)
-
-            # Run resources test
-            success, resources_results = run_resources_test(tester, config, args.test_resource)
+            # Determine transport and connection parameters
+            if transport == "http":
+                tools_results, resources_results = MCPTester.run_test_suite(
+                    endpoint=args.endpoint,
+                    transport="http",
+                    verbose=args.verbose,
+                    config=config,
+                    run_tools=run_tools,
+                    run_resources=run_resources,
+                    specific_tool=args.test_tool if args.test_tool else None,
+                    specific_resource=args.test_resource if args.test_resource else None
+                )
+            else:  # stdio
+                tools_results, resources_results = MCPTester.run_test_suite(
+                    stdin_fd=args.stdin_fd,
+                    stdout_fd=args.stdout_fd,
+                    transport="stdio",
+                    verbose=args.verbose,
+                    config=config,
+                    run_tools=run_tools,
+                    run_resources=run_resources,
+                    specific_tool=args.test_tool if args.test_tool else None,
+                    specific_resource=args.test_resource if args.test_resource else None
+                )
 
         # Print detailed summary if we ran any tests
         if tools_results or resources_results:

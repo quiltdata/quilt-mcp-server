@@ -401,7 +401,7 @@ def run_tests_stdio(
         # Import mcp-test as a module to use its functionality directly
         sys.path.insert(0, str(SCRIPTS_DIR))
         try:
-            from mcp_test import MCPTester, run_tools_test, load_test_config
+            from mcp_test import MCPTester, load_test_config
         except ImportError as e:
             # Handle module name with dash by trying alternative import
             import importlib.util
@@ -410,33 +410,36 @@ def run_tests_stdio(
                 mcp_test = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(mcp_test)
                 MCPTester = mcp_test.MCPTester
-                run_tools_test = mcp_test.run_tools_test
                 load_test_config = mcp_test.load_test_config
             else:
                 print(f"❌ Failed to import mcp-test.py: {e}")
                 return False
 
-        # Create tester with stdio transport using server's process
-        tester = MCPTester(
-            process=server.process,
-            verbose=verbose,
-            transport="stdio"
-        )
-
-        # Initialize MCP session
-        tester.initialize()
-
         # Load test configuration
         config = load_test_config(config_path)
 
         # Filter to specific tools if requested
+        specific_tool = None
         if tools:
-            test_tools = config.get("test_tools", {})
-            config["test_tools"] = {k: v for k, v in test_tools.items() if k in tools}
+            if len(tools) == 1:
+                specific_tool = tools[0]
+            else:
+                test_tools = config.get("test_tools", {})
+                config["test_tools"] = {k: v for k, v in test_tools.items() if k in tools}
 
-        # Run tools test
-        success, results = run_tools_test(tester, config)
+        # Run tools test using run_test_suite
+        tools_results, _ = MCPTester.run_test_suite(
+            process=server.process,
+            transport="stdio",
+            verbose=verbose,
+            config=config,
+            run_tools=True,
+            run_resources=False,
+            specific_tool=specific_tool
+        )
 
+        # Check success
+        success = tools_results and tools_results.get('failed', 0) == 0
         return success
 
     except Exception as e:
@@ -484,7 +487,7 @@ def run_resource_tests_stdio(
         # Import mcp-test as a module to use its functionality directly
         sys.path.insert(0, str(SCRIPTS_DIR))
         try:
-            from mcp_test import MCPTester, run_resources_test, load_test_config
+            from mcp_test import MCPTester, load_test_config
         except ImportError as e:
             # Handle module name with dash by trying alternative import
             import importlib.util
@@ -493,34 +496,36 @@ def run_resource_tests_stdio(
                 mcp_test = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(mcp_test)
                 MCPTester = mcp_test.MCPTester
-                run_resources_test = mcp_test.run_resources_test
                 load_test_config = mcp_test.load_test_config
             else:
                 print(f"❌ Failed to import mcp-test.py: {e}")
                 return False
 
-        # Create tester with stdio transport using server's process
-        tester = MCPTester(
-            process=server.process,
-            verbose=verbose,
-            transport="stdio"
-        )
-
-        # Initialize MCP session if needed
-        if not skip_init:
-            tester.initialize()
-
         # Load test configuration
         config = load_test_config(config_path)
 
         # Filter to specific resources if requested
+        specific_resource = None
         if resources:
-            test_resources = config.get("test_resources", {})
-            config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
+            if len(resources) == 1:
+                specific_resource = resources[0]
+            else:
+                test_resources = config.get("test_resources", {})
+                config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
 
-        # Run resources test
-        success, results = run_resources_test(tester, config)
+        # Run resources test using run_test_suite
+        _, resources_results = MCPTester.run_test_suite(
+            process=server.process,
+            transport="stdio",
+            verbose=verbose,
+            config=config,
+            run_tools=False,
+            run_resources=True,
+            specific_resource=specific_resource
+        )
 
+        # Check success
+        success = resources_results and resources_results.get('failed', 0) == 0
         return success
 
     except Exception as e:

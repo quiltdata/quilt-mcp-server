@@ -90,7 +90,8 @@ These resources have URI patterns with `{param}` placeholders and MUST be regist
 
 #### Athena
 
-- `athena://databases/{database}/tables/{table}/schema` → `athena_table_schema(database_name: str, table_name: str, ...)`
+- `athena://databases/{database}/tables` → `athena_tables_list(database: str, ...)` **(NEW)**
+- `athena://databases/{database}/tables/{table}` → `athena_table_schema(database: str, table: str, ...)` **(RENAMED from /schema)**
 
 #### Tabulator
 
@@ -219,13 +220,22 @@ All static resource functions have no parameters or only optional/default parame
 
 **Decision**: **Option A - Rename service function parameters to match URI templates**
 
-Service function signatures WILL be updated to use URI parameter names:
+Service function signatures WILL be updated to use URI parameter names (5 functions need changes):
 
 - `check_bucket_access(bucket_name: str)` → `check_bucket_access(bucket: str)`
 - `athena_table_schema(database_name: str, table_name: str, ...)` → `athena_table_schema(database: str, table: str, ...)`
 - `list_tabulator_tables(bucket_name: str)` → `list_tabulator_tables(bucket: str)`
 - `get_metadata_template(template_name: str, ...)` → `get_metadata_template(name: str, ...)`
 - `workflow_get_status(workflow_id: str)` → `workflow_get_status(id: str)`
+
+**New service function** (will be created with correct parameter names):
+
+- `athena_tables_list(database: str, ...)` → NEW function to list tables in a database
+
+**URI changes**:
+
+- RENAME: `athena://databases/{database}/tables/{table}/schema` → `athena://databases/{database}/tables/{table}`
+- ADD: `athena://databases/{database}/tables` (list tables in database)
 
 This allows direct registration with FastMCP without parameter mapping layers.
 
@@ -493,17 +503,18 @@ Both are fully functional and independently accessible. The composite `admin://c
 |------------|--------------|------------------|------------------|--------------|
 | `permissions://buckets/{bucket}/access` | `bucket` | `check_bucket_access` | `bucket_name` | ❌ **MISMATCH** |
 | `admin://users/{name}` | `name` | `admin_user_get` | `name` | ✅ **MATCH** |
-| `athena://databases/{database}/tables/{table}/schema` | `database`, `table` | `athena_table_schema` | `database_name`, `table_name` | ❌ **BOTH MISMATCH** |
+| `athena://databases/{database}/tables` | `database` | `athena_tables_list` | `database` | ✅ **MATCH (NEW)** |
+| `athena://databases/{database}/tables/{table}` | `database`, `table` | `athena_table_schema` | `database_name`, `table_name` | ❌ **BOTH MISMATCH** |
 | `tabulator://buckets/{bucket}/tables` | `bucket` | `list_tabulator_tables` | `bucket_name` | ❌ **MISMATCH** |
 | `metadata://templates/{name}` | `name` | `get_metadata_template` | `template_name` | ❌ **MISMATCH** |
 | `workflow://workflows/{id}` | `id` | `workflow_get_status` | `workflow_id` | ❌ **MISMATCH** |
 
 **Statistics**:
 
-- Total parameterized resources: **6**
-- Mismatches: **5 out of 6** (83.3%)
-- Matches: **1 out of 6** (16.7%)
-- Only matching resource: `admin://users/{name}`
+- Total parameterized resources: **7** (was 6, added `athena://databases/{database}/tables`)
+- Mismatches: **5 out of 7** (71.4%)
+- Matches: **2 out of 7** (28.6%)
+- Matching resources: `admin://users/{name}`, `athena://databases/{database}/tables` (NEW)
 
 **Naming Pattern Detected**:
 
