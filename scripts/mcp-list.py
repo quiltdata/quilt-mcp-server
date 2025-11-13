@@ -28,6 +28,7 @@ if str(src_dir) not in sys.path:
 
 from quilt_mcp.utils import create_configured_server
 from quilt_mcp.resources import create_default_registry
+from quilt_mcp.resources.base import ResourceRegistry
 
 async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered tools."""
@@ -67,11 +68,9 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     tools.sort(key=lambda x: (x["module"], x["name"]))
     return tools
 
-async def extract_resource_metadata() -> List[Dict[str, Any]]:
+async def extract_resource_metadata(registry: ResourceRegistry) -> List[Dict[str, Any]]:
     """Extract comprehensive metadata from all registered resources."""
     resources = []
-
-    registry = create_default_registry()
 
     # Access the internal _resources list to iterate through registered resources
     for resource in registry._resources:
@@ -149,7 +148,7 @@ def generate_json_output(items: List[Dict[str, Any]], output_file: str):
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
-async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None]):
+async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str | None], registry: ResourceRegistry):
     """Generate mcp-test.yaml configuration with all available tools and resources.
 
     This creates test configurations for mcp-test.py to validate the MCP server.
@@ -355,7 +354,6 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
     # Generate resource test configuration
     print("🗂️  Generating resource test configuration...")
-    registry = create_default_registry()
 
     import re
     for resource in registry._resources:
@@ -454,7 +452,9 @@ async def main():
     print(f"📊 Found {len(tools)} tools across {len(set(tool['module'] for tool in tools))} modules")
 
     print("🔍 Extracting resources from MCP registry...")
-    resources = await extract_resource_metadata()
+    # Create registry once and reuse for both resource extraction and test generation
+    registry = create_default_registry()
+    resources = await extract_resource_metadata(registry)
 
     print(f"📊 Found {len(resources)} resources across {len(set(resource['module'] for resource in resources))} modules")
 
@@ -473,7 +473,7 @@ async def main():
     generate_json_output(all_items, str(output_dir / "build" / "tools_metadata.json"))
 
     print("🧪 Generating test configuration YAML...")
-    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars)
+    await generate_test_yaml(server, str(scripts_tests_dir / "mcp-test.yaml"), env_vars, registry)
 
     print("✅ Canonical tool and resource listings generated!")
     print("📂 Files created:")
