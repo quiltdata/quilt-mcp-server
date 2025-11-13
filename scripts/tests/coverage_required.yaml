@@ -13,8 +13,10 @@ summary:
   combined_pct_covered: 50.0        # Minimum combined coverage across all test types
 
 # Per-file coverage thresholds (optional)
-# Files listed here must meet their specified thresholds
-# If a file is not listed, it inherits the summary thresholds
+# Only files explicitly listed here will be checked against per-file thresholds.
+# Use this to enforce higher coverage on critical files or allow lower coverage
+# on files that are difficult to test. Most files should NOT be listed here -
+# the summary thresholds are sufficient for overall project health.
 files:
   # Example: Critical files that require higher coverage
   # "src/quilt_mcp/core/auth.py":

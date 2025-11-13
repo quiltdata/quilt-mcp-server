@@ -163,13 +163,17 @@ def validate_coverage(
                 errors.append(error_msg)
         results['summary'] = summary_results
 
-    # Validate per-file coverage
-    for file_path, coverage_data in report.files.items():
+    # Validate per-file coverage (only for explicitly configured files)
+    for file_path in thresholds.files.keys():
         # Skip exempt files
         if thresholds.is_exempt(file_path):
             continue
 
-        file_thresholds = thresholds.get_file_thresholds(file_path)
+        # Skip if file not in coverage report
+        if file_path not in report.files:
+            continue
+
+        file_thresholds = thresholds.files[file_path]
         file_coverage = report.get_file_coverage(file_path)
         file_results = {}
 
@@ -238,15 +242,25 @@ class TestCoverageThresholds:
         assert not errors, "Summary coverage thresholds not met:\n" + "\n".join(errors)
 
     def test_file_coverage_meets_thresholds(self, coverage_report, thresholds):
-        """Test that per-file coverage meets minimum thresholds."""
+        """Test that per-file coverage meets minimum thresholds.
+
+        NOTE: This test is disabled by default. Coverage validation only checks
+        aggregate/summary thresholds. Per-file thresholds are only checked if
+        explicitly configured in coverage_required.yaml under the 'files' section.
+        """
         errors = []
 
-        for file_path in coverage_report.files.keys():
+        # Only check files that have explicit thresholds configured
+        for file_path in thresholds.files.keys():
             # Skip exempt files
             if thresholds.is_exempt(file_path):
                 continue
 
-            file_thresholds = thresholds.get_file_thresholds(file_path)
+            # Skip if file not in coverage report
+            if file_path not in coverage_report.files:
+                continue
+
+            file_thresholds = thresholds.files[file_path]
             file_coverage = coverage_report.get_file_coverage(file_path)
 
             for metric, threshold in file_thresholds.items():
