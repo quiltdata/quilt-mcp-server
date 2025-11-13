@@ -186,7 +186,7 @@ class TestMetadataTemplateResource:
 
             assert response.uri == "metadata://templates/genomics"
             assert response.content == mock_result
-            mock_tool.assert_called_once_with(template_name="genomics")
+            mock_tool.assert_called_once_with(name="genomics")
 
     @pytest.mark.anyio
     async def test_read_missing_param(self, resource):

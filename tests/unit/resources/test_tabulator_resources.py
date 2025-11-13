@@ -85,7 +85,7 @@ class TestTabulatorTablesResource:
             assert response.uri == "tabulator://buckets/my-bucket/tables"
             assert response.content["items"] == mock_result["tables"]
             assert response.content["metadata"]["total_count"] == 2
-            mock_tool.assert_called_once_with("my-bucket")
+            mock_tool.assert_called_once_with(bucket="my-bucket")
 
     @pytest.mark.anyio
     async def test_read_missing_param(self, resource):

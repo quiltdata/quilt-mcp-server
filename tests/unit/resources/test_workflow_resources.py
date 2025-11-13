@@ -99,7 +99,7 @@ class TestWorkflowStatusResource:
 
             assert response.uri == "workflow://workflows/wf1"
             assert response.content == mock_result
-            mock_tool.assert_called_once_with(workflow_id="wf1")
+            mock_tool.assert_called_once_with(id="wf1")
 
     @pytest.mark.anyio
     async def test_read_missing_param(self, resource):

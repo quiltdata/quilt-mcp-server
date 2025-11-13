@@ -90,7 +90,7 @@ class TestBucketAccessResource:
 
             assert response.uri == "permissions://buckets/my-bucket/access"
             assert response.content == mock_result
-            mock_tool.assert_called_once_with(bucket_name="my-bucket")
+            mock_tool.assert_called_once_with(bucket="my-bucket")
 
     @pytest.mark.anyio
     async def test_read_missing_param(self, resource):
