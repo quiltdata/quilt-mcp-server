@@ -141,11 +141,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "filesystem_status",
         "aws_permissions_discover",
         "bucket_recommendations_get",
-        "bucket_access_check",
-        "admin_user_get",
-        "athena_table_schema",
         "athena_query_history",
-        "tabulator_tables_list",
         "get_metadata_template",
         "workflow_get_status",
     ]
@@ -157,7 +153,6 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_buckets",  # Prefer tabulator_buckets_list resource
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
-        "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal use only
     }
 

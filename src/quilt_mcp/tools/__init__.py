@@ -42,6 +42,7 @@ _MODULE_PATHS = {
     "tabulator": "quilt_mcp.services.tabulator_service",
     "workflow_orchestration": "quilt_mcp.services.workflow_service",
     "governance": "quilt_mcp.services.governance_service",
+    "permissions": "quilt_mcp.services.permissions_service",
     # error_recovery temporarily disabled due to Callable parameter issues
 }
 

@@ -443,11 +443,11 @@ def list_tabulator_tables(bucket: str) -> Dict[str, Any]:
         return format_error_response(f"Failed to list tabulator tables: {exc}")
 
 
-async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
+async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
     """Async wrapper mirroring the legacy tool interface for listing tables."""
     try:
         service = get_tabulator_service()
-        return service.list_tables(bucket_name)
+        return service.list_tables(bucket)
     except Exception as e:
         logger.error(f"Error in tabulator_tables_list: {e}")
         return format_error_response(str(e))

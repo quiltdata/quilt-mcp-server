@@ -115,19 +115,6 @@ def register_resources(mcp: "FastMCP") -> None:
         result = await asyncio.to_thread(bucket_recommendations_get)
         return _serialize_result(result)
 
-    @mcp.resource(
-        "permissions://buckets/{bucket}/access",
-        name="Bucket Access Check",
-        description="Check access permissions for a specific bucket",
-        mime_type="application/json",
-    )
-    async def bucket_access(bucket: str) -> str:
-        """Check bucket access permissions."""
-        from quilt_mcp.services.permissions_service import check_bucket_access
-
-        result = await asyncio.to_thread(check_bucket_access, bucket=bucket)
-        return _serialize_result(result)
-
     # ====================
     # Admin Resources
     # ====================
@@ -156,19 +143,6 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.governance_service import admin_roles_list
 
         result = await admin_roles_list()
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "admin://users/{name}",
-        name="Admin User Details",
-        description="Get detailed information about a specific user",
-        mime_type="application/json",
-    )
-    async def admin_user(name: str) -> str:
-        """Get user details."""
-        from quilt_mcp.services.governance_service import admin_user_get
-
-        result = await asyncio.to_thread(admin_user_get, name=name)
         return _serialize_result(result)
 
     @mcp.resource(
@@ -238,32 +212,6 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.athena_read_service import athena_query_history
 
         result = await asyncio.to_thread(athena_query_history)
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "athena://databases/{database}/tables",
-        name="Athena Tables",
-        description="List tables in an Athena database",
-        mime_type="application/json",
-    )
-    async def athena_tables(database: str) -> str:
-        """List tables in database."""
-        from quilt_mcp.services.athena_read_service import athena_tables_list
-
-        result = await asyncio.to_thread(athena_tables_list, database=database)
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "athena://databases/{database}/tables/{table}/schema",
-        name="Athena Table Schema",
-        description="Get schema for a specific Athena table",
-        mime_type="application/json",
-    )
-    async def athena_table_schema(database: str, table: str) -> str:
-        """Get table schema."""
-        from quilt_mcp.services.athena_read_service import athena_table_schema
-
-        result = await asyncio.to_thread(athena_table_schema, database=database, table=table)
         return _serialize_result(result)
 
     # ====================
@@ -366,17 +314,4 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.tabulator_service import tabulator_buckets_list
 
         result = await tabulator_buckets_list()
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "tabulator://buckets/{bucket}/tables",
-        name="Tabulator Tables",
-        description="List tables in a tabulator bucket",
-        mime_type="application/json",
-    )
-    async def tabulator_tables(bucket: str) -> str:
-        """List tables in bucket."""
-        from quilt_mcp.services.tabulator_service import tabulator_tables_list
-
-        result = await tabulator_tables_list(bucket_name=bucket)
         return _serialize_result(result)
