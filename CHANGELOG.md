@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **get_resource Tool**: New tool for backward compatibility with older MCP clients (#233)
+  - Access MCP resource data through standard tool interface
+  - Discovery mode to list all available resources
+  - Static resource access for 5 Phase 1 resources (getting-started, search guide, tool-list, health status, example template)
+  - Comprehensive test coverage (36 tests across unit, integration, and performance suites)
+
 ## [0.9.0] - 2025-11-12
 
 ### Added
