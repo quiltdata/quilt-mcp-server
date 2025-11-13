@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Search API Refactoring** (Breaking Changes) (#231):
+  - Removed S3 backend - `search_catalog` now searches catalog indices only (use `bucket_objects_list` for S3 exploration)
+  - Response format change: `backends_used: string[]` → `backend_used: string | null`
+  - Structured errors with `error_category`, actionable `fix` instructions, and tool `alternatives`
+  - Smart backend selection: automatically selects best available backend (GraphQL → Elasticsearch) instead of parallel execution
+  - Lazy initialization: backends defer authentication checks until first search (faster startup, graceful failures)
+  - Backend status integration: `catalog_info` resource now includes search backend capabilities and availability
+  - Merged with #232 (MCP testing infrastructure)
+
 ### Fixed
 
 - **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
