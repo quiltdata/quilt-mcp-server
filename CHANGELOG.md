@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **get_resource Tool**: New tool for backward compatibility with older MCP clients (#233)
-  - Access MCP resource data through standard tool interface
-  - Discovery mode to list all available resources
-  - Static resource access for 5 Phase 1 resources (getting-started, search guide, tool-list, health status, example template)
-  - Comprehensive test coverage (36 tests across unit, integration, and performance suites)
+- **get_resource Tool**: Provides tool-based access to all 17 MCP resources for backward compatibility (#233)
+  - Enables older MCP clients (Claude Desktop, Cursor) to access resource data via standard tool interface
+  - Discovery mode lists all 17 available resources with descriptions
+  - Direct service function invocation ensures 100% data parity with native MCP resources
+  - Supports 3 auth, 2 permissions, 4 admin, 3 Athena, 3 metadata, 1 workflow, and 1 tabulator resource
+  - Simple implementation without complex registry or state management
 
 ## [0.9.0] - 2025-11-12
 
