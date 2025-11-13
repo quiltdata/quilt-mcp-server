@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-11-12
+
+### Added
+
+- **MCP Testing Infrastructure**: Comprehensive testing system for MCP protocol compliance (#232)
+  - Local server mode for faster testing without Docker
+  - Coverage validation with YAML configuration
+  - Protocol diagnostics and schema inspection tools
+  - Only test idempotent (no effect) tools
+  - Reverted templated resources to being tools
+
+### Changed
+
+- **Search API Refactoring** (Breaking Changes) (#231):
+  - Removed S3 backend (and GraphQL backend) - `search_catalog` now searches catalog indices only (use `bucket_objects_list` for S3 exploration)
+  - Structured errors with `error_category`, actionable `fix` instructions, and tool `alternatives`
+  - Lazy initialization: backends defer authentication checks until first search (faster startup, graceful failures)
+  - Backend status integration: `catalog_info` resource now includes search backend capabilities and availability
+  - Scope parameter uses Literal type for validation
+
+### Fixed
+
+- **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
+  - Admin resources (`admin://users`, `admin://roles`) now provide clear error messages when accessed without admin privileges
+  - Fixed `athena://query/history` resource to properly call the underlying function with default parameters
+- **Elasticsearch**: Special character escaping, improved error messages
+- **Search Results**: Package search returns packages (not objects)
+- **Docker**: Build locally
+
 ## [0.8.5] - 2025-11-10
 
 ### Changed

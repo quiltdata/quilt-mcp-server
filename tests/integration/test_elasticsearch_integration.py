@@ -24,7 +24,11 @@ class TestElasticsearchBackendDependencyInjection:
         assert hasattr(backend, 'quilt_service')
         assert backend.quilt_service == mock_quilt_service
 
-        # Verify the dependency was used in session check
+        # With lazy initialization, the dependency is not called during __init__
+        # It's called when ensure_initialized() is invoked
+        backend.ensure_initialized()
+
+        # Now verify the dependency was used in session check
         mock_quilt_service.get_registry_url.assert_called()
 
     def test_elasticsearch_backend_uses_quilt_service_for_bucket_creation(self):
@@ -60,6 +64,9 @@ class TestElasticsearchBackendDependencyInjection:
 
         backend = Quilt3ElasticsearchBackend(quilt_service=mock_quilt_service)
 
+        # With lazy initialization, ensure_initialized() must be called first
+        backend.ensure_initialized()
+
         # Test health check which should use QuiltService
         import asyncio
 
@@ -70,7 +77,8 @@ class TestElasticsearchBackendDependencyInjection:
         result = asyncio.run(test_health())
 
         # Verify QuiltService was used
-        assert mock_quilt_service.get_registry_url.call_count >= 2  # Once in init, once in health_check
+        # Once in ensure_initialized() -> _check_session(), once in health_check()
+        assert mock_quilt_service.get_registry_url.call_count >= 2
         assert result is True  # Health check should pass
 
     def test_elasticsearch_backend_backwards_compatible_without_quilt_service(self):

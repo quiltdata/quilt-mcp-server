@@ -43,20 +43,6 @@ class SearchExplainer:
                 ],
                 "typical_speed": "< 1s",
             },
-            BackendType.S3: {
-                "strengths": [
-                    "Always available",
-                    "No indexing required",
-                    "Direct S3 access",
-                ],
-                "weaknesses": ["Slow for large buckets", "Limited query capabilities"],
-                "best_for": [
-                    "Fallback searches",
-                    "Simple prefix matching",
-                    "Basic enumeration",
-                ],
-                "typical_speed": "< 5s",
-            },
         }
 
         self.optimization_suggestions = {
@@ -275,7 +261,6 @@ class SearchExplainer:
         estimates = {
             BackendType.ELASTICSEARCH: 100,
             BackendType.GRAPHQL: 500,
-            BackendType.S3: 2000,
         }
         return estimates.get(backend_type, 1000)
 
@@ -291,10 +276,6 @@ class SearchExplainer:
                 BackendType.GRAPHQL,
             ): "Provides rich file metadata and package context",
             (
-                QueryType.FILE_SEARCH,
-                BackendType.S3,
-            ): "Reliable fallback when search indices unavailable",
-            (
                 QueryType.PACKAGE_DISCOVERY,
                 BackendType.GRAPHQL,
             ): "Excellent for package metadata and relationships",
@@ -303,10 +284,6 @@ class SearchExplainer:
                 BackendType.ELASTICSEARCH,
             ): "Good for package content search",
             (
-                QueryType.PACKAGE_DISCOVERY,
-                BackendType.S3,
-            ): "Basic package enumeration fallback",
-            (
                 QueryType.ANALYTICAL_SEARCH,
                 BackendType.ELASTICSEARCH,
             ): "Supports complex aggregations and analytics",
@@ -314,10 +291,6 @@ class SearchExplainer:
                 QueryType.ANALYTICAL_SEARCH,
                 BackendType.GRAPHQL,
             ): "Good for metadata-based analytics",
-            (
-                QueryType.ANALYTICAL_SEARCH,
-                BackendType.S3,
-            ): "Limited analytics via client-side processing",
         }
 
         return reasons.get(
@@ -328,14 +301,14 @@ class SearchExplainer:
     def _build_fallback_chain(self, query_type: QueryType) -> List[str]:
         """Build fallback chain for query type."""
         chains = {
-            QueryType.FILE_SEARCH: ["elasticsearch", "graphql", "s3"],
-            QueryType.PACKAGE_DISCOVERY: ["graphql", "elasticsearch", "s3"],
-            QueryType.ANALYTICAL_SEARCH: ["elasticsearch", "graphql", "s3"],
-            QueryType.CONTENT_SEARCH: ["elasticsearch", "graphql", "s3"],
-            QueryType.METADATA_SEARCH: ["graphql", "elasticsearch", "s3"],
+            QueryType.FILE_SEARCH: ["elasticsearch", "graphql"],
+            QueryType.PACKAGE_DISCOVERY: ["graphql", "elasticsearch"],
+            QueryType.ANALYTICAL_SEARCH: ["elasticsearch", "graphql"],
+            QueryType.CONTENT_SEARCH: ["elasticsearch", "graphql"],
+            QueryType.METADATA_SEARCH: ["graphql", "elasticsearch"],
         }
 
-        return chains.get(query_type, ["elasticsearch", "graphql", "s3"])
+        return chains.get(query_type, ["elasticsearch", "graphql"])
 
 
 # Global explainer instance

@@ -32,7 +32,7 @@ from types import ModuleType
 from typing import Dict
 
 _MODULE_PATHS = {
-    "catalog": "quilt_mcp.tools.catalog",
+    "package": "quilt_mcp.tools.catalog",
     "buckets": "quilt_mcp.tools.buckets",
     "packages": "quilt_mcp.tools.packages",
     "quilt_summary": "quilt_mcp.tools.quilt_summary",
@@ -42,6 +42,7 @@ _MODULE_PATHS = {
     "tabulator": "quilt_mcp.services.tabulator_service",
     "workflow_orchestration": "quilt_mcp.services.workflow_service",
     "governance": "quilt_mcp.services.governance_service",
+    "permissions": "quilt_mcp.services.permissions_service",
     # error_recovery temporarily disabled due to Callable parameter issues
 }
 

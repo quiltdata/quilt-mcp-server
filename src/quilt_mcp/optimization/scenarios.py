@@ -123,7 +123,7 @@ def create_data_discovery_scenarios() -> List[Scenario]:
             ),
             ScenarioStep(
                 tool_name="unified_search",
-                args={"query": "dataset", "limit": 10, "scope": "catalog"},
+                args={"query": "dataset", "limit": 10, "scope": "package"},
                 description="Search for dataset packages",
             ),
             ScenarioStep(
@@ -481,7 +481,7 @@ def create_optimization_challenge_scenarios() -> List[Scenario]:
         steps=[
             ScenarioStep(
                 tool_name="unified_search",
-                args={"query": "genomics", "limit": 50, "scope": "catalog"},
+                args={"query": "genomics", "limit": 50, "scope": "package"},
                 description="Search for genomics packages",
             ),
             ScenarioStep(

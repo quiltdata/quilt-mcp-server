@@ -129,7 +129,7 @@ class CCLEComputationalBiologyTester:
         """Test CB001: Molecular target discovery workflow."""
         # Step 1: Check Tabulator availability
         try:
-            tabulator_result = await self.call_tool("tabulator_tables_list", {"bucket_name": "quilt-sandbox-bucket"})
+            tabulator_result = await self.call_tool("tabulator_tables_list", {"bucket": "quilt-sandbox-bucket"})
             if tabulator_result.get("success"):
                 result["steps_completed"].append("tabulator_connectivity")
                 result["tools_used"].append("tabulator_tables_list")

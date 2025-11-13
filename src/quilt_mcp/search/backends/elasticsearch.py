@@ -18,8 +18,67 @@ from .base import (
     BackendResponse,
 )
 from ...services.quilt_service import QuiltService
+from ..exceptions import (
+    AuthenticationRequired,
+    BackendError,
+    InvalidQueryError,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def escape_elasticsearch_query(query: str) -> str:
+    r"""Escape special characters in Elasticsearch query_string queries.
+
+    Elasticsearch query_string syntax treats certain characters as operators.
+    This function escapes them to allow literal searches.
+
+    Special characters that need escaping:
+    + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /
+
+    Args:
+        query: Raw query string
+
+    Returns:
+        Escaped query string safe for query_string queries
+
+    Examples:
+        >>> escape_elasticsearch_query("team/dataset")
+        'team\\/dataset'
+        >>> escape_elasticsearch_query("size>100")
+        'size\\>100'
+    """
+    # Characters that need to be escaped in Elasticsearch query_string
+    # Order matters: escape backslash first to avoid double-escaping
+    special_chars = [
+        '\\',
+        '+',
+        '-',
+        '=',
+        '>',
+        '<',
+        '!',
+        '(',
+        ')',
+        '{',
+        '}',
+        '[',
+        ']',
+        '^',
+        '"',
+        '~',
+        '*',
+        '?',
+        ':',
+        '/',
+    ]
+
+    # Escape each special character with a backslash
+    escaped = query
+    for char in special_chars:
+        escaped = escaped.replace(char, '\\' + char)
+
+    return escaped
 
 
 class Quilt3ElasticsearchBackend(SearchBackend):
@@ -29,6 +88,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         super().__init__(BackendType.ELASTICSEARCH)
         self.quilt_service = quilt_service or QuiltService()
         self._session_available = False
+        # Do not check session during initialization - use lazy initialization
+
+    def _initialize(self):
+        """Initialize backend by checking quilt3 session availability.
+
+        This method is called lazily on first use via ensure_initialized().
+        Authentication checks are deferred until the backend is actually needed.
+        """
         self._check_session()
 
     def _check_session(self):
@@ -41,9 +108,18 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 self._update_status(BackendStatus.AVAILABLE)
             else:
                 self._update_status(BackendStatus.UNAVAILABLE, "No quilt3 session configured")
+                # Store authentication error for later retrieval
+                self._auth_error = AuthenticationRequired(
+                    catalog_url=None,
+                    cause="No quilt3 session configured",
+                )
         except Exception as e:
             self._session_available = False
             self._update_status(BackendStatus.ERROR, f"Session check failed: {e}")
+            self._auth_error = AuthenticationRequired(
+                catalog_url=None,
+                cause=f"Session check failed: {e}",
+            )
 
     async def health_check(self) -> bool:
         """Check if Elasticsearch backend is healthy."""
@@ -69,23 +145,33 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         limit: int = 50,
     ) -> BackendResponse:
         """Execute search using quilt3.Bucket.search() or packages search API."""
+        # Ensure backend is initialized before searching
+        self.ensure_initialized()
+
         start_time = time.time()
 
         if not self._session_available:
+            # Return structured authentication error
+            auth_error = getattr(self, "_auth_error", None)
+            if auth_error:
+                error_msg = f"{auth_error.message}: {auth_error.cause}"
+            else:
+                error_msg = "Quilt3 session not available - authentication required"
+
             return BackendResponse(
                 backend_type=self.backend_type,
                 status=BackendStatus.UNAVAILABLE,
                 results=[],
-                error_message="Quilt3 session not available",
+                error_message=error_msg,
             )
 
         try:
             if scope == "bucket" and target:
                 # Use bucket-specific search
                 results = await self._search_bucket(query, target, filters, limit)
-            elif scope == "package" and target:
-                # Search within specific package (dedicated package-scoped logic pending)
-                results = await self._search_package(query, target, filters, limit)
+            elif scope == "package":
+                # Search packages (catalog-wide OR specific package)
+                results = await self._search_packages(query, target, filters, limit)
             else:
                 # Global/catalog search using packages search API
                 results = await self._search_global(query, filters, limit)
@@ -100,7 +186,8 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 query_time_ms=query_time,
             )
 
-        except Exception as e:
+        except InvalidQueryError as e:
+            # Re-raise query validation errors with full context
             query_time = (time.time() - start_time) * 1000
             self._update_status(BackendStatus.ERROR, str(e))
 
@@ -109,7 +196,30 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 status=BackendStatus.ERROR,
                 results=[],
                 query_time_ms=query_time,
-                error_message=str(e),
+                error_message=f"Invalid query: {e.message}",
+            )
+
+        except Exception as e:
+            # Wrap unexpected errors as BackendError
+            query_time = (time.time() - start_time) * 1000
+            self._update_status(BackendStatus.ERROR, str(e))
+
+            backend_error = BackendError(
+                backend_name="elasticsearch",
+                cause=str(e),
+                authenticated=self._session_available,
+                catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
+            )
+
+            # Include both the generic message and the detailed cause
+            error_message = f"{backend_error.message}: {backend_error.cause}"
+
+            return BackendResponse(
+                backend_type=self.backend_type,
+                status=BackendStatus.ERROR,
+                results=[],
+                query_time_ms=query_time,
+                error_message=error_message,
             )
 
     async def _search_bucket(
@@ -130,22 +240,78 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         return self._convert_bucket_results(raw_results, bucket)
 
-    async def _search_package(
+    async def _search_packages(
         self,
         query: str,
-        package_name: str,
-        filters: Optional[Dict[str, Any]],
-        limit: int,
+        package_name: str = "",
+        filters: Optional[Dict[str, Any]] = None,
+        limit: int = 50,
     ) -> List[SearchResult]:
-        """Search within a specific package."""
-        # TODO: implement package-scoped search directly via search API if needed
-        return []
+        """Search packages across catalog or within specific package.
+
+        Args:
+            query: Search query
+            package_name: Optional package name. If empty, searches all packages.
+                         If specified, searches within that package only.
+            filters: Optional filters
+            limit: Max results
+
+        Returns:
+            List of package search results
+        """
+        if package_name:
+            # Search within specific package
+            # Use package-specific index with package name filter
+            search_response = self._execute_catalog_search(
+                query=query,
+                limit=limit,
+                filters={**(filters or {}), "package_name": package_name},
+                packages_only=True,
+            )
+        else:
+            # Catalog-wide package search
+            # Use all *_packages indices
+            search_response = self._execute_catalog_search(
+                query=query,
+                limit=limit,
+                filters=filters,
+                packages_only=True,
+            )
+
+        if "error" in search_response:
+            # Log error but don't raise - return empty results
+            logger.warning(f"Package search failed: {search_response['error']}")
+            return []
+
+        hits = search_response.get("hits", {}).get("hits", [])
+        return self._convert_catalog_results(hits)
 
     async def _search_global(self, query: str, filters: Optional[Dict[str, Any]], limit: int) -> List[SearchResult]:
-        """Global search across all stack buckets using the catalog search API."""
+        """Global search across all stack buckets using the catalog search API.
+
+        Falls back to searching the default registry bucket if stack-wide search fails.
+        """
         search_response = self._execute_catalog_search(query=query, limit=limit, filters=filters)
 
         if "error" in search_response:
+            # Check if this is a permission error (403) or index not found error
+            error_msg = search_response["error"]
+            is_permission_error = "403" in str(error_msg) or "Forbidden" in str(error_msg)
+            is_index_error = "index_not_found" in str(error_msg).lower()
+
+            if is_permission_error or is_index_error:
+                # Fall back to searching just the default registry bucket
+                try:
+                    from ...constants import DEFAULT_REGISTRY
+
+                    if DEFAULT_REGISTRY:
+                        bucket_uri = DEFAULT_REGISTRY
+                        # Try bucket-specific search as fallback
+                        return await self._search_bucket(query, bucket_uri, filters, limit)
+                except Exception:
+                    # If fallback also fails, raise the original error
+                    pass
+
             raise Exception(search_response["error"])
 
         hits = search_response.get("hits", {}).get("hits", [])
@@ -173,18 +339,29 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         *,
         filters: Optional[Dict[str, Any]] = None,
         from_: int = 0,
+        packages_only: bool = False,
     ) -> Dict[str, Any]:
-        """Execute a catalog search query via quilt3 search API."""
+        """Execute a catalog search query via quilt3 search API.
+
+        Args:
+            query: Query string or DSL query dict
+            limit: Maximum number of results
+            filters: Optional filters to apply
+            from_: Starting offset for pagination
+            packages_only: If True, only search *_packages indices (not object indices)
+        """
         try:
             search_api = self.quilt_service.get_search_api()
         except Exception as exc:
             return {"error": f"Search API unavailable: {exc}"}
 
         if isinstance(query, str) and not query.strip().startswith("{"):
+            # Escape special characters in the query string
+            escaped_query = escape_elasticsearch_query(query)
             dsl_query: Dict[str, Any] = {
                 "from": max(from_, 0),
                 "size": max(limit, 0),
-                "query": {"query_string": {"query": query}},
+                "query": {"query_string": {"query": escaped_query}},
             }
         else:
             import json
@@ -202,6 +379,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 filter_clauses.append({"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}})
             if filters.get("size_gt"):
                 filter_clauses.append({"range": {"size": {"gt": filters["size_gt"]}}})
+            if filters.get("package_name"):
+                # Add package name filter for package-specific searches
+                filter_clauses.append({"term": {"ptr_name": filters["package_name"]}})
             if filter_clauses:
                 dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
                     filter_clauses
@@ -211,7 +391,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
 
         index_name = None
         try:
-            index_name = build_stack_search_indices()
+            index_name = build_stack_search_indices(packages_only=packages_only)
         except Exception:
             index_name = None
 
@@ -228,10 +408,12 @@ class Quilt3ElasticsearchBackend(SearchBackend):
     def _build_elasticsearch_query(self, query: str, filters: Optional[Dict[str, Any]]) -> Union[str, Dict[str, Any]]:
         """Build Elasticsearch query from natural language and filters."""
         if not filters:
-            return query
+            # Even without filters, escape the query string
+            return escape_elasticsearch_query(query)
 
-        # Build DSL query with filters
-        dsl_query = {"query": {"bool": {"must": [{"query_string": {"query": query}}], "filter": []}}}
+        # Build DSL query with filters - escape the query string
+        escaped_query = escape_elasticsearch_query(query)
+        dsl_query = {"query": {"bool": {"must": [{"query_string": {"query": escaped_query}}], "filter": []}}}
 
         # Add file extension filters using the proper 'ext' field
         if filters.get("file_extensions"):

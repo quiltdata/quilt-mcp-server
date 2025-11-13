@@ -154,7 +154,7 @@ class MockLLMClient:
                         "unified_search",
                         {
                             "query": query,
-                            "scope": "catalog",
+                            "scope": "package",
                             "limit": 3,
                             "explain_query": True,
                         },

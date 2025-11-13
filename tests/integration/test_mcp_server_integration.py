@@ -13,6 +13,7 @@ from quilt_mcp.tools.search import search_catalog
 
 
 @pytest.mark.integration
+@pytest.mark.search
 def test_quilt_tools():
     # Auth tool returns a Pydantic model or dict
     result = auth_status()
@@ -38,10 +39,6 @@ def test_quilt_tools():
     search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
     assert isinstance(search, dict)
 
-    # Test backend parameter defaults to "auto"
+    # Test default search (backend is automatically selected)
     search_default = search_catalog(query="test")
     assert isinstance(search_default, dict)
-
-    # Test explicit backend parameter
-    search_explicit = search_catalog(query="test", backend="s3")
-    assert isinstance(search_explicit, dict)

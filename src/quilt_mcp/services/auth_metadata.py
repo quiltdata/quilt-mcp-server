@@ -121,6 +121,22 @@ def catalog_info() -> Dict[str, Any]:
             else f"Configured for catalog: {info['catalog_name']} (not authenticated)"
         )
 
+        # Integrate search backend status for discovery
+        try:
+            from quilt_mcp.search.utils import get_search_backend_status
+
+            backend_status = get_search_backend_status()
+            result["search_backend_status"] = backend_status
+        except Exception as backend_exc:
+            # Don't fail catalog_info if backend status check fails
+            result["search_backend_status"] = {
+                "available": False,
+                "backend": None,
+                "capabilities": [],
+                "status": "error",
+                "error": f"Failed to get backend status: {backend_exc}",
+            }
+
         return result
 
     except Exception as exc:

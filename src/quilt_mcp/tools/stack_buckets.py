@@ -112,14 +112,17 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
         return set()
 
 
-def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
+def build_stack_search_indices(buckets: Optional[List[str]] = None, packages_only: bool = False) -> str:
     """Build Elasticsearch index pattern for searching across all stack buckets.
 
     Args:
         buckets: List of bucket names. If None, discovers stack buckets automatically.
+        packages_only: If True, only include *_packages indices (not object indices).
 
     Returns:
-        Comma-separated index pattern for Elasticsearch (e.g., "bucket1,bucket1_packages,bucket2,bucket2_packages")
+        Comma-separated index pattern for Elasticsearch.
+        - packages_only=False: "bucket1,bucket1_packages,bucket2,bucket2_packages"
+        - packages_only=True:  "bucket1_packages,bucket2_packages"
     """
     if buckets is None:
         buckets = get_stack_buckets()
@@ -128,13 +131,16 @@ def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
         logger.warning("No buckets found for stack search")
         return ""
 
-    # Build index pattern: for each bucket, include both the main index and packages index
+    # Build index pattern based on packages_only flag
     indices = []
     for bucket in buckets:
-        indices.extend([bucket, f"{bucket}_packages"])
+        if packages_only:
+            indices.append(f"{bucket}_packages")
+        else:
+            indices.extend([bucket, f"{bucket}_packages"])
 
     index_pattern = ",".join(indices)
-    logger.debug(f"Built stack search index pattern: {index_pattern}")
+    logger.debug(f"Built stack search index pattern: {index_pattern} (packages_only={packages_only})")
     return index_pattern
 
 

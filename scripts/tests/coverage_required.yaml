@@ -1,0 +1,58 @@
+# Coverage Requirements
+#
+# Defines minimum coverage thresholds for different test suites.
+# Values are percentages (0-100).
+#
+# The test_coverage.py script will validate that actual coverage meets or exceeds these thresholds.
+
+# Overall project coverage thresholds
+summary:
+  unit_pct_covered: 35.0           # Minimum unit test coverage (current baseline)
+  integration_pct_covered: 45.0     # Minimum integration test coverage
+  e2e_pct_covered: 35.0             # Minimum end-to-end test coverage
+  combined_pct_covered: 50.0        # Minimum combined coverage across all test types
+
+# Per-file coverage thresholds (optional)
+# Only files explicitly listed here will be checked against per-file thresholds.
+# Use this to enforce higher coverage on critical files or allow lower coverage
+# on files that are difficult to test. Most files should NOT be listed here -
+# the summary thresholds are sufficient for overall project health.
+files:
+  # Example: Critical files that require higher coverage
+  # "src/quilt_mcp/core/auth.py":
+  #   unit_pct_covered: 95.0
+  #   combined_pct_covered: 95.0
+
+  # Example: Files that may have lower coverage temporarily
+  # "src/quilt_mcp/experimental/feature.py":
+  #   combined_pct_covered: 50.0
+
+# Strict mode: If true, fail if any file has zero coverage
+# If false, only check files that appear in the coverage report
+strict: false
+
+# Allow list: Files that are exempt from coverage requirements
+# These files will not cause test failures even with zero coverage
+exempt_files:
+  - "*__init__.py"
+  - "*__main__.py"
+  - "*/tests/*"
+  - "*/test_*.py"
+  - "scripts/*"
+  # Modules with known low/no coverage (to be improved)
+  - "*/visualization/*"
+  - "*/search/backends/*"
+  - "*/search/tools/*"
+  - "*/search/utils/*"
+  - "*/search/core/*"
+  - "*/optimization/*"
+  - "*/models/inputs.py"
+  - "*/tools/stack_buckets.py"
+  - "*/tools/buckets.py"
+  - "*/tools/packages.py"
+  - "*/tools/quilt_summary.py"
+  - "*/tools/search.py"
+  - "*/services/athena_*.py"
+  - "*/services/jwt_decoder.py"
+  - "*/services/permission*.py"
+  - "*/telemetry/metrics.py"

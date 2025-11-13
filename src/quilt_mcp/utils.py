@@ -141,11 +141,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "filesystem_status",
         "aws_permissions_discover",
         "bucket_recommendations_get",
-        "bucket_access_check",
-        "admin_user_get",
-        "athena_table_schema",
         "athena_query_history",
-        "tabulator_tables_list",
         "get_metadata_template",
         "workflow_get_status",
     ]
@@ -157,8 +153,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_buckets",  # Prefer tabulator_buckets_list resource
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
-        "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal use only
+        "get_permission_discovery",  # Internal helper - returns singleton instance
     }
 
     # Merge resource-available tools into excluded set
@@ -343,64 +339,17 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     """
     mcp = create_mcp_server()
 
-    # Initialize resources AFTER creating server
-    from quilt_mcp.resources import register_all_resources, get_registry
+    # Register resources using FastMCP decorator pattern
     from quilt_mcp.config import resource_config
     import sys
 
     if resource_config.RESOURCES_ENABLED:
-        register_all_resources()
-        registry = get_registry()
-        resources = registry.list_resources()
+        from quilt_mcp.resources import register_resources
 
-        # Register each resource with FastMCP
-        import re
-
-        def create_handler(resource_uri: str):
-            """Create a handler with proper closure for each resource URI."""
-            # Extract parameters from URI pattern (e.g., {bucket} from tabulator://buckets/{bucket}/tables)
-            param_names = re.findall(r'\{(\w+)\}', resource_uri)
-
-            if param_names:
-                # Create handler with parameters for template URIs
-                async def parameterized_handler(**kwargs) -> str:
-                    """Resource handler with URI parameters."""
-                    # Construct the actual URI by replacing parameters
-                    actual_uri = resource_uri
-                    for param_name, param_value in kwargs.items():
-                        actual_uri = actual_uri.replace(f"{{{param_name}}}", param_value)
-
-                    response = await registry.read_resource(actual_uri)
-                    return response._serialize_content()
-
-                return parameterized_handler
-            else:
-                # Create simple handler for static URIs
-                async def static_handler() -> str:
-                    """Resource handler."""
-                    response = await registry.read_resource(resource_uri)
-                    return response._serialize_content()
-
-                return static_handler
-
-        for resource_info in resources:
-            uri = resource_info["uri"]
-            name = resource_info["name"]
-            description = resource_info["description"]
-            mime_type = resource_info["mimeType"]
-
-            # Register with FastMCP using the new Resource.from_function API
-            resource = Resource.from_function(
-                fn=create_handler(uri),
-                uri=uri,
-                name=name,
-                description=description,
-                mime_type=mime_type,
-            )
-            mcp.add_resource(resource)
+        register_resources(mcp)
 
         if verbose:
-            print(f"Registered {len(resources)} MCP resources", file=sys.stderr)
+            print("Registered MCP resources", file=sys.stderr)
 
     tools_count = register_tools(mcp, verbose=verbose)
 

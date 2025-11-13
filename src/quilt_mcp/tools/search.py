@@ -4,15 +4,19 @@ This module exposes the unified search functionality as MCP tools.
 """
 
 import asyncio
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
+from ..constants import DEFAULT_BUCKET
 from ..models.responses import (
+    SearchCatalogError,
+    SearchCatalogSuccess,
     SearchExplainError,
     SearchExplainSuccess,
     SearchGraphQLError,
     SearchGraphQLSuccess,
+    SearchResult,
 )
 from ..search.tools.search_explain import search_explain as _search_explain
 from ..search.tools.search_suggest import search_suggest as _search_suggest
@@ -27,26 +31,26 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        str,
+        Literal["global", "package", "bucket"],
         Field(
-            default="global",
-            description='Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)',
+            default="bucket",
+            description='Search scope - "bucket" (specific bucket, default), "package" (current catalog), "package" (specific package), "global" (all)',
         ),
-    ] = "global",
+    ] = "bucket",
     target: Annotated[
         str,
         Field(
             default="",
-            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")',
+            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Defaults to DEFAULT_BUCKET from environment when scope is "bucket" and target is empty.',
         ),
     ] = "",
     backend: Annotated[
-        str,
+        Literal["elasticsearch"],
         Field(
-            default="auto",
-            description='Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"',
+            default="elasticsearch",
+            description='Backend to use - "elasticsearch" (only valid option, graphql is currently broken)',
         ),
-    ] = "auto",
+    ] = "elasticsearch",
     limit: Annotated[
         int,
         Field(
@@ -82,12 +86,11 @@ def search_catalog(
             description="Return aggregated counts only (skips fetching full result payloads) when True.",
         ),
     ] = False,
-) -> Dict[str, Any]:
-    """Intelligent unified search across Quilt catalogs, packages, and S3 buckets - Catalog and package search experiences
+) -> Dict[str, Any]:  # Returns dict on success, raises exception on failure
+    """Intelligent unified search across Quilt catalog using Elasticsearch - Catalog and package search experiences
 
     This tool automatically:
     - Parses natural language queries to extract filters (file types, sizes, dates)
-    - Selects optimal search backends
     - Aggregates and ranks results
     - Provides context and explanations
 
@@ -99,9 +102,9 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "global" (all), "catalog" (current catalog), "package" (specific package), "bucket" (specific bucket)
-        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket")
-        backend: Preferred backend - "auto" (intelligent selection), "elasticsearch", "graphql", or "s3"
+        scope: Search scope - "bucket" (default, searches default bucket), "package" (current catalog), "package" (specific package), "global" (all)
+        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
+        backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
@@ -112,11 +115,11 @@ def search_catalog(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        search_catalog("CSV files in genomics packages")
-        search_catalog("files larger than 100MB created after 2024-01-01")
-        search_catalog("packages created last month", scope="catalog")
-        search_catalog("README files", scope="package", target="user/dataset")
-        search_catalog("Parquet files smaller than 500MB", scope="bucket", target="s3://quilt-example")
+        search_catalog("CSV files")  # Uses default bucket scope with elasticsearch
+        search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
+        search_catalog("packages created last month", scope="package")  # Catalog-wide search
+        search_catalog("README files", scope="package", target="user/dataset")  # Package search
+        search_catalog("Parquet files", scope="bucket", target="s3://other-bucket")  # Specific bucket
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -134,7 +137,12 @@ def search_catalog(
     try:
         # Set default backend if None or empty
         if not backend:
-            backend = "auto"
+            backend = "elasticsearch"
+
+        # Set default target to DEFAULT_BUCKET when scope is "bucket" and target is empty
+        if scope == "bucket" and not target:
+            if DEFAULT_BUCKET:
+                target = DEFAULT_BUCKET
 
         # Handle async execution properly for MCP tools
         try:
@@ -158,10 +166,10 @@ def search_catalog(
                         count_only=count_only,
                     ),
                 )
-                return future.result(timeout=30)
+                result = future.result(timeout=30)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
-            return asyncio.run(
+            result = asyncio.run(
                 _unified_search(
                     query=query,
                     scope=scope,
@@ -174,24 +182,38 @@ def search_catalog(
                     count_only=count_only,
                 )
             )
-    except (RuntimeError, asyncio.TimeoutError, OSError) as e:
-        return {
-            "success": False,
-            "error": f"Unified search failed: {e}",
-            "query": query,
-            "scope": scope,
-            "target": target,
-            "help": {
-                "common_queries": [
-                    "CSV files",
-                    "genomics data",
-                    "files larger than 100MB",
-                    "packages created this month",
-                ],
-                "scopes": ["global", "catalog", "package", "bucket"],
-                "backend": ["auto", "elasticsearch", "graphql", "s3"],
-            },
-        }
+
+        # Convert result dict to proper response model, then serialize to dict
+        if result.get("success", False):
+            return SearchCatalogSuccess(
+                query=result["query"],
+                scope=result["scope"],
+                target=result["target"],
+                results=[SearchResult(**r) for r in result.get("results", [])],
+                total_results=result.get("total_results", 0),
+                query_time_ms=result.get("query_time_ms", 0.0),
+                backend_used=result.get("backend_used"),
+                analysis=result.get("analysis"),
+                backend_status=result.get("backend_status"),
+                backend_info=result.get("backend_info"),
+                explanation=result.get("explanation"),
+            ).model_dump()
+        else:
+            # Raise exception with structured error info to make MCP show "Tool Result: Error"
+            error_model = SearchCatalogError(
+                error=result.get("error", "Search failed"),
+                query=result["query"],
+                scope=result.get("scope", scope),
+                target=result.get("target", target),
+                backend_used=result.get("backend_used"),
+                backend_status=result.get("backend_status"),
+            )
+            # Raise with structured error message
+            raise RuntimeError(f"{error_model.error}\n{error_model.model_dump_json(indent=2)}")
+    except asyncio.TimeoutError as e:
+        raise RuntimeError(f"Search timeout: {e}")
+    except OSError as e:
+        raise RuntimeError(f"Search I/O error: {e}")
 
 
 def search_suggest(
@@ -273,7 +295,7 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        str,
+        Literal["global", "package", "bucket"],
         Field(
             default="global",
             description="Search scope",

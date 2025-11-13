@@ -1,0 +1,632 @@
+summary:
+  unit_pct_covered:
+    actual: 38.9
+    required: 37.5
+    passed: true
+  integration_pct_covered:
+    actual: 47.9
+    required: 0.0
+    passed: true
+  e2e_pct_covered:
+    actual: 39.7
+    required: 0.0
+    passed: true
+  combined_pct_covered:
+    actual: 59.0
+    required: 37.5
+    passed: true
+files:
+  src/quilt_mcp/config.py:
+    unit_pct_covered:
+      actual: 100.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 100.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 100.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 100.0
+      required: 37.5
+      passed: true
+  src/quilt_mcp/constants.py:
+    unit_pct_covered:
+      actual: 100.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 100.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 100.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 100.0
+      required: 37.5
+      passed: true
+  src/quilt_mcp/formatting.py:
+    unit_pct_covered:
+      actual: 71.5
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 55.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 54.6
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 86.9
+      required: 37.5
+      passed: true
+  src/quilt_mcp/health.py:
+    unit_pct_covered:
+      actual: 92.6
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 92.6
+      required: 37.5
+      passed: true
+  src/quilt_mcp/main.py:
+    unit_pct_covered:
+      actual: 93.8
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 93.8
+      required: 37.5
+      passed: true
+  src/quilt_mcp/models/responses.py:
+    unit_pct_covered:
+      actual: 98.8
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 98.1
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 99.3
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 101.4
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/admin.py:
+    unit_pct_covered:
+      actual: 94.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 59.5
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 59.5
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 94.0
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/athena.py:
+    unit_pct_covered:
+      actual: 89.5
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 72.1
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 72.1
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 89.5
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/auth.py:
+    unit_pct_covered:
+      actual: 94.2
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 82.7
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 82.7
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 94.2
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/base.py:
+    unit_pct_covered:
+      actual: 94.3
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 82.8
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 82.8
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 94.3
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/metadata.py:
+    unit_pct_covered:
+      actual: 90.9
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 79.2
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 79.2
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 90.9
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/permissions.py:
+    unit_pct_covered:
+      actual: 94.5
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 81.8
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 67.3
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 94.5
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/tabulator.py:
+    unit_pct_covered:
+      actual: 93.3
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 66.7
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 66.7
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 93.3
+      required: 37.5
+      passed: true
+  src/quilt_mcp/resources/workflow.py:
+    unit_pct_covered:
+      actual: 93.3
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 66.7
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 66.7
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 93.3
+      required: 37.5
+      passed: true
+  src/quilt_mcp/runtime_context.py:
+    unit_pct_covered:
+      actual: 59.3
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 54.2
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 54.2
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 59.3
+      required: 37.5
+      passed: true
+  src/quilt_mcp/search/exceptions.py:
+    unit_pct_covered:
+      actual: 49.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 96.1
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 96.1
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 96.1
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/auth_metadata.py:
+    unit_pct_covered:
+      actual: 44.3
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 58.6
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 58.6
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 82.9
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/auth_service.py:
+    unit_pct_covered:
+      actual: 65.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 65.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 65.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 65.0
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/bearer_auth_service.py:
+    unit_pct_covered:
+      actual: 39.4
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 39.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 39.4
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 39.4
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/governance_service.py:
+    unit_pct_covered:
+      actual: 59.4
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 33.5
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 33.5
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 66.5
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/metadata_service.py:
+    unit_pct_covered:
+      actual: 47.2
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 43.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 43.4
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 58.5
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/quilt_service.py:
+    unit_pct_covered:
+      actual: 82.6
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 50.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 50.4
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 83.3
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/tabulator_service.py:
+    unit_pct_covered:
+      actual: 37.7
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 60.9
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 60.9
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 65.1
+      required: 37.5
+      passed: true
+  src/quilt_mcp/services/workflow_service.py:
+    unit_pct_covered:
+      actual: 66.5
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 20.7
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 20.7
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 69.1
+      required: 37.5
+      passed: true
+  src/quilt_mcp/telemetry/collector.py:
+    unit_pct_covered:
+      actual: 82.6
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 78.3
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 78.3
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 86.4
+      required: 37.5
+      passed: true
+  src/quilt_mcp/telemetry/privacy.py:
+    unit_pct_covered:
+      actual: 44.0
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 69.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 69.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 69.0
+      required: 37.5
+      passed: true
+  src/quilt_mcp/telemetry/transport.py:
+    unit_pct_covered:
+      actual: 41.1
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 22.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 22.4
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 41.6
+      required: 37.5
+      passed: true
+  src/quilt_mcp/tools/auth_helpers.py:
+    unit_pct_covered:
+      actual: 82.9
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 61.4
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 54.3
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 82.9
+      required: 37.5
+      passed: true
+  src/quilt_mcp/tools/catalog.py:
+    unit_pct_covered:
+      actual: 95.7
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 87.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 87.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 95.7
+      required: 37.5
+      passed: true
+  src/quilt_mcp/tools/data_visualization.py:
+    unit_pct_covered:
+      actual: 55.6
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 55.6
+      required: 37.5
+      passed: true
+  src/quilt_mcp/tools/error_recovery.py:
+    unit_pct_covered:
+      actual: 59.9
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 59.9
+      required: 37.5
+      passed: true
+  src/quilt_mcp/utils.py:
+    unit_pct_covered:
+      actual: 55.2
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 31.3
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 23.2
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 66.4
+      required: 37.5
+      passed: true
+  src/quilt_mcp/validators/metadata_validator.py:
+    unit_pct_covered:
+      actual: 40.6
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 29.3
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 40.6
+      required: 37.5
+      passed: true
+  src/quilt_mcp/validators/naming_validator.py:
+    unit_pct_covered:
+      actual: 37.7
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 45.9
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 68.5
+      required: 37.5
+      passed: true
+  src/quilt_mcp/validators/structure_validator.py:
+    unit_pct_covered:
+      actual: 50.5
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 49.5
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 52.6
+      required: 37.5
+      passed: true
+  src/quilt_mcp/version_sync.py:
+    unit_pct_covered:
+      actual: 93.8
+      required: 37.5
+      passed: true
+    integration_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    e2e_pct_covered:
+      actual: 0.0
+      required: 0.0
+      passed: true
+    combined_pct_covered:
+      actual: 93.8
+      required: 37.5
+      passed: true
+passed: true
+errors: []

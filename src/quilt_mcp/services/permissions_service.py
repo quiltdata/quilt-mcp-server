@@ -100,16 +100,16 @@ def discover_permissions(
         return format_error_response(f"Failed to discover AWS permissions: {exc}")
 
 
-def check_bucket_access(bucket_name: str, operations: Optional[List[str]] = None) -> Dict[str, Any]:
-    """Check the caller's access to ``bucket_name``."""
+def check_bucket_access(bucket: str, operations: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Check the caller's access to ``bucket``."""
     if operations is None:
         operations = ["read", "write", "list"]
 
     try:
         discovery = get_permission_discovery()
 
-        bucket_info = discovery.discover_bucket_permissions(bucket_name)
-        operation_results = discovery.test_bucket_operations(bucket_name, operations)
+        bucket_info = discovery.discover_bucket_permissions(bucket)
+        operation_results = discovery.test_bucket_operations(bucket, operations)
 
         guidance: List[str] = []
         if bucket_info.permission_level == PermissionLevel.READ_ONLY:
@@ -130,7 +130,7 @@ def check_bucket_access(bucket_name: str, operations: Optional[List[str]] = None
 
         return {
             "success": True,
-            "bucket_name": bucket_name,
+            "bucket_name": bucket,
             "permission_level": bucket_info.permission_level.value,
             "access_summary": {
                 "can_read": bucket_info.can_read,
@@ -148,7 +148,7 @@ def check_bucket_access(bucket_name: str, operations: Optional[List[str]] = None
         }
 
     except Exception as exc:  # pragma: no cover - defensive logging
-        logger.error("Error checking bucket access for %s: %s", bucket_name, exc)
+        logger.error("Error checking bucket access for %s: %s", bucket, exc)
         return format_error_response(f"Failed to check bucket access: {exc}")
 
 

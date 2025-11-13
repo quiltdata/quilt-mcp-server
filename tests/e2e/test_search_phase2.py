@@ -135,6 +135,8 @@ class TestGraphQLBackend:
         mock_search_graphql.return_value = {"success": True, "data": {"bucketConfigs": []}}
 
         backend = EnterpriseGraphQLBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.AVAILABLE
 
     @patch("quilt_mcp.tools.search._get_graphql_endpoint")
@@ -144,12 +146,14 @@ class TestGraphQLBackend:
         mock_get_endpoint.return_value = (None, None)
 
         backend = EnterpriseGraphQLBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.UNAVAILABLE
 
     @patch("quilt_mcp.tools.search.search_graphql")
     @patch("quilt_mcp.tools.search._get_graphql_endpoint")
     @patch("quilt_mcp.search.backends.graphql.quilt3")
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_graphql_health_check(self, mock_quilt3, mock_get_endpoint, mock_search_graphql):
         """Test GraphQL backend health checking."""
         mock_session = Mock()
@@ -201,11 +205,47 @@ class TestIntegratedPhase2:
         # Create actual engine to test backend registration
         engine = UnifiedSearchEngine()
 
-        # Should have all three backend types registered
+        # Should have two backend types registered (elasticsearch and graphql)
+        # Note: S3 backend was removed in Phase 1 of search catalog specification
         all_backends = list(engine.registry._backends.keys())
-        assert len(all_backends) == 3  # elasticsearch, s3, graphql
+        assert len(all_backends) == 2  # elasticsearch, graphql
 
         backend_names = [bt.value for bt in all_backends]
         assert "elasticsearch" in backend_names
-        assert "s3" in backend_names
         assert "graphql" in backend_names
+
+    def test_backend_selection_method(self):
+        """Test that _select_primary_backend method exists and works correctly."""
+        from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine
+        from quilt_mcp.search.backends.base import BackendStatus
+
+        # Create actual engine to test backend selection
+        engine = UnifiedSearchEngine()
+
+        # Test that the method exists
+        assert hasattr(engine.registry, "_select_primary_backend")
+
+        # Test selection when both backends are unavailable
+        for backend in engine.registry._backends.values():
+            backend._status = BackendStatus.UNAVAILABLE
+
+        selected = engine.registry._select_primary_backend()
+        assert selected is None
+
+        # Test selection when only Elasticsearch is available
+        elasticsearch_backend = engine.registry.get_backend_by_name("elasticsearch")
+        if elasticsearch_backend:
+            elasticsearch_backend._status = BackendStatus.AVAILABLE
+
+        selected = engine.registry._select_primary_backend()
+        if elasticsearch_backend:
+            assert selected == elasticsearch_backend
+
+        # Test selection when both are available (should prefer GraphQL)
+        graphql_backend = engine.registry.get_backend_by_name("graphql")
+        if graphql_backend:
+            graphql_backend._status = BackendStatus.AVAILABLE
+
+        selected = engine.registry._select_primary_backend()
+        if graphql_backend:
+            assert selected == graphql_backend  # Prefers GraphQL over Elasticsearch

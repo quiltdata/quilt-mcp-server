@@ -277,7 +277,7 @@ class LLMMCPTester:
                 "unified_search",
                 {
                     "query": "CSV files",
-                    "scope": "catalog",
+                    "scope": "package",
                     "limit": 3,
                     "explain_query": True,
                 },

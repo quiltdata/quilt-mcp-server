@@ -16,7 +16,6 @@ from quilt_mcp.search.backends.base import (
     BackendType,
 )
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
-from quilt_mcp.search.backends.s3 import S3FallbackBackend
 from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine, unified_search
 
 
@@ -108,6 +107,8 @@ class TestElasticsearchBackend:
         mock_quilt3.session.get_registry_url.return_value = "https://example.com"
 
         backend = Quilt3ElasticsearchBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.AVAILABLE
 
     @patch("quilt_mcp.services.quilt_service.quilt3")
@@ -116,10 +117,12 @@ class TestElasticsearchBackend:
         mock_quilt3.session.get_registry_url.return_value = None
 
         backend = Quilt3ElasticsearchBackend()
+        # Backend uses lazy initialization - must explicitly initialize
+        backend.ensure_initialized()
         assert backend.status == BackendStatus.UNAVAILABLE
 
     @patch("quilt_mcp.services.quilt_service.quilt3")
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_bucket_search(self, mock_quilt3):
         """Test bucket search functionality."""
         # Mock quilt3 session to show available
@@ -146,104 +149,53 @@ class TestElasticsearchBackend:
         assert response.results[0].logical_key == "data.csv"
 
 
-class TestS3FallbackBackend:
-    """Test cases for S3 fallback backend."""
-
-    @patch("quilt_mcp.search.backends.s3.get_sts_client")
-    @patch("quilt_mcp.search.backends.s3.get_s3_client")
-    def test_s3_access_check(self, mock_get_s3_client, mock_get_sts_client):
-        """Test S3 access checking."""
-        mock_s3_client = Mock()
-        mock_sts_client = Mock()
-        mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
-
-        mock_get_s3_client.return_value = mock_s3_client
-        mock_get_sts_client.return_value = mock_sts_client
-
-        backend = S3FallbackBackend()
-        assert backend.status == BackendStatus.AVAILABLE
-
-    @patch("quilt_mcp.search.backends.s3.get_sts_client")
-    @patch("quilt_mcp.search.backends.s3.get_s3_client")
-    @pytest.mark.asyncio
-    async def test_bucket_search(self, mock_get_s3_client, mock_get_sts_client):
-        """Test S3 bucket search functionality."""
-        # Mock S3 client and paginator
-        mock_s3_client = Mock()
-        mock_paginator = Mock()
-        mock_page_iterator = [
-            {
-                "Contents": [
-                    {
-                        "Key": "data/test.csv",
-                        "Size": 1000,
-                        "LastModified": Mock(isoformat=Mock(return_value="2024-01-01T00:00:00Z")),
-                        "StorageClass": "STANDARD",
-                    }
-                ]
-            }
-        ]
-
-        mock_paginator.paginate.return_value = mock_page_iterator
-        mock_s3_client.get_paginator.return_value = mock_paginator
-
-        mock_sts_client = Mock()
-        mock_sts_client.get_caller_identity.return_value = {"UserId": "test"}
-
-        # Mock both helper functions
-        mock_get_s3_client.return_value = mock_s3_client
-        mock_get_sts_client.return_value = mock_sts_client
-
-        backend = S3FallbackBackend()
-        response = await backend.search("csv", scope="bucket", target="test-bucket")
-
-        assert response.status == BackendStatus.AVAILABLE
-        assert len(response.results) == 1
-        assert response.results[0].type == "file"
-        assert response.results[0].logical_key == "data/test.csv"
-
-
 class TestUnifiedSearchEngine:
     """Test cases for the unified search engine."""
 
-    @pytest.mark.asyncio
-    async def test_search_with_mocked_backends(self):
-        """Test unified search with mocked backends."""
+    @pytest.mark.anyio
+    async def test_search_with_mocked_backend(self):
+        """Test unified search with mocked backend."""
         engine = UnifiedSearchEngine()
 
-        # Mock backend responses
-        with patch.object(engine, "_execute_parallel_searches") as mock_execute:
-            mock_response = Mock()
-            mock_response.backend_type = BackendType.ELASTICSEARCH
-            mock_response.status = BackendStatus.AVAILABLE
-            mock_response.results = [
-                SearchResult(
-                    id="test-1",
-                    type="file",
-                    title="test.csv",
-                    logical_key="test.csv",
-                    score=0.9,
-                    backend="elasticsearch",
-                )
-            ]
-            mock_response.query_time_ms = 50.0
-            mock_response.error_message = None
+        # Mock the registry to return a backend
+        mock_backend = Mock()
+        mock_backend.backend_type = BackendType.ELASTICSEARCH
+        mock_backend.status = BackendStatus.AVAILABLE
 
-            mock_execute.return_value = [mock_response]
+        # Mock backend search response
+        mock_response = Mock()
+        mock_response.backend_type = BackendType.ELASTICSEARCH
+        mock_response.status = BackendStatus.AVAILABLE
+        mock_response.results = [
+            SearchResult(
+                id="test-1",
+                type="file",
+                title="test.csv",
+                logical_key="test.csv",
+                score=0.9,
+                backend="elasticsearch",
+            )
+        ]
+        mock_response.query_time_ms = 50.0
+        mock_response.error_message = None
 
+        mock_backend.search = AsyncMock(return_value=mock_response)
+
+        # Patch the primary backend selection
+        with patch.object(engine.registry, "_select_primary_backend", return_value=mock_backend):
             result = await engine.search("CSV files")
 
             assert result["success"] is True
             assert len(result["results"]) == 1
             assert result["results"][0]["title"] == "test.csv"
-            assert "elasticsearch" in result["backends_used"]
+            assert result["backend_used"] == "elasticsearch"
 
 
 class TestUnifiedSearchTool:
     """Test cases for the unified search tool function."""
 
     @patch("quilt_mcp.search.tools.unified_search.get_search_engine")
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_unified_search_function(self, mock_get_engine):
         """Test the main unified_search function."""
         # Mock the search engine
@@ -258,7 +210,7 @@ class TestUnifiedSearchTool:
         mock_engine.search.assert_called_once()
 
     @patch("quilt_mcp.search.tools.unified_search.get_search_engine")
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_unified_search_error_handling(self, mock_get_engine):
         """Test error handling in unified search."""
         # Mock engine that raises exception
@@ -270,3 +222,120 @@ class TestUnifiedSearchTool:
 
         assert result["success"] is False
         assert "Test error" in result["error"]
+
+    @pytest.mark.anyio
+    async def test_backend_failure(self):
+        """Test that backend failures are properly reported."""
+        engine = UnifiedSearchEngine()
+
+        # Mock a backend that fails
+        mock_backend = Mock()
+        mock_backend.backend_type = BackendType.ELASTICSEARCH
+        mock_backend.status = BackendStatus.AVAILABLE
+
+        # Failed backend response (simulating 403 error like in the example)
+        failed_response = Mock()
+        failed_response.backend_type = BackendType.ELASTICSEARCH
+        failed_response.status = BackendStatus.ERROR
+        failed_response.results = []
+        failed_response.query_time_ms = 100.0
+        failed_response.error_message = "Catalog search failed: Unexpected failure: error 403"
+
+        mock_backend.search = AsyncMock(return_value=failed_response)
+
+        with patch.object(engine.registry, "_select_primary_backend", return_value=mock_backend):
+            result = await engine.search("test query")
+
+            # Should report failure because backend failed
+            assert result["success"] is False
+
+            # Should include error message
+            assert "error" in result
+            assert "403" in result["error"]
+
+            # Should return no results
+            assert len(result["results"]) == 0
+
+            # Should show backend was not successfully used
+            assert result["backend_used"] is None
+
+            # Should show backend status with error
+            assert "backend_status" in result
+            assert result["backend_status"]["status"] == "error"
+            assert "403" in result["backend_status"]["error"]
+
+    @pytest.mark.anyio
+    async def test_no_backends_available(self):
+        """Test that search fails explicitly when no backends are available."""
+        engine = UnifiedSearchEngine()
+
+        # Mock that no backends are available
+        with patch.object(engine.registry, "_select_primary_backend", return_value=None):
+            result = await engine.search("test query")
+
+            # Should report failure
+            assert result["success"] is False
+
+            # Should have error message
+            assert "error" in result
+            assert "Catalog search not available" in result["error"]
+
+            # Should return no results
+            assert len(result["results"]) == 0
+
+            # Should show no backend used
+            assert result["backend_used"] is None
+
+    @pytest.mark.anyio
+    async def test_backend_selection_priority(self):
+        """Test that GraphQL backend is preferred over Elasticsearch."""
+        engine = UnifiedSearchEngine()
+
+        # Mock both backends as available
+        graphql_backend = Mock()
+        graphql_backend.backend_type = BackendType.GRAPHQL
+        graphql_backend.status = BackendStatus.AVAILABLE
+
+        elasticsearch_backend = Mock()
+        elasticsearch_backend.backend_type = BackendType.ELASTICSEARCH
+        elasticsearch_backend.status = BackendStatus.AVAILABLE
+
+        # Setup registry with both backends
+        engine.registry._backends = {
+            BackendType.GRAPHQL: graphql_backend,
+            BackendType.ELASTICSEARCH: elasticsearch_backend,
+        }
+
+        # Call the actual selection method
+        selected = engine.registry._select_primary_backend()
+
+        # Should prefer GraphQL
+        assert selected == graphql_backend
+        assert selected.backend_type == BackendType.GRAPHQL
+
+    @pytest.mark.anyio
+    async def test_backend_fallback_to_elasticsearch(self):
+        """Test that Elasticsearch is used when GraphQL is unavailable."""
+        engine = UnifiedSearchEngine()
+
+        # Mock GraphQL as unavailable, Elasticsearch as available
+        graphql_backend = Mock()
+        graphql_backend.backend_type = BackendType.GRAPHQL
+        graphql_backend.status = BackendStatus.UNAVAILABLE
+
+        elasticsearch_backend = Mock()
+        elasticsearch_backend.backend_type = BackendType.ELASTICSEARCH
+        elasticsearch_backend.status = BackendStatus.AVAILABLE
+
+        # Setup registry with both backends
+        engine.registry._backends = {
+            BackendType.GRAPHQL: graphql_backend,
+            BackendType.ELASTICSEARCH: elasticsearch_backend,
+        }
+
+        # Call the actual selection method
+        selected = engine.registry._select_primary_backend()
+
+        # Should fall back to Elasticsearch
+        assert selected == elasticsearch_backend
+        assert selected.backend_type == BackendType.ELASTICSEARCH

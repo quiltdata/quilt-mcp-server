@@ -32,6 +32,7 @@ from ..models import (
     PackageCreateFromS3Error,
     PackageSummary,
     ErrorResponse,
+    CatalogUrlSuccess,
 )
 
 logger = logging.getLogger(__name__)
@@ -772,7 +773,7 @@ def package_browse(
             ],
             suggested_actions=[
                 f"Try: packages_list(registry='{registry}') to see available packages",
-                f"Try: unified_search(query='{package_name.split('/')[-1]}', scope='catalog') to find similar packages",
+                f"Try: unified_search(query='{package_name.split('/')[-1]}', scope='package') to find similar packages",
             ],
         )
 
@@ -1256,7 +1257,7 @@ def package_create(
             path="",
             catalog_host="",
         )
-        package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
+        package_url = catalog_result.catalog_url if isinstance(catalog_result, CatalogUrlSuccess) else ""
 
         return PackageCreateSuccess(
             package_name=package_name,
@@ -1482,7 +1483,7 @@ def package_update(
         path="",
         catalog_host="",
     )
-    package_url = catalog_result.catalog_url if hasattr(catalog_result, 'catalog_url') else ""
+    package_url = catalog_result.catalog_url if isinstance(catalog_result, CatalogUrlSuccess) else ""
 
     return PackageUpdateSuccess(
         package_name=package_name,

@@ -25,10 +25,8 @@ class SearchScope(Enum):
     """Search scope definitions."""
 
     GLOBAL = "global"  # Search everything accessible
-    CATALOG = "catalog"  # Current catalog only
-    PACKAGE = "package"  # Within specific package
+    PACKAGE = "package"  # Only packages
     BUCKET = "bucket"  # Within specific bucket
-    REGISTRY = "registry"  # Within specific registry
 
 
 @dataclass
