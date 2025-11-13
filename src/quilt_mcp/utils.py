@@ -154,6 +154,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
         "get_tabulator_service",  # Internal use only
+        "get_permission_discovery",  # Internal helper - returns singleton instance
     }
 
     # Merge resource-available tools into excluded set

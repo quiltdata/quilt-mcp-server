@@ -468,19 +468,6 @@ test_tools:
             type: object
       required:
       - content
-  get_permission_discovery:
-    description: Return the singleton :class:`AWSPermissionDiscovery` instance.
-    effect: none
-    arguments: {}
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
   package_browse:
     description: Browse the contents of a Quilt package with enhanced file information
       - Quilt package discovery and comparison tasks
