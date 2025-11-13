@@ -6,13 +6,13 @@ from quilt_mcp.resources.base import ResourceRegistry, get_registry
 from quilt_mcp.resources.admin import (
     AdminUsersResource,
     AdminRolesResource,
-    AdminConfigResource,
     AdminUserResource,
     AdminSSOConfigResource,
     AdminTabulatorConfigResource,
 )
 from quilt_mcp.resources.athena import (
     AthenaDatabasesResource,
+    AthenaTablesResource,
     AthenaWorkgroupsResource,
     AthenaTableSchemaResource,
     AthenaQueryHistoryResource,
@@ -46,7 +46,6 @@ def register_all_resources():
     # Phase 1: Admin resources (general ones first)
     registry.register(AdminUsersResource())
     registry.register(AdminRolesResource())
-    registry.register(AdminConfigResource())
 
     # Phase 2: Auth resources
     registry.register(AuthStatusResource())
@@ -71,6 +70,7 @@ def register_all_resources():
 
     # Phase 2: Athena nested and parameterized resources
     registry.register(AthenaQueryHistoryResource())
+    registry.register(AthenaTablesResource())  # Parameterized - must come before more specific schema resource
     registry.register(AthenaTableSchemaResource())  # Parameterized
 
     # Phase 1: Metadata resources (general ones first)

@@ -6,7 +6,6 @@ from unittest.mock import Mock, patch
 from quilt_mcp.resources.admin import (
     AdminUsersResource,
     AdminRolesResource,
-    AdminConfigResource,
     AdminUserResource,
     AdminSSOConfigResource,
     AdminTabulatorConfigResource,
@@ -128,41 +127,6 @@ class TestAdminRolesResource:
 
             with pytest.raises(Exception, match="Admin functionality not available"):
                 await resource.read("admin://roles")
-
-
-class TestAdminConfigResource:
-    """Test AdminConfigResource."""
-
-    @pytest.fixture
-    def resource(self):
-        return AdminConfigResource()
-
-    @pytest.mark.anyio
-    async def test_read_success(self, resource):
-        """Test successful config retrieval."""
-        mock_sso_result = {
-            "configured": True,
-            "config": {"provider": "okta"},
-        }
-        mock_tabulator_result = {
-            "open_query_enabled": True,
-        }
-
-        with patch("quilt_mcp.resources.admin.admin_sso_config_get") as mock_sso:
-            with patch("quilt_mcp.resources.admin.admin_tabulator_open_query_get") as mock_tab:
-                mock_sso.return_value = mock_sso_result
-                mock_tab.return_value = mock_tabulator_result
-
-                response = await resource.read("admin://config")
-
-                assert response.uri == "admin://config"
-                assert response.content["sso"]["configured"] is True
-                assert response.content["sso"]["config"]["provider"] == "okta"
-                assert response.content["tabulator"]["open_query_enabled"] is True
-
-    def test_properties(self, resource):
-        """Test resource properties."""
-        assert resource.uri_pattern == "admin://config"
 
 
 class TestAdminUserResource:
@@ -327,15 +291,10 @@ class TestResourceMatching:
         assert user_resource.matches("admin://users/alice") is True
         assert user_resource.matches("admin://users") is False
 
-    def test_config_vs_nested_config_matching(self):
-        """Test that config and nested config resources match correctly."""
-        config_resource = AdminConfigResource()
+    def test_nested_config_matching(self):
+        """Test that nested config resources match correctly."""
         sso_resource = AdminSSOConfigResource()
         tabulator_resource = AdminTabulatorConfigResource()
-
-        # Main config should match exactly
-        assert config_resource.matches("admin://config") is True
-        assert config_resource.matches("admin://config/sso") is False
 
         # Nested configs should match their paths
         assert sso_resource.matches("admin://config/sso") is True

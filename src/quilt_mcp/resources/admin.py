@@ -94,44 +94,6 @@ class AdminRolesResource(MCPResource):
         )
 
 
-class AdminConfigResource(MCPResource):
-    """Combined admin configuration resource."""
-
-    @property
-    def uri_scheme(self) -> str:
-        return "admin"
-
-    @property
-    def uri_pattern(self) -> str:
-        return "admin://config"
-
-    @property
-    def name(self) -> str:
-        return "Admin Configuration"
-
-    @property
-    def description(self) -> str:
-        return "Combined admin configuration (SSO, tabulator settings)"
-
-    async def _read_impl(self, uri: str, params: Optional[Dict[str, str]] = None) -> ResourceResponse:
-        if uri != self.uri_pattern:
-            raise ValueError(f"Invalid URI: {uri}")
-
-        # Gather all config settings
-        sso_result = await admin_sso_config_get()
-        tabulator_result = await admin_tabulator_open_query_get()
-
-        config = {
-            "sso": {
-                "configured": sso_result.get("configured", False),
-                "config": sso_result.get("config"),
-            },
-            "tabulator": {"open_query_enabled": tabulator_result.get("open_query_enabled", False)},
-        }
-
-        return ResourceResponse(uri=uri, content=config)
-
-
 class AdminUserResource(MCPResource):
     """Get specific user details."""
 
