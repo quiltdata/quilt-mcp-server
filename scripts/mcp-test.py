@@ -10,16 +10,143 @@ This tool is the single source of truth for MCP test execution logic.
 """
 
 import argparse
+import enum
 import json
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import requests
 import yaml
 from jsonschema import validate
+
+
+class ResourceFailureType(enum.Enum):
+    """Classify resource test failures for better reporting."""
+    TEMPLATE_NOT_REGISTERED = "template_not_registered"
+    URI_NOT_FOUND = "uri_not_found"
+    CONTENT_VALIDATION = "content_validation"
+    SERVER_ERROR = "server_error"
+    CONFIG_ERROR = "config_error"
+
+
+def classify_resource_failure(test_info: dict) -> ResourceFailureType:
+    """Classify resource failure for intelligent reporting.
+
+    Args:
+        test_info: Test failure information dict
+
+    Returns:
+        ResourceFailureType classification
+    """
+    error = test_info.get('error', '')
+
+    if 'Template not found in server resourceTemplates' in error:
+        return ResourceFailureType.TEMPLATE_NOT_REGISTERED
+    elif 'Resource not found in server resources' in error:
+        return ResourceFailureType.URI_NOT_FOUND
+    elif 'validation failed' in error.lower():
+        return ResourceFailureType.CONTENT_VALIDATION
+    elif 'error_type' in test_info and test_info['error_type'] == 'ConfigurationError':
+        return ResourceFailureType.CONFIG_ERROR
+    else:
+        return ResourceFailureType.SERVER_ERROR
+
+
+def analyze_failure_patterns(failed_tests: List[Dict]) -> Dict[str, Any]:
+    """Analyze failure patterns to provide actionable insights.
+
+    Args:
+        failed_tests: List of failed test info dictionaries
+
+    Returns:
+        Dict with pattern analysis:
+        - dominant_pattern: Most common ResourceFailureType
+        - pattern_count: Count of dominant pattern
+        - total_failures: Total number of failures
+        - recommendations: List of actionable recommendations
+        - severity: 'critical' | 'warning' | 'info'
+    """
+    if not failed_tests:
+        return {'severity': 'info', 'recommendations': []}
+
+    # Classify all failures
+    classifications = [classify_resource_failure(t) for t in failed_tests]
+
+    # Find dominant pattern
+    pattern_counts = Counter(classifications)
+    dominant = pattern_counts.most_common(1)[0]
+
+    # Generate recommendations based on pattern
+    recommendations = []
+    severity = 'warning'
+
+    if dominant[0] == ResourceFailureType.TEMPLATE_NOT_REGISTERED:
+        if dominant[1] == len(failed_tests):
+            # ALL failures are template registration
+            severity = 'warning'  # Not critical - static resources work
+            recommendations = [
+                "✅ Static resources all work - core MCP protocol OK",
+                "🔍 Check server logs for template registration messages",
+                "🔧 Review feature flags in config (SSO_ENABLED, ADMIN_API_ENABLED, etc.)",
+                "📖 Consult docs for template activation requirements"
+            ]
+        else:
+            severity = 'warning'
+            recommendations = [
+                "Some templates not registered - may need configuration",
+                "Compare working vs failing templates for patterns"
+            ]
+    elif dominant[0] == ResourceFailureType.SERVER_ERROR:
+        severity = 'critical'
+        recommendations = [
+            "❌ Server errors detected - check server logs",
+            "🐛 May indicate bugs in resource handlers",
+            "🔧 Verify server is properly configured"
+        ]
+
+    return {
+        'dominant_pattern': dominant[0],
+        'pattern_count': dominant[1],
+        'total_failures': len(failed_tests),
+        'recommendations': recommendations,
+        'severity': severity
+    }
+
+
+def format_results_line(passed: int, failed: int, skipped: int = 0) -> str:
+    """Format results line with conditional display of counts.
+
+    Only shows counts when they're non-zero to avoid cluttered output.
+
+    Args:
+        passed: Number of passed tests
+        failed: Number of failed tests
+        skipped: Number of skipped tests
+
+    Returns:
+        Formatted results string
+
+    Examples:
+        >>> format_results_line(17, 0, 0)
+        'Results: ✅ 17 passed'
+        >>> format_results_line(12, 5, 0)
+        'Results: ✅ 12 passed, ❌ 5 failed'
+        >>> format_results_line(10, 0, 2)
+        'Results: ✅ 10 passed, ⏭️ 2 skipped'
+    """
+    parts = [f"✅ {passed} passed"]
+
+    if failed > 0:
+        parts.append(f"❌ {failed} failed")
+
+    if skipped > 0:
+        parts.append(f"⏭️ {skipped} skipped")
+
+    return "   " + ", ".join(parts)
 
 
 class TestResults:
