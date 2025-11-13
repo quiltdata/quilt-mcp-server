@@ -122,28 +122,56 @@ def register_resources(mcp: "FastMCP") -> None:
     @mcp.resource(
         "admin://users",
         name="Admin Users List",
-        description="List all users in the Quilt registry with their roles and status",
+        description="List all users in the Quilt registry with their roles and status (requires admin privileges)",
         mime_type="application/json",
     )
     async def admin_users() -> str:
-        """List all users."""
+        """List all users (requires admin privileges)."""
         from quilt_mcp.services.governance_service import admin_users_list
 
-        result = await admin_users_list()
-        return _serialize_result(result)
+        try:
+            result = await admin_users_list()
+            return _serialize_result(result)
+        except Exception as e:
+            # Provide helpful error message for authorization failures
+            error_msg = str(e)
+            if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
+                return _serialize_result({
+                    "error": "Unauthorized",
+                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                    "suggestion": "Contact your Quilt administrator to request admin access."
+                })
+            return _serialize_result({
+                "error": "Failed to list users",
+                "message": error_msg
+            })
 
     @mcp.resource(
         "admin://roles",
         name="Admin Roles List",
-        description="List all available roles in the Quilt registry",
+        description="List all available roles in the Quilt registry (requires admin privileges)",
         mime_type="application/json",
     )
     async def admin_roles() -> str:
-        """List all roles."""
+        """List all roles (requires admin privileges)."""
         from quilt_mcp.services.governance_service import admin_roles_list
 
-        result = await admin_roles_list()
-        return _serialize_result(result)
+        try:
+            result = await admin_roles_list()
+            return _serialize_result(result)
+        except Exception as e:
+            # Provide helpful error message for authorization failures
+            error_msg = str(e)
+            if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
+                return _serialize_result({
+                    "error": "Unauthorized",
+                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                    "suggestion": "Contact your Quilt administrator to request admin access."
+                })
+            return _serialize_result({
+                "error": "Failed to list roles",
+                "message": error_msg
+            })
 
     @mcp.resource(
         "admin://config/sso",
@@ -204,14 +232,22 @@ def register_resources(mcp: "FastMCP") -> None:
     @mcp.resource(
         "athena://query/history",
         name="Athena Query History",
-        description="Recent Athena query execution history",
+        description="Recent Athena query execution history (last 50 queries)",
         mime_type="application/json",
     )
-    async def athena_query_history() -> str:
-        """Get query history."""
+    async def athena_query_history_resource() -> str:
+        """Get query history (default: last 50 queries)."""
         from quilt_mcp.services.athena_read_service import athena_query_history
 
-        result = await asyncio.to_thread(athena_query_history)
+        result = await asyncio.to_thread(
+            athena_query_history,
+            max_results=50,
+            status_filter=None,
+            start_time=None,
+            end_time=None,
+            use_quilt_auth=True,
+            service=None
+        )
         return _serialize_result(result)
 
     # ====================

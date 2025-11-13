@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
+  - Admin resources (`admin://users`, `admin://roles`) now provide clear error messages when accessed without admin privileges
+  - Fixed `athena://query/history` resource to properly call the underlying function with default parameters
+  - Added helpful authorization error messages guiding users to contact administrators
+
 ## [0.9.0] - 2025-11-12
 
 ### Added
@@ -16,24 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Local server mode for faster testing without Docker
   - Coverage validation with YAML configuration
   - Protocol diagnostics and schema inspection tools
+  - Only test idempotent (no effect) tools
+  - Reverted templated resources to being tools
 
 ### Changed
 
 - **Search API Simplification** (Breaking Change):
-  - Removed S3 backend (use Elasticsearch or GraphQL only)
-  - Smart backend selection with automatic fallback (Elasticsearch → GraphQL)
+  - Removed S3 and GraphQL backends (use Elasticsearch only)
   - Lazy initialization with status checking
   - Scope parameter uses Literal type for validation
-
-- **Tool Classification**: Replaced `idempotent` flag with granular `effect` (create/remove/update/configure/none)
-
-- **Resource System**: Consolidated 9 modules into single file, converted list operations to standard tools
 
 ### Fixed
 
 - **Elasticsearch**: Special character escaping, improved error messages
-- **Search Results**: Package search returns packages (not objects), proper GraphQL filtering
-- **Docker**: Build platform and ECR configuration
+- **Search Results**: Package search returns packages (not objects)
+- **Docker**: Build locally
 
 ## [0.8.5] - 2025-11-10
 
