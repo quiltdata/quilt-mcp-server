@@ -1013,14 +1013,14 @@ def print_detailed_summary(
 
         # Header with selection context
         if skipped_tools > 0:
-            print(f"\n🔧 TOOLS ({selected_tools}/{total_tools} tested, {skipped_tools} skipped)")
+            print(f"\n🔧 TOOLS (Tested {selected_tools}/{total_tools} tested, {skipped_tools} skipped)")
             # Show reason for skipping
             if selection_stats:
                 effect_counts = selection_stats.get('effect_counts', {})
                 non_none_effects = {k: v for k, v in effect_counts.items() if k != 'none'}
                 if non_none_effects:
                     skipped_summary = ", ".join(f"{effect}: {count}" for effect, count in sorted(non_none_effects.items()))
-                    print(f"   Selection: Idempotent only ({skipped_summary} skipped)")
+                    print(f"   Selection: Idempotent only (SKIPPED: {skipped_summary})")
         else:
             print(f"\n🔧 TOOLS ({selected_tools}/{total_tools} tested)")
 
