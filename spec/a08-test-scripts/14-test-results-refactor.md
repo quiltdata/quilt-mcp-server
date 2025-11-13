@@ -131,23 +131,32 @@ def run_test_suite(
     run_tools: bool = False,
     run_resources: bool = False,
     specific_tool: str = None,
-    specific_resource: str = None
-) -> tuple[dict | None, dict | None]:
+    specific_resource: str = None,
+    process: Optional[subprocess.Popen] = None
+) -> bool:
 ```
 
 **Logic**:
 1. If `run_tools`: create ToolsTester, initialize, run_all_tests, get dict
 2. If `run_resources`: create ResourcesTester, initialize, run_all_tests, get dict
-3. Return (tools_results_dict, resources_results_dict)
+3. **Call `print_detailed_summary(tools_results, resources_results)` internally**
+4. Return boolean success status (True if no failures)
+
+**Critical Design Decision**: This method MUST print the detailed summary itself. This ensures:
+
+- Summary is ALWAYS printed when tests run (impossible to forget)
+- Single point of responsibility (run tests + report results)
+- Callers just get simple boolean success status
+- No code duplication between CLI and programmatic usage
 
 ### 6. Simplify main()
 
 **Changes**:
 - Keep argument parsing (unchanged)
 - Keep list operations (create temporary MCPTester, list tools/resources)
-- Replace test execution with: `tools_results, resources_results = MCPTester.run_test_suite(...)`
-- Keep `print_detailed_summary()` call (unchanged)
-- Keep exit code logic (unchanged)
+- Replace test execution with: `success = MCPTester.run_test_suite(...)`
+- **Remove** `print_detailed_summary()` call (now handled inside run_test_suite)
+- Exit with: `sys.exit(0 if success else 1)`
 
 ### 7. Remove Old Functions
 

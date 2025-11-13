@@ -906,6 +906,20 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
+  athena://databases/{database}/tables:
+    description: List tables in a specific Athena database.
+    effect: none
+    uri: athena://databases/{database}/tables
+    uri_variables:
+      database: default
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
   athena://databases/{database}/tables/{table}/schema:
     description: Get table schema.
     effect: none

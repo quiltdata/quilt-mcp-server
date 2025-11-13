@@ -380,8 +380,16 @@ class MCPTester:
         specific_tool: str = None,
         specific_resource: str = None,
         process: Optional[subprocess.Popen] = None
-    ) -> tuple[Optional[Dict], Optional[Dict]]:
-        """Run test suite with tools and/or resources tests.
+    ) -> bool:
+        """Run test suite with tools and/or resources tests, print summary, return success.
+
+        This method is the single entry point for running tests. It:
+        1. Executes the requested tests (tools and/or resources)
+        2. Prints detailed summary with failure information
+        3. Returns boolean success status
+
+        This design ensures the detailed summary is ALWAYS printed - it's impossible
+        to forget since it's built into the test runner itself.
 
         Args:
             endpoint: HTTP endpoint URL (for HTTP transport)
@@ -397,8 +405,7 @@ class MCPTester:
             process: Running subprocess with stdio pipes (alternative to stdin_fd/stdout_fd)
 
         Returns:
-            Tuple of (tools_results_dict, resources_results_dict)
-            Either may be None if that test type wasn't run
+            True if all tests passed (no failures), False otherwise
         """
         tools_results = None
         resources_results = None
@@ -431,7 +438,13 @@ class MCPTester:
             tester.run_all_tests(specific_resource=specific_resource)
             resources_results = tester.to_dict()
 
-        return tools_results, resources_results
+        # ALWAYS print detailed summary when tests run
+        print_detailed_summary(tools_results=tools_results, resources_results=resources_results)
+
+        # Calculate and return success status
+        tools_ok = not tools_results or tools_results['failed'] == 0
+        resources_ok = not resources_results or resources_results['failed'] == 0
+        return tools_ok and resources_ok
 
 
 class ToolsTester(MCPTester):
@@ -1054,9 +1067,6 @@ Examples:
                     print(f"  • {template.get('uriTemplate', 'Unknown')}: {template.get('name', 'No name')}")
             return
 
-        tools_results = None
-        resources_results = None
-
         # Determine which tests to run
         run_tools = args.tools_test or args.test_tool
         run_resources = args.resources_test or args.test_resource
@@ -1065,9 +1075,9 @@ Examples:
             # Load test configuration
             config = load_test_config(args.config)
 
-            # Determine transport and connection parameters
+            # Run test suite (prints summary internally and returns boolean success)
             if transport == "http":
-                tools_results, resources_results = MCPTester.run_test_suite(
+                success = MCPTester.run_test_suite(
                     endpoint=args.endpoint,
                     transport="http",
                     verbose=args.verbose,
@@ -1078,7 +1088,7 @@ Examples:
                     specific_resource=args.test_resource if args.test_resource else None
                 )
             else:  # stdio
-                tools_results, resources_results = MCPTester.run_test_suite(
+                success = MCPTester.run_test_suite(
                     stdin_fd=args.stdin_fd,
                     stdout_fd=args.stdout_fd,
                     transport="stdio",
@@ -1090,16 +1100,7 @@ Examples:
                     specific_resource=args.test_resource if args.test_resource else None
                 )
 
-        # Print detailed summary if we ran any tests
-        if tools_results or resources_results:
-            print_detailed_summary(tools_results=tools_results, resources_results=resources_results)
-
-            # Determine overall success
-            tools_ok = not tools_results or tools_results['failed'] == 0
-            resources_ok = not resources_results or resources_results['failed'] == 0
-            overall_success = tools_ok and resources_ok
-
-            sys.exit(0 if overall_success else 1)
+            sys.exit(0 if success else 1)
 
         # Default: basic connectivity test
         if not (args.list_tools or args.list_resources or args.tools_test or args.test_tool or args.resources_test or args.test_resource):

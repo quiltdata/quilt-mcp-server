@@ -428,7 +428,8 @@ def run_tests_stdio(
                 config["test_tools"] = {k: v for k, v in test_tools.items() if k in tools}
 
         # Run tools test using run_test_suite
-        tools_results, _ = MCPTester.run_test_suite(
+        # Note: run_test_suite now prints detailed summary internally and returns boolean
+        success = MCPTester.run_test_suite(
             process=server.process,
             transport="stdio",
             verbose=verbose,
@@ -438,8 +439,6 @@ def run_tests_stdio(
             specific_tool=specific_tool
         )
 
-        # Check success
-        success = tools_results and tools_results.get('failed', 0) == 0
         return success
 
     except Exception as e:
@@ -514,7 +513,8 @@ def run_resource_tests_stdio(
                 config["test_resources"] = {k: v for k, v in test_resources.items() if k in resources}
 
         # Run resources test using run_test_suite
-        _, resources_results = MCPTester.run_test_suite(
+        # Note: run_test_suite now prints detailed summary internally and returns boolean
+        success = MCPTester.run_test_suite(
             process=server.process,
             transport="stdio",
             verbose=verbose,
@@ -524,8 +524,6 @@ def run_resource_tests_stdio(
             specific_resource=specific_resource
         )
 
-        # Check success
-        success = resources_results and resources_results.get('failed', 0) == 0
         return success
 
     except Exception as e:
