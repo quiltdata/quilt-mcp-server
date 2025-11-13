@@ -8,24 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **Search API Refactoring** (Breaking Changes) (#231):
-  - Removed S3 backend - `search_catalog` now searches catalog indices only (use `bucket_objects_list` for S3 exploration)
-  - Response format change: `backends_used: string[]` → `backend_used: string | null`
-  - Structured errors with `error_category`, actionable `fix` instructions, and tool `alternatives`
-  - Smart backend selection: automatically selects best available backend (GraphQL → Elasticsearch) instead of parallel execution
-  - Lazy initialization: backends defer authentication checks until first search (faster startup, graceful failures)
-  - Backend status integration: `catalog_info` resource now includes search backend capabilities and availability
-  - Merged with #232 (MCP testing infrastructure)
-
-### Fixed
-
-- **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
-  - Admin resources (`admin://users`, `admin://roles`) now provide clear error messages when accessed without admin privileges
-  - Fixed `athena://query/history` resource to properly call the underlying function with default parameters
-  - Added helpful authorization error messages guiding users to contact administrators
-
 ## [0.9.0] - 2025-11-12
 
 ### Added
@@ -39,13 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Search API Simplification** (Breaking Change):
-  - Removed S3 and GraphQL backends (use Elasticsearch only)
-  - Lazy initialization with status checking
+- **Search API Refactoring** (Breaking Changes) (#231):
+  - Removed S3 backend (and GraphQL backend) - `search_catalog` now searches catalog indices only (use `bucket_objects_list` for S3 exploration)
+  - Structured errors with `error_category`, actionable `fix` instructions, and tool `alternatives`
+  - Lazy initialization: backends defer authentication checks until first search (faster startup, graceful failures)
+  - Backend status integration: `catalog_info` resource now includes search backend capabilities and availability
   - Scope parameter uses Literal type for validation
 
 ### Fixed
 
+- **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
+  - Admin resources (`admin://users`, `admin://roles`) now provide clear error messages when accessed without admin privileges
+  - Fixed `athena://query/history` resource to properly call the underlying function with default parameters
 - **Elasticsearch**: Special character escaping, improved error messages
 - **Search Results**: Package search returns packages (not objects)
 - **Docker**: Build locally
