@@ -77,6 +77,7 @@ class TestResourceManagerServiceInvocation:
     @pytest.mark.asyncio
     async def test_sync_service_function_invocation(self):
         """Test sync service function called via asyncio.to_thread."""
+
         def mock_sync_service():
             return {"test": "data"}
 
@@ -103,6 +104,7 @@ class TestResourceManagerServiceInvocation:
     @pytest.mark.asyncio
     async def test_async_service_function_invocation(self):
         """Test async service function called directly."""
+
         async def mock_async_service():
             return {"async": "data"}
 
@@ -164,6 +166,7 @@ class TestResourceManagerServiceInvocation:
     @pytest.mark.asyncio
     async def test_dict_result_pass_through(self):
         """Test dict result passes through unchanged."""
+
         def mock_service():
             return {"key": "value"}
 

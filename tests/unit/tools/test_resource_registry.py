@@ -38,6 +38,7 @@ class TestRegistryValidation:
 
     def test_valid_static_resource(self):
         """Test validation passes for valid static resource."""
+
         def mock_service():
             return {"test": "data"}
 
@@ -61,6 +62,7 @@ class TestRegistryValidation:
 
     def test_uri_mismatch_raises_error(self):
         """Test validation fails when key doesn't match uri."""
+
         def mock_service():
             return {}
 
@@ -104,6 +106,7 @@ class TestRegistryValidation:
 
     def test_template_flag_inconsistent_with_uri(self):
         """Test validation fails when template flag doesn't match URI."""
+
         def mock_service():
             return {}
 
@@ -128,6 +131,7 @@ class TestRegistryValidation:
 
     def test_template_missing_variables_list(self):
         """Test validation fails when template has empty variables list."""
+
         def mock_service():
             return {}
 
@@ -151,6 +155,7 @@ class TestRegistryValidation:
 
     def test_template_missing_parameter_mapping(self):
         """Test validation fails when template variable not in mapping."""
+
         def mock_service():
             return {}
 
@@ -174,6 +179,7 @@ class TestRegistryValidation:
 
     def test_valid_template_resource(self):
         """Test validation passes for valid template resource."""
+
         def mock_service(name: str):
             return {"name": name}
 
@@ -275,8 +281,7 @@ class TestResourceRegistry:
     def test_service_functions_callable(self):
         """Test all service functions are callable."""
         for uri, defn in RESOURCE_REGISTRY.items():
-            assert callable(defn["service_function"]), \
-                f"Service function not callable: {uri}"
+            assert callable(defn["service_function"]), f"Service function not callable: {uri}"
 
     def test_async_flags_accurate(self):
         """Test async flags match actual service functions."""

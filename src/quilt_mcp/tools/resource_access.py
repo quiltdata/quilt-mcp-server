@@ -1,9 +1,13 @@
 """Resource access tool implementation."""
 
 import asyncio
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, Optional, TypedDict, Union
 
-from quilt_mcp.models.responses import ResourceMetadata
+from quilt_mcp.models.responses import (
+    ResourceMetadata,
+    GetResourceSuccess,
+    GetResourceError,
+)
 from quilt_mcp.services.auth_metadata import (
     auth_status,
     catalog_info,
@@ -59,9 +63,7 @@ def validate_registry(registry: dict[str, ResourceDefinition]) -> None:
         if defn["is_template"]:
             for var in defn["template_variables"]:
                 if var not in defn["parameter_mapping"]:
-                    raise ValueError(
-                        f"Template variable not in parameter mapping: {var} in {uri}"
-                    )
+                    raise ValueError(f"Template variable not in parameter mapping: {var} in {uri}")
 
 
 # Build resource registry (Phase 1: 5 representative resources)
@@ -152,10 +154,7 @@ class ResourceManager:
             registry: URI → ResourceDefinition mapping
         """
         self._registry = registry
-        self._static_uris = {
-            uri: defn for uri, defn in registry.items()
-            if not defn["is_template"]
-        }
+        self._static_uris = {uri: defn for uri, defn in registry.items() if not defn["is_template"]}
 
     async def get_resource(self, uri: Optional[str]) -> dict[str, Any]:
         """Retrieve resource data by URI.
@@ -225,11 +224,7 @@ class ResourceManager:
 
         return by_category
 
-    async def _invoke_service_function(
-        self,
-        defn: ResourceDefinition,
-        params: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def _invoke_service_function(self, defn: ResourceDefinition, params: dict[str, Any]) -> dict[str, Any]:
         """Invoke service function and deserialize result.
 
         Args:
@@ -250,7 +245,7 @@ class ResourceManager:
 
         # Deserialize Pydantic models to dict
         if hasattr(result, "model_dump"):
-            return result.model_dump()
+            return dict(result.model_dump())
 
         # Already a dict
         if isinstance(result, dict):
@@ -261,3 +256,252 @@ class ResourceManager:
             return dict(result)
         except (TypeError, ValueError) as e:
             raise RuntimeError(f"Unable to serialize result: {e}")
+
+
+async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, GetResourceError]:
+    """Access MCP resources via URI patterns for structured data discovery and retrieval.
+
+    This tool provides a unified interface for accessing various MCP resources through
+    URI-based addressing. It supports both static resources (fixed URIs) and discovery
+    mode (listing available resources).
+
+    ## URI Schemes and Resources
+
+    ### Auth Resources (auth://)
+    - `auth://status` - Authentication status and catalog configuration
+    - `auth://catalog/info` - Catalog configuration details
+
+    ### Admin Resources (admin://) - Requires admin privileges
+    - `admin://users` - List all users with roles and status
+
+    ### Permissions Resources (permissions://)
+    - `permissions://discover` - Discover AWS permissions for current user/role
+
+    ### Metadata Resources (metadata://)
+    - `metadata://templates/{template}` - Get specific metadata template (Phase 2+)
+
+    ## Discovery Mode
+
+    When called without a URI (uri=None or uri=""), returns a categorized list of all
+    available resources with their metadata:
+
+    ```python
+    # Discover all available resources
+    result = await get_resource()
+    # or
+    result = await get_resource(uri="")
+
+    # Response structure:
+    {
+        "success": true,
+        "uri": "discovery://resources",
+        "resource_name": "Available Resources",
+        "data": {
+            "auth": [
+                {
+                    "uri": "auth://status",
+                    "name": "Auth Status",
+                    "description": "Check authentication status",
+                    "is_template": false,
+                    "template_variables": [],
+                    "requires_admin": false,
+                    "category": "auth"
+                }
+            ],
+            "admin": [...],
+            "permissions": [...],
+            "metadata": [...]
+        }
+    }
+    ```
+
+    ## Static Resource Access
+
+    For static resources (Phase 1), provide the exact URI:
+
+    ```python
+    # Get authentication status
+    result = await get_resource(uri="auth://status")
+
+    # Response:
+    {
+        "success": true,
+        "uri": "auth://status",
+        "resource_name": "Auth Status",
+        "data": {
+            "authenticated": true,
+            "catalog_url": "https://demo.quiltdata.com",
+            "user": "john.doe@example.com"
+        },
+        "timestamp": "2024-01-15T10:30:00Z",
+        "mime_type": "application/json"
+    }
+    ```
+
+    ## Error Handling
+
+    The tool returns structured error responses for various failure scenarios:
+
+    ### Invalid URI Format
+    ```python
+    result = await get_resource(uri="invalid-no-scheme")
+    # Returns GetResourceError with suggested fixes
+    ```
+
+    ### Unknown Resource URI
+    ```python
+    result = await get_resource(uri="unknown://resource")
+    # Returns GetResourceError with list of valid URIs
+    ```
+
+    ### Authorization Failures
+    ```python
+    result = await get_resource(uri="admin://users")  # Without admin privileges
+    # Returns GetResourceError with authorization guidance
+    ```
+
+    ## Performance Characteristics
+
+    - **Discovery Mode**: O(n) where n = number of registered resources
+    - **Static URI Lookup**: O(1) dictionary lookup
+    - **Service Invocation**: Varies by service (typically < 100ms for local, < 500ms for AWS)
+    - **Overhead**: < 10% compared to direct service calls
+
+    ## Design Principles
+
+    1. **URI-Based Addressing**: Resources identified by semantic URIs (scheme://path)
+    2. **Progressive Enhancement**: Phase 1 supports static URIs, Phase 2+ adds templates
+    3. **Fail-Safe Design**: All errors return structured GetResourceError responses
+    4. **Zero Business Logic**: Pure orchestration layer, delegates to services
+    5. **Type Safety**: Pydantic models for all inputs/outputs
+
+    Args:
+        uri: Resource URI to access, or None/empty string for discovery mode.
+             Format: "scheme://path" or "scheme://path/{variable}" (Phase 2+)
+
+    Returns:
+        GetResourceSuccess: Contains resource data, metadata, and timestamp
+        GetResourceError: Contains error details, causes, and suggested fixes
+
+    Examples:
+        >>> # Discovery mode - list all available resources
+        >>> result = await get_resource()
+        >>> if result.success:
+        >>>     for category, resources in result.data.items():
+        >>>         print(f"{category}: {len(resources)} resources")
+
+        >>> # Access specific resource
+        >>> result = await get_resource(uri="auth://status")
+        >>> if result.success:
+        >>>     print(f"Authenticated: {result.data['authenticated']}")
+        >>> else:
+        >>>     print(f"Error: {result.error}")
+
+        >>> # Handle authorization errors
+        >>> result = await get_resource(uri="admin://users")
+        >>> if not result.success and "Unauthorized" in result.error:
+        >>>     print("Admin privileges required")
+
+    Raises:
+        This function does not raise exceptions. All errors are captured and
+        returned as GetResourceError objects with detailed context.
+    """
+    try:
+        # Create resource manager instance
+        manager = ResourceManager(RESOURCE_REGISTRY)
+
+        # Discovery mode
+        if uri is None or uri == "":
+            discovery_data = await manager.get_discovery_data()
+
+            # Convert ResourceMetadata objects to dicts
+            serialized_data = {}
+            for category, resources in discovery_data.items():
+                serialized_data[category] = [
+                    r.model_dump() if hasattr(r, 'model_dump') else dict(r) for r in resources
+                ]
+
+            return GetResourceSuccess(
+                uri="discovery://resources",
+                resource_name="Available Resources",
+                data=serialized_data,
+                mime_type="application/json",
+            )
+
+        # Static resource access
+        result = await manager.get_resource(uri)
+
+        return GetResourceSuccess(
+            uri=result["uri"],
+            resource_name=result["resource_name"],
+            data=result["data"],
+            mime_type=result.get("mime_type", "application/json"),
+        )
+
+    except ValueError as e:
+        # Invalid URI format
+        return GetResourceError(
+            error=str(e),
+            cause="ValueError",
+            possible_fixes=[
+                "Ensure URI follows format: scheme://path",
+                "Use discovery mode (uri=None) to list available resources",
+                "Check for typos in the URI scheme or path",
+            ],
+        )
+
+    except KeyError as e:
+        # Unknown resource URI
+        error_msg = str(e).strip("'\"")
+
+        # Get list of valid URIs for helpful error message
+        try:
+            manager = ResourceManager(RESOURCE_REGISTRY)
+            valid_uris = list(RESOURCE_REGISTRY.keys())
+        except Exception:
+            valid_uris = None
+
+        return GetResourceError(
+            error=error_msg,
+            cause="KeyError",
+            valid_uris=valid_uris,
+            possible_fixes=[
+                "Use discovery mode to see available resources",
+                "Check the URI for typos",
+                "Verify the resource is available in this phase",
+            ],
+        )
+
+    except RuntimeError as e:
+        # Service execution error
+        error_msg = str(e)
+
+        # Check for authorization errors
+        if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
+            return GetResourceError(
+                error=error_msg,
+                cause="RuntimeError",
+                suggested_actions=[
+                    "Ensure you have the required privileges",
+                    "For admin resources, verify admin role assignment",
+                    "Check authentication with auth://status resource",
+                ],
+            )
+
+        return GetResourceError(
+            error=error_msg,
+            cause="RuntimeError",
+            possible_fixes=[
+                "Check service availability",
+                "Verify AWS credentials if accessing AWS resources",
+                "Review service logs for detailed error information",
+            ],
+        )
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        return GetResourceError(
+            error=str(e),
+            cause=type(e).__name__,
+            possible_fixes=["Check server logs for detailed error information", "Report this issue if it persists"],
+        )

@@ -1006,8 +1006,7 @@ class ResourceMetadata(BaseModel):
     description: str = Field(..., description="Functional description")
     is_template: bool = Field(..., description="True if URI contains template variables")
     template_variables: list[str] = Field(
-        default_factory=list,
-        description="List of variable names in URI (empty if not templated)"
+        default_factory=list, description="List of variable names in URI (empty if not templated)"
     )
     requires_admin: bool = Field(..., description="True if admin privileges required")
     category: str = Field(..., description="Resource category (auth, admin, etc.)")
@@ -1019,10 +1018,7 @@ class GetResourceSuccess(SuccessResponse):
     uri: str = Field(..., description="The resolved URI (expanded if templated)")
     resource_name: str = Field(..., description="Human-readable name of the resource")
     data: dict[str, Any] = Field(..., description="The actual resource data")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="When the data was retrieved"
-    )
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the data was retrieved")
     mime_type: str = Field(default="application/json", description="Resource MIME type")
 
 
@@ -1030,7 +1026,4 @@ class GetResourceError(ErrorResponse):
     """Failed resource access response."""
 
     # Inherits: success, error, cause, possible_fixes, suggested_actions
-    valid_uris: Optional[list[str]] = Field(
-        default=None,
-        description="Available URIs (for invalid URI errors)"
-    )
+    valid_uris: Optional[list[str]] = Field(default=None, description="Available URIs (for invalid URI errors)")
