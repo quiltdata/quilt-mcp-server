@@ -332,6 +332,74 @@ def suppress_stdout():
             print(f"Suppressed stdout: {captured_output}", file=sys.stderr)
 
 
+def create_resource_handler(resource, resource_uri: str, param_names: list):
+    """Create a resource handler that registers service functions directly with FastMCP.
+
+    This approach allows FastMCP to see the actual service function signature instead of
+    a wrapper, which is critical for template detection.
+
+    The key insight is that we dynamically create a function with EXPLICIT named parameters
+    instead of using **kwargs. This allows FastMCP's inspection to see the parameter names
+    and correctly identify the resource as a template.
+
+    Args:
+        resource: The MCPResource instance
+        resource_uri: The URI pattern (e.g., "permissions://buckets/{bucket}/access")
+        param_names: List of parameter names extracted from URI pattern
+
+    Returns:
+        A handler function with explicit named parameters
+    """
+    if not param_names:
+        # Static resource - no parameters needed
+        async def handler() -> str:
+            """Static resource handler."""
+            response = await resource._read_impl(resource_uri, None)
+            return response._serialize_content()
+
+        handler.__name__ = "static_resource_handler"
+        return handler
+
+    # For parameterized resources, create a function with explicit named parameters
+    # We use exec to dynamically create the function signature
+
+    # Build the function signature string
+    params_str = ", ".join(f"{name}: str" for name in param_names)
+
+    # Build the function body
+    func_body = f'''
+async def handler({params_str}) -> str:
+    """Resource handler with explicit parameters: {", ".join(param_names)}"""
+    # Construct the actual URI by replacing parameters
+    actual_uri = resource_uri
+    params = {{}}
+'''
+
+    for param_name in param_names:
+        func_body += f'''
+    actual_uri = actual_uri.replace("{{{{{param_name}}}}}", {param_name})
+    params["{param_name}"] = {param_name}
+'''
+
+    func_body += '''
+    # Call the resource's _read_impl directly
+    response = await resource._read_impl(actual_uri, params)
+    return response._serialize_content()
+'''
+
+    # Create the function in a namespace with access to resource and resource_uri
+    namespace = {
+        'resource': resource,
+        'resource_uri': resource_uri,
+    }
+
+    exec(func_body, namespace)
+    handler = namespace['handler']
+    handler.__name__ = f"resource_handler_{'_'.join(param_names)}"
+
+    return handler
+
+
 def create_configured_server(verbose: bool = False) -> FastMCP:
     """Create a fully configured MCP server with all tools registered.
 
@@ -347,53 +415,38 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     from quilt_mcp.resources import register_all_resources, get_registry
     from quilt_mcp.config import resource_config
     import sys
+    import re
 
     if resource_config.RESOURCES_ENABLED:
         register_all_resources()
         registry = get_registry()
         resources = registry.list_resources()
 
-        # Register each resource with FastMCP
-        import re
-
-        def create_handler(resource_uri: str):
-            """Create a handler with proper closure for each resource URI."""
-            # Extract parameters from URI pattern (e.g., {bucket} from tabulator://buckets/{bucket}/tables)
-            param_names = re.findall(r'\{(\w+)\}', resource_uri)
-
-            if param_names:
-                # Create handler with parameters for template URIs
-                async def parameterized_handler(**kwargs) -> str:
-                    """Resource handler with URI parameters."""
-                    # Construct the actual URI by replacing parameters
-                    actual_uri = resource_uri
-                    for param_name, param_value in kwargs.items():
-                        actual_uri = actual_uri.replace(f"{{{param_name}}}", param_value)
-
-                    response = await registry.read_resource(actual_uri)
-                    return response._serialize_content()
-
-                return parameterized_handler
-            else:
-                # Create simple handler for static URIs
-                async def static_handler() -> str:
-                    """Resource handler."""
-                    response = await registry.read_resource(resource_uri)
-                    return response._serialize_content()
-
-                return static_handler
-
+        # Register each resource with FastMCP using direct service function registration
         for resource_info in resources:
             uri = resource_info["uri"]
             name = resource_info["name"]
             description = resource_info["description"]
             mime_type = resource_info["mimeType"]
 
+            # Extract parameters from URI pattern
+            param_names = re.findall(r'\{(\w+)\}', uri)
+
+            # Get the actual resource instance from registry
+            resource = registry.get(uri)
+            if not resource:
+                if verbose:
+                    print(f"Warning: Could not find resource instance for {uri}", file=sys.stderr)
+                continue
+
+            # Create handler with explicit parameters
+            handler = create_resource_handler(resource, uri, param_names)
+
             # Use add_resource_fn which automatically detects whether this is a template
             # (based on URI containing {params} and/or function having parameters)
             # and registers it as either a resource or template appropriately
             mcp.add_resource_fn(
-                fn=create_handler(uri),
+                fn=handler,
                 uri=uri,
                 name=name,
                 description=description,
