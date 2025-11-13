@@ -84,7 +84,7 @@ coverage-html:
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
-test-scripts: docker-check scripts/tests/test_*.py | $(RESULTS_DIR)
+test-scripts: coverage docker-check scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
 	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "test_*.py" | wc -l)" -gt 0 ]; then \
