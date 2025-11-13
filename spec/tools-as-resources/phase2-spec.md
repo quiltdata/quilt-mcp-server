@@ -510,7 +510,7 @@ class TabulatorTablesResource(MCPResource):
             raise ValueError("Bucket name required in URI")
 
         bucket_name = params["bucket"]
-        result = await tabulator_tables_list(bucket_name=bucket_name)
+        result = await tabulator_tables_list(bucket=bucket_name)
 
         if not result.get("success"):
             raise Exception(f"Failed to list tables: {result.get('error', 'Unknown error')}")

@@ -45,10 +45,10 @@ def search_catalog(
         ),
     ] = "",
     backend: Annotated[
-        Literal["auto", "elasticsearch", "graphql"],
+        Literal["elasticsearch"],
         Field(
             default="elasticsearch",
-            description='Preferred backend - "elasticsearch" (default, most reliable), "auto" (intelligent selection), "graphql"',
+            description='Backend to use - "elasticsearch" (only valid option, graphql is currently broken)',
         ),
     ] = "elasticsearch",
     limit: Annotated[
@@ -87,11 +87,10 @@ def search_catalog(
         ),
     ] = False,
 ) -> Dict[str, Any]:  # Returns dict on success, raises exception on failure
-    """Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL) - Catalog and package search experiences
+    """Intelligent unified search across Quilt catalog using Elasticsearch - Catalog and package search experiences
 
     This tool automatically:
     - Parses natural language queries to extract filters (file types, sizes, dates)
-    - Selects optimal search backends
     - Aggregates and ranks results
     - Provides context and explanations
 
@@ -105,7 +104,7 @@ def search_catalog(
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
         scope: Search scope - "bucket" (default, searches default bucket), "package" (current catalog), "package" (specific package), "global" (all)
         target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
-        backend: Preferred backend - "elasticsearch" (default, most reliable), "auto" (intelligent selection), "graphql"
+        backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
         include_content_preview: Include content previews for files (default: False)
@@ -116,7 +115,7 @@ def search_catalog(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        search_catalog("CSV files")  # Uses default bucket scope + elasticsearch
+        search_catalog("CSV files")  # Uses default bucket scope with elasticsearch
         search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
         search_catalog("packages created last month", scope="package")  # Catalog-wide search
         search_catalog("README files", scope="package", target="user/dataset")  # Package search

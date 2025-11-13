@@ -82,9 +82,7 @@ class TestSearchDefaults:
     def test_empty_target_when_no_default_bucket(self, mock_unified, mock_asyncio_run):
         """Test that target remains empty when DEFAULT_BUCKET is not set."""
         # Setup mocks
-        mock_asyncio_run.return_value = self._create_mock_response(
-            "test", "bucket", "", "elasticsearch"
-        )
+        mock_asyncio_run.return_value = self._create_mock_response("test", "bucket", "", "elasticsearch")
 
         # Call without specifying target
         result = search_catalog(query="test")
@@ -118,9 +116,7 @@ class TestSearchDefaults:
     def test_catalog_scope_doesnt_set_default_target(self, mock_unified, mock_asyncio_run):
         """Test that DEFAULT_BUCKET is NOT used when scope is 'package'."""
         # Setup mocks
-        mock_asyncio_run.return_value = self._create_mock_response(
-            "test", "package", "", "elasticsearch"
-        )
+        mock_asyncio_run.return_value = self._create_mock_response("test", "package", "", "elasticsearch")
 
         # Call with catalog scope, no target
         result = search_catalog(query="test", scope="package")

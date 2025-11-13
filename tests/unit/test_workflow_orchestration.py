@@ -46,7 +46,7 @@ def test_workflow_progression_updates_status_and_next_steps():
     assert final_update["workflow_status"] == "completed"
     assert final_update["progress"]["percentage"] == 100.0
 
-    status = wo.workflow_get_status("wf-001")
+    status = wo.workflow_get_status(id="wf-001")
     assert status["progress"]["completed_steps"] == 2
     assert status["next_available_steps"] == []
 
@@ -62,10 +62,10 @@ def test_workflow_template_apply_sets_dependencies_and_guidance():
     assert len(workflow["steps"]) == 5
     assert workflow["steps"][0]["id"] == "discover-packages"
 
-    status = wo.workflow_get_status("wf-template")
+    status = wo.workflow_get_status(id="wf-template")
     assert status["next_available_steps"] == ["discover-packages"]
 
     # Progress through the first step to unlock downstream dependencies
     wo.workflow_update_step("wf-template", "discover-packages", "completed")
-    status_after_step = wo.workflow_get_status("wf-template")
+    status_after_step = wo.workflow_get_status(id="wf-template")
     assert "analyze-structure" in status_after_step["next_available_steps"]
