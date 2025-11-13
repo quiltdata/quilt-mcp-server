@@ -5,6 +5,7 @@ from typing import get_type_hints
 from quilt_mcp.tools.resource_access import (
     ResourceDefinition,
     validate_registry,
+    RESOURCE_REGISTRY,
 )
 
 
@@ -193,3 +194,101 @@ class TestRegistryValidation:
 
         # Should not raise
         validate_registry(registry)
+
+
+class TestResourceRegistry:
+    """Test RESOURCE_REGISTRY structure and content."""
+
+    def test_registry_exists(self):
+        """Test RESOURCE_REGISTRY is defined."""
+        assert RESOURCE_REGISTRY is not None
+        assert isinstance(RESOURCE_REGISTRY, dict)
+
+    def test_registry_has_phase1_resources(self):
+        """Test registry contains Phase 1 resources."""
+        expected_uris = [
+            "auth://status",
+            "auth://catalog/info",
+            "admin://users",
+            "permissions://discover",
+            "metadata://templates/{template}",
+        ]
+
+        for uri in expected_uris:
+            assert uri in RESOURCE_REGISTRY, f"Missing resource: {uri}"
+
+    def test_registry_validates_successfully(self):
+        """Test registry passes validation checks."""
+        # Should not raise
+        validate_registry(RESOURCE_REGISTRY)
+
+    def test_static_resources_correctly_marked(self):
+        """Test static resources have is_template=False."""
+        static_uris = [
+            "auth://status",
+            "auth://catalog/info",
+            "admin://users",
+            "permissions://discover",
+        ]
+
+        for uri in static_uris:
+            assert RESOURCE_REGISTRY[uri]["is_template"] is False
+            assert len(RESOURCE_REGISTRY[uri]["template_variables"]) == 0
+
+    def test_template_resource_correctly_marked(self):
+        """Test template resource has is_template=True."""
+        uri = "metadata://templates/{template}"
+
+        assert RESOURCE_REGISTRY[uri]["is_template"] is True
+        assert "template" in RESOURCE_REGISTRY[uri]["template_variables"]
+        assert "template" in RESOURCE_REGISTRY[uri]["parameter_mapping"]
+
+    def test_admin_resource_requires_admin(self):
+        """Test admin resource has requires_admin=True."""
+        assert RESOURCE_REGISTRY["admin://users"]["requires_admin"] is True
+
+    def test_non_admin_resources_accessible(self):
+        """Test non-admin resources have requires_admin=False."""
+        non_admin_uris = [
+            "auth://status",
+            "auth://catalog/info",
+            "permissions://discover",
+            "metadata://templates/{template}",
+        ]
+
+        for uri in non_admin_uris:
+            assert RESOURCE_REGISTRY[uri]["requires_admin"] is False
+
+    def test_categories_assigned(self):
+        """Test all resources have valid categories."""
+        category_map = {
+            "auth://status": "auth",
+            "auth://catalog/info": "auth",
+            "admin://users": "admin",
+            "permissions://discover": "permissions",
+            "metadata://templates/{template}": "metadata",
+        }
+
+        for uri, expected_category in category_map.items():
+            assert RESOURCE_REGISTRY[uri]["category"] == expected_category
+
+    def test_service_functions_callable(self):
+        """Test all service functions are callable."""
+        for uri, defn in RESOURCE_REGISTRY.items():
+            assert callable(defn["service_function"]), \
+                f"Service function not callable: {uri}"
+
+    def test_async_flags_accurate(self):
+        """Test async flags match actual service functions."""
+        # admin_users_list is async, others are sync
+        assert RESOURCE_REGISTRY["admin://users"]["is_async"] is True
+
+        sync_uris = [
+            "auth://status",
+            "auth://catalog/info",
+            "permissions://discover",
+            "metadata://templates/{template}",
+        ]
+
+        for uri in sync_uris:
+            assert RESOURCE_REGISTRY[uri]["is_async"] is False
