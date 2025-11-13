@@ -29,6 +29,7 @@ Building upon the current state analysis from [02-analysis.md](./02-analysis.md)
 The `get_resource` tool will provide a compatibility layer that exposes all MCP resource data through a tool interface, enabling legacy MCP clients (Claude Desktop, Cursor) to access resource data that would otherwise be unavailable to them.
 
 **Key Characteristics**:
+
 - **Zero Modification Required**: Resources remain unchanged; tool acts as an adapter layer
 - **100% Coverage**: All 19 resource URIs accessible via the tool
 - **Data Parity**: Tool returns identical data structures to resource protocol
@@ -74,12 +75,14 @@ The `get_resource` tool will provide a compatibility layer that exposes all MCP 
 **Function Name**: `get_resource`
 
 **Parameter Specification**:
+
 - `uri` (type: `Optional[str]`, default: `None`)
   - When `None` or empty string: Triggers **discovery mode**
   - When non-empty: Specifies the resource URI to access
   - Format: Standard MCP resource URI patterns (e.g., `auth://status`, `metadata://templates/standard`)
 
 **Return Type Specification**:
+
 - Union type: `GetResourceSuccess | GetResourceError`
 - Both response models inherit from `DictAccessibleModel` for backward compatibility
 - Success response contains resource data in structured format
@@ -100,6 +103,7 @@ class GetResourceSuccess(SuccessResponse):
 ```
 
 **Success Response Guarantees**:
+
 1. **Data Fidelity**: The `data` field contains exactly the same structure as the corresponding resource would return
 2. **Metadata Completeness**: All metadata fields (`uri`, `resource_name`, `mime_type`) accurately reflect the resource definition
 3. **Timestamp Accuracy**: The `timestamp` field reflects the actual time of data retrieval (not cached timestamps)
@@ -119,6 +123,7 @@ class GetResourceError(ErrorResponse):
 ```
 
 **Error Response Guarantees**:
+
 1. **Classification Accuracy**: The `error` field uses consistent error type strings
 2. **Actionability**: Every error includes specific recovery suggestions in `suggested_actions`
 3. **Context Completeness**: For invalid URI errors, `valid_uris` contains the complete list of available resources
@@ -128,6 +133,7 @@ class GetResourceError(ErrorResponse):
 **Trigger**: When `uri` parameter is `None` or empty string
 
 **Response Structure**:
+
 ```python
 class GetResourceSuccess:
     success: Literal[True] = True
@@ -149,6 +155,7 @@ class ResourceMetadata:
 ```
 
 **Discovery Mode Guarantees**:
+
 1. **Completeness**: All 19 resources are included in discovery output
 2. **Organization**: Resources are grouped by category for clarity
 3. **Template Identification**: Template resources clearly marked with variable names listed
@@ -176,6 +183,7 @@ class ResourceMetadata:
 **Registry Structure**: Static mapping of URI patterns to service function references
 
 **Registry Requirements**:
+
 1. **Immutability**: Registry constructed at module initialization, not mutated at runtime
 2. **Type Safety**: All function references properly typed with return type annotations
 3. **Completeness**: All 19 resources represented in registry
@@ -183,6 +191,7 @@ class ResourceMetadata:
 5. **Introspectability**: Registry can be queried for discovery mode implementation
 
 **Registry Schema**:
+
 ```python
 class ResourceDefinition:
     """Definition of a single resource in the registry."""
@@ -199,6 +208,7 @@ class ResourceDefinition:
 ```
 
 **Parameter Mapping Examples**:
+
 - `metadata://templates/{template}` → `get_metadata_template(name=...)`
   - Mapping: `{"template": "name"}`
 - `workflow://workflows/{workflow_id}/status` → `workflow_get_status(id=...)`
@@ -222,11 +232,13 @@ class ResourceDefinition:
    - Pass extracted values as keyword arguments
 
 **Validation Requirements**:
+
 - **Non-Empty Check**: Template variables cannot be empty strings
 - **Format Validation**: Variables must match expected character set (alphanumeric, hyphens, underscores)
 - **Existence Validation**: For certain resources, validate that referenced entity exists (e.g., workflow ID)
 
 **Error Cases**:
+
 - Missing required template variable → Error with clear message
 - Invalid variable format → Error with format requirements
 - Non-existent entity reference → Error with "not found" guidance
@@ -238,12 +250,14 @@ class ResourceDefinition:
 **Acceptance Criterion AC4 Compliance**: 100% data structure matching
 
 **Parity Definition**:
+
 1. **Structural Equivalence**: JSON serialization of tool response matches resource response exactly
 2. **Type Preservation**: All data types preserved (strings, numbers, booleans, nested objects, arrays)
 3. **Field Completeness**: All fields present in resource response also present in tool response
 4. **Value Identity**: All field values identical between resource and tool responses
 
 **Exclusions from Parity**:
+
 - **Timestamp Metadata**: Tool may include additional timestamp field (not present in resources)
 - **Response Wrapper**: Tool wraps data in success response model (resources return raw JSON strings)
 
@@ -254,12 +268,14 @@ class ResourceDefinition:
 **Decision**: Tool will be implemented as **async function**
 
 **Rationale**:
+
 1. Matches resource implementation pattern (all resources are async)
 2. Simplifies service function invocation (no need for `asyncio.run()`)
 3. Compatible with FastMCP framework (supports both sync and async tools)
 4. Enables future optimizations (parallel resource access, caching)
 
 **Invocation Pattern**:
+
 ```python
 # For async service functions (majority case)
 result = await service_function(**params)
@@ -278,6 +294,7 @@ result = await asyncio.to_thread(service_function, **params)
 **Strategy**: Tool returns Pydantic model with resource data in `data` field
 
 **Serialization Guarantees**:
+
 1. **Pydantic Model Handling**: Service functions returning Pydantic models are serialized via `.model_dump()`
 2. **Dict Handling**: Service functions returning dicts are passed through unchanged
 3. **Datetime Handling**: Datetime objects serialized to ISO 8601 strings
@@ -294,11 +311,13 @@ result = await asyncio.to_thread(service_function, **params)
 **Implementation Goal**: **Zero Additional Auth Plumbing**
 
 **Mechanism**:
+
 - Service functions already access authentication state via `quilt_mcp.runtime_context`
 - Tool inherits this context automatically (no explicit parameter passing needed)
 - No changes to service function signatures required
 
 **Authentication Flow**:
+
 ```
 User authenticates → Runtime context updated → Service functions access context
                                                           ↓
@@ -319,6 +338,7 @@ User authenticates → Runtime context updated → Service functions access cont
 **Requirement AC8**: Graceful handling of admin-only resources with clear guidance
 
 **Authorization Error Types**:
+
 1. **Unauthenticated**: User not logged in to Quilt
 2. **Unauthorized**: User logged in but lacks required privileges
 3. **Forbidden**: Specific resource/operation denied by AWS IAM
@@ -326,12 +346,14 @@ User authenticates → Runtime context updated → Service functions access cont
 **Handling Strategy**: **Attempt and Handle** (match resource pattern)
 
 **Rationale**:
+
 - Resources use try/catch around service calls
 - Pre-checking permissions would require duplicating authorization logic
 - Service functions already implement authorization checks
 - Consistent error messages across resources and tools
 
 **Error Response Structure** (for authorization failures):
+
 ```python
 GetResourceError(
     error="Unauthorized",
@@ -350,6 +372,7 @@ GetResourceError(
 **Discovery Mode Requirement**: Admin-only resources must be flagged
 
 **Admin Resources** (from registry):
+
 - `admin://users`
 - `admin://roles`
 - `admin://config/sso`
@@ -390,6 +413,7 @@ GetResourceError(
    - Example: `workflow://workflows/invalid-id/status`
 
 **Error Response Requirements**:
+
 - **Every error** must include at least one suggested action
 - **Invalid URI errors** must include complete list of valid URIs
 - **Template errors** must show correct template format with examples
@@ -403,6 +427,7 @@ GetResourceError(
 **When**: URI does not match any resource pattern
 
 **Response Structure**:
+
 ```python
 GetResourceError(
     error="InvalidURI",
@@ -422,6 +447,7 @@ GetResourceError(
 **When**: Template URI provided without required variables
 
 **Response Structure**:
+
 ```python
 GetResourceError(
     error="MissingTemplateVariable",
@@ -440,6 +466,7 @@ GetResourceError(
 **When**: Admin-only resource accessed without privileges
 
 **Response Structure**:
+
 ```python
 GetResourceError(
     error="Unauthorized",
@@ -458,6 +485,7 @@ GetResourceError(
 **When**: Service function raises exception
 
 **Response Structure**:
+
 ```python
 GetResourceError(
     error="ResourceExecutionError",
@@ -477,6 +505,7 @@ GetResourceError(
 **Guarantee**: All error responses follow the same structure regardless of error type
 
 **Field Guarantees**:
+
 - `error`: Always present, always a clear error type string
 - `message`: Always present, always human-readable
 - `details`: Optional, provides technical details when available
@@ -492,6 +521,7 @@ GetResourceError(
 **Target**: Tool must complete within the same time bounds as direct resource access
 
 **Quantitative Metrics**:
+
 - **95th Percentile Response Time**: Within 10% of corresponding resource access
 - **Typical Response Time**: <2 seconds for all resource types
 - **Overhead Budget**: <100ms for URI parsing and dispatch logic
@@ -517,6 +547,7 @@ GetResourceError(
    - No runtime computation for discovery calls
 
 **Anti-Patterns to Avoid**:
+
 - Dynamic regex compilation on each request
 - Iterating through all resources for every URI match
 - Redundant JSON serialization/deserialization
@@ -525,17 +556,20 @@ GetResourceError(
 ### 7.3 Performance Monitoring Strategy
 
 **Instrumentation Requirements**:
+
 - Log response time for each tool invocation (at DEBUG level)
 - Include URI and resource type in performance logs
 - Track static vs template dispatch separately
 
 **Performance Testing Requirements**:
+
 - Benchmark suite comparing tool vs resource access times
 - Test all 19 resources individually
 - Test discovery mode performance
 - Validate overhead stays within 10% budget
 
 **Regression Prevention**:
+
 - CI pipeline includes performance benchmark comparison
 - Alert if any resource shows >15% slowdown vs baseline
 - Automated tracking of 95th percentile response times
@@ -621,6 +655,7 @@ GetResourceError(
 5. **Expected Error Messages**: Reference error responses for validation
 
 **Test Data Sources**:
+
 - `tests/fixtures/mcp-list.csv`: Source of truth for resource metadata
 - Existing resource integration tests: Baseline for data consistency tests
 - Real MCP server introspection: Validation of discovery mode accuracy
@@ -637,6 +672,7 @@ GetResourceError(
 6. **Documentation**: Complete docstring with examples
 
 **CI/CD Validation**:
+
 - All quality gates automated in CI pipeline
 - Performance regression detection
 - Resource coverage validation (alert if new resources added without tool support)
@@ -676,6 +712,7 @@ GetResourceError(
 **Docstring Length Budget**: 100-150 lines (comprehensive but not overwhelming)
 
 **Formatting Requirements**:
+
 - Use reStructuredText formatting for PyCharm/VS Code compatibility
 - Include type hints in signature (not just docstring)
 - Use code blocks for examples
@@ -684,15 +721,18 @@ GetResourceError(
 ### 9.2 External Documentation Requirements
 
 **README Update**:
+
 - Add section explaining `get_resource` tool purpose
 - Include comparison table: resources vs tool access
 - Provide migration guide for legacy client users
 
 **API Documentation**:
+
 - Auto-generated from docstring via FastMCP
 - Ensure examples render correctly in MCP client tools panel
 
 **Troubleshooting Guide**:
+
 - Common error scenarios and resolutions
 - Link to resource documentation
 - Explanation of authentication requirements
@@ -702,24 +742,28 @@ GetResourceError(
 **Minimum Example Set**:
 
 1. **Discovery Mode**:
+
    ```python
    # List all available resources
    get_resource()
    ```
 
 2. **Static Resource Access**:
+
    ```python
    # Get authentication status
    get_resource("auth://status")
    ```
 
 3. **Template Resource Access**:
+
    ```python
    # Get specific metadata template
    get_resource("metadata://templates/standard")
    ```
 
 4. **Error Handling**:
+
    ```python
    # Handle invalid URI gracefully
    result = get_resource("invalid://uri")
@@ -728,6 +772,7 @@ GetResourceError(
    ```
 
 **Example Quality Standards**:
+
 - All examples must be executable
 - All examples must be tested in CI
 - All examples must include expected output (as comments or docstring)
@@ -741,11 +786,13 @@ GetResourceError(
 **Integration Strategy**: **Read-Only Dependency**
 
 **Allowed**:
+
 - Reading resource metadata via FastMCP introspection
 - Calling service functions that resources call
 - Reusing serialization utilities (`_serialize_result`)
 
 **Prohibited**:
+
 - Modifying resource decorator parameters
 - Changing service function signatures
 - Altering resource registration flow
@@ -758,12 +805,14 @@ GetResourceError(
 **Contract**: Tool must register via standard tool registration mechanism
 
 **Registration Requirements**:
+
 - Tool module location: `src/quilt_mcp/tools/resource_access.py`
 - Function decorated or auto-discovered via `get_tool_modules()`
 - No special registration logic required
 - Must NOT appear in `RESOURCE_AVAILABLE_TOOLS` exclusion list
 
 **Module Structure**:
+
 ```
 src/quilt_mcp/tools/
   resource_access.py  # New module for get_resource tool
@@ -777,11 +826,13 @@ src/quilt_mcp/tools/
 **Contract**: Tool behavior must align with `mcp-list.csv` resource definitions
 
 **Integration Requirements**:
+
 - Discovery mode output should match resource metadata in `mcp-list.csv`
 - Test suite should validate tool coverage against `mcp-list.csv`
 - CI pipeline should detect drift between tool registry and MCP list
 
 **Validation Strategy**:
+
 - Parse `mcp-list.csv` in test suite
 - Compare tool's discovery mode output against CSV data
 - Alert if resource count or URIs differ
@@ -791,6 +842,7 @@ src/quilt_mcp/tools/
 **Contract**: Tool must operate within FastMCP framework constraints
 
 **Framework Requirements**:
+
 - Compatible with FastMCP async execution model
 - Uses standard FastMCP response serialization
 - No framework-specific hacks or workarounds
@@ -831,6 +883,7 @@ src/quilt_mcp/tools/
 10. **AC10 Compliance**: Documentation complete and accurate ✓
 
 **Manual Testing Checklist**:
+
 - [ ] Test in Claude Desktop with `get_resource()` (discovery)
 - [ ] Test in Claude Desktop with `get_resource("auth://status")` (static)
 - [ ] Test in Claude Desktop with template resource
@@ -851,6 +904,7 @@ src/quilt_mcp/tools/
 6. **Performance**: 95th percentile within 10% of baseline ✓
 
 **Qualitative Metrics**:
+
 - User feedback indicates tool is intuitive to use
 - Documentation is sufficient for self-service usage
 - Error messages successfully guide users to resolution
@@ -866,6 +920,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Medium | **Impact**: High | **Priority**: High
 
 **Mitigation**:
+
 - Automated data consistency tests in CI (detect drift immediately)
 - Registry validation against `mcp-list.csv` (detect missing resources)
 - Test suite requires updating when resources change (forces awareness)
@@ -878,6 +933,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Low | **Impact**: Medium | **Priority**: Medium
 
 **Mitigation**:
+
 - Performance benchmarks in CI (detect regressions)
 - Static URI fast path optimization (minimize overhead for common case)
 - Profiling during development (identify bottlenecks early)
@@ -890,6 +946,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Low | **Impact**: High | **Priority**: High
 
 **Mitigation**:
+
 - Explicit parameter mapping in registry (document transforms)
 - Dedicated tests for each template resource (validate mapping)
 - Type hints in registry definition (catch errors at development time)
@@ -904,6 +961,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Medium | **Impact**: Low | **Priority**: Low
 
 **Mitigation**:
+
 - Clear documentation on how to add new resources (reduce friction)
 - CI validation catches missing resources (prevent silent failures)
 - Centralized registry definition (single source of truth)
@@ -916,6 +974,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Medium | **Impact**: Low | **Priority**: Low
 
 **Mitigation**:
+
 - Parameterized test design (reduce code duplication)
 - Fixtures in external files (separate test data from test logic)
 - Test generation from `mcp-list.csv` (automate test case creation)
@@ -929,6 +988,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Low | **Impact**: Medium | **Priority**: Medium
 
 **Mitigation**:
+
 - Manual testing in both legacy clients (validate actual behavior)
 - Follow FastMCP best practices (minimize client-specific issues)
 - Use standard response models (avoid client-specific serialization)
@@ -941,6 +1001,7 @@ src/quilt_mcp/tools/
 **Likelihood**: Low | **Impact**: Medium | **Priority**: Low
 
 **Mitigation**:
+
 - Pin FastMCP version in dependencies (control upgrade timing)
 - Monitor FastMCP release notes (stay informed of breaking changes)
 - Comprehensive test suite (detect breakage quickly)
@@ -982,6 +1043,7 @@ src/quilt_mcp/tools/
 4. **Performance Monitoring**: Instrumentation should support adding new metrics without code changes
 
 **Constraints for Future Work**:
+
 - Must maintain backward compatibility with current tool interface
 - Cannot break existing tools or resources
 - Must preserve data consistency guarantees
@@ -994,6 +1056,7 @@ src/quilt_mcp/tools/
 **Recommendation**: **Yes, document as compatibility layer**
 
 **Rationale**:
+
 - Sets correct expectations (temporary bridge, not primary API)
 - Encourages legacy clients to upgrade to resource support
 - Allows eventual removal when legacy clients updated
@@ -1008,6 +1071,7 @@ src/quilt_mcp/tools/
 This document specifies a `get_resource` tool that provides a compatibility layer for accessing MCP resource data via tool interface in legacy MCP clients.
 
 **Key Specifications**:
+
 - **Tool Interface**: `get_resource(uri: Optional[str]) → GetResourceSuccess | GetResourceError`
 - **Coverage**: All 19 MCP resources accessible
 - **Discovery Mode**: Complete resource listing when URI omitted
@@ -1018,6 +1082,7 @@ This document specifies a `get_resource` tool that provides a compatibility laye
 - **Testing**: Rigorous data consistency and performance validation
 
 **Success Criteria**:
+
 - All 10 acceptance criteria from requirements met
 - All 6 success metrics from requirements achieved
 - All quality gates pass
@@ -1046,12 +1111,14 @@ This document specifies a `get_resource` tool that provides a compatibility laye
 ### 14.3 Dependencies on External Artifacts
 
 **Required Inputs for Design Phase**:
+
 1. **`mcp-list.csv`**: Source of truth for resource metadata
 2. **`resources.py`**: Service function signatures and patterns
 3. **`responses.py`**: Existing response model patterns
 4. **FastMCP Documentation**: Framework capabilities and constraints
 
 **Validation Artifacts**:
+
 1. Existing resource integration tests (baseline for data consistency)
 2. Performance benchmarks for resources (baseline for overhead budget)
 3. Error message examples from resources (pattern for error responses)
@@ -1059,6 +1126,7 @@ This document specifies a `get_resource` tool that provides a compatibility laye
 ### 14.4 Transition to Design Phase
 
 **Design Phase Objectives** (04-phases.md):
+
 - Break implementation into incremental phases
 - Define deliverables and success criteria for each phase
 - Identify dependencies between phases
@@ -1067,6 +1135,7 @@ This document specifies a `get_resource` tool that provides a compatibility laye
 **Next Document**: `04-phases.md` will define implementation phases based on these specifications.
 
 **Design Phase Constraints**:
+
 - Cannot modify specifications (immutable after approval)
 - Must implement all requirements from specifications
 - Must achieve all success metrics defined here

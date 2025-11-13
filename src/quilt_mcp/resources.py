@@ -136,15 +136,14 @@ def register_resources(mcp: "FastMCP") -> None:
             # Provide helpful error message for authorization failures
             error_msg = str(e)
             if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
-                return _serialize_result({
-                    "error": "Unauthorized",
-                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
-                    "suggestion": "Contact your Quilt administrator to request admin access."
-                })
-            return _serialize_result({
-                "error": "Failed to list users",
-                "message": error_msg
-            })
+                return _serialize_result(
+                    {
+                        "error": "Unauthorized",
+                        "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                        "suggestion": "Contact your Quilt administrator to request admin access.",
+                    }
+                )
+            return _serialize_result({"error": "Failed to list users", "message": error_msg})
 
     @mcp.resource(
         "admin://roles",
@@ -163,15 +162,14 @@ def register_resources(mcp: "FastMCP") -> None:
             # Provide helpful error message for authorization failures
             error_msg = str(e)
             if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
-                return _serialize_result({
-                    "error": "Unauthorized",
-                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
-                    "suggestion": "Contact your Quilt administrator to request admin access."
-                })
-            return _serialize_result({
-                "error": "Failed to list roles",
-                "message": error_msg
-            })
+                return _serialize_result(
+                    {
+                        "error": "Unauthorized",
+                        "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                        "suggestion": "Contact your Quilt administrator to request admin access.",
+                    }
+                )
+            return _serialize_result({"error": "Failed to list roles", "message": error_msg})
 
     @mcp.resource(
         "admin://config/sso",
@@ -246,7 +244,7 @@ def register_resources(mcp: "FastMCP") -> None:
             start_time=None,
             end_time=None,
             use_quilt_auth=True,
-            service=None
+            service=None,
         )
         return _serialize_result(result)
 
