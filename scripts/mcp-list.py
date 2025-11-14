@@ -75,8 +75,8 @@ async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
     resource_templates = await server.get_resource_templates()
 
     # Process static resources
-    for resource in static_resources:
-        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
+    # static_resources is a dict with URI keys and FunctionResource values
+    for uri, resource in static_resources.items():
         name = resource.name if hasattr(resource, 'name') else "Unknown"
         description = resource.description if hasattr(resource, 'description') else "No description"
 
@@ -92,8 +92,8 @@ async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
         })
 
     # Process resource templates
-    for template in resource_templates:
-        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
+    # resource_templates is a dict with URI template keys and FunctionResource values
+    for uri_template, template in resource_templates.items():
         name = template.name if hasattr(template, 'name') else "Unknown"
         description = template.description if hasattr(template, 'description') else "No description"
 
@@ -369,14 +369,13 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     resource_templates = await server.get_resource_templates()
 
     # Process both static resources and templates
+    # Both are dicts with URI (template) keys and FunctionResource values
     all_resources = []
-    for resource in static_resources:
-        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
+    for uri, resource in static_resources.items():
         desc = resource.description if hasattr(resource, 'description') else "No description"
         all_resources.append((uri, desc))
 
-    for template in resource_templates:
-        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
+    for uri_template, template in resource_templates.items():
         desc = template.description if hasattr(template, 'description') else "No description"
         all_resources.append((uri_template, desc))
 

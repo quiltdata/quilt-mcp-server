@@ -819,7 +819,7 @@ test_tools:
       - content
 test_resources:
   auth://status:
-    description: No description
+    description: Check authentication status and catalog configuration
     effect: none
     uri: auth://status
     uri_variables: {}
@@ -832,7 +832,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://catalog/info:
-    description: No description
+    description: Get catalog configuration details
     effect: none
     uri: auth://catalog/info
     uri_variables: {}
@@ -845,7 +845,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://filesystem/status:
-    description: No description
+    description: Check filesystem permissions and writability
     effect: none
     uri: auth://filesystem/status
     uri_variables: {}
@@ -858,7 +858,8 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://users:
-    description: No description
+    description: List all users in the Quilt registry with their roles and status
+      (requires admin privileges)
     effect: none
     uri: admin://users
     uri_variables: {}
@@ -871,7 +872,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://roles:
-    description: No description
+    description: List all available roles in the Quilt registry (requires admin privileges)
     effect: none
     uri: admin://roles
     uri_variables: {}
@@ -884,7 +885,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/sso:
-    description: No description
+    description: Current SSO configuration
     effect: none
     uri: admin://config/sso
     uri_variables: {}
@@ -897,7 +898,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/tabulator:
-    description: No description
+    description: Tabulator open query configuration
     effect: none
     uri: admin://config/tabulator
     uri_variables: {}
@@ -910,7 +911,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://databases:
-    description: No description
+    description: List available Athena databases
     effect: none
     uri: athena://databases
     uri_variables: {}
@@ -923,7 +924,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://workgroups:
-    description: No description
+    description: List available Athena workgroups
     effect: none
     uri: athena://workgroups
     uri_variables: {}
@@ -936,7 +937,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://query/history:
-    description: No description
+    description: Recent Athena query execution history (last 50 queries)
     effect: none
     uri: athena://query/history
     uri_variables: {}
@@ -949,7 +950,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://templates:
-    description: No description
+    description: List available metadata templates
     effect: none
     uri: metadata://templates
     uri_variables: {}
@@ -962,7 +963,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://examples:
-    description: No description
+    description: Example metadata configurations
     effect: none
     uri: metadata://examples
     uri_variables: {}
@@ -975,7 +976,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://troubleshooting:
-    description: No description
+    description: Common metadata issues and solutions
     effect: none
     uri: metadata://troubleshooting
     uri_variables: {}
@@ -988,7 +989,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   workflow://workflows:
-    description: No description
+    description: List all tracked workflows
     effect: none
     uri: workflow://workflows
     uri_variables: {}
@@ -1001,7 +1002,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   tabulator://buckets:
-    description: No description
+    description: List buckets with tabulator tables configured
     effect: none
     uri: tabulator://buckets
     uri_variables: {}
