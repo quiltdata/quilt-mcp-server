@@ -925,7 +925,7 @@ class SearchResult(BaseModel):
     id: str
     type: str  # "package", "file", "bucket"
     title: str
-    description: Optional[str] = None
+    description: str = ""
     score: float = 0.0
     backend: str  # "elasticsearch", "graphql"
     s3_uri: Optional[str] = None
@@ -934,6 +934,12 @@ class SearchResult(BaseModel):
     size: Optional[int] = None
     last_modified: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # New fields for simplified search API
+    name: str = ""
+    bucket: Optional[str] = None
+    content_type: Optional[str] = None
+    extension: Optional[str] = None
+    content_preview: Optional[str] = None
 
 
 class SearchAnalysis(BaseModel):

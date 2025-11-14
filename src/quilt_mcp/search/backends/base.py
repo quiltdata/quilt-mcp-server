@@ -32,7 +32,7 @@ class SearchResult:
     id: str
     type: str  # 'file', 'package', 'object'
     title: str
-    description: Optional[str] = None
+    description: str = ""
     url: Optional[str] = None
     s3_uri: Optional[str] = None
     package_name: Optional[str] = None
@@ -42,6 +42,12 @@ class SearchResult:
     metadata: Dict[str, Any] | None = None
     score: float = 0.0
     backend: str = ""
+    # New fields for simplified search API
+    name: str = ""
+    bucket: Optional[str] = None
+    content_type: Optional[str] = None
+    extension: Optional[str] = None
+    content_preview: Optional[str] = None
 
     def __post_init__(self):
         if self.metadata is None:
