@@ -141,7 +141,7 @@ class TestElasticsearchBackend:
         mock_quilt3.Bucket.return_value = mock_bucket
 
         backend = Quilt3ElasticsearchBackend()
-        response = await backend.search("CSV files", scope="bucket", target="test-bucket")
+        response = await backend.search("CSV files", scope="file", bucket="test-bucket")
 
         assert response.status == BackendStatus.AVAILABLE
         assert len(response.results) == 1
