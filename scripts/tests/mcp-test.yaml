@@ -857,19 +857,6 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  permissions://recommendations:
-    description: No description
-    effect: none
-    uri: permissions://recommendations
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
   admin://users:
     description: No description
     effect: none
