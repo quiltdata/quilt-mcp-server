@@ -24,8 +24,7 @@ RESOURCE_SERVICE_MAP = {
     "auth://catalog/info": ("quilt_mcp.services.auth_metadata", "catalog_info", False),
     "auth://filesystem/status": ("quilt_mcp.services.auth_metadata", "filesystem_status", False),
     # Permissions resources
-    # Note: discover_permissions is exposed as a TOOL (not resource) to accept parameters
-    "permissions://recommendations": ("quilt_mcp.services.permissions_service", "bucket_recommendations_get", False),
+    # Note: discover_permissions and bucket_recommendations_get are exposed as TOOLS (not resources) to accept parameters
     # Admin resources (all async)
     "admin://users": ("quilt_mcp.services.governance_service", "admin_users_list", True),
     "admin://roles": ("quilt_mcp.services.governance_service", "admin_roles_list", True),

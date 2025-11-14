@@ -88,20 +88,7 @@ def register_resources(mcp: "FastMCP") -> None:
     # ====================
     # Permissions Resources
     # ====================
-    # Note: discover_permissions is exposed as a TOOL (not resource) to accept parameters
-
-    @mcp.resource(
-        "permissions://recommendations",
-        name="Bucket Recommendations",
-        description="Smart bucket recommendations based on permissions and context",
-        mime_type="application/json",
-    )
-    async def bucket_recommendations() -> str:
-        """Get bucket recommendations."""
-        from quilt_mcp.services.permissions_service import bucket_recommendations_get
-
-        result = await asyncio.to_thread(bucket_recommendations_get)
-        return _serialize_result(result)
+    # Note: discover_permissions and bucket_recommendations_get are exposed as TOOLS (not resources) to accept parameters
 
     # ====================
     # Admin Resources

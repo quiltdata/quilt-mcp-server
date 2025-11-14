@@ -65,6 +65,5 @@ resource,resources,auth://status,@mcp.resource('auth://status'),No description,T
 resource,resources,metadata://examples,@mcp.resource('metadata://examples'),No description,True,quilt_mcp.resources
 resource,resources,metadata://templates,@mcp.resource('metadata://templates'),No description,True,quilt_mcp.resources
 resource,resources,metadata://troubleshooting,@mcp.resource('metadata://troubleshooting'),No description,True,quilt_mcp.resources
-resource,resources,permissions://recommendations,@mcp.resource('permissions://recommendations'),No description,True,quilt_mcp.resources
 resource,resources,tabulator://buckets,@mcp.resource('tabulator://buckets'),No description,True,quilt_mcp.resources
 resource,resources,workflow://workflows,@mcp.resource('workflow://workflows'),No description,True,quilt_mcp.resources
