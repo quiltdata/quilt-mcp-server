@@ -132,7 +132,7 @@ class EnterpriseGraphQLBackend(SearchBackend):
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
     ) -> BackendResponse:
@@ -162,10 +162,10 @@ class EnterpriseGraphQLBackend(SearchBackend):
             )
 
         try:
-            if scope == "bucket" and target:
-                results = await self._search_bucket_objects(query, target, filters, limit)
-            elif scope == "package" and target:
-                results = await self._search_package_contents(query, target, filters, limit)
+            if scope == "file" and bucket:
+                results = await self._search_bucket_objects(query, bucket, filters, limit)
+            elif scope == "package" and bucket:
+                results = await self._search_package_contents(query, bucket, filters, limit)
             else:
                 # Global/catalog search - search both objects and packages
                 object_results = await self._search_objects_global(query, filters, limit // 2)

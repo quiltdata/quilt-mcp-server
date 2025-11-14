@@ -135,7 +135,7 @@ class SearchBackend(ABC):
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
     ) -> BackendResponse:
@@ -143,8 +143,8 @@ class SearchBackend(ABC):
 
         Args:
             query: Search query string
-            scope: Search scope (global, catalog, package, bucket)
-            target: Specific target when scope is narrow
+            scope: Search scope (global, package, file)
+            bucket: S3 bucket to search in (empty = all buckets)
             filters: Additional filters to apply
             limit: Maximum number of results
 

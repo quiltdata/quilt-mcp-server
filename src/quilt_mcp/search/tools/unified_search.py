@@ -41,7 +41,7 @@ class UnifiedSearchEngine:
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         backend: Optional[str] = None,
         limit: int = 50,
         include_metadata: bool = True,
@@ -52,8 +52,8 @@ class UnifiedSearchEngine:
 
         Args:
             query: Natural language search query
-            scope: Search scope (global, catalog, package, bucket)
-            target: Specific target when scope is narrow
+            scope: Search scope (global, package, file)
+            bucket: S3 bucket to search in (empty = all buckets)
             backend: Preferred backend (auto, elasticsearch, graphql)
             limit: Maximum results to return
             include_metadata: Include rich metadata in results
@@ -66,7 +66,7 @@ class UnifiedSearchEngine:
         start_time = time.time()
 
         # Parse and analyze the query
-        analysis = parse_query(query, scope, target)
+        analysis = parse_query(query, scope, bucket)
 
         # Use filters extracted from query analysis
         combined_filters = analysis.filters
@@ -94,7 +94,7 @@ class UnifiedSearchEngine:
                     {
                         "query": query,
                         "scope": scope,
-                        "target": target,
+                        "bucket": bucket,
                         "results": [],
                         "total_results": 0,
                         "query_time_ms": (time.time() - start_time) * 1000,
@@ -116,7 +116,7 @@ class UnifiedSearchEngine:
                     {
                         "query": query,
                         "scope": scope,
-                        "target": target,
+                        "bucket": bucket,
                         "results": [],
                         "total_results": 0,
                         "query_time_ms": (time.time() - start_time) * 1000,
@@ -127,7 +127,7 @@ class UnifiedSearchEngine:
                 return error_response
 
         # Execute search on selected backend
-        backend_response = await selected_backend.search(query, scope, target, combined_filters, limit)
+        backend_response = await selected_backend.search(query, scope, bucket, combined_filters, limit)
 
         # Process results
         unified_results = self._process_backend_results(backend_response, limit)
@@ -147,7 +147,7 @@ class UnifiedSearchEngine:
             "success": overall_success,
             "query": query,
             "scope": scope,
-            "target": target,
+            "bucket": bucket,
             "results": unified_results,
             "total_results": len(unified_results),
             "query_time_ms": total_time,
@@ -323,7 +323,7 @@ def get_search_engine() -> UnifiedSearchEngine:
 async def unified_search(
     query: str,
     scope: str = "global",
-    target: str = "",
+    bucket: str = "",
     backend: Optional[str] = None,
     limit: int = 50,
     include_metadata: bool = True,
@@ -342,8 +342,8 @@ async def unified_search(
 
     Args:
         query: Natural language search query
-        scope: Search scope (global, catalog, package, bucket)
-        target: Specific target when scope is narrow (package/bucket name)
+        scope: Search scope (global, package, file)
+        bucket: S3 bucket to search in (empty = all buckets)
         backend: Preferred backend (auto, elasticsearch, graphql)
         limit: Maximum results to return
         include_metadata: Include rich metadata in results
@@ -356,18 +356,36 @@ async def unified_search(
     Examples:
         unified_search("CSV files in genomics packages")
         unified_search("packages created last month", scope="package")
-        unified_search("README files", scope="package", target="user/dataset")
-        unified_search("files larger than 100MB")
+        unified_search("README files", scope="global")
+        unified_search("files larger than 100MB", bucket="my-bucket")
         unified_search("CSV data created after 2023-01-01")
     """
     try:
+        # Validate scope
+        if scope not in ["global", "package", "file"]:
+            raise ValueError(f"Invalid scope: {scope}. Must be 'global', 'package', or 'file'")
+
+        # Validate and set default backend
+        if backend is None or backend == "":
+            backend = "elasticsearch"
+        if backend != "elasticsearch":
+            raise ValueError(f"Invalid backend: {backend}. Only 'elasticsearch' is supported")
+
+        # Normalize bucket (extract from s3:// URI if provided)
+        if bucket and bucket.startswith("s3://"):
+            bucket = bucket[5:].split("/")[0]
+
+        # Validate limit
+        if not (1 <= limit <= 1000):
+            raise ValueError(f"Invalid limit: {limit}. Must be between 1 and 1000")
+
         if count_only:
             # For count-only mode, use the Elasticsearch backend's get_total_count method
             engine = get_search_engine()
             elasticsearch_backend = None
 
             # Parse query to extract filters
-            analysis = parse_query(query, scope, target)
+            analysis = parse_query(query, scope, bucket)
             query_filters = analysis.filters
 
             # Find the Elasticsearch backend
@@ -410,7 +428,7 @@ async def unified_search(
         return await engine.search(
             query=query,
             scope=scope,
-            target=target,
+            bucket=bucket,
             backend=backend,
             limit=limit,
             include_metadata=include_metadata,
@@ -423,5 +441,5 @@ async def unified_search(
             "error": f"Unified search failed: {e}",
             "query": query,
             "scope": scope,
-            "target": target,
+            "bucket": bucket,
         }

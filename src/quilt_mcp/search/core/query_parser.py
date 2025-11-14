@@ -35,7 +35,7 @@ class QueryAnalysis:
 
     query_type: QueryType
     scope: SearchScope
-    target: Optional[str] = None  # Specific package/bucket when scope is narrow
+    bucket: Optional[str] = None  # Specific S3 bucket when scope is narrow
     filters: Dict[str, Any] | None = None
     keywords: List[str] | None = None
     file_extensions: List[str] | None = None
@@ -138,13 +138,13 @@ class QueryParser:
         self.date_patterns = {k: re.compile(v, re.IGNORECASE) for k, v in self.DATE_PATTERNS.items()}
         self.file_ext_patterns = [re.compile(p, re.IGNORECASE) for p in self.FILE_EXT_PATTERNS]
 
-    def parse(self, query: str, scope: str = "global", target: str = "") -> QueryAnalysis:
+    def parse(self, query: str, scope: str = "global", bucket: str = "") -> QueryAnalysis:
         """Parse a natural language query and extract search intent.
 
         Args:
             query: Natural language search query
-            scope: Search scope (global, catalog, package, bucket)
-            target: Specific target when scope is narrow
+            scope: Search scope (global, package, file)
+            bucket: Specific S3 bucket when scope is narrow
 
         Returns:
             QueryAnalysis with detected intent and extracted parameters
@@ -179,7 +179,7 @@ class QueryParser:
         return QueryAnalysis(
             query_type=query_type,
             scope=search_scope,
-            target=target,
+            bucket=bucket,
             filters=filters,
             keywords=keywords,
             file_extensions=file_extensions,
@@ -391,16 +391,16 @@ class QueryParser:
         return min(base_confidence, 1.0)
 
 
-def parse_query(query: str, scope: str = "global", target: str = "") -> QueryAnalysis:
+def parse_query(query: str, scope: str = "global", bucket: str = "") -> QueryAnalysis:
     """Convenience function to parse a query.
 
     Args:
         query: Natural language search query
-        scope: Search scope (global, catalog, package, bucket)
-        target: Specific target when scope is narrow
+        scope: Search scope (global, package, file)
+        bucket: Specific S3 bucket when scope is narrow
 
     Returns:
         QueryAnalysis with detected intent and parameters
     """
     parser = QueryParser()
-    return parser.parse(query, scope, target)
+    return parser.parse(query, scope, bucket)

@@ -966,7 +966,7 @@ class SearchCatalogSuccess(SuccessResponse):
 
     query: str
     scope: str
-    target: str
+    bucket: str
     results: list[SearchResult] = Field(default_factory=list)
     total_results: int = 0
     query_time_ms: float
@@ -982,7 +982,7 @@ class SearchCatalogError(ErrorResponse):
 
     query: str
     scope: str = "global"
-    target: str = ""
+    bucket: str = ""
     backend_used: Optional[str] = None
     backend_status: Optional[dict[str, Any]] = None
     help: Optional[dict[str, Any]] = None

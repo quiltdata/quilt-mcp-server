@@ -140,7 +140,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
     ) -> BackendResponse:
@@ -166,14 +166,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             )
 
         try:
-            if scope == "bucket" and target:
-                # Use bucket-specific search
-                results = await self._search_bucket(query, target, filters, limit)
+            if scope == "file" and bucket:
+                # Use bucket-specific search for file-level results
+                results = await self._search_bucket(query, bucket, filters, limit)
             elif scope == "package":
                 # Search packages (catalog-wide OR specific package)
-                results = await self._search_packages(query, target, filters, limit)
+                results = await self._search_packages(query, bucket, filters, limit)
             else:
-                # Global/catalog search using packages search API
+                # Global search using packages search API
                 results = await self._search_global(query, filters, limit)
 
             query_time = (time.time() - start_time) * 1000

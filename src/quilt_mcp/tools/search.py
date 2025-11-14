@@ -9,7 +9,6 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 from pydantic import Field
 
 from ..config import http_config
-from ..constants import DEFAULT_BUCKET
 from ..models.responses import (
     SearchCatalogError,
     SearchCatalogSuccess,
@@ -32,17 +31,17 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "bucket"],
+        Literal["global", "package", "file"],
         Field(
-            default="bucket",
-            description='Search scope - "bucket" (specific bucket, default), "package" (current catalog), "package" (specific package), "global" (all)',
+            default="file",
+            description='Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)',
         ),
-    ] = "bucket",
-    target: Annotated[
+    ] = "file",
+    bucket: Annotated[
         str,
         Field(
             default="",
-            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Defaults to DEFAULT_BUCKET from environment when scope is "bucket" and target is empty.',
+            description='S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.',
         ),
     ] = "",
     backend: Annotated[
@@ -103,8 +102,8 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "bucket" (default, searches default bucket), "package" (current catalog), "package" (specific package), "global" (all)
-        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
+        scope: Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)
+        bucket: S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.
         backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
@@ -116,11 +115,11 @@ def search_catalog(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        search_catalog("CSV files")  # Uses default bucket scope with elasticsearch
-        search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
-        search_catalog("packages created last month", scope="package")  # Catalog-wide search
-        search_catalog("README files", scope="package", target="user/dataset")  # Package search
-        search_catalog("Parquet files", scope="bucket", target="s3://other-bucket")  # Specific bucket
+        search_catalog("CSV files")  # File-level search across all buckets
+        search_catalog("files larger than 100MB created after 2024-01-01", bucket="my-bucket")  # Specific bucket
+        search_catalog("packages created last month", scope="package")  # Package-level search
+        search_catalog("README files", scope="global")  # Global search (files and packages)
+        search_catalog("Parquet files", bucket="s3://other-bucket")  # Specific bucket with s3:// URI
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -140,11 +139,6 @@ def search_catalog(
         if not backend:
             backend = "elasticsearch"
 
-        # Set default target to DEFAULT_BUCKET when scope is "bucket" and target is empty
-        if scope == "bucket" and not target:
-            if DEFAULT_BUCKET:
-                target = DEFAULT_BUCKET
-
         # Handle async execution properly for MCP tools
         try:
             # Try to get the current event loop
@@ -158,7 +152,7 @@ def search_catalog(
                     _unified_search(
                         query=query,
                         scope=scope,
-                        target=target,
+                        bucket=bucket,
                         backend=backend,
                         limit=limit,
                         include_metadata=include_metadata,
@@ -174,7 +168,7 @@ def search_catalog(
                 _unified_search(
                     query=query,
                     scope=scope,
-                    target=target,
+                    bucket=bucket,
                     backend=backend,
                     limit=limit,
                     include_metadata=include_metadata,
@@ -189,7 +183,7 @@ def search_catalog(
             return SearchCatalogSuccess(
                 query=result["query"],
                 scope=result["scope"],
-                target=result["target"],
+                bucket=result.get("bucket", result.get("target", "")),  # Handle both new and legacy field names
                 results=[SearchResult(**r) for r in result.get("results", [])],
                 total_results=result.get("total_results", 0),
                 query_time_ms=result.get("query_time_ms", 0.0),
@@ -205,7 +199,7 @@ def search_catalog(
                 error=result.get("error", "Search failed"),
                 query=result["query"],
                 scope=result.get("scope", scope),
-                target=result.get("target", target),
+                bucket=result.get("bucket", result.get("target", bucket)),  # Handle both new and legacy field names
                 backend_used=result.get("backend_used"),
                 backend_status=result.get("backend_status"),
             )
@@ -296,17 +290,17 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "bucket"],
+        Literal["global", "package", "file"],
         Field(
             default="global",
             description="Search scope",
         ),
     ] = "global",
-    target: Annotated[
+    bucket: Annotated[
         str,
         Field(
             default="",
-            description="Target for scoped searches",
+            description="S3 bucket for scoped searches",
         ),
     ] = "",
 ) -> SearchExplainSuccess | SearchExplainError:
@@ -315,7 +309,7 @@ def search_explain(
     Args:
         query: Search query to explain
         scope: Search scope
-        target: Target for scoped searches
+        bucket: S3 bucket for scoped searches
 
     Returns:
         Detailed explanation of query processing and backend selection
