@@ -513,6 +513,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """Convert quilt3.Bucket.search() results to standard format."""
         results = []
 
+        # Normalize bucket name (remove s3:// prefix and trailing slashes)
+        bucket_name = bucket.replace("s3://", "").rstrip("/")
+
         for hit in raw_results:
             source = hit.get("_source", {})
 
@@ -522,17 +525,30 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             last_modified = source.get("last_modified", "")
 
             # Create S3 URI
-            s3_uri = f"s3://{bucket}/{key}" if key else None
+            s3_uri = f"s3://{bucket_name}/{key}" if key else None
 
             # Determine if this is a package or file
             is_package = "_packages" in hit.get("_index", "")
             result_type = "package" if is_package else "file"
 
+            # Extract content_type - try multiple possible field names
+            content_type = source.get("content_type") or source.get("contentType") or source.get("content-type") or ""
+
+            # Extract extension from key path or source
+            extension = ""
+            if key and "." in key:
+                extension = key.rsplit(".", 1)[-1]
+            else:
+                # Fallback to ext field from source
+                ext_from_source = source.get("ext", "")
+                if ext_from_source:
+                    extension = ext_from_source.lstrip(".")
+
             result = SearchResult(
                 id=hit.get("_id", ""),
                 type=result_type,
                 title=key.split("/")[-1] if key else "Unknown",
-                description=f"Object in {bucket}",
+                description=f"Object in {bucket_name}",
                 s3_uri=s3_uri,
                 logical_key=key,
                 size=size,
@@ -540,11 +556,38 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 metadata=source,
                 score=hit.get("_score", 0.0),
                 backend="elasticsearch",
+                # New fields for simplified search API
+                name=key,  # Set name to the logical_key value
+                bucket=bucket_name,
+                content_type=content_type,
+                extension=extension,
+                content_preview=None,  # Will be added later
             )
 
             results.append(result)
 
         return results
+
+    def _parse_package_message(self, mnfst_message: str) -> tuple[str, str]:
+        """Parse bucket and package name from mnfst_message JSON string.
+
+        Args:
+            mnfst_message: JSON string containing bucket and package info
+
+        Returns:
+            Tuple of (bucket_name, package_name) or ("", "") if parsing fails
+        """
+        try:
+            import json
+            data = json.loads(mnfst_message)
+            bucket = data.get("bucket", "")
+            package = data.get("package", "")
+            # Normalize bucket name (remove s3:// prefix and trailing slashes)
+            if bucket:
+                bucket = bucket.replace("s3://", "").rstrip("/")
+            return bucket, package
+        except Exception:
+            return "", ""
 
     def _convert_catalog_results(self, raw_results: List[Dict[str, Any]]) -> List[SearchResult]:
         """Convert catalog search results to standard format."""
@@ -553,8 +596,32 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         for hit in raw_results:
             source = hit.get("_source", {})
 
-            # Extract package information
+            # Extract package information - try ptr_name first, then mnfst_name
             package_name = source.get("ptr_name", source.get("mnfst_name", ""))
+
+            # Try to parse bucket and package from mnfst_message if available
+            bucket_name = ""
+            mnfst_message = source.get("mnfst_message", "")
+            if mnfst_message:
+                parsed_bucket, parsed_package = self._parse_package_message(mnfst_message)
+                if parsed_bucket:
+                    bucket_name = parsed_bucket
+                if parsed_package:
+                    package_name = parsed_package
+
+            # Extract manifest hash for S3 URI construction
+            mnfst_hash = source.get("mnfst_hash", "")
+
+            # Construct S3 URI if we have the necessary information
+            s3_uri = None
+            if bucket_name and package_name and mnfst_hash:
+                s3_uri = f"s3://{bucket_name}/.quilt/packages/{package_name}/{mnfst_hash}.jsonl"
+
+            # Extract size from manifest stats
+            size = source.get("mnfst_stats", {}).get("total_bytes", 0)
+
+            # Extract last_modified
+            last_modified = source.get("mnfst_last_modified", "")
 
             result = SearchResult(
                 id=hit.get("_id", ""),
@@ -562,9 +629,18 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 title=package_name,
                 description=f"Quilt package: {package_name}",
                 package_name=package_name,
+                s3_uri=s3_uri,
+                size=size,
+                last_modified=last_modified,
                 metadata=source,
                 score=hit.get("_score", 0.0),
                 backend="elasticsearch",
+                # New fields for simplified search API
+                name=package_name,
+                bucket=bucket_name if bucket_name else None,
+                content_type="application/jsonl",  # Package manifests are JSONL
+                extension="jsonl",
+                content_preview=None,  # Will be added later
             )
 
             results.append(result)
