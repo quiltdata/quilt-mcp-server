@@ -203,22 +203,21 @@ class UnifiedSearchEngine:
 
         processed_results = []
         for result in backend_response.results:
-            # Determine normalized name for unified access
-            # For files: use logical_key, for packages: use package_name
-            normalized_name = result.logical_key if result.logical_key else result.package_name
+            # Unified name field - works for both files and packages
+            # For files: name = logical_key (path within bucket/package)
+            # For packages: name = package_name (namespace/name format)
+            name = result.logical_key if result.logical_key else result.package_name
 
             # Convert SearchResult to dict for JSON serialization
             result_dict = {
                 "id": result.id,
                 "type": result.type,
-                "name": normalized_name,  # Normalized field for unified access
+                "name": name,  # Unified field for all types
                 "title": result.title,
                 "description": result.description,
                 "score": result.score,
                 "backend": result.backend,
                 "s3_uri": result.s3_uri,
-                "package_name": result.package_name,  # Kept for backward compat
-                "logical_key": result.logical_key,     # Kept for backward compat
                 "size": result.size,
                 "last_modified": result.last_modified,
                 "metadata": result.metadata,
@@ -240,12 +239,17 @@ class UnifiedSearchEngine:
         for result in results:
             # File extension filtering - crucial for accurate CSV file detection
             if filters.get("file_extensions"):
-                logical_key = result.get("logical_key", "")
+                # Only apply extension filtering to file results (not packages)
+                if result.get("type") != "file":
+                    filtered_results.append(result)
+                    continue
+
+                name = result.get("name", "")
                 s3_uri = result.get("s3_uri", "")
                 metadata_key = result.get("metadata", {}).get("key", "") if result.get("metadata") else ""
 
-                # Extract file extension from logical key, S3 URI, or metadata key
-                file_path = logical_key or metadata_key or (s3_uri.split("/")[-1] if s3_uri else "")
+                # Extract file extension from name, S3 URI, or metadata key
+                file_path = name or metadata_key or (s3_uri.split("/")[-1] if s3_uri else "")
                 if file_path:
                     file_ext = file_path.split(".")[-1].lower() if "." in file_path else ""
                     target_extensions = [ext.lower().lstrip(".") for ext in filters["file_extensions"]]
