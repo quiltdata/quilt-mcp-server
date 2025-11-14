@@ -351,6 +351,59 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                         }
                     }
 
+                    # NEW: Add smart validation rules for search variants
+                    if tool_name == "search_catalog":
+                        validation = {
+                            "type": "search",
+                            "min_results": 1,
+                            "must_contain": []
+                        }
+
+                        if param_value == "bucket":
+                            # Bucket search must find TEST_ENTRY
+                            validation["description"] = f"Bucket search must return TEST_ENTRY ({test_entry})"
+                            validation["must_contain"].append({
+                                "value": test_entry,
+                                "field": "key",
+                                "match_type": "substring",
+                                "description": f"Must find {test_entry} in bucket search results"
+                            })
+                            validation["result_shape"] = {
+                                "required_fields": ["key", "size"]
+                            }
+
+                        elif param_value == "package":
+                            # Package search must find TEST_PACKAGE
+                            validation["description"] = f"Package search must return TEST_PACKAGE ({test_package})"
+                            validation["must_contain"].append({
+                                "value": test_package,
+                                "field": "name",
+                                "match_type": "substring",
+                                "description": f"Must find {test_package} in package search results"
+                            })
+                            validation["result_shape"] = {
+                                "required_fields": ["name", "topHash"]
+                            }
+
+                        elif param_value == "global":
+                            # Global search must find BOTH TEST_ENTRY and TEST_PACKAGE
+                            validation["description"] = "Global search must return both TEST_ENTRY and TEST_PACKAGE"
+                            validation["must_contain"].append({
+                                "value": test_entry,
+                                "field": "key",
+                                "match_type": "substring",
+                                "description": f"Must find TEST_ENTRY ({test_entry}) in global results"
+                            })
+                            validation["must_contain"].append({
+                                "value": test_package,
+                                "field": "name",
+                                "match_type": "substring",
+                                "description": f"Must find TEST_PACKAGE ({test_package}) in global results"
+                            })
+                            validation["min_results"] = 2  # At least one of each
+
+                        test_case["validation"] = validation
+
                     test_config["test_tools"][variant_key] = test_case
         else:
             # Single test case for tools without variants
