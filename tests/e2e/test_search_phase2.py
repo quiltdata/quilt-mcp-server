@@ -216,6 +216,7 @@ class TestIntegratedPhase2:
 
     def test_backend_selection_method(self):
         """Test that _select_primary_backend method exists and works correctly."""
+        from unittest.mock import MagicMock
         from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine
         from quilt_mcp.search.backends.base import BackendStatus
 
@@ -225,9 +226,14 @@ class TestIntegratedPhase2:
         # Test that the method exists
         assert hasattr(engine.registry, "_select_primary_backend")
 
+        # Mock ensure_initialized to prevent it from overwriting status during tests
+        for backend in engine.registry._backends.values():
+            backend.ensure_initialized = MagicMock()
+
         # Test selection when both backends are unavailable
         for backend in engine.registry._backends.values():
             backend._status = BackendStatus.UNAVAILABLE
+            backend._initialized = True  # Mark as initialized to prevent actual initialization
 
         selected = engine.registry._select_primary_backend()
         assert selected is None
