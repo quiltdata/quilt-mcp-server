@@ -170,4 +170,6 @@ dev-clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf build/ dist/ .ruff_cache/ 2>/dev/null || true
 	@find . -name ".DS_Store" -delete 2>/dev/null || true
+	@echo "Cleaning UV cache (for uvx test)..."
+	@rm -rf ~/.cache/uv/archive-v0/* 2>/dev/null || true
 	@echo "✅ Development cleanup completed"

@@ -49,7 +49,7 @@ RESOURCE_SERVICE_MAP = {
 async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, GetResourceError]:
     """Access MCP resources via tool interface for backward compatibility.
 
-    This tool provides access to all 18 MCP resources through a standard tool interface,
+    This tool provides access to all 16 MCP resources through a standard tool interface,
     enabling older MCP clients that don't support native resources to access resource data.
 
     ## Discovery Mode
@@ -58,7 +58,7 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
 
     ```python
     result = await get_resource()
-    # Returns: {"resources": [...list of all 19 resources...]}
+    # Returns: {"resources": [...list of all 16 resources...]}
     ```
 
     ## Resource Access
@@ -70,7 +70,7 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
     # Returns the resource data
     ```
 
-    ## Available Resources (18 total)
+    ## Available Resources (16 total)
 
     ### Auth Resources (3)
     - `auth://status` - Authentication status

@@ -470,6 +470,19 @@ test_tools:
             type: object
       required:
       - content
+  get_resource:
+    description: Access MCP resources via tool interface for backward compatibility.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
   package_browse:
     description: Browse the contents of a Quilt package with enhanced file information
       - Quilt package discovery and comparison tasks
@@ -1005,34 +1018,6 @@ test_resources:
     effect: none
     uri: tabulator://buckets
     uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  metadata://templates/{template}:
-    description: No description
-    effect: none
-    uri: metadata://templates/{template}
-    uri_variables:
-      template: CONFIGURE_TEMPLATE
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  workflow://workflows/{workflow_id}/status:
-    description: No description
-    effect: none
-    uri: workflow://workflows/{workflow_id}/status
-    uri_variables:
-      workflow_id: CONFIGURE_WORKFLOW_ID
     expected_mime_type: application/json
     content_validation:
       type: json

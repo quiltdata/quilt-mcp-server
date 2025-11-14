@@ -278,19 +278,6 @@ def register_resources(mcp: "FastMCP") -> None:
         result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
         return _serialize_result(result)
 
-    @mcp.resource(
-        "metadata://templates/{template}",
-        name="Metadata Template Details",
-        description="Get detailed information about a specific metadata template",
-        mime_type="application/json",
-    )
-    async def metadata_template(template: str) -> str:
-        """Get template details."""
-        from quilt_mcp.services.metadata_service import get_metadata_template
-
-        result = await asyncio.to_thread(get_metadata_template, name=template)
-        return _serialize_result(result)
-
     # ====================
     # Workflow Resources
     # ====================
@@ -306,19 +293,6 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.workflow_service import workflow_list_all
 
         result = await asyncio.to_thread(workflow_list_all)
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "workflow://workflows/{workflow_id}/status",
-        name="Workflow Status",
-        description="Get status for a specific workflow",
-        mime_type="application/json",
-    )
-    async def workflow_status(workflow_id: str) -> str:
-        """Get workflow status."""
-        from quilt_mcp.services.workflow_service import workflow_get_status
-
-        result = await asyncio.to_thread(workflow_get_status, id=workflow_id)
         return _serialize_result(result)
 
     # ====================
