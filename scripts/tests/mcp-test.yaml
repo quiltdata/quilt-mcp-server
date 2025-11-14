@@ -430,7 +430,9 @@ test_tools:
   discover_permissions:
     description: Discover AWS permissions for the current principal.
     effect: none
-    arguments: {}
+    arguments:
+      check_buckets:
+      - quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -833,19 +835,6 @@ test_resources:
     description: No description
     effect: none
     uri: auth://filesystem/status
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  permissions://discover:
-    description: No description
-    effect: none
-    uri: permissions://discover
     uri_variables: {}
     expected_mime_type: application/json
     content_validation:

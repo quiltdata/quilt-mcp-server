@@ -264,6 +264,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # create_data_visualization: Omitted - 'create' effect
         # create_quilt_summary_files, generate_package_visualizations, generate_quilt_summarize_json: Omitted - 'create'/'generate' effects
 
+        # Permissions operations - limit to test bucket for faster execution
+        "discover_permissions": {"check_buckets": [bucket_name]},
+
         # Admin/Governance operations (all omitted - require special permissions and have side effects)
         # admin_user_*, admin_sso_*, admin_tabulator_*: All omitted
     }

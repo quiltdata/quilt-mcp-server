@@ -24,7 +24,7 @@ RESOURCE_SERVICE_MAP = {
     "auth://catalog/info": ("quilt_mcp.services.auth_metadata", "catalog_info", False),
     "auth://filesystem/status": ("quilt_mcp.services.auth_metadata", "filesystem_status", False),
     # Permissions resources
-    "permissions://discover": ("quilt_mcp.services.permissions_service", "discover_permissions", False),
+    # Note: discover_permissions is exposed as a TOOL (not resource) to accept parameters
     "permissions://recommendations": ("quilt_mcp.services.permissions_service", "bucket_recommendations_get", False),
     # Admin resources (all async)
     "admin://users": ("quilt_mcp.services.governance_service", "admin_users_list", True),
@@ -49,7 +49,7 @@ RESOURCE_SERVICE_MAP = {
 async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, GetResourceError]:
     """Access MCP resources via tool interface for backward compatibility.
 
-    This tool provides access to all 19 MCP resources through a standard tool interface,
+    This tool provides access to all 18 MCP resources through a standard tool interface,
     enabling older MCP clients that don't support native resources to access resource data.
 
     ## Discovery Mode
@@ -70,16 +70,16 @@ async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, G
     # Returns the resource data
     ```
 
-    ## Available Resources (19 total)
+    ## Available Resources (18 total)
 
     ### Auth Resources (3)
     - `auth://status` - Authentication status
     - `auth://catalog/info` - Catalog configuration
     - `auth://filesystem/status` - Filesystem permissions
 
-    ### Permissions Resources (2)
-    - `permissions://discover` - AWS permissions discovery
+    ### Permissions Resources (1)
     - `permissions://recommendations` - Bucket recommendations
+    Note: `discover_permissions` is a TOOL (not resource) to accept bucket parameters
 
     ### Admin Resources (4) - Require admin privileges
     - `admin://users` - User list
@@ -250,7 +250,6 @@ def _get_resource_name(uri: str) -> str:
         "auth://status": "Auth Status",
         "auth://catalog/info": "Catalog Info",
         "auth://filesystem/status": "Filesystem Status",
-        "permissions://discover": "Permissions Discovery",
         "permissions://recommendations": "Bucket Recommendations",
         "admin://users": "Admin Users List",
         "admin://roles": "Admin Roles List",
@@ -274,7 +273,6 @@ def _get_resource_description(uri: str) -> str:
         "auth://status": "Check authentication status and catalog configuration",
         "auth://catalog/info": "Get catalog configuration details",
         "auth://filesystem/status": "Check filesystem permissions and writability",
-        "permissions://discover": "Discover AWS permissions for current user/role",
         "permissions://recommendations": "Smart bucket recommendations based on permissions",
         "admin://users": "List all users with roles and status (requires admin)",
         "admin://roles": "List all available roles (requires admin)",

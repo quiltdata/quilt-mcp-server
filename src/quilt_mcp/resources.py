@@ -88,19 +88,7 @@ def register_resources(mcp: "FastMCP") -> None:
     # ====================
     # Permissions Resources
     # ====================
-
-    @mcp.resource(
-        "permissions://discover",
-        name="Permissions Discovery",
-        description="Discover AWS permissions for current user/role",
-        mime_type="application/json",
-    )
-    async def permissions_discover() -> str:
-        """Discover AWS permissions."""
-        from quilt_mcp.services.permissions_service import discover_permissions
-
-        result = await asyncio.to_thread(discover_permissions)
-        return _serialize_result(result)
+    # Note: discover_permissions is exposed as a TOOL (not resource) to accept parameters
 
     @mcp.resource(
         "permissions://recommendations",
