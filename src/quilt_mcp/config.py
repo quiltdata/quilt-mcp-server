@@ -19,5 +19,14 @@ class ResourceConfig:
     RESOURCE_ACCESS_LOGGING: bool = os.getenv("QUILT_MCP_RESOURCE_ACCESS_LOGGING", "true").lower() == "true"
 
 
-# Global config instance
+class HttpConfig:
+    """Configuration for HTTP requests."""
+
+    # Timeout for all service HTTP requests (seconds)
+    # Used for GraphQL queries, catalog API calls, and other HTTP operations
+    SERVICE_TIMEOUT: int = int(os.getenv("QUILT_SERVICE_TIMEOUT", "60"))
+
+
+# Global config instances
 resource_config = ResourceConfig()
+http_config = HttpConfig()

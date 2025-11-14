@@ -78,6 +78,7 @@ Override defaults via environment or MCP config:
 - `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL (e.g., `your-catalog.quiltdata.com`)
 - `QUILT_DEFAULT_BUCKET` - Default S3 bucket (e.g., `s3://your-bucket`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
+- `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
 
 ## Development
 

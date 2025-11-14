@@ -8,6 +8,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
+from ..config import http_config
 from ..constants import DEFAULT_BUCKET
 from ..models.responses import (
     SearchCatalogError,
@@ -423,7 +424,7 @@ def search_graphql(
         )
 
     try:
-        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
+        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}}, timeout=http_config.SERVICE_TIMEOUT)
         if resp.status_code != 200:
             return SearchGraphQLError(error=f"GraphQL HTTP {resp.status_code}: {resp.text}")
 
