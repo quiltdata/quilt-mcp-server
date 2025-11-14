@@ -36,7 +36,11 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     for tool_name, handler in server_tools.items():
         # Get function signature and docstring
         sig = inspect.signature(handler.fn)
-        doc = inspect.getdoc(handler.fn) or "No description available"
+        doc = inspect.getdoc(handler.fn)
+
+        # ERROR if tool lacks a description
+        if not doc:
+            raise ValueError(f"Tool '{tool_name}' is missing a docstring description!")
 
         # Get module information
         module = inspect.getmodule(handler.fn)
@@ -77,15 +81,20 @@ async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
     # Process static resources
     # static_resources is a dict with URI keys and FunctionResource values
     for uri, resource in static_resources.items():
-        name = resource.name if hasattr(resource, 'name') else "Unknown"
-        description = resource.description if hasattr(resource, 'description') else "No description"
+        # ERROR if resource lacks a name
+        if not hasattr(resource, 'name') or not resource.name:
+            raise ValueError(f"Resource '{uri}' is missing a name!")
+
+        # ERROR if resource lacks a description
+        if not hasattr(resource, 'description') or not resource.description:
+            raise ValueError(f"Resource '{uri}' is missing a description!")
 
         resources.append({
             "type": "resource",
             "name": uri,
             "module": "resources",
             "signature": f"@mcp.resource('{uri}')",
-            "description": description,
+            "description": resource.description,
             "is_async": True,
             "full_module_path": "quilt_mcp.resources",
             "handler_class": "FastMCP Resource"
@@ -94,15 +103,20 @@ async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
     # Process resource templates
     # resource_templates is a dict with URI template keys and FunctionResource values
     for uri_template, template in resource_templates.items():
-        name = template.name if hasattr(template, 'name') else "Unknown"
-        description = template.description if hasattr(template, 'description') else "No description"
+        # ERROR if template lacks a name
+        if not hasattr(template, 'name') or not template.name:
+            raise ValueError(f"Resource template '{uri_template}' is missing a name!")
+
+        # ERROR if template lacks a description
+        if not hasattr(template, 'description') or not template.description:
+            raise ValueError(f"Resource template '{uri_template}' is missing a description!")
 
         resources.append({
             "type": "resource",
             "name": uri_template,
             "module": "resources",
             "signature": f"@mcp.resource('{uri_template}')",
-            "description": description,
+            "description": template.description,
             "is_async": True,
             "full_module_path": "quilt_mcp.resources",
             "handler_class": "FastMCP Template"
@@ -372,12 +386,16 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Both are dicts with URI (template) keys and FunctionResource values
     all_resources = []
     for uri, resource in static_resources.items():
-        desc = resource.description if hasattr(resource, 'description') else "No description"
-        all_resources.append((uri, desc))
+        # ERROR if resource lacks a description
+        if not hasattr(resource, 'description') or not resource.description:
+            raise ValueError(f"Resource '{uri}' is missing a description in test YAML generation!")
+        all_resources.append((uri, resource.description))
 
     for uri_template, template in resource_templates.items():
-        desc = template.description if hasattr(template, 'description') else "No description"
-        all_resources.append((uri_template, desc))
+        # ERROR if template lacks a description
+        if not hasattr(template, 'description') or not template.description:
+            raise ValueError(f"Resource template '{uri_template}' is missing a description in test YAML generation!")
+        all_resources.append((uri_template, template.description))
 
     for uri_pattern, doc in all_resources:
 
