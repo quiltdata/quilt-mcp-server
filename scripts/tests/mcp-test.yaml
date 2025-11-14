@@ -595,14 +595,18 @@ test_tools:
       - content
     validation:
       type: search
-      min_results: 1
+      min_results: 2
       must_contain:
       - value: README.md
         field: logical_key
         match_type: substring
         description: Must find TEST_ENTRY (README.md) in global results (logical_key
           field)
-      description: Global search must return TEST_ENTRY (README.md)
+      - value: raw/test
+        field: title
+        match_type: substring
+        description: Must find TEST_PACKAGE (raw/test) in global results (title field)
+      description: Global search must return both TEST_ENTRY and TEST_PACKAGE
   search_catalog.bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -657,9 +661,13 @@ test_tools:
       - content
     validation:
       type: search
-      min_results: 0
-      must_contain: []
-      description: Package search basic validation
+      min_results: 1
+      must_contain:
+      - value: raw/test
+        field: title
+        match_type: substring
+        description: Must find raw/test in package search results (title field)
+      description: Package search must return TEST_PACKAGE (raw/test)
       result_shape:
         required_fields:
         - id

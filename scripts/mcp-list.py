@@ -375,26 +375,37 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                             }
 
                         elif param_value == "package":
-                            # Package search - verify basic structure if results exist
-                            # Note: Package search may return 0 results in some environments (permission/catalog issues)
-                            validation["description"] = f"Package search basic validation"
-                            validation["min_results"] = 0  # Don't require results (may not work in all envs)
-                            # If results exist, validate structure
+                            # Package search MUST find TEST_PACKAGE
+                            # REQUIREMENT: Package search will find one TEST_PACKAGE
+                            validation["description"] = f"Package search must return TEST_PACKAGE ({test_package})"
+                            validation["must_contain"].append({
+                                "value": test_package,
+                                "field": "title",
+                                "match_type": "substring",
+                                "description": f"Must find {test_package} in package search results (title field)"
+                            })
+                            validation["min_results"] = 1
                             validation["result_shape"] = {
                                 "required_fields": ["id", "type", "title", "score"]
                             }
 
                         elif param_value == "global":
-                            # Global search for files - just verify we get file results with TEST_ENTRY
-                            # Note: Global search with file query returns files, not packages
-                            validation["description"] = f"Global search must return TEST_ENTRY ({test_entry})"
+                            # Global search MUST find BOTH TEST_ENTRY and TEST_PACKAGE
+                            # REQUIREMENT: Global search will find both
+                            validation["description"] = "Global search must return both TEST_ENTRY and TEST_PACKAGE"
                             validation["must_contain"].append({
                                 "value": test_entry,
                                 "field": "logical_key",
                                 "match_type": "substring",
                                 "description": f"Must find TEST_ENTRY ({test_entry}) in global results (logical_key field)"
                             })
-                            validation["min_results"] = 1
+                            validation["must_contain"].append({
+                                "value": test_package,
+                                "field": "title",
+                                "match_type": "substring",
+                                "description": f"Must find TEST_PACKAGE ({test_package}) in global results (title field)"
+                            })
+                            validation["min_results"] = 2  # At least one of each type
 
                         test_case["validation"] = validation
 
