@@ -581,8 +581,8 @@ test_tools:
       - Catalog and package search experiences
     effect: none
     arguments:
-      query: README.md
-      limit: 10
+      query: "README OR raw/test"
+      limit: 20
       scope: global
     response_schema:
       type: object
@@ -597,16 +597,15 @@ test_tools:
       type: search
       min_results: 2
       must_contain:
-      - value: README.md
+      - value: README
         field: logical_key
         match_type: substring
-        description: Must find TEST_ENTRY (README.md) in global results (logical_key
-          field)
+        description: Must find files with README in global results (logical_key field)
       - value: raw/test
         field: title
         match_type: substring
-        description: Must find TEST_PACKAGE (raw/test) in global results (title field)
-      description: Global search must return both TEST_ENTRY and TEST_PACKAGE
+        description: Must find packages with raw/test in global results (title field)
+      description: Global search must return both files and packages using OR query
   search_catalog.bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch

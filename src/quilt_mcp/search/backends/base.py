@@ -202,7 +202,11 @@ class BackendRegistry:
         """Get a backend by string name."""
         try:
             backend_type = BackendType(name.lower())
-            return self.get_backend(backend_type)
+            backend = self.get_backend(backend_type)
+            if backend:
+                # Ensure backend is initialized when accessed by name
+                backend.ensure_initialized()
+            return backend
         except ValueError:
             return None
 
@@ -219,13 +223,19 @@ class BackendRegistry:
         """
         # Prefer GraphQL if available (Enterprise features)
         graphql_backend = self.get_backend(BackendType.GRAPHQL)
-        if graphql_backend and graphql_backend.status == BackendStatus.AVAILABLE:
-            return graphql_backend
+        if graphql_backend:
+            # Ensure backend is initialized before checking availability
+            graphql_backend.ensure_initialized()
+            if graphql_backend.status == BackendStatus.AVAILABLE:
+                return graphql_backend
 
         # Fallback to Elasticsearch (standard)
         elasticsearch_backend = self.get_backend(BackendType.ELASTICSEARCH)
-        if elasticsearch_backend and elasticsearch_backend.status == BackendStatus.AVAILABLE:
-            return elasticsearch_backend
+        if elasticsearch_backend:
+            # Ensure backend is initialized before checking availability
+            elasticsearch_backend.ensure_initialized()
+            if elasticsearch_backend.status == BackendStatus.AVAILABLE:
+                return elasticsearch_backend
 
         # No backends available
         return None

@@ -279,8 +279,71 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             )
 
         if "error" in search_response:
-            # Log error but don't raise - return empty results
-            logger.warning(f"Package search failed: {search_response['error']}")
+            # Check if this is a permission error (403) - try fallback to default registry
+            error_msg = search_response["error"]
+            is_permission_error = "403" in str(error_msg) or "Forbidden" in str(error_msg)
+            is_index_error = "index_not_found" in str(error_msg).lower()
+
+            if is_permission_error or is_index_error:
+                # Fall back to searching just the default registry bucket's packages index
+                try:
+                    from ...constants import DEFAULT_REGISTRY
+
+                    if DEFAULT_REGISTRY:
+                        logger.info(f"Package search permission error, falling back to DEFAULT_REGISTRY: {DEFAULT_REGISTRY}")
+                        bucket_name = DEFAULT_REGISTRY.replace("s3://", "")
+
+                        # Build single-bucket index pattern for packages only
+                        single_bucket_index = f"{bucket_name}_packages"
+
+                        # Execute search with specific index override
+                        search_api = self.quilt_service.get_search_api()
+
+                        from ...search.backends.elasticsearch import escape_elasticsearch_query
+
+                        # For package search, don't escape slashes - use word matching
+                        # Convert "raw/test" to "raw AND test" for better matching
+                        search_terms = query.replace("/", " AND ")
+                        dsl_query: Dict[str, Any] = {
+                            "from": 0,
+                            "size": max(limit, 0),
+                            "query": {
+                                "bool": {
+                                    "must": [{"query_string": {"query": search_terms}}],
+                                    "filter": [
+                                        # Only return pointer documents (not manifest documents)
+                                        {"exists": {"field": "ptr_name"}}
+                                    ],
+                                }
+                            },
+                        }
+
+                        # Apply any filters
+                        if filters:
+                            filter_clauses = []
+                            if filters.get("file_extensions"):
+                                filter_clauses.append(
+                                    {"terms": {"ext": [ext.lstrip(".") for ext in filters["file_extensions"]]}}
+                                )
+                            if filters.get("size_gt"):
+                                filter_clauses.append({"range": {"size": {"gt": filters["size_gt"]}}})
+                            if filters.get("package_name"):
+                                filter_clauses.append({"term": {"ptr_name": filters["package_name"]}})
+                            if filter_clauses:
+                                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
+                                    filter_clauses
+                                )
+
+                        fallback_response = search_api(query=dsl_query, index=single_bucket_index, limit=limit)
+
+                        if "error" not in fallback_response:
+                            hits = fallback_response.get("hits", {}).get("hits", [])
+                            return self._convert_catalog_results(hits)
+                except Exception as e:
+                    logger.warning(f"Fallback package search also failed: {e}")
+
+            # Log error and return empty results
+            logger.warning(f"Package search failed: {error_msg}")
             return []
 
         hits = search_response.get("hits", {}).get("hits", [])

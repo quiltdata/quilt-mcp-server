@@ -203,17 +203,22 @@ class UnifiedSearchEngine:
 
         processed_results = []
         for result in backend_response.results:
+            # Determine normalized name for unified access
+            # For files: use logical_key, for packages: use package_name
+            normalized_name = result.logical_key if result.logical_key else result.package_name
+
             # Convert SearchResult to dict for JSON serialization
             result_dict = {
                 "id": result.id,
                 "type": result.type,
+                "name": normalized_name,  # Normalized field for unified access
                 "title": result.title,
                 "description": result.description,
                 "score": result.score,
                 "backend": result.backend,
                 "s3_uri": result.s3_uri,
-                "package_name": result.package_name,
-                "logical_key": result.logical_key,
+                "package_name": result.package_name,  # Kept for backward compat
+                "logical_key": result.logical_key,     # Kept for backward compat
                 "size": result.size,
                 "last_modified": result.last_modified,
                 "metadata": result.metadata,
