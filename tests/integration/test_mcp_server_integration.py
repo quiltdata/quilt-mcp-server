@@ -36,7 +36,7 @@ def test_quilt_tools():
     assert hasattr(browse, 'success') or hasattr(browse, 'error')
 
     # Searching within nonexistent package should also return a dict response
-    search = search_catalog(query="README.md", scope="package", target="nonexistent/package")
+    search = search_catalog(query="README.md", scope="package", bucket="nonexistent/package")
     assert isinstance(search, dict)
 
     # Test default search (backend is automatically selected)
