@@ -568,9 +568,9 @@ class QuiltService:
                     logical_path = Path(source_key).name
 
                 # Find matching S3 URI
-                s3_uri: str | None = uri_to_key.get(source_key)
-                if s3_uri:
-                    pkg.set(logical_path, s3_uri)
+                matched_uri: str | None = uri_to_key.get(source_key)
+                if matched_uri:
+                    pkg.set(logical_path, matched_uri)
 
     def _add_files_with_flattening(self, pkg: Any, s3_uris: List[str]) -> None:
         """Add files to package using simple flattening strategy.
@@ -669,7 +669,7 @@ class QuiltService:
         Returns:
             Dict mapping folder names to lists of file objects
         """
-        organized: dict[str, list[dict[str, str]]] = {}
+        organized: dict[str, list[dict[str, Any]]] = {}
 
         for s3_uri in s3_uris:
             # Extract key from S3 URI

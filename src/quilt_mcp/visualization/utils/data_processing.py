@@ -15,7 +15,7 @@ import json
 class DataProcessor:
     """Handles data loading and preprocessing for visualization."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the data processor."""
         self.supported_formats = {
             "csv",
@@ -306,7 +306,7 @@ class DataProcessor:
         Returns:
             Validation results
         """
-        validation = {"valid": True, "errors": [], "warnings": [], "suggestions": []}
+        validation: Dict[str, Any] = {"valid": True, "errors": [], "warnings": [], "suggestions": []}
 
         if data is None:
             validation["valid"] = False

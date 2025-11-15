@@ -103,7 +103,7 @@ class IGVGenerator:
         Returns:
             IGV sequence view configuration
         """
-        config = {
+        config: Dict[str, Any] = {
             "name": "Sequence View",
             "type": "sequence",
             "url": fasta_file,
@@ -114,9 +114,9 @@ class IGVGenerator:
 
         # Add annotation tracks if provided
         if annotations:
-            config["annotationTracks"] = []
+            annotation_tracks: List[Dict[str, Any]] = []
             for ann_file in annotations:
-                config["annotationTracks"].append(
+                annotation_tracks.append(
                     {
                         "name": Path(ann_file).stem,
                         "url": ann_file,
@@ -125,6 +125,7 @@ class IGVGenerator:
                         "color": self.default_track_colors["annotations"],
                     }
                 )
+            config["annotationTracks"] = annotation_tracks
 
         return config
 
@@ -385,33 +386,35 @@ class IGVGenerator:
         Returns:
             Track summary information
         """
-        summary = {
-            "total_tracks": len(tracks),
-            "track_types": {},
-            "total_height": 0,
-            "file_sizes": {},
-            "genome_assemblies": set(),
-        }
+        track_types: Dict[str, int] = {}
+        file_sizes: Dict[str, int] = {}
+        genome_assemblies_set: set[str] = set()
+        total_height = 0
 
         for track in tracks:
             track_type = track.get("type", "unknown")
-            if track_type not in summary["track_types"]:
-                summary["track_types"][track_type] = 0
-            summary["track_types"][track_type] += 1
+            if track_type not in track_types:
+                track_types[track_type] = 0
+            track_types[track_type] += 1
 
-            summary["total_height"] += track.get("height", 50)
+            total_height += track.get("height", 50)
 
             # Get file size if possible
             file_path = track.get("url", "")
             if file_path and os.path.exists(file_path):
                 try:
                     file_size = os.path.getsize(file_path)
-                    summary["file_sizes"][file_path] = file_size
+                    file_sizes[file_path] = file_size
                 except (OSError, PermissionError):
                     pass
 
-        # Convert set to list for JSON serialization
-        summary["genome_assemblies"] = list(summary["genome_assemblies"])
+        summary: Dict[str, Any] = {
+            "total_tracks": len(tracks),
+            "track_types": track_types,
+            "total_height": total_height,
+            "file_sizes": file_sizes,
+            "genome_assemblies": list(genome_assemblies_set),
+        }
 
         return summary
 
@@ -444,40 +447,50 @@ class IGVGenerator:
         Returns:
             Validation results
         """
-        validation = {"valid": True, "errors": [], "warnings": [], "suggestions": []}
+        errors: List[str] = []
+        warnings: List[str] = []
+        suggestions: List[str] = []
+        valid = True
 
         # Check required fields
         required_fields = ["version", "genome", "tracks"]
         for field in required_fields:
             if field not in session_config:
-                validation["valid"] = False
-                validation["errors"].append(f"Missing required field: {field}")
+                valid = False
+                errors.append(f"Missing required field: {field}")
 
         # Validate genome
         if "genome" in session_config:
             genome = session_config["genome"]
             if genome not in self.GENOME_ASSEMBLIES:
-                validation["warnings"].append(f"Unknown genome assembly: {genome}")
-                validation["suggestions"].append(f"Consider using one of: {list(self.GENOME_ASSEMBLIES.keys())}")
+                warnings.append(f"Unknown genome assembly: {genome}")
+                suggestions.append(f"Consider using one of: {list(self.GENOME_ASSEMBLIES.keys())}")
 
         # Validate tracks
         if "tracks" in session_config:
             tracks = session_config["tracks"]
             if not isinstance(tracks, list):
-                validation["valid"] = False
-                validation["errors"].append("Tracks must be a list")
+                valid = False
+                errors.append("Tracks must be a list")
             else:
                 for i, track in enumerate(tracks):
                     if not isinstance(track, dict):
-                        validation["valid"] = False
-                        validation["errors"].append(f"Track {i} must be a dictionary")
+                        valid = False
+                        errors.append(f"Track {i} must be a dictionary")
                     else:
                         # Check track required fields
                         if "name" not in track:
-                            validation["warnings"].append(f"Track {i} missing name")
+                            warnings.append(f"Track {i} missing name")
                         if "url" not in track:
-                            validation["warnings"].append(f"Track {i} missing URL")
+                            warnings.append(f"Track {i} missing URL")
                         if "type" not in track:
-                            validation["warnings"].append(f"Track {i} missing type")
+                            warnings.append(f"Track {i} missing type")
+
+        validation: Dict[str, Any] = {
+            "valid": valid,
+            "errors": errors,
+            "warnings": warnings,
+            "suggestions": suggestions,
+        }
 
         return validation

@@ -29,20 +29,6 @@ class SearchExplainer:
                 ],
                 "typical_speed": "< 200ms",
             },
-            BackendType.GRAPHQL: {
-                "strengths": [
-                    "Rich metadata",
-                    "Relationship queries",
-                    "Structured results",
-                ],
-                "weaknesses": ["Slower than ES", "Limited text search"],
-                "best_for": [
-                    "Package relationships",
-                    "Metadata queries",
-                    "Complex filters",
-                ],
-                "typical_speed": "< 1s",
-            },
         }
 
         self.optimization_suggestions = {
@@ -89,7 +75,7 @@ class SearchExplainer:
         # Parse the query
         analysis = parse_query(query)
 
-        explanation = {
+        explanation: Dict[str, Any] = {
             "query": query,
             "query_analysis": {
                 "detected_type": analysis.query_type.value,
@@ -152,7 +138,7 @@ class SearchExplainer:
         """Estimate query performance characteristics."""
         query_complexity = self._assess_query_complexity(analysis)
 
-        performance = {
+        performance: Dict[str, Any] = {
             "complexity_assessment": query_complexity,
             "estimated_time_ranges": {},
             "resource_usage": {},
@@ -185,15 +171,16 @@ class SearchExplainer:
                     "typical_ms": 1000,
                 }
 
-        # Add scalability notes
+        # Add scalability notes - cast to List[str] for type safety
+        scalability_notes: List[str] = performance["scalability_notes"]
         if len(analysis.keywords) > 5:
-            performance["scalability_notes"].append("Many keywords may slow down text search")
+            scalability_notes.append("Many keywords may slow down text search")
 
         if analysis.filters:
-            performance["scalability_notes"].append("Filters will improve performance by reducing result set")
+            scalability_notes.append("Filters will improve performance by reducing result set")
 
         if analysis.scope == SearchScope.GLOBAL:
-            performance["scalability_notes"].append("Global scope may be slower than targeted searches")
+            scalability_notes.append("Global scope may be slower than targeted searches")
 
         return performance
 
@@ -246,7 +233,7 @@ class SearchExplainer:
         # Add complexity for scope
         if analysis.scope == SearchScope.GLOBAL:
             complexity_score += 3
-        elif analysis.scope == SearchScope.CATALOG:
+        elif analysis.scope == SearchScope.PACKAGE:
             complexity_score += 2
 
         if complexity_score <= 3:
@@ -260,7 +247,6 @@ class SearchExplainer:
         """Get base time estimate in milliseconds for backend."""
         estimates = {
             BackendType.ELASTICSEARCH: 100,
-            BackendType.GRAPHQL: 500,
         }
         return estimates.get(backend_type, 1000)
 
@@ -272,14 +258,6 @@ class SearchExplainer:
                 BackendType.ELASTICSEARCH,
             ): "Fast text search optimal for file discovery",
             (
-                QueryType.FILE_SEARCH,
-                BackendType.GRAPHQL,
-            ): "Provides rich file metadata and package context",
-            (
-                QueryType.PACKAGE_DISCOVERY,
-                BackendType.GRAPHQL,
-            ): "Excellent for package metadata and relationships",
-            (
                 QueryType.PACKAGE_DISCOVERY,
                 BackendType.ELASTICSEARCH,
             ): "Good for package content search",
@@ -287,10 +265,6 @@ class SearchExplainer:
                 QueryType.ANALYTICAL_SEARCH,
                 BackendType.ELASTICSEARCH,
             ): "Supports complex aggregations and analytics",
-            (
-                QueryType.ANALYTICAL_SEARCH,
-                BackendType.GRAPHQL,
-            ): "Good for metadata-based analytics",
         }
 
         return reasons.get(
@@ -301,14 +275,14 @@ class SearchExplainer:
     def _build_fallback_chain(self, query_type: QueryType) -> List[str]:
         """Build fallback chain for query type."""
         chains = {
-            QueryType.FILE_SEARCH: ["elasticsearch", "graphql"],
-            QueryType.PACKAGE_DISCOVERY: ["graphql", "elasticsearch"],
-            QueryType.ANALYTICAL_SEARCH: ["elasticsearch", "graphql"],
-            QueryType.CONTENT_SEARCH: ["elasticsearch", "graphql"],
-            QueryType.METADATA_SEARCH: ["graphql", "elasticsearch"],
+            QueryType.FILE_SEARCH: ["elasticsearch"],
+            QueryType.PACKAGE_DISCOVERY: ["elasticsearch"],
+            QueryType.ANALYTICAL_SEARCH: ["elasticsearch"],
+            QueryType.CONTENT_SEARCH: ["elasticsearch"],
+            QueryType.METADATA_SEARCH: ["elasticsearch"],
         }
 
-        return chains.get(query_type, ["elasticsearch", "graphql"])
+        return chains.get(query_type, ["elasticsearch"])
 
 
 # Global explainer instance

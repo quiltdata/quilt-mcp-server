@@ -130,8 +130,9 @@ class BearerAuthService:
         try:
             client = boto3.client("ssm", region_name=region)
             response = client.get_parameter(Name=parameter_name, WithDecryption=True)
-            value = response.get("Parameter", {}).get("Value")
-            if value:
+            parameter = response.get("Parameter", {})
+            value = parameter.get("Value")
+            if isinstance(value, str) and value:
                 _SECRET_CACHE[cache_key] = value
                 return value
             logger.error("SSM parameter %s did not return a value", parameter_name)
@@ -347,15 +348,25 @@ class BearerAuthService:
         if not isinstance(candidate, dict):
             return None
 
-        normalized = {
-            "access_key_id": candidate.get("accessKeyId") or candidate.get("access_key_id"),
-            "secret_access_key": candidate.get("secretAccessKey") or candidate.get("secret_access_key"),
-            "session_token": candidate.get("sessionToken") or candidate.get("session_token"),
-            "region": candidate.get("region"),
+        access_key_id = candidate.get("accessKeyId") or candidate.get("access_key_id")
+        secret_access_key = candidate.get("secretAccessKey") or candidate.get("secret_access_key")
+        session_token = candidate.get("sessionToken") or candidate.get("session_token")
+        region = candidate.get("region")
+
+        # Ensure required fields are strings
+        if not isinstance(access_key_id, str) or not isinstance(secret_access_key, str):
+            return None
+
+        normalized: Dict[str, str] = {
+            "access_key_id": access_key_id,
+            "secret_access_key": secret_access_key,
         }
 
-        if not normalized["access_key_id"] or not normalized["secret_access_key"]:
-            return None
+        # Add optional fields only if they are strings
+        if isinstance(session_token, str):
+            normalized["session_token"] = session_token
+        if isinstance(region, str):
+            normalized["region"] = region
 
         return normalized
 

@@ -114,7 +114,7 @@ class AuthService:
     def _quilt3_session(self) -> Optional[boto3.Session]:
         """Return a boto3 session sourced from quilt3 when available."""
         try:
-            import quilt3  # type: ignore
+            import quilt3
         except Exception:
             return None
 

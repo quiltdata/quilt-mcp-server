@@ -17,8 +17,8 @@ try:
     from quilt_mcp.services.quilt_service import QuiltService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     # Provide a stub so tests can patch QuiltService without requiring quilt3.
-    class QuiltService:  # type: ignore[misc]
-        def __init__(self, *args, **kwargs):
+    class QuiltService:  # type: ignore[no-redef]
+        def __init__(self, *args: object, **kwargs: object) -> None:
             raise ModuleNotFoundError("quilt3 is required for QuiltService")
 
 

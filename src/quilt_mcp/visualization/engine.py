@@ -126,19 +126,19 @@ class VisualizationEngine:
         Returns:
             PackageAnalysis object with analysis results
         """
-        package_path = Path(package_path)
-        if not package_path.exists():
+        package_path_obj = Path(package_path)
+        if not package_path_obj.exists():
             raise ValueError(f"Package path does not exist: {package_path}")
 
         # Analyze file types and structure
-        file_types = self.file_analyzer.analyze_file_types(package_path)
-        data_files = self.file_analyzer.find_data_files(package_path)
-        genomic_files = self.file_analyzer.find_genomic_files(package_path)
-        image_files = self.file_analyzer.find_image_files(package_path)
-        text_files = self.file_analyzer.find_text_files(package_path)
+        file_types = self.file_analyzer.analyze_file_types(package_path_obj)
+        data_files = self.file_analyzer.find_data_files(package_path_obj)
+        genomic_files = self.file_analyzer.find_genomic_files(package_path_obj)
+        image_files = self.file_analyzer.find_image_files(package_path_obj)
+        text_files = self.file_analyzer.find_text_files(package_path_obj)
 
         # Analyze data content
-        metadata = self.data_analyzer.analyze_package_metadata(package_path)
+        metadata = self.data_analyzer.analyze_package_metadata(package_path_obj)
 
         # Analyze genomic content if present
         if genomic_files:
@@ -246,6 +246,8 @@ class VisualizationEngine:
             elif file_type == "parquet":
                 return self._generate_parquet_visualization(data_file, viz_dir)
 
+            return None
+
         except Exception as e:
             print(f"Error generating visualization for {data_file}: {e}", file=sys.stderr)
             return None
@@ -313,6 +315,20 @@ class VisualizationEngine:
         # Placeholder for Parquet visualization
         return None
 
+    def _get_track_type_from_extension(self, ext: str) -> str:
+        """Determine IGV track type from file extension."""
+        track_types = {
+            ".bam": "alignment",
+            ".sam": "alignment",
+            ".vcf": "variant",
+            ".bed": "annotation",
+            ".gtf": "annotation",
+            ".gff": "annotation",
+            ".bigwig": "wig",
+            ".bw": "wig",
+        }
+        return track_types.get(ext.lower(), "annotation")
+
     def _generate_genomic_visualizations(
         self, genomic_files: List[str], viz_dir: Path, metadata: Dict[str, Any]
     ) -> List[Visualization]:
@@ -324,9 +340,21 @@ class VisualizationEngine:
             genomics_dir = viz_dir / "genomics"
             genomics_dir.mkdir(exist_ok=True)
 
+            # Convert file paths to track configurations
+            tracks = []
+            for genomic_file in genomic_files:
+                file_path = Path(genomic_file)
+                track_type = self._get_track_type_from_extension(file_path.suffix.lower())
+                track = {
+                    "name": file_path.stem,
+                    "url": genomic_file,
+                    "type": track_type,
+                }
+                tracks.append(track)
+
             # Generate IGV session
             igv_session = self.igv_generator.create_igv_session(
-                genomic_files,
+                tracks,
                 metadata.get("genome_assembly", self.config["default_genome"]),
             )
 
@@ -399,12 +427,16 @@ class VisualizationEngine:
 
         try:
             # Package overview chart
-            overview_data = {
-                "file_types": list(analysis.file_types.keys()),
-                "counts": [len(files) for files in analysis.file_types.values()],
-            }
+            import pandas as pd
 
-            overview_config = self.echarts_generator.create_pie_chart(overview_data, "file_types", "counts")
+            overview_df = pd.DataFrame(
+                {
+                    "file_types": list(analysis.file_types.keys()),
+                    "counts": [len(files) for files in analysis.file_types.values()],
+                }
+            )
+
+            overview_config = self.echarts_generator.create_pie_chart(overview_df, "file_types", "counts")
 
             overview_file = viz_dir / "package_overview.json"
             with open(overview_file, "w") as f:
@@ -438,7 +470,7 @@ class VisualizationEngine:
         """
         try:
             # Group visualizations by type
-            grouped_viz = {}
+            grouped_viz: Dict[str, List[Visualization]] = {}
             for viz in visualizations:
                 if viz.type not in grouped_viz:
                     grouped_viz[viz.type] = []

@@ -26,7 +26,6 @@ class TestBackendCapabilities:
         assert "natural_language_query" in capabilities
 
 
-
 class TestBackendStatusHelper:
     """Test the get_search_backend_status() helper function."""
 
