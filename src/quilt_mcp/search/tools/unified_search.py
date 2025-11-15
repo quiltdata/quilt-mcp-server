@@ -10,7 +10,6 @@ from typing import Dict, List, Any, Optional
 from ..core.query_parser import parse_query
 from ..backends.base import BackendRegistry, BackendType, BackendStatus
 from ..backends.elasticsearch import Quilt3ElasticsearchBackend
-from ..backends.graphql import EnterpriseGraphQLBackend
 from ..exceptions import (
     AuthenticationRequired,
     SearchNotAvailable,
@@ -26,13 +25,9 @@ class UnifiedSearchEngine:
 
     def _initialize_backends(self):
         """Initialize and register all available backends."""
-        # Register Elasticsearch backend (wraps quilt3)
+        # Register Elasticsearch backend (only valid backend now)
         es_backend = Quilt3ElasticsearchBackend()
         self.registry.register(es_backend)
-
-        # Register GraphQL backend
-        graphql_backend = EnterpriseGraphQLBackend()
-        self.registry.register(graphql_backend)
 
     async def search(
         self,

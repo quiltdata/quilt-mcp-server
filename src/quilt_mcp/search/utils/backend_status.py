@@ -26,14 +26,6 @@ def get_backend_capabilities(backend_type: BackendType) -> List[str]:
             "object_search",
             "natural_language_query",
         ],
-        BackendType.GRAPHQL: [
-            "metadata_search",
-            "advanced_filtering",
-            "relationship_queries",
-            "package_search",
-            "object_search",
-            "structured_queries",
-        ],
     }
 
     return capabilities_map.get(backend_type, [])
@@ -50,18 +42,12 @@ def get_search_backend_status() -> Dict[str, Any]:
     Returns:
         Dict with the following structure:
         {
-            "available": bool,  # True if any backend is available
-            "backend": str,     # Primary backend name ("elasticsearch" or "graphql")
+            "available": bool,  # True if elasticsearch is available
+            "backend": str,     # Primary backend name ("elasticsearch")
             "capabilities": List[str],  # Capabilities of primary backend
             "status": str,      # Overall status ("ready", "unavailable", "error")
             "backends": {       # Detailed status per backend
                 "elasticsearch": {
-                    "available": bool,
-                    "status": str,
-                    "capabilities": List[str],
-                    "error": Optional[str]
-                },
-                "graphql": {
                     "available": bool,
                     "status": str,
                     "capabilities": List[str],
@@ -91,7 +77,7 @@ def get_search_backend_status() -> Dict[str, Any]:
         registry = engine.registry
 
         # Ensure all backends are initialized before checking status
-        for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
+        for backend_type in [BackendType.ELASTICSEARCH]:
             backend = registry.get_backend(backend_type)
             if backend:
                 backend.ensure_initialized()
@@ -102,7 +88,7 @@ def get_search_backend_status() -> Dict[str, Any]:
         # Build detailed status for each backend
         backend_details = {}
 
-        for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
+        for backend_type in [BackendType.ELASTICSEARCH]:
             backend = registry.get_backend(backend_type)
 
             if backend:
@@ -142,7 +128,6 @@ def get_search_backend_status() -> Dict[str, Any]:
                 backend and hasattr(backend, "_auth_error")
                 for backend in [
                     registry.get_backend(BackendType.ELASTICSEARCH),
-                    registry.get_backend(BackendType.GRAPHQL),
                 ]
             )
 
@@ -166,12 +151,6 @@ def get_search_backend_status() -> Dict[str, Any]:
             "error": f"Failed to get backend status: {e}",
             "backends": {
                 "elasticsearch": {
-                    "available": False,
-                    "status": "error",
-                    "capabilities": [],
-                    "error": str(e),
-                },
-                "graphql": {
                     "available": False,
                     "status": "error",
                     "capabilities": [],

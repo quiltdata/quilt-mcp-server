@@ -13,7 +13,6 @@ class BackendType(Enum):
     """Types of search backends."""
 
     ELASTICSEARCH = "elasticsearch"
-    GRAPHQL = "graphql"
 
 
 class BackendStatus(Enum):
@@ -220,22 +219,13 @@ class BackendRegistry:
         """Select single primary backend based on availability and preference.
 
         Selection priority:
-        1. GraphQL (Enterprise features) - if available
-        2. Elasticsearch (Standard) - if available
-        3. None - if no backends available
+        1. Elasticsearch (only valid backend)
+        2. None - if Elasticsearch not available
 
         Returns:
             The selected backend, or None if no backends available
         """
-        # Prefer GraphQL if available (Enterprise features)
-        graphql_backend = self.get_backend(BackendType.GRAPHQL)
-        if graphql_backend:
-            # Ensure backend is initialized before checking availability
-            graphql_backend.ensure_initialized()
-            if graphql_backend.status == BackendStatus.AVAILABLE:
-                return graphql_backend
-
-        # Fallback to Elasticsearch (standard)
+        # Only Elasticsearch is supported now
         elasticsearch_backend = self.get_backend(BackendType.ELASTICSEARCH)
         if elasticsearch_backend:
             # Ensure backend is initialized before checking availability

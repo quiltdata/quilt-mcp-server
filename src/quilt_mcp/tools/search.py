@@ -135,29 +135,30 @@ def search_catalog(
         if bucket and bucket.startswith("s3://"):
             bucket = bucket[5:].split("/")[0]
 
-        # Handle count-only mode separately
+        # Handle count-only mode by running search and extracting count
         if count_only:
-            from ..search.core.query_parser import parse_query
-            from ..search.backends.elasticsearch import Quilt3ElasticsearchBackend
+            engine = UnifiedSearchEngine()
 
-            analysis = parse_query(query, scope, bucket)
-            query_filters = analysis.filters
-
-            es_backend = Quilt3ElasticsearchBackend()
-            es_backend.ensure_initialized()
-
-            try:
-                total_count = es_backend.get_total_count(query, query_filters)
+            async def _get_count():
+                results = await engine.search(
+                    query=query,
+                    scope=scope,
+                    bucket=bucket,
+                    backend=backend,
+                    limit=0,  # Don't need results
+                    include_metadata=False,
+                    explain_query=False,
+                )
                 return {
                     "success": True,
-                    "total_count": total_count,
+                    "total_count": results.get("total_results", 0),
                     "query": query,
                     "scope": scope,
                     "bucket": bucket,
                     "count_only": True,
                 }
-            except Exception as e:
-                raise RuntimeError(f"Count query failed: {e}")
+
+            return asyncio.run(_get_count())
 
         # Get search engine and execute search
         engine = UnifiedSearchEngine()
