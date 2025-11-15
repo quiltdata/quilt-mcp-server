@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2025-11-14
+
+### Changed
+
+- **Search Backend Simplification**: Removed S3 and GraphQL backends from catalog search
+  - `search_catalog` now only supports Elasticsearch backend for catalog-indexed content
+  - Use `bucket_objects_list` for direct S3 object exploration
+  - Improved search result consistency and reliability
+
+### Fixed
+
+- **Search Result Models**: Enhanced SearchResult fields with better type safety
+- **Elasticsearch Backend**: Improved index pattern handling and scope naming
+- **Test Suite**: Updated search tests to reflect simplified backend architecture
+- **HTTP Timeout**: Added timeout configuration to prevent hanging GraphQL calls
+
 ## [0.9.0] - 2025-11-12
 
 ### Added

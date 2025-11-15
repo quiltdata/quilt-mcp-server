@@ -430,7 +430,9 @@ test_tools:
   discover_permissions:
     description: Discover AWS permissions for the current principal.
     effect: none
-    arguments: {}
+    arguments:
+      check_buckets:
+      - quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -458,6 +460,19 @@ test_tools:
     description: Generate a comprehensive quilt_summarize.json file following Quilt
       standards - Quilt summary file generation tasks
     effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  get_resource:
+    description: Access MCP resources via tool interface for backward compatibility.
+    effect: none
     arguments: {}
     response_schema:
       type: object
@@ -569,6 +584,7 @@ test_tools:
       query: README.md
       limit: 10
       scope: global
+      bucket: s3://quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -578,7 +594,16 @@ test_tools:
             type: object
       required:
       - content
-  search_catalog.bucket:
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find TEST_ENTRY (README.md) in global results (title field)
+      description: Global search should return results including test entry
+  search_catalog.file:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
@@ -586,8 +611,8 @@ test_tools:
     arguments:
       query: README.md
       limit: 10
-      scope: bucket
-      target: s3://quilt-ernest-staging
+      scope: file
+      bucket: s3://quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -597,6 +622,21 @@ test_tools:
             type: object
       required:
       - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find README.md in file search results (title field)
+      description: File search must return TEST_ENTRY (README.md)
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - title
+        - score
   search_catalog.package:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -606,6 +646,7 @@ test_tools:
       query: raw/test
       limit: 10
       scope: package
+      bucket: s3://quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -615,6 +656,16 @@ test_tools:
             type: object
       required:
       - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain: []
+      description: Package search should return results
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - score
   search_explain:
     description: Explain how a search query would be processed and executed - Catalog
       and package search experiences
@@ -804,7 +855,7 @@ test_tools:
       - content
 test_resources:
   auth://status:
-    description: No description
+    description: Check authentication status and catalog configuration
     effect: none
     uri: auth://status
     uri_variables: {}
@@ -817,7 +868,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://catalog/info:
-    description: No description
+    description: Get catalog configuration details
     effect: none
     uri: auth://catalog/info
     uri_variables: {}
@@ -830,7 +881,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   auth://filesystem/status:
-    description: No description
+    description: Check filesystem permissions and writability
     effect: none
     uri: auth://filesystem/status
     uri_variables: {}
@@ -842,34 +893,9 @@ test_resources:
       schema:
         type: object
         description: Auto-generated basic schema - customize as needed
-  permissions://discover:
-    description: No description
-    effect: none
-    uri: permissions://discover
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  permissions://recommendations:
-    description: No description
-    effect: none
-    uri: permissions://recommendations
-    uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
   admin://users:
-    description: No description
+    description: List all users in the Quilt registry with their roles and status
+      (requires admin privileges)
     effect: none
     uri: admin://users
     uri_variables: {}
@@ -882,7 +908,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://roles:
-    description: No description
+    description: List all available roles in the Quilt registry (requires admin privileges)
     effect: none
     uri: admin://roles
     uri_variables: {}
@@ -895,7 +921,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/sso:
-    description: No description
+    description: Current SSO configuration
     effect: none
     uri: admin://config/sso
     uri_variables: {}
@@ -908,7 +934,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   admin://config/tabulator:
-    description: No description
+    description: Tabulator open query configuration
     effect: none
     uri: admin://config/tabulator
     uri_variables: {}
@@ -921,7 +947,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://databases:
-    description: No description
+    description: List available Athena databases
     effect: none
     uri: athena://databases
     uri_variables: {}
@@ -934,7 +960,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://workgroups:
-    description: No description
+    description: List available Athena workgroups
     effect: none
     uri: athena://workgroups
     uri_variables: {}
@@ -947,7 +973,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   athena://query/history:
-    description: No description
+    description: Recent Athena query execution history (last 50 queries)
     effect: none
     uri: athena://query/history
     uri_variables: {}
@@ -960,7 +986,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://templates:
-    description: No description
+    description: List available metadata templates
     effect: none
     uri: metadata://templates
     uri_variables: {}
@@ -973,7 +999,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://examples:
-    description: No description
+    description: Example metadata configurations
     effect: none
     uri: metadata://examples
     uri_variables: {}
@@ -986,7 +1012,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   metadata://troubleshooting:
-    description: No description
+    description: Common metadata issues and solutions
     effect: none
     uri: metadata://troubleshooting
     uri_variables: {}
@@ -999,7 +1025,7 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   workflow://workflows:
-    description: No description
+    description: List all tracked workflows
     effect: none
     uri: workflow://workflows
     uri_variables: {}
@@ -1012,38 +1038,10 @@ test_resources:
         type: object
         description: Auto-generated basic schema - customize as needed
   tabulator://buckets:
-    description: No description
+    description: List buckets with tabulator tables configured
     effect: none
     uri: tabulator://buckets
     uri_variables: {}
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  metadata://templates/{template}:
-    description: No description
-    effect: none
-    uri: metadata://templates/{template}
-    uri_variables:
-      template: CONFIGURE_TEMPLATE
-    expected_mime_type: application/json
-    content_validation:
-      type: json
-      min_length: 1
-      max_length: 100000
-      schema:
-        type: object
-        description: Auto-generated basic schema - customize as needed
-  workflow://workflows/{workflow_id}/status:
-    description: No description
-    effect: none
-    uri: workflow://workflows/{workflow_id}/status
-    uri_variables:
-      workflow_id: CONFIGURE_WORKFLOW_ID
     expected_mime_type: application/json
     content_validation:
       type: json

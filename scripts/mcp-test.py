@@ -225,6 +225,161 @@ class TestResults:
         }
 
 
+class SearchValidator:
+    """Validates search results against expected outcomes."""
+
+    def __init__(self, validation_config: Dict[str, Any], env_vars: Dict[str, str]):
+        """Initialize validator with config and environment.
+
+        Args:
+            validation_config: Validation rules from YAML
+            env_vars: Environment variables for substitution
+        """
+        self.config = validation_config
+        self.env_vars = env_vars
+
+    def validate(self, result: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """Validate search result.
+
+        Returns:
+            (is_valid, error_message)
+            - is_valid: True if validation passed
+            - error_message: None if valid, error string if invalid
+        """
+        validation_type = self.config.get("type")
+
+        if validation_type == "search":
+            return self._validate_search(result)
+        else:
+            # Unknown validation type - skip
+            return True, None
+
+    def _validate_search(self, result: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """Validate search-specific results."""
+
+        # Extract results array from response
+        # MCP tools return {"content": [...]} format
+        content = result.get("content", [])
+        if not content:
+            return False, "Empty response content"
+
+        # Parse the actual results (usually JSON string in content[0]["text"])
+        try:
+            if isinstance(content[0], dict) and "text" in content[0]:
+                search_results = json.loads(content[0]["text"])
+            else:
+                search_results = content[0]
+
+            results_list = search_results.get("results", [])
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            return False, f"Failed to parse search results: {e}"
+
+        # Check minimum results
+        min_results = self.config.get("min_results", 0)
+        if len(results_list) < min_results:
+            return False, f"Expected at least {min_results} results, got {len(results_list)}"
+
+        # Check must_contain rules
+        must_contain = self.config.get("must_contain", [])
+        for rule in must_contain:
+            is_found, error = self._check_must_contain(results_list, rule)
+            if not is_found:
+                return False, error
+
+        # Check result shape if specified
+        result_shape = self.config.get("result_shape")
+        if result_shape:
+            shape_valid, shape_error = self._validate_result_shape(results_list, result_shape)
+            if not shape_valid:
+                return False, shape_error
+
+        # All checks passed
+        return True, None
+
+    def _check_must_contain(
+        self,
+        results: List[Dict],
+        rule: Dict[str, str]
+    ) -> tuple[bool, Optional[str]]:
+        """Check if results contain expected value.
+
+        Args:
+            results: List of result dictionaries
+            rule: must_contain rule with value, field, match_type
+
+        Returns:
+            (is_found, error_message)
+        """
+        expected_value = rule["value"]
+        field_name = rule["field"]
+        match_type = rule.get("match_type", "substring")
+        description = rule.get("description", f"Expected to find '{expected_value}'")
+
+        # Search through results
+        found = False
+        for result in results:
+            actual_value = result.get(field_name, "")
+
+            if match_type == "exact":
+                if actual_value == expected_value:
+                    found = True
+                    break
+            elif match_type == "substring":
+                if expected_value in str(actual_value):
+                    found = True
+                    break
+            elif match_type == "regex":
+                import re
+                if re.search(expected_value, str(actual_value)):
+                    found = True
+                    break
+
+        if not found:
+            # Generate helpful error message
+            error = f"{description}\n"
+            error += f"  Expected: '{expected_value}' in field '{field_name}'\n"
+            error += f"  Match type: {match_type}\n"
+            error += f"  Searched {len(results)} results\n"
+
+            # Show sample of what we found instead
+            if results and len(results) > 0:
+                sample = results[:3]
+                sample_values = [r.get(field_name, "<missing>") for r in sample]
+                error += f"  Sample values: {sample_values}"
+
+            return False, error
+
+        return True, None
+
+    def _validate_result_shape(
+        self,
+        results: List[Dict],
+        shape: Dict[str, Any]
+    ) -> tuple[bool, Optional[str]]:
+        """Validate that results have expected shape.
+
+        Args:
+            results: List of result dictionaries
+            shape: Expected shape with required_fields, optional_fields, etc.
+
+        Returns:
+            (is_valid, error_message)
+        """
+        if not results:
+            return True, None  # Empty results are OK if we got this far
+
+        required_fields = shape.get("required_fields", [])
+
+        # Check first result (representative sample)
+        first_result = results[0]
+        missing_fields = [f for f in required_fields if f not in first_result]
+
+        if missing_fields:
+            return False, f"Results missing required fields: {missing_fields}"
+
+        return True, None
+
+
 class MCPTester:
     """MCP endpoint testing client supporting both stdio and HTTP transports."""
 
@@ -599,6 +754,9 @@ class ToolsTester(MCPTester):
         self.config = config or {}
         self.results = TestResults()
 
+        # NEW: Store environment variables for validation
+        self.env_vars = config.get("environment", {})
+
         # Track tools with side effects
         self.all_side_effects = set()
         self.tested_side_effects = set()
@@ -609,8 +767,20 @@ class ToolsTester(MCPTester):
             if effect != "none":
                 self.all_side_effects.add(tool_name)
 
+    def _summarize_result(self, result: Dict[str, Any]) -> str:
+        """Generate human-readable summary of result for error reporting."""
+        try:
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict) and "text" in content[0]:
+                data = json.loads(content[0]["text"])
+                results = data.get("results", [])
+                return f"{len(results)} results returned"
+            return "Unknown result format"
+        except:
+            return "Could not parse result"
+
     def run_test(self, tool_name: str, test_config: Dict[str, Any]) -> None:
-        """Run a single tool test and record the result.
+        """Run a single tool test with smart validation.
 
         Args:
             tool_name: Name of the tool in config
@@ -628,10 +798,35 @@ class ToolsTester(MCPTester):
             # Call the tool
             result = self.call_tool(actual_tool_name, test_args)
 
-            # Validate response if schema provided
+            # Schema validation (existing)
             if "response_schema" in test_config:
                 validate(result, test_config["response_schema"])
                 self._log("✅ Response schema validation passed")
+
+            # NEW: Smart validation for search tools
+            if "validation" in test_config:
+                validator = SearchValidator(
+                    test_config["validation"],
+                    self.env_vars
+                )
+                is_valid, error_msg = validator.validate(result)
+
+                if not is_valid:
+                    # Validation failed - record detailed error
+                    print(f"❌ {tool_name}: VALIDATION FAILED")
+                    print(f"   {error_msg}")
+
+                    self.results.record_failure({
+                        "name": tool_name,
+                        "actual_tool": actual_tool_name,
+                        "arguments": test_args,
+                        "error": f"Smart validation failed: {error_msg}",
+                        "error_type": "ValidationError",
+                        "result_summary": self._summarize_result(result)
+                    })
+                    return
+                else:
+                    self._log(f"✅ Smart validation passed: {test_config['validation'].get('description', 'OK')}")
 
             print(f"✅ {tool_name}: PASSED")
 
@@ -640,7 +835,8 @@ class ToolsTester(MCPTester):
                 "name": tool_name,
                 "actual_tool": actual_tool_name,
                 "arguments": test_args,
-                "result": result
+                "result": result,
+                "validation": "passed" if "validation" in test_config else "schema_only"
             })
 
             # Track if tool with side effects was tested

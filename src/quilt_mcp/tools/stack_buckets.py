@@ -4,6 +4,7 @@ import logging
 from typing import List, Set, Optional
 from urllib.parse import urljoin
 
+from ..config import http_config
 from ..services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
             # Query for bucket configurations (this gets all buckets in the stack)
             query = {"query": "query { bucketConfigs { name title } }"}
 
-            response = session.post(graphql_url, json=query)
+            response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()

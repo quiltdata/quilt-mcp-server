@@ -7,7 +7,6 @@ integration into catalog_info resources and search_catalog responses.
 
 from typing import Dict, List, Any, Optional
 from ..backends.base import BackendType, BackendStatus, SearchBackend
-from ..tools.unified_search import get_search_engine
 
 
 def get_backend_capabilities(backend_type: BackendType) -> List[str]:
@@ -27,14 +26,6 @@ def get_backend_capabilities(backend_type: BackendType) -> List[str]:
             "object_search",
             "natural_language_query",
         ],
-        BackendType.GRAPHQL: [
-            "metadata_search",
-            "advanced_filtering",
-            "relationship_queries",
-            "package_search",
-            "object_search",
-            "structured_queries",
-        ],
     }
 
     return capabilities_map.get(backend_type, [])
@@ -51,18 +42,12 @@ def get_search_backend_status() -> Dict[str, Any]:
     Returns:
         Dict with the following structure:
         {
-            "available": bool,  # True if any backend is available
-            "backend": str,     # Primary backend name ("elasticsearch" or "graphql")
+            "available": bool,  # True if elasticsearch is available
+            "backend": str,     # Primary backend name ("elasticsearch")
             "capabilities": List[str],  # Capabilities of primary backend
             "status": str,      # Overall status ("ready", "unavailable", "error")
             "backends": {       # Detailed status per backend
                 "elasticsearch": {
-                    "available": bool,
-                    "status": str,
-                    "capabilities": List[str],
-                    "error": Optional[str]
-                },
-                "graphql": {
                     "available": bool,
                     "status": str,
                     "capabilities": List[str],
@@ -84,23 +69,27 @@ def get_search_backend_status() -> Dict[str, Any]:
         ```
     """
     try:
-        # Get the search engine instance
-        engine = get_search_engine()
+        # Import here to avoid circular dependency
+        from ..tools.unified_search import UnifiedSearchEngine
+
+        # Get the search engine and its registry
+        engine = UnifiedSearchEngine()
+        registry = engine.registry
 
         # Ensure all backends are initialized before checking status
-        for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
-            backend = engine.registry.get_backend(backend_type)
+        for backend_type in [BackendType.ELASTICSEARCH]:
+            backend = registry.get_backend(backend_type)
             if backend:
                 backend.ensure_initialized()
 
         # Check which backend is selected as primary
-        primary_backend = engine.registry._select_primary_backend()
+        primary_backend = registry._select_primary_backend()
 
         # Build detailed status for each backend
         backend_details = {}
 
-        for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
-            backend = engine.registry.get_backend(backend_type)
+        for backend_type in [BackendType.ELASTICSEARCH]:
+            backend = registry.get_backend(backend_type)
 
             if backend:
                 is_available = backend.status == BackendStatus.AVAILABLE
@@ -138,8 +127,7 @@ def get_search_backend_status() -> Dict[str, Any]:
             has_auth_error = any(
                 backend and hasattr(backend, "_auth_error")
                 for backend in [
-                    engine.registry.get_backend(BackendType.ELASTICSEARCH),
-                    engine.registry.get_backend(BackendType.GRAPHQL),
+                    registry.get_backend(BackendType.ELASTICSEARCH),
                 ]
             )
 
@@ -163,12 +151,6 @@ def get_search_backend_status() -> Dict[str, Any]:
             "error": f"Failed to get backend status: {e}",
             "backends": {
                 "elasticsearch": {
-                    "available": False,
-                    "status": "error",
-                    "capabilities": [],
-                    "error": str(e),
-                },
-                "graphql": {
                     "available": False,
                     "status": "error",
                     "capabilities": [],

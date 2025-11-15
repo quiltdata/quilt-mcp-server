@@ -25,15 +25,6 @@ class TestBackendCapabilities:
         assert "object_search" in capabilities
         assert "natural_language_query" in capabilities
 
-    def test_graphql_capabilities(self):
-        """Test that GraphQL capabilities are correctly defined."""
-        capabilities = get_backend_capabilities(BackendType.GRAPHQL)
-        assert "metadata_search" in capabilities
-        assert "advanced_filtering" in capabilities
-        assert "relationship_queries" in capabilities
-        assert "package_search" in capabilities
-        assert "object_search" in capabilities
-        assert "structured_queries" in capabilities
 
 
 class TestBackendStatusHelper:
@@ -55,10 +46,9 @@ class TestBackendStatusHelper:
 
         # Check that backends dict has expected structure
         assert "elasticsearch" in status["backends"]
-        assert "graphql" in status["backends"]
 
         # Each backend should have these fields
-        for backend_name in ["elasticsearch", "graphql"]:
+        for backend_name in ["elasticsearch"]:
             backend_info = status["backends"][backend_name]
             assert "available" in backend_info
             assert "status" in backend_info
@@ -68,12 +58,13 @@ class TestBackendStatusHelper:
 
     def test_backend_status_when_available(self):
         """Test backend status when a backend is available."""
-        with patch("quilt_mcp.search.utils.backend_status.get_search_engine") as mock_engine:
+        with patch("quilt_mcp.search.tools.unified_search.UnifiedSearchEngine") as mock_engine:
             # Create mock backend that is available
             mock_backend = Mock()
             mock_backend.backend_type = BackendType.ELASTICSEARCH
             mock_backend.status = BackendStatus.AVAILABLE
             mock_backend.last_error = None
+            mock_backend.ensure_initialized = Mock()
 
             # Setup registry mock
             mock_registry = Mock()
@@ -94,12 +85,13 @@ class TestBackendStatusHelper:
 
     def test_backend_status_when_unavailable(self):
         """Test backend status when no backends are available."""
-        with patch("quilt_mcp.search.utils.backend_status.get_search_engine") as mock_engine:
+        with patch("quilt_mcp.search.tools.unified_search.UnifiedSearchEngine") as mock_engine:
             # Create mock backend that is unavailable
             mock_backend = Mock()
             mock_backend.backend_type = BackendType.ELASTICSEARCH
             mock_backend.status = BackendStatus.UNAVAILABLE
             mock_backend.last_error = "Not authenticated"
+            mock_backend.ensure_initialized = Mock()
 
             # Setup registry mock
             mock_registry = Mock()
@@ -119,8 +111,8 @@ class TestBackendStatusHelper:
 
     def test_backend_status_error_handling(self):
         """Test that backend status handles errors gracefully."""
-        with patch("quilt_mcp.search.utils.backend_status.get_search_engine") as mock_engine:
-            # Make get_search_engine raise an exception
+        with patch("quilt_mcp.search.tools.unified_search.UnifiedSearchEngine") as mock_engine:
+            # Make UnifiedSearchEngine raise an exception
             mock_engine.side_effect = Exception("Test error")
 
             status = get_search_backend_status()
@@ -193,20 +185,3 @@ class TestCatalogInfoIntegration:
         assert "search_backend_status" in result
         assert result["search_backend_status"]["available"] is False
         assert "error" in result["search_backend_status"]
-
-
-class TestSearchCatalogIntegration:
-    """Test backend status integration into search_catalog responses."""
-
-    def test_search_response_includes_backend_info(self):
-        """Test that search_catalog responses include backend_info."""
-        # This is an integration test - just verify the structure is correct
-        # The actual search functionality is tested elsewhere
-        from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine
-
-        engine = UnifiedSearchEngine()
-
-        # Verify backend_info would be included in response structure
-        # This is validated by the fact that the code adds it in the response
-        assert hasattr(engine, "registry")
-        assert hasattr(engine.registry, "_select_primary_backend")

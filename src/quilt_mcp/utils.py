@@ -139,7 +139,7 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "catalog_info",
         "catalog_name",
         "filesystem_status",
-        "aws_permissions_discover",
+        # Note: discover_permissions is kept as TOOL (not resource) to accept parameters
         "bucket_recommendations_get",
         "athena_query_history",
         "get_metadata_template",

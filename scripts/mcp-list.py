@@ -36,7 +36,11 @@ async def extract_tool_metadata(server) -> List[Dict[str, Any]]:
     for tool_name, handler in server_tools.items():
         # Get function signature and docstring
         sig = inspect.signature(handler.fn)
-        doc = inspect.getdoc(handler.fn) or "No description available"
+        doc = inspect.getdoc(handler.fn)
+
+        # ERROR if tool lacks a description
+        if not doc:
+            raise ValueError(f"Tool '{tool_name}' is missing a docstring description!")
 
         # Get module information
         module = inspect.getmodule(handler.fn)
@@ -75,34 +79,44 @@ async def extract_resource_metadata(server) -> List[Dict[str, Any]]:
     resource_templates = await server.get_resource_templates()
 
     # Process static resources
-    for resource in static_resources:
-        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
-        name = resource.name if hasattr(resource, 'name') else "Unknown"
-        description = resource.description if hasattr(resource, 'description') else "No description"
+    # static_resources is a dict with URI keys and FunctionResource values
+    for uri, resource in static_resources.items():
+        # ERROR if resource lacks a name
+        if not hasattr(resource, 'name') or not resource.name:
+            raise ValueError(f"Resource '{uri}' is missing a name!")
+
+        # ERROR if resource lacks a description
+        if not hasattr(resource, 'description') or not resource.description:
+            raise ValueError(f"Resource '{uri}' is missing a description!")
 
         resources.append({
             "type": "resource",
             "name": uri,
             "module": "resources",
             "signature": f"@mcp.resource('{uri}')",
-            "description": description,
+            "description": resource.description,
             "is_async": True,
             "full_module_path": "quilt_mcp.resources",
             "handler_class": "FastMCP Resource"
         })
 
     # Process resource templates
-    for template in resource_templates:
-        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
-        name = template.name if hasattr(template, 'name') else "Unknown"
-        description = template.description if hasattr(template, 'description') else "No description"
+    # resource_templates is a dict with URI template keys and FunctionResource values
+    for uri_template, template in resource_templates.items():
+        # ERROR if template lacks a name
+        if not hasattr(template, 'name') or not template.name:
+            raise ValueError(f"Resource template '{uri_template}' is missing a name!")
+
+        # ERROR if template lacks a description
+        if not hasattr(template, 'description') or not template.description:
+            raise ValueError(f"Resource template '{uri_template}' is missing a description!")
 
         resources.append({
             "type": "resource",
             "name": uri_template,
             "module": "resources",
             "signature": f"@mcp.resource('{uri_template}')",
-            "description": description,
+            "description": template.description,
             "is_async": True,
             "full_module_path": "quilt_mcp.resources",
             "handler_class": "FastMCP Template"
@@ -214,7 +228,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Special handling: if variant name contains "package", uses QUILT_TEST_PACKAGE, else QUILT_TEST_ENTRY
     tool_variants = {
         "search_catalog": {
-            "scope": ["global", "bucket", "package"]
+            "scope": ["global", "file", "package"]
         }
     }
 
@@ -242,9 +256,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # package_create_from_s3: Omitted - 'create' effect
 
         # Search operations
-        "search_catalog.global": {"query": test_entry, "limit": 10, "scope": "global"},
-        "search_catalog.bucket": {"query": test_entry, "limit": 10, "scope": "bucket", "target": default_bucket},
-        "search_catalog.package": {"query": test_package, "limit": 10, "scope": "package"},
+        "search_catalog.global": {"query": test_entry, "limit": 10, "scope": "global", "bucket": default_bucket},
+        "search_catalog.file": {"query": test_entry, "limit": 10, "scope": "file", "bucket": default_bucket},
+        "search_catalog.package": {"query": test_package, "limit": 10, "scope": "package", "bucket": default_bucket},
         "search_explain": {"query": "CSV files"},
         "search_suggest": {"partial_query": test_package[:5], "limit": 5},
 
@@ -263,6 +277,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # Visualization operations
         # create_data_visualization: Omitted - 'create' effect
         # create_quilt_summary_files, generate_package_visualizations, generate_quilt_summarize_json: Omitted - 'create'/'generate' effects
+
+        # Permissions operations - limit to test bucket for faster execution
+        "discover_permissions": {"check_buckets": [bucket_name]},
 
         # Admin/Governance operations (all omitted - require special permissions and have side effects)
         # admin_user_*, admin_sso_*, admin_tabulator_*: All omitted
@@ -311,9 +328,9 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                         query_value = test_package if "package" in param_value else test_entry
                         arguments = {"query": query_value, "limit": 10, param_name: param_value}
 
-                        # Add target for bucket scope
-                        if param_value == "bucket":
-                            arguments["target"] = default_bucket
+                        # Add bucket parameter for file scope
+                        if param_value == "file":
+                            arguments["bucket"] = default_bucket
 
                     test_case = {
                         "tool": tool_name,  # Store the actual tool name
@@ -333,6 +350,53 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                             "required": ["content"]
                         }
                     }
+
+                    # NEW: Add smart validation rules for search variants
+                    if tool_name == "search_catalog":
+                        validation = {
+                            "type": "search",
+                            "min_results": 1,
+                            "must_contain": []
+                        }
+
+                        if param_value == "bucket" or param_value == "file":
+                            # File/bucket search must find TEST_ENTRY
+                            # SearchResult has: id, type, title, logical_key, s3_uri, size, etc.
+                            # For files: title has the filename (logical_key is only for packaged files)
+                            validation["description"] = f"File search must return TEST_ENTRY ({test_entry})"
+                            validation["must_contain"].append({
+                                "value": test_entry,
+                                "field": "title",  # Use title instead of logical_key (works for all files)
+                                "match_type": "substring",
+                                "description": f"Must find {test_entry} in file search results (title field)"
+                            })
+                            validation["result_shape"] = {
+                                "required_fields": ["id", "type", "title", "score"]  # Changed from key/size to actual fields
+                            }
+
+                        elif param_value == "package":
+                            # Package search should return results
+                            # Note: Current ES index structure may not have package names populated
+                            validation["description"] = f"Package search should return results"
+                            validation["min_results"] = 1
+                            validation["result_shape"] = {
+                                "required_fields": ["id", "type", "score"]
+                            }
+                            # Note: Not requiring specific package name match due to index structure limitations
+
+                        elif param_value == "global":
+                            # Global search should find test entry
+                            # Note: Not checking for package names due to index structure limitations
+                            validation["description"] = "Global search should return results including test entry"
+                            validation["must_contain"].append({
+                                "value": test_entry,
+                                "field": "title",  # Use title for file searches
+                                "match_type": "substring",
+                                "description": f"Must find TEST_ENTRY ({test_entry}) in global results (title field)"
+                            })
+                            validation["min_results"] = 1  # At least the test entry
+
+                        test_case["validation"] = validation
 
                     test_config["test_tools"][variant_key] = test_case
         else:
@@ -366,16 +430,19 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     resource_templates = await server.get_resource_templates()
 
     # Process both static resources and templates
+    # Both are dicts with URI (template) keys and FunctionResource values
     all_resources = []
-    for resource in static_resources:
-        uri = resource.uri if hasattr(resource, 'uri') else str(resource)
-        desc = resource.description if hasattr(resource, 'description') else "No description"
-        all_resources.append((uri, desc))
+    for uri, resource in static_resources.items():
+        # ERROR if resource lacks a description
+        if not hasattr(resource, 'description') or not resource.description:
+            raise ValueError(f"Resource '{uri}' is missing a description in test YAML generation!")
+        all_resources.append((uri, resource.description))
 
-    for template in resource_templates:
-        uri_template = template.uri_template if hasattr(template, 'uri_template') else str(template)
-        desc = template.description if hasattr(template, 'description') else "No description"
-        all_resources.append((uri_template, desc))
+    for uri_template, template in resource_templates.items():
+        # ERROR if template lacks a description
+        if not hasattr(template, 'description') or not template.description:
+            raise ValueError(f"Resource template '{uri_template}' is missing a description in test YAML generation!")
+        all_resources.append((uri_template, template.description))
 
     for uri_pattern, doc in all_resources:
 

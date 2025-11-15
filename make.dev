@@ -22,7 +22,7 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: mcpb-validate test-scripts | $(RESULTS_DIR)
+test-all: test-scripts mcpb-validate | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
@@ -84,7 +84,7 @@ coverage-html:
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
-test-scripts: docker-check scripts/tests/test_*.py | $(RESULTS_DIR)
+test-scripts: coverage docker-check scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
 	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "test_*.py" | wc -l)" -gt 0 ]; then \
@@ -170,4 +170,6 @@ dev-clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf build/ dist/ .ruff_cache/ 2>/dev/null || true
 	@find . -name ".DS_Store" -delete 2>/dev/null || true
+	@echo "Cleaning UV cache (for uvx test)..."
+	@rm -rf ~/.cache/uv/archive-v0/* 2>/dev/null || true
 	@echo "✅ Development cleanup completed"

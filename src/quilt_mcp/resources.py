@@ -88,32 +88,7 @@ def register_resources(mcp: "FastMCP") -> None:
     # ====================
     # Permissions Resources
     # ====================
-
-    @mcp.resource(
-        "permissions://discover",
-        name="Permissions Discovery",
-        description="Discover AWS permissions for current user/role",
-        mime_type="application/json",
-    )
-    async def permissions_discover() -> str:
-        """Discover AWS permissions."""
-        from quilt_mcp.services.permissions_service import discover_permissions
-
-        result = await asyncio.to_thread(discover_permissions)
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "permissions://recommendations",
-        name="Bucket Recommendations",
-        description="Smart bucket recommendations based on permissions and context",
-        mime_type="application/json",
-    )
-    async def bucket_recommendations() -> str:
-        """Get bucket recommendations."""
-        from quilt_mcp.services.permissions_service import bucket_recommendations_get
-
-        result = await asyncio.to_thread(bucket_recommendations_get)
-        return _serialize_result(result)
+    # Note: discover_permissions and bucket_recommendations_get are exposed as TOOLS (not resources) to accept parameters
 
     # ====================
     # Admin Resources
@@ -136,15 +111,14 @@ def register_resources(mcp: "FastMCP") -> None:
             # Provide helpful error message for authorization failures
             error_msg = str(e)
             if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
-                return _serialize_result({
-                    "error": "Unauthorized",
-                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
-                    "suggestion": "Contact your Quilt administrator to request admin access."
-                })
-            return _serialize_result({
-                "error": "Failed to list users",
-                "message": error_msg
-            })
+                return _serialize_result(
+                    {
+                        "error": "Unauthorized",
+                        "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                        "suggestion": "Contact your Quilt administrator to request admin access.",
+                    }
+                )
+            return _serialize_result({"error": "Failed to list users", "message": error_msg})
 
     @mcp.resource(
         "admin://roles",
@@ -163,15 +137,14 @@ def register_resources(mcp: "FastMCP") -> None:
             # Provide helpful error message for authorization failures
             error_msg = str(e)
             if "Unauthorized" in error_msg or "403" in error_msg or "401" in error_msg:
-                return _serialize_result({
-                    "error": "Unauthorized",
-                    "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
-                    "suggestion": "Contact your Quilt administrator to request admin access."
-                })
-            return _serialize_result({
-                "error": "Failed to list roles",
-                "message": error_msg
-            })
+                return _serialize_result(
+                    {
+                        "error": "Unauthorized",
+                        "message": "This resource requires admin privileges in the Quilt catalog. Please ensure you are logged in with an admin account.",
+                        "suggestion": "Contact your Quilt administrator to request admin access.",
+                    }
+                )
+            return _serialize_result({"error": "Failed to list roles", "message": error_msg})
 
     @mcp.resource(
         "admin://config/sso",
@@ -246,7 +219,7 @@ def register_resources(mcp: "FastMCP") -> None:
             start_time=None,
             end_time=None,
             use_quilt_auth=True,
-            service=None
+            service=None,
         )
         return _serialize_result(result)
 
@@ -292,19 +265,6 @@ def register_resources(mcp: "FastMCP") -> None:
         result = {"status": "info", "message": "For metadata troubleshooting, use fix_metadata_validation_issues()"}
         return _serialize_result(result)
 
-    @mcp.resource(
-        "metadata://templates/{template}",
-        name="Metadata Template Details",
-        description="Get detailed information about a specific metadata template",
-        mime_type="application/json",
-    )
-    async def metadata_template(template: str) -> str:
-        """Get template details."""
-        from quilt_mcp.services.metadata_service import get_metadata_template
-
-        result = await asyncio.to_thread(get_metadata_template, name=template)
-        return _serialize_result(result)
-
     # ====================
     # Workflow Resources
     # ====================
@@ -320,19 +280,6 @@ def register_resources(mcp: "FastMCP") -> None:
         from quilt_mcp.services.workflow_service import workflow_list_all
 
         result = await asyncio.to_thread(workflow_list_all)
-        return _serialize_result(result)
-
-    @mcp.resource(
-        "workflow://workflows/{workflow_id}/status",
-        name="Workflow Status",
-        description="Get status for a specific workflow",
-        mime_type="application/json",
-    )
-    async def workflow_status(workflow_id: str) -> str:
-        """Get workflow status."""
-        from quilt_mcp.services.workflow_service import workflow_get_status
-
-        result = await asyncio.to_thread(workflow_get_status, id=workflow_id)
         return _serialize_result(result)
 
     # ====================

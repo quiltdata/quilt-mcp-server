@@ -43,6 +43,7 @@ _MODULE_PATHS = {
     "workflow_orchestration": "quilt_mcp.services.workflow_service",
     "governance": "quilt_mcp.services.governance_service",
     "permissions": "quilt_mcp.services.permissions_service",
+    "resource_access": "quilt_mcp.tools.resource_access",
     # error_recovery temporarily disabled due to Callable parameter issues
 }
 

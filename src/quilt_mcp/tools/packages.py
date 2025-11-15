@@ -773,7 +773,7 @@ def package_browse(
             ],
             suggested_actions=[
                 f"Try: packages_list(registry='{registry}') to see available packages",
-                f"Try: unified_search(query='{package_name.split('/')[-1]}', scope='package') to find similar packages",
+                f"Try: search_catalog(query='{package_name.split('/')[-1]}', scope='package') to find similar packages",
             ],
         )
 

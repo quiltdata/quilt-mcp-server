@@ -1,6 +1,6 @@
 [project]
 name = "quilt-mcp"
-version = "0.9.0"
+version = "0.9.1"
 description = "Secure MCP server for accessing Quilt data with JWT authentication"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -68,7 +68,7 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 test = [
     "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0", 
+    "pytest-asyncio>=1.0.0",
     "pytest-cov>=4.0.0",
     "pytest-timeout>=2.1.0",
     "quilt3>=5.6.0",
@@ -99,6 +99,8 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short --color=yes"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
 markers = [
     "admin: marks tests that require Quilt admin privileges (deselect with '-m \"not admin\"')",
     "integration: marks tests that require AWS credentials, network access, or external services (deselect with '-m \"not integration\"')",
@@ -158,15 +160,7 @@ module = "quilt_mcp.visualization.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "quilt_mcp.search.backends.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
 module = "quilt_mcp.search.tools.search_explain"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "quilt_mcp.search.tools.unified_search"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

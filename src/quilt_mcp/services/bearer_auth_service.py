@@ -216,7 +216,7 @@ class BearerAuthService:
             "package_create": ["quilt:UpdatePackage"],
             "package_update": ["quilt:UpdatePackage"],
             "package_delete": ["quilt:UpdatePackage"],
-            "unified_search": ["quilt:BrowsePackages"],
+            "search_catalog": ["quilt:BrowsePackages"],
         }
 
         overrides_env = os.getenv("MCP_TOOL_PERMISSIONS")

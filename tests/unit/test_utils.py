@@ -518,14 +518,9 @@ class TestMCPServerConfiguration(unittest.TestCase):
 
             # Module should be from quilt_mcp namespace
             self.assertTrue(
-                module.__name__.startswith("quilt_mcp."),
-                f"Module {module.__name__} should be in quilt_mcp namespace"
+                module.__name__.startswith("quilt_mcp."), f"Module {module.__name__} should be in quilt_mcp namespace"
             )
 
             # Module should have at least one function
             functions = [obj for name, obj in inspect.getmembers(module, inspect.isfunction)]
-            self.assertGreater(
-                len(functions),
-                0,
-                f"Module {module.__name__} should have at least one function"
-            )
+            self.assertGreater(len(functions), 0, f"Module {module.__name__} should have at least one function")

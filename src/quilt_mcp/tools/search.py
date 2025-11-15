@@ -8,7 +8,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from ..constants import DEFAULT_BUCKET
+from ..config import http_config
 from ..models.responses import (
     SearchCatalogError,
     SearchCatalogSuccess,
@@ -20,7 +20,7 @@ from ..models.responses import (
 )
 from ..search.tools.search_explain import search_explain as _search_explain
 from ..search.tools.search_suggest import search_suggest as _search_suggest
-from ..search.tools.unified_search import unified_search as _unified_search
+from ..search.tools.unified_search import UnifiedSearchEngine
 
 
 def search_catalog(
@@ -31,17 +31,17 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "bucket"],
+        Literal["global", "package", "file"],
         Field(
-            default="bucket",
-            description='Search scope - "bucket" (specific bucket, default), "package" (current catalog), "package" (specific package), "global" (all)',
+            default="file",
+            description='Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)',
         ),
-    ] = "bucket",
-    target: Annotated[
+    ] = "file",
+    bucket: Annotated[
         str,
         Field(
             default="",
-            description='Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Defaults to DEFAULT_BUCKET from environment when scope is "bucket" and target is empty.',
+            description='S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.',
         ),
     ] = "",
     backend: Annotated[
@@ -65,13 +65,6 @@ def search_catalog(
             description="Include rich metadata in results (default: True)",
         ),
     ] = True,
-    include_content_preview: Annotated[
-        bool,
-        Field(
-            default=False,
-            description="Include content previews for files (default: False)",
-        ),
-    ] = False,
     explain_query: Annotated[
         bool,
         Field(
@@ -102,12 +95,11 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "bucket" (default, searches default bucket), "package" (current catalog), "package" (specific package), "global" (all)
-        target: Specific target when scope is narrow (package name like "user/dataset" or bucket like "s3://my-bucket"). Auto-populated from DEFAULT_BUCKET env var when scope="bucket" and target is empty.
+        scope: Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)
+        bucket: S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.
         backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
-        include_content_preview: Include content previews for files (default: False)
         explain_query: Include query execution explanation and backend selection reasoning (default: False)
         count_only: Return aggregated counts only (skips fetching full result payloads) when True.
 
@@ -115,11 +107,11 @@ def search_catalog(
         Unified search results with metadata, explanations, and suggestions
 
     Examples:
-        search_catalog("CSV files")  # Uses default bucket scope with elasticsearch
-        search_catalog("files larger than 100MB created after 2024-01-01")  # Default bucket
-        search_catalog("packages created last month", scope="package")  # Catalog-wide search
-        search_catalog("README files", scope="package", target="user/dataset")  # Package search
-        search_catalog("Parquet files", scope="bucket", target="s3://other-bucket")  # Specific bucket
+        search_catalog("CSV files")  # File-level search across all buckets
+        search_catalog("files larger than 100MB created after 2024-01-01", bucket="my-bucket")  # Specific bucket
+        search_catalog("packages created last month", scope="package")  # Package-level search
+        search_catalog("README files", scope="global")  # Global search (files and packages)
+        search_catalog("Parquet files", bucket="s3://other-bucket")  # Specific bucket with s3:// URI
 
     Next step:
         Summarize the search insight or refine the query with another search helper.
@@ -139,12 +131,50 @@ def search_catalog(
         if not backend:
             backend = "elasticsearch"
 
-        # Set default target to DEFAULT_BUCKET when scope is "bucket" and target is empty
-        if scope == "bucket" and not target:
-            if DEFAULT_BUCKET:
-                target = DEFAULT_BUCKET
+        # Normalize bucket (extract from s3:// URI if provided)
+        if bucket and bucket.startswith("s3://"):
+            bucket = bucket[5:].split("/")[0]
+
+        # Handle count-only mode by running search and extracting count
+        if count_only:
+            engine = UnifiedSearchEngine()
+
+            async def _get_count():
+                results = await engine.search(
+                    query=query,
+                    scope=scope,
+                    bucket=bucket,
+                    backend=backend,
+                    limit=0,  # Don't need results
+                    include_metadata=False,
+                    explain_query=False,
+                )
+                return {
+                    "success": True,
+                    "total_count": results.get("total_results", 0),
+                    "query": query,
+                    "scope": scope,
+                    "bucket": bucket,
+                    "count_only": True,
+                }
+
+            return asyncio.run(_get_count())
+
+        # Get search engine and execute search
+        engine = UnifiedSearchEngine()
 
         # Handle async execution properly for MCP tools
+        async def _execute_search():
+            return await engine.search(
+                query=query,
+                scope=scope,
+                bucket=bucket,
+                backend=backend,
+                limit=limit,
+                include_metadata=include_metadata,
+                explain_query=explain_query,
+            )
+
         try:
             # Try to get the current event loop
             asyncio.get_running_loop()
@@ -152,43 +182,18 @@ def search_catalog(
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    _unified_search(
-                        query=query,
-                        scope=scope,
-                        target=target,
-                        backend=backend,
-                        limit=limit,
-                        include_metadata=include_metadata,
-                        include_content_preview=include_content_preview,
-                        explain_query=explain_query,
-                        count_only=count_only,
-                    ),
-                )
+                future = executor.submit(asyncio.run, _execute_search())
                 result = future.result(timeout=30)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
-            result = asyncio.run(
-                _unified_search(
-                    query=query,
-                    scope=scope,
-                    target=target,
-                    backend=backend,
-                    limit=limit,
-                    include_metadata=include_metadata,
-                    include_content_preview=include_content_preview,
-                    explain_query=explain_query,
-                    count_only=count_only,
-                )
-            )
+            result = asyncio.run(_execute_search())
 
         # Convert result dict to proper response model, then serialize to dict
         if result.get("success", False):
             return SearchCatalogSuccess(
                 query=result["query"],
                 scope=result["scope"],
-                target=result["target"],
+                bucket=result.get("bucket", ""),
                 results=[SearchResult(**r) for r in result.get("results", [])],
                 total_results=result.get("total_results", 0),
                 query_time_ms=result.get("query_time_ms", 0.0),
@@ -204,7 +209,7 @@ def search_catalog(
                 error=result.get("error", "Search failed"),
                 query=result["query"],
                 scope=result.get("scope", scope),
-                target=result.get("target", target),
+                bucket=result.get("bucket", bucket),
                 backend_used=result.get("backend_used"),
                 backend_status=result.get("backend_status"),
             )
@@ -295,17 +300,17 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "bucket"],
+        Literal["global", "package", "file"],
         Field(
             default="global",
             description="Search scope",
         ),
     ] = "global",
-    target: Annotated[
+    bucket: Annotated[
         str,
         Field(
             default="",
-            description="Target for scoped searches",
+            description="S3 bucket for scoped searches",
         ),
     ] = "",
 ) -> SearchExplainSuccess | SearchExplainError:
@@ -314,7 +319,7 @@ def search_explain(
     Args:
         query: Search query to explain
         scope: Search scope
-        target: Target for scoped searches
+        bucket: S3 bucket for scoped searches
 
     Returns:
         Detailed explanation of query processing and backend selection
@@ -423,7 +428,9 @@ def search_graphql(
         )
 
     try:
-        resp = session.post(graphql_url, json={"query": query, "variables": variables or {}})
+        resp = session.post(
+            graphql_url, json={"query": query, "variables": variables or {}}, timeout=http_config.SERVICE_TIMEOUT
+        )
         if resp.status_code != 200:
             return SearchGraphQLError(error=f"GraphQL HTTP {resp.status_code}: {resp.text}")
 

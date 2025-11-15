@@ -13,7 +13,6 @@ class BackendType(Enum):
     """Types of search backends."""
 
     ELASTICSEARCH = "elasticsearch"
-    GRAPHQL = "graphql"
 
 
 class BackendStatus(Enum):
@@ -32,7 +31,7 @@ class SearchResult:
     id: str
     type: str  # 'file', 'package', 'object'
     title: str
-    description: Optional[str] = None
+    description: str = ""
     url: Optional[str] = None
     s3_uri: Optional[str] = None
     package_name: Optional[str] = None
@@ -42,6 +41,12 @@ class SearchResult:
     metadata: Dict[str, Any] | None = None
     score: float = 0.0
     backend: str = ""
+    # New fields for simplified search API
+    name: str = ""
+    bucket: Optional[str] = None
+    content_type: Optional[str] = None
+    extension: Optional[str] = None
+    content_preview: Optional[str] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -129,7 +134,7 @@ class SearchBackend(ABC):
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
     ) -> BackendResponse:
@@ -137,8 +142,8 @@ class SearchBackend(ABC):
 
         Args:
             query: Search query string
-            scope: Search scope (global, catalog, package, bucket)
-            target: Specific target when scope is narrow
+            scope: Search scope (global, package, file)
+            bucket: S3 bucket to search in (empty = all buckets)
             filters: Additional filters to apply
             limit: Maximum number of results
 
@@ -202,7 +207,11 @@ class BackendRegistry:
         """Get a backend by string name."""
         try:
             backend_type = BackendType(name.lower())
-            return self.get_backend(backend_type)
+            backend = self.get_backend(backend_type)
+            if backend:
+                # Ensure backend is initialized when accessed by name
+                backend.ensure_initialized()
+            return backend
         except ValueError:
             return None
 
@@ -210,22 +219,19 @@ class BackendRegistry:
         """Select single primary backend based on availability and preference.
 
         Selection priority:
-        1. GraphQL (Enterprise features) - if available
-        2. Elasticsearch (Standard) - if available
-        3. None - if no backends available
+        1. Elasticsearch (only valid backend)
+        2. None - if Elasticsearch not available
 
         Returns:
             The selected backend, or None if no backends available
         """
-        # Prefer GraphQL if available (Enterprise features)
-        graphql_backend = self.get_backend(BackendType.GRAPHQL)
-        if graphql_backend and graphql_backend.status == BackendStatus.AVAILABLE:
-            return graphql_backend
-
-        # Fallback to Elasticsearch (standard)
+        # Only Elasticsearch is supported now
         elasticsearch_backend = self.get_backend(BackendType.ELASTICSEARCH)
-        if elasticsearch_backend and elasticsearch_backend.status == BackendStatus.AVAILABLE:
-            return elasticsearch_backend
+        if elasticsearch_backend:
+            # Ensure backend is initialized before checking availability
+            elasticsearch_backend.ensure_initialized()
+            if elasticsearch_backend.status == BackendStatus.AVAILABLE:
+                return elasticsearch_backend
 
         # No backends available
         return None

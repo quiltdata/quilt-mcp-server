@@ -433,7 +433,7 @@ def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str
             [
                 "Check if the registry is accessible",
                 "Verify package names and registry URLs",
-                "Try: unified_search() to test basic connectivity",
+                "Try: search_catalog() to test basic connectivity",
             ]
         )
 
@@ -485,7 +485,7 @@ def _safe_package_operation_internal(operation_func: Callable, package_name: str
             "suggestions": [
                 f"Verify package '{package_name}' exists",
                 "Check registry access permissions",
-                "Try: unified_search() to test connectivity",
+                "Try: search_catalog() to test connectivity",
             ],
         }
 

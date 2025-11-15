@@ -19,6 +19,8 @@ from cachetools import TTLCache
 import requests
 from urllib.parse import urljoin
 
+from quilt_mcp.config import http_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -602,7 +604,7 @@ class AWSPermissionDiscovery:
                 # Query for bucket configurations
                 query = {"query": "query { bucketConfigs { name } }"}
 
-                response = session.post(graphql_url, json=query)
+                response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 
                 if response.status_code == 200:
                     data = response.json()
