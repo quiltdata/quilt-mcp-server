@@ -204,7 +204,7 @@ def search_catalog(
                 explanation=result.get("explanation"),
             ).model_dump()
         else:
-            # Raise exception with structured error info to make MCP show "Tool Result: Error"
+            # Return error as dict (not raise) so tools can handle errors gracefully
             error_model = SearchCatalogError(
                 error=result.get("error", "Search failed"),
                 query=result["query"],
@@ -213,8 +213,8 @@ def search_catalog(
                 backend_used=result.get("backend_used"),
                 backend_status=result.get("backend_status"),
             )
-            # Raise with structured error message
-            raise RuntimeError(f"{error_model.error}\n{error_model.model_dump_json(indent=2)}")
+            # Return error dict instead of raising
+            return error_model.model_dump()
     except asyncio.TimeoutError as e:
         raise RuntimeError(f"Search timeout: {e}")
     except OSError as e:

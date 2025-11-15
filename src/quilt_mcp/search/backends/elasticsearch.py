@@ -164,6 +164,41 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []
 
+    def _prioritize_buckets(self, buckets: List[str]) -> List[str]:
+        """Prioritize bucket list to search most relevant buckets first.
+
+        Priority order:
+        1. User's default bucket (from QUILT_DEFAULT_BUCKET env var)
+        2. All other buckets in original order
+
+        Args:
+            buckets: List of bucket names
+
+        Returns:
+            Reordered list with default bucket first
+        """
+        if not buckets:
+            return []
+
+        # Get default bucket from environment
+        try:
+            import os
+            default_bucket = os.getenv('QUILT_DEFAULT_BUCKET', '')
+            if default_bucket:
+                # Normalize to bucket name only
+                default_bucket = default_bucket.replace('s3://', '').split('/')[0]
+
+                # Move default bucket to front if it exists in the list
+                if default_bucket in buckets:
+                    prioritized = [default_bucket]
+                    prioritized.extend([b for b in buckets if b != default_bucket])
+                    return prioritized
+        except Exception as e:
+            logger.debug(f"Failed to prioritize default bucket: {e}")
+
+        # Return original order if prioritization fails
+        return buckets
+
     def _build_index_pattern(self, scope: str, bucket: str) -> str:
         """Build Elasticsearch index pattern based on scope and bucket.
 
@@ -177,14 +212,20 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         Examples:
             scope="file", bucket="mybucket" → "mybucket"
             scope="package", bucket="mybucket" → "mybucket_packages"
-            scope="file", bucket="" → "*"
-            scope="package", bucket="" → "*_packages"
-            scope="global", bucket="" → "_all"
+            scope="file", bucket="" → "default-bucket,bucket1,bucket2,..." (all buckets, prioritized)
+            scope="package", bucket="" → "default-bucket_packages,bucket1_packages,..." (all buckets, prioritized)
+            scope="global", bucket="" → "default-bucket,default-bucket_packages,..." (all buckets, prioritized)
 
         Note:
-            When bucket is empty, we use Elasticsearch wildcards to search all indices.
-            This matches quilt3's behavior (quilt3.search() uses index="_all").
-            Using explicit bucket enumeration causes 403 errors for package indices.
+            When bucket is empty, we enumerate ALL available buckets from the catalog
+            and build explicit comma-separated index patterns. Wildcard patterns
+            like "*" or "_all" are rejected by the Quilt catalog API.
+
+            Buckets are prioritized with user's default bucket first to ensure
+            the most relevant results appear even if Elasticsearch limits apply.
+
+            If Elasticsearch returns a 403 error due to too many indices, the
+            calling code should retry with fewer buckets.
         """
         # Normalize bucket name (remove s3:// prefix and trailing slashes)
         if bucket:
@@ -201,14 +242,28 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             else:  # global
                 return f"{bucket_name},{bucket_name}_packages"
 
-        # No specific bucket - use wildcard patterns
-        # This matches quilt3's behavior and avoids 403 errors
+        # No specific bucket - enumerate available buckets and build explicit pattern
+        # Wildcard patterns (*,*_packages,_all) are rejected by Quilt catalog API
+        available_buckets = self._get_available_buckets()
+
+        if not available_buckets:
+            # No buckets available - return empty pattern to trigger error
+            logger.warning("No buckets available for search, returning empty pattern")
+            return ""
+
+        # Prioritize buckets with default bucket first
+        prioritized_buckets = self._prioritize_buckets(available_buckets)
+
+        # Use ALL available buckets - let Elasticsearch handle limits
+        # If we hit a 403 error, the caller should implement retry logic
         if scope == "file":
-            return "*"
+            return ",".join(prioritized_buckets)
         elif scope == "package":
-            return "*_packages"
-        else:  # global
-            return "_all"
+            return ",".join(f"{b}_packages" for b in prioritized_buckets)
+        else:  # global - include both file and package indices
+            file_indices = prioritized_buckets
+            package_indices = [f"{b}_packages" for b in prioritized_buckets]
+            return ",".join(file_indices + package_indices)
 
     async def search(
         self,
@@ -275,9 +330,53 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         }
                     }
 
-            # Execute search
+            # Execute search with retry logic for 403 errors (too many indices)
             search_api = self.quilt_service.get_search_api()
-            response = search_api(query=dsl_query, index=index_pattern, limit=limit)
+
+            # Try search with full index pattern first
+            try:
+                response = search_api(query=dsl_query, index=index_pattern, limit=limit)
+            except Exception as search_error:
+                # Check if error is 403 and we're searching multiple buckets
+                if "403" in str(search_error) and "," in index_pattern and not bucket:
+                    # 403 likely means too many indices - retry with fewer buckets
+                    logger.info(f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets")
+
+                    # Get prioritized bucket list
+                    available_buckets = self._get_available_buckets()
+                    prioritized_buckets = self._prioritize_buckets(available_buckets)
+
+                    # Try with progressively fewer buckets until it works
+                    # Start at 50 and reduce by 10 each time
+                    for max_buckets in [50, 40, 30, 20, 10]:
+                        try:
+                            reduced_buckets = prioritized_buckets[:max_buckets]
+                            if scope == "file":
+                                reduced_pattern = ",".join(reduced_buckets)
+                            elif scope == "package":
+                                reduced_pattern = ",".join(f"{b}_packages" for b in reduced_buckets)
+                            else:  # global
+                                file_indices = reduced_buckets
+                                package_indices = [f"{b}_packages" for b in reduced_buckets]
+                                reduced_pattern = ",".join(file_indices + package_indices)
+
+                            logger.info(f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)")
+                            response = search_api(query=dsl_query, index=reduced_pattern, limit=limit)
+                            logger.info(f"✅ Search succeeded with {max_buckets} buckets")
+                            break
+                        except Exception as retry_error:
+                            if "403" in str(retry_error):
+                                logger.debug(f"Still getting 403 with {max_buckets} buckets, trying fewer")
+                                continue
+                            else:
+                                # Different error, re-raise
+                                raise
+                    else:
+                        # All retries failed, raise original error
+                        raise search_error
+                else:
+                    # Not a 403 or not a multi-bucket search, re-raise
+                    raise
 
             if "error" in response:
                 raise BackendError(

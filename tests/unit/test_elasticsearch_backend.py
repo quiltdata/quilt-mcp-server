@@ -38,30 +38,248 @@ class TestIndexPatternBuilder:
         pattern = self.backend._build_index_pattern("file", "s3://mybucket")
         assert pattern == "mybucket"
 
-    def test_file_scope_all_buckets(self):
-        """scope='file', bucket='' → '*'"""
-        pattern = self.backend._build_index_pattern("file", "")
-        assert pattern == "*"
+    async def test_file_scope_all_buckets(self):
+        """scope='file', bucket='' → searches across ALL buckets and returns file results"""
+        # Mock bucket list API
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "bucketConfigs": [
+                    {"name": "bucket1"},
+                    {"name": "bucket2"},
+                ]
+            }
+        }
+        mock_session = Mock()
+        mock_session.post.return_value = mock_response
+        self.mock_service.get_session.return_value = mock_session
+        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+
+        # Mock search API to return results from multiple buckets
+        mock_search_api = Mock()
+        mock_search_api.return_value = {
+            "hits": {
+                "hits": [
+                    {
+                        "_id": "1",
+                        "_index": "bucket1",
+                        "_score": 2.5,
+                        "_source": {
+                            "key": "data/file1.csv",
+                            "size": 1024,
+                            "last_modified": "2025-01-14T10:00:00Z",
+                        },
+                    },
+                    {
+                        "_id": "2",
+                        "_index": "bucket2",
+                        "_score": 1.8,
+                        "_source": {
+                            "key": "experiments/file2.json",
+                            "size": 2048,
+                            "last_modified": "2025-01-13T10:00:00Z",
+                        },
+                    },
+                ]
+            }
+        }
+        self.mock_service.get_search_api.return_value = mock_search_api
+
+        # Execute search with empty bucket
+        response = await self.backend.search(query="test", scope="file", bucket="", limit=10)
+
+        # Verify we got results from multiple buckets
+        assert response.status == BackendStatus.AVAILABLE
+        assert len(response.results) == 2
+
+        # Verify first result schema and content
+        result1 = response.results[0]
+        assert result1.type == "file"
+        assert result1.name == "data/file1.csv"
+        assert result1.bucket == "bucket1"
+        assert result1.s3_uri == "s3://bucket1/data/file1.csv"
+        assert result1.size == 1024
+        assert result1.score == 2.5
+
+        # Verify second result from different bucket
+        result2 = response.results[1]
+        assert result2.type == "file"
+        assert result2.name == "experiments/file2.json"
+        assert result2.bucket == "bucket2"
+        assert result2.s3_uri == "s3://bucket2/experiments/file2.json"
+        assert result2.size == 2048
+        assert result2.score == 1.8
 
     def test_package_scope_with_bucket(self):
         """scope='package', bucket='mybucket' → 'mybucket_packages'"""
         pattern = self.backend._build_index_pattern("package", "mybucket")
         assert pattern == "mybucket_packages"
 
-    def test_package_scope_all_buckets(self):
-        """scope='package', bucket='' → '*_packages'"""
-        pattern = self.backend._build_index_pattern("package", "")
-        assert pattern == "*_packages"
+    async def test_package_scope_all_buckets(self):
+        """scope='package', bucket='' → searches across ALL buckets and returns package results"""
+        # Mock bucket list API
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "bucketConfigs": [
+                    {"name": "bucket1"},
+                    {"name": "bucket2"},
+                ]
+            }
+        }
+        mock_session = Mock()
+        mock_session.post.return_value = mock_response
+        self.mock_service.get_session.return_value = mock_session
+        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+
+        # Mock search API to return package results from multiple buckets
+        mock_search_api = Mock()
+        mock_search_api.return_value = {
+            "hits": {
+                "hits": [
+                    {
+                        "_id": "1",
+                        "_index": "bucket1_packages",
+                        "_score": 3.2,
+                        "_source": {
+                            "ptr_name": "datasets/genomics",
+                            "mnfst_hash": "abc123",
+                            "mnfst_stats": {"total_bytes": 50000},
+                            "mnfst_last_modified": "2025-01-14T10:00:00Z",
+                        },
+                    },
+                    {
+                        "_id": "2",
+                        "_index": "bucket2_packages",
+                        "_score": 2.1,
+                        "_source": {
+                            "ptr_name": "experiments/trials",
+                            "mnfst_hash": "def456",
+                            "mnfst_stats": {"total_bytes": 75000},
+                            "mnfst_last_modified": "2025-01-13T10:00:00Z",
+                        },
+                    },
+                ]
+            }
+        }
+        self.mock_service.get_search_api.return_value = mock_search_api
+
+        # Execute search with empty bucket
+        response = await self.backend.search(query="test", scope="package", bucket="", limit=10)
+
+        # Verify we got package results from multiple buckets
+        assert response.status == BackendStatus.AVAILABLE
+        assert len(response.results) == 2
+
+        # Verify first result schema and content
+        result1 = response.results[0]
+        assert result1.type == "package"
+        assert result1.name == "datasets/genomics"
+        assert result1.bucket == "bucket1"
+        assert result1.s3_uri == "s3://bucket1/.quilt/packages/datasets/genomics/abc123.jsonl"
+        assert result1.size == 50000
+        assert result1.score == 3.2
+
+        # Verify second result from different bucket
+        result2 = response.results[1]
+        assert result2.type == "package"
+        assert result2.name == "experiments/trials"
+        assert result2.bucket == "bucket2"
+        assert result2.s3_uri == "s3://bucket2/.quilt/packages/experiments/trials/def456.jsonl"
+        assert result2.size == 75000
+        assert result2.score == 2.1
 
     def test_global_scope_with_bucket(self):
         """scope='global', bucket='mybucket' → 'mybucket,mybucket_packages'"""
         pattern = self.backend._build_index_pattern("global", "mybucket")
         assert pattern == "mybucket,mybucket_packages"
 
-    def test_global_scope_all_buckets(self):
-        """scope='global', bucket='' → '_all'"""
-        pattern = self.backend._build_index_pattern("global", "")
-        assert pattern == "_all"
+    async def test_global_scope_all_buckets(self):
+        """scope='global', bucket='' → searches across ALL buckets and returns BOTH file and package results"""
+        # Mock bucket list API
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "bucketConfigs": [
+                    {"name": "bucket1"},
+                    {"name": "bucket2"},
+                ]
+            }
+        }
+        mock_session = Mock()
+        mock_session.post.return_value = mock_response
+        self.mock_service.get_session.return_value = mock_session
+        self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
+
+        # Mock search API to return BOTH file and package results from multiple buckets
+        mock_search_api = Mock()
+        mock_search_api.return_value = {
+            "hits": {
+                "hits": [
+                    {
+                        "_id": "1",
+                        "_index": "bucket1",
+                        "_score": 2.5,
+                        "_source": {
+                            "key": "data/file1.csv",
+                            "size": 1024,
+                            "last_modified": "2025-01-14T10:00:00Z",
+                        },
+                    },
+                    {
+                        "_id": "2",
+                        "_index": "bucket1_packages",
+                        "_score": 3.2,
+                        "_source": {
+                            "ptr_name": "datasets/genomics",
+                            "mnfst_hash": "abc123",
+                            "mnfst_stats": {"total_bytes": 50000},
+                            "mnfst_last_modified": "2025-01-14T10:00:00Z",
+                        },
+                    },
+                    {
+                        "_id": "3",
+                        "_index": "bucket2",
+                        "_score": 1.8,
+                        "_source": {
+                            "key": "experiments/file2.json",
+                            "size": 2048,
+                            "last_modified": "2025-01-13T10:00:00Z",
+                        },
+                    },
+                ]
+            }
+        }
+        self.mock_service.get_search_api.return_value = mock_search_api
+
+        # Execute search with empty bucket
+        response = await self.backend.search(query="test", scope="global", bucket="", limit=10)
+
+        # Verify we got BOTH file and package results from multiple buckets
+        assert response.status == BackendStatus.AVAILABLE
+        assert len(response.results) == 3
+
+        # Verify file result
+        result1 = response.results[0]
+        assert result1.type == "file"
+        assert result1.name == "data/file1.csv"
+        assert result1.bucket == "bucket1"
+        assert result1.s3_uri == "s3://bucket1/data/file1.csv"
+
+        # Verify package result
+        result2 = response.results[1]
+        assert result2.type == "package"
+        assert result2.name == "datasets/genomics"
+        assert result2.bucket == "bucket1"
+
+        # Verify file result from different bucket
+        result3 = response.results[2]
+        assert result3.type == "file"
+        assert result3.name == "experiments/file2.json"
+        assert result3.bucket == "bucket2"
 
 
 class TestResultNormalization:
