@@ -206,7 +206,11 @@ class UnifiedSearchEngine:
             # Unified name field - works for both files and packages
             # For files: name = logical_key (path within bucket/package)
             # For packages: name = package_name (namespace/name format)
-            name = result.logical_key if result.logical_key else (result.package_name if result.package_name else result.name)
+            name = (
+                result.logical_key
+                if result.logical_key
+                else (result.package_name if result.package_name else result.name)
+            )
 
             # Convert SearchResult to dict for JSON serialization
             result_dict = {

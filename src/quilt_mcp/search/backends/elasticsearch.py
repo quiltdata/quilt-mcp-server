@@ -290,7 +290,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     from ...constants import DEFAULT_REGISTRY
 
                     if DEFAULT_REGISTRY:
-                        logger.info(f"Package search permission error, falling back to DEFAULT_REGISTRY: {DEFAULT_REGISTRY}")
+                        logger.info(
+                            f"Package search permission error, falling back to DEFAULT_REGISTRY: {DEFAULT_REGISTRY}"
+                        )
                         bucket_name = DEFAULT_REGISTRY.replace("s3://", "")
 
                         # Build single-bucket index pattern for packages only
@@ -330,9 +332,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                             if filters.get("package_name"):
                                 filter_clauses.append({"term": {"ptr_name": filters["package_name"]}})
                             if filter_clauses:
-                                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault("filter", []).extend(
-                                    filter_clauses
-                                )
+                                dsl_query.setdefault("query", {}).setdefault("bool", {}).setdefault(
+                                    "filter", []
+                                ).extend(filter_clauses)
 
                         fallback_response = search_api(query=dsl_query, index=single_bucket_index, limit=limit)
 
@@ -579,6 +581,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         """
         try:
             import json
+
             data = json.loads(mnfst_message)
             bucket = data.get("bucket", "")
             package = data.get("package", "")

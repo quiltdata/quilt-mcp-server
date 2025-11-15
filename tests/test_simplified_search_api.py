@@ -331,7 +331,7 @@ class TestBackendParameter:
         # For now, we test that calling with valid backend works
         # and document that invalid values would fail Pydantic validation
 
-        with pytest.raises(Exception):  # Pydantic ValidationError or similar
+        with pytest.raises((ValueError, RuntimeError)):  # Validation or runtime error
             # This should fail because backend parameter only accepts "elasticsearch"
             search_catalog("test", backend="graphql")  # type: ignore
 
@@ -677,7 +677,7 @@ class TestIntegration:
     @pytest.mark.anyio
     async def test_backend_selection_method(self):
         """Test backend selection with mocked backends."""
-        from quilt_mcp.search.backends.base import BackendRegistry, BackendType
+        from quilt_mcp.search.backends.base import BackendRegistry
 
         registry = BackendRegistry()
 
