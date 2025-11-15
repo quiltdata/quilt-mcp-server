@@ -31,30 +31,25 @@ class TestBackendLazyInitialization:
 
         # Should have detailed backend info
         assert "elasticsearch" in status["backends"]
-        assert "graphql" in status["backends"]
 
-        # At least one backend should be available when authenticated
+        # Check Elasticsearch backend status
         es_status = status["backends"]["elasticsearch"]
-        gql_status = status["backends"]["graphql"]
 
-        # Check that backends have been initialized (not showing as "not_registered")
+        # Check that backend has been initialized (not showing as "not_registered")
         assert es_status["status"] != "not_registered"
-        assert gql_status["status"] != "not_registered"
 
-        # When authenticated, at least one backend should be available
+        # When authenticated, backend should be available
         if status["available"]:
             # Primary backend should be set
             assert status["backend"] is not None
             assert status["status"] == "ready"
 
-            # At least one backend should be available
-            assert es_status["available"] or gql_status["available"]
+            # Elasticsearch should be available
+            assert es_status["available"]
 
-            # Available backends should have capabilities
+            # Available backend should have capabilities
             if es_status["available"]:
                 assert len(es_status["capabilities"]) > 0
-            if gql_status["available"]:
-                assert len(gql_status["capabilities"]) > 0
 
     def test_backend_status_called_twice_consistency(self):
         """Test that calling get_search_backend_status() twice gives consistent results.
@@ -72,7 +67,6 @@ class TestBackendLazyInitialization:
 
         # Backend details should match
         assert status1["backends"]["elasticsearch"]["available"] == status2["backends"]["elasticsearch"]["available"]
-        assert status1["backends"]["graphql"]["available"] == status2["backends"]["graphql"]["available"]
 
     def test_backend_initialization_sets_status_correctly(self):
         """Test that backend initialization properly sets availability status.
@@ -82,24 +76,23 @@ class TestBackendLazyInitialization:
         """
         status = get_search_backend_status()
 
-        # Each backend should have a clear status
-        for backend_name in ["elasticsearch", "graphql"]:
-            backend_info = status["backends"][backend_name]
+        # Check Elasticsearch backend status
+        backend_info = status["backends"]["elasticsearch"]
 
-            # Status should be one of the valid values
-            assert backend_info["status"] in [
-                "available",
-                "unavailable",
-                "error",
-                "timeout",
-            ]
+        # Status should be one of the valid values
+        assert backend_info["status"] in [
+            "available",
+            "unavailable",
+            "error",
+            "timeout",
+        ]
 
-            # If available, should have capabilities
-            if backend_info["available"]:
-                assert isinstance(backend_info["capabilities"], list)
-                assert len(backend_info["capabilities"]) > 0
-                assert backend_info["status"] == "available"
+        # If available, should have capabilities
+        if backend_info["available"]:
+            assert isinstance(backend_info["capabilities"], list)
+            assert len(backend_info["capabilities"]) > 0
+            assert backend_info["status"] == "available"
 
-            # If not available, capabilities should be empty
-            if not backend_info["available"]:
-                assert backend_info["capabilities"] == []
+        # If not available, capabilities should be empty
+        if not backend_info["available"]:
+            assert backend_info["capabilities"] == []
