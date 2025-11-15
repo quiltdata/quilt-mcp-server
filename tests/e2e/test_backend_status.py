@@ -193,4 +193,3 @@ class TestCatalogInfoIntegration:
         assert "search_backend_status" in result
         assert result["search_backend_status"]["available"] is False
         assert "error" in result["search_backend_status"]
-

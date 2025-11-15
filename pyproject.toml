@@ -160,15 +160,7 @@ module = "quilt_mcp.visualization.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "quilt_mcp.search.backends.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
 module = "quilt_mcp.search.tools.search_explain"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "quilt_mcp.search.tools.unified_search"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

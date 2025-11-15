@@ -77,11 +77,11 @@ class S3FallbackBackend(SearchBackend):
 
         try:
             if scope == "file" and bucket:
-                results = await self._search_bucket(query, bucket, filters, limit)
+                results = await self._search_objects(query, bucket, filters, limit)
             elif scope in ["global", "package"]:
                 # For global/catalog scope, try to search the default bucket
                 default_bucket = "s3://quilt-example"
-                results = await self._search_bucket(query, default_bucket, filters, limit)
+                results = await self._search_objects(query, default_bucket, filters, limit)
             else:
                 results = []
 
@@ -106,7 +106,7 @@ class S3FallbackBackend(SearchBackend):
                 error_message=str(e),
             )
 
-    async def _search_bucket(
+    async def _search_objects(
         self, query: str, bucket: str, filters: Optional[Dict[str, Any]], limit: int
     ) -> List[SearchResult]:
         """Search within a specific bucket using list operations."""

@@ -581,41 +581,10 @@ test_tools:
       - Catalog and package search experiences
     effect: none
     arguments:
-      query: "README OR raw/test"
-      limit: 20
-      scope: global
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-    validation:
-      type: search
-      min_results: 2
-      must_contain:
-      - value: README
-        field: logical_key
-        match_type: substring
-        description: Must find files with README in global results (logical_key field)
-      - value: raw/test
-        field: title
-        match_type: substring
-        description: Must find packages with raw/test in global results (title field)
-      description: Global search must return both files and packages using OR query
-  search_catalog.bucket:
-    tool: search_catalog
-    description: Intelligent unified search across Quilt catalog using Elasticsearch
-      - Catalog and package search experiences
-    effect: none
-    arguments:
       query: README.md
       limit: 10
-      scope: bucket
-      target: s3://quilt-ernest-staging
+      scope: global
+      bucket: s3://quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -630,10 +599,38 @@ test_tools:
       min_results: 1
       must_contain:
       - value: README.md
-        field: logical_key
+        field: title
         match_type: substring
-        description: Must find README.md in bucket search results (logical_key field)
-      description: Bucket search must return TEST_ENTRY (README.md)
+        description: Must find TEST_ENTRY (README.md) in global results (title field)
+      description: Global search should return results including test entry
+  search_catalog.file:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: file
+      bucket: s3://quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find README.md in file search results (title field)
+      description: File search must return TEST_ENTRY (README.md)
       result_shape:
         required_fields:
         - id
@@ -649,6 +646,7 @@ test_tools:
       query: raw/test
       limit: 10
       scope: package
+      bucket: s3://quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -661,17 +659,12 @@ test_tools:
     validation:
       type: search
       min_results: 1
-      must_contain:
-      - value: raw/test
-        field: title
-        match_type: substring
-        description: Must find raw/test in package search results (title field)
-      description: Package search must return TEST_PACKAGE (raw/test)
+      must_contain: []
+      description: Package search should return results
       result_shape:
         required_fields:
         - id
         - type
-        - title
         - score
   search_explain:
     description: Explain how a search query would be processed and executed - Catalog

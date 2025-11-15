@@ -131,6 +131,39 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             self._update_status(BackendStatus.ERROR, f"Health check failed: {e}")
             return False
 
+    def _get_available_buckets(self) -> list[str]:
+        """Get list of available bucket names from catalog.
+
+        Returns:
+            List of bucket names
+
+        Raises:
+            Exception if GraphQL query fails
+        """
+        try:
+            session = self.quilt_service.get_session()
+            registry_url = self.quilt_service.get_registry_url()
+
+            if not session or not registry_url:
+                return []
+
+            resp = session.post(
+                f"{registry_url.rstrip('/')}/graphql",
+                json={"query": "{ bucketConfigs { name } }"},
+                timeout=30,
+            )
+
+            if resp.status_code != 200:
+                logger.warning(f"Failed to fetch bucket list: HTTP {resp.status_code}")
+                return []
+
+            data = resp.json()
+            configs = data.get("data", {}).get("bucketConfigs", [])
+            return [config["name"] for config in configs if isinstance(config, dict) and "name" in config]
+        except Exception as e:
+            logger.warning(f"Failed to fetch bucket list: {e}")
+            return []
+
     def _build_index_pattern(self, scope: str, bucket: str) -> str:
         """Build Elasticsearch index pattern based on scope and bucket.
 
@@ -144,9 +177,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         Examples:
             scope="file", bucket="mybucket" → "mybucket"
             scope="package", bucket="mybucket" → "mybucket_packages"
-            scope="file", bucket="" → "*"
-            scope="package", bucket="" → "*_packages"
-            scope="global", bucket="" → "*,*_packages"
+            scope="file", bucket="" → "bucket1,bucket2,..."
+            scope="package", bucket="" → "bucket1_packages,bucket2_packages,..."
+            scope="global", bucket="" → "bucket1,bucket1_packages,bucket2,bucket2_packages,..."
         """
         # Normalize bucket name (remove s3:// prefix and trailing slashes)
         if bucket:
@@ -154,15 +187,40 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         else:
             bucket_name = ""
 
-        if scope == "file":
-            return bucket_name if bucket_name else "*"
-        elif scope == "package":
-            return f"{bucket_name}_packages" if bucket_name else "*_packages"
-        else:  # global
-            if bucket_name:
+        # If specific bucket provided, use simple pattern
+        if bucket_name:
+            if scope == "file":
+                return bucket_name
+            elif scope == "package":
+                return f"{bucket_name}_packages"
+            else:  # global
                 return f"{bucket_name},{bucket_name}_packages"
-            else:
+
+        # No specific bucket - need to get list of all buckets
+        available_buckets = self._get_available_buckets()
+
+        if not available_buckets:
+            # Fallback to wildcard if we can't get bucket list
+            # (though this may fail with "No valid indices provided")
+            logger.warning("No buckets available, using wildcard pattern (may fail)")
+            if scope == "file":
+                return "*"
+            elif scope == "package":
+                return "*_packages"
+            else:  # global
                 return "*,*_packages"
+
+        # Build pattern from actual bucket names
+        if scope == "file":
+            return ",".join(available_buckets)
+        elif scope == "package":
+            return ",".join(f"{b}_packages" for b in available_buckets)
+        else:  # global
+            # Interleave bucket and package indices
+            patterns = []
+            for b in available_buckets:
+                patterns.extend([b, f"{b}_packages"])
+            return ",".join(patterns)
 
     async def search(
         self,
