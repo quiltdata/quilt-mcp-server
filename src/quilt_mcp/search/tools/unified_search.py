@@ -5,18 +5,15 @@ query processing and intelligent backend selection.
 """
 
 import time
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
-from ..core.query_parser import parse_query, QueryType, SearchScope
+from ..core.query_parser import parse_query
 from ..backends.base import BackendRegistry, BackendType, BackendStatus
 from ..backends.elasticsearch import Quilt3ElasticsearchBackend
 from ..backends.graphql import EnterpriseGraphQLBackend
 from ..exceptions import (
     AuthenticationRequired,
     SearchNotAvailable,
-    BackendError,
-    InvalidQueryError,
-    SearchException,
 )
 
 
@@ -45,7 +42,6 @@ class UnifiedSearchEngine:
         backend: Optional[str] = None,
         limit: int = 50,
         include_metadata: bool = True,
-        include_content_preview: bool = False,
         explain_query: bool = False,
     ) -> Dict[str, Any]:
         """Execute unified search using single backend selection.
@@ -57,7 +53,6 @@ class UnifiedSearchEngine:
             backend: Preferred backend (auto, elasticsearch, graphql)
             limit: Maximum results to return
             include_metadata: Include rich metadata in results
-            include_content_preview: Include content previews for files
             explain_query: Include query execution explanation
 
         Returns:
@@ -135,7 +130,7 @@ class UnifiedSearchEngine:
         # Apply post-processing filters only for specific cases
         # Don't apply post-filters if the query already contains ext: syntax
         if "ext:" not in query.lower():
-            unified_results = self._apply_post_filters(unified_results, combined_filters)
+            unified_results = self._apply_post_filters(unified_results, combined_filters or {})
 
         # Build response
         total_time = (time.time() - start_time) * 1000
@@ -315,138 +310,6 @@ class UnifiedSearchEngine:
         }
 
 
-# Global search engine instance
-_search_engine = None
-
-
-def get_search_engine() -> UnifiedSearchEngine:
-    """Get or create the global search engine instance."""
-    global _search_engine
-    if _search_engine is None:
-        _search_engine = UnifiedSearchEngine()
-    return _search_engine
-
-
-async def unified_search(
-    query: str,
-    scope: str = "global",
-    bucket: str = "",
-    backend: Optional[str] = None,
-    limit: int = 50,
-    include_metadata: bool = True,
-    include_content_preview: bool = False,
-    explain_query: bool = False,
-    count_only: bool = False,
-) -> Dict[str, Any]:
-    """
-    Intelligent unified search across Quilt catalog indices (Elasticsearch/GraphQL).
-
-    This tool automatically:
-    - Parses natural language queries
-    - Selects optimal search backends
-    - Aggregates and ranks results
-    - Provides context and explanations
-
-    Args:
-        query: Natural language search query
-        scope: Search scope (global, package, file)
-        bucket: S3 bucket to search in (empty = all buckets)
-        backend: Preferred backend (auto, elasticsearch, graphql)
-        limit: Maximum results to return
-        include_metadata: Include rich metadata in results
-        include_content_preview: Include content previews for files
-        explain_query: Include query execution explanation
-
-    Returns:
-        Unified search results with metadata, explanations, and suggestions
-
-    Examples:
-        unified_search("CSV files in genomics packages")
-        unified_search("packages created last month", scope="package")
-        unified_search("README files", scope="global")
-        unified_search("files larger than 100MB", bucket="my-bucket")
-        unified_search("CSV data created after 2023-01-01")
-    """
-    try:
-        # Validate scope
-        if scope not in ["global", "package", "file"]:
-            raise ValueError(f"Invalid scope: {scope}. Must be 'global', 'package', or 'file'")
-
-        # Validate and set default backend
-        if backend is None or backend == "":
-            backend = "elasticsearch"
-        if backend != "elasticsearch":
-            raise ValueError(f"Invalid backend: {backend}. Only 'elasticsearch' is supported")
-
-        # Normalize bucket (extract from s3:// URI if provided)
-        if bucket and bucket.startswith("s3://"):
-            bucket = bucket[5:].split("/")[0]
-
-        # Validate limit
-        if not (1 <= limit <= 1000):
-            raise ValueError(f"Invalid limit: {limit}. Must be between 1 and 1000")
-
-        if count_only:
-            # For count-only mode, use the Elasticsearch backend's get_total_count method
-            engine = get_search_engine()
-            elasticsearch_backend = None
-
-            # Parse query to extract filters
-            analysis = parse_query(query, scope, bucket)
-            query_filters = analysis.filters
-
-            # Find the Elasticsearch backend
-            available_backends = engine.registry.get_available_backends()
-            elasticsearch_backend = None
-            for backend in available_backends:
-                if backend.backend_type.value == "elasticsearch":
-                    elasticsearch_backend = backend
-                    break
-
-            if elasticsearch_backend:
-                try:
-                    total_count = elasticsearch_backend.get_total_count(query, query_filters)
-                    return {
-                        "success": True,
-                        "total_count": total_count,
-                        "query": query,
-                        "scope": scope,
-                        "count_only": True,
-                    }
-                except Exception as e:
-                    return {
-                        "success": False,
-                        "error": f"Count query failed: {e}",
-                        "query": query,
-                        "scope": scope,
-                        "count_only": True,
-                    }
-            else:
-                return {
-                    "success": False,
-                    "error": "Elasticsearch backend not available for count queries",
-                    "query": query,
-                    "scope": scope,
-                    "count_only": True,
-                }
-
-        # Regular search mode
-        engine = get_search_engine()
-        return await engine.search(
-            query=query,
-            scope=scope,
-            bucket=bucket,
-            backend=backend,
-            limit=limit,
-            include_metadata=include_metadata,
-            include_content_preview=include_content_preview,
-            explain_query=explain_query,
-        )
-    except Exception as e:
-        return {
-            "success": False,
-            "error": f"Unified search failed: {e}",
-            "query": query,
-            "scope": scope,
-            "bucket": bucket,
-        }
+# Note: UnifiedSearchEngine is exported for use by search.py
+# The unified_search() wrapper function has been removed - search.py now
+# calls UnifiedSearchEngine.search() directly

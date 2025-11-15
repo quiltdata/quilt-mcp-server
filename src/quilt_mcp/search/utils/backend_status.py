@@ -7,7 +7,6 @@ integration into catalog_info resources and search_catalog responses.
 
 from typing import Dict, List, Any, Optional
 from ..backends.base import BackendType, BackendStatus, SearchBackend
-from ..tools.unified_search import get_search_engine
 
 
 def get_backend_capabilities(backend_type: BackendType) -> List[str]:
@@ -84,23 +83,27 @@ def get_search_backend_status() -> Dict[str, Any]:
         ```
     """
     try:
-        # Get the search engine instance
-        engine = get_search_engine()
+        # Import here to avoid circular dependency
+        from ..tools.unified_search import UnifiedSearchEngine
+
+        # Get the search engine and its registry
+        engine = UnifiedSearchEngine()
+        registry = engine.registry
 
         # Ensure all backends are initialized before checking status
         for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
-            backend = engine.registry.get_backend(backend_type)
+            backend = registry.get_backend(backend_type)
             if backend:
                 backend.ensure_initialized()
 
         # Check which backend is selected as primary
-        primary_backend = engine.registry._select_primary_backend()
+        primary_backend = registry._select_primary_backend()
 
         # Build detailed status for each backend
         backend_details = {}
 
         for backend_type in [BackendType.ELASTICSEARCH, BackendType.GRAPHQL]:
-            backend = engine.registry.get_backend(backend_type)
+            backend = registry.get_backend(backend_type)
 
             if backend:
                 is_available = backend.status == BackendStatus.AVAILABLE
@@ -138,8 +141,8 @@ def get_search_backend_status() -> Dict[str, Any]:
             has_auth_error = any(
                 backend and hasattr(backend, "_auth_error")
                 for backend in [
-                    engine.registry.get_backend(BackendType.ELASTICSEARCH),
-                    engine.registry.get_backend(BackendType.GRAPHQL),
+                    registry.get_backend(BackendType.ELASTICSEARCH),
+                    registry.get_backend(BackendType.GRAPHQL),
                 ]
             )
 

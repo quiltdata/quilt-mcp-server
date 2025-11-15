@@ -9,7 +9,6 @@ import time
 from typing import Dict, List, Any, Optional, Union
 
 import quilt3
-from ..core.query_parser import QueryAnalysis, QueryType
 from .base import (
     SearchBackend,
     BackendType,
@@ -390,11 +389,15 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             raise Exception(f"Failed to get total count: {exc}") from exc
 
         total = search_response.get("hits", {}).get("total")
-        if isinstance(total, dict) and "value" in total:
-            return int(total["value"])
-        if total is not None:
+        if isinstance(total, dict):
+            # Elasticsearch 7.x+ returns {value: int, relation: str}
+            if "value" in total:
+                return int(total["value"])
+            return 0
+        if isinstance(total, (int, float)):
             return int(total)
 
+        # Fallback to counting hits in response
         return len(search_response.get("hits", {}).get("hits", []))
 
     def _execute_catalog_search(

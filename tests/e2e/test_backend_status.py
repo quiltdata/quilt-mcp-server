@@ -194,19 +194,3 @@ class TestCatalogInfoIntegration:
         assert result["search_backend_status"]["available"] is False
         assert "error" in result["search_backend_status"]
 
-
-class TestSearchCatalogIntegration:
-    """Test backend status integration into search_catalog responses."""
-
-    def test_search_response_includes_backend_info(self):
-        """Test that search_catalog responses include backend_info."""
-        # This is an integration test - just verify the structure is correct
-        # The actual search functionality is tested elsewhere
-        from quilt_mcp.search.tools.unified_search import UnifiedSearchEngine
-
-        engine = UnifiedSearchEngine()
-
-        # Verify backend_info would be included in response structure
-        # This is validated by the fact that the code adds it in the response
-        assert hasattr(engine, "registry")
-        assert hasattr(engine.registry, "_select_primary_backend")

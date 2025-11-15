@@ -122,7 +122,7 @@ def create_data_discovery_scenarios() -> List[Scenario]:
                 description="List available packages",
             ),
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "dataset", "limit": 10, "scope": "package"},
                 description="Search for dataset packages",
             ),
@@ -132,7 +132,7 @@ def create_data_discovery_scenarios() -> List[Scenario]:
                 description="Browse package structure",
             ),
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "*.csv", "scope": "package", "target": "examples/wellcome-data"},
                 description="Search for CSV files in package",
             ),
@@ -156,7 +156,7 @@ def create_data_discovery_scenarios() -> List[Scenario]:
                 description="List bucket objects",
             ),
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "*.json", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search for JSON files",
             ),
@@ -480,7 +480,7 @@ def create_optimization_challenge_scenarios() -> List[Scenario]:
         expected_call_count=8,
         steps=[
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "genomics", "limit": 50, "scope": "package"},
                 description="Search for genomics packages",
             ),
@@ -494,12 +494,12 @@ def create_optimization_challenge_scenarios() -> List[Scenario]:
                 description="Deep browse (could be optimized with max_depth)",
             ),
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "*", "scope": "package", "target": "genomics/example"},
                 description="Search all contents (could be combined with browse)",
             ),
             ScenarioStep(
-                tool_name="unified_search",
+                tool_name="search_catalog",
                 args={"query": "genomics", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search bucket for genomics files",
             ),

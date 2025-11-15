@@ -1,20 +1,21 @@
 summary:
   unit_pct_covered:
-    actual: 35.9
+    actual: 35.5
     required: 35.0
     passed: true
   integration_pct_covered:
-    actual: 28.4
+    actual: 28.3
     required: 28.0
     passed: true
   e2e_pct_covered:
-    actual: 35.1
+    actual: 33.5
     required: 35.0
-    passed: true
+    passed: false
   combined_pct_covered:
-    actual: 56.0
+    actual: 55.3
     required: 50.0
     passed: true
 files: {}
-passed: true
-errors: []
+passed: false
+errors:
+- 'SUMMARY e2e_pct_covered: 33.5% < 35.0% (required)'

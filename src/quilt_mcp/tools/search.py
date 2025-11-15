@@ -20,7 +20,7 @@ from ..models.responses import (
 )
 from ..search.tools.search_explain import search_explain as _search_explain
 from ..search.tools.search_suggest import search_suggest as _search_suggest
-from ..search.tools.unified_search import unified_search as _unified_search
+from ..search.tools.unified_search import UnifiedSearchEngine
 
 
 def search_catalog(
@@ -65,13 +65,6 @@ def search_catalog(
             description="Include rich metadata in results (default: True)",
         ),
     ] = True,
-    include_content_preview: Annotated[
-        bool,
-        Field(
-            default=False,
-            description="Include content previews for files (default: False)",
-        ),
-    ] = False,
     explain_query: Annotated[
         bool,
         Field(
@@ -107,7 +100,6 @@ def search_catalog(
         backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
         include_metadata: Include rich metadata in results (default: True)
-        include_content_preview: Include content previews for files (default: False)
         explain_query: Include query execution explanation and backend selection reasoning (default: False)
         count_only: Return aggregated counts only (skips fetching full result payloads) when True.
 
@@ -139,7 +131,49 @@ def search_catalog(
         if not backend:
             backend = "elasticsearch"
 
+        # Normalize bucket (extract from s3:// URI if provided)
+        if bucket and bucket.startswith("s3://"):
+            bucket = bucket[5:].split("/")[0]
+
+        # Handle count-only mode separately
+        if count_only:
+            from ..search.core.query_parser import parse_query
+            from ..search.backends.elasticsearch import Quilt3ElasticsearchBackend
+
+            analysis = parse_query(query, scope, bucket)
+            query_filters = analysis.filters
+
+            es_backend = Quilt3ElasticsearchBackend()
+            es_backend.ensure_initialized()
+
+            try:
+                total_count = es_backend.get_total_count(query, query_filters)
+                return {
+                    "success": True,
+                    "total_count": total_count,
+                    "query": query,
+                    "scope": scope,
+                    "bucket": bucket,
+                    "count_only": True,
+                }
+            except Exception as e:
+                raise RuntimeError(f"Count query failed: {e}")
+
+        # Get search engine and execute search
+        engine = UnifiedSearchEngine()
+
         # Handle async execution properly for MCP tools
+        async def _execute_search():
+            return await engine.search(
+                query=query,
+                scope=scope,
+                bucket=bucket,
+                backend=backend,
+                limit=limit,
+                include_metadata=include_metadata,
+                explain_query=explain_query,
+            )
+
         try:
             # Try to get the current event loop
             asyncio.get_running_loop()
@@ -147,43 +181,18 @@ def search_catalog(
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    _unified_search(
-                        query=query,
-                        scope=scope,
-                        bucket=bucket,
-                        backend=backend,
-                        limit=limit,
-                        include_metadata=include_metadata,
-                        include_content_preview=include_content_preview,
-                        explain_query=explain_query,
-                        count_only=count_only,
-                    ),
-                )
+                future = executor.submit(asyncio.run, _execute_search())
                 result = future.result(timeout=30)
         except RuntimeError:
             # No event loop running, we can use asyncio.run directly
-            result = asyncio.run(
-                _unified_search(
-                    query=query,
-                    scope=scope,
-                    bucket=bucket,
-                    backend=backend,
-                    limit=limit,
-                    include_metadata=include_metadata,
-                    include_content_preview=include_content_preview,
-                    explain_query=explain_query,
-                    count_only=count_only,
-                )
-            )
+            result = asyncio.run(_execute_search())
 
         # Convert result dict to proper response model, then serialize to dict
         if result.get("success", False):
             return SearchCatalogSuccess(
                 query=result["query"],
                 scope=result["scope"],
-                bucket=result.get("bucket", result.get("target", "")),  # Handle both new and legacy field names
+                bucket=result.get("bucket", ""),
                 results=[SearchResult(**r) for r in result.get("results", [])],
                 total_results=result.get("total_results", 0),
                 query_time_ms=result.get("query_time_ms", 0.0),
@@ -199,7 +208,7 @@ def search_catalog(
                 error=result.get("error", "Search failed"),
                 query=result["query"],
                 scope=result.get("scope", scope),
-                bucket=result.get("bucket", result.get("target", bucket)),  # Handle both new and legacy field names
+                bucket=result.get("bucket", bucket),
                 backend_used=result.get("backend_used"),
                 backend_status=result.get("backend_status"),
             )

@@ -259,10 +259,6 @@ class ToolCallInterceptor:
                 "condition": lambda args: args.get("max_keys", 100) < 10,
                 "alternative": "bucket_object_info",
             },
-            "packages_list": {
-                "condition": lambda args: args.get("prefix", ""),
-                "alternative": "unified_search",
-            },
         }
 
         if tool_name in alternatives:
@@ -337,13 +333,6 @@ class ToolCallInterceptor:
         list_count = sum(1 for tool in recent_tools if tool in list_tools)
         if list_count > 2:
             logger.info("Optimization: Consider combining list operations")
-
-        # Pattern: Browse followed by search (could be optimized)
-        if len(recent_tools) >= 2 and recent_tools[-2:] == [
-            "package_browse",
-            "unified_search",
-        ]:
-            logger.info("Optimization: Consider using search with filters instead of browse+search")
 
     def _args_similar(self, args1: Dict[str, Any], args2: Dict[str, Any]) -> bool:
         """Check if two argument sets are similar enough to be considered redundant."""
