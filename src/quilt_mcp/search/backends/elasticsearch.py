@@ -177,9 +177,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         Examples:
             scope="file", bucket="mybucket" → "mybucket"
             scope="package", bucket="mybucket" → "mybucket_packages"
-            scope="file", bucket="" → "bucket1,bucket2,..."
-            scope="package", bucket="" → "bucket1_packages,bucket2_packages,..."
-            scope="global", bucket="" → "bucket1,bucket1_packages,bucket2,bucket2_packages,..."
+            scope="file", bucket="" → "*"
+            scope="package", bucket="" → "*_packages"
+            scope="global", bucket="" → "_all"
+
+        Note:
+            When bucket is empty, we use Elasticsearch wildcards to search all indices.
+            This matches quilt3's behavior (quilt3.search() uses index="_all").
+            Using explicit bucket enumeration causes 403 errors for package indices.
         """
         # Normalize bucket name (remove s3:// prefix and trailing slashes)
         if bucket:
@@ -196,31 +201,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             else:  # global
                 return f"{bucket_name},{bucket_name}_packages"
 
-        # No specific bucket - need to get list of all buckets
-        available_buckets = self._get_available_buckets()
-
-        if not available_buckets:
-            # Fallback to wildcard if we can't get bucket list
-            # (though this may fail with "No valid indices provided")
-            logger.warning("No buckets available, using wildcard pattern (may fail)")
-            if scope == "file":
-                return "*"
-            elif scope == "package":
-                return "*_packages"
-            else:  # global
-                return "*,*_packages"
-
-        # Build pattern from actual bucket names
+        # No specific bucket - use wildcard patterns
+        # This matches quilt3's behavior and avoids 403 errors
         if scope == "file":
-            return ",".join(available_buckets)
+            return "*"
         elif scope == "package":
-            return ",".join(f"{b}_packages" for b in available_buckets)
+            return "*_packages"
         else:  # global
-            # Interleave bucket and package indices
-            patterns = []
-            for b in available_buckets:
-                patterns.extend([b, f"{b}_packages"])
-            return ",".join(patterns)
+            return "_all"
 
     async def search(
         self,

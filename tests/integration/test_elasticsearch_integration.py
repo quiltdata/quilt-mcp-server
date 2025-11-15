@@ -59,9 +59,9 @@ class TestIndexPatternBuilder:
         assert pattern == "mybucket,mybucket_packages"
 
     def test_global_scope_all_buckets(self):
-        """scope='global', bucket='' → '*,*_packages'"""
+        """scope='global', bucket='' → '_all'"""
         pattern = self.backend._build_index_pattern("global", "")
-        assert pattern == "*,*_packages"
+        assert pattern == "_all"
 
 
 class TestResultNormalization:
