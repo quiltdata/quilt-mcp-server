@@ -13,7 +13,7 @@ import json
 class EChartsGenerator:
     """Generates ECharts chart configurations for data visualization."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the ECharts generator."""
         self.default_colors = [
             "#1f77b4",

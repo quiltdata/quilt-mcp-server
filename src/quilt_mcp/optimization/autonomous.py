@@ -8,7 +8,7 @@ optimize MCP tool performance without manual intervention.
 import asyncio
 import time
 import json
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, cast
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import logging
@@ -235,8 +235,9 @@ class AutonomousOptimizer:
             except Exception as e:
                 logger.warning(f"Failed to evaluate rule {rule.name}: {e}")
 
-        # Sort by priority
-        opportunities.sort(key=lambda x: x["priority"], reverse=True)
+        # Sort by priority (highest first)
+        # Use cast since priority is guaranteed to be int from OptimizationRule.priority field
+        opportunities.sort(key=lambda x: cast(int, x["priority"]), reverse=True)
 
         return opportunities
 

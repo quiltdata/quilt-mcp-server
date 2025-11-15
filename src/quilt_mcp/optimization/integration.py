@@ -152,8 +152,12 @@ def optimization_tool(
 
 
 # Integration with existing utils module
-def run_optimized_server() -> None:
-    """Run the MCP server with optimization capabilities."""
+def run_optimized_server(skip_banner: bool = False) -> None:
+    """Run the MCP server with optimization capabilities.
+
+    Args:
+        skip_banner: Whether to skip the startup banner (for compatibility with utils.run_server)
+    """
     try:
         # Create optimized server
         server = create_optimized_server()

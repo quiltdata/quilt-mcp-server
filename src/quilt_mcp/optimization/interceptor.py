@@ -7,7 +7,7 @@ analyze usage patterns, and enable optimization opportunities.
 
 import time
 import functools
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, TypedDict
 from dataclasses import dataclass
 import logging
 from contextlib import contextmanager
@@ -15,6 +15,13 @@ from contextlib import contextmanager
 from ..telemetry.collector import get_telemetry_collector
 
 logger = logging.getLogger(__name__)
+
+
+class AlternativeConfig(TypedDict):
+    """Type definition for tool alternative configuration."""
+
+    condition: Callable[[Dict[str, Any]], bool]
+    alternative: str
 
 
 @dataclass
@@ -146,7 +153,7 @@ class ToolCallInterceptor:
 
     def _get_telemetry_context(self) -> Dict[str, Any]:
         """Get context information for telemetry."""
-        context = {}
+        context: Dict[str, Any] = {}
 
         if self.current_context:
             context.update(
@@ -163,7 +170,9 @@ class ToolCallInterceptor:
         # Add call stack information
         if self.call_stack:
             context["call_stack_depth"] = len(self.call_stack)
-            context["previous_tools"] = [call["tool_name"] for call in self.call_stack[-3:]]
+            # Extract tool names from recent calls
+            previous_tools: List[str] = [call["tool_name"] for call in self.call_stack[-3:]]
+            context["previous_tools"] = previous_tools
 
         return context
 
@@ -250,15 +259,15 @@ class ToolCallInterceptor:
         """Suggest alternative tools that might be more efficient."""
 
         # Tool alternatives mapping
-        alternatives = {
-            "package_create": {
-                "condition": lambda args: len(args.get("s3_uris", [])) > 10,
-                "alternative": "package_create_from_s3",
-            },
-            "bucket_objects_list": {
-                "condition": lambda args: args.get("max_keys", 100) < 10,
-                "alternative": "bucket_object_info",
-            },
+        alternatives: Dict[str, AlternativeConfig] = {
+            "package_create": AlternativeConfig(
+                condition=lambda args: len(args.get("s3_uris", [])) > 10,
+                alternative="package_create_from_s3",
+            ),
+            "bucket_objects_list": AlternativeConfig(
+                condition=lambda args: args.get("max_keys", 100) < 10,
+                alternative="bucket_object_info",
+            ),
         }
 
         if tool_name in alternatives:

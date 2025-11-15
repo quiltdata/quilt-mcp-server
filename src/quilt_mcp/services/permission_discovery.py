@@ -67,9 +67,11 @@ class AWSPermissionDiscovery:
             cache_ttl: Cache TTL in seconds (default: 1 hour)
         """
         self.cache_ttl = cache_ttl
-        self.permission_cache = TTLCache(maxsize=1000, ttl=cache_ttl)
-        self.identity_cache = TTLCache(maxsize=10, ttl=cache_ttl)
-        self.bucket_list_cache = TTLCache(maxsize=10, ttl=cache_ttl // 2)  # Shorter TTL for bucket lists
+        self.permission_cache: TTLCache[str, BucketInfo] = TTLCache(maxsize=1000, ttl=cache_ttl)
+        self.identity_cache: TTLCache[str, UserIdentity] = TTLCache(maxsize=10, ttl=cache_ttl)
+        self.bucket_list_cache: TTLCache[str, List[BucketInfo]] = TTLCache(
+            maxsize=10, ttl=cache_ttl // 2
+        )  # Shorter TTL for bucket lists
 
         # Initialize AWS clients
         try:
@@ -298,13 +300,18 @@ class AWSPermissionDiscovery:
                 logger.debug(f"Athena discovery skipped/failed: {e}")
 
             # Environment-provided hints (e.g., registry/default and known buckets list)
+            DEFAULT_BUCKET_CONST: Optional[str] = None
             try:
-                from ..constants import DEFAULT_BUCKET
+                from ..constants import DEFAULT_BUCKET as DEFAULT_BUCKET_CONST
             except ImportError:
-                DEFAULT_BUCKET: Optional[str] = None
+                pass
             candidates: List[str] = []
-            if DEFAULT_BUCKET and isinstance(DEFAULT_BUCKET, str) and DEFAULT_BUCKET.startswith("s3://"):
-                candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET))
+            if (
+                DEFAULT_BUCKET_CONST
+                and isinstance(DEFAULT_BUCKET_CONST, str)
+                and DEFAULT_BUCKET_CONST.startswith("s3://")
+            ):
+                candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET_CONST))
             known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
             if known_env:
                 for raw in known_env.split(","):
@@ -510,7 +517,7 @@ class AWSPermissionDiscovery:
 
         return results
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear all cached permission data."""
         self.permission_cache.clear()
         self.identity_cache.clear()

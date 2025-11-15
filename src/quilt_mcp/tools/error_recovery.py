@@ -4,7 +4,7 @@ This module provides error recovery mechanisms and graceful degradation
 capabilities for robust MCP tool operation.
 """
 
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional, Callable, Literal
 import logging
 from datetime import datetime, timezone
 import functools
@@ -309,7 +309,9 @@ def health_check_with_recovery() -> HealthCheckSuccess:
     health_results = batch_operation_with_recovery(checks, fail_fast=False)
 
     # Generate overall health assessment
-    overall_health = "healthy" if health_results["success"] else "degraded"
+    overall_health: Literal["healthy", "degraded", "unhealthy"] = (
+        "healthy" if health_results["success"] else "degraded"
+    )
     fallback_detected = any(result.get("_fallback_used") for result in health_results["results"])
     if fallback_detected and overall_health == "healthy":
         overall_health = "degraded"
@@ -368,7 +370,7 @@ def _check_permissions_discovery() -> Dict[str, Any]:
 def _check_athena_connectivity() -> Dict[str, Any]:
     """Check Athena connectivity."""
     try:
-        from .athena_glue import athena_workgroups_list
+        from .athena_glue import athena_workgroups_list  # type: ignore[import-untyped]
 
         result = athena_workgroups_list()
         if not result.get("success"):
@@ -386,7 +388,7 @@ def _check_package_operations() -> Dict[str, Any]:
     try:
         from .packages import packages_list
 
-        result = packages_list(limit=1)
+        result = packages_list(limit=1, registry="s3://quilt-ernest-staging")
         if not result.get("success"):
             raise Exception(result.get("error", "Package operations failed"))
         return {"package_ops_available": True}
@@ -450,7 +452,9 @@ def _get_recovery_suggestions(operation_name: str, error: Exception) -> List[str
     return list(set(suggestions))  # Remove duplicates
 
 
-def _get_health_next_steps(overall_health: str, recovery_recommendations: List[str]) -> List[str]:
+def _get_health_next_steps(
+    overall_health: Literal["healthy", "degraded", "unhealthy"], recovery_recommendations: List[str]
+) -> List[str]:
     """Generate next steps based on health status."""
     if overall_health == "healthy":
         return [

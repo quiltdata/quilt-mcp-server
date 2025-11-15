@@ -12,7 +12,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Union
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 import logging
 
@@ -79,15 +79,11 @@ class TaskSession:
     session_id: str
     start_time: float
     end_time: Optional[float] = None
-    tool_calls: List[ToolCallData] | None = None
+    tool_calls: List[ToolCallData] = field(default_factory=list)
     task_type: Optional[str] = None
     completed: bool = False
     total_calls: int = 0
     efficiency_score: Optional[float] = None
-
-    def __post_init__(self):
-        if self.tool_calls is None:
-            self.tool_calls = []
 
 
 class TelemetryCollector:
