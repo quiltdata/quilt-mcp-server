@@ -169,68 +169,48 @@ class TestPackageScopeHandler:
             self.handler.build_index_pattern([])
 
     def test_build_query_filter(self):
-        """Should build query that searches both manifests and entries."""
+        """Should build query that searches only manifest documents."""
         query_filter = self.handler.build_query_filter("CCLE AND csv")
 
         # Should be a bool query
         assert "bool" in query_filter
         assert "must" in query_filter["bool"]
-        assert "should" in query_filter["bool"]
-        assert "minimum_should_match" in query_filter["bool"]
 
-        # Should have base query in must
+        # Should have two must clauses: exists check and query
         must_clauses = query_filter["bool"]["must"]
-        assert len(must_clauses) == 1
-        assert must_clauses[0]["query_string"]["query"] == "CCLE AND csv"
+        assert len(must_clauses) == 2
 
-        # Should have manifest and entry boosting in should clauses
-        should_clauses = query_filter["bool"]["should"]
-        assert len(should_clauses) == 2
+        # First must clause: check for ptr_name field (manifest documents only)
+        assert must_clauses[0] == {"exists": {"field": "ptr_name"}}
 
-        # Check manifest boost clause
-        manifest_clause = should_clauses[0]
-        assert "bool" in manifest_clause
-        # Boost is inside the bool clause
-        assert "boost" in manifest_clause["bool"]
-        assert manifest_clause["bool"]["boost"] == 2.0
-        # Verify it checks for ptr_name field
-        manifest_must = manifest_clause["bool"]["must"]
-        assert any(
-            "ptr_name" in str(clause) for clause in manifest_must
-        ), "Should check for ptr_name field"
-
-        # Check entry clause
-        entry_clause = should_clauses[1]
-        assert "bool" in entry_clause
-        entry_must = entry_clause["bool"]["must"]
-        assert any(
-            "entry_pk" in str(clause) for clause in entry_must
-        ), "Should check for entry_pk field"
-
-        # Should require at least one should clause to match
-        assert query_filter["bool"]["minimum_should_match"] == 1
+        # Second must clause: query string with manifest fields
+        query_clause = must_clauses[1]
+        assert "query_string" in query_clause
+        assert query_clause["query_string"]["query"] == "CCLE AND csv"
+        assert "fields" in query_clause["query_string"]
+        # Should search manifest fields with ptr_name boosted
+        fields = query_clause["query_string"]["fields"]
+        assert "ptr_name^2" in fields
+        assert "ptr_tag" in fields
+        assert "mnfst_name" in fields
 
     def test_build_query_filter_preserves_wildcards(self):
         """Should preserve wildcard syntax in query."""
         query_filter = self.handler.build_query_filter("CCLE* AND *.csv")
 
-        # Verify wildcards are preserved in base query
-        base_query = query_filter["bool"]["must"][0]["query_string"]["query"]
+        # Verify wildcards are preserved in query string
+        query_clause = query_filter["bool"]["must"][1]  # Second must clause is the query
+        base_query = query_clause["query_string"]["query"]
         assert "CCLE*" in base_query
         assert "*.csv" in base_query
-
-        # Verify wildcards are preserved in field queries
-        should_clauses = query_filter["bool"]["should"]
-        manifest_query = should_clauses[0]["bool"]["must"][1]["query_string"]["query"]
-        entry_query = should_clauses[1]["bool"]["must"][1]["query_string"]["query"]
-        assert "CCLE*" in manifest_query or "CCLE*" in entry_query
-        assert "*.csv" in manifest_query or "*.csv" in entry_query
 
     def test_build_query_filter_handles_boolean_operators(self):
         """Should handle complex boolean queries."""
         query_filter = self.handler.build_query_filter("(csv OR json) AND data NOT test")
 
-        base_query = query_filter["bool"]["must"][0]["query_string"]["query"]
+        # Query should be in the second must clause
+        query_clause = query_filter["bool"]["must"][1]
+        base_query = query_clause["query_string"]["query"]
         assert "(csv OR json) AND data NOT test" == base_query
 
     def test_build_collapse_config(self):

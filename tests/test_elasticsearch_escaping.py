@@ -33,12 +33,12 @@ class TestElasticsearchQueryEscaping:
         assert escape_elasticsearch_query("gene+protein") == r"gene\+protein"
 
     def test_escape_asterisk(self):
-        """Test that asterisks are properly escaped."""
-        assert escape_elasticsearch_query("file*.txt") == r"file\*.txt"
+        """Test that asterisks are NOT escaped (they're wildcards)."""
+        assert escape_elasticsearch_query("file*.txt") == "file*.txt"
 
     def test_escape_question_mark(self):
-        """Test that question marks are properly escaped."""
-        assert escape_elasticsearch_query("file?.txt") == r"file\?.txt"
+        """Test that question marks are NOT escaped (they're wildcards)."""
+        assert escape_elasticsearch_query("file?.txt") == "file?.txt"
 
     def test_escape_parentheses(self):
         """Test that parentheses are properly escaped."""

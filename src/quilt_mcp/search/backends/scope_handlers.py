@@ -270,8 +270,12 @@ class PackageScopeHandler(ScopeHandler):
     def build_query_filter(self, base_query: str) -> Dict[str, Any]:
         """Build query that searches both manifests and entries.
 
-        Does NOT filter by document type - we want both manifests and entries!
-        But uses field boosts and scoring to prefer packages where manifest matches.
+        CRITICAL: Since we use collapse on ptr_name.keyword, we MUST only return
+        documents that have ptr_name. Entry documents don't have ptr_name, so we
+        need to filter to only manifest documents.
+
+        TODO: Future enhancement could use a parent-child or join relationship
+        to properly group entries under their packages.
 
         Args:
             base_query: The escaped query string from user input
@@ -280,44 +284,20 @@ class PackageScopeHandler(ScopeHandler):
             Elasticsearch query DSL with bool structure
 
         Query strategy:
-        - Must match the base query somewhere
-        - Should (boosted) match manifest fields (ptr_name, ptr_tag)
-        - Should match entry fields (entry_lk, entry_pk)
-        - Requires at least one should clause to match
+        - Must have ptr_name field (manifest documents only)
+        - Must match the base query in manifest fields
         """
         return {
             "bool": {
                 "must": [
-                    {"query_string": {"query": base_query}}
-                ],
-                "should": [
-                    # Boost if manifest fields match
-                    {
-                        "bool": {
-                            "must": [
-                                {"exists": {"field": "ptr_name"}},
-                                {"query_string": {
-                                    "query": base_query,
-                                    "fields": ["ptr_name^2", "ptr_tag"]
-                                }}
-                            ],
-                            "boost": 2.0
-                        }
-                    },
-                    # Also match entries
-                    {
-                        "bool": {
-                            "must": [
-                                {"exists": {"field": "entry_pk"}},
-                                {"query_string": {
-                                    "query": base_query,
-                                    "fields": ["entry_lk", "entry_pk"]
-                                }}
-                            ]
-                        }
-                    }
-                ],
-                "minimum_should_match": 1
+                    # REQUIRED: Only documents with ptr_name (manifests)
+                    {"exists": {"field": "ptr_name"}},
+                    # Match query in manifest fields
+                    {"query_string": {
+                        "query": base_query,
+                        "fields": ["ptr_name^2", "ptr_tag", "mnfst_name"]
+                    }}
+                ]
             }
         }
 
