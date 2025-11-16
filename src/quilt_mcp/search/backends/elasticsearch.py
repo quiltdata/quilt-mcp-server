@@ -42,23 +42,31 @@ def escape_elasticsearch_query(query: str) -> str:
     Elasticsearch query_string syntax treats certain characters as operators.
     This function escapes them to allow literal searches.
 
-    Special characters that need escaping:
-    + - = && || > < ! ( ) { } [ ] ^ " ~ * ? : \ /
+    IMPORTANT: Wildcards (* and ?) are NOT escaped - they remain as wildcards.
+    Single * means "match all", ? means "match any single character".
+
+    Special characters that ARE escaped:
+    + - = && || > < ! ( ) { } [ ] ^ " ~ : \ /
 
     Args:
         query: Raw query string
 
     Returns:
-        Escaped query string safe for query_string queries
+        Escaped query string safe for query_string queries (preserving wildcards)
 
     Examples:
         >>> escape_elasticsearch_query("team/dataset")
         'team\\/dataset'
         >>> escape_elasticsearch_query("size>100")
         'size\\>100'
+        >>> escape_elasticsearch_query("*")
+        '*'
+        >>> escape_elasticsearch_query("*.csv")
+        '*.csv'
     """
     # Characters that need to be escaped in Elasticsearch query_string
     # Order matters: escape backslash first to avoid double-escaping
+    # NOTE: * and ? are INTENTIONALLY OMITTED to preserve wildcard functionality
     special_chars = [
         '\\',
         '+',
@@ -76,8 +84,6 @@ def escape_elasticsearch_query(query: str) -> str:
         '^',
         '"',
         '~',
-        '*',
-        '?',
         ':',
         '/',
     ]

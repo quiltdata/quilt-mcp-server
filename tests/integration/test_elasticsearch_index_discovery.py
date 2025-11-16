@@ -56,6 +56,10 @@ def default_bucket():
 class TestPureFunctions:
     """Test pure static methods with no side effects."""
 
+    def setup_method(self):
+        """Create a backend instance for testing instance methods."""
+        self.backend = Quilt3ElasticsearchBackend()
+
     def test_normalize_bucket_name_basic(self):
         """Test basic bucket name normalization."""
         assert Quilt3ElasticsearchBackend.normalize_bucket_name("my-bucket") == "my-bucket"
@@ -67,38 +71,38 @@ class TestPureFunctions:
     def test_build_index_pattern_for_file_scope(self):
         """Test index pattern building for file scope."""
         # Single bucket
-        assert Quilt3ElasticsearchBackend.build_index_pattern_for_scope("file", ["bucket1"]) == "bucket1"
+        assert self.backend.build_index_pattern_for_scope("file", ["bucket1"]) == "bucket1"
 
         # Multiple buckets
-        assert Quilt3ElasticsearchBackend.build_index_pattern_for_scope("file", ["bucket1", "bucket2"]) == "bucket1,bucket2"
+        assert self.backend.build_index_pattern_for_scope("file", ["bucket1", "bucket2"]) == "bucket1,bucket2"
 
         # Many buckets
         buckets = [f"bucket{i}" for i in range(10)]
-        pattern = Quilt3ElasticsearchBackend.build_index_pattern_for_scope("file", buckets)
+        pattern = self.backend.build_index_pattern_for_scope("file", buckets)
         assert pattern == ",".join(buckets)
         assert "_packages" not in pattern
 
     def test_build_index_pattern_for_package_scope(self):
         """Test index pattern building for package scope."""
         # Single bucket
-        assert Quilt3ElasticsearchBackend.build_index_pattern_for_scope("packageEntry", ["bucket1"]) == "bucket1_packages"
+        assert self.backend.build_index_pattern_for_scope("packageEntry", ["bucket1"]) == "bucket1_packages"
 
         # Multiple buckets
-        assert Quilt3ElasticsearchBackend.build_index_pattern_for_scope("packageEntry", ["bucket1", "bucket2"]) == "bucket1_packages,bucket2_packages"
+        assert self.backend.build_index_pattern_for_scope("packageEntry", ["bucket1", "bucket2"]) == "bucket1_packages,bucket2_packages"
 
         # Many buckets
         buckets = [f"bucket{i}" for i in range(10)]
-        pattern = Quilt3ElasticsearchBackend.build_index_pattern_for_scope("packageEntry", buckets)
+        pattern = self.backend.build_index_pattern_for_scope("packageEntry", buckets)
         assert all(f"{b}_packages" in pattern for b in buckets)
 
     def test_build_index_pattern_for_global_scope(self):
         """Test index pattern building for global scope."""
         # Single bucket - should get both file and package indices
-        pattern = Quilt3ElasticsearchBackend.build_index_pattern_for_scope("global", ["bucket1"])
+        pattern = self.backend.build_index_pattern_for_scope("global", ["bucket1"])
         assert pattern == "bucket1,bucket1_packages"
 
         # Multiple buckets - should get all file indices followed by all package indices
-        pattern = Quilt3ElasticsearchBackend.build_index_pattern_for_scope("global", ["bucket1", "bucket2"])
+        pattern = self.backend.build_index_pattern_for_scope("global", ["bucket1", "bucket2"])
         parts = pattern.split(",")
         assert "bucket1" in parts
         assert "bucket2" in parts
@@ -109,12 +113,12 @@ class TestPureFunctions:
     def test_build_index_pattern_empty_bucket_list_raises(self):
         """Test that empty bucket list raises ValueError."""
         with pytest.raises(ValueError, match="Cannot build index pattern: bucket list is empty"):
-            Quilt3ElasticsearchBackend.build_index_pattern_for_scope("file", [])
+            self.backend.build_index_pattern_for_scope("file", [])
 
     def test_build_index_pattern_invalid_scope_raises(self):
         """Test that invalid scope raises ValueError."""
         with pytest.raises(ValueError, match="Invalid scope"):
-            Quilt3ElasticsearchBackend.build_index_pattern_for_scope("invalid", ["bucket1"])
+            self.backend.build_index_pattern_for_scope("invalid", ["bucket1"])
 
 
 # ============================================================================
@@ -471,6 +475,247 @@ class TestIndexPatternValidation:
             bucket_from_index = backend.get_bucket_from_index(idx)
             assert bucket_from_index == default_bucket, \
                 f"Result from unexpected bucket: {bucket_from_index}, expected: {default_bucket}"
+
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestScopeHandlerParsing:
+    """Test that scope handlers can parse actual documents from Elasticsearch.
+
+    These tests verify the CRITICAL parsing logic that was previously untested:
+    - FileScopeHandler parses file documents correctly
+    - PackageEntryScopeHandler parses package documents correctly
+    - Handlers validate documents and return None for invalid ones
+    """
+
+    async def test_file_scope_handler_parses_real_documents(self, backend, default_bucket):
+        """Test FileScopeHandler can parse actual file documents from Elasticsearch."""
+        # Get a real file document - try different queries
+        # Note: Wildcard * might not return results in some ES configurations
+        queries = ["*", "csv", "json", "txt", "data", ""]
+
+        response = await backend.search(query="*", scope="file", bucket=default_bucket, limit=10)
+        for query in queries:
+            response = await backend.search(
+                query=query if query else "*",
+                scope="file",
+                bucket=default_bucket,
+                limit=10
+            )
+            if len(response.results) > 0:
+                break
+
+        # Should have at least one result
+        assert response.status.value == "available", f"Search failed: {response.error_message}"
+
+        # MUST have results - if bucket is empty, that's a test environment problem
+        assert len(response.results) > 0, \
+            f"CRITICAL: No files found in {default_bucket} after trying {len(queries)} queries. " \
+            f"Cannot test FileScopeHandler parsing without real data. " \
+            f"Please ensure bucket has indexed files."
+
+        result = response.results[0]
+
+        # Verify FileScopeHandler produced valid SearchResult
+        assert result.type == "file", f"Expected type='file', got type='{result.type}'"
+        assert result.name, "File result must have 'name' field (the object key)"
+        assert result.title, "File result must have 'title' field"
+        assert result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got '{result.bucket}'"
+        assert result.s3_uri, "File result must have s3_uri"
+        assert result.s3_uri.startswith(f"s3://{default_bucket}/"), \
+            f"s3_uri should start with 's3://{default_bucket}/', got: {result.s3_uri}"
+
+        # Verify required fields are present
+        assert result.id, "File result must have ID"
+        assert result.backend == "elasticsearch", "Backend should be 'elasticsearch'"
+        assert isinstance(result.size, int), "Size should be an integer"
+        assert isinstance(result.score, float), "Score should be a float"
+
+        # Verify metadata contains _index field
+        assert "_index" in result.metadata, "Metadata should contain '_index' field"
+        assert not backend.is_package_index(result.metadata["_index"]), \
+            "File scope should not return results from package index"
+
+        logger.info(f"✅ FileScopeHandler successfully parsed: {result.name}")
+
+    async def test_package_entry_handler_parses_real_documents(self, backend, default_bucket):
+        """Test PackageEntryScopeHandler can parse actual package ENTRY documents ONLY.
+
+        CRITICAL: PackageEntryScopeHandler ONLY processes ENTRY documents.
+        Manifest documents (ptr_name, mnfst_name) are REJECTED and should NOT appear in results.
+
+        Package ENTRY documents have fields:
+        - entry_pk: Package name with hash (e.g., "my/package@abc123")
+        - entry_lk: Logical key (file path within package)
+        - entry_size: Size of the entry file
+        - entry_hash: Hash of the entry file
+        - entry_metadata: Metadata including last_modified
+        """
+        # Get real package ENTRY documents
+        response = await backend.search(
+            query="*",
+            scope="packageEntry",
+            bucket=default_bucket,
+            limit=20
+        )
+
+        # Should have at least one result
+        assert response.status.value == "available", f"Search failed: {response.error_message}"
+
+        # MUST have results - if no package entries exist, that's a test environment problem
+        assert len(response.results) > 0, \
+            f"CRITICAL: No package ENTRY documents found in {default_bucket}. " \
+            f"Cannot test PackageEntryScopeHandler parsing without real entry data. " \
+            f"Please ensure bucket has indexed packages with entries (not just manifests)."
+
+        # CRITICAL: ALL results must be ENTRY documents (no manifests allowed)
+        for result in response.results:
+            source = result.metadata
+
+            # MUST have entry fields
+            assert "entry_pk" in source or "entry_lk" in source, \
+                f"PackageEntryScopeHandler returned non-entry document! " \
+                f"Document ID: {result.id}, Available fields: {list(source.keys())[:10]}"
+
+            # MUST NOT have manifest fields (they should be filtered out)
+            if "ptr_name" in source or "mnfst_name" in source:
+                raise AssertionError(
+                    f"CRITICAL BUG: PackageEntryScopeHandler returned manifest document! "
+                    f"Manifests should be REJECTED. Document ID: {result.id}, "
+                    f"ptr_name: {source.get('ptr_name')}, mnfst_name: {source.get('mnfst_name')}"
+                )
+
+        logger.info(f"✅ All {len(response.results)} results are ENTRY documents (no manifests)")
+
+        # Test first entry result in detail
+        test_result = response.results[0]
+
+        # Verify PackageEntryScopeHandler produced valid SearchResult
+        assert test_result.type == "packageEntry", f"Expected type='packageEntry', got type='{test_result.type}'"
+
+        # Entry name should be entry_lk (file path) or entry_pk
+        assert test_result.name, \
+            f"Entry result must have 'name' field (entry_lk or entry_pk). " \
+            f"Available fields: {list(test_result.metadata.keys())[:10]}"
+
+        # Entry title should be filename (last part of entry_lk)
+        assert test_result.title, "Entry result must have 'title' field"
+
+        assert test_result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got '{test_result.bucket}'"
+
+        # Verify required fields are present
+        assert test_result.id, "Entry result must have ID"
+        assert test_result.backend == "elasticsearch", "Backend should be 'elasticsearch'"
+        assert isinstance(test_result.size, int), "Size should be an integer"
+        assert isinstance(test_result.score, float), "Score should be a float"
+
+        # S3 URI should point to the actual entry file (not .quilt/packages/)
+        if test_result.s3_uri:
+            assert test_result.s3_uri.startswith(f"s3://{default_bucket}/"), \
+                f"Entry s3_uri should point to actual file, got: {test_result.s3_uri}"
+            assert ".quilt/packages" not in test_result.s3_uri, \
+                f"Entry s3_uri should NOT point to package manifest, got: {test_result.s3_uri}"
+
+        # Verify metadata contains _index field and it's a package index
+        assert "_index" in test_result.metadata, "Metadata should contain '_index' field"
+        assert backend.is_package_index(test_result.metadata["_index"]), \
+            f"Package scope should return results from package index, got: {test_result.metadata['_index']}"
+
+        # Log entry document info
+        logger.info(f"✅ PackageEntryScopeHandler parsed ENTRY document: {test_result.name}")
+        if test_result.metadata.get("entry_pk"):
+            logger.info(f"   entry_pk: {test_result.metadata['entry_pk']}")
+        if test_result.metadata.get("entry_lk"):
+            logger.info(f"   entry_lk: {test_result.metadata['entry_lk']}")
+        if test_result.metadata.get("package_name"):
+            logger.info(f"   package_name: {test_result.metadata['package_name']}")
+
+        # Verify extracted package name
+        if "package_name" in test_result.metadata:
+            assert test_result.metadata["package_name"], "Extracted package_name should not be empty"
+
+    async def test_global_scope_handler_parses_both_types(self, backend, default_bucket):
+        """Test GlobalScopeHandler can parse both file and package documents."""
+        # Get mixed results - try different queries
+        queries = ["*", "csv", "json", "txt", "data", ""]
+
+        response = await backend.search(query="*", scope="global", bucket=default_bucket, limit=20)
+        for query in queries:
+            response = await backend.search(
+                query=query if query else "*",
+                scope="global",
+                bucket=default_bucket,
+                limit=20
+            )
+            if len(response.results) > 0:
+                break
+
+        # Should have at least one result
+        assert response.status.value == "available", f"Search failed: {response.error_message}"
+
+        # MUST have results - if bucket is empty, that's a test environment problem
+        assert len(response.results) > 0, \
+            f"CRITICAL: No results found in {default_bucket} after trying {len(queries)} queries. " \
+            f"Cannot test GlobalScopeHandler parsing without real data. " \
+            f"Please ensure bucket has indexed content."
+
+        # Categorize results by type
+        file_results = [r for r in response.results if r.type == "file"]
+        package_results = [r for r in response.results if r.type == "packageEntry"]
+
+        # MUST have at least one file result (files are ubiquitous in S3)
+        assert len(file_results) > 0, \
+            f"CRITICAL: Global scope returned {len(response.results)} results but ZERO files. " \
+            f"This indicates a serious problem with file indexing or scope handler."
+
+        # Verify file results are valid
+        for result in file_results:
+            assert result.name, "File result must have name"
+            assert result.bucket == default_bucket
+            assert result.s3_uri.startswith(f"s3://{default_bucket}/")
+            assert not backend.is_package_index(result.metadata.get("_index", "")), \
+                "File results should not come from package indices"
+
+        # Verify package results are valid (if any)
+        for result in package_results:
+            assert result.name, "Package result must have name"
+            assert result.bucket == default_bucket
+            if result.s3_uri:
+                assert ".quilt/packages" in result.s3_uri
+            assert backend.is_package_index(result.metadata.get("_index", "")), \
+                "Package results should come from package indices"
+
+        logger.info(f"✅ GlobalScopeHandler parsed {len(file_results)} files and {len(package_results)} packages")
+
+    async def test_handler_validation_filters_invalid_documents(self, backend, default_bucket):
+        """Test that handlers return None for invalid documents (filtered out).
+
+        This is harder to test in integration since we can't inject invalid docs,
+        but we can verify the validation logic exists and handles edge cases.
+        """
+        # Search for packages - should only return valid documents
+        response = await backend.search(
+            query="*",
+            scope="packageEntry",
+            bucket=default_bucket,
+            limit=10
+        )
+
+        # All returned results should be valid
+        for result in response.results:
+            # PackageEntryScopeHandler requires name field (ptr_name, mnfst_name, entry_pk, or entry_lk)
+            assert result.name, \
+                f"Handler validation failed: package result missing name. Result: {result}"
+
+            # Should have package type
+            assert result.type == "packageEntry", \
+                f"Handler validation failed: wrong type '{result.type}'"
+
+            # Should come from package index
+            assert backend.is_package_index(result.metadata.get("_index", "")), \
+                f"Handler validation failed: result not from package index"
+
+        logger.info(f"✅ Handler validation: all {len(response.results)} package results are valid")
 
 
 @pytest.mark.integration

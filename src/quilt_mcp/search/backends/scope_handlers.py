@@ -117,7 +117,13 @@ class FileScopeHandler(ScopeHandler):
 
 
 class PackageEntryScopeHandler(ScopeHandler):
-    """Handler for package entry searches."""
+    """Handler for package ENTRY searches ONLY.
+
+    IMPORTANT: This handler ONLY processes package ENTRY documents, not manifest documents.
+    Package entries have fields: entry_pk, entry_lk, entry_hash, entry_size
+
+    Manifest documents (ptr_name, mnfst_name) are handled by PackageHandler (currently disabled).
+    """
 
     def build_index_pattern(self, buckets: List[str]) -> str:
         """Build index pattern for package indices only.
@@ -130,77 +136,90 @@ class PackageEntryScopeHandler(ScopeHandler):
         return ",".join(f"{b}_packages" for b in buckets)
 
     def parse_result(self, hit: Dict[str, Any], bucket_name: str) -> Optional[SearchResult]:
-        """Parse a package entry result from Elasticsearch hit.
+        """Parse a package ENTRY result from Elasticsearch hit.
 
-        Package indices can contain two types of documents:
-        1. Package manifest documents (ptr_name, mnfst_name, mnfst_hash, mnfst_stats)
-        2. Package entry documents (entry_pk, entry_lk, entry_hash, entry_size)
+        CRITICAL: This ONLY parses ENTRY documents (entry_pk, entry_lk).
+        Manifest documents (ptr_name, mnfst_name) are REJECTED and return None.
         """
         source = hit.get("_source", {})
         index_name = hit.get("_index", "")
 
-        # Try package manifest fields first (ptr_name, mnfst_name)
-        package_name = source.get("ptr_name", source.get("mnfst_name", ""))
+        # ONLY parse ENTRY documents - reject manifests
+        # entry_pk format: "package_name@hash" or just "package_name"
+        entry_pk = source.get("entry_pk", "")
+        entry_lk = source.get("entry_lk", "")
 
-        # If not found, try package entry fields (entry_pk, entry_lk)
-        if not package_name:
-            # entry_pk format: "package_name@hash" or just "package_name"
-            entry_pk = source.get("entry_pk", "")
-            if entry_pk:
-                # Extract package name (everything before @ if present)
-                package_name = entry_pk.split("@")[0] if "@" in entry_pk else entry_pk
-            else:
-                # Try entry_lk (logical key) as fallback
-                package_name = source.get("entry_lk", "")
-
-        # VALIDATION: Package indices MUST have some identifier
-        if not package_name:
-            logger.error(
-                f"PACKAGE INDEX VALIDATION FAILED: Document from index '{index_name}' "
-                f"missing package identifier fields (ptr_name, mnfst_name, entry_pk, entry_lk). "
-                f"Document ID: {hit.get('_id', 'unknown')}, "
-                f"Available fields: {list(source.keys())[:10]}"
+        # Extract package name from entry fields ONLY
+        package_name = ""
+        if entry_pk:
+            # Extract package name (everything before @ if present)
+            package_name = entry_pk.split("@")[0] if "@" in entry_pk else entry_pk
+        elif entry_lk:
+            # entry_lk is the logical key (file path within package)
+            # Package name is NOT in entry_lk, it's in entry_pk
+            # If we only have entry_lk, we can't determine package name
+            logger.debug(
+                f"Entry document has entry_lk but no entry_pk. Cannot determine package name. "
+                f"Document ID: {hit.get('_id', 'unknown')}"
             )
             return None
 
-        # Get size from either manifest stats or entry size
-        size = source.get("mnfst_stats", {}).get("total_bytes", 0)
-        if not size:
-            size = source.get("entry_size", 0)
+        # VALIDATION: Entry documents MUST have entry_pk or entry_lk
+        if not entry_pk and not entry_lk:
+            # This is likely a manifest document - reject it
+            if source.get("ptr_name") or source.get("mnfst_name"):
+                logger.debug(
+                    f"Skipping manifest document (ptr_name/mnfst_name) in packageEntry scope. "
+                    f"Document ID: {hit.get('_id', 'unknown')}"
+                )
+            else:
+                logger.error(
+                    f"PACKAGE ENTRY VALIDATION FAILED: Document from index '{index_name}' "
+                    f"missing entry fields (entry_pk, entry_lk). "
+                    f"Document ID: {hit.get('_id', 'unknown')}, "
+                    f"Available fields: {list(source.keys())[:10]}"
+                )
+            return None
 
-        # Get last modified from either manifest or entry metadata
-        last_modified = source.get("mnfst_last_modified", "")
-        if not last_modified and "entry_metadata" in source:
+        # Get size from entry fields ONLY
+        size = source.get("entry_size", 0)
+
+        # Get last modified from entry metadata ONLY
+        last_modified = ""
+        if "entry_metadata" in source:
             entry_metadata = source.get("entry_metadata", {})
             if isinstance(entry_metadata, dict):
                 last_modified = entry_metadata.get("last_modified", "")
 
-        # Get hash from either manifest or entry
-        mnfst_hash = source.get("mnfst_hash", source.get("entry_hash", ""))
+        # Get hash from entry fields ONLY
+        entry_hash = source.get("entry_hash", "")
 
-        # Construct S3 URI for package manifest
+        # Construct S3 URI for the entry file (NOT the package manifest)
+        # entry_lk is the file path within the package
         s3_uri = None
-        if bucket_name and package_name and mnfst_hash:
-            s3_uri = f"s3://{bucket_name}/.quilt/packages/{package_name}/{mnfst_hash}.jsonl"
+        if bucket_name and entry_lk:
+            # Entries point to actual data files in the bucket
+            s3_uri = f"s3://{bucket_name}/{entry_lk}"
 
         return SearchResult(
             id=hit.get("_id", ""),
             type="packageEntry",
-            name=package_name,
-            title=package_name,
-            description=f"Quilt package: {package_name}",
+            name=entry_lk or entry_pk,  # Use logical key (file path) as name
+            title=entry_lk.split("/")[-1] if entry_lk else entry_pk,  # Use filename as title
+            description=f"Package entry: {package_name}" if package_name else "Package entry",
             s3_uri=s3_uri,
             size=size,
             last_modified=last_modified,
             metadata={
                 **source,
                 "_index": index_name,
+                "package_name": package_name,  # Add extracted package name to metadata
             },
             score=hit.get("_score", 0.0),
             backend="elasticsearch",
             bucket=bucket_name,
-            content_type="application/jsonl",
-            extension="jsonl",
+            content_type="",  # Entry can be any file type
+            extension=entry_lk.rsplit(".", 1)[-1] if entry_lk and "." in entry_lk else "",
         )
 
     def get_expected_result_type(self) -> str:
