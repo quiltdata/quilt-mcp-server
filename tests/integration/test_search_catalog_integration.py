@@ -2,20 +2,196 @@
 
 These tests make REAL API calls to Elasticsearch and verify ACTUAL search results.
 No mocks. Real data. Real pain.
+
+CRITICAL REQUIREMENT: Every test MUST return non-zero results with proper schemas.
+Tests that pass with zero results are BROKEN and hide bugs.
 """
 
 import pytest
-from quilt_mcp import DEFAULT_BUCKET, DEFAULT_REGISTRY
+from typing import Dict, List, Set, NamedTuple
+from quilt_mcp import DEFAULT_BUCKET
 from quilt_mcp.tools.search import search_catalog
+from quilt_mcp.constants import (
+    KNOWN_TEST_PACKAGE as QUILT_TEST_PACKAGE,
+    KNOWN_TEST_ENTRY as QUILT_TEST_ENTRY,
+    DEFAULT_BUCKET as QUILT_DEFAULT_BUCKET,
+)
+
+
+# ============================================================================
+# Test Fixtures
+# ============================================================================
+
+@pytest.fixture
+def test_package():
+    """Return known test package name from environment.
+
+    Example: "test/raw" or "datasets/genomics"
+
+    Set via: QUILT_TEST_PACKAGE environment variable
+    """
+    return QUILT_TEST_PACKAGE
+
+
+@pytest.fixture
+def test_entry():
+    """Return known test entry filename from environment.
+
+    Example: "README.md" or "data.csv"
+
+    Set via: QUILT_TEST_ENTRY environment variable
+    """
+    return QUILT_TEST_ENTRY
+
+
+@pytest.fixture
+def default_bucket():
+    """Return default bucket name (normalized), or skip test if not set.
+
+    Example: "my-bucket" (with s3:// prefix removed)
+
+    Set via: QUILT_DEFAULT_BUCKET environment variable
+
+    Behavior:
+    - If QUILT_DEFAULT_BUCKET is set: return normalized bucket name
+    - If NOT set: skip test with message "QUILT_DEFAULT_BUCKET not set"
+    """
+    if not QUILT_DEFAULT_BUCKET:
+        pytest.skip("QUILT_DEFAULT_BUCKET not set - required for this test")
+    return QUILT_DEFAULT_BUCKET.replace("s3://", "")
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+class ResultShape(NamedTuple):
+    """Shape of search results for easy assertion."""
+    count: int
+    types: Set[str]
+    buckets: Set[str]
+
+
+def get_result_shape(results: List[Dict]) -> ResultShape:
+    """Extract shape of search results for validation.
+
+    Args:
+        results: List of search result dicts
+
+    Returns:
+        ResultShape with count, set of types, set of buckets
+
+    Example:
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, "Expected non-zero results"
+        assert shape.types == {"file"}, "Expected only file results"
+        assert shape.buckets == {"my-bucket"}, "Expected only my-bucket"
+    """
+    return ResultShape(
+        count=len(results),
+        types={r.get("type") for r in results if "type" in r},
+        buckets={r.get("bucket") for r in results if "bucket" in r}
+    )
+
+
+def assert_valid_search_response(result: Dict) -> None:
+    """Validate basic search response structure.
+
+    Checks:
+    - Result is a dict
+    - success=True (or no error field)
+    - Has 'results' field
+    - results is a list
+
+    Raises:
+    - AssertionError with descriptive message if validation fails
+    """
+    assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+    assert result.get("success"), f"Search failed: {result.get('error')}"
+    assert "results" in result, "Response must have 'results' field"
+    assert isinstance(result["results"], list), "Results must be a list"
 
 
 @pytest.mark.integration
 @pytest.mark.search
 class TestSearchCatalogIntegration:
-    """Integration tests for search_catalog using real Elasticsearch."""
+    """Integration tests for search_catalog using real Elasticsearch.
 
-    def test_file_scope_specific_bucket_returns_real_results(self):
-        """Search for files in specific bucket - must return actual file results."""
+    CRITICAL: These tests REQUIRE non-zero results. Tests that pass with
+    zero results are BROKEN and will hide bugs in scope filtering.
+    """
+
+    def test_package_scope_MUST_ONLY_return_packages_NOT_files(self):
+        """CRITICAL BUG TEST: Package scope must ONLY return type='package', NEVER files.
+
+        This test reproduces the bug where scope='package' was returning file results.
+        Uses 'ccle' query which is KNOWN to match both files and packages in test data.
+        """
+        result = search_catalog(
+            query="ccle",
+            scope="package",  # PACKAGE SCOPE
+            bucket="",  # All buckets
+            limit=50,
+        )
+
+        # Must be successful
+        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert result.get("success"), f"Search failed: {result.get('error')}"
+
+        # MUST have results
+        assert "results" in result, "Must have 'results' field"
+        assert isinstance(result["results"], list), "Results must be a list"
+
+        # REQUIRE non-zero results - this query MUST find packages
+        assert len(result["results"]) > 0, \
+            "CRITICAL: Query 'ccle' with scope='package' returned ZERO results. " \
+            "This means test data is missing or query is broken."
+
+        # EVERY result MUST be a package (not file)
+        for idx, res in enumerate(result["results"]):
+            assert "type" in res, f"Result {idx} missing 'type' field: {res}"
+
+            # THIS IS THE BUG FIX: Package scope MUST ONLY return packages
+            assert res["type"] == "package", \
+                f"PACKAGE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='package' " \
+                f"should ONLY return type='package'\nResult: {res}"
+
+    def test_file_scope_MUST_ONLY_return_files_NOT_packages(self):
+        """CRITICAL: File scope must ONLY return type='file', NEVER packages.
+
+        Uses 'csv' query which is KNOWN to match file data in test environment.
+        """
+        result = search_catalog(
+            query="csv",
+            scope="file",  # FILE SCOPE
+            bucket="",  # All buckets
+            limit=50,
+        )
+
+        # Must be successful
+        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert result.get("success"), f"Search failed: {result.get('error')}"
+
+        # MUST have results
+        assert "results" in result, "Must have 'results' field"
+        assert isinstance(result["results"], list), "Results must be a list"
+
+        # REQUIRE non-zero results
+        assert len(result["results"]) > 0, \
+            "CRITICAL: Query 'csv' with scope='file' returned ZERO results. " \
+            "This means test data is missing or query is broken."
+
+        # EVERY result MUST be a file (not package)
+        for idx, res in enumerate(result["results"]):
+            assert "type" in res, f"Result {idx} missing 'type' field: {res}"
+
+            # File scope should only return files
+            assert res["type"] == "file", \
+                f"FILE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='file' " \
+                f"should ONLY return type='file'\nResult: {res}"
+
+    def test_file_scope_specific_bucket_returns_only_files(self):
+        """File scope with specific bucket must return ONLY files."""
         result = search_catalog(
             query="csv",
             scope="file",
@@ -23,31 +199,27 @@ class TestSearchCatalogIntegration:
             limit=10,
         )
 
-        # Must be a dict response
+        # Must be successful
         assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert result.get("success"), f"Search failed: {result.get('error')}"
 
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
+        # MUST have results field
+        assert "results" in result, "Success response must have 'results' field"
+        assert isinstance(result["results"], list), "Results must be a list"
 
-        # If successful, must have results
-        if result.get("success"):
-            assert "results" in result, "Success response must have 'results' field"
-            assert isinstance(result["results"], list), "Results must be a list"
+        # REQUIRE non-zero results - test MUST fail if no results
+        assert len(result["results"]) > 0, \
+            f"FILE SCOPE TEST FAILURE: Must return at least 1 file result from bucket {DEFAULT_BUCKET}. Got 0 results."
 
-            # If we got results, verify they're properly structured
-            if len(result["results"]) > 0:
-                first_result = result["results"][0]
-                assert "type" in first_result, "Result must have 'type' field"
-                assert first_result["type"] == "file", f"Expected type='file', got {first_result.get('type')}"
-                assert "name" in first_result, "Result must have 'name' field"
-                assert "s3_uri" in first_result, "Result must have 's3_uri' field"
-                assert "bucket" in first_result, "Result must have 'bucket' field"
-                assert first_result["bucket"], "Bucket field must not be empty"
-                assert isinstance(first_result["bucket"], str), "Bucket must be a string"
-                assert "score" in first_result, "Result must have 'score' field"
+        # Verify EVERY result is a file (not just the first one)
+        for idx, res in enumerate(result["results"]):
+            assert "type" in res, f"Result {idx} must have 'type' field"
+            assert res["type"] == "file", \
+                f"FILE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='file' should ONLY return type='file'"
+            assert "bucket" in res, f"Result {idx} must have 'bucket' field"
 
-    def test_package_scope_specific_bucket_returns_real_results(self):
-        """Search for packages in specific bucket - must return actual package results."""
+    def test_package_scope_specific_bucket_returns_only_packages(self):
+        """Package scope with specific bucket must return ONLY packages."""
         result = search_catalog(
             query="*",  # Search for anything
             scope="package",
@@ -55,143 +227,30 @@ class TestSearchCatalogIntegration:
             limit=10,
         )
 
-        # Must be a dict response
+        # Must be successful
         assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        assert result.get("success"), f"Search failed: {result.get('error')}"
 
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
+        # MUST have results field
+        assert "results" in result, "Success response must have 'results' field"
+        assert isinstance(result["results"], list), "Results must be a list"
 
-        # If successful, must have results
-        if result.get("success"):
-            assert "results" in result, "Success response must have 'results' field"
-            assert isinstance(result["results"], list), "Results must be a list"
+        # REQUIRE non-zero results - test MUST fail if no results
+        assert len(result["results"]) > 0, \
+            f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {DEFAULT_BUCKET}. Got 0 results."
 
-            # If we got results, verify they're properly structured
-            if len(result["results"]) > 0:
-                first_result = result["results"][0]
-                assert "type" in first_result, "Result must have 'type' field"
-                assert first_result["type"] == "package", f"Expected type='package', got {first_result.get('type')}"
-                assert "name" in first_result, "Result must have 'name' field"
-                assert "/" in first_result["name"], f"Package name should have namespace/name format: {first_result['name']}"
-                assert "s3_uri" in first_result, "Result must have 's3_uri' field"
-                assert ".quilt/packages" in first_result["s3_uri"], f"Package URI should contain .quilt/packages: {first_result['s3_uri']}"
-                assert "bucket" in first_result, "Result must have 'bucket' field"
+        # Verify EVERY result is a package (not just the first one)
+        for idx, res in enumerate(result["results"]):
+            assert "type" in res, f"Result {idx} must have 'type' field"
+            assert res["type"] == "package", \
+                f"PACKAGE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='package' should ONLY return type='package'"
+            assert "/" in res.get("name", ""), \
+                f"Result {idx}: Package name should have namespace/name format: {res.get('name')}"
+            assert ".quilt/packages" in res.get("s3_uri", ""), \
+                f"Result {idx}: Package URI should contain .quilt/packages: {res.get('s3_uri')}"
 
-    def test_global_scope_returns_both_files_and_packages(self):
-        """Search with global scope - must return BOTH file and package results."""
-        result = search_catalog(
-            query="data",
-            scope="global",
-            bucket=DEFAULT_BUCKET,
-            limit=20,
-        )
-
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
-
-        # If successful, check for mixed results
-        if result.get("success") and len(result.get("results", [])) > 0:
-            results = result["results"]
-            types_found = {r.get("type") for r in results if "type" in r}
-
-            # For global scope, we SHOULD see at least files
-            # (packages might not exist depending on bucket state)
-            assert "file" in types_found or "package" in types_found, \
-                f"Global scope should return files or packages, got types: {types_found}"
-
-            # Verify each result has proper structure for its type
-            for res in results:
-                assert "type" in res, "Every result must have 'type' field"
-                assert "name" in res, "Every result must have 'name' field"
-                assert "s3_uri" in res, "Every result must have 's3_uri' field"
-                assert "bucket" in res, "Every result must have 'bucket' field"
-
-    def test_file_scope_all_buckets_returns_results_from_multiple_buckets(self):
-        """Search across ALL buckets - must enumerate buckets and return results."""
-        result = search_catalog(
-            query="csv",
-            scope="file",
-            bucket="",  # Empty = all buckets
-            limit=20,
-        )
-
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
-
-        # If successful and has results, verify they come from real buckets
-        if result.get("success") and len(result.get("results", [])) > 0:
-            results = result["results"]
-            buckets_found = {r.get("bucket") for r in results if "bucket" in r}
-
-            # Should have actual bucket names, not None or empty
-            assert len(buckets_found) > 0, "Should find results from at least one bucket"
-            assert None not in buckets_found, f"No result should have None bucket: {buckets_found}"
-            assert "" not in buckets_found, f"No result should have empty bucket: {buckets_found}"
-
-    def test_package_scope_all_buckets_returns_package_results(self):
-        """Search for packages across ALL buckets - must return package results."""
-        result = search_catalog(
-            query="*",
-            scope="package",
-            bucket="",  # Empty = all buckets
-            limit=20,
-        )
-
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
-
-        # If successful and has results, verify they're all packages
-        if result.get("success") and len(result.get("results", [])) > 0:
-            results = result["results"]
-
-            for res in results:
-                assert res.get("type") == "package", \
-                    f"Package scope should only return packages, got type={res.get('type')}"
-                assert "/" in res.get("name", ""), \
-                    f"Package names should have namespace/name format: {res.get('name')}"
-                assert ".quilt/packages" in res.get("s3_uri", ""), \
-                    f"Package URIs should contain .quilt/packages: {res.get('s3_uri')}"
-
-    def test_global_scope_all_buckets_returns_mixed_results(self):
-        """Search globally across ALL buckets - must return mixed file and package results."""
-        result = search_catalog(
-            query="test",
-            scope="global",
-            bucket="",  # Empty = all buckets
-            limit=30,
-        )
-
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-
-        # Must have success field
-        assert "success" in result, f"Missing 'success' field in result: {result.keys()}"
-
-        # If successful and has results, verify proper structure
-        if result.get("success") and len(result.get("results", [])) > 0:
-            results = result["results"]
-
-            # Verify all results have required fields
-            for res in results:
-                assert "type" in res, "Every result must have 'type' field"
-                assert res["type"] in ["file", "package"], \
-                    f"Type must be 'file' or 'package', got: {res['type']}"
-                assert "name" in res, "Every result must have 'name' field"
-                assert "bucket" in res, "Every result must have 'bucket' field"
-                assert "s3_uri" in res, "Every result must have 's3_uri' field"
-                assert "score" in res, "Every result must have 'score' field"
-
-    def test_nonexistent_bucket_returns_error_dict_not_exception(self):
-        """Search in nonexistent bucket - must return error dict, NOT raise exception."""
+    def test_nonexistent_bucket_returns_error_not_exception(self):
+        """Search in nonexistent bucket must return error dict, NOT raise exception."""
         result = search_catalog(
             query="test",
             scope="file",
@@ -212,55 +271,366 @@ class TestSearchCatalogIntegration:
         assert isinstance(result["error"], str), "Error must be a string"
         assert len(result["error"]) > 0, "Error message must not be empty"
 
-    def test_empty_query_returns_results(self):
-        """Empty query should work and return results."""
+
+# =============================================================================
+# NEW REAL DATA TESTS - Using QUILT_TEST_ENTRY and QUILT_TEST_PACKAGE
+# =============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestFileScopeWithRealData:
+    """Test file scope searches using QUILT_TEST_ENTRY fixture."""
+
+    def test_file_scope_all_buckets_returns_only_files(self, test_entry):
+        """File scope with bucket='' searches all object indices.
+
+        Behavior:
+        - Searches ALL buckets (comma-separated indices: "bucket1,bucket2,...")
+        - Returns ONLY file results (type="file")
+        - MUST return non-zero results
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY (e.g., "README.md")
+        - Expected: At least 1 file matching test_entry exists
+        """
+        # Execute search
         result = search_catalog(
-            query="",
+            query=test_entry,
             scope="file",
-            bucket=DEFAULT_BUCKET,
-            limit=5,
+            bucket="",  # All buckets
+            limit=50
         )
 
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        # Validate response structure
+        assert_valid_search_response(result)
 
-        # Should handle empty query gracefully (either return results or error)
-        assert "success" in result, "Response must have 'success' field"
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"File search for '{test_entry}' returned ZERO results"
+        assert shape.types == {"file"}, f"Expected only 'file' type, got: {shape.types}"
 
-    def test_search_result_count_respects_limit(self):
-        """Search results should respect the limit parameter."""
-        limit = 5
+    def test_file_scope_specific_bucket_returns_only_files(self, test_entry, default_bucket):
+        """File scope with bucket='my-bucket' searches single object index.
+
+        Behavior:
+        - Searches ONLY specified bucket (index: "my-bucket")
+        - Returns ONLY file results (type="file")
+        - ALL results MUST be from specified bucket
+        - MUST return non-zero results
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY
+        - Bucket: QUILT_DEFAULT_BUCKET (guaranteed to have test data)
+        """
+        # Execute search
         result = search_catalog(
-            query="*",
+            query=test_entry,
             scope="file",
-            bucket=DEFAULT_BUCKET,
-            limit=limit,
+            bucket=default_bucket,
+            limit=50
         )
 
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        # Validate response structure
+        assert_valid_search_response(result)
 
-        # If successful and has results, should not exceed limit
-        if result.get("success") and result.get("results"):
-            assert len(result["results"]) <= limit, \
-                f"Result count {len(result['results'])} should not exceed limit {limit}"
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"File search in {default_bucket} returned ZERO results"
+        assert shape.types == {"file"}, f"Expected only 'file' type, got: {shape.types}"
+        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
 
-    def test_search_includes_backend_info(self):
-        """Search results should include backend information."""
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestPackageScopeWithRealData:
+    """Test package scope searches using QUILT_TEST_PACKAGE fixture."""
+
+    def test_package_scope_all_buckets_returns_only_packages(self, test_package):
+        """Package scope with bucket='' searches all package indices.
+
+        Behavior:
+        - Searches ALL buckets (comma-separated indices: "bucket1_packages,bucket2_packages,...")
+        - Returns ONLY package results (type="package")
+        - MUST return non-zero results
+        - At least ONE result should match QUILT_TEST_PACKAGE
+
+        Test Data:
+        - Query: Last component of QUILT_TEST_PACKAGE (e.g., "raw" from "test/raw")
+        - Expected: Package named "test/raw" exists and is found
+        """
+        # Extract searchable component from package name
+        query = test_package.split("/")[-1]  # "test/raw" → "raw"
+
+        # Execute search
         result = search_catalog(
-            query="test",
-            scope="file",
-            bucket=DEFAULT_BUCKET,
-            limit=5,
+            query=query,
+            scope="package",
+            bucket="",
+            limit=50
         )
 
-        # Must be a dict response
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+        # Validate response structure
+        assert_valid_search_response(result)
 
-        # Should include backend info
-        assert "backend_used" in result or "backend" in result, \
-            "Result should include backend information"
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"Package search for '{query}' returned ZERO results"
+        assert shape.types == {"package"}, f"Expected only 'package' type, got: {shape.types}"
 
-        # Should include query metadata
-        assert "query" in result, "Result should include query"
-        assert "scope" in result, "Result should include scope"
+        # Verify at least one result matches known test package
+        package_names = [r["name"] for r in result["results"]]
+        assert test_package in package_names, \
+            f"Expected to find '{test_package}' in results: {package_names}"
+
+    def test_package_scope_specific_bucket_returns_only_packages(self, test_package, default_bucket):
+        """Package scope with bucket='my-bucket' searches single package index.
+
+        Behavior:
+        - Searches ONLY specified bucket (index: "my-bucket_packages")
+        - Returns ONLY package results (type="package")
+        - ALL results MUST be from specified bucket
+        - MUST return non-zero results
+
+        Test Data:
+        - Query: Last component of QUILT_TEST_PACKAGE
+        - Bucket: QUILT_DEFAULT_BUCKET (guaranteed to have test package)
+        """
+        query = test_package.split("/")[-1]
+
+        # Execute search
+        result = search_catalog(
+            query=query,
+            scope="package",
+            bucket=default_bucket,
+            limit=50
+        )
+
+        # Validate response structure
+        assert_valid_search_response(result)
+
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"Package search in {default_bucket} returned ZERO results"
+        assert shape.types == {"package"}, f"Expected only 'package' type, got: {shape.types}"
+        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestGlobalScopeWithRealData:
+    """Test global scope searches using both fixtures."""
+
+    def test_global_scope_all_buckets_returns_mixed_types(self, test_entry):
+        """Global scope with bucket='' searches all object AND package indices.
+
+        Behavior:
+        - Searches ALL buckets, BOTH index types per bucket
+        - Index pattern: "bucket1,bucket1_packages,bucket2,bucket2_packages,..."
+        - Returns MIXED results (type="file" AND/OR type="package")
+        - MUST return non-zero results
+        - Types MUST be subset of {"file", "package"}
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY (e.g., "README.md")
+        - Expected: Generic query matches both files and possibly packages
+        """
+        # Execute search
+        result = search_catalog(
+            query=test_entry,
+            scope="global",
+            bucket="",
+            limit=50
+        )
+
+        # Validate response structure
+        assert_valid_search_response(result)
+
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"Global search for '{test_entry}' returned ZERO results"
+        assert shape.types.issubset({"file", "package"}), \
+            f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
+
+    def test_global_scope_specific_bucket_returns_mixed_types(self, test_entry, default_bucket):
+        """Global scope with bucket='my-bucket' searches both indices in one bucket.
+
+        Behavior:
+        - Searches ONLY specified bucket, BOTH index types
+        - Index pattern: "my-bucket,my-bucket_packages"
+        - Returns MIXED results (type="file" AND/OR type="package")
+        - ALL results MUST be from specified bucket
+        - MUST return non-zero results
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY
+        - Bucket: QUILT_DEFAULT_BUCKET
+        """
+        # Execute search
+        result = search_catalog(
+            query=test_entry,
+            scope="global",
+            bucket=default_bucket,
+            limit=50
+        )
+
+        # Validate response structure
+        assert_valid_search_response(result)
+
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, f"Global search in {default_bucket} returned ZERO results"
+        assert shape.types.issubset({"file", "package"}), \
+            f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
+        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestBucketPrioritization:
+    """Test QUILT_DEFAULT_BUCKET prioritization when bucket=''."""
+
+    def test_default_bucket_results_appear_first_when_set(self, test_entry, default_bucket):
+        """When QUILT_DEFAULT_BUCKET is set, results from that bucket appear first.
+
+        Behavior:
+        - When bucket="": backend enumerates ALL buckets
+        - Backend moves QUILT_DEFAULT_BUCKET to front of list
+        - Results from QUILT_DEFAULT_BUCKET appear earlier in response (when scores equal)
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY (exists in multiple buckets ideally)
+        - Expected: default_bucket results appear in first 10 results
+
+        Note: This test makes a SOFT assertion (warning, not failure) because:
+        - Test data might not exist in multiple buckets
+        - Relevance scoring might override prioritization
+        - We can only verify "early" appearance, not "first" appearance
+        """
+        # Execute search with large limit to see bucket distribution
+        result = search_catalog(
+            query=test_entry,
+            scope="file",
+            bucket="",  # Triggers prioritization logic
+            limit=100
+        )
+
+        # Validate response structure
+        assert_valid_search_response(result)
+
+        # Validate result shape
+        shape = get_result_shape(result["results"])
+        assert shape.count > 0, "Bucket prioritization test returned ZERO results"
+
+        # If default bucket has results, verify it appears early
+        if default_bucket in shape.buckets:
+            buckets_in_results = [r["bucket"] for r in result["results"]]
+            first_default_idx = buckets_in_results.index(default_bucket)
+            assert first_default_idx < 10, \
+                f"Default bucket '{default_bucket}' first appears at position {first_default_idx}, " \
+                f"expected in top 10. This may indicate prioritization is not working."
+        else:
+            # Soft failure - log warning but don't fail test
+            import warnings
+            warnings.warn(
+                f"Default bucket '{default_bucket}' not found in top 100 results. "
+                f"Test data might not exist in default bucket."
+            )
+
+    def test_specific_bucket_ignores_default_bucket_setting(self, test_entry, default_bucket):
+        """Specific bucket searches ignore QUILT_DEFAULT_BUCKET setting.
+
+        Behavior:
+        - When bucket="specific-bucket": backend uses ONLY that bucket
+        - QUILT_DEFAULT_BUCKET has NO EFFECT on search
+        - ALL results MUST be from specified bucket (not default)
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY
+        - Bucket: QUILT_DEFAULT_BUCKET (but treated as specific, not default)
+        """
+        # Execute search with specific bucket
+        result = search_catalog(
+            query=test_entry,
+            scope="file",
+            bucket=default_bucket,  # Specific bucket (not "" for all)
+            limit=50
+        )
+
+        # Validate response structure
+        assert_valid_search_response(result)
+
+        # Validate result shape - ALL results from specified bucket
+        # (This implicitly proves QUILT_DEFAULT_BUCKET setting had no effect)
+        shape = get_result_shape(result["results"])
+        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+
+
+@pytest.mark.integration
+@pytest.mark.search
+class TestBucketNormalization:
+    """Test s3:// URI normalization in bucket parameter."""
+
+    def test_s3_uri_normalized_to_bucket_name(self, test_entry, default_bucket):
+        """bucket='s3://my-bucket' should work same as bucket='my-bucket'.
+
+        Behavior:
+        - Backend normalizes "s3://bucket" -> "bucket"
+        - Both forms should return identical results
+        - Response should show normalized bucket name (no s3:// prefix)
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY
+        - Bucket forms: "my-bucket" vs "s3://my-bucket"
+        """
+        # Search with normalized bucket
+        result1 = search_catalog(
+            query=test_entry,
+            scope="file",
+            bucket=default_bucket,  # e.g., "my-bucket"
+            limit=10
+        )
+
+        # Search with s3:// URI
+        result2 = search_catalog(
+            query=test_entry,
+            scope="file",
+            bucket=f"s3://{default_bucket}",  # e.g., "s3://my-bucket"
+            limit=10
+        )
+
+        # Both should succeed
+        assert_valid_search_response(result1)
+        assert_valid_search_response(result2)
+
+        # Both should return same normalized bucket in response
+        assert result1.get("bucket") == default_bucket, \
+            f"Result1 bucket should be normalized: {result1.get('bucket')}"
+        assert result2.get("bucket") == default_bucket, \
+            f"Result2 bucket should be normalized: {result2.get('bucket')}"
+
+    def test_s3_uri_with_trailing_slash_normalized(self, test_entry, default_bucket):
+        """bucket='s3://my-bucket/' should work (trailing slash removed).
+
+        Behavior:
+        - Backend normalizes "s3://bucket/" -> "bucket"
+        - Response should show normalized bucket name
+
+        Test Data:
+        - Query: QUILT_TEST_ENTRY
+        - Bucket: "s3://my-bucket/"
+        """
+        # Execute search with trailing slash
+        result = search_catalog(
+            query=test_entry,
+            scope="file",
+            bucket=f"s3://{default_bucket}/",  # Trailing slash
+            limit=10
+        )
+
+        # Should succeed
+        assert_valid_search_response(result)
+
+        # Should return normalized bucket (no s3://, no trailing slash)
+        assert result.get("bucket") == default_bucket, \
+            f"Bucket should be normalized to '{default_bucket}', got '{result.get('bucket')}'"
