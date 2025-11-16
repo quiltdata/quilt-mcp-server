@@ -7,8 +7,10 @@ CRITICAL REQUIREMENT: Every test MUST return non-zero results with proper schema
 Tests that pass with zero results are BROKEN and hide bugs.
 """
 
+import json
 import pytest
-from typing import Dict, List, Set, NamedTuple
+from contextlib import contextmanager
+from typing import Dict, List, Set, NamedTuple, Optional
 from quilt_mcp import DEFAULT_BUCKET
 from quilt_mcp.tools.search import search_catalog
 from quilt_mcp.constants import (
@@ -70,6 +72,7 @@ class ResultShape(NamedTuple):
     count: int
     types: Set[str]
     buckets: Set[str]
+    indices: Set[str]
 
 
 def get_result_shape(results: List[Dict]) -> ResultShape:
@@ -90,8 +93,51 @@ def get_result_shape(results: List[Dict]) -> ResultShape:
     return ResultShape(
         count=len(results),
         types={r.get("type") for r in results if "type" in r},
-        buckets={r.get("bucket") for r in results if "bucket" in r}
+        buckets={r.get("bucket") for r in results if "bucket" in r},
+        indices={r.get("index") for r in results if "index" in r}
     )
+
+
+@contextmanager
+def diagnostic_search(test_name: str, query: str, scope: str, bucket: str, limit: int = 10):
+    """Context manager that executes search and dumps diagnostics on test failure.
+
+    Usage:
+        with diagnostic_search("my_test", "*", "packageEntry", "my-bucket") as result:
+            assert result["success"]
+            assert len(result["results"]) > 0
+            # ... more assertions ...
+
+    On success: prints nothing
+    On failure: prints query, result count, and first result only
+    """
+    # Execute search silently
+    result = search_catalog(query=query, scope=scope, bucket=bucket, limit=limit)
+
+    try:
+        yield result
+        # Success: print nothing
+    except (AssertionError, Exception) as e:
+        # On failure, dump minimal diagnostics
+        print(f"\n{'!'*80}")
+        print(f"SEARCH FAILED: {test_name}")
+        print(f"{'!'*80}")
+        print(f"Query: {query!r}")
+
+        if isinstance(result, dict) and "results" in result:
+            result_count = len(result["results"])
+            print(f"Result count: {result_count}")
+
+            if result_count > 0:
+                print(f"\nFirst result:")
+                print(json.dumps(result["results"][0], indent=2, default=str))
+            else:
+                print("No results returned")
+        else:
+            print(f"Invalid result structure: {type(result)}")
+
+        print(f"{'!'*80}\n")
+        raise
 
 
 def assert_valid_search_response(result: Dict) -> None:
@@ -129,7 +175,7 @@ class TestSearchCatalogIntegration:
         """
         result = search_catalog(
             query="ccle",
-            scope="package",  # PACKAGE SCOPE
+            scope="packageEntry",  # PACKAGE SCOPE
             bucket="",  # All buckets
             limit=50,
         )
@@ -152,7 +198,7 @@ class TestSearchCatalogIntegration:
             assert "type" in res, f"Result {idx} missing 'type' field: {res}"
 
             # THIS IS THE BUG FIX: Package scope MUST ONLY return packages
-            assert res["type"] == "package", \
+            assert res["type"] == "packageEntry", \
                 f"PACKAGE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='package' " \
                 f"should ONLY return type='package'\nResult: {res}"
 
@@ -220,34 +266,34 @@ class TestSearchCatalogIntegration:
 
     def test_package_scope_specific_bucket_returns_only_packages(self):
         """Package scope with specific bucket must return ONLY packages."""
-        result = search_catalog(
-            query="*",  # Search for anything
-            scope="package",
+        with diagnostic_search(
+            test_name="test_package_scope_specific_bucket_returns_only_packages",
+            query="*",
+            scope="packageEntry",
             bucket=DEFAULT_BUCKET,
-            limit=10,
-        )
+            limit=10
+        ) as result:
+            # Must be successful
+            assert isinstance(result, dict), f"Expected dict, got {type(result)}"
+            assert result.get("success"), f"Search failed: {result.get('error')}"
 
-        # Must be successful
-        assert isinstance(result, dict), f"Expected dict, got {type(result)}"
-        assert result.get("success"), f"Search failed: {result.get('error')}"
+            # MUST have results field
+            assert "results" in result, "Success response must have 'results' field"
+            assert isinstance(result["results"], list), "Results must be a list"
 
-        # MUST have results field
-        assert "results" in result, "Success response must have 'results' field"
-        assert isinstance(result["results"], list), "Results must be a list"
+            # REQUIRE non-zero results - test MUST fail if no results
+            assert len(result["results"]) > 0, \
+                f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {DEFAULT_BUCKET}. Got 0 results."
 
-        # REQUIRE non-zero results - test MUST fail if no results
-        assert len(result["results"]) > 0, \
-            f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {DEFAULT_BUCKET}. Got 0 results."
-
-        # Verify EVERY result is a package (not just the first one)
-        for idx, res in enumerate(result["results"]):
-            assert "type" in res, f"Result {idx} must have 'type' field"
-            assert res["type"] == "package", \
-                f"PACKAGE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='package' should ONLY return type='package'"
-            assert "/" in res.get("name", ""), \
-                f"Result {idx}: Package name should have namespace/name format: {res.get('name')}"
-            assert ".quilt/packages" in res.get("s3_uri", ""), \
-                f"Result {idx}: Package URI should contain .quilt/packages: {res.get('s3_uri')}"
+            # Verify EVERY result is a package (not just the first one)
+            for idx, res in enumerate(result["results"]):
+                assert "type" in res, f"Result {idx} must have 'type' field"
+                assert res["type"] == "packageEntry", \
+                    f"PACKAGE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='package' should ONLY return type='package'"
+                assert "/" in res.get("name", ""), \
+                    f"Result {idx}: Package name should have namespace/name format: {res.get('name')}"
+                assert ".quilt/packages" in res.get("s3_uri", ""), \
+                    f"Result {idx}: Package URI should contain .quilt/packages: {res.get('s3_uri')}"
 
     def test_nonexistent_bucket_returns_error_not_exception(self):
         """Search in nonexistent bucket must return error dict, NOT raise exception."""
@@ -351,7 +397,7 @@ class TestPackageScopeWithRealData:
 
         Behavior:
         - Searches ALL buckets (comma-separated indices: "bucket1_packages,bucket2_packages,...")
-        - Returns ONLY package results (type="package")
+        - Returns ONLY package results (type="packageEntry")
         - MUST return non-zero results
         - At least ONE result should match QUILT_TEST_PACKAGE
 
@@ -362,33 +408,32 @@ class TestPackageScopeWithRealData:
         # Extract searchable component from package name
         query = test_package.split("/")[-1]  # "test/raw" → "raw"
 
-        # Execute search
-        result = search_catalog(
+        with diagnostic_search(
+            test_name="test_package_scope_all_buckets_returns_only_packages",
             query=query,
-            scope="package",
+            scope="packageEntry",
             bucket="",
             limit=50
-        )
+        ) as result:
+            # Validate response structure
+            assert_valid_search_response(result)
 
-        # Validate response structure
-        assert_valid_search_response(result)
+            # Validate result shape
+            shape = get_result_shape(result["results"])
+            assert shape.count > 0, f"Package search for '{query}' returned ZERO results"
+            assert shape.types == {"packageEntry"}, f"Expected only 'package' type, got: {shape.types}"
 
-        # Validate result shape
-        shape = get_result_shape(result["results"])
-        assert shape.count > 0, f"Package search for '{query}' returned ZERO results"
-        assert shape.types == {"package"}, f"Expected only 'package' type, got: {shape.types}"
-
-        # Verify at least one result matches known test package
-        package_names = [r["name"] for r in result["results"]]
-        assert test_package in package_names, \
-            f"Expected to find '{test_package}' in results: {package_names}"
+            # Verify at least one result matches known test package
+            package_names = [r["name"] for r in result["results"]]
+            assert test_package in package_names, \
+                f"Expected to find '{test_package}' in results: {package_names}"
 
     def test_package_scope_specific_bucket_returns_only_packages(self, test_package, default_bucket):
         """Package scope with bucket='my-bucket' searches single package index.
 
         Behavior:
         - Searches ONLY specified bucket (index: "my-bucket_packages")
-        - Returns ONLY package results (type="package")
+        - Returns ONLY package results (type="packageEntry")
         - ALL results MUST be from specified bucket
         - MUST return non-zero results
 
@@ -398,22 +443,21 @@ class TestPackageScopeWithRealData:
         """
         query = test_package.split("/")[-1]
 
-        # Execute search
-        result = search_catalog(
+        with diagnostic_search(
+            test_name="test_package_scope_specific_bucket_returns_only_packages (with fixtures)",
             query=query,
-            scope="package",
+            scope="packageEntry",
             bucket=default_bucket,
             limit=50
-        )
+        ) as result:
+            # Validate response structure
+            assert_valid_search_response(result)
 
-        # Validate response structure
-        assert_valid_search_response(result)
-
-        # Validate result shape
-        shape = get_result_shape(result["results"])
-        assert shape.count > 0, f"Package search in {default_bucket} returned ZERO results"
-        assert shape.types == {"package"}, f"Expected only 'package' type, got: {shape.types}"
-        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+            # Validate result shape
+            shape = get_result_shape(result["results"])
+            assert shape.count > 0, f"Package search in {default_bucket} returned ZERO results"
+            assert shape.types == {"packageEntry"}, f"Expected only 'package' type, got: {shape.types}"
+            assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
 
 
 @pytest.mark.integration
@@ -427,9 +471,9 @@ class TestGlobalScopeWithRealData:
         Behavior:
         - Searches ALL buckets, BOTH index types per bucket
         - Index pattern: "bucket1,bucket1_packages,bucket2,bucket2_packages,..."
-        - Returns MIXED results (type="file" AND/OR type="package")
+        - Returns MIXED results (type="file" AND/OR type="packageEntry")
         - MUST return non-zero results
-        - Types MUST be subset of {"file", "package"}
+        - Types MUST be subset of {"file", "packageEntry"}
 
         Test Data:
         - Query: QUILT_TEST_ENTRY (e.g., "README.md")
@@ -449,7 +493,7 @@ class TestGlobalScopeWithRealData:
         # Validate result shape
         shape = get_result_shape(result["results"])
         assert shape.count > 0, f"Global search for '{test_entry}' returned ZERO results"
-        assert shape.types.issubset({"file", "package"}), \
+        assert shape.types.issubset({"file", "packageEntry"}), \
             f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
 
     def test_global_scope_specific_bucket_returns_mixed_types(self, test_entry, default_bucket):
@@ -458,7 +502,7 @@ class TestGlobalScopeWithRealData:
         Behavior:
         - Searches ONLY specified bucket, BOTH index types
         - Index pattern: "my-bucket,my-bucket_packages"
-        - Returns MIXED results (type="file" AND/OR type="package")
+        - Returns MIXED results (type="file" AND/OR type="packageEntry")
         - ALL results MUST be from specified bucket
         - MUST return non-zero results
 
@@ -480,7 +524,7 @@ class TestGlobalScopeWithRealData:
         # Validate result shape
         shape = get_result_shape(result["results"])
         assert shape.count > 0, f"Global search in {default_bucket} returned ZERO results"
-        assert shape.types.issubset({"file", "package"}), \
+        assert shape.types.issubset({"file", "packageEntry"}), \
             f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
         assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
 

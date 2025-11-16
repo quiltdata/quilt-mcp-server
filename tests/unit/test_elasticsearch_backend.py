@@ -4,6 +4,7 @@ These tests verify:
 1. Index pattern building (scope + bucket → index)
 2. Result normalization (hit → SearchResult with 'name' field)
 3. Type detection from index name (_packages suffix)
+4. Index name parsing (is_package_index, get_bucket_from_index)
 """
 
 from __future__ import annotations
@@ -17,6 +18,75 @@ from quilt_mcp.services.quilt_service import QuiltService
 
 # Configure anyio for async tests
 pytestmark = pytest.mark.anyio
+
+
+class TestIndexNameParsing:
+    """Test index name parsing helper methods.
+
+    These methods must handle diverse index names including:
+    - Standard indices: mybucket, mybucket_packages
+    - Reindexed indices: mybucket-reindex-v{hash}, mybucket_packages-reindex-v{hash}
+    - Mixed cases: some buckets reindexed, others not
+    """
+
+    def test_is_package_index_standard_object_index(self):
+        """Standard object index does not contain _packages."""
+        assert Quilt3ElasticsearchBackend.is_package_index("mybucket") is False
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example") is False
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging") is False
+
+    def test_is_package_index_standard_package_index(self):
+        """Standard package index ends with _packages."""
+        assert Quilt3ElasticsearchBackend.is_package_index("mybucket_packages") is True
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example_packages") is True
+
+    def test_is_package_index_reindexed_object_index(self):
+        """Reindexed object index has suffix but no _packages."""
+        assert Quilt3ElasticsearchBackend.is_package_index("mybucket-reindex-v123") is False
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") is False
+
+    def test_is_package_index_reindexed_package_index(self):
+        """Reindexed package index contains _packages (not at end)."""
+        assert Quilt3ElasticsearchBackend.is_package_index("mybucket_packages-reindex-v456") is True
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86") is True
+        assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") is True
+
+    def test_get_bucket_from_index_standard_object_index(self):
+        """Standard object index returns bucket name as-is."""
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket") == "mybucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging") == "quilt-ernest-staging"
+
+    def test_get_bucket_from_index_standard_package_index(self):
+        """Standard package index strips _packages suffix."""
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages") == "mybucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example_packages") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages") == "quilt-ernest-staging"
+
+    def test_get_bucket_from_index_reindexed_object_index(self):
+        """Reindexed object index strips reindex suffix."""
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket-reindex-v123") == "mybucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example-reindex-vabc123") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") == "quilt-ernest-staging"
+
+    def test_get_bucket_from_index_reindexed_package_index(self):
+        """Reindexed package index strips both _packages and reindex suffix."""
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages-reindex-v456") == "mybucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") == "quilt-ernest-staging"
+
+    def test_get_bucket_from_index_with_hyphens_in_name(self):
+        """Bucket names with hyphens are handled correctly."""
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket") == "my-test-bucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket_packages") == "my-test-bucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket-reindex-v123") == "my-test-bucket"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket_packages-reindex-v456") == "my-test-bucket"
+
+    def test_edge_case_packages_in_bucket_name(self):
+        """Edge case: bucket name contains 'packages' but not as suffix."""
+        # This is unlikely in practice but we should handle it
+        assert Quilt3ElasticsearchBackend.is_package_index("my_packages_bucket") is True  # Contains _packages
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my_packages_bucket") == "my"  # Splits at first _packages
 
 
 class TestIndexPatternBuilder:
@@ -113,7 +183,7 @@ class TestIndexPatternBuilder:
 
     def test_package_scope_with_bucket(self):
         """scope='package', bucket='mybucket' → 'mybucket_packages'"""
-        pattern = self.backend._build_index_pattern("package", "mybucket")
+        pattern = self.backend._build_index_pattern("packageEntry", "mybucket")
         assert pattern == "mybucket_packages"
 
     async def test_package_scope_all_buckets(self):
@@ -167,7 +237,7 @@ class TestIndexPatternBuilder:
         self.mock_service.get_search_api.return_value = mock_search_api
 
         # Execute search with empty bucket
-        response = await self.backend.search(query="test", scope="package", bucket="", limit=10)
+        response = await self.backend.search(query="test", scope="packageEntry", bucket="", limit=10)
 
         # Verify we got package results from multiple buckets
         assert response.status == BackendStatus.AVAILABLE
@@ -175,7 +245,7 @@ class TestIndexPatternBuilder:
 
         # Verify first result schema and content
         result1 = response.results[0]
-        assert result1.type == "package"
+        assert result1.type == "packageEntry"
         assert result1.name == "datasets/genomics"
         assert result1.bucket == "bucket1"
         assert result1.s3_uri == "s3://bucket1/.quilt/packages/datasets/genomics/abc123.jsonl"
@@ -184,7 +254,7 @@ class TestIndexPatternBuilder:
 
         # Verify second result from different bucket
         result2 = response.results[1]
-        assert result2.type == "package"
+        assert result2.type == "packageEntry"
         assert result2.name == "experiments/trials"
         assert result2.bucket == "bucket2"
         assert result2.s3_uri == "s3://bucket2/.quilt/packages/experiments/trials/def456.jsonl"
@@ -271,7 +341,7 @@ class TestIndexPatternBuilder:
 
         # Verify package result
         result2 = response.results[1]
-        assert result2.type == "package"
+        assert result2.type == "packageEntry"
         assert result2.name == "datasets/genomics"
         assert result2.bucket == "bucket1"
 
@@ -340,7 +410,7 @@ class TestResultNormalization:
 
         assert len(results) == 1
         result = results[0]
-        assert result.type == "package"
+        assert result.type == "packageEntry"
         assert result.name == "raw/test"  # ONLY field needed!
         assert result.title == "raw/test"
         assert result.bucket == "mybucket"
@@ -359,7 +429,7 @@ class TestResultNormalization:
         results = self.backend._normalize_results(hits)
 
         assert results[0].type == "file"
-        assert results[1].type == "package"
+        assert results[1].type == "packageEntry"
 
     def test_no_logical_key_or_package_name_fields(self):
         """Results should NOT have logical_key or package_name fields (per spec 19)."""
