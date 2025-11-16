@@ -204,7 +204,7 @@ class TestIndexPatternBuilder:
         self.mock_service.get_session.return_value = mock_session
         self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
 
-        # Mock search API to return package results from multiple buckets
+        # Mock search API to return package entry results from multiple buckets
         mock_search_api = Mock()
         mock_search_api.return_value = {
             "hits": {
@@ -214,10 +214,10 @@ class TestIndexPatternBuilder:
                         "_index": "bucket1_packages",
                         "_score": 3.2,
                         "_source": {
-                            "ptr_name": "datasets/genomics",
-                            "mnfst_hash": "abc123",
-                            "mnfst_stats": {"total_bytes": 50000},
-                            "mnfst_last_modified": "2025-01-14T10:00:00Z",
+                            "entry_pk": "datasets/genomics@abc123",
+                            "entry_lk": "data/file1.csv",
+                            "entry_size": 50000,
+                            "entry_metadata": {"last_modified": "2025-01-14T10:00:00Z"},
                         },
                     },
                     {
@@ -225,10 +225,10 @@ class TestIndexPatternBuilder:
                         "_index": "bucket2_packages",
                         "_score": 2.1,
                         "_source": {
-                            "ptr_name": "experiments/trials",
-                            "mnfst_hash": "def456",
-                            "mnfst_stats": {"total_bytes": 75000},
-                            "mnfst_last_modified": "2025-01-13T10:00:00Z",
+                            "entry_pk": "experiments/trials@def456",
+                            "entry_lk": "results/trial1.json",
+                            "entry_size": 75000,
+                            "entry_metadata": {"last_modified": "2025-01-13T10:00:00Z"},
                         },
                     },
                 ]
@@ -239,25 +239,25 @@ class TestIndexPatternBuilder:
         # Execute search with empty bucket
         response = await self.backend.search(query="test", scope="packageEntry", bucket="", limit=10)
 
-        # Verify we got package results from multiple buckets
+        # Verify we got package entry results from multiple buckets
         assert response.status == BackendStatus.AVAILABLE
         assert len(response.results) == 2
 
         # Verify first result schema and content
         result1 = response.results[0]
         assert result1.type == "packageEntry"
-        assert result1.name == "datasets/genomics"
+        assert result1.name == "data/file1.csv"  # entry_lk
         assert result1.bucket == "bucket1"
-        assert result1.s3_uri == "s3://bucket1/.quilt/packages/datasets/genomics/abc123.jsonl"
+        assert result1.s3_uri == "s3://bucket1/data/file1.csv"
         assert result1.size == 50000
         assert result1.score == 3.2
 
         # Verify second result from different bucket
         result2 = response.results[1]
         assert result2.type == "packageEntry"
-        assert result2.name == "experiments/trials"
+        assert result2.name == "results/trial1.json"  # entry_lk
         assert result2.bucket == "bucket2"
-        assert result2.s3_uri == "s3://bucket2/.quilt/packages/experiments/trials/def456.jsonl"
+        assert result2.s3_uri == "s3://bucket2/results/trial1.json"
         assert result2.size == 75000
         assert result2.score == 2.1
 
@@ -284,7 +284,7 @@ class TestIndexPatternBuilder:
         self.mock_service.get_session.return_value = mock_session
         self.mock_service.get_registry_url.return_value = "https://example.quiltdata.com"
 
-        # Mock search API to return BOTH file and package results from multiple buckets
+        # Mock search API to return BOTH file and package entry results from multiple buckets
         mock_search_api = Mock()
         mock_search_api.return_value = {
             "hits": {
@@ -304,10 +304,10 @@ class TestIndexPatternBuilder:
                         "_index": "bucket1_packages",
                         "_score": 3.2,
                         "_source": {
-                            "ptr_name": "datasets/genomics",
-                            "mnfst_hash": "abc123",
-                            "mnfst_stats": {"total_bytes": 50000},
-                            "mnfst_last_modified": "2025-01-14T10:00:00Z",
+                            "entry_pk": "datasets/genomics@abc123",
+                            "entry_lk": "data/genes.csv",
+                            "entry_size": 50000,
+                            "entry_metadata": {"last_modified": "2025-01-14T10:00:00Z"},
                         },
                     },
                     {
@@ -328,7 +328,7 @@ class TestIndexPatternBuilder:
         # Execute search with empty bucket
         response = await self.backend.search(query="test", scope="global", bucket="", limit=10)
 
-        # Verify we got BOTH file and package results from multiple buckets
+        # Verify we got BOTH file and package entry results from multiple buckets
         assert response.status == BackendStatus.AVAILABLE
         assert len(response.results) == 3
 
@@ -339,10 +339,10 @@ class TestIndexPatternBuilder:
         assert result1.bucket == "bucket1"
         assert result1.s3_uri == "s3://bucket1/data/file1.csv"
 
-        # Verify package result
+        # Verify package entry result
         result2 = response.results[1]
         assert result2.type == "packageEntry"
-        assert result2.name == "datasets/genomics"
+        assert result2.name == "data/genes.csv"  # entry_lk
         assert result2.bucket == "bucket1"
 
         # Verify file result from different bucket
@@ -377,7 +377,7 @@ class TestResultNormalization:
             }
         ]
 
-        results = self.backend._normalize_results(hits)
+        results = self.backend._normalize_results(hits, scope="file")
 
         assert len(results) == 1
         result = results[0]
@@ -391,42 +391,42 @@ class TestResultNormalization:
         assert result.score == 1.5
 
     def test_normalize_package_result(self):
-        """Package results should have type='package' and name=package_name."""
+        """Package results should have type='packageEntry' and name from entry fields."""
         hits = [
             {
                 "_id": "pkg123",
                 "_index": "mybucket_packages",
                 "_score": 2.1,
                 "_source": {
-                    "ptr_name": "raw/test",
-                    "mnfst_hash": "abc123",
-                    "mnfst_stats": {"total_bytes": 5000},
-                    "mnfst_last_modified": "2025-01-14T10:00:00Z",
+                    "entry_pk": "raw/test@abc123",
+                    "entry_lk": "data/file.csv",
+                    "entry_size": 5000,
+                    "entry_metadata": {"last_modified": "2025-01-14T10:00:00Z"},
                 },
             }
         ]
 
-        results = self.backend._normalize_results(hits)
+        results = self.backend._normalize_results(hits, scope="packageEntry")
 
         assert len(results) == 1
         result = results[0]
         assert result.type == "packageEntry"
-        assert result.name == "raw/test"  # ONLY field needed!
-        assert result.title == "raw/test"
+        assert result.name == "data/file.csv"  # entry_lk is used as name
+        assert result.title == "file.csv"
         assert result.bucket == "mybucket"
-        assert result.s3_uri == "s3://mybucket/.quilt/packages/raw/test/abc123.jsonl"
+        assert result.s3_uri == "s3://mybucket/data/file.csv"
         assert result.size == 5000
-        assert result.extension == "jsonl"
+        assert result.extension == "csv"
         assert result.score == 2.1
 
     def test_type_detection_from_index_name(self):
         """Type should be detected from index name (_packages suffix)."""
         hits = [
             {"_id": "1", "_index": "bucket1", "_score": 1.0, "_source": {"key": "file.txt"}},
-            {"_id": "2", "_index": "bucket2_packages", "_score": 1.0, "_source": {"ptr_name": "pkg/name"}},
+            {"_id": "2", "_index": "bucket2_packages", "_score": 1.0, "_source": {"entry_pk": "pkg/name", "entry_lk": "data.csv"}},
         ]
 
-        results = self.backend._normalize_results(hits)
+        results = self.backend._normalize_results(hits, scope="global")
 
         assert results[0].type == "file"
         assert results[1].type == "packageEntry"
@@ -437,7 +437,7 @@ class TestResultNormalization:
             {"_id": "1", "_index": "bucket", "_score": 1.0, "_source": {"key": "file.csv"}},
         ]
 
-        results = self.backend._normalize_results(hits)
+        results = self.backend._normalize_results(hits, scope="file")
         result = results[0]
 
         # Check that ONLY 'name' field is used

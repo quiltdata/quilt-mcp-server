@@ -25,6 +25,7 @@ from .scope_handlers import (
     ScopeHandler,
     FileScopeHandler,
     PackageEntryScopeHandler,
+    PackageScopeHandler,
     GlobalScopeHandler,
 )
 from ...services.quilt_service import QuiltService
@@ -108,6 +109,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         self.scope_handlers: Dict[str, ScopeHandler] = {
             "file": FileScopeHandler(),
             "packageEntry": PackageEntryScopeHandler(),
+            "package": PackageScopeHandler(),
             "global": GlobalScopeHandler(),
         }
 
@@ -419,6 +421,16 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             # Build index pattern
             index_pattern = self._build_index_pattern(scope, bucket)
 
+            # Get scope handler
+            handler = self.scope_handlers.get(scope)
+            if not handler:
+                return BackendResponse(
+                    backend_type=self.backend_type,
+                    status=BackendStatus.ERROR,
+                    results=[],
+                    error_message=f"Invalid scope: {scope}. Must be one of {list(self.scope_handlers.keys())}",
+                )
+
             # Build query DSL
             escaped_query = escape_elasticsearch_query(query)
             dsl_query: Dict[str, Any] = {
@@ -426,6 +438,16 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 "size": limit,
                 "query": {"query_string": {"query": escaped_query}},
             }
+
+            # Add query filter if handler provides it
+            if hasattr(handler, 'build_query_filter'):
+                dsl_query["query"] = handler.build_query_filter(escaped_query)
+
+            # Add collapse config if handler provides it
+            if hasattr(handler, 'build_collapse_config'):
+                collapse_config = handler.build_collapse_config()
+                if collapse_config:
+                    dsl_query["collapse"] = collapse_config
 
             # Apply filters if provided
             if filters:
@@ -445,12 +467,21 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     filter_clauses.append({"range": {"last_modified": {"lte": filters["created_before"]}}})
 
                 if filter_clauses:
-                    dsl_query["query"] = {
-                        "bool": {
-                            "must": [{"query_string": {"query": escaped_query}}],
-                            "filter": filter_clauses,
+                    # If query is already a bool query (from handler), add filters to it
+                    current_query = dsl_query["query"]
+                    if isinstance(current_query, dict) and "bool" in current_query:
+                        # Merge filters into existing bool query
+                        if "filter" not in current_query["bool"]:
+                            current_query["bool"]["filter"] = []
+                        current_query["bool"]["filter"].extend(filter_clauses)
+                    else:
+                        # Create new bool query with filters
+                        dsl_query["query"] = {
+                            "bool": {
+                                "must": [current_query],
+                                "filter": filter_clauses,
+                            }
                         }
-                    }
 
             # Execute search with retry logic for 403 errors (too many indices)
             search_api = self.quilt_service.get_search_api()
