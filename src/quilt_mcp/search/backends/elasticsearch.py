@@ -21,6 +21,12 @@ from .base import (
     SearchResult,
     BackendResponse,
 )
+from .scope_handlers import (
+    ScopeHandler,
+    FileScopeHandler,
+    PackageEntryScopeHandler,
+    GlobalScopeHandler,
+)
 from ...services.quilt_service import QuiltService
 from ..exceptions import (
     AuthenticationRequired,
@@ -91,6 +97,13 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         super().__init__(BackendType.ELASTICSEARCH)
         self.quilt_service = quilt_service or QuiltService()
         self._session_available = False
+
+        # Initialize scope handlers
+        self.scope_handlers: Dict[str, ScopeHandler] = {
+            "file": FileScopeHandler(),
+            "packageEntry": PackageEntryScopeHandler(),
+            "global": GlobalScopeHandler(),
+        }
 
     @staticmethod
     def is_package_index(index_name: str) -> bool:
@@ -282,11 +295,10 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             return ""
         return bucket.replace("s3://", "").rstrip("/").split("/")[0]
 
-    @staticmethod
-    def build_index_pattern_for_scope(scope: str, buckets: List[str]) -> str:
+    def build_index_pattern_for_scope(self, scope: str, buckets: List[str]) -> str:
         """Build Elasticsearch index pattern for given scope and bucket list.
 
-        This is a pure function with no side effects - easily testable.
+        Delegates to the appropriate scope handler.
 
         Args:
             scope: "file", "packageEntry", or "global"
@@ -296,30 +308,21 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             Comma-separated index pattern string
 
         Examples:
-            >>> Quilt3ElasticsearchBackend.build_index_pattern_for_scope("file", ["bucket1", "bucket2"])
+            >>> backend.build_index_pattern_for_scope("file", ["bucket1", "bucket2"])
             'bucket1,bucket2'
-            >>> Quilt3ElasticsearchBackend.build_index_pattern_for_scope("packageEntry", ["bucket1"])
+            >>> backend.build_index_pattern_for_scope("packageEntry", ["bucket1"])
             'bucket1_packages'
-            >>> Quilt3ElasticsearchBackend.build_index_pattern_for_scope("global", ["bucket1"])
+            >>> backend.build_index_pattern_for_scope("global", ["bucket1"])
             'bucket1,bucket1_packages'
 
         Raises:
-            ValueError: If buckets list is empty
+            ValueError: If buckets list is empty or scope is invalid
         """
-        if not buckets:
-            raise ValueError("Cannot build index pattern: bucket list is empty")
+        if scope not in self.scope_handlers:
+            raise ValueError(f"Invalid scope: {scope}. Must be one of {list(self.scope_handlers.keys())}")
 
-        if scope == "file":
-            return ",".join(buckets)
-        elif scope == "packageEntry":
-            return ",".join(f"{b}_packages" for b in buckets)
-        elif scope == "global":
-            # Include both file and package indices
-            file_indices = buckets
-            package_indices = [f"{b}_packages" for b in buckets]
-            return ",".join(file_indices + package_indices)
-        else:
-            raise ValueError(f"Invalid scope: {scope}. Must be 'file', 'package', or 'global'")
+        handler = self.scope_handlers[scope]
+        return handler.build_index_pattern(buckets)
 
     def _build_index_pattern(self, scope: str, bucket: str) -> str:
         """Build Elasticsearch index pattern based on scope and bucket.
@@ -492,9 +495,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                     catalog_url=self.quilt_service.get_registry_url() if self._session_available else None,
                 )
 
-            # Convert results
+            # Convert results using scope handler
             hits = response.get("hits", {}).get("hits", [])
-            results = self._normalize_results(hits)
+            results = self._normalize_results(hits, scope)
 
             query_time = (time.time() - start_time) * 1000
 
@@ -522,144 +525,25 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 error_message=error_message,
             )
 
-    def _parse_package_result(self, hit: Dict[str, Any]) -> Optional[SearchResult]:
-        """Parse a package result from Elasticsearch hit.
-
-        Args:
-            hit: Elasticsearch hit containing package document
-
-        Returns:
-            SearchResult for package, or None if validation fails
-
-        Raises:
-            None - validation failures are logged and return None
-        """
-        source = hit.get("_source", {})
-        index_name = hit.get("_index", "")
-        bucket_name = self.get_bucket_from_index(index_name)
-
-        # Package result - extract package name from ptr_name or mnfst_name
-        package_name = source.get("ptr_name", source.get("mnfst_name", ""))
-
-        # VALIDATION: Package indices MUST have ptr_name or mnfst_name
-        if not package_name:
-            logger.error(
-                f"PACKAGE INDEX VALIDATION FAILED: Document from index '{index_name}' "
-                f"missing both 'ptr_name' and 'mnfst_name' fields. "
-                f"This indicates wrong document type in package index. "
-                f"Document ID: {hit.get('_id', 'unknown')}, "
-                f"Available fields: {list(source.keys())[:10]}"
-            )
-            # Skip this malformed result rather than returning empty name
-            return None
-
-        size = source.get("mnfst_stats", {}).get("total_bytes", 0)
-        last_modified = source.get("mnfst_last_modified", "")
-        mnfst_hash = source.get("mnfst_hash", "")
-
-        # Construct S3 URI for package manifest
-        s3_uri = None
-        if bucket_name and package_name and mnfst_hash:
-            s3_uri = f"s3://{bucket_name}/.quilt/packages/{package_name}/{mnfst_hash}.jsonl"
-
-        return SearchResult(
-            id=hit.get("_id", ""),
-            type="packageEntry",
-            name=package_name,
-            title=package_name,
-            description=f"Quilt package: {package_name}",
-            s3_uri=s3_uri,
-            size=size,
-            last_modified=last_modified,
-            metadata={
-                **source,
-                "_index": index_name,  # Include index for debugging
-            },
-            score=hit.get("_score", 0.0),
-            backend="elasticsearch",
-            bucket=bucket_name,
-            content_type="application/jsonl",
-            extension="jsonl",
-        )
-
-    def _parse_file_result(self, hit: Dict[str, Any]) -> SearchResult:
-        """Parse a file/object result from Elasticsearch hit.
-
-        Args:
-            hit: Elasticsearch hit containing file document
-
-        Returns:
-            SearchResult for file
-        """
-        source = hit.get("_source", {})
-        index_name = hit.get("_index", "")
-        bucket_name = self.get_bucket_from_index(index_name)
-
-        # File result
-        key = source.get("key", "")
-        size = source.get("size", 0)
-        last_modified = source.get("last_modified", "")
-        content_type = source.get("content_type") or source.get("contentType") or ""
-
-        # Extract extension
-        extension = ""
-        if key and "." in key:
-            extension = key.rsplit(".", 1)[-1]
-        else:
-            ext_from_source = source.get("ext", "")
-            if ext_from_source:
-                extension = ext_from_source.lstrip(".")
-
-        # Construct S3 URI
-        s3_uri = f"s3://{bucket_name}/{key}" if key else None
-
-        return SearchResult(
-            id=hit.get("_id", ""),
-            type="file",
-            name=key,  # ONLY field needed!
-            title=key.split("/")[-1] if key else "Unknown",
-            description=f"Object in {bucket_name}",
-            s3_uri=s3_uri,
-            size=size,
-            last_modified=last_modified,
-            metadata={
-                **source,
-                "_index": index_name,  # Include index for debugging
-            },
-            score=hit.get("_score", 0.0),
-            backend="elasticsearch",
-            bucket=bucket_name,
-            content_type=content_type,
-            extension=extension,
-        )
-
-    def _normalize_results(self, hits: List[Dict[str, Any]]) -> List[SearchResult]:
-        """Normalize Elasticsearch results to standard format.
-
-        Detects type from index name:
-        - Indices containing "_packages" are packages
-        - All other indices are files
-
-        Uses only 'name' field per spec 19 - no logical_key or package_name.
+    def _normalize_results(self, hits: List[Dict[str, Any]], scope: str) -> List[SearchResult]:
+        """Normalize Elasticsearch results to standard format using scope handler.
 
         Args:
             hits: List of Elasticsearch hits
+            scope: Search scope ("file", "packageEntry", or "global")
 
         Returns:
             List of normalized SearchResult objects
         """
+        handler = self.scope_handlers[scope]
         results = []
 
         for hit in hits:
             index_name = hit.get("_index", "")
+            bucket_name = self.get_bucket_from_index(index_name)
 
-            # Detect type and parse accordingly
-            if self.is_package_index(index_name):
-                result = self._parse_package_result(hit)
-                if result:  # None means validation failed
-                    results.append(result)
-            else:
-                result = self._parse_file_result(hit)
+            result = handler.parse_result(hit, bucket_name)
+            if result:  # None means parsing/validation failed
                 results.append(result)
 
         return results
