@@ -264,7 +264,6 @@ class TestSearchCatalogIntegration:
                 f"FILE SCOPE BUG: Result {idx} has type='{res['type']}' but scope='file' should ONLY return type='file'"
             assert "bucket" in res, f"Result {idx} must have 'bucket' field"
 
-    @pytest.mark.xfail(reason="Package scope requires Elasticsearch field mapping for collapse on ptr_name.keyword")
     def test_package_scope_specific_bucket_returns_only_packages(self):
         """Package scope with specific bucket must return ONLY packages."""
         with diagnostic_search(
@@ -394,7 +393,6 @@ class TestFileScopeWithRealData:
 class TestPackageScopeWithRealData:
     """Test package scope searches using QUILT_TEST_PACKAGE fixture."""
 
-    @pytest.mark.xfail(reason="Package scope requires Elasticsearch field mapping for collapse on ptr_name.keyword")
     def test_package_scope_all_buckets_returns_only_packages(self, test_package):
         """Package scope with bucket='' searches all package indices.
 
@@ -405,11 +403,11 @@ class TestPackageScopeWithRealData:
         - At least ONE result should match QUILT_TEST_PACKAGE
 
         Test Data:
-        - Query: Last component of QUILT_TEST_PACKAGE (e.g., "raw" from "test/raw")
-        - Expected: Package named "test/raw" exists and is found
+        - Query: Full QUILT_TEST_PACKAGE name (e.g., "raw/test")
+        - Expected: Package named "raw/test" exists and is found
         """
-        # Extract searchable component from package name
-        query = test_package.split("/")[-1]  # "test/raw" → "raw"
+        # Use full package name to ensure it appears in top 50 results
+        query = test_package  # "raw/test" → "raw/test"
 
         with diagnostic_search(
             test_name="test_package_scope_all_buckets_returns_only_packages",
@@ -431,7 +429,6 @@ class TestPackageScopeWithRealData:
             assert test_package in package_names, \
                 f"Expected to find '{test_package}' in results: {package_names}"
 
-    @pytest.mark.xfail(reason="Package scope requires Elasticsearch field mapping for collapse on ptr_name.keyword")
     def test_package_scope_specific_bucket_returns_only_packages(self, test_package, default_bucket):
         """Package scope with bucket='my-bucket' searches single package index.
 

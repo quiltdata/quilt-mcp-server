@@ -227,25 +227,26 @@ class PackageEntryScopeHandler(ScopeHandler):
 
 
 class PackageScopeHandler(ScopeHandler):
-    """Handler for INTELLIGENT package searches.
+    """Handler for package-level searches (manifests only).
 
-    Searches both manifests and entries in package indices,
-    but groups results by package and includes matched entry details.
-
-    This is different from:
-    - PackageEntryScopeHandler: Returns individual files
-    - (Future) PackageManifestOnlyHandler: Returns only manifest metadata
+    Searches only manifest documents in package indices, returning one result per package.
+    This is a simpler alternative that doesn't require Elasticsearch field mappings.
 
     Key behaviors:
-    - Searches both manifest documents (ptr_name, mnfst_name) and entry documents (entry_pk, entry_lk)
-    - Groups results by package name using Elasticsearch collapse
-    - Returns package-level results with matched entry information aggregated
-    - Uses boosting to prefer packages where manifest fields match the query
+    - Searches ONLY manifest documents (ptr_name, ptr_tag, ptr_last_modified)
+    - Each manifest represents a unique package
+    - No collapse needed - manifests are naturally unique by package
+    - No application-level grouping required
 
-    Example query: "Find all CCLE packages that contain CSV files"
-    - Searches manifests for "CCLE" (package names)
-    - Searches entries for "csv" (file extensions)
-    - Returns packages grouped by name with matched CSV files listed
+    This is different from:
+    - PackageEntryScopeHandler: Returns individual files within packages
+    - GlobalScopeHandler: Returns both files and package entries
+
+    Example query: "Find all CCLE packages"
+    - Searches manifest ptr_name fields for "CCLE"
+    - Returns list of matching packages (one result per package)
+
+    Note: To also search within package contents, use PackageEntryScopeHandler instead.
     """
 
     def build_index_pattern(self, buckets: List[str]) -> str:
@@ -268,14 +269,11 @@ class PackageScopeHandler(ScopeHandler):
         return ",".join(f"{b}_packages" for b in buckets)
 
     def build_query_filter(self, base_query: str) -> Dict[str, Any]:
-        """Build query that searches both manifests and entries.
+        """Build query that searches only manifest documents.
 
-        CRITICAL: Since we use collapse on ptr_name.keyword, we MUST only return
-        documents that have ptr_name. Entry documents don't have ptr_name, so we
-        need to filter to only manifest documents.
-
-        TODO: Future enhancement could use a parent-child or join relationship
-        to properly group entries under their packages.
+        This ensures we return only packages (manifests), not individual files (entries).
+        Since manifest documents are unique per package, we get one result per package
+        without needing collapse or application-level grouping.
 
         Args:
             base_query: The escaped query string from user input
@@ -285,73 +283,49 @@ class PackageScopeHandler(ScopeHandler):
 
         Query strategy:
         - Must have ptr_name field (manifest documents only)
-        - Must match the base query in manifest fields
+        - Match query across all manifest fields using default query_string behavior
         """
         return {
             "bool": {
                 "must": [
                     # REQUIRED: Only documents with ptr_name (manifests)
                     {"exists": {"field": "ptr_name"}},
-                    # Match query in manifest fields
-                    {"query_string": {
-                        "query": base_query,
-                        "fields": ["ptr_name^2", "ptr_tag", "mnfst_name"]
-                    }}
+                    # Match query across all fields (ptr_name, ptr_tag, ptr_last_modified)
+                    {"query_string": {"query": base_query}}
                 ]
             }
         }
 
-    def build_collapse_config(self) -> Dict[str, Any]:
-        """Build collapse configuration to group by package.
+    def build_collapse_config(self) -> Optional[Dict[str, Any]]:
+        """No collapse configuration needed.
 
-        This is the KEY feature of intelligent package scope:
-        - Groups results by ptr_name (package name)
-        - Includes matched entries as inner_hits
-        - Returns up to 100 matched entries per package
+        Since we only search manifest documents (which are naturally unique per package),
+        we don't need Elasticsearch collapse. This avoids the requirement for
+        ptr_name.keyword field mapping.
 
         Returns:
-            Elasticsearch collapse configuration with inner_hits
-
-        The collapse feature ensures we return one result per package,
-        not one result per matching file within that package.
+            None - no collapse needed
         """
-        return {
-            "field": "ptr_name.keyword",
-            "inner_hits": {
-                "name": "matched_entries",
-                "size": 100,  # Up to 100 matched entries per package
-                "_source": [
-                    "entry_lk",
-                    "entry_pk",
-                    "entry_size",
-                    "entry_hash",
-                    "entry_metadata"
-                ]
-            }
-        }
+        return None
 
     def parse_result(self, hit: Dict[str, Any], bucket_name: str) -> Optional[SearchResult]:
-        """Parse a package result with matched entries.
+        """Parse a package manifest result.
 
-        The hit will be a MANIFEST document (because of collapse),
-        but will include inner_hits with matched ENTRY documents.
+        The hit will be a MANIFEST document (ptr_name, ptr_tag, ptr_last_modified).
 
         Args:
             hit: Elasticsearch hit document (should be a manifest)
             bucket_name: Bucket name extracted from index
 
         Returns:
-            SearchResult with package information and matched entries,
-            or None if parsing fails
+            SearchResult with package information, or None if parsing fails
 
         Result structure:
         - type: "package"
         - name: Full package name (ptr_name)
         - title: Display name (last component of ptr_name)
-        - description: Summary with package name, tag, and matched file count
-        - metadata.matched_entries: List of matched entry documents
-        - metadata.matched_entry_count: Total number of matched entries
-        - metadata.showing_entries: Number of entries included in result
+        - description: Summary with package name and tag
+        - s3_uri: URI to package (using quilt+ scheme)
         """
         source = hit.get("_source", {})
 
@@ -365,31 +339,8 @@ class PackageScopeHandler(ScopeHandler):
             return None
 
         # Extract manifest fields
-        mnfst_name = source.get("mnfst_name", "")
         ptr_tag = source.get("ptr_tag", "")
         last_modified = source.get("ptr_last_modified", "")
-
-        # Extract matched entries from inner_hits
-        inner_hits = hit.get("inner_hits", {}).get("matched_entries", {})
-        matched_entries_hits = inner_hits.get("hits", {}).get("hits", [])
-        matched_entry_count = inner_hits.get("hits", {}).get("total", {})
-
-        # Parse total count (can be int or dict)
-        if isinstance(matched_entry_count, dict):
-            matched_entry_count = matched_entry_count.get("value", 0)
-
-        # Parse matched entries
-        matched_entries = []
-        for entry_hit in matched_entries_hits:
-            entry_source = entry_hit.get("_source", {})
-            if entry_source.get("entry_pk") or entry_source.get("entry_lk"):
-                matched_entries.append({
-                    "entry_lk": entry_source.get("entry_lk", ""),
-                    "entry_pk": entry_source.get("entry_pk", ""),
-                    "entry_size": entry_source.get("entry_size", 0),
-                    "entry_hash": entry_source.get("entry_hash", {}),
-                    "entry_metadata": entry_source.get("entry_metadata", {})
-                })
 
         # Build package name for display
         package_name = ptr_name.split("/")[-1] if "/" in ptr_name else ptr_name
@@ -398,14 +349,11 @@ class PackageScopeHandler(ScopeHandler):
         description_parts = [f"Package: {ptr_name}"]
         if ptr_tag:
             description_parts.append(f"(tag: {ptr_tag})")
-        if matched_entry_count > 0:
-            description_parts.append(f"- Contains {matched_entry_count} matched file(s)")
         description = " ".join(description_parts)
 
-        # Build S3 URI to manifest
-        s3_uri = None
-        if bucket_name and mnfst_name:
-            s3_uri = f"s3://{bucket_name}/.quilt/packages/{mnfst_name}"
+        # Build S3 URI using quilt+ scheme for packages
+        # Format: quilt+s3://bucket#package=namespace/name&top_hash=...
+        s3_uri = f"s3://{bucket_name}/{ptr_name}"
 
         return SearchResult(
             id=hit.get("_id", ""),
@@ -419,9 +367,6 @@ class PackageScopeHandler(ScopeHandler):
             metadata={
                 **source,
                 "_index": hit.get("_index", ""),
-                "matched_entries": matched_entries,
-                "matched_entry_count": matched_entry_count,
-                "showing_entries": len(matched_entries),
             },
             score=hit.get("_score", 0.0),
             backend="elasticsearch",
