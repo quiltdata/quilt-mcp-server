@@ -143,10 +143,11 @@ class TestPackageEntryScopeHandler:
 
 
 class TestPackageScopeHandler:
-    """Test the intelligent package scope handler.
+    """Test the simplified package scope handler.
 
-    This handler searches both manifests and entries but returns package-centric
-    results with matched entry information aggregated.
+    This handler searches ONLY manifest documents and returns simple package
+    information without entry aggregation. This avoids the need for
+    ptr_name.keyword field mapping in Elasticsearch.
     """
 
     def setup_method(self):
@@ -183,16 +184,13 @@ class TestPackageScopeHandler:
         # First must clause: check for ptr_name field (manifest documents only)
         assert must_clauses[0] == {"exists": {"field": "ptr_name"}}
 
-        # Second must clause: query string with manifest fields
+        # Second must clause: simple query string without field specification
+        # (searches all fields by default)
         query_clause = must_clauses[1]
         assert "query_string" in query_clause
         assert query_clause["query_string"]["query"] == "CCLE AND csv"
-        assert "fields" in query_clause["query_string"]
-        # Should search manifest fields with ptr_name boosted
-        fields = query_clause["query_string"]["fields"]
-        assert "ptr_name^2" in fields
-        assert "ptr_tag" in fields
-        assert "mnfst_name" in fields
+        # Simplified version doesn't specify fields (searches all by default)
+        assert "fields" not in query_clause["query_string"]
 
     def test_build_query_filter_preserves_wildcards(self):
         """Should preserve wildcard syntax in query."""
@@ -214,28 +212,15 @@ class TestPackageScopeHandler:
         assert "(csv OR json) AND data NOT test" == base_query
 
     def test_build_collapse_config(self):
-        """Should build collapse config to group by package."""
+        """Should return None (no collapse needed for manifest-only search)."""
         collapse = self.handler.build_collapse_config()
 
-        # Should collapse on ptr_name.keyword
-        assert collapse["field"] == "ptr_name.keyword"
+        # Simplified version doesn't use collapse since we only search manifests
+        # (which are naturally unique per package)
+        assert collapse is None
 
-        # Should include inner_hits configuration
-        assert "inner_hits" in collapse
-        inner_hits = collapse["inner_hits"]
-        assert inner_hits["name"] == "matched_entries"
-        assert inner_hits["size"] == 100
-
-        # Should request entry fields in inner_hits
-        source_fields = inner_hits["_source"]
-        assert "entry_lk" in source_fields
-        assert "entry_pk" in source_fields
-        assert "entry_size" in source_fields
-        assert "entry_hash" in source_fields
-        assert "entry_metadata" in source_fields
-
-    def test_parse_manifest_with_entries(self):
-        """Should parse manifest document with matched entries."""
+    def test_parse_manifest_basic(self):
+        """Should parse manifest document (simplified version without inner_hits)."""
         hit = {
             "_id": "manifest123",
             "_index": "test-bucket_packages",
@@ -245,33 +230,6 @@ class TestPackageScopeHandler:
                 "ptr_tag": "latest",
                 "mnfst_name": "abc123",
                 "ptr_last_modified": "2024-01-15T10:00:00Z",
-            },
-            "inner_hits": {
-                "matched_entries": {
-                    "hits": {
-                        "total": {"value": 2},
-                        "hits": [
-                            {
-                                "_source": {
-                                    "entry_lk": "data/expression.csv",
-                                    "entry_pk": "s3://bucket/data/expression.csv",
-                                    "entry_size": 1234,
-                                    "entry_hash": {"type": "SHA256", "value": "abc"},
-                                    "entry_metadata": {"format": "csv"},
-                                }
-                            },
-                            {
-                                "_source": {
-                                    "entry_lk": "metadata/samples.csv",
-                                    "entry_pk": "s3://bucket/metadata/samples.csv",
-                                    "entry_size": 567,
-                                    "entry_hash": {"type": "SHA256", "value": "def"},
-                                    "entry_metadata": {"format": "csv"},
-                                }
-                            },
-                        ],
-                    }
-                }
             },
         }
 
@@ -284,45 +242,27 @@ class TestPackageScopeHandler:
         assert result.title == "2024-01-15"
         assert "Package: CCLE/2024-01-15" in result.description
         assert "(tag: latest)" in result.description
-        assert "Contains 2 matched file(s)" in result.description
-        assert result.s3_uri == "s3://test-bucket/.quilt/packages/abc123"
+        assert result.s3_uri == "s3://test-bucket/CCLE/2024-01-15"
         assert result.size == 0  # Manifests don't have size
         assert result.last_modified == "2024-01-15T10:00:00Z"
 
-        # Verify matched entries in metadata
+        # Verify metadata includes source fields
         metadata = result.metadata
-        assert metadata["matched_entry_count"] == 2
-        assert metadata["showing_entries"] == 2
-        assert len(metadata["matched_entries"]) == 2
+        assert metadata["ptr_name"] == "CCLE/2024-01-15"
+        assert metadata["ptr_tag"] == "latest"
+        assert metadata["mnfst_name"] == "abc123"
+        # Simplified version doesn't include matched_entry_count or matched_entries
 
-        # Verify first entry
-        entry1 = metadata["matched_entries"][0]
-        assert entry1["entry_lk"] == "data/expression.csv"
-        assert entry1["entry_pk"] == "s3://bucket/data/expression.csv"
-        assert entry1["entry_size"] == 1234
-        assert entry1["entry_hash"] == {"type": "SHA256", "value": "abc"}
-        assert entry1["entry_metadata"] == {"format": "csv"}
-
-        # Verify second entry
-        entry2 = metadata["matched_entries"][1]
-        assert entry2["entry_lk"] == "metadata/samples.csv"
-        assert entry2["entry_pk"] == "s3://bucket/metadata/samples.csv"
-        assert entry2["entry_size"] == 567
-
-    def test_parse_manifest_without_entries(self):
-        """Should parse manifest with no matched entries."""
+    def test_parse_manifest_without_tag(self):
+        """Should parse manifest without tag field."""
         hit = {
             "_id": "manifest123",
             "_index": "test-bucket_packages",
             "_score": 1.0,
             "_source": {
                 "ptr_name": "EmptyPackage/v1",
-                "ptr_tag": "latest",
                 "mnfst_name": "xyz789",
                 "ptr_last_modified": "2024-01-10T10:00:00Z",
-            },
-            "inner_hits": {
-                "matched_entries": {"hits": {"total": {"value": 0}, "hits": []}}
             },
         }
 
@@ -331,142 +271,9 @@ class TestPackageScopeHandler:
         assert result is not None
         assert result.type == "package"
         assert result.name == "EmptyPackage/v1"
-        assert result.metadata["matched_entry_count"] == 0
-        assert result.metadata["showing_entries"] == 0
-        assert result.metadata["matched_entries"] == []
-        # Description should not mention matched files when count is 0
-        assert "Contains 0 matched file(s)" not in result.description
-
-    def test_parse_manifest_with_entries_total_as_int(self):
-        """Should handle total count as integer (older ES versions)."""
-        hit = {
-            "_id": "manifest123",
-            "_index": "test-bucket_packages",
-            "_score": 2.5,
-            "_source": {
-                "ptr_name": "TestPackage/v1",
-                "mnfst_name": "abc123",
-            },
-            "inner_hits": {
-                "matched_entries": {
-                    "hits": {
-                        "total": 3,  # Integer instead of dict
-                        "hits": [
-                            {
-                                "_source": {
-                                    "entry_lk": "file1.csv",
-                                    "entry_pk": "s3://bucket/file1.csv",
-                                    "entry_size": 100,
-                                    "entry_hash": {},
-                                    "entry_metadata": {},
-                                }
-                            }
-                        ],
-                    }
-                }
-            },
-        }
-
-        result = self.handler.parse_result(hit, "test-bucket")
-
-        assert result is not None
-        assert result.metadata["matched_entry_count"] == 3
-        assert result.metadata["showing_entries"] == 1
-        assert "Contains 3 matched file(s)" in result.description
-
-    def test_parse_manifest_with_partial_entries(self):
-        """Should handle entries with missing optional fields."""
-        hit = {
-            "_id": "manifest123",
-            "_index": "test-bucket_packages",
-            "_score": 1.5,
-            "_source": {
-                "ptr_name": "PartialPackage/v1",
-                "mnfst_name": "abc123",
-            },
-            "inner_hits": {
-                "matched_entries": {
-                    "hits": {
-                        "total": {"value": 1},
-                        "hits": [
-                            {
-                                "_source": {
-                                    "entry_lk": "data.csv",
-                                    "entry_pk": "s3://bucket/data.csv",
-                                    # Missing entry_size, entry_hash, entry_metadata
-                                }
-                            }
-                        ],
-                    }
-                }
-            },
-        }
-
-        result = self.handler.parse_result(hit, "test-bucket")
-
-        assert result is not None
-        entry = result.metadata["matched_entries"][0]
-        assert entry["entry_lk"] == "data.csv"
-        assert entry["entry_pk"] == "s3://bucket/data.csv"
-        assert entry["entry_size"] == 0  # Default value
-        assert entry["entry_hash"] == {}  # Default value
-        assert entry["entry_metadata"] == {}  # Default value
-
-    def test_parse_manifest_filters_invalid_entries(self):
-        """Should filter out entries without entry_pk or entry_lk."""
-        hit = {
-            "_id": "manifest123",
-            "_index": "test-bucket_packages",
-            "_score": 1.5,
-            "_source": {
-                "ptr_name": "TestPackage/v1",
-                "mnfst_name": "abc123",
-            },
-            "inner_hits": {
-                "matched_entries": {
-                    "hits": {
-                        "total": {"value": 3},
-                        "hits": [
-                            {
-                                "_source": {
-                                    "entry_lk": "valid1.csv",
-                                    "entry_pk": "s3://bucket/valid1.csv",
-                                    "entry_size": 100,
-                                    "entry_hash": {},
-                                    "entry_metadata": {},
-                                }
-                            },
-                            {
-                                "_source": {
-                                    # Missing both entry_pk and entry_lk
-                                    "some_other_field": "invalid"
-                                }
-                            },
-                            {
-                                "_source": {
-                                    "entry_lk": "valid2.csv",
-                                    "entry_pk": "s3://bucket/valid2.csv",
-                                    "entry_size": 200,
-                                    "entry_hash": {},
-                                    "entry_metadata": {},
-                                }
-                            },
-                        ],
-                    }
-                }
-            },
-        }
-
-        result = self.handler.parse_result(hit, "test-bucket")
-
-        assert result is not None
-        # Total count should be 3 (from ES response)
-        assert result.metadata["matched_entry_count"] == 3
-        # But showing_entries should be 2 (only valid entries)
-        assert result.metadata["showing_entries"] == 2
-        assert len(result.metadata["matched_entries"]) == 2
-        assert result.metadata["matched_entries"][0]["entry_lk"] == "valid1.csv"
-        assert result.metadata["matched_entries"][1]["entry_lk"] == "valid2.csv"
+        # Description should not mention tag when it's not present
+        assert "(tag:" not in result.description
+        assert "Package: EmptyPackage/v1" in result.description
 
     def test_parse_rejects_non_manifest(self):
         """Should reject documents without ptr_name."""
@@ -501,37 +308,14 @@ class TestPackageScopeHandler:
                     "ptr_name": ptr_name,
                     "mnfst_name": "abc123",
                 },
-                "inner_hits": {
-                    "matched_entries": {"hits": {"total": {"value": 0}, "hits": []}}
-                },
             }
 
             result = self.handler.parse_result(hit, "test-bucket")
             assert result is not None
             assert result.title == expected_title, f"Failed for ptr_name: {ptr_name}"
 
-    def test_parse_manifest_with_missing_inner_hits(self):
-        """Should handle manifest with no inner_hits gracefully."""
-        hit = {
-            "_id": "manifest123",
-            "_index": "test-bucket_packages",
-            "_score": 1.0,
-            "_source": {
-                "ptr_name": "TestPackage/v1",
-                "mnfst_name": "abc123",
-            },
-            # No inner_hits at all
-        }
-
-        result = self.handler.parse_result(hit, "test-bucket")
-
-        assert result is not None
-        assert result.type == "package"
-        assert result.metadata["matched_entry_count"] == 0
-        assert result.metadata["matched_entries"] == []
-
     def test_parse_manifest_constructs_s3_uri_correctly(self):
-        """Should construct correct S3 URI for package manifest."""
+        """Should construct S3 URI using ptr_name format (simplified version)."""
         hit = {
             "_id": "manifest123",
             "_index": "my-bucket_packages",
@@ -540,18 +324,16 @@ class TestPackageScopeHandler:
                 "ptr_name": "MyPackage/v1",
                 "mnfst_name": "manifest_hash_123",
             },
-            "inner_hits": {
-                "matched_entries": {"hits": {"total": {"value": 0}, "hits": []}}
-            },
         }
 
         result = self.handler.parse_result(hit, "my-bucket")
 
         assert result is not None
-        assert result.s3_uri == "s3://my-bucket/.quilt/packages/manifest_hash_123"
+        # Simplified version uses ptr_name format, not manifest hash format
+        assert result.s3_uri == "s3://my-bucket/MyPackage/v1"
 
     def test_parse_manifest_without_mnfst_name(self):
-        """Should handle manifest without mnfst_name (s3_uri will be None)."""
+        """Should handle manifest without mnfst_name gracefully."""
         hit = {
             "_id": "manifest123",
             "_index": "test-bucket_packages",
@@ -560,9 +342,6 @@ class TestPackageScopeHandler:
                 "ptr_name": "TestPackage/v1",
                 # No mnfst_name field
             },
-            "inner_hits": {
-                "matched_entries": {"hits": {"total": {"value": 0}, "hits": []}}
-            },
         }
 
         result = self.handler.parse_result(hit, "test-bucket")
@@ -570,7 +349,8 @@ class TestPackageScopeHandler:
         assert result is not None
         assert result.type == "package"
         assert result.name == "TestPackage/v1"
-        assert result.s3_uri is None  # No URI without mnfst_name
+        # Simplified version still constructs URI using ptr_name
+        assert result.s3_uri == "s3://test-bucket/TestPackage/v1"
 
     def test_parse_manifest_includes_metadata(self):
         """Should include all source fields in metadata."""
@@ -584,9 +364,6 @@ class TestPackageScopeHandler:
                 "mnfst_name": "abc123",
                 "ptr_last_modified": "2024-01-15T10:00:00Z",
                 "custom_field": "custom_value",
-            },
-            "inner_hits": {
-                "matched_entries": {"hits": {"total": {"value": 0}, "hits": []}}
             },
         }
 
