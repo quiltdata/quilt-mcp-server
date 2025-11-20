@@ -8,21 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.1] - 2025-11-14
+## [0.9.1] - 2025-11-19
+
+### Added
+
+- **Package Scope Search**: New `scope="package"` parameter for package-centric search
+  - Faster package-only queries (searches manifests only)
+  - Available in `search_catalog` and `search_explain` tools
 
 ### Changed
 
-- **Search Backend Simplification**: Removed S3 and GraphQL backends from catalog search
-  - `search_catalog` now only supports Elasticsearch backend for catalog-indexed content
+- **Search Backend Simplification**: Removed S3 and GraphQL backends
+  - `search_catalog` now uses Elasticsearch backend only for catalog-indexed content
   - Use `bucket_objects_list` for direct S3 object exploration
-  - Improved search result consistency and reliability
+  - Improved search consistency and reliability
 
 ### Fixed
 
-- **Search Result Models**: Enhanced SearchResult fields with better type safety
-- **Elasticsearch Backend**: Improved index pattern handling and scope naming
-- **Test Suite**: Updated search tests to reflect simplified backend architecture
-- **HTTP Timeout**: Added timeout configuration to prevent hanging GraphQL calls
+- **Wildcard Preservation**: Fixed Elasticsearch query handling to preserve wildcards
+- **Type Safety**: Re-enabled mypy type checking for all 12 previously disabled modules
+- **Test Coverage**: Reorganized tests, improved combined coverage to 45%+
+- **PackageEntry Scope**: Better handling of package-level search results
+- **HTTP Timeout**: Added timeout configuration to prevent hanging calls
 
 ## [0.9.0] - 2025-11-12
 
