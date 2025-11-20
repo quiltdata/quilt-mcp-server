@@ -10,12 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.2] - 2025-11-19
 
+### Added
+
+- **Intelligent Package Scope**: New `package` scope for package-centric search results (#239)
+  - Search both manifests and entries while returning package-level results
+  - Answers queries like "Find packages containing CSV files" or "Which packages have RNA-seq data?"
+  - Uses Elasticsearch collapse to group by package name
+  - Returns aggregated entry information (up to 100 matched files per package)
+  - Implements intelligent query boosting (2.0x for manifest matches)
+  - Comprehensive testing: 19 unit tests + 15 integration tests
+
 ### Fixed
 
 - **Type Checking**: Re-enabled mypy type checking for ALL 12 disabled modules
   - Removed all `# type: ignore` module-level suppressions
   - Fixed type errors in all previously disabled modules
   - Complete mypy compliance across entire codebase
+- **Wildcard Preservation**: Fixed Elasticsearch queries to preserve wildcards in search terms
+- **PackageEntry Scope**: Improved handling of package entry searches
+- **Test Organization**: Reorganized tests - moved mocked tests to unit directory
 
 ## [0.9.1] - 2025-11-14
 
