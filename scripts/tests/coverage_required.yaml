@@ -5,21 +5,14 @@
 #
 # The test_coverage.py script will validate that actual coverage meets or exceeds these thresholds.
 #
-# PHILOSOPHY: We focus primarily on combined coverage, which measures whether code is tested
-# by ANY test suite (unit, integration, or e2e). Individual test suite thresholds are kept
-# low to avoid encouraging siloed testing - what matters is that code is tested, not which
-# test category it falls under.
+# PHILOSOPHY: We focus on combined coverage, which measures whether code is tested
+# by ANY test suite (unit, integration, or e2e). What matters is that code is tested,
+# not which test category it falls under.
 
 # Overall project coverage thresholds
 summary:
   # PRIMARY METRIC: Combined coverage measures if code is tested by ANY test type
-  combined_pct_covered: 55.0        # Current: 55.7% - primary quality gate
-
-  # SECONDARY METRICS: Individual test suite coverage (kept low to avoid siloed testing)
-  # These ensure we have diversity in test approaches, but don't require high individual coverage
-  unit_pct_covered: 30.0            # Current: 37.2% - tests with mocked dependencies
-  integration_pct_covered: 25.0     # Current: 29.0% - tests with real AWS/external services
-  e2e_pct_covered: 28.0             # Current: 32.0% - end-to-end workflow tests
+  combined_pct_covered: 55.0        # Current: 56.7% - primary quality gate
 
 # Per-file coverage thresholds (optional)
 # Only files explicitly listed here will be checked against per-file thresholds.

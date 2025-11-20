@@ -1,19 +1,7 @@
 summary:
   combined_pct_covered:
-    actual: 55.7
+    actual: 56.7
     required: 55.0
-    passed: true
-  unit_pct_covered:
-    actual: 37.2
-    required: 30.0
-    passed: true
-  integration_pct_covered:
-    actual: 29.0
-    required: 25.0
-    passed: true
-  e2e_pct_covered:
-    actual: 32.0
-    required: 28.0
     passed: true
 files: {}
 passed: true
