@@ -226,9 +226,12 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Tools with multiple test variants based on parameter combinations
     # Format: tool_name -> {"param_name": [test_value1, test_value2, ...]}
     # Special handling: if variant name contains "package", uses QUILT_TEST_PACKAGE, else QUILT_TEST_ENTRY
+    # For search_catalog: Generate both "with bucket" and "without bucket" variants
+    # This exercises both specific-bucket and wildcard index pattern code paths
     tool_variants = {
         "search_catalog": {
-            "scope": ["global", "file", "package"]
+            "scope": ["global", "file", "package"],
+            "bucket_mode": ["with_bucket", "no_bucket"]  # Test both code paths
         }
     }
 
@@ -255,10 +258,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         # package_create, package_update, package_delete: Omitted - 'create'/'update'/'remove' effects
         # package_create_from_s3: Omitted - 'create' effect
 
-        # Search operations
-        "search_catalog.global": {"query": test_entry, "limit": 10, "scope": "global", "bucket": default_bucket},
-        "search_catalog.file": {"query": test_entry, "limit": 10, "scope": "file", "bucket": default_bucket},
-        "search_catalog.package": {"query": test_package, "limit": 10, "scope": "package", "bucket": default_bucket},
+        # Search operations (search_catalog variants auto-generated, see tool_variants)
         "search_explain": {"query": "CSV files"},
         "search_suggest": {"partial_query": test_package[:5], "limit": 5},
 
@@ -315,90 +315,130 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
         # Check if this tool has variants
         if tool_name in tool_variants:
-            # Generate test cases for each variant
-            for param_name, param_values in tool_variants[tool_name].items():
-                for param_value in param_values:
-                    variant_key = f"{tool_name}.{param_value}"
+            # Generate test cases for each variant combination
+            variants_config = tool_variants[tool_name]
 
-                    # Get custom config or use the variant value
-                    if variant_key in custom_configs:
-                        arguments = custom_configs[variant_key]
-                    else:
-                        # Auto-generate based on variant: "package" uses TEST_PACKAGE, others use TEST_ENTRY
-                        query_value = test_package if "package" in param_value else test_entry
-                        arguments = {"query": query_value, "limit": 10, param_name: param_value}
+            # Handle multi-dimensional variants (e.g., scope x bucket_mode)
+            if "bucket_mode" in variants_config:
+                # Special handling for search_catalog with scope and bucket combinations
+                scope_values = variants_config.get("scope", ["global"])
+                bucket_modes = variants_config.get("bucket_mode", ["with_bucket"])
 
-                        # Add bucket parameter for file scope
-                        if param_value == "file":
-                            arguments["bucket"] = default_bucket
+                for scope in scope_values:
+                    for bucket_mode in bucket_modes:
+                        # Create variant key like "search_catalog.file.no_bucket"
+                        variant_key = f"{tool_name}.{scope}.{bucket_mode}"
 
-                    test_case = {
-                        "tool": tool_name,  # Store the actual tool name
-                        "description": doc.split('\n')[0],
-                        "effect": effect,
-                        "arguments": arguments,
-                        "response_schema": {
-                            "type": "object",
-                            "properties": {
-                                "content": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object"
-                                    }
-                                }
-                            },
-                            "required": ["content"]
+                        # Determine query value based on scope
+                        query_value = test_package if scope == "package" else test_entry
+
+                        # Build arguments based on bucket_mode
+                        arguments = {
+                            "query": query_value,
+                            "limit": 10,
+                            "scope": scope
                         }
-                    }
 
-                    # NEW: Add smart validation rules for search variants
-                    if tool_name == "search_catalog":
+                        if bucket_mode == "with_bucket":
+                            arguments["bucket"] = default_bucket
+                        else:  # no_bucket
+                            arguments["bucket"] = ""  # Empty string tests wildcard patterns
+
+                        test_case = {
+                            "tool": tool_name,  # Store the actual tool name
+                            "description": doc.split('\n')[0],
+                            "effect": effect,
+                            "arguments": arguments,
+                            "response_schema": {
+                                "type": "object",
+                                "properties": {
+                                    "content": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "required": ["content"]
+                            }
+                        }
+
+                        # Add smart validation rules for search variants
                         validation = {
                             "type": "search",
                             "min_results": 1,
                             "must_contain": []
                         }
 
-                        if param_value == "bucket" or param_value == "file":
-                            # File/bucket search must find TEST_ENTRY
-                            # SearchResult has: id, type, title, logical_key, s3_uri, size, etc.
-                            # For files: title has the filename (logical_key is only for packaged files)
-                            validation["description"] = f"File search must return TEST_ENTRY ({test_entry})"
+                        if scope == "file":
+                            # File search must find TEST_ENTRY
+                            if bucket_mode == "with_bucket":
+                                validation["description"] = f"File search with specific bucket must find TEST_ENTRY ({test_entry})"
+                            else:
+                                validation["description"] = f"File search across all buckets (wildcard) must find TEST_ENTRY ({test_entry})"
+
                             validation["must_contain"].append({
                                 "value": test_entry,
-                                "field": "title",  # Use title instead of logical_key (works for all files)
+                                "field": "title",
                                 "match_type": "substring",
                                 "description": f"Must find {test_entry} in file search results (title field)"
                             })
                             validation["result_shape"] = {
-                                "required_fields": ["id", "type", "title", "score"]  # Changed from key/size to actual fields
+                                "required_fields": ["id", "type", "title", "score"]
                             }
 
-                        elif param_value == "package":
+                        elif scope == "package":
                             # Package search should return results
-                            # Note: Current ES index structure may not have package names populated
-                            validation["description"] = f"Package search should return results"
+                            if bucket_mode == "with_bucket":
+                                validation["description"] = f"Package search with specific bucket should return results"
+                            else:
+                                validation["description"] = f"Package search across all buckets (wildcard) should return results"
+
                             validation["min_results"] = 1
                             validation["result_shape"] = {
                                 "required_fields": ["id", "type", "score"]
                             }
-                            # Note: Not requiring specific package name match due to index structure limitations
 
-                        elif param_value == "global":
+                        elif scope == "global":
                             # Global search should find test entry
-                            # Note: Not checking for package names due to index structure limitations
-                            validation["description"] = "Global search should return results including test entry"
+                            if bucket_mode == "with_bucket":
+                                validation["description"] = "Global search with specific bucket should return results including test entry"
+                            else:
+                                validation["description"] = "Global search across all buckets (_all index) should return results including test entry"
+
                             validation["must_contain"].append({
                                 "value": test_entry,
-                                "field": "title",  # Use title for file searches
+                                "field": "title",
                                 "match_type": "substring",
                                 "description": f"Must find TEST_ENTRY ({test_entry}) in global results (title field)"
                             })
-                            validation["min_results"] = 1  # At least the test entry
+                            validation["min_results"] = 1
 
                         test_case["validation"] = validation
-
-                    test_config["test_tools"][variant_key] = test_case
+                        test_config["test_tools"][variant_key] = test_case
+            else:
+                # Legacy single-parameter variant handling (for future tools if needed)
+                for param_name, param_values in variants_config.items():
+                    for param_value in param_values:
+                        variant_key = f"{tool_name}.{param_value}"
+                        arguments = {"query": test_entry, "limit": 10, param_name: param_value}
+                        test_case = {
+                            "tool": tool_name,
+                            "description": doc.split('\n')[0],
+                            "effect": effect,
+                            "arguments": arguments,
+                            "response_schema": {
+                                "type": "object",
+                                "properties": {
+                                    "content": {
+                                        "type": "array",
+                                        "items": {"type": "object"}
+                                    }
+                                },
+                                "required": ["content"]
+                            }
+                        }
+                        test_config["test_tools"][variant_key] = test_case
         else:
             # Single test case for tools without variants
             test_case = {

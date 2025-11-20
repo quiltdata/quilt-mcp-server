@@ -575,7 +575,7 @@ test_tools:
             type: object
       required:
       - content
-  search_catalog.global:
+  search_catalog.global.with_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
@@ -602,8 +602,38 @@ test_tools:
         field: title
         match_type: substring
         description: Must find TEST_ENTRY (README.md) in global results (title field)
-      description: Global search should return results including test entry
-  search_catalog.file:
+      description: Global search with specific bucket should return results including
+        test entry
+  search_catalog.global.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: global
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find TEST_ENTRY (README.md) in global results (title field)
+      description: Global search across all buckets (_all index) should return results
+        including test entry
+  search_catalog.file.with_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
@@ -630,14 +660,49 @@ test_tools:
         field: title
         match_type: substring
         description: Must find README.md in file search results (title field)
-      description: File search must return TEST_ENTRY (README.md)
+      description: File search with specific bucket must find TEST_ENTRY (README.md)
       result_shape:
         required_fields:
         - id
         - type
         - title
         - score
-  search_catalog.package:
+  search_catalog.file.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: file
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find README.md in file search results (title field)
+      description: File search across all buckets (wildcard) must find TEST_ENTRY
+        (README.md)
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - title
+        - score
+  search_catalog.package.with_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
       - Catalog and package search experiences
@@ -660,7 +725,36 @@ test_tools:
       type: search
       min_results: 1
       must_contain: []
-      description: Package search should return results
+      description: Package search with specific bucket should return results
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - score
+  search_catalog.package.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: raw/test
+      limit: 10
+      scope: package
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain: []
+      description: Package search across all buckets (wildcard) should return results
       result_shape:
         required_fields:
         - id

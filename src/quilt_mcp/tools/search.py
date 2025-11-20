@@ -31,10 +31,10 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "file"],
+        Literal["global", "packageEntry", "package", "file"],
         Field(
             default="file",
-            description='Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)',
+            description='Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "package" (package-centric with collapsed results), "global" (all)',
         ),
     ] = "file",
     bucket: Annotated[
@@ -95,7 +95,7 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "file" (file-level search, default), "package" (package-level search), "global" (all)
+        scope: Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "package" (package-centric with collapsed results), "global" (all)
         bucket: S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.
         backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
@@ -109,7 +109,8 @@ def search_catalog(
     Examples:
         search_catalog("CSV files")  # File-level search across all buckets
         search_catalog("files larger than 100MB created after 2024-01-01", bucket="my-bucket")  # Specific bucket
-        search_catalog("packages created last month", scope="package")  # Package-level search
+        search_catalog("packages created last month", scope="packageEntry")  # Package-level search
+        search_catalog("genomics/data", scope="package")  # Package-centric search with collapsed results
         search_catalog("README files", scope="global")  # Global search (files and packages)
         search_catalog("Parquet files", bucket="s3://other-bucket")  # Specific bucket with s3:// URI
 
@@ -204,7 +205,7 @@ def search_catalog(
                 explanation=result.get("explanation"),
             ).model_dump()
         else:
-            # Raise exception with structured error info to make MCP show "Tool Result: Error"
+            # Return error as dict (not raise) so tools can handle errors gracefully
             error_model = SearchCatalogError(
                 error=result.get("error", "Search failed"),
                 query=result["query"],
@@ -213,8 +214,8 @@ def search_catalog(
                 backend_used=result.get("backend_used"),
                 backend_status=result.get("backend_status"),
             )
-            # Raise with structured error message
-            raise RuntimeError(f"{error_model.error}\n{error_model.model_dump_json(indent=2)}")
+            # Return error dict instead of raising
+            return error_model.model_dump()
     except asyncio.TimeoutError as e:
         raise RuntimeError(f"Search timeout: {e}")
     except OSError as e:
@@ -300,7 +301,7 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        Literal["global", "package", "file"],
+        Literal["global", "packageEntry", "package", "file"],
         Field(
             default="global",
             description="Search scope",
@@ -547,7 +548,7 @@ def search_objects_graphql(
             "updated": edge.get("node", {}).get("updated"),
             "content_type": edge.get("node", {}).get("contentType"),
             "extension": edge.get("node", {}).get("extension"),
-            "package": edge.get("node", {}).get("package"),
+            "packageEntry": edge.get("node", {}).get("packageEntry"),
         }
         for edge in edges
         if isinstance(edge, dict)
