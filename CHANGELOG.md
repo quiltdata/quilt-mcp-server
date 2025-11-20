@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2025-11-19
+
+### Fixed
+
+- **Type Checking**: Re-enabled mypy type checking for ALL 12 disabled modules
+  - Removed all `# type: ignore` module-level suppressions
+  - Fixed type errors in all previously disabled modules
+  - Complete mypy compliance across entire codebase
+
 ## [0.9.1] - 2025-11-14
 
 ### Changed
