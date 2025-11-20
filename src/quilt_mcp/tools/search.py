@@ -31,10 +31,10 @@ def search_catalog(
         ),
     ],
     scope: Annotated[
-        Literal["global", "packageEntry", "file"],
+        Literal["global", "packageEntry", "package", "file"],
         Field(
             default="file",
-            description='Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "global" (all)',
+            description='Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "package" (package-centric with collapsed results), "global" (all)',
         ),
     ] = "file",
     bucket: Annotated[
@@ -95,7 +95,7 @@ def search_catalog(
 
     Args:
         query: Natural language search query (e.g., "CSV files", "genomics data", "files larger than 100MB")
-        scope: Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "global" (all)
+        scope: Search scope - "file" (file-level search, default), "packageEntry" (package-level search), "package" (package-centric with collapsed results), "global" (all)
         bucket: S3 bucket to search in (e.g., "my-bucket" or "s3://my-bucket"). Empty string searches all accessible buckets.
         backend: Backend to use - "elasticsearch" (only valid option, graphql is currently broken)
         limit: Maximum number of results to return (default: 50)
@@ -110,6 +110,7 @@ def search_catalog(
         search_catalog("CSV files")  # File-level search across all buckets
         search_catalog("files larger than 100MB created after 2024-01-01", bucket="my-bucket")  # Specific bucket
         search_catalog("packages created last month", scope="packageEntry")  # Package-level search
+        search_catalog("genomics/data", scope="package")  # Package-centric search with collapsed results
         search_catalog("README files", scope="global")  # Global search (files and packages)
         search_catalog("Parquet files", bucket="s3://other-bucket")  # Specific bucket with s3:// URI
 
@@ -300,7 +301,7 @@ def search_explain(
         ),
     ],
     scope: Annotated[
-        Literal["global", "packageEntry", "file"],
+        Literal["global", "packageEntry", "package", "file"],
         Field(
             default="global",
             description="Search scope",
