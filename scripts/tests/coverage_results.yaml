@@ -1,8 +1,9 @@
 summary:
   combined_pct_covered:
-    actual: 55.6
+    actual: 54.5
     required: 55.0
-    passed: true
+    passed: false
 files: {}
-passed: true
-errors: []
+passed: false
+errors:
+- 'SUMMARY combined_pct_covered: 54.5% < 55.0% (required)'

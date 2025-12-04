@@ -16,14 +16,15 @@ until backend support is added.
 No mocks. Real AWS. Real Elasticsearch. Real package data.
 """
 
+import os
 import pytest
 import logging
 from typing import List
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.services.quilt_service import QuiltService
-# Using test_bucket from conftest fixture
 
 logger = logging.getLogger(__name__)
+QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
 
 # Check if Elasticsearch backend supports collapse
 # This will be used to mark tests as xfail if collapse is not supported
@@ -59,10 +60,10 @@ def backend(quilt_service):
 @pytest.fixture
 def default_bucket():
     """Return default bucket name (normalized), or use first available bucket."""
-    # Try to use default_bucket if set
-    if default_bucket:
-        bucket_name = default_bucket.replace("s3://", "")
-        logger.info(f"Using default_bucket: {bucket_name}")
+    # Try to use QUILT_TEST_BUCKET if set
+    if QUILT_TEST_BUCKET:
+        bucket_name = QUILT_TEST_BUCKET.replace("s3://", "")
+        logger.info(f"Using QUILT_TEST_BUCKET: {bucket_name}")
         return bucket_name
 
     # Otherwise, get first available bucket

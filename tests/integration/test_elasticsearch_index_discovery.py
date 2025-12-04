@@ -12,14 +12,15 @@ CRITICAL: These tests verify the CORE functionality of index discovery
 that was previously untested and broken.
 """
 
+import os
 import pytest
 import logging
 from typing import List, Set, Dict, Any
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.services.quilt_service import QuiltService
-# Using default_bucket from fixture
 
 logger = logging.getLogger(__name__)
+QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
 
 
 # ============================================================================
@@ -43,10 +44,10 @@ def backend(quilt_service):
 
 @pytest.fixture
 def default_bucket():
-    """Return default bucket name (normalized), or skip test if not set."""
-    if not default_bucket:
-        pytest.skip("QUILT_default_bucket not set - required for this test")
-    return default_bucket.replace("s3://", "")
+    """Return default bucket name (normalized)."""
+    if not QUILT_TEST_BUCKET:
+        raise ValueError("QUILT_TEST_BUCKET environment variable must be set for integration tests")
+    return QUILT_TEST_BUCKET.replace("s3://", "")
 
 
 # ============================================================================

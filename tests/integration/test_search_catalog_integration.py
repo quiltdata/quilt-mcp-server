@@ -48,20 +48,16 @@ def test_entry():
 
 @pytest.fixture
 def default_bucket():
-    """Return default bucket name (normalized), or skip test if not set.
+    """Return default bucket name (normalized).
 
     Example: "my-bucket" (with s3:// prefix removed)
 
-    Set via: QUILT_DEFAULT_BUCKET environment variable
-
-    Behavior:
-    - If QUILT_DEFAULT_BUCKET is set: return normalized bucket name
-    - If NOT set: skip test with message "QUILT_DEFAULT_BUCKET not set"
+    Set via: QUILT_TEST_BUCKET environment variable
     """
-    quilt_default_bucket = os.getenv("QUILT_DEFAULT_BUCKET", "")
-    if not quilt_default_bucket:
-        pytest.skip("QUILT_DEFAULT_BUCKET not set - required for this test")
-    return quilt_default_bucket.replace("s3://", "")
+    quilt_test_bucket = os.getenv("QUILT_TEST_BUCKET", "")
+    if not quilt_test_bucket:
+        raise ValueError("QUILT_TEST_BUCKET environment variable must be set for integration tests")
+    return quilt_test_bucket.replace("s3://", "")
 
 
 # ============================================================================
