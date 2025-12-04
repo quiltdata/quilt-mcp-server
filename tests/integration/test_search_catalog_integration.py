@@ -11,12 +11,10 @@ import json
 import pytest
 from contextlib import contextmanager
 from typing import Dict, List, Set, NamedTuple, Optional
-from quilt_mcp import DEFAULT_BUCKET
 from quilt_mcp.tools.search import search_catalog
 from quilt_mcp.constants import (
     KNOWN_TEST_PACKAGE as QUILT_TEST_PACKAGE,
     KNOWN_TEST_ENTRY as QUILT_TEST_ENTRY,
-    DEFAULT_BUCKET as QUILT_DEFAULT_BUCKET,
 )
 
 
@@ -53,15 +51,15 @@ def default_bucket():
 
     Example: "my-bucket" (with s3:// prefix removed)
 
-    Set via: QUILT_DEFAULT_BUCKET environment variable
+    Set via: QUILT_default_bucket environment variable
 
     Behavior:
-    - If QUILT_DEFAULT_BUCKET is set: return normalized bucket name
-    - If NOT set: skip test with message "QUILT_DEFAULT_BUCKET not set"
+    - If QUILT_default_bucket is set: return normalized bucket name
+    - If NOT set: skip test with message "QUILT_default_bucket not set"
     """
-    if not QUILT_DEFAULT_BUCKET:
-        pytest.skip("QUILT_DEFAULT_BUCKET not set - required for this test")
-    return QUILT_DEFAULT_BUCKET.replace("s3://", "")
+    if not QUILT_default_bucket:
+        pytest.skip("QUILT_default_bucket not set - required for this test")
+    return QUILT_default_bucket.replace("s3://", "")
 
 
 # ============================================================================
@@ -248,7 +246,7 @@ class TestSearchCatalogIntegration:
         result = search_catalog(
             query="csv",
             scope="file",
-            bucket=DEFAULT_BUCKET,
+            bucket=default_bucket,
             limit=10,
         )
 
@@ -262,7 +260,7 @@ class TestSearchCatalogIntegration:
 
         # REQUIRE non-zero results - test MUST fail if no results
         assert len(result["results"]) > 0, (
-            f"FILE SCOPE TEST FAILURE: Must return at least 1 file result from bucket {DEFAULT_BUCKET}. Got 0 results."
+            f"FILE SCOPE TEST FAILURE: Must return at least 1 file result from bucket {default_bucket}. Got 0 results."
         )
 
         # Verify EVERY result is a file (not just the first one)
@@ -279,7 +277,7 @@ class TestSearchCatalogIntegration:
             test_name="test_package_scope_specific_bucket_returns_only_packages",
             query="*",
             scope="package",
-            bucket=DEFAULT_BUCKET,
+            bucket=default_bucket,
             limit=10,
         ) as result:
             # Must be successful
@@ -292,7 +290,7 @@ class TestSearchCatalogIntegration:
 
             # REQUIRE non-zero results - test MUST fail if no results
             assert len(result["results"]) > 0, (
-                f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {DEFAULT_BUCKET}. Got 0 results."
+                f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {default_bucket}. Got 0 results."
             )
 
             # Verify EVERY result is a package (not just the first one)
@@ -378,7 +376,7 @@ class TestFileScopeWithRealData:
 
         Test Data:
         - Query: QUILT_TEST_ENTRY
-        - Bucket: QUILT_DEFAULT_BUCKET (guaranteed to have test data)
+        - Bucket: QUILT_default_bucket (guaranteed to have test data)
         """
         # Execute search
         result = search_catalog(query=test_entry, scope="file", bucket=default_bucket, limit=50)
@@ -444,7 +442,7 @@ class TestPackageScopeWithRealData:
 
         Test Data:
         - Query: Last component of QUILT_TEST_PACKAGE
-        - Bucket: QUILT_DEFAULT_BUCKET (guaranteed to have test package)
+        - Bucket: QUILT_default_bucket (guaranteed to have test package)
         """
         query = test_package.split("/")[-1]
 
@@ -509,7 +507,7 @@ class TestGlobalScopeWithRealData:
 
         Test Data:
         - Query: QUILT_TEST_ENTRY
-        - Bucket: QUILT_DEFAULT_BUCKET
+        - Bucket: QUILT_default_bucket
         """
         # Execute search
         result = search_catalog(query=test_entry, scope="global", bucket=default_bucket, limit=50)
@@ -529,15 +527,15 @@ class TestGlobalScopeWithRealData:
 @pytest.mark.integration
 @pytest.mark.search
 class TestBucketPrioritization:
-    """Test QUILT_DEFAULT_BUCKET prioritization when bucket=''."""
+    """Test QUILT_default_bucket prioritization when bucket=''."""
 
     def test_default_bucket_results_appear_first_when_set(self, test_entry, default_bucket):
-        """When QUILT_DEFAULT_BUCKET is set, results from that bucket appear first.
+        """When QUILT_default_bucket is set, results from that bucket appear first.
 
         Behavior:
         - When bucket="": backend enumerates ALL buckets
-        - Backend moves QUILT_DEFAULT_BUCKET to front of list
-        - Results from QUILT_DEFAULT_BUCKET appear earlier in response (when scores equal)
+        - Backend moves QUILT_default_bucket to front of list
+        - Results from QUILT_default_bucket appear earlier in response (when scores equal)
 
         Test Data:
         - Query: QUILT_TEST_ENTRY (exists in multiple buckets ideally)
@@ -581,16 +579,16 @@ class TestBucketPrioritization:
             )
 
     def test_specific_bucket_ignores_default_bucket_setting(self, test_entry, default_bucket):
-        """Specific bucket searches ignore QUILT_DEFAULT_BUCKET setting.
+        """Specific bucket searches ignore QUILT_default_bucket setting.
 
         Behavior:
         - When bucket="specific-bucket": backend uses ONLY that bucket
-        - QUILT_DEFAULT_BUCKET has NO EFFECT on search
+        - QUILT_default_bucket has NO EFFECT on search
         - ALL results MUST be from specified bucket (not default)
 
         Test Data:
         - Query: QUILT_TEST_ENTRY
-        - Bucket: QUILT_DEFAULT_BUCKET (but treated as specific, not default)
+        - Bucket: QUILT_default_bucket (but treated as specific, not default)
         """
         # Execute search with specific bucket
         result = search_catalog(
@@ -604,7 +602,7 @@ class TestBucketPrioritization:
         assert_valid_search_response(result)
 
         # Validate result shape - ALL results from specified bucket
-        # (This implicitly proves QUILT_DEFAULT_BUCKET setting had no effect)
+        # (This implicitly proves QUILT_default_bucket setting had no effect)
         shape = get_result_shape(result["results"])
         assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
 

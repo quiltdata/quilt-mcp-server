@@ -21,7 +21,7 @@ import logging
 from typing import List
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.constants import DEFAULT_BUCKET
+# Using test_bucket from conftest fixture
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,10 @@ def backend(quilt_service):
 @pytest.fixture
 def default_bucket():
     """Return default bucket name (normalized), or use first available bucket."""
-    # Try to use DEFAULT_BUCKET if set
-    if DEFAULT_BUCKET:
-        bucket_name = DEFAULT_BUCKET.replace("s3://", "")
-        logger.info(f"Using DEFAULT_BUCKET: {bucket_name}")
+    # Try to use default_bucket if set
+    if default_bucket:
+        bucket_name = default_bucket.replace("s3://", "")
+        logger.info(f"Using default_bucket: {bucket_name}")
         return bucket_name
 
     # Otherwise, get first available bucket

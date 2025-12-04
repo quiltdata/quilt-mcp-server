@@ -38,6 +38,56 @@ if app_dir not in sys.path:
 # Removed unused README test framework imports
 
 
+# ============================================================================
+# Test-Only Configuration (NEVER used in production code)
+# ============================================================================
+# This configuration is ONLY for running the test suite
+# Production code should NEVER import from this file
+# ============================================================================
+
+QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
+
+
+@pytest.fixture(scope="session")
+def test_bucket() -> str:
+    """Provide test bucket S3 URI for tests that require write access.
+
+    This fixture is ONLY for tests. Production code should never import this.
+    Tests requiring a bucket should explicitly declare this dependency.
+
+    Returns:
+        S3 URI of test bucket (e.g., "s3://my-test-bucket")
+
+    Raises:
+        pytest.skip: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.skip("QUILT_TEST_BUCKET environment variable not set")
+    return QUILT_TEST_BUCKET
+
+
+@pytest.fixture(scope="session")
+def test_bucket_name() -> str:
+    """Provide test bucket name (without s3:// prefix).
+
+    This fixture is ONLY for tests. Production code should never import this.
+
+    Returns:
+        Bucket name without s3:// prefix (e.g., "my-test-bucket")
+
+    Raises:
+        pytest.skip: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.skip("QUILT_TEST_BUCKET environment variable not set")
+    return QUILT_TEST_BUCKET.replace("s3://", "")
+
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+
+
 @pytest.fixture(scope="session")
 def anyio_backend():
     """Configure anyio to use asyncio backend only (AsyncMock doesn't support trio)."""

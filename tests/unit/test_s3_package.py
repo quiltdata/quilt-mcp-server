@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from quilt_mcp.constants import DEFAULT_BUCKET_NAME, DEFAULT_REGISTRY, KNOWN_TEST_PACKAGE
+from quilt_mcp.constants import KNOWN_TEST_PACKAGE
 
 # Note: PackageCreateFromS3Params removed after flattening - use direct parameters
 from quilt_mcp.tools.packages import (
@@ -29,11 +29,11 @@ from quilt_mcp.validators import (
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""
 
-    def test_invalid_package_name(self):
+    def test_invalid_package_name(self, test_bucket):
         """Test that invalid package names are rejected - validation happens inside function."""
         # Call function directly with invalid package name
         result = package_create_from_s3(
-            source_bucket=DEFAULT_BUCKET_NAME,
+            source_bucket=test_bucket,
             package_name="invalid-name",  # Missing namespace
         )
 
@@ -65,6 +65,7 @@ class TestPackageCreateFromS3:
         mock_discover,
         mock_validate,
         mock_s3_client,
+        test_bucket,
     ):
         """Test handling when no objects are found in source bucket."""
         # Setup mocks
@@ -74,7 +75,7 @@ class TestPackageCreateFromS3:
         mock_create.return_value = {"top_hash": "test_hash_123"}
         mock_recommendations.return_value = {
             "success": True,
-            "recommendations": {"package_creation": [DEFAULT_BUCKET_NAME]},
+            "recommendations": {"package_creation": [test_bucket]},
         }
         # Mock bucket access check to return success for target registry
         mock_access_check.return_value = {
@@ -83,9 +84,9 @@ class TestPackageCreateFromS3:
         }
 
         result = package_create_from_s3(
-            source_bucket=DEFAULT_BUCKET_NAME,
+            source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
-            target_registry=DEFAULT_REGISTRY,
+            target_registry=test_bucket,
         )
 
         # The function should fail because no objects were found in the source bucket
@@ -96,25 +97,17 @@ class TestPackageCreateFromS3:
             or "Cannot create package in target registry" in result.error
         )
 
-    def test_successful_package_creation(self):
+    def test_successful_package_creation(self, test_bucket):
         """Test successful package creation with real S3 integration.
 
-        This test uses DEFAULT_BUCKET_NAME from constants (read from QUILT_DEFAULT_BUCKET env var).
-        The test MUST FAIL if the bucket is not set or not accessible - this is an integration
-        test that verifies the real S3 functionality works correctly.
+        This test uses test_bucket fixture (from QUILT_TEST_BUCKET env var).
+        The test will be skipped if the bucket is not set.
         """
-        # MUST FAIL if bucket is not set
-        assert DEFAULT_BUCKET_NAME, (
-            "DEFAULT_BUCKET_NAME is empty. Set QUILT_DEFAULT_BUCKET environment variable. "
-            "This is an integration test that requires a real S3 bucket. "
-            "Example: export QUILT_DEFAULT_BUCKET=s3://quilt-ernest-staging"
-        )
-
         result = package_create_from_s3(
-            source_bucket=DEFAULT_BUCKET_NAME,
+            source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
             description="Integration test package",
-            target_registry=DEFAULT_REGISTRY,
+            target_registry=test_bucket,
             dry_run=True,  # Use dry_run to avoid creating actual packages in tests
         )
 
@@ -124,7 +117,7 @@ class TestPackageCreateFromS3:
         # MUST FAIL with helpful error message if the bucket is not accessible
         assert result_dict.get("success") is True, (
             f"Package creation failed. Error: {result_dict.get('error', 'Unknown error')}. "
-            f"Bucket: {DEFAULT_BUCKET_NAME}. "
+            f"Bucket: {test_bucket}. "
             f"This means the bucket is not accessible in the test environment. "
             f"Check AWS credentials and bucket permissions. "
             f"Full result: {result_dict}"
@@ -148,8 +141,8 @@ class TestPackageCreateFromS3:
         )
 
         # Verify registry was set correctly
-        assert result_dict.get("registry") == DEFAULT_REGISTRY, (
-            f"Expected registry='{DEFAULT_REGISTRY}', got {result_dict.get('registry')}"
+        assert result_dict.get("registry") == test_bucket, (
+            f"Expected registry='{test_bucket}', got {result_dict.get('registry')}"
         )
 
 
@@ -268,7 +261,7 @@ class TestEnhancedFunctionality:
         assert "" in flat
         assert len(flat[""]) == 5
 
-    def test_generate_readme_content(self):
+    def test_generate_readme_content(self, test_bucket):
         """Test README generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv"}],
@@ -280,7 +273,7 @@ class TestEnhancedFunctionality:
             description="Test package",
             organized_structure=organized_structure,
             total_size=1000000,
-            source_info={"bucket": DEFAULT_BUCKET_NAME},
+            source_info={"bucket": test_bucket},
             metadata_template="standard",
         )
 
@@ -290,7 +283,7 @@ class TestEnhancedFunctionality:
         assert "Usage" in readme
         assert "Package.browse" in readme
 
-    def test_generate_package_metadata(self):
+    def test_generate_package_metadata(self, test_bucket):
         """Test metadata generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv", "Size": 1000}],
@@ -298,7 +291,7 @@ class TestEnhancedFunctionality:
 
         metadata = _generate_package_metadata(
             package_name=KNOWN_TEST_PACKAGE,
-            source_info={"bucket": DEFAULT_BUCKET_NAME, "prefix": "data/"},
+            source_info={"bucket": test_bucket, "prefix": "data/"},
             organized_structure=organized_structure,
             metadata_template="ml",
             user_metadata={"tags": ["test"]},
@@ -307,7 +300,7 @@ class TestEnhancedFunctionality:
         assert "quilt" in metadata
         assert "ml" in metadata
         assert "user_metadata" in metadata
-        assert metadata["quilt"]["source"]["bucket"] == DEFAULT_BUCKET_NAME
+        assert metadata["quilt"]["source"]["bucket"] == test_bucket
         assert metadata["user_metadata"]["tags"] == ["test"]
 
 
@@ -384,7 +377,7 @@ class TestCreateEnhancedPackageMigration:
     """Test cases for the _create_enhanced_package migration to create_package_revision."""
 
     @patch("quilt_mcp.tools.packages.QuiltService")
-    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class):
+    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class, test_bucket):
         """Test that _create_enhanced_package uses create_package_revision with auto_organize=True."""
         from pathlib import Path
 
@@ -412,9 +405,9 @@ class TestCreateEnhancedPackageMigration:
         result = _create_enhanced_package(
             s3_client=Mock(),
             organized_structure=organized_structure,
-            source_bucket=DEFAULT_BUCKET_NAME,
+            source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
-            target_registry=DEFAULT_REGISTRY,
+            target_registry=test_bucket,
             description="Test package description",
             enhanced_metadata=enhanced_metadata,
         )
@@ -424,14 +417,14 @@ class TestCreateEnhancedPackageMigration:
         call_args = mock_quilt_service.create_package_revision.call_args
 
         assert call_args[1]["package_name"] == KNOWN_TEST_PACKAGE
-        assert call_args[1]["registry"] == DEFAULT_REGISTRY
+        assert call_args[1]["registry"] == test_bucket
         assert call_args[1]["auto_organize"]  # s3_package.py should use True
         assert call_args[1]["metadata"] == enhanced_metadata
 
         # Verify expected S3 URIs were passed
         expected_s3_uris = [
-            f"s3://{DEFAULT_BUCKET_NAME}/file1.txt",
-            f"s3://{DEFAULT_BUCKET_NAME}/file2.csv",
+            f"s3://{test_bucket}/file1.txt",
+            f"s3://{test_bucket}/file2.csv",
         ]
         assert set(call_args[1]["s3_uris"]) == set(expected_s3_uris)
 

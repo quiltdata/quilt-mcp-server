@@ -344,12 +344,10 @@ class TestPermissionDiscoveryEngine:
             assert bucket_info.can_list is True
 
     @pytest.mark.integration
-    def test_discover_bucket_permissions_full_access(self):
+    def test_discover_bucket_permissions_full_access(self, test_bucket):
         """Test bucket permission discovery with real AWS (integration test)."""
-        from quilt_mcp.constants import DEFAULT_BUCKET
-
-        # Extract bucket name from DEFAULT_BUCKET (remove s3:// prefix if present)
-        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        # Extract bucket name from test_bucket (remove s3:// prefix if present)
+        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
 
         discovery = AWSPermissionDiscovery()
         bucket_info = discovery.discover_bucket_permissions(bucket_name)

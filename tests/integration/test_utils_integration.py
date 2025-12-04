@@ -32,10 +32,10 @@ class TestUtilsAWSIntegration:
     @pytest.mark.integration
     def test_generate_signed_url_expiration_limits(self):
         """Test expiration time limits with real AWS (integration test)."""
-        from quilt_mcp.constants import DEFAULT_BUCKET
+        # Removed test_bucket import - using test_bucket fixture
 
-        # Extract bucket name from DEFAULT_BUCKET
-        bucket_name = DEFAULT_BUCKET.replace("s3://", "") if DEFAULT_BUCKET.startswith("s3://") else DEFAULT_BUCKET
+        # Extract bucket name from test_bucket
+        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
         test_s3_uri = f"s3://{bucket_name}/test-key.txt"
 
         # Test minimum expiration (0 should become 1)

@@ -384,14 +384,15 @@ def _check_athena_connectivity() -> Dict[str, Any]:
 
 
 def _check_package_operations() -> Dict[str, Any]:
-    """Check package operations functionality."""
+    """Check package operations functionality using public demo bucket."""
     try:
         from .packages import packages_list
-        from ..constants import DEFAULT_REGISTRY
 
-        # Use public fallback bucket if no default configured
-        test_registry = DEFAULT_REGISTRY or "s3://quilt-example"
-        result = packages_list(limit=1, registry=test_registry)
+        # Use explicit public demo bucket for health checks
+        # This is a read-only public bucket suitable for testing connectivity
+        PUBLIC_DEMO_BUCKET = "s3://quilt-example"
+        result = packages_list(registry=PUBLIC_DEMO_BUCKET, limit=1)
+
         if not result.get("success"):
             raise Exception(result.get("error", "Package operations failed"))
         return {"package_ops_available": True}

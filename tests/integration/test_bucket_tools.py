@@ -10,7 +10,7 @@ from quilt_mcp import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from quilt_mcp.constants import DEFAULT_BUCKET
+# Removed test_bucket import - using test_bucket fixture instead
 from quilt_mcp.models import (
     BucketObjectsListSuccess,
     BucketObjectInfoSuccess,
@@ -25,7 +25,7 @@ from quilt_mcp.tools.auth_helpers import AuthorizationContext
 @pytest.mark.integration
 def test_bucket_objects_list_success():
     """Test bucket objects listing with real AWS (integration test)."""
-    result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=10)
+    result = bucket_objects_list(bucket=test_bucket, max_keys=10)
     assert isinstance(result, BucketObjectsListSuccess)
     assert result.bucket
     assert isinstance(result.objects, list)
@@ -50,9 +50,9 @@ def test_bucket_objects_list_error():
 def test_bucket_object_info_success():
     """Test bucket object info with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
@@ -81,7 +81,7 @@ def test_bucket_objects_put_success():
         {"key": f"test-{timestamp}-a.txt", "text": "hello world"},
         {"key": f"test-{timestamp}-b.bin", "data": "aGVsbG8="},
     ]
-    result = bucket_objects_put(bucket=DEFAULT_BUCKET, items=items)
+    result = bucket_objects_put(bucket=test_bucket, items=items)
 
     assert isinstance(result, BucketObjectsPutSuccess)
     assert len(result.results) == 2
@@ -92,9 +92,9 @@ def test_bucket_objects_put_success():
 def test_bucket_object_fetch_base64():
     """Test bucket object fetch with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
@@ -111,9 +111,9 @@ def test_bucket_object_fetch_base64():
 def test_bucket_object_link_success():
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    objects_result = bucket_objects_list(bucket=DEFAULT_BUCKET, max_keys=5)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
@@ -339,7 +339,7 @@ def test_bucket_object_functions_without_version_id():
 # Phase 5: Cross-Function Consistency Tests
 
 
-def test_version_consistency_across_all_functions():
+def test_version_consistency_across_all_functions(test_bucket):
     """Test that the same versionId returns consistent object metadata across all four functions."""
     mock_client = MagicMock()
 
@@ -469,7 +469,7 @@ def test_version_parameter_consistency_across_functions(version_id, should_fail)
             assert not hasattr(link_result, "error")
 
 
-def test_error_handling_consistency_across_functions():
+def test_error_handling_consistency_across_functions(test_bucket):
     """Test that version-specific errors are handled consistently across all functions."""
     from botocore.exceptions import ClientError
 
@@ -586,7 +586,7 @@ def test_invalid_s3_uri_consistency():
             assert hasattr(result, "error"), f"Expected error for URI: {uri} with {func_name}"
 
 
-def test_malformed_version_id_handling():
+def test_malformed_version_id_handling(test_bucket):
     """Test handling of malformed version IDs in S3 URIs."""
     malformed_uris = [
         "s3://bucket/file.txt?versionId=",

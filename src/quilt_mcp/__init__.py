@@ -7,11 +7,8 @@ Quilt packages and S3 buckets through a secure, authenticated interface.
 from __future__ import annotations
 
 from .constants import (
-    DEFAULT_BUCKET,
-    DEFAULT_REGISTRY,
     KNOWN_TEST_ENTRY,
     KNOWN_TEST_PACKAGE,
-    KNOWN_TEST_S3_OBJECT,
 )
 
 # Re-export all tools for easy access
@@ -72,12 +69,9 @@ from .services.tabulator_service import (
 __version__ = "0.5.6"
 
 __all__ = [
-    # Constants
-    "DEFAULT_REGISTRY",
-    "DEFAULT_BUCKET",
+    # Constants (test-only)
     "KNOWN_TEST_PACKAGE",
     "KNOWN_TEST_ENTRY",
-    "KNOWN_TEST_S3_OBJECT",
     # Auth tools
     "auth_status",
     "catalog_info",

@@ -17,7 +17,7 @@ import logging
 from typing import List, Set, Dict, Any
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.constants import DEFAULT_BUCKET
+# Using default_bucket from fixture
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,9 @@ def backend(quilt_service):
 @pytest.fixture
 def default_bucket():
     """Return default bucket name (normalized), or skip test if not set."""
-    if not DEFAULT_BUCKET:
-        pytest.skip("QUILT_DEFAULT_BUCKET not set - required for this test")
-    return DEFAULT_BUCKET.replace("s3://", "")
+    if not default_bucket:
+        pytest.skip("QUILT_default_bucket not set - required for this test")
+    return default_bucket.replace("s3://", "")
 
 
 # ============================================================================
@@ -164,7 +164,7 @@ class TestBucketDiscovery:
         logger.info(f"✅ Discovered {len(buckets)} buckets: {buckets[:5]}...")
 
     def test_default_bucket_in_available_buckets(self, backend, default_bucket):
-        """Test that QUILT_DEFAULT_BUCKET appears in available buckets list."""
+        """Test that QUILT_default_bucket appears in available buckets list."""
         buckets = backend._get_available_buckets()
 
         assert default_bucket in buckets, (
