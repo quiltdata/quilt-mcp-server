@@ -10,6 +10,7 @@ from quilt_mcp import (
     bucket_objects_list,
     bucket_objects_put,
 )
+
 # Removed test_bucket import - using test_bucket fixture instead
 from quilt_mcp.models import (
     BucketObjectsListSuccess,
@@ -23,7 +24,7 @@ from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
 @pytest.mark.integration
-def test_bucket_objects_list_success():
+def test_bucket_objects_list_success(test_bucket):
     """Test bucket objects listing with real AWS (integration test)."""
     result = bucket_objects_list(bucket=test_bucket, max_keys=10)
     assert isinstance(result, BucketObjectsListSuccess)
@@ -47,7 +48,7 @@ def test_bucket_objects_list_error():
 
 
 @pytest.mark.integration
-def test_bucket_object_info_success():
+def test_bucket_object_info_success(test_bucket):
     """Test bucket object info with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
@@ -70,7 +71,7 @@ def test_bucket_object_info_invalid_uri():
 
 
 @pytest.mark.integration
-def test_bucket_objects_put_success():
+def test_bucket_objects_put_success(test_bucket):
     """Test bucket objects upload with real AWS (integration test)."""
     # Use timestamp-based keys to avoid conflicts
     import time
@@ -89,7 +90,7 @@ def test_bucket_objects_put_success():
 
 
 @pytest.mark.integration
-def test_bucket_object_fetch_base64():
+def test_bucket_object_fetch_base64(test_bucket):
     """Test bucket object fetch with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
@@ -108,7 +109,7 @@ def test_bucket_object_fetch_base64():
 
 
 @pytest.mark.integration
-def test_bucket_object_link_success():
+def test_bucket_object_link_success(test_bucket):
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)

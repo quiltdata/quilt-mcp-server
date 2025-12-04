@@ -30,7 +30,7 @@ class TestUtilsAWSIntegration:
             assert "README.md" in result
 
     @pytest.mark.integration
-    def test_generate_signed_url_expiration_limits(self):
+    def test_generate_signed_url_expiration_limits(self, test_bucket):
         """Test expiration time limits with real AWS (integration test)."""
         # Removed test_bucket import - using test_bucket fixture
 
