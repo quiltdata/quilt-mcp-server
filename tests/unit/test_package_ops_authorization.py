@@ -75,6 +75,7 @@ def test_package_create_attaches_auth_type(monkeypatch, fake_service):
     result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
+        registry="s3://test-bucket",
     )
 
     # Verify the result is a success response with proper auth_type
@@ -97,6 +98,7 @@ def test_package_create_respects_strict_mode(monkeypatch, fake_service):
     result = packages.package_create(
         package_name="team/example",
         s3_uris=["s3://bucket/object"],
+        registry="s3://test-bucket",
     )
 
     # The result should be an error since authorization failed

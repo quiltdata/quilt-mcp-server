@@ -32,7 +32,7 @@ def test_quilt_tools():
             raise
 
     # Browse nonexistent package should return error response, not raise
-    browse = package_browse(package_name="nonexistent/package")
+    browse = package_browse(package_name="nonexistent/package", registry="s3://test-bucket")
     assert hasattr(browse, 'success') or hasattr(browse, 'error')
 
     # Searching within nonexistent package should also return a dict response
