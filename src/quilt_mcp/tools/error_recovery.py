@@ -387,8 +387,11 @@ def _check_package_operations() -> Dict[str, Any]:
     """Check package operations functionality."""
     try:
         from .packages import packages_list
+        from ..constants import DEFAULT_REGISTRY
 
-        result = packages_list(limit=1, registry="s3://quilt-ernest-staging")
+        # Use public fallback bucket if no default configured
+        test_registry = DEFAULT_REGISTRY or "s3://quilt-example"
+        result = packages_list(limit=1, registry=test_registry)
         if not result.get("success"):
             raise Exception(result.get("error", "Package operations failed"))
         return {"package_ops_available": True}

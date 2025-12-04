@@ -267,6 +267,7 @@ class Quilt3ElasticsearchBackend(SearchBackend):
         # Get default bucket from environment
         try:
             import os
+
             default_bucket = os.getenv('QUILT_DEFAULT_BUCKET', '')
             if default_bucket:
                 # Normalize to bucket name only
@@ -493,7 +494,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 # Check if error is 403 and we're searching multiple buckets
                 if "403" in str(search_error) and "," in index_pattern and not bucket:
                     # 403 likely means too many indices - retry with fewer buckets
-                    logger.info(f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets")
+                    logger.info(
+                        f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets"
+                    )
 
                     # Get prioritized bucket list
                     available_buckets = self._get_available_buckets()
@@ -506,7 +509,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                             reduced_buckets = prioritized_buckets[:max_buckets]
                             reduced_pattern = self.build_index_pattern_for_scope(scope, reduced_buckets)
 
-                            logger.info(f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)")
+                            logger.info(
+                                f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)"
+                            )
                             response = search_api(query=dsl_query, index=reduced_pattern, limit=limit)
                             logger.info(f"✅ Search succeeded with {max_buckets} buckets")
                             break

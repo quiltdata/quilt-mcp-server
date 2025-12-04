@@ -43,13 +43,28 @@ class TestIndexNameParsing:
     def test_is_package_index_reindexed_object_index(self):
         """Reindexed object index has suffix but no _packages."""
         assert Quilt3ElasticsearchBackend.is_package_index("mybucket-reindex-v123") is False
-        assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") is False
+        assert (
+            Quilt3ElasticsearchBackend.is_package_index(
+                "quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414"
+            )
+            is False
+        )
 
     def test_is_package_index_reindexed_package_index(self):
         """Reindexed package index contains _packages (not at end)."""
         assert Quilt3ElasticsearchBackend.is_package_index("mybucket_packages-reindex-v456") is True
-        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86") is True
-        assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") is True
+        assert (
+            Quilt3ElasticsearchBackend.is_package_index(
+                "quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
+            )
+            is True
+        )
+        assert (
+            Quilt3ElasticsearchBackend.is_package_index(
+                "quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414"
+            )
+            is True
+        )
 
     def test_get_bucket_from_index_standard_object_index(self):
         """Standard object index returns bucket name as-is."""
@@ -61,32 +76,54 @@ class TestIndexNameParsing:
         """Standard package index strips _packages suffix."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages") == "mybucket"
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example_packages") == "quilt-example"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages") == "quilt-ernest-staging"
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages") == "quilt-ernest-staging"
+        )
 
     def test_get_bucket_from_index_reindexed_object_index(self):
         """Reindexed object index strips reindex suffix."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket-reindex-v123") == "mybucket"
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example-reindex-vabc123") == "quilt-example"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") == "quilt-ernest-staging"
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index(
+                "quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414"
+            )
+            == "quilt-ernest-staging"
+        )
 
     def test_get_bucket_from_index_reindexed_package_index(self):
         """Reindexed package index strips both _packages and reindex suffix."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages-reindex-v456") == "mybucket"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86") == "quilt-example"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414") == "quilt-ernest-staging"
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index(
+                "quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
+            )
+            == "quilt-example"
+        )
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index(
+                "quilt-ernest-staging_packages-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414"
+            )
+            == "quilt-ernest-staging"
+        )
 
     def test_get_bucket_from_index_with_hyphens_in_name(self):
         """Bucket names with hyphens are handled correctly."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket") == "my-test-bucket"
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket_packages") == "my-test-bucket"
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket-reindex-v123") == "my-test-bucket"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket_packages-reindex-v456") == "my-test-bucket"
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index("my-test-bucket_packages-reindex-v456")
+            == "my-test-bucket"
+        )
 
     def test_edge_case_packages_in_bucket_name(self):
         """Edge case: bucket name contains 'packages' but not as suffix."""
         # This is unlikely in practice but we should handle it
         assert Quilt3ElasticsearchBackend.is_package_index("my_packages_bucket") is True  # Contains _packages
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("my_packages_bucket") == "my"  # Splits at first _packages
+        assert (
+            Quilt3ElasticsearchBackend.get_bucket_from_index("my_packages_bucket") == "my"
+        )  # Splits at first _packages
 
 
 class TestIndexPatternBuilder:
@@ -423,7 +460,12 @@ class TestResultNormalization:
         """Type should be detected from index name (_packages suffix)."""
         hits = [
             {"_id": "1", "_index": "bucket1", "_score": 1.0, "_source": {"key": "file.txt"}},
-            {"_id": "2", "_index": "bucket2_packages", "_score": 1.0, "_source": {"entry_pk": "pkg/name", "entry_lk": "data.csv"}},
+            {
+                "_id": "2",
+                "_index": "bucket2_packages",
+                "_score": 1.0,
+                "_source": {"entry_pk": "pkg/name", "entry_lk": "data.csv"},
+            },
         ]
 
         results = self.backend._normalize_results(hits, scope="global")

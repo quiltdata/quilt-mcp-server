@@ -589,10 +589,10 @@ def packages_list(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Quilt registry S3 URI to list packages from",
         ),
-    ],
+    ] = DEFAULT_REGISTRY,
     limit: Annotated[
         int,
         Field(
@@ -674,11 +674,11 @@ def package_browse(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Quilt registry S3 URI",
             examples=["s3://my-bucket", "s3://quilt-example"],
         ),
-    ] = "s3://quilt-ernest-staging",
+    ] = DEFAULT_REGISTRY,
     recursive: Annotated[
         bool,
         Field(
@@ -958,10 +958,10 @@ def package_diff(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Quilt registry S3 URI",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ] = DEFAULT_REGISTRY,
     package1_hash: Annotated[
         str,
         Field(
@@ -1086,10 +1086,10 @@ def package_create(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Target Quilt registry S3 URI",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ] = DEFAULT_REGISTRY,
     metadata: Annotated[
         Optional[dict[str, Any]],
         Field(
@@ -1306,10 +1306,10 @@ def package_update(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Target Quilt registry S3 URI",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ] = DEFAULT_REGISTRY,
     metadata: Annotated[
         Optional[dict[str, Any]],
         Field(
@@ -1510,10 +1510,10 @@ def package_delete(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
+            default=DEFAULT_REGISTRY,
             description="Quilt registry S3 URI where the package resides",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ] = DEFAULT_REGISTRY,
 ) -> PackageDeleteSuccess | PackageDeleteError:
     """Delete a Quilt package from the registry - Core package creation, update, and deletion workflows
 
