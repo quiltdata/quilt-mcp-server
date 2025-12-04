@@ -115,7 +115,7 @@ class TestQuiltTools:
         mock_package.__getitem__ = lambda self, key: mock_entries.get(key)
 
         with patch("quilt3.Package.browse", return_value=mock_package):
-            result = package_browse(package_name="user/test-package")
+            result = package_browse(package_name="user/test-package", registry="s3://test-bucket")
 
             assert hasattr(result, 'success')
             assert result.success is True
@@ -129,7 +129,7 @@ class TestQuiltTools:
     def test_package_browse_error(self):
         """Test package_browse with error."""
         with patch("quilt3.Package.browse", side_effect=Exception("Package not found")):
-            result = package_browse(package_name="user/nonexistent")
+            result = package_browse(package_name="user/nonexistent", registry="s3://test-bucket")
 
             assert hasattr(result, 'success')
             assert result.success is False
@@ -293,6 +293,7 @@ class TestQuiltTools:
                 package2_name="user/package2",
                 package1_hash="abc123",
                 package2_hash="def456",
+                registry="s3://test-bucket",
             )
 
             assert hasattr(result, 'success')
@@ -323,6 +324,7 @@ class TestQuiltTools:
                 package2_name="user/package",
                 package1_hash="old_hash",
                 package2_hash="new_hash",
+                registry="s3://test-bucket",
             )
 
             assert hasattr(result, 'success')
@@ -346,6 +348,7 @@ class TestQuiltTools:
             result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
+                registry="s3://test-bucket",
             )
 
             assert hasattr(result, 'success')
@@ -362,6 +365,7 @@ class TestQuiltTools:
             result = package_diff(
                 package1_name="user/nonexistent1",
                 package2_name="user/nonexistent2",
+                registry="s3://test-bucket",
             )
 
             assert hasattr(result, 'success')
@@ -381,6 +385,7 @@ class TestQuiltTools:
             result = package_diff(
                 package1_name="user/package1",
                 package2_name="user/package2",
+                registry="s3://test-bucket",
             )
 
             assert hasattr(result, 'success')
