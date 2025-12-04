@@ -164,33 +164,6 @@ class TestBucketDiscovery:
 
         logger.info(f"✅ Discovered {len(buckets)} buckets: {buckets[:5]}...")
 
-    def test_default_bucket_in_available_buckets(self, backend, default_bucket):
-        """Test that QUILT_default_bucket appears in available buckets list."""
-        buckets = backend._get_available_buckets()
-
-        assert default_bucket in buckets, (
-            f"Default bucket '{default_bucket}' not found in available buckets: {buckets}"
-        )
-
-    def test_prioritize_buckets_moves_default_first(self, backend, default_bucket):
-        """Test that _prioritize_buckets moves default bucket to front."""
-        # Get all available buckets
-        all_buckets = backend._get_available_buckets()
-
-        # Ensure default bucket is in the list
-        if default_bucket not in all_buckets:
-            pytest.skip(f"Default bucket '{default_bucket}' not in available buckets")
-
-        # Prioritize
-        prioritized = backend._prioritize_buckets(all_buckets)
-
-        # Default bucket should be first
-        assert prioritized[0] == default_bucket, (
-            f"Expected default bucket '{default_bucket}' first, got '{prioritized[0]}'"
-        )
-
-        # Should have same buckets, just reordered
-        assert set(prioritized) == set(all_buckets), "Prioritization changed bucket set"
 
     def test_prioritize_buckets_preserves_order_when_no_default(self, backend):
         """Test that _prioritize_buckets preserves order when default bucket not in list."""

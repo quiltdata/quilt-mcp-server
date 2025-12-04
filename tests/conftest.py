@@ -59,10 +59,10 @@ def test_bucket() -> str:
         S3 URI of test bucket (e.g., "s3://my-test-bucket")
 
     Raises:
-        pytest.skip: If QUILT_TEST_BUCKET environment variable not set
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
     """
     if not QUILT_TEST_BUCKET:
-        pytest.skip("QUILT_TEST_BUCKET environment variable not set")
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
     return QUILT_TEST_BUCKET
 
 
@@ -76,10 +76,10 @@ def test_bucket_name() -> str:
         Bucket name without s3:// prefix (e.g., "my-test-bucket")
 
     Raises:
-        pytest.skip: If QUILT_TEST_BUCKET environment variable not set
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
     """
     if not QUILT_TEST_BUCKET:
-        pytest.skip("QUILT_TEST_BUCKET environment variable not set")
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
     return QUILT_TEST_BUCKET.replace("s3://", "")
 
 

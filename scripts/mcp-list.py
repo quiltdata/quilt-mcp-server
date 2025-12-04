@@ -183,7 +183,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
             "AWS_DEFAULT_REGION": env_vars.get("AWS_DEFAULT_REGION", "us-east-1"),
             "QUILT_CATALOG_DOMAIN": env_vars.get("QUILT_CATALOG_DOMAIN", ""),
-            "QUILT_DEFAULT_BUCKET": env_vars.get("QUILT_DEFAULT_BUCKET", ""),
+            "QUILT_TEST_BUCKET": env_vars.get("QUILT_TEST_BUCKET", ""),
             "QUILT_TEST_PACKAGE": env_vars.get("QUILT_TEST_PACKAGE", ""),
             "QUILT_TEST_ENTRY": env_vars.get("QUILT_TEST_ENTRY", ""),
         },
@@ -201,7 +201,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     server_tools = await server.get_tools()
 
     # Load values from .env
-    default_bucket: str = env_vars.get("QUILT_DEFAULT_BUCKET") or "s3://quilt-example"
+    default_bucket: str = env_vars.get("QUILT_TEST_BUCKET") or "s3://quilt-example"
     catalog_domain: str = env_vars.get("QUILT_CATALOG_DOMAIN") or "open.quiltdata.com"
     test_package: str = env_vars.get("QUILT_TEST_PACKAGE") or "examples/wellplates"
     test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
@@ -511,7 +511,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         for var in variables:
             # Substitute test values for common template variables
             if var == "bucket":
-                # Use bucket name from QUILT_DEFAULT_BUCKET environment variable (already loaded above)
+                # Use bucket name from QUILT_TEST_BUCKET environment variable (already loaded above)
                 # Extract bucket name from s3:// URI
                 bucket_name_var = default_bucket.replace("s3://", "").split("/")[0] if default_bucket.startswith("s3://") else default_bucket
                 test_case["uri_variables"][var] = bucket_name_var
@@ -558,7 +558,7 @@ async def main():
         print(f"📋 Loaded configuration from .env")
         print(f"   AWS_PROFILE: {env_vars.get('AWS_PROFILE', 'not set')}")
         print(f"   AWS_DEFAULT_REGION: {env_vars.get('AWS_DEFAULT_REGION', 'not set')}")
-        print(f"   QUILT_DEFAULT_BUCKET: {env_vars.get('QUILT_DEFAULT_BUCKET', 'not set')}")
+        print(f"   QUILT_TEST_BUCKET: {env_vars.get('QUILT_TEST_BUCKET', 'not set')}")
     else:
         print("⚠️  No .env file found - using default test configuration")
 

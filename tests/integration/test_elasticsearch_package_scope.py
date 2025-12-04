@@ -57,29 +57,6 @@ def backend(quilt_service):
     return backend
 
 
-@pytest.fixture
-def default_bucket():
-    """Return default bucket name (normalized), or use first available bucket."""
-    # Try to use QUILT_TEST_BUCKET if set
-    if QUILT_TEST_BUCKET:
-        bucket_name = QUILT_TEST_BUCKET.replace("s3://", "")
-        logger.info(f"Using QUILT_TEST_BUCKET: {bucket_name}")
-        return bucket_name
-
-    # Otherwise, get first available bucket
-    service = QuiltService()
-    backend = Quilt3ElasticsearchBackend(quilt_service=service)
-    backend._initialize()
-
-    buckets = backend._get_available_buckets()
-    if not buckets:
-        pytest.skip("No buckets available - cannot run integration tests")
-
-    bucket_name = buckets[0]
-    logger.info(f"Using first available bucket: {bucket_name}")
-    return bucket_name
-
-
 # ============================================================================
 # Integration Tests - Package Scope Behavior
 # ============================================================================

@@ -248,41 +248,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []
 
-    def _prioritize_buckets(self, buckets: List[str]) -> List[str]:
-        """Prioritize bucket list to search most relevant buckets first.
-
-        Priority order:
-        1. User's default bucket (from QUILT_DEFAULT_BUCKET env var)
-        2. All other buckets in original order
-
-        Args:
-            buckets: List of bucket names
-
-        Returns:
-            Reordered list with default bucket first
-        """
-        if not buckets:
-            return []
-
-        # Get default bucket from environment
-        try:
-            import os
-
-            default_bucket = os.getenv('QUILT_DEFAULT_BUCKET', '')
-            if default_bucket:
-                # Normalize to bucket name only
-                default_bucket = default_bucket.replace('s3://', '').split('/')[0]
-
-                # Move default bucket to front if it exists in the list
-                if default_bucket in buckets:
-                    prioritized = [default_bucket]
-                    prioritized.extend([b for b in buckets if b != default_bucket])
-                    return prioritized
-        except Exception as e:
-            logger.debug(f"Failed to prioritize default bucket: {e}")
-
-        # Return original order if prioritization fails
-        return buckets
 
     @staticmethod
     def normalize_bucket_name(bucket: str) -> str:
@@ -383,12 +348,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning("No buckets available for search, returning empty pattern")
             return ""
 
-        # Prioritize buckets with default bucket first
-        prioritized_buckets = self._prioritize_buckets(available_buckets)
-
         # Use ALL available buckets - let Elasticsearch handle limits
         # If we hit a 403 error, the caller should implement retry logic
-        return self.build_index_pattern_for_scope(scope, prioritized_buckets)
+        return self.build_index_pattern_for_scope(scope, available_buckets)
 
     async def search(
         self,
