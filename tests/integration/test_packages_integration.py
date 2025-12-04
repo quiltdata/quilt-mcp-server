@@ -49,8 +49,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     from quilt_mcp.tools.buckets import bucket_objects_put
 
     upload_result = bucket_objects_put(
-        bucket=test_bucket,
-        items=[{"key": test_key, "text": "Test data for package integration test"}]
+        bucket=test_bucket, items=[{"key": test_key, "text": "Test data for package integration test"}]
     )
     assert upload_result.success, f"Failed to upload test data: {upload_result}"
 
@@ -91,8 +90,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     test_s3_uri_2 = f"{test_bucket}/{test_key_2}"
 
     upload_result_2 = bucket_objects_put(
-        bucket=test_bucket,
-        items=[{"key": test_key_2, "text": "Updated data for package integration test"}]
+        bucket=test_bucket, items=[{"key": test_key_2, "text": "Updated data for package integration test"}]
     )
     assert upload_result_2.success, f"Failed to upload update data: {upload_result_2}"
 
@@ -149,8 +147,7 @@ def test_packages_list_integration(test_bucket):
     from quilt_mcp.tools.buckets import bucket_objects_put
 
     upload_result = bucket_objects_put(
-        bucket=test_bucket,
-        items=[{"key": test_key, "text": "Test data for listing integration test"}]
+        bucket=test_bucket, items=[{"key": test_key, "text": "Test data for listing integration test"}]
     )
     assert upload_result.success, f"Failed to upload test data: {upload_result}"
 
@@ -172,15 +169,12 @@ def test_packages_list_integration(test_bucket):
         )
         assert scoped_packages.success is True
         assert isinstance(scoped_packages.packages, list)
-        assert len(scoped_packages.packages) > 0, (
-            f"Expected at least one package in {test_bucket}, got empty list"
-        )
+        assert len(scoped_packages.packages) > 0, f"Expected at least one package in {test_bucket}, got empty list"
 
         # Test 2: Verify our test package appears in scoped results
-        package_names = [p for p in scoped_packages.packages]
+        package_names = list(scoped_packages.packages)
         assert pkg_name in package_names, (
-            f"Test package '{pkg_name}' not found in scoped results. "
-            f"Found packages: {package_names}"
+            f"Test package '{pkg_name}' not found in scoped results. Found packages: {package_names}"
         )
 
         # Test 3: Verify prefix filtering works
@@ -218,9 +212,7 @@ def test_package_create_requires_registry():
     )
 
     # Should return an error response
-    assert isinstance(result, ErrorResponse), (
-        f"Expected ErrorResponse for empty registry, got {type(result)}"
-    )
+    assert isinstance(result, ErrorResponse), f"Expected ErrorResponse for empty registry, got {type(result)}"
     assert result.success is False
     # Error message should mention registry and requirement
     assert "registry" in result.error.lower() or "bucket" in result.error.lower(), (
@@ -242,9 +234,7 @@ def test_package_update_requires_registry():
     )
 
     # Should return an error response
-    assert isinstance(result, ErrorResponse), (
-        f"Expected ErrorResponse for empty registry, got {type(result)}"
-    )
+    assert isinstance(result, ErrorResponse), f"Expected ErrorResponse for empty registry, got {type(result)}"
     assert result.success is False
     # Error message should mention registry and requirement
     assert "registry" in result.error.lower() or "bucket" in result.error.lower(), (
@@ -264,9 +254,7 @@ def test_package_delete_requires_registry():
     )
 
     # Should return an error response
-    assert isinstance(result, ErrorResponse), (
-        f"Expected ErrorResponse for empty registry, got {type(result)}"
-    )
+    assert isinstance(result, ErrorResponse), f"Expected ErrorResponse for empty registry, got {type(result)}"
     assert result.success is False
     # Error message should mention registry and requirement
     assert "registry" in result.error.lower() or "bucket" in result.error.lower(), (
@@ -311,8 +299,7 @@ def test_package_browse_requires_registry(test_bucket):
     from quilt_mcp.tools.buckets import bucket_objects_put
 
     upload_result = bucket_objects_put(
-        bucket=test_bucket,
-        items=[{"key": test_key, "text": "Test data for browse test"}]
+        bucket=test_bucket, items=[{"key": test_key, "text": "Test data for browse test"}]
     )
     assert upload_result.success
 

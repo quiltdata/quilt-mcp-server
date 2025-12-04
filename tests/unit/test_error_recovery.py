@@ -126,9 +126,9 @@ def test_check_package_operations_uses_public_bucket():
         # This would indicate it's trying to use a default that doesn't exist
         has_registry = "registry" in error_msg
         has_required = "required" in error_msg
-        assert not (
-            has_registry and has_required
-        ), f"Health check should not require DEFAULT_REGISTRY, but got error: {result.get('error')}"
+        assert not (has_registry and has_required), (
+            f"Health check should not require DEFAULT_REGISTRY, but got error: {result.get('error')}"
+        )
 
     # Should have expected structure
     assert "package_ops_available" in result or "error" in result, "Should have either success or error info"
@@ -177,9 +177,7 @@ def test_health_check_handles_errors_gracefully():
             # Should not be about missing DEFAULT_REGISTRY
             has_registry = "registry" in error_msg
             has_required = "required" in error_msg
-            assert not (
-                has_registry and has_required
-            ), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"
+            assert not (has_registry and has_required), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"
 
         # Test 2: Function raises exception directly
         mock_packages_list.side_effect = RuntimeError("Simulated network failure")
@@ -195,6 +193,4 @@ def test_health_check_handles_errors_gracefully():
             # Verify it's not a config error about registry
             has_registry = "registry" in error_msg
             has_required = "required" in error_msg
-            assert not (
-                has_registry and has_required
-            ), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"
+            assert not (has_registry and has_required), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"
