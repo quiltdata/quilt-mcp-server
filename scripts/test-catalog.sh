@@ -1,22 +1,22 @@
 #!/bin/bash
-# Check that quilt3 catalog configuration matches QUILT_CATALOG_DOMAIN
+# Check that quilt3 catalog configuration matches QUILT_CATALOG_URL
 
 set -e
 
-# Load QUILT_CATALOG_DOMAIN from .env if it exists
+# Load QUILT_CATALOG_URL from .env if it exists
 if [ -f .env ]; then
-    export $(grep -v '^#' .env | grep QUILT_CATALOG_DOMAIN | xargs)
+    export $(grep -v '^#' .env | grep QUILT_CATALOG_URL | xargs)
 fi
 
-EXPECTED_DOMAIN="${QUILT_CATALOG_DOMAIN:-}"
+EXPECTED_URL="${QUILT_CATALOG_URL:-}"
 ACTUAL_CATALOG=$(quilt3 config 2>/dev/null || echo "")
 
 echo "Checking quilt3 catalog configuration..."
-echo "  Expected (QUILT_CATALOG_DOMAIN): ${EXPECTED_DOMAIN}"
-echo "  Actual (quilt3 config):          ${ACTUAL_CATALOG}"
+echo "  Expected (QUILT_CATALOG_URL): ${EXPECTED_URL}"
+echo "  Actual (quilt3 config):       ${ACTUAL_CATALOG}"
 
-if [ -z "$EXPECTED_DOMAIN" ]; then
-    echo "❌ QUILT_CATALOG_DOMAIN not set in environment"
+if [ -z "$EXPECTED_URL" ]; then
+    echo "❌ QUILT_CATALOG_URL not set in environment"
     exit 1
 fi
 
@@ -36,15 +36,15 @@ normalize_url() {
     echo "$url" | sed 's|/*$||' | sed 's|^http://|https://|'
 }
 
-EXPECTED_URL=$(normalize_url "$EXPECTED_DOMAIN")
-ACTUAL_URL=$(normalize_url "$ACTUAL_CATALOG")
+EXPECTED_NORMALIZED=$(normalize_url "$EXPECTED_URL")
+ACTUAL_NORMALIZED=$(normalize_url "$ACTUAL_CATALOG")
 
-if [ "$EXPECTED_URL" != "$ACTUAL_URL" ]; then
+if [ "$EXPECTED_NORMALIZED" != "$ACTUAL_NORMALIZED" ]; then
     echo "❌ Catalog mismatch!"
-    echo "   Expected: ${EXPECTED_URL}"
-    echo "   Actual:   ${ACTUAL_URL}"
+    echo "   Expected: ${EXPECTED_NORMALIZED}"
+    echo "   Actual:   ${ACTUAL_NORMALIZED}"
     echo ""
-    echo "Fix: Run 'quilt3 login ${EXPECTED_DOMAIN}'"
+    echo "Fix: Run 'quilt3 login ${EXPECTED_URL}'"
     exit 1
 fi
 

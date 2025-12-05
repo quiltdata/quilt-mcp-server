@@ -30,7 +30,7 @@ echo "  AWS Account: ${CDK_DEFAULT_ACCOUNT:-${AWS_ACCOUNT_ID:-Not set}}"
 echo "  AWS Region: ${CDK_DEFAULT_REGION:-${AWS_DEFAULT_REGION:-Not set}}"
 echo "  ECR Registry: ${ECR_REGISTRY:-Will be auto-derived}"
 echo "  Quilt Test Bucket: ${QUILT_TEST_BUCKET:-Not set}"
-echo "  Catalog Domain: ${QUILT_CATALOG_DOMAIN:-Not set}"
+echo "  Catalog URL: ${QUILT_CATALOG_URL:-Not set}"
 echo "  ngrok Domain: ${NGROK_DOMAIN:-Auto-assigned (optional)}"
 echo ""
 
@@ -52,8 +52,8 @@ if [ -z "${QUILT_TEST_BUCKET}" ]; then
     exit 1
 fi
 
-if [ -z "${QUILT_CATALOG_DOMAIN}" ]; then
-    log_error "❌ Missing QUILT_CATALOG_DOMAIN"
+if [ -z "${QUILT_CATALOG_URL}" ]; then
+    log_error "❌ Missing QUILT_CATALOG_URL"
     exit 1
 fi
 

@@ -3,7 +3,7 @@ _note: Edit test cases below to customize arguments and validation
 environment:
   AWS_PROFILE: default
   AWS_DEFAULT_REGION: us-east-1
-  QUILT_CATALOG_DOMAIN: nightly.quilttest.com
+  QUILT_CATALOG_URL: https://nightly.quilttest.com
   QUILT_TEST_BUCKET: quilt-ernest-staging
   QUILT_TEST_PACKAGE: raw/test
   QUILT_TEST_ENTRY: README.md
@@ -343,7 +343,7 @@ test_tools:
       workflows
     effect: configure
     arguments:
-      catalog_url: nightly.quilttest.com
+      catalog_url: https://nightly.quilttest.com
     response_schema:
       type: object
       properties:

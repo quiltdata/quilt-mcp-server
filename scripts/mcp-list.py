@@ -182,7 +182,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
         "environment": {
             "AWS_PROFILE": env_vars.get("AWS_PROFILE", "default"),
             "AWS_DEFAULT_REGION": env_vars.get("AWS_DEFAULT_REGION", "us-east-1"),
-            "QUILT_CATALOG_DOMAIN": env_vars.get("QUILT_CATALOG_DOMAIN", ""),
+            "QUILT_CATALOG_URL": env_vars.get("QUILT_CATALOG_URL", ""),
             "QUILT_TEST_BUCKET": env_vars.get("QUILT_TEST_BUCKET", ""),
             "QUILT_TEST_PACKAGE": env_vars.get("QUILT_TEST_PACKAGE", ""),
             "QUILT_TEST_ENTRY": env_vars.get("QUILT_TEST_ENTRY", ""),
@@ -202,7 +202,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
 
     # Load values from .env
     test_bucket: str = env_vars.get("QUILT_TEST_BUCKET") or "s3://quilt-example"
-    catalog_domain: str = env_vars.get("QUILT_CATALOG_DOMAIN") or "open.quiltdata.com"
+    catalog_url: str = env_vars.get("QUILT_CATALOG_URL") or "https://open.quiltdata.com"
     test_package: str = env_vars.get("QUILT_TEST_PACKAGE") or "examples/wellplates"
     test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
     bucket_name = test_bucket.replace("s3://", "").split("/")[0]
@@ -240,7 +240,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Note: Empty dict {} means tool has no required params (will be auto-filled by effect classifier)
     custom_configs = {
         # Catalog operations
-        "catalog_configure": {"catalog_url": catalog_domain},
+        "catalog_configure": {"catalog_url": catalog_url},
         "catalog_uri": {"registry": test_bucket, "package_name": test_package, "path": ".timestamp"},
         "catalog_url": {"registry": test_bucket, "package_name": test_package, "path": ".timestamp"},
 
