@@ -16,12 +16,8 @@ from fastmcp import FastMCP
 from fastmcp.resources import Resource
 
 from quilt_mcp.runtime_context import (
-    RuntimeAuthState,
-    push_runtime_context,
-    reset_runtime_context,
     set_default_environment,
 )
-from quilt_mcp.services.bearer_auth_service import JwtAuthError, get_bearer_auth_service
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -410,68 +406,25 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     try:
         from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.responses import JSONResponse
         from starlette.datastructures import MutableHeaders
     except ImportError as exc:  # pragma: no cover
         logger.error("Starlette HTTP middleware unavailable: %s", exc)
         return app
 
-    require_jwt = os.getenv("MCP_REQUIRE_JWT", "false").lower() == "true"
-
-    class QuiltAuthMiddleware(BaseHTTPMiddleware):
-        """Middleware that injects runtime auth state for HTTP requests."""
+    class QuiltAcceptHeaderMiddleware(BaseHTTPMiddleware):
+        """Middleware that fixes Accept headers for SSE compatibility."""
 
         HEALTH_PATHS = {"/health", "/healthz"}
 
         async def dispatch(self, request, call_next):
-            context_token = None
             headers = MutableHeaders(scope=request.scope)
             accept_header = headers.get("accept", "")
             if "application/json" in accept_header and "text/event-stream" not in accept_header:
                 headers["accept"] = f"{accept_header}, text/event-stream"
 
-            if request.url.path in self.HEALTH_PATHS:
-                return await call_next(request)
+            return await call_next(request)
 
-            authorization = request.headers.get("authorization")
-            metadata = {"path": request.url.path}
-            auth_state: Optional[RuntimeAuthState] = None
-
-            if authorization:
-                auth_service = get_bearer_auth_service()
-                try:
-                    jwt_result = auth_service.authenticate_header(authorization)
-                    boto3_session = auth_service.build_boto3_session(jwt_result)
-                    auth_state = RuntimeAuthState(
-                        scheme="jwt",
-                        access_token=jwt_result.token,
-                        claims=jwt_result.claims,
-                        extras={
-                            "jwt_auth_result": jwt_result,
-                            "aws_credentials": jwt_result.aws_credentials,
-                            "aws_role_arn": jwt_result.aws_role_arn,
-                            "boto3_session": boto3_session,
-                        },
-                    )
-                except JwtAuthError as exc:
-                    logger.warning("JWT authentication failed for %s: %s", request.url.path, exc.detail)
-                    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
-            elif require_jwt:
-                return JSONResponse(
-                    {"error": "missing_authorization", "detail": "Bearer token required"},
-                    status_code=401,
-                )
-
-            environment = "web-jwt" if auth_state else "web-iam"
-            context_token = push_runtime_context(environment=environment, auth=auth_state, metadata=metadata)
-
-            try:
-                return await call_next(request)
-            finally:
-                if context_token is not None:
-                    reset_runtime_context(context_token)
-
-    app.add_middleware(QuiltAuthMiddleware)
+    app.add_middleware(QuiltAcceptHeaderMiddleware)
     return app
 
 
