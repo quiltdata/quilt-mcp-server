@@ -143,8 +143,8 @@ def assert_valid_search_response(result: Dict) -> None:
     assert isinstance(result["results"], list), "Results must be a list"
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestSearchCatalogIntegration:
     """Integration tests for search_catalog using real Elasticsearch.
 
@@ -316,8 +316,8 @@ class TestSearchCatalogIntegration:
 # =============================================================================
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestFileScopeWithRealData:
     """Test file scope searches using QUILT_TEST_ENTRY fixture."""
 
@@ -375,8 +375,8 @@ class TestFileScopeWithRealData:
         assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestPackageScopeWithRealData:
     """Test package scope searches using QUILT_TEST_PACKAGE fixture."""
 
@@ -442,8 +442,8 @@ class TestPackageScopeWithRealData:
             assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestGlobalScopeWithRealData:
     """Test global scope searches using both fixtures."""
 
@@ -503,8 +503,8 @@ class TestGlobalScopeWithRealData:
         assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestBucketPrioritization:
     """Test QUILT_TEST_BUCKET prioritization when bucket=''."""
 
@@ -586,8 +586,8 @@ class TestBucketPrioritization:
         assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
-@pytest.mark.integration
 @pytest.mark.search
+@pytest.mark.integration
 class TestBucketNormalization:
     """Test s3:// URI normalization in bucket parameter."""
 
