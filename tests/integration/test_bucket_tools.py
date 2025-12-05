@@ -27,6 +27,15 @@ from quilt_mcp.tools.auth_helpers import AuthorizationContext
 def test_bucket_objects_list_success(test_bucket):
     """Test bucket objects listing with real AWS (integration test)."""
     result = bucket_objects_list(bucket=test_bucket, max_keys=10)
+
+    # Check if request failed
+    if hasattr(result, 'error'):
+        pytest.fail(
+            f"Failed to list bucket {test_bucket}. "
+            f"Ensure QUILT_TEST_BUCKET is set and AWS credentials are configured. "
+            f"Error: {result.error}"
+        )
+
     assert isinstance(result, BucketObjectsListSuccess)
     assert result.bucket
     assert isinstance(result.objects, list)
@@ -52,6 +61,14 @@ def test_bucket_object_info_success(test_bucket):
     """Test bucket object info with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(
+            f"Failed to list objects in {test_bucket}. "
+            f"Error: {objects_result.error}"
+        )
+
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
 
@@ -94,6 +111,14 @@ def test_bucket_object_fetch_base64(test_bucket):
     """Test bucket object fetch with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(
+            f"Failed to list objects in {test_bucket}. "
+            f"Error: {objects_result.error}"
+        )
+
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
 
@@ -113,6 +138,14 @@ def test_bucket_object_link_success(test_bucket):
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
     objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(
+            f"Failed to list objects in {test_bucket}. "
+            f"Error: {objects_result.error}"
+        )
+
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
 

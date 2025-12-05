@@ -96,6 +96,25 @@ def anyio_backend():
 
 def pytest_configure(config):
     """Configure pytest and set up AWS session if needed."""
+    # CRITICAL: Ensure tests use IAM credentials, not JWT authentication
+    # Clear any existing runtime auth context to prevent JWT fallback
+    try:
+        from quilt_mcp.runtime_context import clear_runtime_auth
+        clear_runtime_auth()
+    except ImportError:
+        pass
+
+    # Disable JWT authentication for all tests
+    os.environ["MCP_REQUIRE_JWT"] = "false"
+
+    # Disable quilt3 session (which uses JWT credentials from Quilt catalog login)
+    # This forces tests to use local AWS credentials (AWS_PROFILE or default)
+    os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
+
+    # Remove JWT secrets to prevent development fallback behavior
+    os.environ.pop("MCP_ENHANCED_JWT_SECRET", None)
+    os.environ.pop("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER", None)
+
     # Configure boto3 default session to use AWS_PROFILE if set
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
