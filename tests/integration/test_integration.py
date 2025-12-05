@@ -142,10 +142,10 @@ class TestQuiltAPI:
             assert hasattr(obj, "size"), f"Object missing 'size': {obj}"
             assert isinstance(obj.key, str), f"Object key should be string: {obj}"
 
-    def test_bucket_object_info_known_file(self, test_bucket):
+    def test_bucket_object_info_known_file(self, test_registry):
         """Test getting info for a known public file."""
         # Construct test S3 URI from test bucket and known entry
-        test_s3_uri = f"{test_bucket}/{KNOWN_TEST_ENTRY}"
+        test_s3_uri = f"{test_registry}/{KNOWN_TEST_ENTRY}"
         result = bucket_object_info(s3_uri=test_s3_uri)
 
         if hasattr(result, "error"):
@@ -157,10 +157,10 @@ class TestQuiltAPI:
         assert hasattr(result.object, "size"), "Object should have 'size' attribute"
         assert result.object.size > 0, "File should have non-zero size"
 
-    def test_bucket_object_text_csv_file(self, test_bucket):
+    def test_bucket_object_text_csv_file(self, test_registry):
         """Test reading text from the configured test file."""
         # Construct test S3 URI from test bucket and known entry
-        test_uri = f"{test_bucket}/{KNOWN_TEST_ENTRY}"
+        test_uri = f"{test_registry}/{KNOWN_TEST_ENTRY}"
         result = bucket_object_text(s3_uri=test_uri, max_bytes=1000)
 
         if hasattr(result, "error"):
@@ -327,9 +327,9 @@ class TestQuiltAPI:
             f"Expected meaningful bucket error, got: {result.error}"
         )
 
-    def test_package_browse_nonexistent_fails(self, test_bucket):
+    def test_package_browse_nonexistent_fails(self, test_registry):
         """Test that browsing non-existent package returns error response."""
-        result = package_browse(package_name="definitely/nonexistent")
+        result = package_browse(package_name="definitely/nonexistent", registry=test_registry)
 
         # The function now returns an error response instead of raising an exception
         assert hasattr(result, "success"), "Result should have 'success' attribute"
@@ -603,11 +603,11 @@ class TestBucketObjectVersionConsistency:
             # Should return error response (validation happens inside the function)
             assert hasattr(result, "error"), f"{func.__name__} should return error for invalid URI"
 
-    def test_nonexistent_object_handling_consistency(self, test_bucket):
+    def test_nonexistent_object_handling_consistency(self, test_registry):
         """Test that all functions handle non-existent objects consistently."""
         # Models removed - using flattened parameters directly
 
-        nonexistent_uri = f"{test_bucket}/definitely-does-not-exist-{int(time.time())}.txt"
+        nonexistent_uri = f"{test_registry}/definitely-does-not-exist-{int(time.time())}.txt"
 
         info_result = bucket_object_info(s3_uri=nonexistent_uri)
         text_result = bucket_object_text(s3_uri=nonexistent_uri)
