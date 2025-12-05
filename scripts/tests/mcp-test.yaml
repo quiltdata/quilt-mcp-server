@@ -4,7 +4,7 @@ environment:
   AWS_PROFILE: default
   AWS_DEFAULT_REGION: us-east-1
   QUILT_CATALOG_DOMAIN: nightly.quilttest.com
-  QUILT_TEST_BUCKET: s3://quilt-ernest-staging
+  QUILT_TEST_BUCKET: quilt-ernest-staging
   QUILT_TEST_PACKAGE: raw/test
   QUILT_TEST_ENTRY: README.md
 test_tools:
@@ -267,7 +267,7 @@ test_tools:
       and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
     response_schema:
       type: object
@@ -283,7 +283,7 @@ test_tools:
       and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -298,7 +298,7 @@ test_tools:
       exploration and object retrieval tasks
     effect: none
     arguments:
-      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
     response_schema:
       type: object
       properties:
@@ -313,7 +313,7 @@ test_tools:
       retrieval tasks
     effect: none
     arguments:
-      s3_uri: s3://quilt-ernest-staging/raw/test/.timestamp
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
       max_bytes: 200
     response_schema:
       type: object
@@ -357,7 +357,7 @@ test_tools:
     description: Build Quilt+ URI - Quilt authentication and catalog navigation workflows
     effect: none
     arguments:
-      registry: s3://quilt-ernest-staging
+      registry: quilt-ernest-staging
       package_name: raw/test
       path: .timestamp
     response_schema:
@@ -374,7 +374,7 @@ test_tools:
       workflows
     effect: none
     arguments:
-      registry: s3://quilt-ernest-staging
+      registry: quilt-ernest-staging
       package_name: raw/test
       path: .timestamp
     response_schema:
@@ -489,7 +489,7 @@ test_tools:
     effect: none
     arguments:
       package_name: raw/test
-      registry: s3://quilt-ernest-staging
+      registry: quilt-ernest-staging
       recursive: false
       include_signed_urls: false
       top: 5
@@ -551,7 +551,7 @@ test_tools:
     arguments:
       package1_name: raw/test
       package2_name: raw/test
-      registry: s3://quilt-ernest-staging
+      registry: quilt-ernest-staging
     response_schema:
       type: object
       properties:
@@ -575,35 +575,6 @@ test_tools:
             type: object
       required:
       - content
-  search_catalog.global.with_bucket:
-    tool: search_catalog
-    description: Intelligent unified search across Quilt catalog using Elasticsearch
-      - Catalog and package search experiences
-    effect: none
-    arguments:
-      query: README.md
-      limit: 10
-      scope: global
-      bucket: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-    validation:
-      type: search
-      min_results: 1
-      must_contain:
-      - value: README.md
-        field: title
-        match_type: substring
-        description: Must find TEST_ENTRY (README.md) in global results (title field)
-      description: Global search with specific bucket should return results including
-        test entry
   search_catalog.global.no_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -633,40 +604,6 @@ test_tools:
         description: Must find TEST_ENTRY (README.md) in global results (title field)
       description: Global search across all buckets (_all index) should return results
         including test entry
-  search_catalog.file.with_bucket:
-    tool: search_catalog
-    description: Intelligent unified search across Quilt catalog using Elasticsearch
-      - Catalog and package search experiences
-    effect: none
-    arguments:
-      query: README.md
-      limit: 10
-      scope: file
-      bucket: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-    validation:
-      type: search
-      min_results: 1
-      must_contain:
-      - value: README.md
-        field: title
-        match_type: substring
-        description: Must find README.md in file search results (title field)
-      description: File search with specific bucket must find TEST_ENTRY (README.md)
-      result_shape:
-        required_fields:
-        - id
-        - type
-        - title
-        - score
   search_catalog.file.no_bucket:
     tool: search_catalog
     description: Intelligent unified search across Quilt catalog using Elasticsearch
@@ -701,35 +638,6 @@ test_tools:
         - id
         - type
         - title
-        - score
-  search_catalog.package.with_bucket:
-    tool: search_catalog
-    description: Intelligent unified search across Quilt catalog using Elasticsearch
-      - Catalog and package search experiences
-    effect: none
-    arguments:
-      query: raw/test
-      limit: 10
-      scope: package
-      bucket: s3://quilt-ernest-staging
-    response_schema:
-      type: object
-      properties:
-        content:
-          type: array
-          items:
-            type: object
-      required:
-      - content
-    validation:
-      type: search
-      min_results: 1
-      must_contain: []
-      description: Package search with specific bucket should return results
-      result_shape:
-        required_fields:
-        - id
-        - type
         - score
   search_catalog.package.no_bucket:
     tool: search_catalog

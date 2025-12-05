@@ -226,12 +226,12 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     # Tools with multiple test variants based on parameter combinations
     # Format: tool_name -> {"param_name": [test_value1, test_value2, ...]}
     # Special handling: if variant name contains "package", uses QUILT_TEST_PACKAGE, else QUILT_TEST_ENTRY
-    # For search_catalog: Generate both "with bucket" and "without bucket" variants
-    # This exercises both specific-bucket and wildcard index pattern code paths
+    # For search_catalog: Only test without bucket (wildcard across all buckets)
+    # Note: Removed "with_bucket" mode as hardcoded bucket assumptions are being eliminated
     tool_variants = {
         "search_catalog": {
             "scope": ["global", "file", "package"],
-            "bucket_mode": ["with_bucket", "no_bucket"]  # Test both code paths
+            "bucket_mode": ["no_bucket"]  # Test wildcard patterns only
         }
     }
 
