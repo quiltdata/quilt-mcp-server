@@ -144,8 +144,8 @@ class TestQuiltAPI:
 
     def test_bucket_object_info_known_file(self, test_registry):
         """Test getting info for a known public file."""
-        # Construct test S3 URI from test bucket and known entry
-        test_s3_uri = f"{test_registry}/{KNOWN_TEST_ENTRY}"
+        # Construct test S3 URI from test registry, package, and entry
+        test_s3_uri = f"{test_registry}/{KNOWN_PACKAGE}/{KNOWN_TEST_ENTRY}"
         result = bucket_object_info(s3_uri=test_s3_uri)
 
         if hasattr(result, "error"):
@@ -159,8 +159,8 @@ class TestQuiltAPI:
 
     def test_bucket_object_text_csv_file(self, test_registry):
         """Test reading text from the configured test file."""
-        # Construct test S3 URI from test bucket and known entry
-        test_uri = f"{test_registry}/{KNOWN_TEST_ENTRY}"
+        # Construct test S3 URI from test registry, package, and entry
+        test_uri = f"{test_registry}/{KNOWN_PACKAGE}/{KNOWN_TEST_ENTRY}"
         result = bucket_object_text(s3_uri=test_uri, max_bytes=1000)
 
         if hasattr(result, "error"):

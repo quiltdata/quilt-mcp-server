@@ -22,26 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `package_browse()`
 - `package_diff()`
 
-**Migration**:
-
-```python
-# Before
-package_create(package="team/dataset", s3_uris=[...])
-
-# After
-package_create(package="team/dataset", s3_uris=[...], registry="s3://my-bucket")
-```
-
 Clear error messages guide LLM clients when registry is missing.
 
 ### Changed
 
 - Tests now use `test_bucket` fixture from `QUILT_TEST_BUCKET` environment variable
 - Health checks use explicit `s3://quilt-example` instead of DEFAULT_REGISTRY
+- setup properly sets, displays, and uses new BenchingWebhook CFT Parameter for integrated deployments
 
 ### Fixed
 
 - Users no longer get "Access Denied" errors to hardcoded test buckets
+- Container deploys with useful error messages even if secrets are not present
 
 ## [0.9.2] - 2025-11-19
 

@@ -156,16 +156,6 @@ class TestBucketDiscovery:
 
         logger.info(f"✅ Discovered {len(buckets)} buckets: {buckets[:5]}...")
 
-    def test_prioritize_buckets_preserves_order_when_no_default(self, backend):
-        """Test that _prioritize_buckets preserves order when default bucket not in list."""
-        test_buckets = ["bucket-a", "bucket-b", "bucket-c"]
-
-        # Prioritize without default bucket present
-        prioritized = backend._prioritize_buckets(test_buckets)
-
-        # Order should be preserved
-        assert prioritized == test_buckets, "Order should be preserved when default not present"
-
 
 @pytest.mark.integration
 @pytest.mark.search
@@ -225,8 +215,7 @@ class TestIndexPatternBuilding:
 
         # Should match discovered buckets
         discovered_buckets = backend._get_available_buckets()
-        prioritized = backend._prioritize_buckets(discovered_buckets)
-        expected = ",".join(prioritized)
+        expected = ",".join(discovered_buckets)
         assert pattern == expected, f"Pattern mismatch:\nExpected: {expected}\nGot: {pattern}"
 
     def test_build_index_pattern_all_buckets_package_scope(self, backend):
@@ -250,8 +239,7 @@ class TestIndexPatternBuilding:
 
         # Should match discovered buckets
         discovered_buckets = backend._get_available_buckets()
-        prioritized = backend._prioritize_buckets(discovered_buckets)
-        expected = ",".join(f"{b}_packages" for b in prioritized)
+        expected = ",".join(f"{b}_packages" for b in discovered_buckets)
         assert pattern == expected, f"Pattern mismatch:\nExpected: {expected}\nGot: {pattern}"
 
     def test_build_index_pattern_all_buckets_global_scope(self, backend):
