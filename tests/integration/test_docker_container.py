@@ -101,6 +101,7 @@ def test_docker_image_serves_http():
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 def test_container_has_curl():
     """Verify curl is installed (required for ECS health checks)."""
     dockerfile = REPO_ROOT / "Dockerfile"

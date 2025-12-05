@@ -198,6 +198,7 @@ class TestValidation:
         assert result["error"] == "Test error message"
         assert "timestamp" in result
 
+    @pytest.mark.slow
     def test_dry_run_preview(self):
         """Test dry_run=True doesn't call package creation."""
         # Simple test: verify dry_run doesn't create packages
