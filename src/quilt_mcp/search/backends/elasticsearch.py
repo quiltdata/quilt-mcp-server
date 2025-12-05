@@ -248,7 +248,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []
 
-
     @staticmethod
     def normalize_bucket_name(bucket: str) -> str:
         """Normalize bucket name by removing s3:// prefix and trailing slashes.

@@ -42,8 +42,6 @@ def backend(quilt_service):
     return backend
 
 
-
-
 # ============================================================================
 # Pure Function Tests (No AWS calls)
 # ============================================================================
@@ -157,7 +155,6 @@ class TestBucketDiscovery:
         assert all(not b.startswith("s3://") for b in buckets), "Bucket names should not have s3:// prefix"
 
         logger.info(f"✅ Discovered {len(buckets)} buckets: {buckets[:5]}...")
-
 
     def test_prioritize_buckets_preserves_order_when_no_default(self, backend):
         """Test that _prioritize_buckets preserves order when default bucket not in list."""
@@ -446,9 +443,7 @@ class TestScopeHandlerParsing:
 
         response = await backend.search(query="*", scope="file", bucket=test_bucket, limit=10)
         for query in queries:
-            response = await backend.search(
-                query=query if query else "*", scope="file", bucket=test_bucket, limit=10
-            )
+            response = await backend.search(query=query if query else "*", scope="file", bucket=test_bucket, limit=10)
             if len(response.results) > 0:
                 break
 

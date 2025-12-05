@@ -46,8 +46,6 @@ def test_entry():
     return QUILT_TEST_ENTRY
 
 
-
-
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -227,7 +225,7 @@ class TestSearchCatalogIntegration:
                 f"should ONLY return type='file'\nResult: {res}"
             )
 
-    def test_file_scope_specific_bucket_returns_only_files(self):
+    def test_file_scope_specific_bucket_returns_only_files(self, test_bucket):
         """File scope with specific bucket must return ONLY files."""
         result = search_catalog(
             query="csv",
@@ -257,7 +255,7 @@ class TestSearchCatalogIntegration:
             )
             assert "bucket" in res, f"Result {idx} must have 'bucket' field"
 
-    def test_package_scope_specific_bucket_returns_only_packages(self):
+    def test_package_scope_specific_bucket_returns_only_packages(self, test_bucket):
         """Package scope with specific bucket must return ONLY packages."""
         with diagnostic_search(
             test_name="test_package_scope_specific_bucket_returns_only_packages",

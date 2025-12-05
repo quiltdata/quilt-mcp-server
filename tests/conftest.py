@@ -125,6 +125,7 @@ def pytest_configure(config):
     # Clear any existing runtime auth context to prevent JWT fallback
     try:
         from quilt_mcp.runtime_context import clear_runtime_auth
+
         clear_runtime_auth()
     except ImportError:
         pass

@@ -177,7 +177,7 @@ def test_packages_list_integration(test_bucket, test_registry):
         package_names = list(scoped_packages.packages)
         # The package was created successfully above, but indexing may be delayed
         # Just verify we got some packages back
-        assert len(package_names) > 0, f"Expected at least one package in registry, got empty list"
+        assert len(package_names) > 0, "Expected at least one package in registry, got empty list"
 
         # Test 3: Verify prefix filtering works
         prefix = pkg_name.split("/")[0]  # Get "test" prefix

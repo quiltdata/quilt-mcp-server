@@ -379,7 +379,9 @@ class TestCreateEnhancedPackageMigration:
     """Test cases for the _create_enhanced_package migration to create_package_revision."""
 
     @patch("quilt_mcp.tools.packages.QuiltService")
-    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class, test_bucket, test_registry):
+    def test_create_enhanced_package_uses_create_package_revision(
+        self, mock_quilt_service_class, test_bucket, test_registry
+    ):
         """Test that _create_enhanced_package uses create_package_revision with auto_organize=True."""
         from pathlib import Path
 

@@ -64,10 +64,7 @@ def test_bucket_object_info_success(test_bucket):
 
     # Check if request failed (handles both permission errors and other issues)
     if hasattr(objects_result, 'error'):
-        pytest.fail(
-            f"Failed to list objects in {test_bucket}. "
-            f"Error: {objects_result.error}"
-        )
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
 
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
@@ -114,10 +111,7 @@ def test_bucket_object_fetch_base64(test_bucket):
 
     # Check if request failed (handles both permission errors and other issues)
     if hasattr(objects_result, 'error'):
-        pytest.fail(
-            f"Failed to list objects in {test_bucket}. "
-            f"Error: {objects_result.error}"
-        )
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
 
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
@@ -141,10 +135,7 @@ def test_bucket_object_link_success(test_bucket):
 
     # Check if request failed (handles both permission errors and other issues)
     if hasattr(objects_result, 'error'):
-        pytest.fail(
-            f"Failed to list objects in {test_bucket}. "
-            f"Error: {objects_result.error}"
-        )
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
 
     if not objects_result.objects:
         pytest.fail(f"No objects found in test bucket {test_bucket}")
