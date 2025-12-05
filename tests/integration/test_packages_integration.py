@@ -27,6 +27,7 @@ from quilt_mcp.models import (
 
 
 @pytest.mark.integration
+@pytest.mark.search  # Requires catalog session, skip in CI
 def test_package_create_update_delete_workflow(test_bucket, test_registry):
     """Test complete package lifecycle with explicit registry parameter.
 
@@ -126,6 +127,7 @@ def test_package_create_update_delete_workflow(test_bucket, test_registry):
 
 
 @pytest.mark.integration
+@pytest.mark.search  # Requires catalog session, skip in CI
 def test_packages_list_integration(test_bucket, test_registry):
     """Test packages_list with registry-scoped queries.
 
@@ -286,6 +288,7 @@ def test_packages_list_requires_registry_currently():
 
 
 @pytest.mark.integration
+@pytest.mark.search  # Requires catalog session, skip in CI
 def test_package_browse_requires_registry(test_bucket, test_registry):
     """Test that package_browse requires explicit registry parameter.
 
