@@ -25,6 +25,7 @@ from quilt_mcp.validators import (
 )
 
 
+@pytest.mark.search
 @pytest.mark.integration
 class TestPackageCreateFromS3:
     """Test cases for the package_create_from_s3 function."""

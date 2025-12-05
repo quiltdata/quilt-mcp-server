@@ -23,6 +23,7 @@ from quilt_mcp.models import (
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
+@pytest.mark.search
 @pytest.mark.integration
 def test_bucket_objects_list_success(test_bucket):
     """Test bucket objects listing with real AWS (integration test)."""
@@ -56,6 +57,7 @@ def test_bucket_objects_list_error():
         assert hasattr(result, "error")
 
 
+@pytest.mark.search
 @pytest.mark.integration
 def test_bucket_object_info_success(test_bucket):
     """Test bucket object info with real AWS (integration test)."""
@@ -84,6 +86,7 @@ def test_bucket_object_info_invalid_uri():
     assert hasattr(result, "error")
 
 
+@pytest.mark.search
 @pytest.mark.integration
 def test_bucket_objects_put_success(test_bucket):
     """Test bucket objects upload with real AWS (integration test)."""
@@ -103,6 +106,7 @@ def test_bucket_objects_put_success(test_bucket):
     assert result.uploaded >= 0
 
 
+@pytest.mark.search
 @pytest.mark.integration
 def test_bucket_object_fetch_base64(test_bucket):
     """Test bucket object fetch with real AWS (integration test)."""
@@ -127,6 +131,7 @@ def test_bucket_object_fetch_base64(test_bucket):
     assert isinstance(result.data, str)
 
 
+@pytest.mark.search
 @pytest.mark.integration
 def test_bucket_object_link_success(test_bucket):
     """Test bucket object presigned URL generation with real AWS (integration test)."""

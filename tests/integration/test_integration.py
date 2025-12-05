@@ -543,6 +543,7 @@ class TestQuiltAPI:
         ), f"Expected meaningful error about missing packages, got: {result.error}"
 
 
+@pytest.mark.search
 @pytest.mark.integration
 class TestBucketObjectVersionConsistency:
     """Integration tests for versionId consistency across bucket_object_* functions."""

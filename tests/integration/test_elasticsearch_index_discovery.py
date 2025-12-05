@@ -47,7 +47,7 @@ def backend(quilt_service):
 # ============================================================================
 
 
-@pytest.mark.unit
+@pytest.mark.search
 class TestPureFunctions:
     """Test pure static methods with no side effects."""
 
