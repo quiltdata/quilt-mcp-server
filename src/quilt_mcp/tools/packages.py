@@ -10,7 +10,9 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from pydantic import Field
 
-from ..constants import DEFAULT_REGISTRY
+# REMOVED: DEFAULT_REGISTRY import (v0.10.0)
+# Rationale: MCP server should not manage default bucket state
+# LLM clients provide explicit bucket parameters based on conversation context
 from .quilt_summary import create_quilt_summary_files
 from ..services.permissions_service import bucket_recommendations_get, check_bucket_access
 from ..services.quilt_service import QuiltService
@@ -589,10 +591,10 @@ def packages_list(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Quilt registry S3 URI to list packages from",
+            default="",
+            description="Optional Quilt registry S3 URI to list packages from. Empty string lists all accessible packages.",
         ),
-    ],
+    ] = "",
     limit: Annotated[
         int,
         Field(
@@ -613,7 +615,7 @@ def packages_list(
     """List all available Quilt packages in a registry - Quilt package discovery and comparison tasks
 
     Args:
-        registry: Quilt registry S3 URI to list packages from
+        registry: Optional Quilt registry S3 URI to list packages from. Empty string lists all accessible packages.
         limit: Maximum number of packages to return, 0 for unlimited
         prefix: Filter packages by name prefix
 
@@ -632,6 +634,19 @@ def packages_list(
         ```
     """
     try:
+        # If no registry specified, could implement catalog-wide listing in future
+        # For now, require registry parameter
+        if not registry:
+            return PackagesListError(
+                error="Registry parameter is required for package listing. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+                registry="",
+                suggested_actions=[
+                    "Provide a registry parameter",
+                    "Example: packages_list(registry='s3://my-bucket')",
+                    "Use bucket_recommendations_get() to find accessible buckets",
+                ],
+            )
+
         # Normalize registry and pass to QuiltService.list_packages(), then apply filtering
         normalized_registry = _normalize_registry(registry)
         # Suppress stdout during list_packages to avoid JSON-RPC interference
@@ -659,6 +674,12 @@ def packages_list(
         return PackagesListError(
             error=f"Failed to list packages: {str(e)}",
             registry=registry,
+            suggested_actions=[
+                "Verify registry is accessible",
+                "Check AWS permissions for the bucket",
+                "Ensure registry S3 URI is valid (e.g., s3://my-bucket)",
+                "Use bucket_recommendations_get() to find accessible buckets",
+            ],
         )
 
 
@@ -674,11 +695,10 @@ def package_browse(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Quilt registry S3 URI",
+            description="Quilt registry S3 URI (REQUIRED)",
             examples=["s3://my-bucket", "s3://quilt-example"],
         ),
-    ] = "s3://quilt-ernest-staging",
+    ],
     recursive: Annotated[
         bool,
         Field(
@@ -721,7 +741,7 @@ def package_browse(
 
     Args:
         package_name: Name of the package in namespace/name format
-        registry: Quilt registry S3 URI
+        registry: Quilt registry S3 URI (REQUIRED)
         recursive: Show full file tree (true) or just top-level entries (false)
         include_file_info: Include file sizes, types, and modification dates
         max_depth: Maximum directory depth to show (0 for unlimited)
@@ -733,13 +753,13 @@ def package_browse(
 
     Examples:
         Basic browsing:
-        package_browse(package_name="team/dataset")
+        package_browse(package_name="team/dataset", registry="s3://my-bucket")
 
         Flat view (top-level only):
-        package_browse(package_name="team/dataset", recursive=False)
+        package_browse(package_name="team/dataset", registry="s3://my-bucket", recursive=False)
 
         Limited depth:
-        package_browse(package_name="team/dataset", max_depth=2)
+        package_browse(package_name="team/dataset", registry="s3://my-bucket", max_depth=2)
 
     Next step:
         Surface package details to the user or feed identifiers into downstream package tools.
@@ -748,10 +768,24 @@ def package_browse(
         ```python
         from quilt_mcp.tools import packages
 
-        result = packages.package_browse(package_name="team/dataset")
+        result = packages.package_browse(package_name="team/dataset", registry="s3://my-bucket")
         # Next step: Surface package details to the user or feed identifiers into downstream package tools.
         ```
     """
+    # Validate required registry parameter
+    if not registry:
+        return ErrorResponse(
+            error="Registry parameter is required for package browsing. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            possible_fixes=[
+                "Provide registry parameter",
+                "Example: package_browse(package_name='team/dataset', registry='s3://my-bucket')",
+            ],
+            suggested_actions=[
+                "Use bucket_recommendations_get() to find accessible buckets",
+                "Check which bucket contains your package",
+            ],
+        )
+
     # Use the provided registry
     normalized_registry = _normalize_registry(registry)
     try:
@@ -958,10 +992,9 @@ def package_diff(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Quilt registry S3 URI",
+            description="Quilt registry S3 URI (REQUIRED)",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ],
     package1_hash: Annotated[
         str,
         Field(
@@ -982,7 +1015,7 @@ def package_diff(
     Args:
         package1_name: Name of the first package in namespace/name format
         package2_name: Name of the second package in namespace/name format
-        registry: Quilt registry S3 URI
+        registry: Quilt registry S3 URI (REQUIRED)
         package1_hash: Optional specific hash for first package (empty string for latest)
         package2_hash: Optional specific hash for second package (empty string for latest)
 
@@ -999,10 +1032,23 @@ def package_diff(
         result = packages.package_diff(
             package1_name="team/dataset-v1",
             package2_name="team/dataset-v2",
+            registry="s3://my-bucket",
         )
         # Next step: Surface package details to the user or feed identifiers into downstream package tools.
         ```
     """
+    # Validate required registry parameter
+    if not registry:
+        return PackageDiffError(
+            error="Registry parameter is required for package diff. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            package1=package1_name,
+            package2=package2_name,
+            suggested_actions=[
+                "Provide registry parameter",
+                "Example: package_diff(package1_name='team/v1', package2_name='team/v2', registry='s3://my-bucket')",
+            ],
+        )
+
     normalized_registry = _normalize_registry(registry)
 
     try:
@@ -1086,10 +1132,9 @@ def package_create(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Target Quilt registry S3 URI",
+            description="Target Quilt registry S3 URI (REQUIRED)",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ],
     metadata: Annotated[
         Optional[dict[str, Any]],
         Field(
@@ -1125,7 +1170,7 @@ def package_create(
     Args:
         package_name: Name for the new package in namespace/name format
         s3_uris: List of S3 URIs to include in the package
-        registry: Target Quilt registry S3 URI
+        registry: Target Quilt registry S3 URI (REQUIRED)
         metadata: Optional metadata to attach to the package (JSON object)
         message: Commit message for package creation
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
@@ -1136,12 +1181,13 @@ def package_create(
 
     Examples:
         Basic package creation:
-        package_create(package_name="my-team/dataset", s3_uris=["s3://bucket/file.csv"])
+        package_create(package_name="my-team/dataset", s3_uris=["s3://bucket/file.csv"], registry="s3://my-bucket")
 
         With metadata:
         package_create(
             package_name="my-team/dataset",
             s3_uris=["s3://bucket/file.csv"],
+            registry="s3://my-bucket",
             metadata={"description": "My dataset", "type": "research"}
         )
 
@@ -1155,12 +1201,26 @@ def package_create(
         result = packages.package_create(
             package_name="team/dataset",
             s3_uris=["s3://example-bucket/data.csv"],
+            registry="s3://my-bucket",
         )
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
     # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
     auth_ctx: AuthorizationContext | None = None
+
+    # Validate required registry parameter
+    if not registry:
+        return PackageCreateError(
+            error="Registry parameter is required for package creation. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            package_name=package_name,
+            registry="",
+            suggested_actions=[
+                "Provide registry parameter",
+                "Example: package_create(package_name='team/dataset', s3_uris=[...], registry='s3://my-bucket')",
+                "Use bucket_recommendations_get() to find writable buckets",
+            ],
+        )
 
     warnings: list[str] = []
     if not s3_uris:
@@ -1306,10 +1366,9 @@ def package_update(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Target Quilt registry S3 URI",
+            description="Target Quilt registry S3 URI (REQUIRED)",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ],
     metadata: Annotated[
         Optional[dict[str, Any]],
         Field(
@@ -1345,7 +1404,7 @@ def package_update(
     Args:
         package_name: Name of the existing package to update in namespace/name format
         s3_uris: List of S3 URIs to add to the package
-        registry: Target Quilt registry S3 URI
+        registry: Target Quilt registry S3 URI (REQUIRED)
         metadata: Optional metadata to merge with existing package metadata
         message: Commit message for package update
         flatten: Use only filenames as logical paths (true) instead of full S3 keys (false)
@@ -1364,12 +1423,25 @@ def package_update(
         result = packages.package_update(
             package_name="team/dataset",
             s3_uris=["s3://example-bucket/data.csv"],
+            registry="s3://my-bucket",
         )
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
     # Initialize auth_ctx to avoid fragile locals() checks in exception handlers
     auth_ctx: AuthorizationContext | None = None
+
+    # Validate required registry parameter
+    if not registry:
+        return PackageUpdateError(
+            error="Registry parameter is required for package update. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            package_name=package_name,
+            registry="",
+            suggested_actions=[
+                "Provide registry parameter",
+                "Example: package_update(package_name='team/dataset', s3_uris=[...], registry='s3://my-bucket')",
+            ],
+        )
 
     if not s3_uris:
         return PackageUpdateError(
@@ -1510,16 +1582,15 @@ def package_delete(
     registry: Annotated[
         str,
         Field(
-            default="s3://quilt-ernest-staging",
-            description="Quilt registry S3 URI where the package resides",
+            description="Quilt registry S3 URI where the package resides (REQUIRED)",
         ),
-    ] = "s3://quilt-ernest-staging",
+    ],
 ) -> PackageDeleteSuccess | PackageDeleteError:
     """Delete a Quilt package from the registry - Core package creation, update, and deletion workflows
 
     Args:
         package_name: Name of the package to delete in namespace/name format
-        registry: Quilt registry S3 URI where the package resides
+        registry: Quilt registry S3 URI where the package resides (REQUIRED)
 
     Returns:
         PackageDeleteSuccess with confirmation, or PackageDeleteError on failure.
@@ -1531,7 +1602,7 @@ def package_delete(
         ```python
         from quilt_mcp.tools import packages
 
-        result = packages.package_delete(package_name="team/dataset")
+        result = packages.package_delete(package_name="team/dataset", registry="s3://my-bucket")
         # Next step: Report the package operation result or continue the workflow (e.g., metadata updates).
         ```
     """
@@ -1543,6 +1614,18 @@ def package_delete(
             error="package_name is required for package deletion",
             package_name="",
             suggested_actions=["Provide a package name in format: namespace/name", "Example: team/dataset"],
+        )
+
+    # Validate required registry parameter
+    if not registry:
+        return PackageDeleteError(
+            error="Registry parameter is required for package deletion. Specify target S3 bucket (e.g., registry='s3://my-bucket')",
+            package_name=package_name,
+            registry="",
+            suggested_actions=[
+                "Provide registry parameter",
+                "Example: package_delete(package_name='team/dataset', registry='s3://my-bucket')",
+            ],
         )
 
     try:

@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2025-12-04
+
+### BREAKING CHANGES
+
+**Removed constants**: `DEFAULT_BUCKET`, `DEFAULT_REGISTRY`, `KNOWN_TEST_S3_OBJECT`
+
+**Package operations now require explicit `registry` parameter**:
+
+- `package_create()`
+- `package_update()`
+- `package_delete()`
+- `package_browse()`
+- `package_diff()`
+
+Clear error messages guide LLM clients when registry is missing.
+
+### Changed
+
+- Tests now use `test_bucket` fixture from `QUILT_TEST_BUCKET` environment variable
+- Health checks use explicit `s3://quilt-example` instead of DEFAULT_REGISTRY
+- setup properly sets, displays, and uses new BenchingWebhook CFT Parameter for integrated deployments
+
+### Fixed
+
+- Users no longer get "Access Denied" errors to hardcoded test buckets
+- Container deploys with useful error messages even if secrets are not present
+
 ## [0.9.2] - 2025-11-19
 
 ### Added

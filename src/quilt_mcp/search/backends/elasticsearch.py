@@ -248,41 +248,6 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning(f"Failed to fetch bucket list: {e}")
             return []
 
-    def _prioritize_buckets(self, buckets: List[str]) -> List[str]:
-        """Prioritize bucket list to search most relevant buckets first.
-
-        Priority order:
-        1. User's default bucket (from QUILT_DEFAULT_BUCKET env var)
-        2. All other buckets in original order
-
-        Args:
-            buckets: List of bucket names
-
-        Returns:
-            Reordered list with default bucket first
-        """
-        if not buckets:
-            return []
-
-        # Get default bucket from environment
-        try:
-            import os
-            default_bucket = os.getenv('QUILT_DEFAULT_BUCKET', '')
-            if default_bucket:
-                # Normalize to bucket name only
-                default_bucket = default_bucket.replace('s3://', '').split('/')[0]
-
-                # Move default bucket to front if it exists in the list
-                if default_bucket in buckets:
-                    prioritized = [default_bucket]
-                    prioritized.extend([b for b in buckets if b != default_bucket])
-                    return prioritized
-        except Exception as e:
-            logger.debug(f"Failed to prioritize default bucket: {e}")
-
-        # Return original order if prioritization fails
-        return buckets
-
     @staticmethod
     def normalize_bucket_name(bucket: str) -> str:
         """Normalize bucket name by removing s3:// prefix and trailing slashes.
@@ -382,12 +347,9 @@ class Quilt3ElasticsearchBackend(SearchBackend):
             logger.warning("No buckets available for search, returning empty pattern")
             return ""
 
-        # Prioritize buckets with default bucket first
-        prioritized_buckets = self._prioritize_buckets(available_buckets)
-
         # Use ALL available buckets - let Elasticsearch handle limits
         # If we hit a 403 error, the caller should implement retry logic
-        return self.build_index_pattern_for_scope(scope, prioritized_buckets)
+        return self.build_index_pattern_for_scope(scope, available_buckets)
 
     async def search(
         self,
@@ -493,20 +455,23 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                 # Check if error is 403 and we're searching multiple buckets
                 if "403" in str(search_error) and "," in index_pattern and not bucket:
                     # 403 likely means too many indices - retry with fewer buckets
-                    logger.info(f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets")
+                    logger.info(
+                        f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets"
+                    )
 
-                    # Get prioritized bucket list
+                    # Get available bucket list
                     available_buckets = self._get_available_buckets()
-                    prioritized_buckets = self._prioritize_buckets(available_buckets)
 
                     # Try with progressively fewer buckets until it works
                     # Start at 50 and reduce by 10 each time
                     for max_buckets in [50, 40, 30, 20, 10]:
                         try:
-                            reduced_buckets = prioritized_buckets[:max_buckets]
+                            reduced_buckets = available_buckets[:max_buckets]
                             reduced_pattern = self.build_index_pattern_for_scope(scope, reduced_buckets)
 
-                            logger.info(f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)")
+                            logger.info(
+                                f"Retrying with {max_buckets} buckets ({len(reduced_pattern.split(','))} indices)"
+                            )
                             response = search_api(query=dsl_query, index=reduced_pattern, limit=limit)
                             logger.info(f"✅ Search succeeded with {max_buckets} buckets")
                             break

@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-catalog lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -22,7 +22,7 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: test-scripts mcpb-validate | $(RESULTS_DIR)
+test-all: lint test-catalog test-scripts mcpb-validate | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
@@ -40,7 +40,7 @@ $(RESULTS_DIR)/coverage-unit.xml: tests/unit/test_*.py | $(RESULTS_DIR)
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/unit/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-unit.xml --cov-report=term-missing
 
-test-integration: $(RESULTS_DIR)/coverage-integration.xml
+test-integration: test-catalog $(RESULTS_DIR)/coverage-integration.xml
 
 $(RESULTS_DIR)/coverage-integration.xml: tests/integration/test_*.py | $(RESULTS_DIR)
 	@echo "Running integration tests (AWS/external services)..."
@@ -84,7 +84,7 @@ coverage-html:
 	@echo "✅ HTML coverage report generated in htmlcov/"
 	@echo "📊 Open htmlcov/index.html in your browser to view the report"
 
-test-scripts: coverage docker-check scripts/tests/test_*.py | $(RESULTS_DIR)
+test-scripts: coverage docker-check docker-build scripts/tests/test_*.py | $(RESULTS_DIR)
 	@echo "===🔍Running script tests (coverage analysis, workflow behavior)..."
 	@uv sync --group test
 	@if [ -d "scripts/tests" ] && [ "$$(find scripts/tests -name "test_*.py" | wc -l)" -gt 0 ]; then \

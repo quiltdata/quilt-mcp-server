@@ -187,7 +187,7 @@ class TestQuiltServicePackageOperations:
             "api_gateway_endpoint": "https://api.example.com",
             "analytics_bucket": "example-analyticsbucket-abc",
             "stack_prefix": "example",
-            "tabulator_data_catalog": "quilt-example-tabulator",
+            "tabulator_data_catalog": "example-tabulator",
         }
 
         with (
@@ -207,7 +207,7 @@ class TestQuiltServicePackageOperations:
 
             # Verify new keys from catalog config
             assert result['region'] == 'us-east-1'
-            assert result['tabulator_data_catalog'] == 'quilt-example-tabulator'
+            assert result['tabulator_data_catalog'] == 'example-tabulator'
 
     def test_get_catalog_info_when_not_authenticated(self):
         """Test get_catalog_info returns None for region and tabulator_data_catalog when not authenticated."""

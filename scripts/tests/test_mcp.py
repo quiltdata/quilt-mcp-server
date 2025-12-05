@@ -60,15 +60,27 @@ class DockerMCPServer:
         print(f"   Container: {self.container_name}")
 
         try:
-            # Check if image exists, pull if not
+            # Check if image exists locally
             result = subprocess.run(
                 ["docker", "image", "inspect", self.image],
                 capture_output=True,
                 text=True
             )
             if result.returncode != 0:
-                print(f"📥 Pulling Docker image: {self.image}")
-                subprocess.run(["docker", "pull", self.image], check=True)
+                # Only pull if image looks like a registry image (contains registry domain)
+                # Local test images like "quilt-mcp:test" should be built first with make docker-build
+                # Registry images have format: registry.domain/path/image:tag
+                is_registry_image = (
+                    "/" in self.image.split(":")[0] or  # Has registry/path before tag
+                    self.image.startswith(("docker.io/", "ghcr.io/", "public.ecr.aws/"))
+                )
+                if is_registry_image:
+                    print(f"📥 Pulling Docker image: {self.image}")
+                    subprocess.run(["docker", "pull", self.image], check=True)
+                else:
+                    print(f"❌ Local image not found: {self.image}")
+                    print(f"   For local testing, build the image first with: make docker-build")
+                    return False
 
             # Build docker run command with AWS credentials
             # Use stdio transport for testing - simpler and no session issues

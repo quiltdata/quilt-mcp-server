@@ -4,7 +4,6 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from ..constants import DEFAULT_BUCKET
 from ..models import (
     BucketObjectFetchError,
     BucketObjectFetchResponse,

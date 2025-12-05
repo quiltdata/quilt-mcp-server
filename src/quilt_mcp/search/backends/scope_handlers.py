@@ -291,7 +291,7 @@ class PackageScopeHandler(ScopeHandler):
                     # REQUIRED: Only documents with ptr_name (manifests)
                     {"exists": {"field": "ptr_name"}},
                     # Match query across all fields (ptr_name, ptr_tag, ptr_last_modified)
-                    {"query_string": {"query": base_query}}
+                    {"query_string": {"query": base_query}},
                 ]
             }
         }
@@ -333,8 +333,7 @@ class PackageScopeHandler(ScopeHandler):
         ptr_name = source.get("ptr_name", "")
         if not ptr_name:
             logger.error(
-                f"Package scope got non-manifest document. "
-                f"ID: {hit.get('_id')}, fields: {list(source.keys())}"
+                f"Package scope got non-manifest document. ID: {hit.get('_id')}, fields: {list(source.keys())}"
             )
             return None
 

@@ -30,24 +30,12 @@ def get_stack_buckets() -> List[str]:
             logger.info(f"Found {len(stack_buckets)} buckets in stack via permissions")
             return list(stack_buckets)
 
-        # Final fallback to default bucket
-        from ..constants import DEFAULT_REGISTRY
-
-        if DEFAULT_REGISTRY:
-            bucket_name = DEFAULT_REGISTRY.replace("s3://", "")
-            logger.info(f"Falling back to default bucket: {bucket_name}")
-            return [bucket_name]
-
-        logger.warning("No stack buckets found and no default bucket configured")
+        # No fallback - return empty list if no buckets found
+        logger.warning("No stack buckets found")
         return []
 
     except Exception as e:
         logger.error(f"Failed to discover stack buckets: {e}")
-        # Emergency fallback
-        from ..constants import DEFAULT_REGISTRY
-
-        if DEFAULT_REGISTRY:
-            return [DEFAULT_REGISTRY.replace("s3://", "")]
         return []
 
 

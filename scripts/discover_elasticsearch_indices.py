@@ -11,7 +11,7 @@ Goal: Learn what indices actually exist and what they contain.
 Usage:
     python scripts/discover_elasticsearch_indices.py [bucket_name]
 
-If bucket_name is not provided, uses QUILT_DEFAULT_BUCKET from .env
+If bucket_name is not provided, uses QUILT_TEST_BUCKET from .env
 """
 
 import asyncio
@@ -20,7 +20,6 @@ import os
 import sys
 from quilt_mcp.search.backends.elasticsearch import Quilt3ElasticsearchBackend
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.constants import DEFAULT_BUCKET
 
 
 async def main():
@@ -32,13 +31,15 @@ async def main():
     if len(sys.argv) > 1:
         test_bucket = sys.argv[1]
         print(f"\nUsing bucket from command line: {test_bucket}")
-    elif DEFAULT_BUCKET:
-        test_bucket = DEFAULT_BUCKET.replace("s3://", "").split("/")[0]
-        print(f"\nUsing QUILT_DEFAULT_BUCKET from .env: {test_bucket}")
     else:
-        print("\nERROR: No bucket specified and QUILT_DEFAULT_BUCKET not set in .env")
-        print("Usage: python scripts/discover_elasticsearch_indices.py [bucket_name]")
-        return
+        test_bucket_env = os.getenv("QUILT_TEST_BUCKET", "")
+        if test_bucket_env:
+            test_bucket = test_bucket_env.replace("s3://", "").split("/")[0]
+            print(f"\nUsing QUILT_TEST_BUCKET from .env: {test_bucket}")
+        else:
+            print("\nERROR: No bucket specified and QUILT_TEST_BUCKET not set in .env")
+            print("Usage: python scripts/discover_elasticsearch_indices.py [bucket_name]")
+            return
 
     # Initialize backend
     service = QuiltService()

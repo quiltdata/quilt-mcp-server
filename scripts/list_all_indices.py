@@ -7,14 +7,14 @@ then filters for the specified bucket.
 Usage:
     python scripts/list_all_indices.py [bucket_name]
 
-If bucket_name is not provided, uses QUILT_DEFAULT_BUCKET from .env
+If bucket_name is not provided, uses QUILT_TEST_BUCKET from .env
 """
 
 import asyncio
 import json
+import os
 import sys
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.constants import DEFAULT_BUCKET
 
 
 async def main():
@@ -26,13 +26,15 @@ async def main():
     if len(sys.argv) > 1:
         search_bucket = sys.argv[1]
         print(f"\nSearching for indices containing: {search_bucket}")
-    elif DEFAULT_BUCKET:
-        search_bucket = DEFAULT_BUCKET.replace("s3://", "").split("/")[0]
-        print(f"\nUsing QUILT_DEFAULT_BUCKET from .env: {search_bucket}")
     else:
-        print("\nERROR: No bucket specified and QUILT_DEFAULT_BUCKET not set in .env")
-        print("Usage: python scripts/list_all_indices.py [bucket_name]")
-        return
+        test_bucket_env = os.getenv("QUILT_TEST_BUCKET", "")
+        if test_bucket_env:
+            search_bucket = test_bucket_env.replace("s3://", "").split("/")[0]
+            print(f"\nUsing QUILT_TEST_BUCKET from .env: {search_bucket}")
+        else:
+            print("\nERROR: No bucket specified and QUILT_TEST_BUCKET not set in .env")
+            print("Usage: python scripts/list_all_indices.py [bucket_name]")
+            return
 
     # Initialize service
     service = QuiltService()

@@ -30,7 +30,7 @@ quilt-mcp
 ```bash
 # Add to Claude Code CLI with environment variables
 npx @anthropic-ai/claude-code mcp add quilt-mcp uvx quilt-mcp \
-  -e QUILT_CATALOG_DOMAIN=your-catalog.quiltdata.com \
+  -e QUILT_CATALOG_URL=https://your-catalog.quiltdata.com \
   -e AWS_PROFILE=your-profile
 ```
 
@@ -45,7 +45,7 @@ Add to your `mcp.json`:
       "command": "uvx",
       "args": ["quilt-mcp"],
       "env": {
-        "QUILT_CATALOG_DOMAIN": "quilt-stack.yourcompany.com"
+        "QUILT_CATALOG_URL": "https://quilt-stack.yourcompany.com"
       }
     }
   }
@@ -75,8 +75,7 @@ To **require JWTs** in production deployments, set `MCP_REQUIRE_JWT=true`. In st
 
 Override defaults via environment or MCP config:
 
-- `QUILT_CATALOG_DOMAIN` - Your Quilt catalog URL (e.g., `your-catalog.quiltdata.com`)
-- `QUILT_DEFAULT_BUCKET` - Default S3 bucket (e.g., `s3://your-bucket`)
+- `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
 

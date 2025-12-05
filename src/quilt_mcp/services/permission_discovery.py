@@ -299,19 +299,9 @@ class AWSPermissionDiscovery:
             except Exception as e:
                 logger.debug(f"Athena discovery skipped/failed: {e}")
 
-            # Environment-provided hints (e.g., registry/default and known buckets list)
-            DEFAULT_BUCKET_CONST: Optional[str] = None
-            try:
-                from ..constants import DEFAULT_BUCKET as DEFAULT_BUCKET_CONST
-            except ImportError:
-                pass
+            # Environment-provided hints (e.g., known buckets list from env var)
             candidates: List[str] = []
-            if (
-                DEFAULT_BUCKET_CONST
-                and isinstance(DEFAULT_BUCKET_CONST, str)
-                and DEFAULT_BUCKET_CONST.startswith("s3://")
-            ):
-                candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET_CONST))
+            # Note: DEFAULT_BUCKET was removed in v0.10.0 - no longer checked
             known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
             if known_env:
                 for raw in known_env.split(","):
