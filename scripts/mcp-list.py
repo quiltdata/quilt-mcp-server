@@ -201,11 +201,11 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     server_tools = await server.get_tools()
 
     # Load values from .env
-    default_bucket: str = env_vars.get("QUILT_TEST_BUCKET") or "s3://quilt-example"
+    test_bucket: str = env_vars.get("QUILT_TEST_BUCKET") or "s3://quilt-example"
     catalog_domain: str = env_vars.get("QUILT_CATALOG_DOMAIN") or "open.quiltdata.com"
     test_package: str = env_vars.get("QUILT_TEST_PACKAGE") or "examples/wellplates"
     test_entry: str = env_vars.get("QUILT_TEST_ENTRY") or ".timestamp"
-    bucket_name = default_bucket.replace("s3://", "").split("/")[0]
+    bucket_name = test_bucket.replace("s3://", "").split("/")[0]
 
     # Auto-generate tool order from all discovered tools
     # Special case: bucket_objects_list runs FIRST to discover real objects
@@ -241,20 +241,20 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
     custom_configs = {
         # Catalog operations
         "catalog_configure": {"catalog_url": catalog_domain},
-        "catalog_uri": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
-        "catalog_url": {"registry": default_bucket, "package_name": test_package, "path": ".timestamp"},
+        "catalog_uri": {"registry": test_bucket, "package_name": test_package, "path": ".timestamp"},
+        "catalog_url": {"registry": test_bucket, "package_name": test_package, "path": ".timestamp"},
 
         # Bucket operations (discovery)
         "bucket_objects_list": {"bucket": bucket_name, "prefix": f"{test_package}/", "max_keys": 5},
-        "bucket_object_info": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
-        "bucket_object_link": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp"},
-        "bucket_object_text": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
-        "bucket_object_fetch": {"s3_uri": f"{default_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_info": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp"},
+        "bucket_object_link": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp"},
+        "bucket_object_text": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
+        "bucket_object_fetch": {"s3_uri": f"{test_bucket}/{test_package}/.timestamp", "max_bytes": 200},
         # bucket_objects_put: Intentionally omitted - will be skipped as 'create' effect
 
         # Package operations (read-only)
-        "package_browse": {"package_name": test_package, "registry": default_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
-        "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": default_bucket},
+        "package_browse": {"package_name": test_package, "registry": test_bucket, "recursive": False, "include_signed_urls": False, "top": 5},
+        "package_diff": {"package1_name": test_package, "package2_name": test_package, "registry": test_bucket},
         # package_create, package_update, package_delete: Omitted - 'create'/'update'/'remove' effects
         # package_create_from_s3: Omitted - 'create' effect
 
@@ -340,7 +340,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
                         }
 
                         if bucket_mode == "with_bucket":
-                            arguments["bucket"] = default_bucket
+                            arguments["bucket"] = test_bucket
                         else:  # no_bucket
                             arguments["bucket"] = ""  # Empty string tests wildcard patterns
 
@@ -513,7 +513,7 @@ async def generate_test_yaml(server, output_file: str, env_vars: Dict[str, str |
             if var == "bucket":
                 # Use bucket name from QUILT_TEST_BUCKET environment variable (already loaded above)
                 # Extract bucket name from s3:// URI
-                bucket_name_var = default_bucket.replace("s3://", "").split("/")[0] if default_bucket.startswith("s3://") else default_bucket
+                bucket_name_var = test_bucket.replace("s3://", "").split("/")[0] if test_bucket.startswith("s3://") else test_bucket
                 test_case["uri_variables"][var] = bucket_name_var
             elif var == "database":
                 # Use default test database

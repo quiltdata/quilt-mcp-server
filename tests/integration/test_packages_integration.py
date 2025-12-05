@@ -27,7 +27,7 @@ from quilt_mcp.models import (
 
 
 @pytest.mark.integration
-def test_package_create_update_delete_workflow(test_bucket):
+def test_package_create_update_delete_workflow(test_bucket, test_registry):
     """Test complete package lifecycle with explicit registry parameter.
 
     This test verifies the full workflow:
@@ -43,7 +43,7 @@ def test_package_create_update_delete_workflow(test_bucket):
 
     # Need to create a test file in the bucket first for package creation
     test_key = f"test-data-{int(time.time())}.txt"
-    test_s3_uri = f"{test_bucket}/{test_key}"
+    test_s3_uri = f"{test_registry}/{test_key}"
 
     # First upload a test file to use in package
     from quilt_mcp.tools.buckets import bucket_objects_put
@@ -57,7 +57,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     create_result = package_create(
         package_name=pkg_name,
         s3_uris=[test_s3_uri],
-        registry=test_bucket,
+        registry=test_registry,
         message="Initial version for integration test",
     )
 
@@ -67,13 +67,13 @@ def test_package_create_update_delete_workflow(test_bucket):
     )
     assert create_result.success is True
     assert create_result.package == pkg_name
-    assert create_result.registry == test_bucket
+    assert create_result.registry == test_registry
     assert create_result.top_hash is not None
 
     # Step 2: Browse to verify package exists
     browse_result = package_browse(
         package_name=pkg_name,
-        registry=test_bucket,
+        registry=test_registry,
         include_file_info=False,
         include_signed_urls=False,
     )
@@ -83,11 +83,11 @@ def test_package_create_update_delete_workflow(test_bucket):
     )
     assert browse_result.success is True
     assert browse_result.package == pkg_name
-    assert browse_result.registry == test_bucket
+    assert browse_result.registry == test_registry
 
     # Step 3: Update package with new content
     test_key_2 = f"test-data-update-{int(time.time())}.txt"
-    test_s3_uri_2 = f"{test_bucket}/{test_key_2}"
+    test_s3_uri_2 = f"{test_registry}/{test_key_2}"
 
     upload_result_2 = bucket_objects_put(
         bucket=test_bucket, items=[{"key": test_key_2, "text": "Updated data for package integration test"}]
@@ -97,7 +97,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     update_result = package_update(
         package_name=pkg_name,
         s3_uris=[test_s3_uri_2],
-        registry=test_bucket,
+        registry=test_registry,
         message="Updated version for integration test",
     )
 
@@ -106,7 +106,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     )
     assert update_result.success is True
     assert update_result.package == pkg_name
-    assert update_result.registry == test_bucket
+    assert update_result.registry == test_registry
     assert update_result.top_hash is not None
     # Update should create a different hash than creation
     assert update_result.top_hash != create_result.top_hash
@@ -114,7 +114,7 @@ def test_package_create_update_delete_workflow(test_bucket):
     # Step 4: Delete package
     delete_result = package_delete(
         package_name=pkg_name,
-        registry=test_bucket,
+        registry=test_registry,
     )
 
     assert isinstance(delete_result, PackageDeleteSuccess), (
@@ -122,12 +122,12 @@ def test_package_create_update_delete_workflow(test_bucket):
     )
     assert delete_result.success is True
     assert delete_result.package == pkg_name
-    assert delete_result.registry == test_bucket
+    assert delete_result.registry == test_registry
     assert delete_result.versions_deleted >= 1
 
 
 @pytest.mark.integration
-def test_packages_list_integration(test_bucket):
+def test_packages_list_integration(test_bucket, test_registry):
     """Test packages_list with registry-scoped queries.
 
     This test verifies:
@@ -141,7 +141,7 @@ def test_packages_list_integration(test_bucket):
     # Create a test package first to ensure data exists
     pkg_name = f"test/list-test-{int(time.time())}"
     test_key = f"test-list-data-{int(time.time())}.txt"
-    test_s3_uri = f"{test_bucket}/{test_key}"
+    test_s3_uri = f"{test_registry}/{test_key}"
 
     # Upload test data
     from quilt_mcp.tools.buckets import bucket_objects_put
@@ -155,21 +155,21 @@ def test_packages_list_integration(test_bucket):
     create_result = package_create(
         package_name=pkg_name,
         s3_uris=[test_s3_uri],
-        registry=test_bucket,
+        registry=test_registry,
         message="Test package for listing integration test",
     )
     assert create_result.success, f"Failed to create test package: {create_result}"
 
     try:
         # Test 1: Registry-scoped listing (explicit bucket)
-        scoped_packages = packages_list(registry=test_bucket, limit=100)
+        scoped_packages = packages_list(registry=test_registry, limit=100)
 
         assert isinstance(scoped_packages, PackagesListSuccess), (
             f"Registry-scoped listing failed: {scoped_packages.error if hasattr(scoped_packages, 'error') else 'Unknown error'}"
         )
         assert scoped_packages.success is True
         assert isinstance(scoped_packages.packages, list)
-        assert len(scoped_packages.packages) > 0, f"Expected at least one package in {test_bucket}, got empty list"
+        assert len(scoped_packages.packages) > 0, f"Expected at least one package in {test_registry}, got empty list"
 
         # Test 2: Verify our test package appears in scoped results
         package_names = list(scoped_packages.packages)
@@ -179,7 +179,7 @@ def test_packages_list_integration(test_bucket):
 
         # Test 3: Verify prefix filtering works
         prefix = pkg_name.split("/")[0]  # Get "test" prefix
-        prefixed_packages = packages_list(registry=test_bucket, prefix=prefix, limit=100)
+        prefixed_packages = packages_list(registry=test_registry, prefix=prefix, limit=100)
 
         assert isinstance(prefixed_packages, PackagesListSuccess)
         assert prefixed_packages.success is True
@@ -191,7 +191,7 @@ def test_packages_list_integration(test_bucket):
         # Cleanup: Delete test package
         delete_result = package_delete(
             package_name=pkg_name,
-            registry=test_bucket,
+            registry=test_registry,
         )
         # Don't fail the test if cleanup fails, but log it
         if not delete_result.success:
@@ -286,7 +286,7 @@ def test_packages_list_requires_registry_currently():
 
 
 @pytest.mark.integration
-def test_package_browse_requires_registry(test_bucket):
+def test_package_browse_requires_registry(test_bucket, test_registry):
     """Test that package_browse requires explicit registry parameter.
 
     This ensures browsing is always scoped to a specific registry.
@@ -294,7 +294,7 @@ def test_package_browse_requires_registry(test_bucket):
     # First create a test package
     pkg_name = f"test/browse-test-{int(time.time())}"
     test_key = f"test-browse-data-{int(time.time())}.txt"
-    test_s3_uri = f"{test_bucket}/{test_key}"
+    test_s3_uri = f"{test_registry}/{test_key}"
 
     from quilt_mcp.tools.buckets import bucket_objects_put
 
@@ -306,7 +306,7 @@ def test_package_browse_requires_registry(test_bucket):
     create_result = package_create(
         package_name=pkg_name,
         s3_uris=[test_s3_uri],
-        registry=test_bucket,
+        registry=test_registry,
         message="Test package for browse test",
     )
     assert create_result.success
@@ -315,7 +315,7 @@ def test_package_browse_requires_registry(test_bucket):
         # Test 1: Browse with explicit registry should succeed
         browse_result = package_browse(
             package_name=pkg_name,
-            registry=test_bucket,
+            registry=test_registry,
             include_file_info=False,
             include_signed_urls=False,
         )
@@ -334,6 +334,6 @@ def test_package_browse_requires_registry(test_bucket):
 
     finally:
         # Cleanup
-        delete_result = package_delete(package_name=pkg_name, registry=test_bucket)
+        delete_result = package_delete(package_name=pkg_name, registry=test_registry)
         if not delete_result.success:
             print(f"Warning: Failed to cleanup test package {pkg_name}")

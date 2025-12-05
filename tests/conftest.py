@@ -50,20 +50,24 @@ QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
 
 @pytest.fixture(scope="session")
 def test_bucket() -> str:
-    """Provide test bucket S3 URI for tests that require write access.
+    """Provide test bucket name (without s3:// prefix) for bucket operations.
 
     This fixture is ONLY for tests. Production code should never import this.
     Tests requiring a bucket should explicitly declare this dependency.
 
+    IMPORTANT: Returns bucket NAME only (e.g., "my-test-bucket")
+    For S3 URI format, use test_registry fixture instead.
+
     Returns:
-        S3 URI of test bucket (e.g., "s3://my-test-bucket")
+        Bucket name without s3:// prefix (e.g., "my-test-bucket")
 
     Raises:
         pytest.fail: If QUILT_TEST_BUCKET environment variable not set
     """
     if not QUILT_TEST_BUCKET:
         pytest.fail("QUILT_TEST_BUCKET environment variable not set")
-    return QUILT_TEST_BUCKET
+    # Remove s3:// prefix if present (for backward compatibility)
+    return QUILT_TEST_BUCKET.replace("s3://", "")
 
 
 @pytest.fixture(scope="session")
@@ -71,6 +75,7 @@ def test_bucket_name() -> str:
     """Provide test bucket name (without s3:// prefix).
 
     This fixture is ONLY for tests. Production code should never import this.
+    Alias for test_bucket fixture for clarity in some contexts.
 
     Returns:
         Bucket name without s3:// prefix (e.g., "my-test-bucket")
@@ -81,6 +86,26 @@ def test_bucket_name() -> str:
     if not QUILT_TEST_BUCKET:
         pytest.fail("QUILT_TEST_BUCKET environment variable not set")
     return QUILT_TEST_BUCKET.replace("s3://", "")
+
+
+@pytest.fixture(scope="session")
+def test_registry() -> str:
+    """Provide test bucket as S3 URI for registry parameters.
+
+    This fixture is ONLY for tests that pass registry parameter.
+    Use this when the test needs to pass a registry to package functions.
+
+    Returns:
+        S3 URI of test bucket (e.g., "s3://my-test-bucket")
+
+    Raises:
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
+    # Remove s3:// prefix if present, then add it back
+    bucket_name = QUILT_TEST_BUCKET.replace("s3://", "")
+    return f"s3://{bucket_name}"
 
 
 # ============================================================================

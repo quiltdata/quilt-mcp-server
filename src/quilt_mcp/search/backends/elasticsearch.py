@@ -460,15 +460,14 @@ class Quilt3ElasticsearchBackend(SearchBackend):
                         f"Got 403 error with {len(index_pattern.split(','))} indices, retrying with fewer buckets"
                     )
 
-                    # Get prioritized bucket list
+                    # Get available bucket list
                     available_buckets = self._get_available_buckets()
-                    prioritized_buckets = self._prioritize_buckets(available_buckets)
 
                     # Try with progressively fewer buckets until it works
                     # Start at 50 and reduce by 10 each time
                     for max_buckets in [50, 40, 30, 20, 10]:
                         try:
-                            reduced_buckets = prioritized_buckets[:max_buckets]
+                            reduced_buckets = available_buckets[:max_buckets]
                             reduced_pattern = self.build_index_pattern_for_scope(scope, reduced_buckets)
 
                             logger.info(

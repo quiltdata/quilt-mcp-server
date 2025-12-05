@@ -42,7 +42,7 @@ jobs:
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION || 'us-east-1' }}
 
         # Quilt configuration
-        QUILT_DEFAULT_BUCKET: ${{ secrets.QUILT_DEFAULT_BUCKET }}
+        QUILT_TEST_BUCKET: ${{ secrets.QUILT_TEST_BUCKET }}
         QUILT_CATALOG_URL: ${{ secrets.QUILT_CATALOG_URL }}
         QUILT_TEST_PACKAGE: ${{ secrets.QUILT_TEST_PACKAGE }}
         QUILT_TEST_ENTRY: ${{ secrets.QUILT_TEST_ENTRY }}

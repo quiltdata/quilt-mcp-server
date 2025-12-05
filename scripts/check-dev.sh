@@ -29,7 +29,7 @@ log_info "📋 Development Environment Summary:"
 echo "  AWS Account: ${CDK_DEFAULT_ACCOUNT:-${AWS_ACCOUNT_ID:-Not set}}"
 echo "  AWS Region: ${CDK_DEFAULT_REGION:-${AWS_DEFAULT_REGION:-Not set}}"
 echo "  ECR Registry: ${ECR_REGISTRY:-Will be auto-derived}"
-echo "  Quilt Bucket: ${QUILT_DEFAULT_BUCKET:-Not set}"
+echo "  Quilt Test Bucket: ${QUILT_TEST_BUCKET:-Not set}"
 echo "  Catalog Domain: ${QUILT_CATALOG_DOMAIN:-Not set}"
 echo "  ngrok Domain: ${NGROK_DOMAIN:-Auto-assigned (optional)}"
 echo ""
@@ -47,8 +47,8 @@ if [ -z "${CDK_DEFAULT_REGION}" ] && [ -z "${AWS_DEFAULT_REGION}" ]; then
     exit 1
 fi
 
-if [ -z "${QUILT_DEFAULT_BUCKET}" ]; then
-    log_error "❌ Missing QUILT_DEFAULT_BUCKET"
+if [ -z "${QUILT_TEST_BUCKET}" ]; then
+    log_error "❌ Missing QUILT_TEST_BUCKET"
     exit 1
 fi
 

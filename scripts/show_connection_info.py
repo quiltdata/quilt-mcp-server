@@ -3,7 +3,6 @@
 
 import os
 from quilt_mcp.services.quilt_service import QuiltService
-from quilt_mcp.constants import DEFAULT_BUCKET
 
 print("=" * 80)
 print("ELASTICSEARCH CONNECTION INFO")
@@ -15,7 +14,7 @@ print(f"  AWS_PROFILE: {os.getenv('AWS_PROFILE', '(not set)')}")
 print(f"  AWS_DEFAULT_REGION: {os.getenv('AWS_DEFAULT_REGION', '(not set)')}")
 print(f"  AWS_ACCOUNT_ID: {os.getenv('AWS_ACCOUNT_ID', '(not set)')}")
 print(f"  QUILT_CATALOG_DOMAIN: {os.getenv('QUILT_CATALOG_DOMAIN', '(not set)')}")
-print(f"  QUILT_DEFAULT_BUCKET: {os.getenv('QUILT_DEFAULT_BUCKET', '(not set)')}")
+print(f"  QUILT_TEST_BUCKET: {os.getenv('QUILT_TEST_BUCKET', '(not set)')}")
 
 # Service info
 service = QuiltService()

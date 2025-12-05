@@ -66,6 +66,7 @@ class TestPackageCreateFromS3:
         mock_validate,
         mock_s3_client,
         test_bucket,
+        test_registry,
     ):
         """Test handling when no objects are found in source bucket."""
         # Setup mocks
@@ -75,7 +76,7 @@ class TestPackageCreateFromS3:
         mock_create.return_value = {"top_hash": "test_hash_123"}
         mock_recommendations.return_value = {
             "success": True,
-            "recommendations": {"package_creation": [test_bucket]},
+            "recommendations": {"package_creation": [test_registry]},
         }
         # Mock bucket access check to return success for target registry
         mock_access_check.return_value = {
@@ -86,7 +87,7 @@ class TestPackageCreateFromS3:
         result = package_create_from_s3(
             source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
-            target_registry=test_bucket,
+            target_registry=test_registry,
         )
 
         # The function should fail because no objects were found in the source bucket
@@ -97,7 +98,7 @@ class TestPackageCreateFromS3:
             or "Cannot create package in target registry" in result.error
         )
 
-    def test_successful_package_creation(self, test_bucket):
+    def test_successful_package_creation(self, test_bucket, test_registry):
         """Test successful package creation with real S3 integration.
 
         This test uses test_bucket fixture (from QUILT_TEST_BUCKET env var).
@@ -107,7 +108,7 @@ class TestPackageCreateFromS3:
             source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
             description="Integration test package",
-            target_registry=test_bucket,
+            target_registry=test_registry,
             dry_run=True,  # Use dry_run to avoid creating actual packages in tests
         )
 
@@ -141,8 +142,8 @@ class TestPackageCreateFromS3:
         )
 
         # Verify registry was set correctly
-        assert result_dict.get("registry") == test_bucket, (
-            f"Expected registry='{test_bucket}', got {result_dict.get('registry')}"
+        assert result_dict.get("registry") == test_registry, (
+            f"Expected registry='{test_registry}', got {result_dict.get('registry')}"
         )
 
 
@@ -261,7 +262,7 @@ class TestEnhancedFunctionality:
         assert "" in flat
         assert len(flat[""]) == 5
 
-    def test_generate_readme_content(self, test_bucket):
+    def test_generate_readme_content(self, test_bucket, test_registry):
         """Test README generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv"}],
@@ -283,7 +284,7 @@ class TestEnhancedFunctionality:
         assert "Usage" in readme
         assert "Package.browse" in readme
 
-    def test_generate_package_metadata(self, test_bucket):
+    def test_generate_package_metadata(self, test_bucket, test_registry):
         """Test metadata generation."""
         organized_structure = {
             "data/processed": [{"Key": "data.csv", "Size": 1000}],
@@ -377,7 +378,7 @@ class TestCreateEnhancedPackageMigration:
     """Test cases for the _create_enhanced_package migration to create_package_revision."""
 
     @patch("quilt_mcp.tools.packages.QuiltService")
-    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class, test_bucket):
+    def test_create_enhanced_package_uses_create_package_revision(self, mock_quilt_service_class, test_bucket, test_registry):
         """Test that _create_enhanced_package uses create_package_revision with auto_organize=True."""
         from pathlib import Path
 
@@ -407,7 +408,7 @@ class TestCreateEnhancedPackageMigration:
             organized_structure=organized_structure,
             source_bucket=test_bucket,
             package_name=KNOWN_TEST_PACKAGE,
-            target_registry=test_bucket,
+            target_registry=test_registry,
             description="Test package description",
             enhanced_metadata=enhanced_metadata,
         )
@@ -417,7 +418,7 @@ class TestCreateEnhancedPackageMigration:
         call_args = mock_quilt_service.create_package_revision.call_args
 
         assert call_args[1]["package_name"] == KNOWN_TEST_PACKAGE
-        assert call_args[1]["registry"] == test_bucket
+        assert call_args[1]["registry"] == test_registry
         assert call_args[1]["auto_organize"]  # s3_package.py should use True
         assert call_args[1]["metadata"] == enhanced_metadata
 

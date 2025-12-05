@@ -4,7 +4,7 @@ environment:
   AWS_PROFILE: default
   AWS_DEFAULT_REGION: us-east-1
   QUILT_CATALOG_DOMAIN: nightly.quilttest.com
-  QUILT_DEFAULT_BUCKET: s3://quilt-ernest-staging
+  QUILT_TEST_BUCKET: s3://quilt-ernest-staging
   QUILT_TEST_PACKAGE: raw/test
   QUILT_TEST_ENTRY: README.md
 test_tools:
