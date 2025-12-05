@@ -22,17 +22,13 @@ test:
 	@echo "Running unit tests (default)..."
 	@$(MAKE) test-unit
 
-test-all: test-scripts mcpb-validate | $(RESULTS_DIR)
+test-all: test-catalog test-scripts mcpb-validate | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
 
 
-test-catalog:
-	@echo "🔍 Checking quilt3 catalog configuration..."
-	@./scripts/test-catalog.sh
-
-test-ci: test-catalog | $(RESULTS_DIR)
+test-ci: | $(RESULTS_DIR)
 	@echo "Running CI tests..."
 	@uv sync --group test
 	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v -m "not slow and not search and not admin"  --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing
