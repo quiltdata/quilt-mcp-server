@@ -106,7 +106,7 @@ def test_check_package_operations_uses_public_bucket():
     """Verify health check doesn't rely on DEFAULT_REGISTRY.
 
     From spec/a10-no-default-registry.md Phase 8:
-    Health check should use explicit public bucket (s3://quilt-example),
+    Health check should use explicit public bucket (PUBLIC_DEMO_BUCKET in error_recovery.py),
     not DEFAULT_REGISTRY which has been removed from production code.
 
     This test ensures:

@@ -8,7 +8,7 @@ class TestUtilsAWSIntegration:
     """Test utility functions that require AWS connectivity."""
 
     @pytest.mark.integration
-    def test_generate_signed_url_success(self):
+    def test_generate_signed_url_success(self, test_bucket):
         """Test URL generation with real AWS connection."""
         # Skip if AWS credentials not available
         try:
@@ -19,14 +19,17 @@ class TestUtilsAWSIntegration:
         except Exception:
             pytest.fail("AWS credentials not available")
 
-        # Use a known public bucket for testing (quilt-example is publicly readable)
-        result = generate_signed_url("s3://quilt-example/README.md", 1800)
+        # Extract bucket name from test_bucket
+        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
+        test_s3_uri = f"s3://{bucket_name}/README.md"
+
+        result = generate_signed_url(test_s3_uri, 1800)
 
         # Should return a valid presigned URL or None if bucket doesn't exist
         if result is not None:
             assert isinstance(result, str)
             assert result.startswith("https://")
-            assert "quilt-example" in result
+            assert bucket_name in result
             assert "README.md" in result
 
     @pytest.mark.integration

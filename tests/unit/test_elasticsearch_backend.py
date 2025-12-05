@@ -32,13 +32,13 @@ class TestIndexNameParsing:
     def test_is_package_index_standard_object_index(self):
         """Standard object index does not contain _packages."""
         assert Quilt3ElasticsearchBackend.is_package_index("mybucket") is False
-        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example") is False
+        assert Quilt3ElasticsearchBackend.is_package_index("testbucket") is False
         assert Quilt3ElasticsearchBackend.is_package_index("quilt-ernest-staging") is False
 
     def test_is_package_index_standard_package_index(self):
         """Standard package index ends with _packages."""
         assert Quilt3ElasticsearchBackend.is_package_index("mybucket_packages") is True
-        assert Quilt3ElasticsearchBackend.is_package_index("quilt-example_packages") is True
+        assert Quilt3ElasticsearchBackend.is_package_index("testbucket_packages") is True
 
     def test_is_package_index_reindexed_object_index(self):
         """Reindexed object index has suffix but no _packages."""
@@ -55,7 +55,7 @@ class TestIndexNameParsing:
         assert Quilt3ElasticsearchBackend.is_package_index("mybucket_packages-reindex-v456") is True
         assert (
             Quilt3ElasticsearchBackend.is_package_index(
-                "quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
+                "testbucket_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
             )
             is True
         )
@@ -69,13 +69,13 @@ class TestIndexNameParsing:
     def test_get_bucket_from_index_standard_object_index(self):
         """Standard object index returns bucket name as-is."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket") == "mybucket"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("testbucket") == "testbucket"
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging") == "quilt-ernest-staging"
 
     def test_get_bucket_from_index_standard_package_index(self):
         """Standard package index strips _packages suffix."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages") == "mybucket"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example_packages") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("testbucket_packages") == "testbucket"
         assert (
             Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-ernest-staging_packages") == "quilt-ernest-staging"
         )
@@ -83,7 +83,7 @@ class TestIndexNameParsing:
     def test_get_bucket_from_index_reindexed_object_index(self):
         """Reindexed object index strips reindex suffix."""
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket-reindex-v123") == "mybucket"
-        assert Quilt3ElasticsearchBackend.get_bucket_from_index("quilt-example-reindex-vabc123") == "quilt-example"
+        assert Quilt3ElasticsearchBackend.get_bucket_from_index("testbucket-reindex-vabc123") == "testbucket"
         assert (
             Quilt3ElasticsearchBackend.get_bucket_from_index(
                 "quilt-ernest-staging-reindex-v79dc05956b8bb535b513b59c0fc201b70bfc4414"
@@ -96,9 +96,9 @@ class TestIndexNameParsing:
         assert Quilt3ElasticsearchBackend.get_bucket_from_index("mybucket_packages-reindex-v456") == "mybucket"
         assert (
             Quilt3ElasticsearchBackend.get_bucket_from_index(
-                "quilt-example_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
+                "testbucket_packages-reindex-vb6281cee7aab120787076fe0116809df7e96ce86"
             )
-            == "quilt-example"
+            == "testbucket"
         )
         assert (
             Quilt3ElasticsearchBackend.get_bucket_from_index(

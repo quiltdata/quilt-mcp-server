@@ -314,7 +314,7 @@ class TestPermissionDiscoveryEngine:
         assert len(identity.account_id) == 12  # AWS account IDs are 12 digits
 
     @pytest.mark.integration
-    def test_discover_bucket_permissions(self):
+    def test_discover_bucket_permissions(self, test_bucket):
         """Test bucket permission discovery with real AWS connection."""
         # Skip if AWS credentials not available
         try:
@@ -325,14 +325,17 @@ class TestPermissionDiscoveryEngine:
         except Exception:
             pytest.fail("AWS credentials not available")
 
+        # Extract bucket name from test_bucket (remove s3:// prefix if present)
+        bucket_name = test_bucket.replace("s3://", "") if test_bucket.startswith("s3://") else test_bucket
+
         discovery = AWSPermissionDiscovery()
 
-        # Test with a known public bucket (should have at least read access)
-        bucket_info = discovery.discover_bucket_permissions("quilt-example")
+        # Test with test bucket (should have at least read access)
+        bucket_info = discovery.discover_bucket_permissions(bucket_name)
 
         # Should succeed or fail gracefully with AWS error
         assert isinstance(bucket_info, BucketInfo)
-        assert bucket_info.name == "quilt-example"
+        assert bucket_info.name == bucket_name
         assert bucket_info.permission_level in [
             PermissionLevel.READ_ONLY,
             PermissionLevel.FULL_ACCESS,
