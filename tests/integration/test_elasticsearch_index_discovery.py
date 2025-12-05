@@ -42,12 +42,6 @@ def backend(quilt_service):
     return backend
 
 
-@pytest.fixture
-def default_bucket():
-    """Return default bucket name (normalized)."""
-    if not QUILT_TEST_BUCKET:
-        raise ValueError("QUILT_TEST_BUCKET environment variable must be set for integration tests")
-    return QUILT_TEST_BUCKET.replace("s3://", "")
 
 
 # ============================================================================
@@ -181,37 +175,37 @@ class TestBucketDiscovery:
 class TestIndexPatternBuilding:
     """Test REAL index pattern building with actual bucket discovery."""
 
-    def test_build_index_pattern_specific_bucket_file_scope(self, backend, default_bucket):
+    def test_build_index_pattern_specific_bucket_file_scope(self, backend, test_bucket):
         """Test building index pattern for specific bucket, file scope.
 
         Expected: "my-bucket" (single index, no _packages)
         """
-        pattern = backend._build_index_pattern("file", default_bucket)
+        pattern = backend._build_index_pattern("file", test_bucket)
 
-        assert pattern == default_bucket, f"Expected '{default_bucket}', got '{pattern}'"
+        assert pattern == test_bucket, f"Expected '{test_bucket}', got '{pattern}'"
         assert "_packages" not in pattern, "File scope should not include _packages"
 
-    def test_build_index_pattern_specific_bucket_package_scope(self, backend, default_bucket):
+    def test_build_index_pattern_specific_bucket_package_scope(self, backend, test_bucket):
         """Test building index pattern for specific bucket, package scope.
 
         Expected: "my-bucket_packages" (single index with _packages)
         """
-        pattern = backend._build_index_pattern("packageEntry", default_bucket)
+        pattern = backend._build_index_pattern("packageEntry", test_bucket)
 
-        expected = f"{default_bucket}_packages"
+        expected = f"{test_bucket}_packages"
         assert pattern == expected, f"Expected '{expected}', got '{pattern}'"
 
-    def test_build_index_pattern_specific_bucket_global_scope(self, backend, default_bucket):
+    def test_build_index_pattern_specific_bucket_global_scope(self, backend, test_bucket):
         """Test building index pattern for specific bucket, global scope.
 
         Expected: "my-bucket,my-bucket_packages" (both indices)
         """
-        pattern = backend._build_index_pattern("global", default_bucket)
+        pattern = backend._build_index_pattern("global", test_bucket)
 
         parts = pattern.split(",")
         assert len(parts) == 2, f"Expected 2 indices, got {len(parts)}"
-        assert default_bucket in parts, f"Expected '{default_bucket}' in pattern"
-        assert f"{default_bucket}_packages" in parts, f"Expected '{default_bucket}_packages' in pattern"
+        assert test_bucket in parts, f"Expected '{test_bucket}' in pattern"
+        assert f"{test_bucket}_packages" in parts, f"Expected '{test_bucket}_packages' in pattern"
 
     def test_build_index_pattern_all_buckets_file_scope(self, backend):
         """Test building index pattern for all buckets, file scope.
@@ -291,14 +285,14 @@ class TestIndexPatternBuilding:
             f"Expected {len(discovered_buckets)} package indices, got {len(package_indices)}"
         )
 
-    def test_build_index_pattern_s3_uri_normalization(self, backend, default_bucket):
+    def test_build_index_pattern_s3_uri_normalization(self, backend, test_bucket):
         """Test that s3:// URIs are normalized correctly."""
         # Test with s3:// prefix
-        pattern1 = backend._build_index_pattern("file", f"s3://{default_bucket}")
-        pattern2 = backend._build_index_pattern("file", default_bucket)
+        pattern1 = backend._build_index_pattern("file", f"s3://{test_bucket}")
+        pattern2 = backend._build_index_pattern("file", test_bucket)
 
         assert pattern1 == pattern2, "s3:// prefix should be normalized"
-        assert pattern1 == default_bucket, f"Expected '{default_bucket}', got '{pattern1}'"
+        assert pattern1 == test_bucket, f"Expected '{test_bucket}', got '{pattern1}'"
 
 
 @pytest.mark.integration
@@ -309,13 +303,13 @@ class TestIndexExistence:
     These tests execute REAL searches to verify indices are accessible.
     """
 
-    async def test_specific_bucket_file_index_exists(self, backend, default_bucket):
+    async def test_specific_bucket_file_index_exists(self, backend, test_bucket):
         """Test that file index for default bucket exists and is searchable."""
         # Build pattern
-        pattern = backend._build_index_pattern("file", default_bucket)
+        pattern = backend._build_index_pattern("file", test_bucket)
 
         # Execute search with wildcard query
-        response = await backend.search(query="*", scope="file", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="file", bucket=test_bucket, limit=10)
 
         # Should succeed (not error)
         assert response.status.value == "available", f"Search failed with error: {response.error_message}"
@@ -323,15 +317,15 @@ class TestIndexExistence:
         # Results should be files only
         for result in response.results:
             assert result.type == "file", f"Expected type='file', got type='{result.type}' for result: {result.name}"
-            assert result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got bucket='{result.bucket}'"
+            assert result.bucket == test_bucket, f"Expected bucket='{test_bucket}', got bucket='{result.bucket}'"
 
-    async def test_specific_bucket_package_index_exists(self, backend, default_bucket):
+    async def test_specific_bucket_package_index_exists(self, backend, test_bucket):
         """Test that package index for default bucket exists and is searchable."""
         # Build pattern
-        pattern = backend._build_index_pattern("packageEntry", default_bucket)
+        pattern = backend._build_index_pattern("packageEntry", test_bucket)
 
         # Execute search with wildcard query
-        response = await backend.search(query="*", scope="packageEntry", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="packageEntry", bucket=test_bucket, limit=10)
 
         # Should succeed (not error)
         assert response.status.value == "available", f"Search failed with error: {response.error_message}"
@@ -341,7 +335,7 @@ class TestIndexExistence:
             assert result.type == "packageEntry", (
                 f"Expected type='package', got type='{result.type}' for result: {result.name}"
             )
-            assert result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got bucket='{result.bucket}'"
+            assert result.bucket == test_bucket, f"Expected bucket='{test_bucket}', got bucket='{result.bucket}'"
 
     async def test_all_buckets_file_indices_exist(self, backend):
         """Test that file indices for all buckets are searchable."""
@@ -389,7 +383,7 @@ class TestIndexExistence:
 class TestIndexPatternValidation:
     """Test that built index patterns match actual Elasticsearch indices."""
 
-    async def test_index_pattern_matches_search_results_metadata(self, backend, default_bucket):
+    async def test_index_pattern_matches_search_results_metadata(self, backend, test_bucket):
         """Test that index pattern matches the '_index' field in search results.
 
         This verifies that:
@@ -398,7 +392,7 @@ class TestIndexPatternValidation:
         3. Results come from the expected indices
         """
         # File scope test
-        response = await backend.search(query="*", scope="file", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="file", bucket=test_bucket, limit=10)
 
         # Extract unique indices from results
         result_indices = {r.metadata.get("_index") for r in response.results if r.metadata.get("_index")}
@@ -407,16 +401,16 @@ class TestIndexPatternValidation:
         for idx in result_indices:
             # Extract base bucket name from index
             bucket_from_index = backend.get_bucket_from_index(idx)
-            assert bucket_from_index == default_bucket, (
-                f"Result from unexpected index: {idx} (bucket: {bucket_from_index}, expected: {default_bucket})"
+            assert bucket_from_index == test_bucket, (
+                f"Result from unexpected index: {idx} (bucket: {bucket_from_index}, expected: {test_bucket})"
             )
 
             # Should not be a package index
             assert not backend.is_package_index(idx), f"File scope returned package index: {idx}"
 
-    async def test_package_index_pattern_matches_search_results(self, backend, default_bucket):
+    async def test_package_index_pattern_matches_search_results(self, backend, test_bucket):
         """Test that package index pattern matches actual package results."""
-        response = await backend.search(query="*", scope="packageEntry", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="packageEntry", bucket=test_bucket, limit=10)
 
         # Extract unique indices from results
         result_indices = {r.metadata.get("_index") for r in response.results if r.metadata.get("_index")}
@@ -428,8 +422,8 @@ class TestIndexPatternValidation:
 
             # Extract base bucket name
             bucket_from_index = backend.get_bucket_from_index(idx)
-            assert bucket_from_index == default_bucket, (
-                f"Result from unexpected bucket: {bucket_from_index}, expected: {default_bucket}"
+            assert bucket_from_index == test_bucket, (
+                f"Result from unexpected bucket: {bucket_from_index}, expected: {test_bucket}"
             )
 
 
@@ -444,16 +438,16 @@ class TestScopeHandlerParsing:
     - Handlers validate documents and return None for invalid ones
     """
 
-    async def test_file_scope_handler_parses_real_documents(self, backend, default_bucket):
+    async def test_file_scope_handler_parses_real_documents(self, backend, test_bucket):
         """Test FileScopeHandler can parse actual file documents from Elasticsearch."""
         # Get a real file document - try different queries
         # Note: Wildcard * might not return results in some ES configurations
         queries = ["*", "csv", "json", "txt", "data", ""]
 
-        response = await backend.search(query="*", scope="file", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="file", bucket=test_bucket, limit=10)
         for query in queries:
             response = await backend.search(
-                query=query if query else "*", scope="file", bucket=default_bucket, limit=10
+                query=query if query else "*", scope="file", bucket=test_bucket, limit=10
             )
             if len(response.results) > 0:
                 break
@@ -463,7 +457,7 @@ class TestScopeHandlerParsing:
 
         # MUST have results - if bucket is empty, that's a test environment problem
         assert len(response.results) > 0, (
-            f"CRITICAL: No files found in {default_bucket} after trying {len(queries)} queries. "
+            f"CRITICAL: No files found in {test_bucket} after trying {len(queries)} queries. "
             f"Cannot test FileScopeHandler parsing without real data. "
             f"Please ensure bucket has indexed files."
         )
@@ -474,10 +468,10 @@ class TestScopeHandlerParsing:
         assert result.type == "file", f"Expected type='file', got type='{result.type}'"
         assert result.name, "File result must have 'name' field (the object key)"
         assert result.title, "File result must have 'title' field"
-        assert result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got '{result.bucket}'"
+        assert result.bucket == test_bucket, f"Expected bucket='{test_bucket}', got '{result.bucket}'"
         assert result.s3_uri, "File result must have s3_uri"
-        assert result.s3_uri.startswith(f"s3://{default_bucket}/"), (
-            f"s3_uri should start with 's3://{default_bucket}/', got: {result.s3_uri}"
+        assert result.s3_uri.startswith(f"s3://{test_bucket}/"), (
+            f"s3_uri should start with 's3://{test_bucket}/', got: {result.s3_uri}"
         )
 
         # Verify required fields are present
@@ -494,7 +488,7 @@ class TestScopeHandlerParsing:
 
         logger.info(f"✅ FileScopeHandler successfully parsed: {result.name}")
 
-    async def test_package_entry_handler_parses_real_documents(self, backend, default_bucket):
+    async def test_package_entry_handler_parses_real_documents(self, backend, test_bucket):
         """Test PackageEntryScopeHandler can parse actual package ENTRY documents ONLY.
 
         CRITICAL: PackageEntryScopeHandler ONLY processes ENTRY documents.
@@ -508,14 +502,14 @@ class TestScopeHandlerParsing:
         - entry_metadata: Metadata including last_modified
         """
         # Get real package ENTRY documents
-        response = await backend.search(query="*", scope="packageEntry", bucket=default_bucket, limit=20)
+        response = await backend.search(query="*", scope="packageEntry", bucket=test_bucket, limit=20)
 
         # Should have at least one result
         assert response.status.value == "available", f"Search failed: {response.error_message}"
 
         # MUST have results - if no package entries exist, that's a test environment problem
         assert len(response.results) > 0, (
-            f"CRITICAL: No package ENTRY documents found in {default_bucket}. "
+            f"CRITICAL: No package ENTRY documents found in {test_bucket}. "
             f"Cannot test PackageEntryScopeHandler parsing without real entry data. "
             f"Please ensure bucket has indexed packages with entries (not just manifests)."
         )
@@ -555,7 +549,7 @@ class TestScopeHandlerParsing:
         # Entry title should be filename (last part of entry_lk)
         assert test_result.title, "Entry result must have 'title' field"
 
-        assert test_result.bucket == default_bucket, f"Expected bucket='{default_bucket}', got '{test_result.bucket}'"
+        assert test_result.bucket == test_bucket, f"Expected bucket='{test_bucket}', got '{test_result.bucket}'"
 
         # Verify required fields are present
         assert test_result.id, "Entry result must have ID"
@@ -565,7 +559,7 @@ class TestScopeHandlerParsing:
 
         # S3 URI should point to the actual entry file (not .quilt/packages/)
         if test_result.s3_uri:
-            assert test_result.s3_uri.startswith(f"s3://{default_bucket}/"), (
+            assert test_result.s3_uri.startswith(f"s3://{test_bucket}/"), (
                 f"Entry s3_uri should point to actual file, got: {test_result.s3_uri}"
             )
             assert ".quilt/packages" not in test_result.s3_uri, (
@@ -591,15 +585,15 @@ class TestScopeHandlerParsing:
         if "package_name" in test_result.metadata:
             assert test_result.metadata["package_name"], "Extracted package_name should not be empty"
 
-    async def test_global_scope_handler_parses_both_types(self, backend, default_bucket):
+    async def test_global_scope_handler_parses_both_types(self, backend, test_bucket):
         """Test GlobalScopeHandler can parse both file and package documents."""
         # Get mixed results - try different queries
         queries = ["*", "csv", "json", "txt", "data", ""]
 
-        response = await backend.search(query="*", scope="global", bucket=default_bucket, limit=20)
+        response = await backend.search(query="*", scope="global", bucket=test_bucket, limit=20)
         for query in queries:
             response = await backend.search(
-                query=query if query else "*", scope="global", bucket=default_bucket, limit=20
+                query=query if query else "*", scope="global", bucket=test_bucket, limit=20
             )
             if len(response.results) > 0:
                 break
@@ -609,7 +603,7 @@ class TestScopeHandlerParsing:
 
         # MUST have results - if bucket is empty, that's a test environment problem
         assert len(response.results) > 0, (
-            f"CRITICAL: No results found in {default_bucket} after trying {len(queries)} queries. "
+            f"CRITICAL: No results found in {test_bucket} after trying {len(queries)} queries. "
             f"Cannot test GlobalScopeHandler parsing without real data. "
             f"Please ensure bucket has indexed content."
         )
@@ -627,8 +621,8 @@ class TestScopeHandlerParsing:
         # Verify file results are valid
         for result in file_results:
             assert result.name, "File result must have name"
-            assert result.bucket == default_bucket
-            assert result.s3_uri.startswith(f"s3://{default_bucket}/")
+            assert result.bucket == test_bucket
+            assert result.s3_uri.startswith(f"s3://{test_bucket}/")
             assert not backend.is_package_index(result.metadata.get("_index", "")), (
                 "File results should not come from package indices"
             )
@@ -636,7 +630,7 @@ class TestScopeHandlerParsing:
         # Verify package results are valid (if any)
         for result in package_results:
             assert result.name, "Package result must have name"
-            assert result.bucket == default_bucket
+            assert result.bucket == test_bucket
             if result.s3_uri:
                 assert ".quilt/packages" in result.s3_uri
             assert backend.is_package_index(result.metadata.get("_index", "")), (
@@ -645,14 +639,14 @@ class TestScopeHandlerParsing:
 
         logger.info(f"✅ GlobalScopeHandler parsed {len(file_results)} files and {len(package_results)} packages")
 
-    async def test_handler_validation_filters_invalid_documents(self, backend, default_bucket):
+    async def test_handler_validation_filters_invalid_documents(self, backend, test_bucket):
         """Test that handlers return None for invalid documents (filtered out).
 
         This is harder to test in integration since we can't inject invalid docs,
         but we can verify the validation logic exists and handles edge cases.
         """
         # Search for packages - should only return valid documents
-        response = await backend.search(query="*", scope="packageEntry", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="packageEntry", bucket=test_bucket, limit=10)
 
         # All returned results should be valid
         for result in response.results:

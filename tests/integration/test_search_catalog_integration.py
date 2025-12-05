@@ -46,18 +46,6 @@ def test_entry():
     return QUILT_TEST_ENTRY
 
 
-@pytest.fixture
-def default_bucket():
-    """Return default bucket name (normalized).
-
-    Example: "my-bucket" (with s3:// prefix removed)
-
-    Set via: QUILT_TEST_BUCKET environment variable
-    """
-    quilt_test_bucket = os.getenv("QUILT_TEST_BUCKET", "")
-    if not quilt_test_bucket:
-        raise ValueError("QUILT_TEST_BUCKET environment variable must be set for integration tests")
-    return quilt_test_bucket.replace("s3://", "")
 
 
 # ============================================================================
@@ -244,7 +232,7 @@ class TestSearchCatalogIntegration:
         result = search_catalog(
             query="csv",
             scope="file",
-            bucket=default_bucket,
+            bucket=test_bucket,
             limit=10,
         )
 
@@ -258,7 +246,7 @@ class TestSearchCatalogIntegration:
 
         # REQUIRE non-zero results - test MUST fail if no results
         assert len(result["results"]) > 0, (
-            f"FILE SCOPE TEST FAILURE: Must return at least 1 file result from bucket {default_bucket}. Got 0 results."
+            f"FILE SCOPE TEST FAILURE: Must return at least 1 file result from bucket {test_bucket}. Got 0 results."
         )
 
         # Verify EVERY result is a file (not just the first one)
@@ -275,7 +263,7 @@ class TestSearchCatalogIntegration:
             test_name="test_package_scope_specific_bucket_returns_only_packages",
             query="*",
             scope="package",
-            bucket=default_bucket,
+            bucket=test_bucket,
             limit=10,
         ) as result:
             # Must be successful
@@ -288,7 +276,7 @@ class TestSearchCatalogIntegration:
 
             # REQUIRE non-zero results - test MUST fail if no results
             assert len(result["results"]) > 0, (
-                f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {default_bucket}. Got 0 results."
+                f"PACKAGE SCOPE TEST FAILURE: Must return at least 1 package result from bucket {test_bucket}. Got 0 results."
             )
 
             # Verify EVERY result is a package (not just the first one)
@@ -363,7 +351,7 @@ class TestFileScopeWithRealData:
         assert shape.count > 0, f"File search for '{test_entry}' returned ZERO results"
         assert shape.types == {"file"}, f"Expected only 'file' type, got: {shape.types}"
 
-    def test_file_scope_specific_bucket_returns_only_files(self, test_entry, default_bucket):
+    def test_file_scope_specific_bucket_returns_only_files(self, test_entry, test_bucket):
         """File scope with bucket='my-bucket' searches single object index.
 
         Behavior:
@@ -377,16 +365,16 @@ class TestFileScopeWithRealData:
         - Bucket: QUILT_TEST_BUCKET (guaranteed to have test data)
         """
         # Execute search
-        result = search_catalog(query=test_entry, scope="file", bucket=default_bucket, limit=50)
+        result = search_catalog(query=test_entry, scope="file", bucket=test_bucket, limit=50)
 
         # Validate response structure
         assert_valid_search_response(result)
 
         # Validate result shape
         shape = get_result_shape(result["results"])
-        assert shape.count > 0, f"File search in {default_bucket} returned ZERO results"
+        assert shape.count > 0, f"File search in {test_bucket} returned ZERO results"
         assert shape.types == {"file"}, f"Expected only 'file' type, got: {shape.types}"
-        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+        assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
 @pytest.mark.integration
@@ -429,7 +417,7 @@ class TestPackageScopeWithRealData:
             package_names = [r["name"] for r in result["results"]]
             assert test_package in package_names, f"Expected to find '{test_package}' in results: {package_names}"
 
-    def test_package_scope_specific_bucket_returns_only_packages(self, test_package, default_bucket):
+    def test_package_scope_specific_bucket_returns_only_packages(self, test_package, test_bucket):
         """Package scope with bucket='my-bucket' searches single package index.
 
         Behavior:
@@ -448,7 +436,7 @@ class TestPackageScopeWithRealData:
             test_name="test_package_scope_specific_bucket_returns_only_packages (with fixtures)",
             query=query,
             scope="package",
-            bucket=default_bucket,
+            bucket=test_bucket,
             limit=50,
         ) as result:
             # Validate response structure
@@ -456,9 +444,9 @@ class TestPackageScopeWithRealData:
 
             # Validate result shape
             shape = get_result_shape(result["results"])
-            assert shape.count > 0, f"Package search in {default_bucket} returned ZERO results"
+            assert shape.count > 0, f"Package search in {test_bucket} returned ZERO results"
             assert shape.types == {"package"}, f"Expected only 'package' type, got: {shape.types}"
-            assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+            assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
 @pytest.mark.integration
@@ -493,7 +481,7 @@ class TestGlobalScopeWithRealData:
             f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
         )
 
-    def test_global_scope_specific_bucket_returns_mixed_types(self, test_entry, default_bucket):
+    def test_global_scope_specific_bucket_returns_mixed_types(self, test_entry, test_bucket):
         """Global scope with bucket='my-bucket' searches both indices in one bucket.
 
         Behavior:
@@ -508,18 +496,18 @@ class TestGlobalScopeWithRealData:
         - Bucket: QUILT_TEST_BUCKET
         """
         # Execute search
-        result = search_catalog(query=test_entry, scope="global", bucket=default_bucket, limit=50)
+        result = search_catalog(query=test_entry, scope="global", bucket=test_bucket, limit=50)
 
         # Validate response structure
         assert_valid_search_response(result)
 
         # Validate result shape
         shape = get_result_shape(result["results"])
-        assert shape.count > 0, f"Global search in {default_bucket} returned ZERO results"
+        assert shape.count > 0, f"Global search in {test_bucket} returned ZERO results"
         assert shape.types.issubset({"file", "packageEntry"}), (
             f"Global scope returned invalid types: {shape.types - {'file', 'package'}}"
         )
-        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+        assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
 @pytest.mark.integration
@@ -527,7 +515,7 @@ class TestGlobalScopeWithRealData:
 class TestBucketPrioritization:
     """Test QUILT_TEST_BUCKET prioritization when bucket=''."""
 
-    def test_default_bucket_results_appear_first_when_set(self, test_entry, default_bucket):
+    def test_test_bucket_results_appear_first_when_set(self, test_entry, test_bucket):
         """When QUILT_TEST_BUCKET is set, results from that bucket appear first.
 
         Behavior:
@@ -537,7 +525,7 @@ class TestBucketPrioritization:
 
         Test Data:
         - Query: QUILT_TEST_ENTRY (exists in multiple buckets ideally)
-        - Expected: default_bucket results appear in first 10 results
+        - Expected: test_bucket results appear in first 10 results
 
         Note: This test makes a SOFT assertion (warning, not failure) because:
         - Test data might not exist in multiple buckets
@@ -560,11 +548,11 @@ class TestBucketPrioritization:
         assert shape.count > 0, "Bucket prioritization test returned ZERO results"
 
         # If default bucket has results, verify it appears early
-        if default_bucket in shape.buckets:
+        if test_bucket in shape.buckets:
             buckets_in_results = [r["bucket"] for r in result["results"]]
-            first_default_idx = buckets_in_results.index(default_bucket)
+            first_default_idx = buckets_in_results.index(test_bucket)
             assert first_default_idx < 10, (
-                f"Default bucket '{default_bucket}' first appears at position {first_default_idx}, "
+                f"Default bucket '{test_bucket}' first appears at position {first_default_idx}, "
                 f"expected in top 10. This may indicate prioritization is not working."
             )
         else:
@@ -572,11 +560,11 @@ class TestBucketPrioritization:
             import warnings
 
             warnings.warn(
-                f"Default bucket '{default_bucket}' not found in top 100 results. "
+                f"Default bucket '{test_bucket}' not found in top 100 results. "
                 f"Test data might not exist in default bucket."
             )
 
-    def test_specific_bucket_ignores_default_bucket_setting(self, test_entry, default_bucket):
+    def test_specific_bucket_ignores_test_bucket_setting(self, test_entry, test_bucket):
         """Specific bucket searches ignore QUILT_TEST_BUCKET setting.
 
         Behavior:
@@ -592,7 +580,7 @@ class TestBucketPrioritization:
         result = search_catalog(
             query=test_entry,
             scope="file",
-            bucket=default_bucket,  # Specific bucket (not "" for all)
+            bucket=test_bucket,  # Specific bucket (not "" for all)
             limit=50,
         )
 
@@ -602,7 +590,7 @@ class TestBucketPrioritization:
         # Validate result shape - ALL results from specified bucket
         # (This implicitly proves QUILT_TEST_BUCKET setting had no effect)
         shape = get_result_shape(result["results"])
-        assert shape.buckets == {default_bucket}, f"Expected only {default_bucket}, got: {shape.buckets}"
+        assert shape.buckets == {test_bucket}, f"Expected only {test_bucket}, got: {shape.buckets}"
 
 
 @pytest.mark.integration
@@ -610,7 +598,7 @@ class TestBucketPrioritization:
 class TestBucketNormalization:
     """Test s3:// URI normalization in bucket parameter."""
 
-    def test_s3_uri_normalized_to_bucket_name(self, test_entry, default_bucket):
+    def test_s3_uri_normalized_to_bucket_name(self, test_entry, test_bucket):
         """bucket='s3://my-bucket' should work same as bucket='my-bucket'.
 
         Behavior:
@@ -626,7 +614,7 @@ class TestBucketNormalization:
         result1 = search_catalog(
             query=test_entry,
             scope="file",
-            bucket=default_bucket,  # e.g., "my-bucket"
+            bucket=test_bucket,  # e.g., "my-bucket"
             limit=10,
         )
 
@@ -634,7 +622,7 @@ class TestBucketNormalization:
         result2 = search_catalog(
             query=test_entry,
             scope="file",
-            bucket=f"s3://{default_bucket}",  # e.g., "s3://my-bucket"
+            bucket=f"s3://{test_bucket}",  # e.g., "s3://my-bucket"
             limit=10,
         )
 
@@ -643,10 +631,10 @@ class TestBucketNormalization:
         assert_valid_search_response(result2)
 
         # Both should return same normalized bucket in response
-        assert result1.get("bucket") == default_bucket, f"Result1 bucket should be normalized: {result1.get('bucket')}"
-        assert result2.get("bucket") == default_bucket, f"Result2 bucket should be normalized: {result2.get('bucket')}"
+        assert result1.get("bucket") == test_bucket, f"Result1 bucket should be normalized: {result1.get('bucket')}"
+        assert result2.get("bucket") == test_bucket, f"Result2 bucket should be normalized: {result2.get('bucket')}"
 
-    def test_s3_uri_with_trailing_slash_normalized(self, test_entry, default_bucket):
+    def test_s3_uri_with_trailing_slash_normalized(self, test_entry, test_bucket):
         """bucket='s3://my-bucket/' should work (trailing slash removed).
 
         Behavior:
@@ -661,7 +649,7 @@ class TestBucketNormalization:
         result = search_catalog(
             query=test_entry,
             scope="file",
-            bucket=f"s3://{default_bucket}/",  # Trailing slash
+            bucket=f"s3://{test_bucket}/",  # Trailing slash
             limit=10,
         )
 
@@ -669,6 +657,6 @@ class TestBucketNormalization:
         assert_valid_search_response(result)
 
         # Should return normalized bucket (no s3://, no trailing slash)
-        assert result.get("bucket") == default_bucket, (
-            f"Bucket should be normalized to '{default_bucket}', got '{result.get('bucket')}'"
+        assert result.get("bucket") == test_bucket, (
+            f"Bucket should be normalized to '{test_bucket}', got '{result.get('bucket')}'"
         )

@@ -75,7 +75,7 @@ class TestPackageScopeIntegration:
     """
 
     @requires_collapse
-    async def test_package_scope_basic_search(self, backend, default_bucket):
+    async def test_package_scope_basic_search(self, backend, test_bucket):
         """Should search packages and return package-centric results.
 
         This test verifies:
@@ -86,17 +86,17 @@ class TestPackageScopeIntegration:
 
         REQUIRES: Elasticsearch collapse support
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=10)
 
         # Should succeed
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
         # Should return results (assuming bucket has packages)
         assert len(response.results) > 0, (
-            f"No packages found in {default_bucket}. Bucket must have indexed packages for this test."
+            f"No packages found in {test_bucket}. Bucket must have indexed packages for this test."
         )
 
-        logger.info(f"Found {len(response.results)} packages in {default_bucket}")
+        logger.info(f"Found {len(response.results)} packages in {test_bucket}")
 
         # All results should be packages
         for result in response.results:
@@ -125,7 +125,7 @@ class TestPackageScopeIntegration:
             )
 
     @requires_collapse
-    async def test_package_scope_with_file_filter(self, backend, default_bucket):
+    async def test_package_scope_with_file_filter(self, backend, test_bucket):
         """Should find packages containing specific file types.
 
         This test verifies:
@@ -134,7 +134,7 @@ class TestPackageScopeIntegration:
         - Matched entries may include files matching the query
         """
         # Search for packages with CSV files
-        response = await backend.search(query="csv", scope="package", bucket=default_bucket, limit=10)
+        response = await backend.search(query="csv", scope="package", bucket=test_bucket, limit=10)
 
         assert response.status.value in ["available", "not_found"], (
             f"Package search with filter failed: {response.error_message}"
@@ -160,12 +160,12 @@ class TestPackageScopeIntegration:
 
         else:
             logger.warning(
-                f"No packages found with 'csv' query in {default_bucket}. "
+                f"No packages found with 'csv' query in {test_bucket}. "
                 f"Test cannot verify file filter behavior without data."
             )
 
     @requires_collapse
-    async def test_package_scope_groups_by_package(self, backend, default_bucket):
+    async def test_package_scope_groups_by_package(self, backend, test_bucket):
         """Should return one result per package, not per file.
 
         This test verifies the key grouping behavior:
@@ -174,11 +174,11 @@ class TestPackageScopeIntegration:
         - Multiple matched files are aggregated into matched_entries
         """
         # Search for something likely to match multiple files
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=20)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=20)
 
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
-        assert len(response.results) > 0, f"No packages found in {default_bucket}"
+        assert len(response.results) > 0, f"No packages found in {test_bucket}"
 
         # Extract package names (ptr_name from metadata)
         package_names = [r.metadata.get("ptr_name") for r in response.results]
@@ -207,7 +207,7 @@ class TestPackageScopeIntegration:
             )
 
     @requires_collapse
-    async def test_package_scope_vs_packageEntry_scope(self, backend, default_bucket):
+    async def test_package_scope_vs_packageEntry_scope(self, backend, test_bucket):
         """Package scope should return fewer, grouped results vs packageEntry.
 
         This test verifies the difference between scopes:
@@ -222,10 +222,10 @@ class TestPackageScopeIntegration:
         query = "*"
 
         # Get package results (grouped)
-        package_response = await backend.search(query=query, scope="package", bucket=default_bucket, limit=10)
+        package_response = await backend.search(query=query, scope="package", bucket=test_bucket, limit=10)
 
         # Get entry results (individual files)
-        entry_response = await backend.search(query=query, scope="packageEntry", bucket=default_bucket, limit=10)
+        entry_response = await backend.search(query=query, scope="packageEntry", bucket=test_bucket, limit=10)
 
         # Both should succeed
         assert package_response.status.value == "available", f"Package search failed: {package_response.error_message}"
@@ -249,7 +249,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ Package scope returns packages, packageEntry scope returns files")
 
     @requires_collapse
-    async def test_package_scope_matched_entries_structure(self, backend, default_bucket):
+    async def test_package_scope_matched_entries_structure(self, backend, test_bucket):
         """Should include properly structured matched entry information.
 
         This test verifies:
@@ -258,11 +258,11 @@ class TestPackageScopeIntegration:
         - showing_entries is an integer
         - Each entry in matched_entries has expected fields
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=5)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=5)
 
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
-        assert len(response.results) > 0, f"No packages found in {default_bucket}"
+        assert len(response.results) > 0, f"No packages found in {test_bucket}"
 
         # Check structure of matched entries
         for result in response.results:
@@ -312,7 +312,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ All matched_entries structures are valid")
 
     @requires_collapse
-    async def test_package_scope_empty_results(self, backend, default_bucket):
+    async def test_package_scope_empty_results(self, backend, test_bucket):
         """Should handle queries with no results gracefully.
 
         This test verifies:
@@ -320,7 +320,7 @@ class TestPackageScopeIntegration:
         - Response structure is valid even with no results
         """
         response = await backend.search(
-            query="xyznonexistentquery12345", scope="package", bucket=default_bucket, limit=10
+            query="xyznonexistentquery12345", scope="package", bucket=test_bucket, limit=10
         )
 
         # Should succeed but return no results (or not_found status)
@@ -335,7 +335,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ Empty results handled gracefully")
 
     @requires_collapse
-    async def test_package_scope_complex_query(self, backend, default_bucket):
+    async def test_package_scope_complex_query(self, backend, test_bucket):
         """Should handle complex boolean queries.
 
         This test verifies:
@@ -353,7 +353,7 @@ class TestPackageScopeIntegration:
         for query in queries:
             logger.info(f"Testing query: {query}")
 
-            response = await backend.search(query=query, scope="package", bucket=default_bucket, limit=5)
+            response = await backend.search(query=query, scope="package", bucket=test_bucket, limit=5)
 
             # Should execute without error
             assert response.status.value in ["available", "not_found"], (
@@ -369,7 +369,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ All complex queries executed successfully")
 
     @requires_collapse
-    async def test_package_scope_description_format(self, backend, default_bucket):
+    async def test_package_scope_description_format(self, backend, test_bucket):
         """Should format package descriptions properly.
 
         This test verifies:
@@ -378,11 +378,11 @@ class TestPackageScopeIntegration:
         - Description includes matched file count
         - Description is human-readable
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=5)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=5)
 
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
-        assert len(response.results) > 0, f"No packages found in {default_bucket}"
+        assert len(response.results) > 0, f"No packages found in {test_bucket}"
 
         for result in response.results:
             description = result.description
@@ -412,7 +412,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ All package descriptions properly formatted")
 
     @requires_collapse
-    async def test_package_scope_s3_uri_format(self, backend, default_bucket):
+    async def test_package_scope_s3_uri_format(self, backend, test_bucket):
         """Should generate correct S3 URIs to package manifests.
 
         This test verifies:
@@ -420,11 +420,11 @@ class TestPackageScopeIntegration:
         - S3 URI includes manifest hash (mnfst_name)
         - S3 URI format is valid
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=5)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=5)
 
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
-        assert len(response.results) > 0, f"No packages found in {default_bucket}"
+        assert len(response.results) > 0, f"No packages found in {test_bucket}"
 
         for result in response.results:
             s3_uri = result.s3_uri
@@ -436,8 +436,8 @@ class TestPackageScopeIntegration:
             assert ".quilt/packages" in s3_uri, f"Package s3_uri should point to .quilt/packages/, got: {s3_uri}"
 
             # Should start with s3://bucket/
-            assert s3_uri.startswith(f"s3://{default_bucket}/"), (
-                f"s3_uri should start with 's3://{default_bucket}/', got: {s3_uri}"
+            assert s3_uri.startswith(f"s3://{test_bucket}/"), (
+                f"s3_uri should start with 's3://{test_bucket}/', got: {s3_uri}"
             )
 
             # Should include manifest hash
@@ -450,7 +450,7 @@ class TestPackageScopeIntegration:
         logger.info("✅ All S3 URIs properly formatted")
 
     @requires_collapse
-    async def test_package_scope_wildcard_query(self, backend, default_bucket):
+    async def test_package_scope_wildcard_query(self, backend, test_bucket):
         """Should handle wildcard queries correctly.
 
         This test verifies:
@@ -458,7 +458,7 @@ class TestPackageScopeIntegration:
         - Prefix wildcards (test*) work
         - Results are properly grouped packages
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=10)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=10)
 
         # Should succeed with wildcard
         assert response.status.value == "available", f"Wildcard search failed: {response.error_message}"
@@ -466,7 +466,7 @@ class TestPackageScopeIntegration:
         # Should return results (assuming bucket has packages)
         if len(response.results) == 0:
             logger.warning(
-                f"Wildcard query returned no results in {default_bucket}. "
+                f"Wildcard query returned no results in {test_bucket}. "
                 f"This may indicate no packages exist or wildcard queries are disabled."
             )
             pytest.skip("No packages found with wildcard query")
@@ -479,7 +479,7 @@ class TestPackageScopeIntegration:
         logger.info(f"✅ Wildcard query returned {len(response.results)} packages")
 
     @requires_collapse
-    async def test_package_scope_limit_respected(self, backend, default_bucket):
+    async def test_package_scope_limit_respected(self, backend, test_bucket):
         """Should respect limit parameter.
 
         This test verifies:
@@ -487,7 +487,7 @@ class TestPackageScopeIntegration:
         - Limit parameter is properly applied
         """
         limit = 3
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=limit)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=limit)
 
         assert response.status.value in ["available", "not_found"], f"Limited search failed: {response.error_message}"
 
@@ -497,7 +497,7 @@ class TestPackageScopeIntegration:
         logger.info(f"✅ Limit respected: {len(response.results)} <= {limit}")
 
     @requires_collapse
-    async def test_package_scope_metadata_completeness(self, backend, default_bucket):
+    async def test_package_scope_metadata_completeness(self, backend, test_bucket):
         """Should include all required metadata fields.
 
         This test verifies package results have:
@@ -507,11 +507,11 @@ class TestPackageScopeIntegration:
         - showing_entries (int)
         - _index (source index name)
         """
-        response = await backend.search(query="*", scope="package", bucket=default_bucket, limit=5)
+        response = await backend.search(query="*", scope="package", bucket=test_bucket, limit=5)
 
         assert response.status.value == "available", f"Package search failed: {response.error_message}"
 
-        assert len(response.results) > 0, f"No packages found in {default_bucket}"
+        assert len(response.results) > 0, f"No packages found in {test_bucket}"
 
         required_fields = ["ptr_name", "matched_entries", "matched_entry_count", "showing_entries", "_index"]
 
@@ -553,12 +553,12 @@ class TestPackageScopeEdgeCases:
 
         logger.info("✅ Nonexistent bucket handled gracefully")
 
-    async def test_package_scope_empty_query(self, backend, default_bucket):
+    async def test_package_scope_empty_query(self, backend, test_bucket):
         """Should handle empty query string.
 
         This test does NOT require collapse support - it tests error handling.
         """
-        response = await backend.search(query="", scope="package", bucket=default_bucket, limit=10)
+        response = await backend.search(query="", scope="package", bucket=test_bucket, limit=10)
 
         # Should either succeed or fail gracefully
         assert response.status.value in ["available", "not_found", "error"], (
@@ -568,7 +568,7 @@ class TestPackageScopeEdgeCases:
         logger.info(f"Empty query status: {response.status.value}")
 
     @requires_collapse
-    async def test_package_scope_special_characters(self, backend, default_bucket):
+    async def test_package_scope_special_characters(self, backend, test_bucket):
         """Should handle special characters in queries."""
         # Test various special characters that might cause issues
         special_queries = [
@@ -580,7 +580,7 @@ class TestPackageScopeEdgeCases:
         for query in special_queries:
             logger.info(f"Testing query with special chars: {query}")
 
-            response = await backend.search(query=query, scope="package", bucket=default_bucket, limit=5)
+            response = await backend.search(query=query, scope="package", bucket=test_bucket, limit=5)
 
             # Should not error
             assert response.status.value in ["available", "not_found"], (
