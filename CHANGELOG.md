@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2025-12-12
+
+### Added
+
+- **Startup Error Diagnostics**: Comprehensive error messages when server fails to start
+  - Detailed error output to stderr with troubleshooting steps for common issues
+  - Context-aware help for missing dependencies, port conflicts, permissions, etc.
+  - System information (Python version, platform, working directory) included in error output
+  - Specific guidance for installing `uv`/`uvx` when missing
+
+### Changed
+
+- **Error Handling**: Enhanced error messages in `main.py` and `utils.py`
+  - `print_startup_error()` helper formats diagnostic messages with actionable troubleshooting
+  - Import errors now provide clear installation instructions
+  - Generic errors include traceback for debugging
+  - Port conflicts and permission errors have specific troubleshooting steps
+
+### Fixed
+
+- Users no longer see only "Server transport closed unexpectedly" without diagnostic information
+- MCP client logs now contain helpful error details for debugging startup failures
+
 ## [0.9.3] - 2025-12-04
 
 ### BREAKING CHANGES
