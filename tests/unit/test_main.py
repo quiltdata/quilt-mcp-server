@@ -115,3 +115,100 @@ def test_skip_banner_env_false(monkeypatch):
 
     assert called is True
     assert skip_banner is False
+
+
+def test_main_import_error_handling(monkeypatch, capsys):
+    """Test that ImportError is caught and formatted with diagnostic info."""
+    import quilt_mcp.main as main_module
+    import sys
+    from importlib import reload
+
+    reload(main_module)
+
+    def fake_run_server(skip_banner=False):
+        raise ImportError("No module named 'fake_module'")
+
+    main_module.run_server = fake_run_server  # type: ignore[attr-defined]
+
+    # Mock sys.argv to avoid argparse errors
+    old_argv = sys.argv
+    sys.argv = ["quilt-mcp"]
+    try:
+        # Test that main() exits with code 1 on ImportError
+        with pytest.raises(SystemExit) as exc_info:
+            main_module.main()
+
+        assert exc_info.value.code == 1
+
+        # Check that diagnostic output was written to stderr
+        captured = capsys.readouterr()
+        assert "QUILT MCP SERVER STARTUP ERROR" in captured.err
+        assert "Missing Dependency" in captured.err
+        assert "fake_module" in captured.err
+        assert "Troubleshooting:" in captured.err
+    finally:
+        sys.argv = old_argv
+
+
+def test_main_generic_error_handling(monkeypatch, capsys):
+    """Test that generic exceptions are caught and formatted."""
+    import quilt_mcp.main as main_module
+    import sys
+    from importlib import reload
+
+    reload(main_module)
+
+    def fake_run_server(skip_banner=False):
+        raise ValueError("Something went wrong")
+
+    main_module.run_server = fake_run_server  # type: ignore[attr-defined]
+
+    # Mock sys.argv to avoid argparse errors
+    old_argv = sys.argv
+    sys.argv = ["quilt-mcp"]
+    try:
+        # Test that main() exits with code 1 on generic error
+        with pytest.raises(SystemExit) as exc_info:
+            main_module.main()
+
+        assert exc_info.value.code == 1
+
+        # Check that diagnostic output was written to stderr
+        captured = capsys.readouterr()
+        assert "QUILT MCP SERVER STARTUP ERROR" in captured.err
+        assert "Unexpected Error" in captured.err
+        assert "Something went wrong" in captured.err
+        assert "Traceback:" in captured.err
+    finally:
+        sys.argv = old_argv
+
+
+def test_main_keyboard_interrupt(monkeypatch, capsys):
+    """Test that KeyboardInterrupt exits cleanly."""
+    import quilt_mcp.main as main_module
+    import sys
+    from importlib import reload
+
+    reload(main_module)
+
+    def fake_run_server(skip_banner=False):
+        raise KeyboardInterrupt()
+
+    main_module.run_server = fake_run_server  # type: ignore[attr-defined]
+
+    # Mock sys.argv to avoid argparse errors
+    old_argv = sys.argv
+    sys.argv = ["quilt-mcp"]
+    try:
+        # Test that main() exits with code 0 on KeyboardInterrupt
+        with pytest.raises(SystemExit) as exc_info:
+            main_module.main()
+
+        assert exc_info.value.code == 0
+
+        # Check that clean shutdown message was printed
+        captured = capsys.readouterr()
+        assert "shutdown" in captured.err.lower()
+        assert "user interrupt" in captured.err.lower()
+    finally:
+        sys.argv = old_argv

@@ -470,7 +470,30 @@ def run_server(skip_banner: bool = False) -> None:
 
         mcp.run(transport=transport, show_banner=not skip_banner)
 
+    except (ImportError, ModuleNotFoundError) as e:
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        print(f"Error starting MCP server - Missing dependency: {e}", file=sys.stderr)
+        print(file=sys.stderr)
+        print("This error usually means a required Python package is not installed.", file=sys.stderr)
+        print("Please install quilt-mcp with: uvx quilt-mcp  or  pip install quilt-mcp", file=sys.stderr)
+        raise
+
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        print(f"Error starting MCP server: {e}", file=sys.stderr)
+        error_msg = str(e)
+        print(f"Error starting MCP server: {error_msg}", file=sys.stderr)
+
+        # Provide helpful context for common error types
+        if "address already in use" in error_msg.lower():
+            print(file=sys.stderr)
+            print("The server port is already in use. Try:", file=sys.stderr)
+            print("1. Change the port with FASTMCP_PORT environment variable", file=sys.stderr)
+            print("2. Stop the existing server process", file=sys.stderr)
+        elif "permission denied" in error_msg.lower():
+            print(file=sys.stderr)
+            print("Permission denied. Check file/directory permissions or try a different port.", file=sys.stderr)
+        elif "connection" in error_msg.lower():
+            print(file=sys.stderr)
+            print("Network connection issue. Check your network settings and firewall.", file=sys.stderr)
+
         raise
