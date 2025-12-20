@@ -554,10 +554,79 @@ When encountering specialized formats that require specific libraries:
 
 ---
 
+## 🔍 Search & Discovery Prompts
+
+### Scenario 15: Natural Language Search
+
+**Prompt:**
+
+```prompt
+I need to find all CSV files larger than 100MB that were created after January 1st, 2024.
+```
+
+**What the LLM will do:**
+
+- Call `search_catalog("CSV files larger than 100MB created after 2024-01-01")`
+- The query parser automatically extracts:
+  - File type filter: CSV files
+  - Size filter: > 100MB
+  - Date filter: after 2024-01-01
+- Return matching results with metadata
+
+**Natural Language Filter Examples:**
+
+| Query | What Gets Extracted |
+|-------|-------------------|
+| `"CSV files"` | File extension: .csv |
+| `"files larger than 100MB"` | Size filter: > 100MB |
+| `"smaller than 1GB"` | Size filter: < 1GB |
+| `"created after 2023-01-01"` | Date filter: creation date > 2023-01-01 |
+| `"in the last 30 days"` | Date filter: relative to today |
+| `"modified this week"` | Date filter: modification date this week |
+| `"JSON data in genomics packages"` | File type: .json, keyword: genomics |
+
+---
+
+### Scenario 16: Search Within Specific Scope
+
+**Prompt:**
+
+```prompt
+Find all Parquet files in the "genomics-research" bucket that are smaller than 500MB.
+```
+
+**What the LLM will do:**
+
+- Call `search_catalog("Parquet files smaller than 500MB", scope="bucket", target="s3://genomics-research")`
+- Narrows search to specific bucket
+- Applies file type and size filters
+- Returns results efficiently
+
+---
+
+### Scenario 17: Package Discovery
+
+**Prompt:**
+
+```prompt
+Show me all packages created in the last month that contain the keyword "experiment".
+```
+
+**What the LLM will do:**
+
+- Call `search_catalog("experiment packages created in the last month", scope="catalog")`
+- Searches across all packages in catalog
+- Filters by creation date (relative)
+- Returns package list with metadata
+
+---
+
 ## 🔗 Quick Reference
 
 | Task | Recommended Tool | Key Parameters |
 |------|-----------------|----------------|
+| Search with natural language | `search_catalog()` | `query` (uses natural language) |
+| Search specific location | `search_catalog()` | `scope`, `target` |
 | Create from specific S3 files | `package_create()` | `files`, `name` |
 | Bulk import from S3 prefix | `package_create_from_s3()` | `source_bucket`, `source_prefix` |
 | Upload then package | `bucket_objects_put()` → `package_create()` | `bucket`, `items`, then `files` |

@@ -16,12 +16,8 @@ from fastmcp import FastMCP
 from fastmcp.resources import Resource
 
 from quilt_mcp.runtime_context import (
-    RuntimeAuthState,
-    push_runtime_context,
-    reset_runtime_context,
     set_default_environment,
 )
-from quilt_mcp.services.bearer_auth_service import JwtAuthError, get_bearer_auth_service
 
 
 def parse_s3_uri(s3_uri: str) -> tuple[str, str, str | None]:
@@ -139,13 +135,9 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "catalog_info",
         "catalog_name",
         "filesystem_status",
-        "aws_permissions_discover",
+        # Note: discover_permissions is kept as TOOL (not resource) to accept parameters
         "bucket_recommendations_get",
-        "bucket_access_check",
-        "admin_user_get",
-        "athena_table_schema",
         "athena_query_history",
-        "tabulator_tables_list",
         "get_metadata_template",
         "workflow_get_status",
     ]
@@ -157,8 +149,8 @@ def register_tools(mcp: FastMCP, tool_modules: list[Any] | None = None, verbose:
         "list_tabulator_buckets",  # Prefer tabulator_buckets_list resource
         "list_tabulator_tables",  # Prefer tabulator_tables_list resource
         "packages_list",  # Prefer unified_search
-        "athena_tables_list",  # Prefer athena_query_execute
         "get_tabulator_service",  # Internal use only
+        "get_permission_discovery",  # Internal helper - returns singleton instance
     }
 
     # Merge resource-available tools into excluded set
@@ -343,64 +335,17 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     """
     mcp = create_mcp_server()
 
-    # Initialize resources AFTER creating server
-    from quilt_mcp.resources import register_all_resources, get_registry
+    # Register resources using FastMCP decorator pattern
     from quilt_mcp.config import resource_config
     import sys
 
     if resource_config.RESOURCES_ENABLED:
-        register_all_resources()
-        registry = get_registry()
-        resources = registry.list_resources()
+        from quilt_mcp.resources import register_resources
 
-        # Register each resource with FastMCP
-        import re
-
-        def create_handler(resource_uri: str):
-            """Create a handler with proper closure for each resource URI."""
-            # Extract parameters from URI pattern (e.g., {bucket} from tabulator://buckets/{bucket}/tables)
-            param_names = re.findall(r'\{(\w+)\}', resource_uri)
-
-            if param_names:
-                # Create handler with parameters for template URIs
-                async def parameterized_handler(**kwargs) -> str:
-                    """Resource handler with URI parameters."""
-                    # Construct the actual URI by replacing parameters
-                    actual_uri = resource_uri
-                    for param_name, param_value in kwargs.items():
-                        actual_uri = actual_uri.replace(f"{{{param_name}}}", param_value)
-
-                    response = await registry.read_resource(actual_uri)
-                    return response._serialize_content()
-
-                return parameterized_handler
-            else:
-                # Create simple handler for static URIs
-                async def static_handler() -> str:
-                    """Resource handler."""
-                    response = await registry.read_resource(resource_uri)
-                    return response._serialize_content()
-
-                return static_handler
-
-        for resource_info in resources:
-            uri = resource_info["uri"]
-            name = resource_info["name"]
-            description = resource_info["description"]
-            mime_type = resource_info["mimeType"]
-
-            # Register with FastMCP using the new Resource.from_function API
-            resource = Resource.from_function(
-                fn=create_handler(uri),
-                uri=uri,
-                name=name,
-                description=description,
-                mime_type=mime_type,
-            )
-            mcp.add_resource(resource)
+        register_resources(mcp)
 
         if verbose:
-            print(f"Registered {len(resources)} MCP resources", file=sys.stderr)
+            print("Registered MCP resources", file=sys.stderr)
 
     tools_count = register_tools(mcp, verbose=verbose)
 
@@ -461,73 +406,37 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     try:
         from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.responses import JSONResponse
         from starlette.datastructures import MutableHeaders
     except ImportError as exc:  # pragma: no cover
         logger.error("Starlette HTTP middleware unavailable: %s", exc)
         return app
 
-    require_jwt = os.getenv("MCP_REQUIRE_JWT", "false").lower() == "true"
-
-    class QuiltAuthMiddleware(BaseHTTPMiddleware):
-        """Middleware that injects runtime auth state for HTTP requests."""
+    class QuiltAcceptHeaderMiddleware(BaseHTTPMiddleware):
+        """Middleware that fixes Accept headers for SSE compatibility."""
 
         HEALTH_PATHS = {"/health", "/healthz"}
 
         async def dispatch(self, request, call_next):
-            context_token = None
             headers = MutableHeaders(scope=request.scope)
             accept_header = headers.get("accept", "")
             if "application/json" in accept_header and "text/event-stream" not in accept_header:
                 headers["accept"] = f"{accept_header}, text/event-stream"
 
-            if request.url.path in self.HEALTH_PATHS:
-                return await call_next(request)
+            return await call_next(request)
 
-            authorization = request.headers.get("authorization")
-            metadata = {"path": request.url.path}
-            auth_state: Optional[RuntimeAuthState] = None
-
-            if authorization:
-                auth_service = get_bearer_auth_service()
-                try:
-                    jwt_result = auth_service.authenticate_header(authorization)
-                    boto3_session = auth_service.build_boto3_session(jwt_result)
-                    auth_state = RuntimeAuthState(
-                        scheme="jwt",
-                        access_token=jwt_result.token,
-                        claims=jwt_result.claims,
-                        extras={
-                            "jwt_auth_result": jwt_result,
-                            "aws_credentials": jwt_result.aws_credentials,
-                            "aws_role_arn": jwt_result.aws_role_arn,
-                            "boto3_session": boto3_session,
-                        },
-                    )
-                except JwtAuthError as exc:
-                    logger.warning("JWT authentication failed for %s: %s", request.url.path, exc.detail)
-                    return JSONResponse({"error": exc.code, "detail": exc.detail}, status_code=401)
-            elif require_jwt:
-                return JSONResponse(
-                    {"error": "missing_authorization", "detail": "Bearer token required"},
-                    status_code=401,
-                )
-
-            environment = "web-jwt" if auth_state else "web-iam"
-            context_token = push_runtime_context(environment=environment, auth=auth_state, metadata=metadata)
-
-            try:
-                return await call_next(request)
-            finally:
-                if context_token is not None:
-                    reset_runtime_context(context_token)
-
-    app.add_middleware(QuiltAuthMiddleware)
+    app.add_middleware(QuiltAcceptHeaderMiddleware)
     return app
 
 
-def run_server() -> None:
-    """Run the MCP server with proper error handling."""
+def run_server(skip_banner: bool = False) -> None:
+    """Run the MCP server with proper error handling.
+
+    Args:
+        skip_banner: If True, skip the FastMCP startup banner display.
+                    Useful for multi-server setups where banner output can
+                    interfere with JSON-RPC communication over stdio.
+                    Defaults to False (show banner).
+    """
     try:
         # Create and configure the server
         mcp = create_configured_server()
@@ -544,7 +453,7 @@ def run_server() -> None:
 
         if transport == "stdio":
             set_default_environment("desktop-stdio")
-            mcp.run(transport=transport)
+            mcp.run(transport=transport, show_banner=not skip_banner)
             return
 
         set_default_environment("web-service")
@@ -559,9 +468,32 @@ def run_server() -> None:
             uvicorn.run(app, host=host, port=port, log_level="info")
             return
 
-        mcp.run(transport=transport)
+        mcp.run(transport=transport, show_banner=not skip_banner)
+
+    except (ImportError, ModuleNotFoundError) as e:
+        # Use stderr to avoid interfering with JSON-RPC on stdout
+        print(f"Error starting MCP server - Missing dependency: {e}", file=sys.stderr)
+        print(file=sys.stderr)
+        print("This error usually means a required Python package is not installed.", file=sys.stderr)
+        print("Please install quilt-mcp with: uvx quilt-mcp  or  pip install quilt-mcp", file=sys.stderr)
+        raise
 
     except Exception as e:
         # Use stderr to avoid interfering with JSON-RPC on stdout
-        print(f"Error starting MCP server: {e}", file=sys.stderr)
+        error_msg = str(e)
+        print(f"Error starting MCP server: {error_msg}", file=sys.stderr)
+
+        # Provide helpful context for common error types
+        if "address already in use" in error_msg.lower():
+            print(file=sys.stderr)
+            print("The server port is already in use. Try:", file=sys.stderr)
+            print("1. Change the port with FASTMCP_PORT environment variable", file=sys.stderr)
+            print("2. Stop the existing server process", file=sys.stderr)
+        elif "permission denied" in error_msg.lower():
+            print(file=sys.stderr)
+            print("Permission denied. Check file/directory permissions or try a different port.", file=sys.stderr)
+        elif "connection" in error_msg.lower():
+            print(file=sys.stderr)
+            print("Network connection issue. Check your network settings and firewall.", file=sys.stderr)
+
         raise

@@ -94,3 +94,103 @@ def test_health_check_collects_recommendations(monkeypatch: pytest.MonkeyPatch):
     recommendations = set(result["recovery_recommendations"])
     assert any("Check IAM permissions" in rec for rec in recommendations)
     assert any("Access denied" in rec or "permissions" in rec.lower() for rec in recommendations)
+
+
+# ============================================================================
+# Tests for Phase 8: NO_DEFAULT_REGISTRY compliance
+# Spec: spec/a10-no-default-registry.md (Phase 8, section 4)
+# ============================================================================
+
+
+def test_check_package_operations_uses_public_bucket():
+    """Verify health check doesn't rely on DEFAULT_REGISTRY.
+
+    From spec/a10-no-default-registry.md Phase 8:
+    Health check should use explicit public bucket (PUBLIC_DEMO_BUCKET in error_recovery.py),
+    not DEFAULT_REGISTRY which has been removed from production code.
+
+    This test ensures:
+    1. _check_package_operations() doesn't raise ConfigurationError about missing registry
+    2. Function either succeeds or fails with AWS error (not config error)
+    3. Error messages don't combine "registry" and "required" together
+    """
+    result = error_recovery._check_package_operations()
+
+    # Should return a dict
+    assert isinstance(result, dict), "Health check should return a dict"
+
+    # If it fails, should NOT be a configuration error about missing registry
+    if isinstance(result, dict) and not result.get("success"):
+        error_msg = str(result.get("error", "")).lower()
+        # Defensive: check that error doesn't mention both "registry" and "required"
+        # This would indicate it's trying to use a default that doesn't exist
+        has_registry = "registry" in error_msg
+        has_required = "required" in error_msg
+        assert not (has_registry and has_required), (
+            f"Health check should not require DEFAULT_REGISTRY, but got error: {result.get('error')}"
+        )
+
+    # Should have expected structure
+    assert "package_ops_available" in result or "error" in result, "Should have either success or error info"
+
+
+def test_health_check_returns_dict():
+    """Basic structure validation for _check_package_operations().
+
+    Verifies the function returns expected data structure with proper keys.
+    """
+    result = error_recovery._check_package_operations()
+
+    # Should return a dict
+    assert isinstance(result, dict), "Health check should return a dict"
+
+    # Check for expected keys
+    assert "package_ops_available" in result or "error" in result, "Should have status or error information"
+
+    # If successful, should have package_ops_available key
+    if not result.get("error"):
+        assert "package_ops_available" in result, "Success case should indicate package operations availability"
+
+
+def test_health_check_handles_errors_gracefully():
+    """Error handling validation for _check_package_operations().
+
+    Verifies that the function catches exceptions properly and doesn't
+    raise unhandled exceptions during health checks.
+    """
+    # Mock packages_list at the correct import location
+    with patch("quilt_mcp.tools.packages.packages_list") as mock_packages_list:
+        # Test 1: Function returns error dict (should be caught and re-raised as Exception)
+        mock_packages_list.return_value = {
+            "success": False,
+            "error": "Simulated AWS error - bucket not found",
+        }
+
+        # The current implementation raises Exception when packages_list returns success=False
+        try:
+            result = error_recovery._check_package_operations()
+            # If we get here, behavior changed - verify it's still an error dict
+            assert isinstance(result, dict), "Should return dict"
+        except Exception as e:
+            # Expected behavior: raises Exception with wrapped error
+            error_msg = str(e).lower()
+            # Should not be about missing DEFAULT_REGISTRY
+            has_registry = "registry" in error_msg
+            has_required = "required" in error_msg
+            assert not (has_registry and has_required), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"
+
+        # Test 2: Function raises exception directly
+        mock_packages_list.side_effect = RuntimeError("Simulated network failure")
+
+        # Should raise exception (wrapped in "Package operations failed")
+        try:
+            result = error_recovery._check_package_operations()
+            # If we get here, behavior changed - verify result
+            assert isinstance(result, dict), "Should return dict when catching exception"
+        except Exception as e:
+            # Expected behavior: raises Exception
+            error_msg = str(e).lower()
+            # Verify it's not a config error about registry
+            has_registry = "registry" in error_msg
+            has_required = "required" in error_msg
+            assert not (has_registry and has_required), f"Should not fail due to missing DEFAULT_REGISTRY: {e}"

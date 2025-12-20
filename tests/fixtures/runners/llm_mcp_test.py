@@ -166,7 +166,7 @@ class LLMMCPTester:
             key_tools = [
                 "mcp_quilt_auth_status",
                 "mcp_quilt_unified_search",
-                "unified_search",
+                "search_catalog",
             ]
             found_key_tools = [tool for tool in key_tools if tool in tool_names]
             print(f"   ✅ Key tools found: {found_key_tools}")
@@ -274,10 +274,10 @@ class LLMMCPTester:
         # Test unified search if available
         search_tests.append(
             (
-                "unified_search",
+                "search_catalog",
                 {
                     "query": "CSV files",
-                    "scope": "catalog",
+                    "scope": "package",
                     "limit": 3,
                     "explain_query": True,
                 },

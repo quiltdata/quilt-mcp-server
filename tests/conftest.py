@@ -5,8 +5,9 @@ import os
 import boto3
 import pytest
 import tempfile
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Any
+from typing import Callable, Dict, Any
 
 # Load environment variables from .env file
 try:
@@ -37,6 +38,81 @@ if app_dir not in sys.path:
 # Removed unused README test framework imports
 
 
+# ============================================================================
+# Test-Only Configuration (NEVER used in production code)
+# ============================================================================
+# This configuration is ONLY for running the test suite
+# Production code should NEVER import from this file
+# ============================================================================
+
+QUILT_TEST_BUCKET = os.getenv("QUILT_TEST_BUCKET", "")
+
+
+@pytest.fixture(scope="session")
+def test_bucket() -> str:
+    """Provide test bucket name (without s3:// prefix) for bucket operations.
+
+    This fixture is ONLY for tests. Production code should never import this.
+    Tests requiring a bucket should explicitly declare this dependency.
+
+    IMPORTANT: Returns bucket NAME only (e.g., "my-test-bucket")
+    For S3 URI format, use test_registry fixture instead.
+
+    Returns:
+        Bucket name without s3:// prefix (e.g., "my-test-bucket")
+
+    Raises:
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
+    # Remove s3:// prefix if present (for backward compatibility)
+    return QUILT_TEST_BUCKET.replace("s3://", "")
+
+
+@pytest.fixture(scope="session")
+def test_bucket_name() -> str:
+    """Provide test bucket name (without s3:// prefix).
+
+    This fixture is ONLY for tests. Production code should never import this.
+    Alias for test_bucket fixture for clarity in some contexts.
+
+    Returns:
+        Bucket name without s3:// prefix (e.g., "my-test-bucket")
+
+    Raises:
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
+    return QUILT_TEST_BUCKET.replace("s3://", "")
+
+
+@pytest.fixture(scope="session")
+def test_registry() -> str:
+    """Provide test bucket as S3 URI for registry parameters.
+
+    This fixture is ONLY for tests that pass registry parameter.
+    Use this when the test needs to pass a registry to package functions.
+
+    Returns:
+        S3 URI of test bucket (e.g., "s3://my-test-bucket")
+
+    Raises:
+        pytest.fail: If QUILT_TEST_BUCKET environment variable not set
+    """
+    if not QUILT_TEST_BUCKET:
+        pytest.fail("QUILT_TEST_BUCKET environment variable not set")
+    # Remove s3:// prefix if present, then add it back
+    bucket_name = QUILT_TEST_BUCKET.replace("s3://", "")
+    return f"s3://{bucket_name}"
+
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+
+
 @pytest.fixture(scope="session")
 def anyio_backend():
     """Configure anyio to use asyncio backend only (AsyncMock doesn't support trio)."""
@@ -45,11 +121,102 @@ def anyio_backend():
 
 def pytest_configure(config):
     """Configure pytest and set up AWS session if needed."""
+    # CRITICAL: Ensure tests use IAM credentials, not JWT authentication
+    # Clear any existing runtime auth context to prevent JWT fallback
+    try:
+        from quilt_mcp.runtime_context import clear_runtime_auth
+
+        clear_runtime_auth()
+    except ImportError:
+        pass
+
+    # Disable JWT authentication for all tests
+    os.environ["MCP_REQUIRE_JWT"] = "false"
+
+    # Disable quilt3 session (which uses JWT credentials from Quilt catalog login)
+    # This forces tests to use local AWS credentials (AWS_PROFILE or default)
+    os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
+
+    # Remove JWT secrets to prevent development fallback behavior
+    os.environ.pop("MCP_ENHANCED_JWT_SECRET", None)
+    os.environ.pop("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER", None)
+
     # Configure boto3 default session to use AWS_PROFILE if set
     # This must be done very early before any imports that create boto3 clients
     if os.getenv("AWS_PROFILE"):
         boto3.setup_default_session(profile_name=os.getenv("AWS_PROFILE"))
 
+    # Set default Athena workgroup to skip discovery in tests
+    if not os.getenv("ATHENA_WORKGROUP"):
+        os.environ["ATHENA_WORKGROUP"] = "primary"
+
     # Add custom markers
     config.addinivalue_line("markers", "integration: mark test as integration test")
     config.addinivalue_line("markers", "slow: mark test as slow-running test")
+
+
+# Cached Athena service fixtures for better performance across all tests
+
+
+@lru_cache(maxsize=2)
+def _cached_athena_service(use_quilt_auth: bool):
+    """Cache Athena service instances by auth mode."""
+    from quilt_mcp.services.athena_service import AthenaQueryService
+
+    return AthenaQueryService(use_quilt_auth=use_quilt_auth)
+
+
+@pytest.fixture(scope="session")
+def athena_service_factory() -> Callable:
+    """Return a factory that reuses cached Athena service instances."""
+
+    def factory(use_quilt_auth: bool = True):
+        return _cached_athena_service(bool(use_quilt_auth))
+
+    return factory
+
+
+@pytest.fixture(scope="session")
+def athena_service_quilt(athena_service_factory):
+    """Session-scoped Athena service using quilt authentication."""
+    return athena_service_factory(True)
+
+
+@pytest.fixture(scope="session")
+def athena_service_builtin(athena_service_factory):
+    """Session-scoped Athena service using default AWS credentials."""
+    return athena_service_factory(False)
+
+
+@pytest.fixture(scope="session")
+def athena_service_cache_controller():
+    """Expose cache control so suites can clear cached services if needed."""
+    return _cached_athena_service.cache_clear
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cached_athena_service_constructor(athena_service_factory):
+    """Patch athena_glue module to reuse cached service instances in tests."""
+    from quilt_mcp.tools import athena_glue
+
+    original_constructor = athena_glue.AthenaQueryService
+
+    def cached_constructor(*args, **kwargs):
+        # Fallback to original constructor when extra kwargs are provided
+        extra_kwargs = {k: v for k, v in kwargs.items() if k != "use_quilt_auth"}
+        if extra_kwargs or len(args) > 1:
+            return original_constructor(*args, **kwargs)
+
+        use_quilt_auth = kwargs.get("use_quilt_auth") if kwargs else None
+        if args:
+            use_quilt_auth = args[0]
+        if use_quilt_auth is None:
+            use_quilt_auth = True
+
+        return athena_service_factory(use_quilt_auth=use_quilt_auth)
+
+    athena_glue.AthenaQueryService = cached_constructor
+    try:
+        yield
+    finally:
+        athena_glue.AthenaQueryService = original_constructor

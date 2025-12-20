@@ -232,17 +232,17 @@ class SearchSuggestionEngine:
                 [
                     {
                         "suggestion": f"files in {context}",
-                        "context_type": "package",
+                        "context_type": "packageEntry",
                         "relevance": 0.9,
                     },
                     {
                         "suggestion": f"README files in {context}",
-                        "context_type": "package",
+                        "context_type": "packageEntry",
                         "relevance": 0.8,
                     },
                     {
                         "suggestion": f"data files in {context}",
-                        "context_type": "package",
+                        "context_type": "packageEntry",
                         "relevance": 0.7,
                     },
                 ]

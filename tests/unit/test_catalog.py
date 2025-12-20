@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
-from quilt_mcp.models import (
-    CatalogUrlParams,
-    CatalogUriParams,
-)
 from quilt_mcp.services.auth_metadata import (
     _extract_catalog_name_from_url,
     _extract_bucket_from_registry,
@@ -139,8 +135,7 @@ class TestCatalogUrl:
     def test_catalog_url_success_package_view(self):
         """Test successful catalog URL generation for package view."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", package_name="user/package")
 
             assert isinstance(result, dict) or hasattr(result, 'status')
             assert result.success is True
@@ -151,8 +146,7 @@ class TestCatalogUrl:
     def test_catalog_url_success_bucket_view(self):
         """Test successful catalog URL generation for bucket view - covers lines 144-150."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name=None)
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket")
 
             assert result.success is True
             assert result.view_type == "bucket"
@@ -162,8 +156,7 @@ class TestCatalogUrl:
     def test_catalog_url_bucket_view_with_path(self):
         """Test bucket view with path - covers lines 144-150."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name=None, path="data/files")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", path="data/files")
 
             assert result.success is True
             assert result.view_type == "bucket"
@@ -173,8 +166,7 @@ class TestCatalogUrl:
     def test_catalog_url_package_view_with_path(self):
         """Test package view with path - covers lines 138-139."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package", path="data/files")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", package_name="user/package", path="data/files")
 
             assert result.success is True
             assert result.view_type == "package"
@@ -184,8 +176,7 @@ class TestCatalogUrl:
     def test_catalog_url_no_catalog_host_error(self):
         """Test error when catalog host cannot be determined - covers lines 115-118."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value=None):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is False
             assert "Could not determine catalog host" in result.error
@@ -193,8 +184,7 @@ class TestCatalogUrl:
     def test_catalog_url_with_exception(self):
         """Test exception handling in catalog_url - covers lines 162-163."""
         with patch('quilt_mcp.tools.catalog._extract_bucket_from_registry', side_effect=Exception("Bucket error")):
-            params = CatalogUrlParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_url(params)
+            result = catalog_url(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is False
             assert "Failed to generate catalog URL" in result.error
@@ -207,8 +197,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_package_name(self):
         """Test catalog_uri with package name - covers lines 191-223."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is True
             assert "quilt+s3://test-bucket" in result.quilt_plus_uri
@@ -218,8 +207,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_top_hash(self):
         """Test catalog_uri with top_hash - covers lines 199-200."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", top_hash="abc123")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", top_hash="abc123")
 
             assert result.success is True
             assert "package=user/package@abc123" in result.quilt_plus_uri
@@ -227,8 +215,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_tag(self):
         """Test catalog_uri with tag - covers lines 201-202."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", tag="v1.0")
 
             assert result.success is True
             assert "package=user/package:v1.0" in result.quilt_plus_uri
@@ -236,8 +223,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_path(self):
         """Test catalog_uri with path - covers lines 205-206."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package", path="data/file.csv")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package", path="data/file.csv")
 
             assert result.success is True
             assert "path=data/file.csv" in result.quilt_plus_uri
@@ -245,8 +231,7 @@ class TestCatalogUri:
     def test_catalog_uri_no_catalog_host(self):
         """Test catalog_uri without catalog host - covers lines 209-215."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value=None):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is True
             # Should not contain catalog parameter when no host available
@@ -255,8 +240,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_protocol_removal(self):
         """Test catalog_uri with protocol removal - covers lines 213-215."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="https://demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is True
             assert "catalog=demo.quiltdata.com" in result.quilt_plus_uri
@@ -266,8 +250,7 @@ class TestCatalogUri:
     def test_catalog_uri_bucket_only(self):
         """Test catalog_uri with bucket only (no package) - covers lines 191-223."""
         with patch('quilt_mcp.tools.catalog._get_catalog_host_from_config', return_value="demo.quiltdata.com"):
-            params = CatalogUriParams(registry="s3://test-bucket")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket")
 
             assert result.success is True
             assert "quilt+s3://test-bucket" in result.quilt_plus_uri
@@ -276,8 +259,7 @@ class TestCatalogUri:
     def test_catalog_uri_with_exception(self):
         """Test exception handling in catalog_uri - covers line 234-235."""
         with patch('quilt_mcp.tools.catalog._extract_bucket_from_registry', side_effect=Exception("URI error")):
-            params = CatalogUriParams(registry="s3://test-bucket", package_name="user/package")
-            result = catalog_uri(params)
+            result = catalog_uri(registry="s3://test-bucket", package_name="user/package")
 
             assert result.success is False
             assert "Failed to generate Quilt+ URI" in result.error

@@ -102,15 +102,18 @@ mcpb-validate: check-tools mcpb
 	@grep -q '"entry_point": "uvx"' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid entry_point in manifest"; exit 1; }
 	@grep -q '"args": \["quilt-mcp"\]' $(BUILD_DIR)/mcpb/manifest.json || { echo "❌ Invalid args in manifest"; exit 1; }
 	@echo "✅ Manifest content validation passed"
-	@echo "\n5. Testing UVX execution compatibility..."
-	@timeout 3 uvx --from . quilt-mcp >/dev/null 2>&1; \
+	@echo "\n5. Testing UVX execution from unpacked MCPB..."
+	@rm -rf /tmp/mcpb-test && mkdir -p /tmp/mcpb-test
+	@mcpb unpack $(MCPB_PACKAGE) /tmp/mcpb-test >/dev/null 2>&1
+	@cd /tmp/mcpb-test && timeout 3 uvx --no-cache quilt-mcp >/dev/null 2>&1; \
 	EXIT_CODE=$$?; \
 	if [ $$EXIT_CODE -eq 124 ]; then \
-		echo "✅ UVX execution test passed (server started successfully)"; \
+		echo "✅ UVX execution test passed (server started successfully from unpacked MCPB)"; \
 	else \
 		echo "❌ UVX execution test failed (exit code $$EXIT_CODE - server crashed or failed to start)"; \
 		exit 1; \
 	fi
+	@rm -rf /tmp/mcpb-test
 	@echo "\n6. Running prerequisites validation..."
 	@bash $(ASSETS_DIR)/check-mcpb.sh >/dev/null 2>&1 || { echo "❌ Prerequisites validation failed"; exit 1; }
 	@echo "✅ Prerequisites validation passed"
@@ -133,10 +136,14 @@ release-zip: $(RELEASE_ZIP)
 
 # Docker Operations
 
-docker-tools:
+# Minimal check for local builds (no AWS/ECR setup)
+docker-check:
 	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker not found - install Docker"; exit 1; }
 	@docker info >/dev/null 2>&1 || { echo "❌ Docker daemon not running or not accessible"; exit 1; }
-	@echo "✅ Docker tools available"
+	@echo "✅ Docker available"
+
+# Full ECR tooling (only needed for push operations)
+docker-tools: docker-check
 	@echo "🔍 Detecting AWS account..."
 	@AWS_ACCOUNT_ID=$$(aws sts get-caller-identity --query Account --output text) && \
 	AWS_REGION=$${AWS_DEFAULT_REGION:-us-east-1} && \
@@ -152,9 +159,9 @@ docker-tools:
 	aws ecr get-login-password --region $$AWS_REGION | docker login --username AWS --password-stdin $$AWS_ACCOUNT_ID.dkr.ecr.$$AWS_REGION.amazonaws.com >/dev/null 2>&1 && \
 	echo "✅ ECR authentication successful"
 
-docker-build: docker-tools
-	@echo "🐳 Building Docker image locally..."
-	@uv run python scripts/docker.py build
+docker-build: docker-check
+	@echo "🐳 Building Docker image locally for native platform..."
+	@uv run python scripts/docker.py build --version test
 	@echo "✅ Docker build completed"
 
 docker-push: docker-tools

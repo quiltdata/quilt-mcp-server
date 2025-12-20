@@ -129,7 +129,7 @@ class CCLEComputationalBiologyTester:
         """Test CB001: Molecular target discovery workflow."""
         # Step 1: Check Tabulator availability
         try:
-            tabulator_result = await self.call_tool("tabulator_tables_list", {"bucket_name": "quilt-sandbox-bucket"})
+            tabulator_result = await self.call_tool("tabulator_tables_list", {"bucket": "quilt-sandbox-bucket"})
             if tabulator_result.get("success"):
                 result["steps_completed"].append("tabulator_connectivity")
                 result["tools_used"].append("tabulator_tables_list")
@@ -142,10 +142,10 @@ class CCLEComputationalBiologyTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = await self.call_tool("unified_search", {"query": "CCLE expression RNA-seq", "limit": 5})
+            search_result = await self.call_tool("search_catalog", {"query": "CCLE expression RNA-seq", "limit": 5})
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in search_result["results"][:3]]
                 )
@@ -214,11 +214,11 @@ class CCLEComputationalBiologyTester:
         """Test CB002: Tool benchmarking workflow."""
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = await self.call_tool("unified_search", {"query": "CCLE FASTQ RNA-seq raw", "limit": 3})
+            fastq_search = await self.call_tool("search_catalog", {"query": "CCLE FASTQ RNA-seq raw", "limit": 3})
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in fastq_search["results"]]
                 )
@@ -281,7 +281,7 @@ class CCLEComputationalBiologyTester:
         # Step 4: Search for Salmon quantification results
         try:
             salmon_search = await self.call_tool(
-                "unified_search",
+                "search_catalog",
                 {
                     "query": "salmon quant.sf TPM",
                     "scope": "bucket",
@@ -292,7 +292,7 @@ class CCLEComputationalBiologyTester:
 
             if salmon_search.get("success"):
                 result["steps_completed"].append("salmon_results_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["recommendations"].append("Salmon quantification results discoverable for benchmarking")
             else:
                 result["steps_failed"].append("salmon_results_discovery")
@@ -305,11 +305,11 @@ class CCLEComputationalBiologyTester:
         """Test CB003: Visual data exploration workflow."""
         # Step 1: Search for BAM files
         try:
-            bam_search = await self.call_tool("unified_search", {"query": "CCLE BAM alignment RNA-seq", "limit": 3})
+            bam_search = await self.call_tool("search_catalog", {"query": "CCLE BAM alignment RNA-seq", "limit": 3})
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
             else:
                 result["steps_failed"].append("bam_discovery")
                 result["errors"].append("No CCLE BAM packages found")
@@ -362,11 +362,11 @@ class CCLEComputationalBiologyTester:
 
         for data_type in data_types:
             try:
-                search_result = await self.call_tool("unified_search", {"query": f"CCLE {data_type}", "limit": 2})
+                search_result = await self.call_tool("search_catalog", {"query": f"CCLE {data_type}", "limit": 2})
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")
-                    result["tools_used"].append("unified_search")
+                    result["tools_used"].append("search_catalog")
                 else:
                     result["steps_failed"].append(f"{data_type}_discovery")
                     result["errors"].append(f"No CCLE {data_type} data found")

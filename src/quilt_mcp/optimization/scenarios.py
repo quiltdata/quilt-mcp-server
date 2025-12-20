@@ -6,33 +6,33 @@ usage patterns for MCP tool optimization and performance analysis.
 """
 
 from typing import Dict, Any, List
-from .testing import TestScenario, TestStep, TestScenarioType
+from .testing import Scenario, ScenarioStep, ScenarioType
 
 
-def create_package_creation_scenarios() -> List[TestScenario]:
+def create_package_creation_scenarios() -> List[Scenario]:
     """Create test scenarios for package creation workflows."""
 
     scenarios = []
 
     # Basic package creation workflow
-    basic_scenario = TestScenario(
+    basic_scenario = Scenario(
         name="basic_package_creation",
         description="Create a simple package from S3 files",
-        scenario_type=TestScenarioType.PACKAGE_CREATION,
+        scenario_type=ScenarioType.PACKAGE_CREATION,
         expected_total_time=15.0,
         expected_call_count=4,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="auth_status",
                 args={},
                 description="Check authentication status",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_objects_list",
                 args={"bucket": "s3://quilt-sandbox-bucket", "max_keys": 10},
                 description="List available files",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="create_package_enhanced",
                 args={
                     "name": "test/basic-package",
@@ -41,7 +41,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 },
                 description="Create package with enhanced tool",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_validate",
                 args={"package_name": "test/basic-package"},
                 description="Validate created package",
@@ -53,19 +53,19 @@ def create_package_creation_scenarios() -> List[TestScenario]:
     scenarios.append(basic_scenario)
 
     # Bulk package creation from S3
-    bulk_scenario = TestScenario(
+    bulk_scenario = Scenario(
         name="bulk_package_from_s3",
         description="Create package from entire S3 bucket/prefix",
-        scenario_type=TestScenarioType.PACKAGE_CREATION,
+        scenario_type=ScenarioType.PACKAGE_CREATION,
         expected_total_time=30.0,
         expected_call_count=5,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="auth_status",
                 args={},
                 description="Check authentication status",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_objects_list",
                 args={
                     "bucket": "s3://quilt-sandbox-bucket",
@@ -74,12 +74,12 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 },
                 description="List files in data directory",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="aws_permissions_discover",
                 args={"check_buckets": ["quilt-sandbox-bucket"]},
                 description="Verify permissions for bulk operation",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_create_from_s3",
                 args={
                     "source_bucket": "s3://quilt-sandbox-bucket",
@@ -89,7 +89,7 @@ def create_package_creation_scenarios() -> List[TestScenario]:
                 },
                 description="Create package from S3 bucket",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_browse",
                 args={"package_name": "test/bulk-package", "recursive": True},
                 description="Browse created package structure",
@@ -103,36 +103,36 @@ def create_package_creation_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_data_discovery_scenarios() -> List[TestScenario]:
+def create_data_discovery_scenarios() -> List[Scenario]:
     """Create test scenarios for data discovery workflows."""
 
     scenarios = []
 
     # Package exploration workflow
-    exploration_scenario = TestScenario(
+    exploration_scenario = Scenario(
         name="package_exploration",
         description="Discover and explore available packages",
-        scenario_type=TestScenarioType.DATA_DISCOVERY,
+        scenario_type=ScenarioType.DATA_DISCOVERY,
         expected_total_time=10.0,
         expected_call_count=4,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="packages_list",
                 args={"limit": 20},
                 description="List available packages",
             ),
-            TestStep(
-                tool_name="unified_search",
-                args={"query": "dataset", "limit": 10, "scope": "catalog"},
+            ScenarioStep(
+                tool_name="search_catalog",
+                args={"query": "dataset", "limit": 10, "scope": "package"},
                 description="Search for dataset packages",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_browse",
                 args={"package_name": "examples/wellcome-data", "recursive": False},
                 description="Browse package structure",
             ),
-            TestStep(
-                tool_name="unified_search",
+            ScenarioStep(
+                tool_name="search_catalog",
                 args={"query": "*.csv", "scope": "package", "target": "examples/wellcome-data"},
                 description="Search for CSV files in package",
             ),
@@ -143,24 +143,24 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
     scenarios.append(exploration_scenario)
 
     # Bucket exploration workflow
-    bucket_exploration_scenario = TestScenario(
+    bucket_exploration_scenario = Scenario(
         name="bucket_exploration",
         description="Explore S3 bucket contents and structure",
-        scenario_type=TestScenarioType.DATA_DISCOVERY,
+        scenario_type=ScenarioType.DATA_DISCOVERY,
         expected_total_time=8.0,
         expected_call_count=3,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_objects_list",
                 args={"bucket": "s3://quilt-sandbox-bucket", "max_keys": 50},
                 description="List bucket objects",
             ),
-            TestStep(
-                tool_name="unified_search",
+            ScenarioStep(
+                tool_name="search_catalog",
                 args={"query": "*.json", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search for JSON files",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_object_info",
                 args={"s3_uri": "s3://quilt-sandbox-bucket/README.md"},
                 description="Get object metadata",
@@ -174,40 +174,40 @@ def create_data_discovery_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_athena_querying_scenarios() -> List[TestScenario]:
+def create_athena_querying_scenarios() -> List[Scenario]:
     """Create test scenarios for Athena querying workflows."""
 
     scenarios = []
 
     # Database discovery and querying
-    athena_discovery_scenario = TestScenario(
+    athena_discovery_scenario = Scenario(
         name="athena_discovery_and_query",
         description="Discover databases and execute queries",
-        scenario_type=TestScenarioType.ATHENA_QUERYING,
+        scenario_type=ScenarioType.ATHENA_QUERYING,
         expected_total_time=20.0,
         expected_call_count=5,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_workgroups_list",
                 args={},
                 description="List available workgroups",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_databases_list",
                 args={},
                 description="List available databases",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_tables_list",
                 args={"database_name": "default"},
                 description="List tables in default database",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_table_schema",
                 args={"database_name": "default", "table_name": "sample_table"},
                 description="Get table schema",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_query_execute",
                 args={
                     "query": "SELECT * FROM default.sample_table LIMIT 10",
@@ -224,35 +224,35 @@ def create_athena_querying_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_permission_discovery_scenarios() -> List[TestScenario]:
+def create_permission_discovery_scenarios() -> List[Scenario]:
     """Create test scenarios for permission discovery workflows."""
 
     scenarios = []
 
     # Comprehensive permission discovery
-    permission_scenario = TestScenario(
+    permission_scenario = Scenario(
         name="comprehensive_permission_discovery",
         description="Discover AWS permissions and bucket access",
-        scenario_type=TestScenarioType.PERMISSION_DISCOVERY,
+        scenario_type=ScenarioType.PERMISSION_DISCOVERY,
         expected_total_time=15.0,
         expected_call_count=4,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="aws_permissions_discover",
                 args={"include_cross_account": False},
                 description="Discover AWS permissions",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="list_available_resources",
                 args={},
                 description="List available resources",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_access_check",
                 args={"bucket_name": "quilt-sandbox-bucket"},
                 description="Check specific bucket access",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_recommendations_get",
                 args={"operation_type": "package_creation"},
                 description="Get bucket recommendations",
@@ -270,30 +270,30 @@ def create_permission_discovery_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_metadata_management_scenarios() -> List[TestScenario]:
+def create_metadata_management_scenarios() -> List[Scenario]:
     """Create test scenarios for metadata management workflows."""
 
     scenarios = []
 
     # Metadata template usage
-    metadata_scenario = TestScenario(
+    metadata_scenario = Scenario(
         name="metadata_template_workflow",
         description="Use metadata templates for package creation",
-        scenario_type=TestScenarioType.METADATA_MANAGEMENT,
+        scenario_type=ScenarioType.METADATA_MANAGEMENT,
         expected_total_time=12.0,
         expected_call_count=5,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="list_metadata_templates",
                 args={},
                 description="List available metadata templates",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="get_metadata_template",
                 args={"template_name": "genomics"},
                 description="Get genomics metadata template",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="create_metadata_from_template",
                 args={
                     "template_name": "genomics",
@@ -302,7 +302,7 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
                 },
                 description="Create metadata from template",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="validate_metadata_structure",
                 args={
                     "metadata": {
@@ -314,7 +314,7 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
                 },
                 description="Validate metadata structure",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="show_metadata_examples",
                 args={},
                 description="Show metadata usage examples",
@@ -328,35 +328,35 @@ def create_metadata_management_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_governance_admin_scenarios() -> List[TestScenario]:
+def create_governance_admin_scenarios() -> List[Scenario]:
     """Create test scenarios for governance and admin workflows."""
 
     scenarios = []
 
     # User management workflow
-    user_management_scenario = TestScenario(
+    user_management_scenario = Scenario(
         name="user_management_workflow",
         description="Manage users and roles in Quilt catalog",
-        scenario_type=TestScenarioType.GOVERNANCE_ADMIN,
+        scenario_type=ScenarioType.GOVERNANCE_ADMIN,
         expected_total_time=18.0,
         expected_call_count=4,
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="governance_users_list",
                 args={"limit": 20},
                 description="List catalog users",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="governance_roles_list",
                 args={},
                 description="List available roles",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="governance_user_info",
                 args={"username": "test-user"},
                 description="Get user information",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="governance_sso_config_get",
                 args={},
                 description="Get SSO configuration",
@@ -370,7 +370,7 @@ def create_governance_admin_scenarios() -> List[TestScenario]:
     return scenarios
 
 
-def create_all_test_scenarios() -> List[TestScenario]:
+def create_all_test_scenarios() -> List[Scenario]:
     """Create all test scenarios for comprehensive optimization testing."""
 
     all_scenarios = []
@@ -386,35 +386,35 @@ def create_all_test_scenarios() -> List[TestScenario]:
     return all_scenarios
 
 
-def create_optimization_challenge_scenarios() -> List[TestScenario]:
+def create_optimization_challenge_scenarios() -> List[Scenario]:
     """Create challenging scenarios specifically designed to test optimization."""
 
     scenarios = []
 
     # Inefficient workflow that needs optimization
-    inefficient_scenario = TestScenario(
+    inefficient_scenario = Scenario(
         name="inefficient_workflow_challenge",
         description="Intentionally inefficient workflow to test optimization",
-        scenario_type=TestScenarioType.PACKAGE_CREATION,
+        scenario_type=ScenarioType.PACKAGE_CREATION,
         expected_total_time=45.0,  # Should be optimizable to ~20s
         expected_call_count=10,  # Should be optimizable to ~6 calls
         steps=[
-            TestStep(
+            ScenarioStep(
                 tool_name="auth_status",
                 args={},
                 description="Check auth (redundant call 1)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="auth_status",
                 args={},
                 description="Check auth again (redundant call 2)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="packages_list",
                 args={"limit": 1000},  # Inefficient: too many results
                 description="List all packages (inefficient)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_objects_list",
                 args={
                     "bucket": "s3://quilt-sandbox-bucket",
@@ -422,7 +422,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },  # Inefficient
                 description="List all objects (inefficient)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="bucket_objects_list",
                 args={
                     "bucket": "s3://quilt-sandbox-bucket",
@@ -430,7 +430,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },  # Better approach
                 description="List objects with prefix (better)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_browse",
                 args={
                     "package_name": "examples/wellcome-data",
@@ -438,7 +438,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },  # Slow
                 description="Full recursive browse (slow)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_browse",
                 args={
                     "package_name": "examples/wellcome-data",
@@ -446,7 +446,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },  # Faster
                 description="Top-level browse (faster)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="create_package_enhanced",
                 args={
                     "name": "test/optimized-package",
@@ -455,12 +455,12 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },
                 description="Create package",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_validate",
                 args={"package_name": "test/optimized-package"},
                 description="Validate package",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="auth_status",
                 args={},
                 description="Check auth again (redundant call 3)",
@@ -472,19 +472,19 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
     scenarios.append(inefficient_scenario)
 
     # Complex multi-step workflow
-    complex_scenario = TestScenario(
+    complex_scenario = Scenario(
         name="complex_multi_step_workflow",
         description="Complex workflow with multiple optimization opportunities",
-        scenario_type=TestScenarioType.DATA_DISCOVERY,
+        scenario_type=ScenarioType.DATA_DISCOVERY,
         expected_total_time=35.0,
         expected_call_count=8,
         steps=[
-            TestStep(
-                tool_name="unified_search",
-                args={"query": "genomics", "limit": 50, "scope": "catalog"},
+            ScenarioStep(
+                tool_name="search_catalog",
+                args={"query": "genomics", "limit": 50, "scope": "package"},
                 description="Search for genomics packages",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="package_browse",
                 args={
                     "package_name": "genomics/example",
@@ -493,27 +493,27 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },
                 description="Deep browse (could be optimized with max_depth)",
             ),
-            TestStep(
-                tool_name="unified_search",
+            ScenarioStep(
+                tool_name="search_catalog",
                 args={"query": "*", "scope": "package", "target": "genomics/example"},
                 description="Search all contents (could be combined with browse)",
             ),
-            TestStep(
-                tool_name="unified_search",
+            ScenarioStep(
+                tool_name="search_catalog",
                 args={"query": "genomics", "scope": "bucket", "target": "s3://quilt-sandbox-bucket"},
                 description="Search bucket for genomics files",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_databases_list",
                 args={},
                 description="List Athena databases",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_tables_list",
                 args={"database_name": "genomics_db"},
                 description="List genomics tables",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="athena_query_execute",
                 args={
                     "query": "SELECT * FROM genomics_db.samples",  # Missing LIMIT
@@ -521,7 +521,7 @@ def create_optimization_challenge_scenarios() -> List[TestScenario]:
                 },
                 description="Query without LIMIT (inefficient)",
             ),
-            TestStep(
+            ScenarioStep(
                 tool_name="create_package_enhanced",
                 args={
                     "name": "genomics/analysis-results",

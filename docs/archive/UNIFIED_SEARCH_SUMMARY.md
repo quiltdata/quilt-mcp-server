@@ -140,9 +140,9 @@ result = await unified_search("README", scope="package", target="user/dataset")
 
 ### Backend Control
 ```python
-# Force specific backends
-result = await unified_search("query", backends=["elasticsearch"])
-result = await unified_search("query", backends=["graphql", "s3"])
+# Force specific backend
+result = await unified_search("query", backend="elasticsearch")
+result = await unified_search("query", backend="s3")
 ```
 
 ## 🏢 **Enterprise Value Proposition**

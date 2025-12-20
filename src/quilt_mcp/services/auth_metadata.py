@@ -17,8 +17,8 @@ try:
     from quilt_mcp.services.quilt_service import QuiltService
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     # Provide a stub so tests can patch QuiltService without requiring quilt3.
-    class QuiltService:  # type: ignore[misc]
-        def __init__(self, *args, **kwargs):
+    class QuiltService:  # type: ignore[no-redef]
+        def __init__(self, *args: object, **kwargs: object) -> None:
             raise ModuleNotFoundError("quilt3 is required for QuiltService")
 
 
@@ -87,9 +87,20 @@ def catalog_info() -> Dict[str, Any]:
     try:
         info = _get_catalog_info()
 
+        # Determine detection method
+        if info["logged_in_url"]:
+            detection_method = "authentication"
+        elif info["navigator_url"]:
+            detection_method = "navigator_config"
+        elif info["registry_url"]:
+            detection_method = "registry_config"
+        else:
+            detection_method = "unknown"
+
         result: Dict[str, Any] = {
             "catalog_name": info["catalog_name"],
             "is_authenticated": info["is_authenticated"],
+            "detection_method": detection_method,
             "status": "success",
         }
 
@@ -110,41 +121,28 @@ def catalog_info() -> Dict[str, Any]:
             else f"Configured for catalog: {info['catalog_name']} (not authenticated)"
         )
 
+        # Integrate search backend status for discovery
+        try:
+            from quilt_mcp.search.utils import get_search_backend_status
+
+            backend_status = get_search_backend_status()
+            result["search_backend_status"] = backend_status
+        except Exception as backend_exc:
+            # Don't fail catalog_info if backend status check fails
+            result["search_backend_status"] = {
+                "available": False,
+                "backend": None,
+                "capabilities": [],
+                "status": "error",
+                "error": f"Failed to get backend status: {backend_exc}",
+            }
+
         return result
 
     except Exception as exc:
         return {
             "status": "error",
             "error": f"Failed to get catalog info: {exc}",
-            "catalog_name": "unknown",
-        }
-
-
-def catalog_name() -> Dict[str, Any]:
-    """Identify the active catalog hostname and how it was detected."""
-    try:
-        info = _get_catalog_info()
-
-        if info["logged_in_url"]:
-            detection_method = "authentication"
-        elif info["navigator_url"]:
-            detection_method = "navigator_config"
-        elif info["registry_url"]:
-            detection_method = "registry_config"
-        else:
-            detection_method = "unknown"
-
-        return {
-            "catalog_name": info["catalog_name"],
-            "detection_method": detection_method,
-            "is_authenticated": info["is_authenticated"],
-            "status": "success",
-        }
-
-    except Exception as exc:
-        return {
-            "status": "error",
-            "error": f"Failed to detect catalog name: {exc}",
             "catalog_name": "unknown",
             "detection_method": "error",
         }
@@ -278,22 +276,88 @@ def filesystem_status() -> Dict[str, Any]:
             status="full_access",
             message="Full filesystem access available - all Quilt tools should work",
             tools_available=[
+                # Authentication & Configuration
                 "auth_status",
+                "catalog_configure",
                 "catalog_info",
-                "catalog_name",
-                "catalog_url",
                 "catalog_uri",
+                "catalog_url",
                 "filesystem_status",
-                "packages_list",
+                # Package Management (Read)
                 "package_browse",
+                "package_diff",
+                "packages_list",
+                # Package Management (Write)
                 "package_create",
+                "package_create_from_s3",
+                "package_delete",
                 "package_update",
-                "bucket_objects_list",
-                "bucket_object_info",
-                "bucket_object_text",
-                "bucket_objects_put",
+                # Bucket Operations (Read)
                 "bucket_object_fetch",
-                "unified_search",
+                "bucket_object_info",
+                "bucket_object_link",
+                "bucket_object_text",
+                "bucket_objects_list",
+                # Bucket Operations (Write)
+                "bucket_objects_put",
+                # Permissions & Discovery
+                "bucket_recommendations_get",
+                "check_bucket_access",
+                "discover_permissions",
+                "get_resource",
+                # Search & Query
+                "search_catalog",
+                "search_explain",
+                "search_suggest",
+                # Athena & Glue
+                "athena_databases_list",
+                "athena_query_execute",
+                "athena_query_history",
+                "athena_query_validate",
+                "athena_table_schema",
+                "athena_tables_list",
+                "athena_workgroups_list",
+                # Tabulator
+                "list_tabulator_buckets",
+                "list_tabulator_tables",
+                "tabulator_bucket_query",
+                "tabulator_buckets_list",
+                "tabulator_open_query_status",
+                "tabulator_open_query_toggle",
+                "tabulator_table_create",
+                "tabulator_table_delete",
+                "tabulator_table_rename",
+                "tabulator_tables_list",
+                # Visualization & Summary
+                "create_data_visualization",
+                "create_quilt_summary_files",
+                "generate_package_visualizations",
+                "generate_quilt_summarize_json",
+                # Workflows
+                "workflow_add_step",
+                "workflow_create",
+                "workflow_get_status",
+                "workflow_list_all",
+                "workflow_template_apply",
+                "workflow_update_step",
+                # Admin (if permissions allow)
+                "admin_roles_list",
+                "admin_sso_config_get",
+                "admin_sso_config_remove",
+                "admin_sso_config_set",
+                "admin_tabulator_open_query_get",
+                "admin_tabulator_open_query_set",
+                "admin_user_add_roles",
+                "admin_user_create",
+                "admin_user_delete",
+                "admin_user_get",
+                "admin_user_remove_roles",
+                "admin_user_reset_password",
+                "admin_user_set_active",
+                "admin_user_set_admin",
+                "admin_user_set_email",
+                "admin_user_set_role",
+                "admin_users_list",
             ],
         )
     elif result.get("temp_writable"):
@@ -301,17 +365,47 @@ def filesystem_status() -> Dict[str, Any]:
             status="limited_access",
             message="Limited filesystem access - Quilt tools may work with proper configuration",
             tools_available=[
+                # Authentication & Configuration
                 "auth_status",
+                "catalog_configure",
                 "catalog_info",
-                "catalog_name",
-                "catalog_url",
                 "catalog_uri",
+                "catalog_url",
                 "filesystem_status",
-                "bucket_objects_list",
-                "bucket_object_info",
-                "bucket_object_text",
+                # Package Management (Read only)
+                "package_browse",
+                "package_diff",
                 "packages_list",
-                "unified_search",
+                # Bucket Operations (Read only)
+                "bucket_object_fetch",
+                "bucket_object_info",
+                "bucket_object_link",
+                "bucket_object_text",
+                "bucket_objects_list",
+                # Permissions & Discovery
+                "bucket_recommendations_get",
+                "check_bucket_access",
+                "discover_permissions",
+                "get_resource",
+                # Search & Query
+                "search_catalog",
+                "search_explain",
+                "search_suggest",
+                # Athena & Glue (Read only)
+                "athena_databases_list",
+                "athena_query_execute",
+                "athena_query_history",
+                "athena_query_validate",
+                "athena_table_schema",
+                "athena_tables_list",
+                "athena_workgroups_list",
+                # Tabulator (Read only)
+                "list_tabulator_buckets",
+                "list_tabulator_tables",
+                "tabulator_bucket_query",
+                "tabulator_buckets_list",
+                "tabulator_open_query_status",
+                "tabulator_tables_list",
             ],
         )
     else:
@@ -319,16 +413,41 @@ def filesystem_status() -> Dict[str, Any]:
             status="read_only",
             message="Read-only filesystem access - limited Quilt functionality available",
             tools_available=[
+                # Authentication & Configuration (Read only)
                 "auth_status",
                 "catalog_info",
-                "catalog_name",
-                "catalog_url",
                 "catalog_uri",
-                "bucket_objects_list",
-                "bucket_object_info",
-                "bucket_object_text",
+                "catalog_url",
+                "filesystem_status",
+                # Package Management (Browse only)
+                "package_browse",
+                "package_diff",
                 "packages_list",
-                "unified_search",
+                # Bucket Operations (Read only)
+                "bucket_object_info",
+                "bucket_object_link",
+                "bucket_object_text",
+                "bucket_objects_list",
+                # Permissions & Discovery (Read only)
+                "bucket_recommendations_get",
+                "check_bucket_access",
+                "get_resource",
+                # Search & Query (Read only)
+                "search_catalog",
+                "search_explain",
+                "search_suggest",
+                # Athena & Glue (Read only)
+                "athena_databases_list",
+                "athena_query_history",
+                "athena_table_schema",
+                "athena_tables_list",
+                "athena_workgroups_list",
+                # Tabulator (Read only)
+                "list_tabulator_buckets",
+                "list_tabulator_tables",
+                "tabulator_buckets_list",
+                "tabulator_open_query_status",
+                "tabulator_tables_list",
             ],
         )
 
@@ -417,7 +536,6 @@ def configure_catalog(catalog_url: str) -> Dict[str, Any]:
 __all__ = [
     "auth_status",
     "catalog_info",
-    "catalog_name",
     "configure_catalog",
     "filesystem_status",
     "_extract_catalog_name_from_url",

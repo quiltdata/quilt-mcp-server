@@ -9,13 +9,20 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
 from cachetools import TTLCache
 import boto3
 import pandas as pd
 from sqlalchemy import create_engine, MetaData, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+
+if TYPE_CHECKING:
+    from mypy_boto3_glue import GlueClient  # type: ignore[import-not-found]
+    from mypy_boto3_s3 import S3Client  # type: ignore[import-not-found]
+else:
+    GlueClient = Any
+    S3Client = Any
 
 from ..utils import format_error_response, suppress_stdout
 from .quilt_service import QuiltService
@@ -45,30 +52,30 @@ class AthenaQueryService:
         self.quilt_service = quilt_service
         self.workgroup_name = workgroup_name
         self.data_catalog_name = data_catalog_name or "AwsDataCatalog"
-        self.query_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
+        self.query_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
 
         # Initialize clients
-        self._glue_client: Optional[Any] = None
-        self._s3_client: Optional[Any] = None
+        self._glue_client: Optional[GlueClient] = None
+        self._s3_client: Optional[S3Client] = None
         self._engine: Optional[Engine] = None
         self._base_connection_string: Optional[str] = None  # Store for creating engines with schema_name
 
     @property
-    def glue_client(self):
+    def glue_client(self) -> GlueClient:
         """Lazy initialization of Glue client."""
         if self._glue_client is None:
             self._glue_client = self._create_glue_client()
         return self._glue_client
 
     @property
-    def s3_client(self):
+    def s3_client(self) -> S3Client:
         """Lazy initialization of S3 client."""
         if self._s3_client is None:
             self._s3_client = self._create_s3_client()
         return self._s3_client
 
     @property
-    def engine(self):
+    def engine(self) -> Engine:
         """Lazy initialization of SQLAlchemy engine."""
         if self._engine is None:
             self._engine = self._create_sqlalchemy_engine()
@@ -138,7 +145,7 @@ class AthenaQueryService:
             logger.error(f"Failed to create SQLAlchemy engine: {e}")
             raise
 
-    def _discover_workgroup(self, credentials, region: str) -> str:
+    def _discover_workgroup(self, credentials: Any, region: str) -> str:
         """Discover the best available Athena workgroup for the user.
 
         Uses the consolidated list_workgroups method to avoid code duplication.
@@ -156,14 +163,14 @@ class AthenaQueryService:
 
             if not valid_workgroups:
                 # If no workgroups have output locations, use the first available
-                return workgroups[0]["name"]
+                return str(workgroups[0]["name"])
 
             # Prioritize workgroups (Quilt workgroups first, then others)
             quilt_workgroups = [name for name in valid_workgroups if "quilt" in name.lower()]
             if quilt_workgroups:
-                return quilt_workgroups[0]
+                return str(quilt_workgroups[0])
             elif valid_workgroups:
-                return valid_workgroups[0]
+                return str(valid_workgroups[0])
             else:
                 # Fallback to primary if no valid workgroups found
                 return "primary"
@@ -171,9 +178,10 @@ class AthenaQueryService:
         except Exception as e:
             logger.warning(f"Failed to discover workgroups: {e}")
             # Fallback to environment variable or primary
-            return os.environ.get("ATHENA_WORKGROUP", "primary")
+            fallback: str = os.environ.get("ATHENA_WORKGROUP", "primary")
+            return fallback
 
-    def _create_glue_client(self):
+    def _create_glue_client(self) -> GlueClient:
         """Create Glue client for metadata operations."""
         if self.use_quilt_auth:
             try:
@@ -187,7 +195,7 @@ class AthenaQueryService:
                 pass
         return boto3.client("glue", region_name="us-east-1")
 
-    def _create_s3_client(self):
+    def _create_s3_client(self) -> S3Client:
         """Create S3 client for result management."""
         if self.use_quilt_auth:
             try:

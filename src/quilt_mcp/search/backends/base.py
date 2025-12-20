@@ -13,8 +13,6 @@ class BackendType(Enum):
     """Types of search backends."""
 
     ELASTICSEARCH = "elasticsearch"
-    GRAPHQL = "graphql"
-    S3 = "s3"
 
 
 class BackendStatus(Enum):
@@ -33,7 +31,7 @@ class SearchResult:
     id: str
     type: str  # 'file', 'package', 'object'
     title: str
-    description: Optional[str] = None
+    description: str = ""
     url: Optional[str] = None
     s3_uri: Optional[str] = None
     package_name: Optional[str] = None
@@ -43,6 +41,12 @@ class SearchResult:
     metadata: Dict[str, Any] | None = None
     score: float = 0.0
     backend: str = ""
+    # New fields for simplified search API
+    name: str = ""
+    bucket: Optional[str] = None
+    content_type: Optional[str] = None
+    extension: Optional[str] = None
+    content_preview: Optional[str] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -73,6 +77,7 @@ class SearchBackend(ABC):
         self.backend_type = backend_type
         self._status = BackendStatus.UNAVAILABLE
         self._last_error: Optional[str] = None
+        self._initialized = False
 
     @property
     def status(self) -> BackendStatus:
@@ -84,12 +89,52 @@ class SearchBackend(ABC):
         """Get last error message."""
         return self._last_error
 
+    @property
+    def initialized(self) -> bool:
+        """Check if backend has been initialized."""
+        return self._initialized
+
+    def ensure_initialized(self):
+        """Ensure backend is initialized before use.
+
+        This method performs lazy initialization, deferring authentication checks
+        and resource allocation until the backend is actually needed.
+        Subclasses should override _initialize() to implement their specific
+        initialization logic.
+        """
+        if not self._initialized:
+            self._initialize()
+            self._initialized = True
+
+    @abstractmethod
+    def _initialize(self):
+        """Initialize backend resources and check availability.
+
+        This method is called by ensure_initialized() on first use.
+        Subclasses must implement this to perform authentication checks,
+        resource setup, and availability verification.
+
+        Should update status and set error messages appropriately.
+        """
+        pass
+
+    async def refresh_status(self) -> bool:
+        """Re-check backend availability and update status.
+
+        This method allows re-evaluation of backend availability without
+        full reinitialization. Useful for recovering from transient failures.
+
+        Returns:
+            True if backend is available, False otherwise
+        """
+        return await self.health_check()
+
     @abstractmethod
     async def search(
         self,
         query: str,
         scope: str = "global",
-        target: str = "",
+        bucket: str = "",
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 50,
     ) -> BackendResponse:
@@ -97,8 +142,8 @@ class SearchBackend(ABC):
 
         Args:
             query: Search query string
-            scope: Search scope (global, catalog, package, bucket)
-            target: Specific target when scope is narrow
+            scope: Search scope (global, package, file)
+            bucket: S3 bucket to search in (empty = all buckets)
             filters: Additional filters to apply
             limit: Maximum number of results
 
@@ -162,9 +207,42 @@ class BackendRegistry:
         """Get a backend by string name."""
         try:
             backend_type = BackendType(name.lower())
-            return self.get_backend(backend_type)
+            backend = self.get_backend(backend_type)
+            if backend:
+                # Ensure backend is initialized when accessed by name
+                backend.ensure_initialized()
+            return backend
         except ValueError:
             return None
+
+    def _select_primary_backend(self) -> Optional[SearchBackend]:
+        """Select single primary backend based on availability and preference.
+
+        Selection priority:
+        1. Elasticsearch (only valid backend)
+        2. None - if Elasticsearch not available
+
+        Returns:
+            The selected backend, or None if no backends available
+        """
+        # Only Elasticsearch is supported now
+        elasticsearch_backend = self.get_backend(BackendType.ELASTICSEARCH)
+        if elasticsearch_backend:
+            # Ensure backend is initialized before checking availability
+            elasticsearch_backend.ensure_initialized()
+            if elasticsearch_backend.status == BackendStatus.AVAILABLE:
+                return elasticsearch_backend
+
+        # No backends available
+        return None
+
+    def get_backend_statuses(self) -> Dict[str, str]:
+        """Get status of all registered backends.
+
+        Returns:
+            Dictionary mapping backend names to status strings
+        """
+        return {backend.backend_type.value: backend.status.value for backend in self._backends.values()}
 
     async def health_check_all(self) -> Dict[BackendType, bool]:
         """Run health checks on all registered backends."""

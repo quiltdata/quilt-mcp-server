@@ -4,6 +4,7 @@ import logging
 from typing import List, Set, Optional
 from urllib.parse import urljoin
 
+from ..config import http_config
 from ..services.quilt_service import QuiltService
 
 logger = logging.getLogger(__name__)
@@ -29,24 +30,12 @@ def get_stack_buckets() -> List[str]:
             logger.info(f"Found {len(stack_buckets)} buckets in stack via permissions")
             return list(stack_buckets)
 
-        # Final fallback to default bucket
-        from ..constants import DEFAULT_REGISTRY
-
-        if DEFAULT_REGISTRY:
-            bucket_name = DEFAULT_REGISTRY.replace("s3://", "")
-            logger.info(f"Falling back to default bucket: {bucket_name}")
-            return [bucket_name]
-
-        logger.warning("No stack buckets found and no default bucket configured")
+        # No fallback - return empty list if no buckets found
+        logger.warning("No stack buckets found")
         return []
 
     except Exception as e:
         logger.error(f"Failed to discover stack buckets: {e}")
-        # Emergency fallback
-        from ..constants import DEFAULT_REGISTRY
-
-        if DEFAULT_REGISTRY:
-            return [DEFAULT_REGISTRY.replace("s3://", "")]
         return []
 
 
@@ -71,7 +60,7 @@ def _get_stack_buckets_via_graphql() -> Set[str]:
             # Query for bucket configurations (this gets all buckets in the stack)
             query = {"query": "query { bucketConfigs { name title } }"}
 
-            response = session.post(graphql_url, json=query)
+            response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 
             if response.status_code == 200:
                 data = response.json()
@@ -112,14 +101,17 @@ def _get_stack_buckets_via_permissions() -> Set[str]:
         return set()
 
 
-def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
+def build_stack_search_indices(buckets: Optional[List[str]] = None, packages_only: bool = False) -> str:
     """Build Elasticsearch index pattern for searching across all stack buckets.
 
     Args:
         buckets: List of bucket names. If None, discovers stack buckets automatically.
+        packages_only: If True, only include *_packages indices (not object indices).
 
     Returns:
-        Comma-separated index pattern for Elasticsearch (e.g., "bucket1,bucket1_packages,bucket2,bucket2_packages")
+        Comma-separated index pattern for Elasticsearch.
+        - packages_only=False: "bucket1,bucket1_packages,bucket2,bucket2_packages"
+        - packages_only=True:  "bucket1_packages,bucket2_packages"
     """
     if buckets is None:
         buckets = get_stack_buckets()
@@ -128,13 +120,16 @@ def build_stack_search_indices(buckets: Optional[List[str]] = None) -> str:
         logger.warning("No buckets found for stack search")
         return ""
 
-    # Build index pattern: for each bucket, include both the main index and packages index
+    # Build index pattern based on packages_only flag
     indices = []
     for bucket in buckets:
-        indices.extend([bucket, f"{bucket}_packages"])
+        if packages_only:
+            indices.append(f"{bucket}_packages")
+        else:
+            indices.extend([bucket, f"{bucket}_packages"])
 
     index_pattern = ",".join(indices)
-    logger.debug(f"Built stack search index pattern: {index_pattern}")
+    logger.debug(f"Built stack search index pattern: {index_pattern} (packages_only={packages_only})")
     return index_pattern
 
 

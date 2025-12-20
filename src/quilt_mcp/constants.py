@@ -2,15 +2,22 @@
 
 import os
 
-# Default bucket for S3 operations (also serves as registry) - read from environment
-DEFAULT_BUCKET = os.getenv("QUILT_DEFAULT_BUCKET", "")
-DEFAULT_REGISTRY = DEFAULT_BUCKET  # Registry is the same as bucket
-DEFAULT_BUCKET_NAME = DEFAULT_BUCKET.replace("s3://", "")  # strip s3 scheme if present
+# ============================================================================
+# REMOVED: DEFAULT_BUCKET and DEFAULT_REGISTRY (v0.10.0)
+# ============================================================================
+# Rationale: MCP server should not manage default bucket state
+# LLM clients provide explicit bucket parameters based on conversation context
+# Tests use QUILT_TEST_BUCKET fixture from tests/conftest.py
+# ============================================================================
 
-# Known test packages and entries (for testing) - read from environment
-# Updated to cellpainting/jump-cpg0016-illumination for CI testing
+# Test package configuration (can reference any package in any bucket)
+# These are used for basic connectivity checks only
 KNOWN_TEST_PACKAGE = os.getenv("QUILT_TEST_PACKAGE", "test/raw")
-KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTRY", "README.md")  # Note: keeping the typo from .env
+KNOWN_TEST_ENTRY = os.getenv("QUILT_TEST_ENTRY", "README.md")
 
-# For backward compatibility, construct full S3 object path
-KNOWN_TEST_S3_OBJECT = f"{DEFAULT_BUCKET}/{KNOWN_TEST_PACKAGE}/{KNOWN_TEST_ENTRY}"
+# ============================================================================
+# REMOVED: KNOWN_TEST_S3_OBJECT (v0.10.0)
+# ============================================================================
+# Tests should construct full S3 URIs using test fixtures
+# Example: f"{test_bucket}/{KNOWN_TEST_PACKAGE}/{KNOWN_TEST_ENTRY}"
+# ============================================================================

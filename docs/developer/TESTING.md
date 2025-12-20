@@ -116,19 +116,19 @@ pytest tests/test_integration.py::TestUnifiedSearch -v
 class TestUnifiedSearch:
     @pytest.mark.asyncio
     async def test_cross_backend_search(self):
-        \"\"\"Test search across multiple backends\"\"\"
+        \"\"\"Test search using auto backend selection\"\"\"
         # Test with real configuration
         result = await unified_search(
             query=\"RNA-seq data\",
             scope=\"global\",
-            backends=[\"graphql\", \"elasticsearch\", \"s3\"],
+            backend=\"auto\",
             limit=10
         )
-        
+
         assert result['success'] is True
         assert 'results' in result
-        assert len(result['backends_used']) >= 2
-        
+        assert len(result['backends_used']) >= 1
+
         # Validate result structure
         for item in result['results']:
             assert 'source' in item

@@ -30,7 +30,7 @@ class DataAnalyzer:
         Returns:
             Dictionary with package metadata
         """
-        metadata = {
+        metadata: Dict[str, Any] = {
             "package_name": package_path.name,
             "package_path": str(package_path),
             "analysis_timestamp": datetime.now().isoformat(),
@@ -117,7 +117,7 @@ class DataAnalyzer:
         if df is None or df.empty:
             return {}
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "shape": df.shape,
             "columns": list(df.columns),
             "dtypes": df.dtypes.to_dict(),
@@ -212,7 +212,7 @@ class DataAnalyzer:
             with open(file_path, "r") as f:
                 data = json.load(f)
 
-            analysis = {
+            analysis: Dict[str, Any] = {
                 "type": type(data).__name__,
                 "size": len(str(data)),
                 "has_nested": False,
@@ -224,8 +224,9 @@ class DataAnalyzer:
             if isinstance(data, dict):
                 analysis["key_count"] = len(data)
                 analysis["keys"] = list(data.keys())
-                analysis["max_depth"] = self._get_max_depth(data)
-                analysis["has_nested"] = analysis["max_depth"] > 1
+                max_depth = self._get_max_depth(data)
+                analysis["max_depth"] = max_depth
+                analysis["has_nested"] = max_depth > 1
 
                 # Check if it's chartable data
                 if self._is_chartable_dict(data):
@@ -328,25 +329,25 @@ class DataAnalyzer:
         Returns:
             Dictionary with data summary
         """
-        file_path = Path(file_path)
-        if not file_path.exists():
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
             return {"error": "File does not exist"}
 
-        summary = {
-            "file_path": str(file_path),
-            "file_name": file_path.name,
-            "file_size": file_path.stat().st_size,
-            "file_type": file_path.suffix.lower().lstrip("."),
+        summary: Dict[str, Any] = {
+            "file_path": str(file_path_obj),
+            "file_name": file_path_obj.name,
+            "file_size": file_path_obj.stat().st_size,
+            "file_type": file_path_obj.suffix.lower().lstrip("."),
             "analysis_timestamp": datetime.now().isoformat(),
         }
 
         # Analyze based on file type
-        if file_path.suffix.lower() in [".csv", ".tsv"]:
-            analysis = self.analyze_csv_file(str(file_path))
+        if file_path_obj.suffix.lower() in [".csv", ".tsv"]:
+            analysis = self.analyze_csv_file(str(file_path_obj))
             if analysis:
                 summary.update(analysis)
-        elif file_path.suffix.lower() == ".json":
-            analysis = self.analyze_json_file(str(file_path))
+        elif file_path_obj.suffix.lower() == ".json":
+            analysis = self.analyze_json_file(str(file_path_obj))
             if analysis:
                 summary.update(analysis)
 

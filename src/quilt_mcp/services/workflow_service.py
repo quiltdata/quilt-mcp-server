@@ -4,12 +4,13 @@ This module provides workflow state management and orchestration capabilities
 for complex data operations across multiple Quilt packages and buckets.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Annotated, Literal
 import logging
 from datetime import datetime, timezone
 import json
 import uuid
 from enum import Enum
+from pydantic import Field
 
 from ..utils import format_error_response
 from ..models import (
@@ -55,10 +56,34 @@ _workflows: Dict[str, Dict[str, Any]] = {}
 
 
 def workflow_create(
-    workflow_id: str,
-    name: str,
-    description: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="Unique identifier for the workflow",
+            examples=["wf-123", "data-pipeline-001"],
+        ),
+    ],
+    name: Annotated[
+        str,
+        Field(
+            description="Human-readable name for the workflow",
+            examples=["Data Processing Pipeline", "Analysis Workflow"],
+        ),
+    ],
+    description: Annotated[
+        str,
+        Field(
+            default="",
+            description="Optional description of the workflow purpose",
+        ),
+    ] = "",
+    metadata: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            default=None,
+            description="Optional metadata dictionary for the workflow",
+        ),
+    ] = None,
 ) -> Dict[str, Any]:
     """Create a new workflow for tracking multi-step operations - Workflow tracking and orchestration tasks
 
@@ -129,12 +154,48 @@ def workflow_create(
 
 
 def workflow_add_step(
-    workflow_id: str,
-    step_id: str,
-    description: str,
-    step_type: str = "manual",
-    dependencies: Optional[List[str]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="ID of the workflow to add step to",
+        ),
+    ],
+    step_id: Annotated[
+        str,
+        Field(
+            description="Unique identifier for this step",
+            examples=["step-1", "upload-data", "process-files"],
+        ),
+    ],
+    description: Annotated[
+        str,
+        Field(
+            description="Description of what this step does",
+            examples=["Upload raw data files", "Process uploaded files"],
+        ),
+    ],
+    step_type: Annotated[
+        str,
+        Field(
+            default="manual",
+            description="Type of step (manual, automated, validation, etc.)",
+        ),
+    ] = "manual",
+    dependencies: Annotated[
+        Optional[List[str]],
+        Field(
+            default=None,
+            description="List of step IDs that must complete before this step",
+            examples=[["step-0", "step-1"]],
+        ),
+    ] = None,
+    metadata: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            default=None,
+            description="Optional step-specific metadata",
+        ),
+    ] = None,
 ) -> WorkflowAddStepResponse:
     """Add a step to an existing workflow - Workflow tracking and orchestration tasks
 
@@ -229,11 +290,38 @@ def workflow_add_step(
 
 
 def workflow_update_step(
-    workflow_id: str,
-    step_id: str,
-    status: str,
-    result: Optional[Dict[str, Any]] = None,
-    error_message: Optional[str] = None,
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="ID of the workflow containing the step",
+        ),
+    ],
+    step_id: Annotated[
+        str,
+        Field(
+            description="ID of the step to update",
+        ),
+    ],
+    status: Annotated[
+        Literal["pending", "in_progress", "completed", "failed", "skipped"],
+        Field(
+            description="New status for the step",
+        ),
+    ],
+    result: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            default=None,
+            description="Optional result data from step execution",
+        ),
+    ] = None,
+    error_message: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional error message if step failed",
+        ),
+    ] = None,
 ) -> Dict[str, Any]:
     """Update the status of a workflow step - Workflow tracking and orchestration tasks
 
@@ -345,11 +433,19 @@ def workflow_update_step(
         return format_error_response(f"Failed to update step: {str(e)}")
 
 
-def workflow_get_status(workflow_id: str) -> WorkflowGetStatusResponse:
+def workflow_get_status(
+    id: Annotated[
+        str,
+        Field(
+            description="ID of the workflow to get status for",
+            examples=["wf-123", "analysis-workflow-456"],
+        ),
+    ],
+) -> WorkflowGetStatusResponse:
     """Get the current status of a workflow - Workflow tracking and orchestration tasks
 
     Args:
-        workflow_id: ID of the workflow to check
+        id: ID of the workflow to check
 
     Returns:
         Comprehensive workflow status information
@@ -362,16 +458,16 @@ def workflow_get_status(workflow_id: str) -> WorkflowGetStatusResponse:
         from quilt_mcp.tools import workflow_orchestration
 
         result = workflow_orchestration.workflow_get_status(
-            workflow_id="wf-123",
+            id="wf-123",
         )
         # Next step: Update the workflow state or share the status summary before moving on.
         ```
     """
     try:
-        if workflow_id not in _workflows:
-            return ErrorResponse(error=f"Workflow '{workflow_id}' not found")
+        if id not in _workflows:
+            return ErrorResponse(error=f"Workflow '{id}' not found")
 
-        workflow = _workflows[workflow_id]
+        workflow = _workflows[id]
 
         # Calculate progress metrics
         total_steps = workflow["total_steps"]
@@ -416,7 +512,7 @@ def workflow_get_status(workflow_id: str) -> WorkflowGetStatusResponse:
         )
 
     except Exception as e:
-        logger.error(f"Failed to get workflow status {workflow_id}: {e}")
+        logger.error(f"Failed to get workflow status {id}: {e}")
         return ErrorResponse(error=f"Failed to get workflow status: {str(e)}")
 
 
@@ -478,7 +574,36 @@ def workflow_list_all() -> WorkflowListAllResponse:
 
 
 def workflow_template_apply(
-    template_name: str, workflow_id: str, params: Dict[str, Any]
+    template_name: Annotated[
+        Literal[
+            "cross-package-aggregation",
+            "environment-promotion",
+            "longitudinal-analysis",
+            "data-validation",
+        ],
+        Field(
+            description="Name of the template to apply",
+        ),
+    ],
+    workflow_id: Annotated[
+        str,
+        Field(
+            description="ID for the new workflow to create from template",
+            examples=["wf-aggregation-123", "wf-promotion-456"],
+        ),
+    ],
+    params: Annotated[
+        Dict[str, Any],
+        Field(
+            description="Parameters to customize the template (varies by template type)",
+            examples=[
+                {
+                    "source_packages": ["team/data1", "team/data2"],
+                    "target_package": "team/aggregated",
+                }
+            ],
+        ),
+    ],
 ) -> WorkflowTemplateApplyResponse:
     """Apply a pre-defined workflow template - Workflow tracking and orchestration tasks
 

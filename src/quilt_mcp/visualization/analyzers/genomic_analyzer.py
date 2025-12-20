@@ -7,7 +7,7 @@ and biological context for automatic IGV visualization generation.
 
 import os
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set, cast
 import json
 
 
@@ -26,7 +26,7 @@ class GenomicAnalyzer:
         "sacCer3": "Yeast (R64-1-1)",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the genomic analyzer."""
         pass
 
@@ -40,7 +40,7 @@ class GenomicAnalyzer:
         Returns:
             Dictionary with genomic analysis results
         """
-        analysis = {
+        analysis: Dict[str, Any] = {
             "genomic_file_count": len(genomic_files),
             "file_types": {},
             "genome_assembly": None,
@@ -75,9 +75,11 @@ class GenomicAnalyzer:
 
                 # Aggregate chromosomes and regions
                 if "chromosomes" in file_analysis:
-                    analysis["chromosomes"].update(file_analysis["chromosomes"])
+                    chromosomes_set = cast(Set[str], analysis["chromosomes"])
+                    chromosomes_set.update(file_analysis["chromosomes"])
                 if "regions" in file_analysis:
-                    analysis["regions"].extend(file_analysis["regions"])
+                    regions_list = cast(List[Dict[str, Any]], analysis["regions"])
+                    regions_list.extend(file_analysis["regions"])
 
                 # Update sample count
                 if "sample_count" in file_analysis:
@@ -88,7 +90,8 @@ class GenomicAnalyzer:
                     analysis["genome_assembly"] = file_analysis["genome_assembly"]
 
         # Convert set to list for JSON serialization
-        analysis["chromosomes"] = list(analysis["chromosomes"])
+        chromosomes_set = cast(Set[str], analysis["chromosomes"])
+        analysis["chromosomes"] = list(chromosomes_set)
 
         # Determine biological context
         analysis["biological_context"] = self._determine_biological_context(analysis)
@@ -197,12 +200,12 @@ class GenomicAnalyzer:
 
     def _analyze_fasta_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a FASTA file."""
-        analysis = {
+        analysis: Dict[str, Any] = {
             "has_sequence_data": True,
             "sequence_count": 0,
             "total_length": 0,
-            "average_length": 0,
-            "gc_content": 0,
+            "average_length": 0.0,
+            "gc_content": 0.0,
             "genome_assembly": None,
         }
 
@@ -238,7 +241,7 @@ class GenomicAnalyzer:
 
                 # Try to detect genome assembly from headers
                 for header, _ in sequences[:10]:  # Check first 10 sequences
-                    if Any(assembly in header.upper() for assembly in self.GENOME_ASSEMBLIES.keys()):
+                    if any(assembly in header.upper() for assembly in self.GENOME_ASSEMBLIES.keys()):
                         for assembly in self.GENOME_ASSEMBLIES.keys():
                             if assembly.upper() in header.upper():
                                 analysis["genome_assembly"] = assembly
@@ -253,12 +256,12 @@ class GenomicAnalyzer:
 
     def _analyze_fastq_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a FASTQ file."""
-        analysis = {
+        analysis: Dict[str, Any] = {
             "has_sequence_data": True,
             "sequence_count": 0,
             "total_length": 0,
-            "average_length": 0,
-            "quality_scores": {"min": 0, "max": 0, "average": 0},
+            "average_length": 0.0,
+            "quality_scores": {"min": 0, "max": 0, "average": 0.0},
         }
 
         try:
@@ -283,14 +286,15 @@ class GenomicAnalyzer:
 
                 # Analyze quality scores
                 if qualities:
-                    all_quals = []
+                    all_quals: List[int] = []
                     for qual in qualities:
                         all_quals.extend([ord(c) - 33 for c in qual])  # Convert ASCII to quality scores
 
                     if all_quals:
-                        analysis["quality_scores"]["min"] = min(all_quals)
-                        analysis["quality_scores"]["max"] = max(all_quals)
-                        analysis["quality_scores"]["average"] = sum(all_quals) / len(all_quals)
+                        quality_scores = cast(Dict[str, float], analysis["quality_scores"])
+                        quality_scores["min"] = float(min(all_quals))
+                        quality_scores["max"] = float(max(all_quals))
+                        quality_scores["average"] = sum(all_quals) / len(all_quals)
 
         except Exception as e:
             analysis["error"] = str(e)
@@ -299,12 +303,15 @@ class GenomicAnalyzer:
 
     def _analyze_vcf_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a VCF file."""
-        analysis = {
+        chromosomes_set: Set[str] = set()
+        variant_types_set: Set[str] = set()
+
+        analysis: Dict[str, Any] = {
             "has_variant_data": True,
             "variant_count": 0,
-            "chromosomes": set(),
+            "chromosomes": chromosomes_set,
             "sample_count": 0,
-            "variant_types": set(),
+            "variant_types": variant_types_set,
             "genome_assembly": None,
         }
 
@@ -332,19 +339,20 @@ class GenomicAnalyzer:
                             ref = parts[3]
                             alt = parts[4]
 
-                            analysis["chromosomes"].add(chrom)
-                            analysis["variant_count"] += 1
+                            chromosomes_set.add(chrom)
+                            variant_count = cast(int, analysis["variant_count"])
+                            analysis["variant_count"] = variant_count + 1
 
                             # Determine variant type
                             if len(ref) == 1 and len(alt) == 1:
-                                analysis["variant_types"].add("SNP")
+                                variant_types_set.add("SNP")
                             elif len(ref) != len(alt):
-                                analysis["variant_types"].add("INDEL")
+                                variant_types_set.add("INDEL")
                             else:
-                                analysis["variant_types"].add("SUBSTITUTION")
+                                variant_types_set.add("SUBSTITUTION")
 
                 # Convert set to list for JSON serialization
-                analysis["variant_types"] = list(analysis["variant_types"])
+                analysis["variant_types"] = list(variant_types_set)
 
         except Exception as e:
             analysis["error"] = str(e)
@@ -353,11 +361,14 @@ class GenomicAnalyzer:
 
     def _analyze_bed_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a BED file."""
-        analysis = {
+        chromosomes_set: Set[str] = set()
+        regions_list: List[Dict[str, Any]] = []
+
+        analysis: Dict[str, Any] = {
             "has_annotation_data": True,
             "region_count": 0,
-            "chromosomes": set(),
-            "regions": [],
+            "chromosomes": chromosomes_set,
+            "regions": regions_list,
             "genome_assembly": None,
         }
 
@@ -381,9 +392,10 @@ class GenomicAnalyzer:
                             start = int(parts[1])
                             end = int(parts[2])
 
-                            analysis["chromosomes"].add(chrom)
-                            analysis["region_count"] += 1
-                            analysis["regions"].append({"chromosome": chrom, "start": start, "end": end})
+                            chromosomes_set.add(chrom)
+                            region_count = cast(int, analysis["region_count"])
+                            analysis["region_count"] = region_count + 1
+                            regions_list.append({"chromosome": chrom, "start": start, "end": end})
 
         except Exception as e:
             analysis["error"] = str(e)
@@ -392,12 +404,16 @@ class GenomicAnalyzer:
 
     def _analyze_gtf_file(self, file_path: Path) -> Dict[str, Any]:
         """Analyze a GTF file."""
-        analysis = {
+        chromosomes_set: Set[str] = set()
+        feature_types_set: Set[str] = set()
+        genes_set: Set[str] = set()
+
+        analysis: Dict[str, Any] = {
             "has_annotation_data": True,
             "feature_count": 0,
-            "chromosomes": set(),
-            "feature_types": set(),
-            "genes": set(),
+            "chromosomes": chromosomes_set,
+            "feature_types": feature_types_set,
+            "genes": genes_set,
             "genome_assembly": None,
         }
 
@@ -420,19 +436,20 @@ class GenomicAnalyzer:
                             chrom = parts[0]
                             feature_type = parts[2]
 
-                            analysis["chromosomes"].add(chrom)
-                            analysis["feature_count"] += 1
-                            analysis["feature_types"].add(feature_type)
+                            chromosomes_set.add(chrom)
+                            feature_count = cast(int, analysis["feature_count"])
+                            analysis["feature_count"] = feature_count + 1
+                            feature_types_set.add(feature_type)
 
                             # Extract gene information from attributes
                             attributes = parts[8]
                             if "gene_id" in attributes:
                                 gene_id = attributes.split('gene_id "')[1].split('"')[0]
-                                analysis["genes"].add(gene_id)
+                                genes_set.add(gene_id)
 
                 # Convert sets to lists for JSON serialization
-                analysis["feature_types"] = list(analysis["feature_types"])
-                analysis["genes"] = list(analysis["genes"])
+                analysis["feature_types"] = list(feature_types_set)
+                analysis["genes"] = list(genes_set)
 
         except Exception as e:
             analysis["error"] = str(e)

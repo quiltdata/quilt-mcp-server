@@ -80,9 +80,9 @@ METADATA_TEMPLATES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_metadata_template(template_name: str, custom_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def get_metadata_template(name: str, custom_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Return a metadata template merged with optional custom fields."""
-    template_key = template_name if template_name in METADATA_TEMPLATES else "standard"
+    template_key = name if name in METADATA_TEMPLATES else "standard"
     metadata = METADATA_TEMPLATES[template_key].copy()
     metadata["creation_date"] = _current_timestamp()
 

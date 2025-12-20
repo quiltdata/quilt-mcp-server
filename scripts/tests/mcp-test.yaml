@@ -1,0 +1,1058 @@
+_generated_by: scripts/mcp-list.py - Auto-generated test configuration
+_note: Edit test cases below to customize arguments and validation
+environment:
+  AWS_PROFILE: default
+  AWS_DEFAULT_REGION: us-east-1
+  QUILT_CATALOG_URL: https://nightly.quilttest.com
+  QUILT_TEST_BUCKET: quilt-ernest-staging
+  QUILT_TEST_PACKAGE: raw/test
+  QUILT_TEST_ENTRY: README.md
+test_tools:
+  bucket_objects_list:
+    description: List objects in an S3 bucket with optional prefix filtering - S3
+      bucket exploration and object retrieval tasks
+    effect: none
+    arguments:
+      bucket: quilt-ernest-staging
+      prefix: raw/test/
+      max_keys: 5
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_sso_config_remove:
+    description: Remove the SSO configuration - Quilt governance and administrative
+      operations
+    effect: remove
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_sso_config_set:
+    description: Set the SSO configuration - Quilt governance and administrative operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_tabulator_open_query_set:
+    description: Set the tabulator open query status - Quilt governance and administrative
+      operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_add_roles:
+    description: Add roles to a user - Quilt governance and administrative operations
+    effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_create:
+    description: Create a new user in the registry - Quilt governance and administrative
+      operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_delete:
+    description: Delete a user from the registry - Quilt governance and administrative
+      operations
+    effect: remove
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_get:
+    description: Get detailed information about a specific user - Quilt governance
+      and administrative operations
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_remove_roles:
+    description: Remove roles from a user - Quilt governance and administrative operations
+    effect: remove
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_reset_password:
+    description: Reset a user's password - Quilt governance and administrative operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_set_active:
+    description: Set the active status for a user - Quilt governance and administrative
+      operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_set_admin:
+    description: Set the admin status for a user - Quilt governance and administrative
+      operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_set_email:
+    description: Update a user's email address - Quilt governance and administrative
+      operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  admin_user_set_role:
+    description: Set the primary and extra roles for a user - Quilt governance and
+      administrative operations
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_query_execute:
+    description: Execute SQL query against Athena using SQLAlchemy/PyAthena - Athena
+      querying and Glue catalog inspection workflows
+    effect: configure
+    arguments:
+      query: SELECT 1 as test_value
+      max_results: 10
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_query_validate:
+    description: Validate SQL query syntax without executing it - Athena querying
+      and Glue catalog inspection workflows
+    effect: none
+    arguments:
+      query: SHOW TABLES
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_table_schema:
+    description: Get detailed schema information for a specific table - Athena querying
+      and Glue catalog inspection workflows
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  athena_tables_list:
+    description: List tables in a specific database - Athena querying and Glue catalog
+      inspection workflows
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_object_fetch:
+    description: Fetch binary or text data from an S3 object - S3 bucket exploration
+      and object retrieval tasks
+    effect: none
+    arguments:
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      max_bytes: 200
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_object_info:
+    description: Get metadata information for a specific S3 object - S3 bucket exploration
+      and object retrieval tasks
+    effect: none
+    arguments:
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_object_link:
+    description: Generate a presigned URL for downloading an S3 object - S3 bucket
+      exploration and object retrieval tasks
+    effect: none
+    arguments:
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_object_text:
+    description: Read text content from an S3 object - S3 bucket exploration and object
+      retrieval tasks
+    effect: none
+    arguments:
+      s3_uri: quilt-ernest-staging/raw/test/.timestamp
+      max_bytes: 200
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  bucket_objects_put:
+    description: Upload multiple objects to an S3 bucket - S3 bucket exploration and
+      object retrieval tasks
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  catalog_configure:
+    description: Configure Quilt catalog URL - Quilt authentication and catalog navigation
+      workflows
+    effect: configure
+    arguments:
+      catalog_url: https://nightly.quilttest.com
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  catalog_uri:
+    description: Build Quilt+ URI - Quilt authentication and catalog navigation workflows
+    effect: none
+    arguments:
+      registry: quilt-ernest-staging
+      package_name: raw/test
+      path: .timestamp
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  catalog_url:
+    description: Generate Quilt catalog URL - Quilt authentication and catalog navigation
+      workflows
+    effect: none
+    arguments:
+      registry: quilt-ernest-staging
+      package_name: raw/test
+      path: .timestamp
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  check_bucket_access:
+    description: Check the caller's access to ``bucket``.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  create_data_visualization:
+    description: Create interactive data visualization for Quilt packages - Generate
+      ECharts configurations from tabular data.
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  create_quilt_summary_files:
+    description: Create all Quilt summary files for a package - Quilt summary file
+      generation tasks
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  discover_permissions:
+    description: Discover AWS permissions for the current principal.
+    effect: none
+    arguments:
+      check_buckets:
+      - quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  generate_package_visualizations:
+    description: Generate comprehensive visualizations for the package - Quilt summary
+      file generation tasks
+    effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  generate_quilt_summarize_json:
+    description: Generate a comprehensive quilt_summarize.json file following Quilt
+      standards - Quilt summary file generation tasks
+    effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  get_resource:
+    description: Access MCP resources via tool interface for backward compatibility.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_browse:
+    description: Browse the contents of a Quilt package with enhanced file information
+      - Quilt package discovery and comparison tasks
+    effect: none
+    arguments:
+      package_name: raw/test
+      registry: quilt-ernest-staging
+      recursive: false
+      include_signed_urls: false
+      top: 5
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_create:
+    description: Create a new Quilt package from S3 objects - Core package creation,
+      update, and deletion workflows
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_create_from_s3:
+    description: Create a well-organized Quilt package from S3 bucket contents with
+      smart organization - Bulk S3-to-package ingestion workflows
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_delete:
+    description: Delete a Quilt package from the registry - Core package creation,
+      update, and deletion workflows
+    effect: remove
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_diff:
+    description: Compare two package versions and show differences - Quilt package
+      discovery and comparison tasks
+    effect: none
+    arguments:
+      package1_name: raw/test
+      package2_name: raw/test
+      registry: quilt-ernest-staging
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  package_update:
+    description: Update an existing Quilt package by adding new S3 objects - Core
+      package creation, update, and deletion workflows
+    effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_catalog.global.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: global
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find TEST_ENTRY (README.md) in global results (title field)
+      description: Global search across all buckets (_all index) should return results
+        including test entry
+  search_catalog.file.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: README.md
+      limit: 10
+      scope: file
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain:
+      - value: README.md
+        field: title
+        match_type: substring
+        description: Must find README.md in file search results (title field)
+      description: File search across all buckets (wildcard) must find TEST_ENTRY
+        (README.md)
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - title
+        - score
+  search_catalog.package.no_bucket:
+    tool: search_catalog
+    description: Intelligent unified search across Quilt catalog using Elasticsearch
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      query: raw/test
+      limit: 10
+      scope: package
+      bucket: ''
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+    validation:
+      type: search
+      min_results: 1
+      must_contain: []
+      description: Package search across all buckets (wildcard) should return results
+      result_shape:
+        required_fields:
+        - id
+        - type
+        - score
+  search_explain:
+    description: Explain how a search query would be processed and executed - Catalog
+      and package search experiences
+    effect: none
+    arguments:
+      query: CSV files
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  search_suggest:
+    description: Get intelligent search suggestions based on partial queries and context
+      - Catalog and package search experiences
+    effect: none
+    arguments:
+      partial_query: raw/t
+      limit: 5
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_bucket_query:
+    description: Execute a bucket-scoped tabulator query (legacy tool signature).
+    effect: none
+    arguments:
+      bucket_name: quilt-ernest-staging
+      query: SELECT 1 as test_value
+      max_results: 10
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_open_query_status:
+    description: Return tabulator open query flag.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_open_query_toggle:
+    description: Toggle tabulator open query flag.
+    effect: configure
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_table_create:
+    description: Create tabulator table (legacy tool signature).
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_table_delete:
+    description: Delete tabulator table (legacy tool signature).
+    effect: remove
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_table_rename:
+    description: Rename tabulator table (legacy tool signature).
+    effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  tabulator_tables_list:
+    description: Async wrapper mirroring the legacy tool interface for listing tables.
+    effect: none
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  workflow_add_step:
+    description: Add a step to an existing workflow - Workflow tracking and orchestration
+      tasks
+    effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  workflow_create:
+    description: Create a new workflow for tracking multi-step operations - Workflow
+      tracking and orchestration tasks
+    effect: create
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  workflow_template_apply:
+    description: Apply a pre-defined workflow template - Workflow tracking and orchestration
+      tasks
+    effect: configure
+    arguments:
+      template_name: cross-package-aggregation
+      workflow_id: test-wf-001
+      params:
+        source_packages:
+        - raw/test
+        target_package: raw/test-agg
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+  workflow_update_step:
+    description: Update the status of a workflow step - Workflow tracking and orchestration
+      tasks
+    effect: update
+    arguments: {}
+    response_schema:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+      required:
+      - content
+test_resources:
+  auth://status:
+    description: Check authentication status and catalog configuration
+    effect: none
+    uri: auth://status
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  auth://catalog/info:
+    description: Get catalog configuration details
+    effect: none
+    uri: auth://catalog/info
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  auth://filesystem/status:
+    description: Check filesystem permissions and writability
+    effect: none
+    uri: auth://filesystem/status
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://users:
+    description: List all users in the Quilt registry with their roles and status
+      (requires admin privileges)
+    effect: none
+    uri: admin://users
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://roles:
+    description: List all available roles in the Quilt registry (requires admin privileges)
+    effect: none
+    uri: admin://roles
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://config/sso:
+    description: Current SSO configuration
+    effect: none
+    uri: admin://config/sso
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  admin://config/tabulator:
+    description: Tabulator open query configuration
+    effect: none
+    uri: admin://config/tabulator
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  athena://databases:
+    description: List available Athena databases
+    effect: none
+    uri: athena://databases
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  athena://workgroups:
+    description: List available Athena workgroups
+    effect: none
+    uri: athena://workgroups
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  athena://query/history:
+    description: Recent Athena query execution history (last 50 queries)
+    effect: none
+    uri: athena://query/history
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  metadata://templates:
+    description: List available metadata templates
+    effect: none
+    uri: metadata://templates
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  metadata://examples:
+    description: Example metadata configurations
+    effect: none
+    uri: metadata://examples
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  metadata://troubleshooting:
+    description: Common metadata issues and solutions
+    effect: none
+    uri: metadata://troubleshooting
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  workflow://workflows:
+    description: List all tracked workflows
+    effect: none
+    uri: workflow://workflows
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+  tabulator://buckets:
+    description: List buckets with tabulator tables configured
+    effect: none
+    uri: tabulator://buckets
+    uri_variables: {}
+    expected_mime_type: application/json
+    content_validation:
+      type: json
+      min_length: 1
+      max_length: 100000
+      schema:
+        type: object
+        description: Auto-generated basic schema - customize as needed
+test_config:
+  timeout: 30
+  retry_attempts: 2
+  fail_fast: false

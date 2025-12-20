@@ -143,18 +143,18 @@ class MockLLMClient:
 
         if "search" in query_lower or "find" in query_lower:
             if "csv" in query_lower:
-                tool_calls.append(MockToolCall("unified_search", {"query": "csv", "limit": 5}))
+                tool_calls.append(MockToolCall("search_catalog", {"query": "csv", "limit": 5}))
             elif "data" in query_lower:
-                tool_calls.append(MockToolCall("unified_search", {"query": "data", "limit": 3}))
+                tool_calls.append(MockToolCall("search_catalog", {"query": "data", "limit": 3}))
 
             # Try unified search if available
-            if "unified_search" in self.tools:
+            if "search_catalog" in self.tools:
                 tool_calls.append(
                     MockToolCall(
-                        "unified_search",
+                        "search_catalog",
                         {
                             "query": query,
-                            "scope": "catalog",
+                            "scope": "package",
                             "limit": 3,
                             "explain_query": True,
                         },
@@ -167,7 +167,7 @@ class MockLLMClient:
         if "bucket" in query_lower:
             tool_calls.append(
                 MockToolCall(
-                    "unified_search",
+                    "search_catalog",
                     {
                         "query": "data",
                         "scope": "bucket",
@@ -255,10 +255,10 @@ class MockLLMMCPTester:
 
         # Test error cases by calling tools with invalid parameters
         error_tests = [
-            MockToolCall("unified_search", {"query": "", "limit": -1}),
+            MockToolCall("search_catalog", {"query": "", "limit": -1}),
             MockToolCall("nonexistent_tool", {"any": "args"}),
             MockToolCall(
-                "unified_search",
+                "search_catalog",
                 {"query": "data", "scope": "bucket", "target": "invalid-bucket"},
             ),
             MockToolCall("auth_status", {}),  # Missing required param
@@ -338,7 +338,7 @@ class MockLLMMCPTester:
         # Check for key tools
         key_tools = [
             "auth_status",
-            "unified_search",
+            "search_catalog",
             "packages_list",
         ]
 

@@ -1,0 +1,8 @@
+summary:
+  combined_pct_covered:
+    actual: 56.9
+    required: 55.0
+    passed: true
+files: {}
+passed: true
+errors: []

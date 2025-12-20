@@ -1,0 +1,47 @@
+# Coverage Requirements
+#
+# Defines minimum coverage thresholds for different test suites.
+# Values are percentages (0-100).
+#
+# The test_coverage.py script will validate that actual coverage meets or exceeds these thresholds.
+#
+# PHILOSOPHY: We focus on combined coverage, which measures whether code is tested
+# by ANY test suite (unit, integration, or e2e). What matters is that code is tested,
+# not which test category it falls under.
+
+# Overall project coverage thresholds
+summary:
+  # PRIMARY METRIC: Combined coverage measures if code is tested by ANY test type
+  combined_pct_covered: 55.0        # Current: 56.7% - primary quality gate
+
+# Per-file coverage thresholds (optional)
+# Only files explicitly listed here will be checked against per-file thresholds.
+# Use this to enforce higher coverage on critical files or allow lower coverage
+# on files that are difficult to test. Most files should NOT be listed here -
+# the summary thresholds are sufficient for overall project health.
+files:
+  # Example: Critical files that require higher coverage
+  # "src/quilt_mcp/core/auth.py":
+  #   unit_pct_covered: 95.0
+  #   combined_pct_covered: 95.0
+
+  # Example: Files that may have lower coverage temporarily
+  # "src/quilt_mcp/experimental/feature.py":
+  #   combined_pct_covered: 50.0
+
+# Strict mode: If true, fail if any file has zero coverage
+# If false, only check files that appear in the coverage report
+strict: false
+
+# Allow list: Files that are exempt from coverage requirements
+# These files will not cause test failures even with zero coverage
+exempt_files:
+  - "*__init__.py"           # Package initialization files (often just imports)
+  - "*__main__.py"           # Entry point files
+  - "*/tests/*"              # Test code itself
+  - "*/test_*.py"            # Test files
+  - "scripts/*"              # Build/utility scripts
+
+  # Known gaps to be addressed (see GitHub issue for improvements):
+  - "*/visualization/*"      # ~1,296 lines untested - needs comprehensive test suite
+  - "*/tools/stack_buckets.py"  # 95 lines untested - may be dead code

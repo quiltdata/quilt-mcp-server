@@ -1,28 +1,23 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from ..constants import DEFAULT_BUCKET
+from pydantic import Field
+
 from ..models import (
     BucketObjectFetchError,
-    BucketObjectFetchParams,
     BucketObjectFetchResponse,
     BucketObjectFetchSuccess,
     BucketObjectInfoError,
-    BucketObjectInfoParams,
     BucketObjectInfoResponse,
     BucketObjectInfoSuccess,
-    BucketObjectLinkParams,
     BucketObjectsListError,
-    BucketObjectsListParams,
     BucketObjectsListResponse,
     BucketObjectsListSuccess,
     BucketObjectsPutError,
-    BucketObjectsPutParams,
     BucketObjectsPutResponse,
     BucketObjectsPutSuccess,
     BucketObjectTextError,
-    BucketObjectTextParams,
     BucketObjectTextResponse,
     BucketObjectTextSuccess,
     ObjectMetadata,
@@ -64,12 +59,53 @@ def _attach_auth_metadata(payload: dict[str, Any], auth_ctx: AuthorizationContex
 
 
 def bucket_objects_list(
-    params: BucketObjectsListParams,
+    bucket: Annotated[
+        str,
+        Field(
+            description="S3 bucket name or s3:// URI",
+            examples=["my-bucket", "s3://my-bucket"],
+        ),
+    ],
+    prefix: Annotated[
+        str,
+        Field(
+            default="",
+            description="Filter objects by prefix (e.g., 'data/' to list only objects in data folder)",
+            examples=["", "data/", "experiments/2024/"],
+        ),
+    ] = "",
+    max_keys: Annotated[
+        int,
+        Field(
+            default=100,
+            ge=1,
+            le=1000,
+            description="Maximum number of objects to return (1-1000)",
+        ),
+    ] = 100,
+    continuation_token: Annotated[
+        str,
+        Field(
+            default="",
+            description="Token for paginating through large result sets (from previous response)",
+        ),
+    ] = "",
+    include_signed_urls: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Include presigned download URLs for each object",
+        ),
+    ] = True,
 ) -> BucketObjectsListResponse:
     """List objects in an S3 bucket with optional prefix filtering - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for listing bucket objects
+        bucket: S3 bucket name or s3:// URI
+        prefix: Filter objects by prefix (e.g., 'data/' to list only objects in data folder)
+        max_keys: Maximum number of objects to return (1-1000)
+        continuation_token: Token for paginating through large result sets (from previous response)
+        include_signed_urls: Include presigned download URLs for each object
 
     Returns:
         BucketObjectsListSuccess on success with bucket info and objects list,
@@ -81,34 +117,32 @@ def bucket_objects_list(
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectsListParams
 
-        params = BucketObjectsListParams(bucket="my-bucket", prefix="data/")
-        result = buckets.bucket_objects_list(params)
+        result = buckets.bucket_objects_list(bucket="my-bucket", prefix="data/")
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
-    bkt = _normalize_bucket(params.bucket)
+    bkt = _normalize_bucket(bucket)
     auth_ctx, error = _authorize_s3(
         "bucket_objects_list",
         {"bucket": bkt},
-        context={"bucket": bkt, "prefix": params.prefix},
+        context={"bucket": bkt, "prefix": prefix},
     )
     if error:
         return BucketObjectsListError(
             error=error.get("error", "Authorization failed"),
             bucket=bkt,
-            prefix=params.prefix or None,
+            prefix=prefix or None,
         )
 
     assert auth_ctx is not None, "auth_ctx should not be None after error check"
     client = auth_ctx.s3_client
     assert client is not None, "s3_client should not be None after authorization"
-    s3_params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": params.max_keys}
-    if params.prefix:
-        s3_params["Prefix"] = params.prefix
-    if params.continuation_token:
-        s3_params["ContinuationToken"] = params.continuation_token
+    s3_params: dict[str, Any] = {"Bucket": bkt, "MaxKeys": max_keys}
+    if prefix:
+        s3_params["Prefix"] = prefix
+    if continuation_token:
+        s3_params["ContinuationToken"] = continuation_token
 
     try:
         resp = client.list_objects_v2(**s3_params)
@@ -116,7 +150,7 @@ def bucket_objects_list(
         return BucketObjectsListError(
             error=f"Failed to list objects: {e}",
             bucket=bkt,
-            prefix=params.prefix or None,
+            prefix=prefix or None,
         )
 
     objects: list[S3Object] = []
@@ -124,7 +158,7 @@ def bucket_objects_list(
         key = item.get("Key")
         s3_uri = f"s3://{bkt}/{key}"
         signed_url = None
-        if params.include_signed_urls:
+        if include_signed_urls:
             signed_url = generate_signed_url(s3_uri)
 
         objects.append(
@@ -141,7 +175,7 @@ def bucket_objects_list(
 
     return BucketObjectsListSuccess(
         bucket=bkt,
-        prefix=params.prefix,
+        prefix=prefix,
         objects=objects,
         count=len(objects),
         is_truncated=resp.get("IsTruncated", False),
@@ -150,11 +184,23 @@ def bucket_objects_list(
     )
 
 
-def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoResponse:
+def bucket_object_info(
+    s3_uri: Annotated[
+        str,
+        Field(
+            description="Full S3 URI to the object, optionally with versionId query parameter",
+            examples=[
+                "s3://bucket-name/path/to/object",
+                "s3://bucket-name/path/to/object?versionId=abc123",
+            ],
+            pattern=r"^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/.+",
+        ),
+    ],
+) -> BucketObjectInfoResponse:
     """Get metadata information for a specific S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for getting object info
+        s3_uri: Full S3 URI to the object, optionally with versionId query parameter
 
     Returns:
         BucketObjectInfoSuccess on success with object metadata,
@@ -171,15 +217,13 @@ def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoRespon
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectInfoParams
 
-        params = BucketObjectInfoParams(s3_uri="s3://my-bucket/file.csv")
-        result = buckets.bucket_object_info(params)
+        result = buckets.bucket_object_info(s3_uri="s3://my-bucket/file.csv")
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
     try:
-        bucket, key, version_id = parse_s3_uri(params.s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return BucketObjectInfoError(error=str(e))
 
@@ -210,13 +254,13 @@ def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoRespon
             error_code = e.response["Error"]["Code"]
             if error_code == "NoSuchVersion":
                 return BucketObjectInfoError(
-                    error=f"Version {version_id} not found for {params.s3_uri}",
+                    error=f"Version {version_id} not found for {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
             elif error_code == "AccessDenied" and version_id:
                 return BucketObjectInfoError(
-                    error=f"Access denied for version {version_id} of {params.s3_uri}",
+                    error=f"Access denied for version {version_id} of {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
@@ -230,7 +274,7 @@ def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoRespon
         object=ObjectMetadata(
             bucket=bucket,
             key=key,
-            s3_uri=params.s3_uri,
+            s3_uri=s3_uri,
             size=head.get("ContentLength", 0),
             content_type=head.get("ContentType"),
             last_modified=str(head.get("LastModified")),
@@ -243,11 +287,39 @@ def bucket_object_info(params: BucketObjectInfoParams) -> BucketObjectInfoRespon
     )
 
 
-def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextResponse:
+def bucket_object_text(
+    s3_uri: Annotated[
+        str,
+        Field(
+            description="Full S3 URI to the object",
+            examples=["s3://bucket-name/path/to/file.txt"],
+            pattern=r"^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/.+",
+        ),
+    ],
+    max_bytes: Annotated[
+        int,
+        Field(
+            default=65536,
+            ge=1,
+            le=10485760,  # 10MB
+            description="Maximum bytes to read (1 byte to 10MB)",
+        ),
+    ] = 65536,
+    encoding: Annotated[
+        str,
+        Field(
+            default="utf-8",
+            description="Text encoding to use for decoding",
+            examples=["utf-8", "latin-1", "ascii"],
+        ),
+    ] = "utf-8",
+) -> BucketObjectTextResponse:
     """Read text content from an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for reading text content
+        s3_uri: Full S3 URI to the object
+        max_bytes: Maximum bytes to read (1 byte to 10MB)
+        encoding: Text encoding to use for decoding
 
     Returns:
         BucketObjectTextSuccess on success with decoded text content,
@@ -264,15 +336,13 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectTextParams
 
-        params = BucketObjectTextParams(s3_uri="s3://my-bucket/file.txt")
-        result = buckets.bucket_object_text(params)
+        result = buckets.bucket_object_text(s3_uri="s3://my-bucket/file.txt")
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
     try:
-        bucket, key, version_id = parse_s3_uri(params.s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return BucketObjectTextError(error=str(e))
 
@@ -297,20 +367,20 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
         if version_id:
             get_params["VersionId"] = version_id
         obj = client.get_object(**get_params)
-        body = obj["Body"].read(params.max_bytes + 1)
+        body = obj["Body"].read(max_bytes + 1)
     except Exception as e:
         # Handle version-specific errors
         if hasattr(e, "response") and "Error" in e.response:
             error_code = e.response["Error"]["Code"]
             if error_code == "NoSuchVersion":
                 return BucketObjectTextError(
-                    error=f"Version {version_id} not found for {params.s3_uri}",
+                    error=f"Version {version_id} not found for {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
             elif error_code == "AccessDenied" and version_id:
                 return BucketObjectTextError(
-                    error=f"Access denied for version {version_id} of {params.s3_uri}",
+                    error=f"Access denied for version {version_id} of {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
@@ -320,12 +390,12 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
             key=key,
         )
 
-    truncated = len(body) > params.max_bytes
+    truncated = len(body) > max_bytes
     if truncated:
-        body = body[: params.max_bytes]
+        body = body[:max_bytes]
 
     try:
-        text = body.decode(params.encoding, errors="replace")
+        text = body.decode(encoding, errors="replace")
     except Exception as e:
         return BucketObjectTextError(
             error=f"Decode failed: {e}",
@@ -336,20 +406,74 @@ def bucket_object_text(params: BucketObjectTextParams) -> BucketObjectTextRespon
     return BucketObjectTextSuccess(
         bucket=bucket,
         key=key,
-        s3_uri=params.s3_uri,
+        s3_uri=s3_uri,
         text=text,
-        encoding=params.encoding,
+        encoding=encoding,
         bytes_read=len(body),
         truncated=truncated,
         auth_type=auth_ctx.auth_type if auth_ctx else None,
     )
 
 
-def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutResponse:
+def bucket_objects_put(
+    bucket: Annotated[
+        str,
+        Field(
+            description="S3 bucket name or s3:// URI",
+            examples=["my-bucket", "s3://my-bucket"],
+        ),
+    ],
+    items: Annotated[
+        list[dict[str, Any]],
+        Field(
+            description=(
+                "List of objects to upload. Each item is a dict with:\n"
+                "- key (str, required): S3 key (path) for the object\n"
+                "- text (str, optional): Text content to upload (use this OR data, not both)\n"
+                "- data (str, optional): Base64-encoded binary content (use this OR text, not both)\n"
+                "- content_type (str, optional): MIME type, defaults to 'application/octet-stream'\n"
+                "- encoding (str, optional): Text encoding (e.g., 'utf-8') when uploading text\n"
+                "- metadata (dict[str, str], optional): Custom metadata key-value pairs"
+            ),
+            min_length=1,
+            examples=[
+                # Minimal example
+                [{"key": "hello.txt", "text": "Hello World"}],
+                # With content type
+                [
+                    {
+                        "key": "data.csv",
+                        "text": "col1,col2\n1,2",
+                        "content_type": "text/csv",
+                    }
+                ],
+                # Binary data
+                [
+                    {
+                        "key": "image.png",
+                        "data": "iVBORw0KGgo...",
+                        "content_type": "image/png",
+                    }
+                ],
+                # With metadata
+                [
+                    {
+                        "key": "report.txt",
+                        "text": "Report content",
+                        "content_type": "text/plain",
+                        "encoding": "utf-8",
+                        "metadata": {"author": "system", "version": "1.0"},
+                    }
+                ],
+            ],
+        ),
+    ],
+) -> BucketObjectsPutResponse:
     """Upload multiple objects to an S3 bucket - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for uploading objects
+        bucket: S3 bucket name or s3:// URI
+        items: List of objects to upload, each with key and content
 
     Returns:
         BucketObjectsPutSuccess on success with upload results,
@@ -361,17 +485,15 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectsPutParams, BucketObjectsPutItem
 
-        items = [BucketObjectsPutItem(key="file.txt", text="Hello World")]
-        params = BucketObjectsPutParams(bucket="my-bucket", items=items)
-        result = buckets.bucket_objects_put(params)
+        items = [{"key": "file.txt", "text": "Hello World"}]
+        result = buckets.bucket_objects_put(bucket="my-bucket", items=items)
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
     import base64
 
-    bkt = _normalize_bucket(params.bucket)
+    bkt = _normalize_bucket(bucket)
     auth_ctx, error = _authorize_s3(
         "bucket_objects_put",
         {"bucket": bkt},
@@ -387,54 +509,58 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
     client = auth_ctx.s3_client
     assert client is not None, "s3_client should not be None after authorization"
     results: list[UploadResult] = []
-    for item in params.items:
-        # Validate that exactly one of text or data is provided
-        if (item.text is None) == (item.data is None):
-            results.append(UploadResult(key=item.key, error="provide exactly one of text or data"))
-            continue
+    for item in items:
+        # Get item key (validated by Pydantic already)
+        key = item["key"]
+
+        # Get content (validated by Pydantic to have exactly one)
+        text = item.get("text")
+        data = item.get("data")
 
         # Encode the body
-        if item.text is not None:
-            encoding = item.encoding or "utf-8"
+        if text is not None:
+            encoding = item.get("encoding", "utf-8")
             try:
-                body = item.text.encode(encoding)
+                body = text.encode(encoding)
             except Exception as e:
-                results.append(UploadResult(key=item.key, error=f"encode failed: {e}"))
+                results.append(UploadResult(key=key, error=f"encode failed: {e}"))
                 continue
         else:
             try:
-                body = base64.b64decode(str(item.data), validate=True)
+                body = base64.b64decode(str(data), validate=True)
             except Exception as e:
-                results.append(UploadResult(key=item.key, error=f"base64 decode failed: {e}"))
+                results.append(UploadResult(key=key, error=f"base64 decode failed: {e}"))
                 continue
 
         # Build put_object kwargs
-        put_kwargs: dict[str, Any] = {"Bucket": bkt, "Key": item.key, "Body": body}
-        if item.content_type:
-            put_kwargs["ContentType"] = item.content_type
-        if item.metadata:
-            put_kwargs["Metadata"] = item.metadata
+        put_kwargs: dict[str, Any] = {"Bucket": bkt, "Key": key, "Body": body}
+        content_type = item.get("content_type")
+        if content_type:
+            put_kwargs["ContentType"] = content_type
+        metadata = item.get("metadata")
+        if metadata:
+            put_kwargs["Metadata"] = metadata
 
         # Upload the object
         try:
             resp = client.put_object(**put_kwargs)
             results.append(
                 UploadResult(
-                    key=item.key,
+                    key=key,
                     etag=resp.get("ETag"),
                     size=len(body),
                     content_type=put_kwargs.get("ContentType"),
                 )
             )
         except Exception as e:
-            results.append(UploadResult(key=item.key, error=str(e)))
+            results.append(UploadResult(key=key, error=str(e)))
 
     successes = sum(1 for r in results if r.etag is not None)
     failed = len(results) - successes
 
     return BucketObjectsPutSuccess(
         bucket=bkt,
-        requested=len(params.items),
+        requested=len(items),
         uploaded=successes,
         failed=failed,
         results=results,
@@ -442,11 +568,38 @@ def bucket_objects_put(params: BucketObjectsPutParams) -> BucketObjectsPutRespon
     )
 
 
-def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchResponse:
+def bucket_object_fetch(
+    s3_uri: Annotated[
+        str,
+        Field(
+            description="Full S3 URI to the object",
+            examples=["s3://bucket-name/path/to/file"],
+            pattern=r"^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/.+",
+        ),
+    ],
+    max_bytes: Annotated[
+        int,
+        Field(
+            default=65536,
+            ge=1,
+            le=10485760,  # 10MB
+            description="Maximum bytes to read (1 byte to 10MB)",
+        ),
+    ] = 65536,
+    base64_encode: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Return binary data as base64 (true) or attempt text decoding (false)",
+        ),
+    ] = True,
+) -> BucketObjectFetchResponse:
     """Fetch binary or text data from an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for fetching object data
+        s3_uri: Full S3 URI to the object
+        max_bytes: Maximum bytes to read (1 byte to 10MB)
+        base64_encode: Return binary data as base64 (true) or attempt text decoding (false)
 
     Returns:
         BucketObjectFetchSuccess on success with object data (base64 or text),
@@ -463,17 +616,15 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectFetchParams
 
-        params = BucketObjectFetchParams(s3_uri="s3://my-bucket/file.bin")
-        result = buckets.bucket_object_fetch(params)
+        result = buckets.bucket_object_fetch(s3_uri="s3://my-bucket/file.bin")
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
     import base64
 
     try:
-        bucket, key, version_id = parse_s3_uri(params.s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return BucketObjectFetchError(error=str(e))
 
@@ -498,7 +649,7 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
         if version_id:
             get_params["VersionId"] = version_id
         obj = client.get_object(**get_params)
-        body = obj["Body"].read(params.max_bytes + 1)
+        body = obj["Body"].read(max_bytes + 1)
         content_type = obj.get("ContentType")
     except Exception as e:
         # Handle version-specific errors
@@ -506,13 +657,13 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
             error_code = e.response["Error"]["Code"]
             if error_code == "NoSuchVersion":
                 return BucketObjectFetchError(
-                    error=f"Version {version_id} not found for {params.s3_uri}",
+                    error=f"Version {version_id} not found for {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
             elif error_code == "AccessDenied" and version_id:
                 return BucketObjectFetchError(
-                    error=f"Access denied for version {version_id} of {params.s3_uri}",
+                    error=f"Access denied for version {version_id} of {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
@@ -522,17 +673,17 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
             key=key,
         )
 
-    truncated = len(body) > params.max_bytes
+    truncated = len(body) > max_bytes
     if truncated:
-        body = body[: params.max_bytes]
+        body = body[:max_bytes]
 
     # Return base64-encoded or text data
-    if params.base64_encode:
+    if base64_encode:
         data = base64.b64encode(body).decode("ascii")
         return BucketObjectFetchSuccess(
             bucket=bucket,
             key=key,
-            s3_uri=params.s3_uri,
+            s3_uri=s3_uri,
             data=data,
             content_type=content_type,
             bytes_read=len(body),
@@ -547,7 +698,7 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
         return BucketObjectFetchSuccess(
             bucket=bucket,
             key=key,
-            s3_uri=params.s3_uri,
+            s3_uri=s3_uri,
             data=text,
             content_type=content_type,
             bytes_read=len(body),
@@ -561,7 +712,7 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
         return BucketObjectFetchSuccess(
             bucket=bucket,
             key=key,
-            s3_uri=params.s3_uri,
+            s3_uri=s3_uri,
             data=data,
             content_type=content_type,
             bytes_read=len(body),
@@ -571,11 +722,30 @@ def bucket_object_fetch(params: BucketObjectFetchParams) -> BucketObjectFetchRes
         )
 
 
-def bucket_object_link(params: BucketObjectLinkParams) -> PresignedUrlResponse | BucketObjectInfoError:
+def bucket_object_link(
+    s3_uri: Annotated[
+        str,
+        Field(
+            description="Full S3 URI to the object",
+            examples=["s3://bucket-name/path/to/file"],
+            pattern=r"^s3://[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]/.+",
+        ),
+    ],
+    expiration: Annotated[
+        int,
+        Field(
+            default=3600,
+            ge=1,
+            le=604800,  # 7 days
+            description="URL expiration time in seconds (1 second to 7 days)",
+        ),
+    ] = 3600,
+) -> PresignedUrlResponse | BucketObjectInfoError:
     """Generate a presigned URL for downloading an S3 object - S3 bucket exploration and object retrieval tasks
 
     Args:
-        params: Parameters for generating presigned URL
+        s3_uri: Full S3 URI to the object
+        expiration: URL expiration time in seconds (1 second to 7 days)
 
     Returns:
         PresignedUrlResponse on success with presigned URL and metadata,
@@ -592,17 +762,15 @@ def bucket_object_link(params: BucketObjectLinkParams) -> PresignedUrlResponse |
     Example:
         ```python
         from quilt_mcp.tools import buckets
-        from quilt_mcp.models import BucketObjectLinkParams
 
-        params = BucketObjectLinkParams(s3_uri="s3://my-bucket/file.csv")
-        result = buckets.bucket_object_link(params)
+        result = buckets.bucket_object_link(s3_uri="s3://my-bucket/file.csv")
         # Next step: Use the returned S3 metadata to answer the user's question or pass identifiers into the next bucket tool.
         ```
     """
     from datetime import datetime, timedelta, timezone
 
     try:
-        bucket, key, version_id = parse_s3_uri(params.s3_uri)
+        bucket, key, version_id = parse_s3_uri(s3_uri)
     except ValueError as e:
         return BucketObjectInfoError(error=str(e))
 
@@ -626,17 +794,17 @@ def bucket_object_link(params: BucketObjectLinkParams) -> PresignedUrlResponse |
         url_params = {"Bucket": bucket, "Key": key}
         if version_id:
             url_params["VersionId"] = version_id
-        url = client.generate_presigned_url("get_object", Params=url_params, ExpiresIn=params.expiration)
+        url = client.generate_presigned_url("get_object", Params=url_params, ExpiresIn=expiration)
 
         # Calculate expiration timestamp
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=params.expiration)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiration)
 
         return PresignedUrlResponse(
             bucket=bucket,
             key=key,
-            s3_uri=params.s3_uri,
+            s3_uri=s3_uri,
             signed_url=url,
-            expiration_seconds=params.expiration,
+            expiration_seconds=expiration,
             expires_at=expires_at.isoformat(),
             auth_type=auth_ctx.auth_type if auth_ctx else None,
         )
@@ -646,13 +814,13 @@ def bucket_object_link(params: BucketObjectLinkParams) -> PresignedUrlResponse |
             error_code = e.response["Error"]["Code"]
             if error_code == "NoSuchVersion":
                 return BucketObjectInfoError(
-                    error=f"Version {version_id} not found for {params.s3_uri}",
+                    error=f"Version {version_id} not found for {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )
             elif error_code == "AccessDenied" and version_id:
                 return BucketObjectInfoError(
-                    error=f"Access denied for version {version_id} of {params.s3_uri}",
+                    error=f"Access denied for version {version_id} of {s3_uri}",
                     bucket=bucket,
                     key=key,
                 )

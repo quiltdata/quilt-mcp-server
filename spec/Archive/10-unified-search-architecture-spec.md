@@ -182,7 +182,7 @@ def unified_search(
     query: str,
     scope: str = "global",  # global, catalog, package, bucket
     target: str = "",       # specific package/bucket when scope is narrow
-    backends: List[str] = ["auto"],  # elasticsearch, graphql, athena, s3
+    backend: str = "auto",  # auto, elasticsearch, graphql, athena, s3
     limit: int = 50,
     include_metadata: bool = True,
     include_content_preview: bool = False,
@@ -506,7 +506,7 @@ def unified_search(
     query: str,
     scope: str = "global",
     target: str = "",
-    backends: List[str] = ["auto"],
+    backend: str = "auto",
     limit: int = 50,
     include_metadata: bool = True,
     include_content_preview: bool = False,
@@ -515,27 +515,27 @@ def unified_search(
 ) -> Dict[str, Any]:
     """
     Intelligent unified search across Quilt catalogs, packages, and S3 buckets.
-    
+
     This tool automatically:
     - Parses natural language queries
     - Selects optimal search backends
     - Aggregates and ranks results
     - Provides context and explanations
-    
+
     Args:
         query: Natural language search query
         scope: Search scope (global, catalog, package, bucket)
         target: Specific target when scope is narrow (package/bucket name)
-        backends: Preferred backends (auto, elasticsearch, graphql, athena, s3)
+        backend: Preferred backend (auto, elasticsearch, graphql, athena, s3)
         limit: Maximum results to return
         include_metadata: Include rich metadata in results
         include_content_preview: Include content previews for files
         explain_query: Include query execution explanation
         filters: Additional filters (size, date, type, etc.)
-    
+
     Returns:
         Unified search results with metadata, explanations, and suggestions
-    
+
     Examples:
         unified_search("CSV files in genomics packages")
         unified_search("packages created last month", scope="catalog")

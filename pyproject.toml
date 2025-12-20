@@ -1,7 +1,7 @@
 [project]
 name = "quilt-mcp"
-version = "0.8.3"
-description = "Secure MCP server for accessing Quilt data with JWT authentication"
+version = "0.9.4"
+description = "Secure MCP server for accessing Quilt data with IAM authentication"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE.txt"}
@@ -41,7 +41,6 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "pyathena>=3.0.0",
     "PyYAML>=6.0.0",
-    "pyjwt>=2.8.0",
 ]
 
 [project.urls]
@@ -68,11 +67,10 @@ build-backend = "setuptools.build_meta"
 [dependency-groups]
 test = [
     "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0", 
+    "pytest-asyncio>=1.0.0",
     "pytest-cov>=4.0.0",
     "pytest-timeout>=2.1.0",
     "quilt3>=5.6.0",
-    "pyjwt>=2.8.0",
 ]
 deploy = [
     "aws-cdk-lib>=2.100.0",
@@ -99,11 +97,15 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 addopts = "-v --tb=short --color=yes"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
 markers = [
     "admin: marks tests that require Quilt admin privileges (deselect with '-m \"not admin\"')",
     "integration: marks tests that require AWS credentials, network access, or external services (deselect with '-m \"not integration\"')",
     "search: marks tests that require Elasticsearch search functionality (deselect with '-m \"not search\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+    "asyncio: marks tests as async tests that require pytest-asyncio",
 ]
 
 [tool.ruff]
@@ -149,60 +151,86 @@ ignore_missing_imports = true
 module = "mcp.*"
 ignore_missing_imports = true
 
-# Internal utility modules (not registered MCP tools)
-# These need Pydantic models for internal data structures in future refactor
-[[tool.mypy.overrides]]
-module = "quilt_mcp.visualization.*"
-ignore_errors = true
+# Internal utility modules - Type checking has been re-enabled for all modules below
+# visualization.*: Fully typed, passes strict mypy checks (all 17 files)
+# - All generators (echarts, igv, matplotlib, perspective, vega_lite) pass strict mode
+# - All analyzers (data_analyzer, file_analyzer, genomic_analyzer) fully typed
+# - All layouts (grid_layout) and utils fully typed
+# - Core files (engine.py, __init__.py) pass strict checks
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.visualization.*"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.search.backends.*"
-ignore_errors = true
+# search_explain.py: Fully typed, passes strict mypy checks (4 errors fixed)
+# - Added QueryAnalysis type annotations to all analysis parameters
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.search.tools.search_explain"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.search.tools.search_explain"
-ignore_errors = true
+# auth_service.py: Fully typed, passes strict mypy checks (1 error fixed)
+# - Removed unnecessary type: ignore comment from quilt3 import
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.auth_service"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.search.tools.unified_search"
-ignore_errors = true
+# auth_metadata.py: Fully typed, passes strict mypy checks
+# All type errors resolved (2 errors fixed):
+# - Changed type: ignore[misc] to type: ignore[no-redef] for stub QuiltService class
+# - Added type annotations to stub __init__ method: *args: object, **kwargs: object -> None
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.auth_metadata"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.auth_service"
-ignore_errors = true
+# bearer_auth_service.py: Fully typed, passes strict mypy checks
+# All type errors resolved (2 errors fixed):
+# - Fixed _get_secret_from_ssm return type by adding isinstance(value, str) check to narrow Any to str
+# - Fixed _extract_optional_credentials return type by explicitly typing normalized dict and conditionally adding optional fields
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.bearer_auth_service"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.auth_metadata"
-ignore_errors = true
+# permission_discovery.py: Fully typed, passes strict mypy checks
+# All type errors have been resolved (10 type errors fixed)
+# - Added explicit type annotations for TTLCache instances (TTLCache[str, BucketInfo], etc.)
+# - Fixed DEFAULT_BUCKET variable name conflict by renaming to DEFAULT_BUCKET_CONST
+# - Added explicit return type annotation (-> None) for clear_cache method
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.permission_discovery"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.bearer_auth_service"
-ignore_errors = true
+# athena_service.py: Fully typed, passes strict mypy checks
+# All type errors resolved (11 type errors fixed):
+# - Added TYPE_CHECKING imports for GlueClient and S3Client type hints
+# - Added return type annotations to 3 properties: glue_client, s3_client, engine
+# - Added return type annotations to 2 private methods: _create_glue_client, _create_s3_client
+# - Added type annotation for query_cache: TTLCache[str, Any]
+# - Added type annotation for _discover_workgroup credentials parameter: Any
+# - Fixed 4 return statements to explicitly cast to str using str() or explicit type annotation
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.athena_service"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.permission_discovery"
-ignore_errors = true
+# quilt_service.py: Fully typed and passes strict mypy checks
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.services.quilt_service"
+# ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.athena_service"
-ignore_errors = true
+# quilt_mcp.telemetry.* modules are now fully type-checked
+# All type annotations have been verified and pass strict mypy checks
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.services.quilt_service"
-ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.telemetry.*"
-ignore_errors = true
+# quilt_mcp.optimization.* modules are now fully type-checked
+# All type annotations have been verified and pass strict mypy checks
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.optimization.*"
-ignore_errors = true
+# quilt_mcp.version_sync: Fully typed, passes strict mypy checks
+# All type errors resolved (2 errors fixed):
+# - Fixed read_project_version return type using cast(str, ...) for dict lookup
+# - Fixed check_version_sync_required return type using cast(str, ...) for manifest_version dict lookup
 
-[[tool.mypy.overrides]]
-module = "quilt_mcp.version_sync"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "quilt_mcp.tools.error_recovery"
-ignore_errors = true
+# error_recovery.py: Fully typed, passes strict mypy checks (3 errors fixed)
+# - Added Literal type annotation for overall_health variable
+# - Added type: ignore[import-untyped] for athena_glue import
+# - Fixed missing registry argument in packages_list call
+# [[tool.mypy.overrides]]
+# module = "quilt_mcp.tools.error_recovery"
+# ignore_errors = true

@@ -19,6 +19,8 @@ from cachetools import TTLCache
 import requests
 from urllib.parse import urljoin
 
+from quilt_mcp.config import http_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,9 +67,11 @@ class AWSPermissionDiscovery:
             cache_ttl: Cache TTL in seconds (default: 1 hour)
         """
         self.cache_ttl = cache_ttl
-        self.permission_cache = TTLCache(maxsize=1000, ttl=cache_ttl)
-        self.identity_cache = TTLCache(maxsize=10, ttl=cache_ttl)
-        self.bucket_list_cache = TTLCache(maxsize=10, ttl=cache_ttl // 2)  # Shorter TTL for bucket lists
+        self.permission_cache: TTLCache[str, BucketInfo] = TTLCache(maxsize=1000, ttl=cache_ttl)
+        self.identity_cache: TTLCache[str, UserIdentity] = TTLCache(maxsize=10, ttl=cache_ttl)
+        self.bucket_list_cache: TTLCache[str, List[BucketInfo]] = TTLCache(
+            maxsize=10, ttl=cache_ttl // 2
+        )  # Shorter TTL for bucket lists
 
         # Initialize AWS clients
         try:
@@ -295,14 +299,9 @@ class AWSPermissionDiscovery:
             except Exception as e:
                 logger.debug(f"Athena discovery skipped/failed: {e}")
 
-            # Environment-provided hints (e.g., registry/default and known buckets list)
-            try:
-                from ..constants import DEFAULT_BUCKET
-            except ImportError:
-                DEFAULT_BUCKET: Optional[str] = None
+            # Environment-provided hints (e.g., known buckets list from env var)
             candidates: List[str] = []
-            if DEFAULT_BUCKET and isinstance(DEFAULT_BUCKET, str) and DEFAULT_BUCKET.startswith("s3://"):
-                candidates.append(self._extract_bucket_from_s3_uri(DEFAULT_BUCKET))
+            # Note: DEFAULT_BUCKET was removed in v0.10.0 - no longer checked
             known_env = os.getenv("QUILT_KNOWN_BUCKETS", "")
             if known_env:
                 for raw in known_env.split(","):
@@ -508,7 +507,7 @@ class AWSPermissionDiscovery:
 
         return results
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear all cached permission data."""
         self.permission_cache.clear()
         self.identity_cache.clear()
@@ -602,7 +601,7 @@ class AWSPermissionDiscovery:
                 # Query for bucket configurations
                 query = {"query": "query { bucketConfigs { name } }"}
 
-                response = session.post(graphql_url, json=query)
+                response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 
                 if response.status_code == 200:
                     data = response.json()

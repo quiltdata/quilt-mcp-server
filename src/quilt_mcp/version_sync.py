@@ -8,7 +8,7 @@ to ensure pyproject.toml serves as the single source of truth for version inform
 import json
 import tomllib
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, cast
 
 import jinja2
 
@@ -30,7 +30,7 @@ def read_project_version(pyproject_path: Path) -> str:
     with open(pyproject_path, "rb") as f:
         pyproject_data = tomllib.load(f)
 
-    return pyproject_data["project"]["version"]
+    return cast(str, pyproject_data["project"]["version"])
 
 
 def generate_manifest_from_template(template_path: Path, output_path: Path, version: str) -> None:
@@ -90,7 +90,7 @@ def check_version_sync_required(pyproject_path: Path, manifest_path: Path) -> bo
     try:
         with open(manifest_path, "r") as f:
             manifest_data = json.load(f)
-        manifest_version = manifest_data["version"]
+        manifest_version = cast(str, manifest_data["version"])
     except (json.JSONDecodeError, KeyError):
         return True
 

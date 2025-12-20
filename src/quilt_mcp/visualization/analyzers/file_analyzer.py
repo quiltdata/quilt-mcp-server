@@ -70,7 +70,7 @@ class FileAnalyzer:
     # Text file extensions
     TEXT_EXTENSIONS = {"txt", "md", "rst", "log", "out", "err", "sh", "py", "r", "sql"}
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the file analyzer."""
         # Initialize mimetypes
         mimetypes.init()

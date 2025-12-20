@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, Mock, MagicMock
 
 from quilt_mcp.tools.packages import package_create, package_create_from_s3
-from quilt_mcp.models import PackageCreateParams
 
 
 class MockPackage:
@@ -64,7 +63,7 @@ def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
     mock_s3_client.head_object.return_value = {"ContentLength": 100}
     mock_get_s3_client.return_value = mock_s3_client
 
-    params = PackageCreateParams(
+    result = package_create(
         package_name="team/pkg",
         s3_uris=[
             "s3://bucket-a/dir/file1.csv",
@@ -74,7 +73,6 @@ def test_package_ops_copy_mode_none(mock_get_s3_client, mock_package_class):
         copy_mode="none",
         flatten=True,
     )
-    result = package_create(params)
 
     # The function should succeed and return status
     assert result.success is True
@@ -92,7 +90,7 @@ def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_clas
     mock_s3_client.head_object.return_value = {"ContentLength": 100}
     mock_get_s3_client.return_value = mock_s3_client
 
-    params = PackageCreateParams(
+    result = package_create(
         package_name="team/pkg",
         s3_uris=[
             "s3://target-bucket/path/file1.csv",
@@ -102,7 +100,6 @@ def test_package_ops_copy_mode_same_bucket(mock_get_s3_client, mock_package_clas
         copy_mode="same_bucket",
         flatten=True,
     )
-    result = package_create(params)
 
     # The function should succeed and return status
     assert result.success is True

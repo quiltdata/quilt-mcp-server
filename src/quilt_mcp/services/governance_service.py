@@ -10,7 +10,8 @@ secure access to governance capabilities.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Annotated, Dict, List, Any, Optional
+from pydantic import Field
 from ..utils import format_error_response
 from ..formatting import format_users_as_table, format_roles_as_table
 
@@ -148,7 +149,15 @@ async def admin_users_list() -> Dict[str, Any]:
         return service._handle_admin_error(e, "list users")
 
 
-async def admin_user_get(name: str) -> Dict[str, Any]:
+async def admin_user_get(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to retrieve",
+            examples=["john-doe", "admin-user"],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Get detailed information about a specific user - Quilt governance and administrative operations
 
     Args:
@@ -231,7 +240,35 @@ async def admin_user_get(name: str) -> Dict[str, Any]:
 
 
 async def admin_user_create(
-    name: str, email: str, role: str, extra_roles: Optional[List[str]] = None
+    name: Annotated[
+        str,
+        Field(
+            description="Username for the new user",
+            examples=["john-doe", "new-analyst"],
+        ),
+    ],
+    email: Annotated[
+        str,
+        Field(
+            description="Email address for the new user",
+            examples=["user@example.com", "analyst@company.org"],
+        ),
+    ],
+    role: Annotated[
+        str,
+        Field(
+            description="Primary role for the user",
+            examples=["viewer", "editor", "admin"],
+        ),
+    ],
+    extra_roles: Annotated[
+        Optional[List[str]],
+        Field(
+            default=None,
+            description="Additional roles to assign to the user",
+            examples=[["data-scientist", "analyst"], []],
+        ),
+    ] = None,
 ) -> Dict[str, Any]:
     """Create a new user in the registry - Quilt governance and administrative operations
 
@@ -300,7 +337,15 @@ async def admin_user_create(
         return service._handle_admin_error(e, f"create user '{name}'")
 
 
-async def admin_user_delete(name: str) -> Dict[str, Any]:
+async def admin_user_delete(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to delete",
+            examples=["user-to-remove", "inactive-user"],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Delete a user from the registry - Quilt governance and administrative operations
 
     Args:
@@ -341,7 +386,22 @@ async def admin_user_delete(name: str) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"delete user '{name}'")
 
 
-async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
+async def admin_user_set_email(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    email: Annotated[
+        str,
+        Field(
+            description="New email address",
+            examples=["newemail@example.com", "updated@company.org"],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Update a user's email address - Quilt governance and administrative operations
 
     Args:
@@ -394,7 +454,22 @@ async def admin_user_set_email(name: str, email: str) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"set email for user '{name}'")
 
 
-async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
+async def admin_user_set_admin(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    admin: Annotated[
+        bool,
+        Field(
+            description="Whether the user should have admin privileges",
+            examples=[True, False],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Set the admin status for a user - Quilt governance and administrative operations
 
     Args:
@@ -413,7 +488,7 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
 
         result = governance.admin_user_set_admin(
             name="example-name",
-            admin="example_value",
+            admin=True,
         )
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
@@ -441,7 +516,22 @@ async def admin_user_set_admin(name: str, admin: bool) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"set admin status for user '{name}'")
 
 
-async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
+async def admin_user_set_active(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    active: Annotated[
+        bool,
+        Field(
+            description="Whether the user should be active",
+            examples=[True, False],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Set the active status for a user - Quilt governance and administrative operations
 
     Args:
@@ -460,7 +550,7 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
 
         result = governance.admin_user_set_active(
             name="example-name",
-            active="example_value",
+            active=True,
         )
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
@@ -488,7 +578,15 @@ async def admin_user_set_active(name: str, active: bool) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"set active status for user '{name}'")
 
 
-async def admin_user_reset_password(name: str) -> Dict[str, Any]:
+async def admin_user_reset_password(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to reset password for",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Reset a user's password - Quilt governance and administrative operations
 
     Args:
@@ -533,7 +631,35 @@ async def admin_user_reset_password(name: str) -> Dict[str, Any]:
 
 
 async def admin_user_set_role(
-    name: str, role: str, extra_roles: Optional[List[str]] = None, append: bool = False
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    role: Annotated[
+        str,
+        Field(
+            description="Primary role to assign",
+            examples=["viewer", "editor", "admin"],
+        ),
+    ],
+    extra_roles: Annotated[
+        Optional[List[str]],
+        Field(
+            default=None,
+            description="Additional roles to assign",
+            examples=[["data-scientist", "analyst"], []],
+        ),
+    ] = None,
+    append: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Whether to append extra roles to existing ones (True) or replace them (False)",
+        ),
+    ] = False,
 ) -> Dict[str, Any]:
     """Set the primary and extra roles for a user - Quilt governance and administrative operations
 
@@ -589,7 +715,22 @@ async def admin_user_set_role(
         return service._handle_admin_error(e, f"set roles for user '{name}'")
 
 
-async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
+async def admin_user_add_roles(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    roles: Annotated[
+        List[str],
+        Field(
+            description="List of roles to add",
+            examples=[["data-scientist", "analyst"], ["viewer"]],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Add roles to a user - Quilt governance and administrative operations
 
     Args:
@@ -642,7 +783,30 @@ async def admin_user_add_roles(name: str, roles: List[str]) -> Dict[str, Any]:
         return service._handle_admin_error(e, f"add roles to user '{name}'")
 
 
-async def admin_user_remove_roles(name: str, roles: List[str], fallback: Optional[str] = None) -> Dict[str, Any]:
+async def admin_user_remove_roles(
+    name: Annotated[
+        str,
+        Field(
+            description="Username to update",
+            examples=["john-doe", "user123"],
+        ),
+    ],
+    roles: Annotated[
+        List[str],
+        Field(
+            description="List of roles to remove",
+            examples=[["data-scientist", "analyst"], ["viewer"]],
+        ),
+    ],
+    fallback: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Fallback role if the primary role is removed",
+            examples=["viewer", "editor"],
+        ),
+    ] = None,
+) -> Dict[str, Any]:
     """Remove roles from a user - Quilt governance and administrative operations
 
     Args:
@@ -812,7 +976,15 @@ async def admin_sso_config_get() -> Dict[str, Any]:
         return service._handle_admin_error(e, "get SSO configuration")
 
 
-async def admin_sso_config_set(config: str) -> Dict[str, Any]:
+async def admin_sso_config_set(
+    config: Annotated[
+        str,
+        Field(
+            description="SSO configuration text",
+            examples=["<saml_config>...</saml_config>", "provider_config_string"],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Set the SSO configuration - Quilt governance and administrative operations
 
     Args:
@@ -829,7 +1001,7 @@ async def admin_sso_config_set(config: str) -> Dict[str, Any]:
         from quilt_mcp.tools import governance
 
         result = governance.admin_sso_config_set(
-            config={"setting": "value"},
+            config="<saml_config>...</saml_config>",
         )
         # Next step: Communicate the governance change and confirm with adjacent admin tools if needed.
         ```
@@ -941,7 +1113,15 @@ async def admin_tabulator_open_query_get() -> Dict[str, Any]:
         return service._handle_admin_error(e, "get tabulator open query status")
 
 
-async def admin_tabulator_open_query_set(enabled: bool) -> Dict[str, Any]:
+async def admin_tabulator_open_query_set(
+    enabled: Annotated[
+        bool,
+        Field(
+            description="Whether to enable open query",
+            examples=[True, False],
+        ),
+    ],
+) -> Dict[str, Any]:
     """Set the tabulator open query status - Quilt governance and administrative operations
 
     Args:

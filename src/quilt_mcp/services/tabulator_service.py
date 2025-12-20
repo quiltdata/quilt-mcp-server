@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 
@@ -132,14 +132,14 @@ class TabulatorService:
 
         return errors
 
-    def list_tables(self, bucket_name: str) -> Dict[str, Any]:
+    def list_tables(self, bucket: str) -> Dict[str, Any]:
         """List all tabulator tables for a bucket."""
         try:
             if not self.admin_available:
                 return format_error_response("Admin functionality not available - check Quilt authentication")
 
             admin_tabulator = quilt_service.get_tabulator_admin()
-            tables = admin_tabulator.list_tables(bucket_name)
+            tables = admin_tabulator.list_tables(bucket)
 
             enriched_tables = []
             for table in tables:
@@ -162,7 +162,7 @@ class TabulatorService:
             result = {
                 "success": True,
                 "tables": enriched_tables,
-                "bucket_name": bucket_name,
+                "bucket_name": bucket,
                 "count": len(enriched_tables),
             }
 
@@ -376,7 +376,7 @@ def _tabulator_query(
     database_name: Optional[str] = None,
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
-    output_format: str = "json",
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
     use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a query against the Tabulator catalog."""
@@ -433,21 +433,21 @@ def list_tabulator_buckets() -> Dict[str, Any]:
         return format_error_response(f"Failed to list tabulator buckets: {exc}")
 
 
-def list_tabulator_tables(bucket_name: str) -> Dict[str, Any]:
+def list_tabulator_tables(bucket: str) -> Dict[str, Any]:
     """List tables for a specific tabulator bucket."""
     try:
         service = get_tabulator_service()
-        return service.list_tables(bucket_name)
+        return service.list_tables(bucket)
     except Exception as exc:
         logger.error(f"Failed to list tabulator tables: {exc}")
         return format_error_response(f"Failed to list tabulator tables: {exc}")
 
 
-async def tabulator_tables_list(bucket_name: str) -> Dict[str, Any]:
+async def tabulator_tables_list(bucket: str) -> Dict[str, Any]:
     """Async wrapper mirroring the legacy tool interface for listing tables."""
     try:
         service = get_tabulator_service()
-        return service.list_tables(bucket_name)
+        return service.list_tables(bucket)
     except Exception as e:
         logger.error(f"Error in tabulator_tables_list: {e}")
         return format_error_response(str(e))
@@ -538,7 +538,7 @@ async def tabulator_bucket_query(
     query: str,
     workgroup_name: Optional[str] = None,
     max_results: int = 1000,
-    output_format: str = "json",
+    output_format: Literal["json", "csv", "parquet", "table"] = "json",
     use_quilt_auth: bool = True,
 ) -> Dict[str, Any]:
     """Execute a bucket-scoped tabulator query (legacy tool signature)."""

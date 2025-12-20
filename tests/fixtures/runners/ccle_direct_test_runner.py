@@ -24,7 +24,6 @@ from quilt_mcp.tools import (
     buckets,
     package_ops,
     workflow_orchestration,
-    auth,
     search,
 )
 
@@ -115,7 +114,7 @@ class CCLEDirectTester:
 
         # Step 1: Check Tabulator availability
         try:
-            tabulator_result = tabulator.tabulator_tables_list(bucket_name="quilt-sandbox-bucket")
+            tabulator_result = tabulator.tabulator_tables_list(bucket="quilt-sandbox-bucket")
             if tabulator_result.get("success"):
                 result["steps_completed"].append("tabulator_connectivity")
                 result["tools_used"].append("tabulator_tables_list")
@@ -131,10 +130,10 @@ class CCLEDirectTester:
 
         # Step 2: Search for CCLE expression data
         try:
-            search_result = search.unified_search(query="CCLE expression RNA-seq", scope="catalog", limit=5)
+            search_result = search.search_catalog(query="CCLE expression RNA-seq", scope="package", limit=5)
             if search_result.get("success") and search_result.get("results"):
                 result["steps_completed"].append("ccle_data_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in search_result["results"][:3]]
                 )
@@ -212,11 +211,11 @@ class CCLEDirectTester:
 
         # Step 1: Search for CCLE FASTQ packages
         try:
-            fastq_search = search.unified_search(query="CCLE FASTQ RNA-seq raw", scope="catalog", limit=3)
+            fastq_search = search.search_catalog(query="CCLE FASTQ RNA-seq raw", scope="package", limit=3)
 
             if fastq_search.get("success") and fastq_search.get("results"):
                 result["steps_completed"].append("fastq_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["data_accessed"].extend(
                     [r.get("_source", {}).get("key", "unknown") for r in fastq_search["results"]]
                 )
@@ -281,7 +280,7 @@ class CCLEDirectTester:
 
         # Step 4: Search for Salmon quantification results
         try:
-            salmon_search = search.unified_search(
+            salmon_search = search.search_catalog(
                 query="salmon quant.sf TPM",
                 scope="bucket",
                 target="s3://quilt-sandbox-bucket",
@@ -290,7 +289,7 @@ class CCLEDirectTester:
 
             if salmon_search.get("success"):
                 result["steps_completed"].append("salmon_results_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 result["recommendations"].append("Salmon quantification results discoverable for benchmarking")
                 print("      ✅ Salmon results discovery successful")
             else:
@@ -308,11 +307,11 @@ class CCLEDirectTester:
 
         # Step 1: Search for BAM files
         try:
-            bam_search = search.unified_search(query="CCLE BAM alignment RNA-seq", scope="catalog", limit=3)
+            bam_search = search.search_catalog(query="CCLE BAM alignment RNA-seq", scope="package", limit=3)
 
             if bam_search.get("success"):
                 result["steps_completed"].append("bam_discovery")
-                result["tools_used"].append("unified_search")
+                result["tools_used"].append("search_catalog")
                 print("      ✅ BAM file discovery successful")
             else:
                 result["steps_failed"].append("bam_discovery")
@@ -372,11 +371,11 @@ class CCLEDirectTester:
 
         for data_type in data_types:
             try:
-                search_result = search.unified_search(query=f"CCLE {data_type}", scope="catalog", limit=2)
+                search_result = search.search_catalog(query=f"CCLE {data_type}", scope="package", limit=2)
 
                 if search_result.get("success") and search_result.get("results"):
                     result["steps_completed"].append(f"{data_type}_discovery")
-                    result["tools_used"].append("unified_search")
+                    result["tools_used"].append("search_catalog")
                     print(f"      ✅ {data_type} data discovery successful")
                 else:
                     result["steps_failed"].append(f"{data_type}_discovery")
@@ -507,7 +506,7 @@ class CCLEDirectTester:
         # Step 2: Test package browsing (validation alternative)
         try:
             # Use a known package for browsing test
-            packages_result = search.unified_search(query="*", scope="catalog", limit=1)
+            packages_result = search.search_catalog(query="*", scope="package", limit=1)
 
             if packages_result.get("success") and packages_result.get("results"):
                 first_package = packages_result["results"][0].get("_source", {}).get("key", "")

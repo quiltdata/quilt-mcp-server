@@ -918,11 +918,118 @@ WorkflowGetStatusResponse = WorkflowGetStatusSuccess | ErrorResponse
 WorkflowListAllResponse = WorkflowListAllSuccess | ErrorResponse
 WorkflowTemplateApplyResponse = WorkflowTemplateApplySuccess | ErrorResponse
 
+
+class SearchResult(BaseModel):
+    """A single search result item."""
+
+    id: str
+    type: str  # "package", "file", "bucket"
+    title: str
+    description: str = ""
+    score: float = 0.0
+    backend: str  # "elasticsearch", "graphql"
+    s3_uri: Optional[str] = None
+    package_name: Optional[str] = None
+    logical_key: Optional[str] = None
+    size: Optional[int] = None
+    last_modified: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    # New fields for simplified search API
+    name: str = ""
+    bucket: Optional[str] = None
+    content_type: Optional[str] = None
+    extension: Optional[str] = None
+    content_preview: Optional[str] = None
+
+
+class SearchAnalysis(BaseModel):
+    """Analysis of the search query."""
+
+    query_type: str
+    confidence: float
+    keywords: list[str] = Field(default_factory=list)
+    file_extensions: list[str] = Field(default_factory=list)
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchBackendStatus(BaseModel):
+    """Status of a search backend."""
+
+    status: str  # "available", "unavailable", "error", "not_authenticated"
+    query_time_ms: Optional[float] = None
+    result_count: Optional[int] = None
+    error: Optional[str] = None
+
+
+class SearchCatalogSuccess(SuccessResponse):
+    """Response from search_catalog when successful."""
+
+    query: str
+    scope: str
+    bucket: str
+    results: list[SearchResult] = Field(default_factory=list)
+    total_results: int = 0
+    query_time_ms: float
+    backend_used: Optional[str] = None
+    analysis: Optional[SearchAnalysis] = None
+    backend_status: Optional[SearchBackendStatus] = None
+    backend_info: Optional[dict[str, Any]] = None
+    explanation: Optional[dict[str, Any]] = None
+
+
+class SearchCatalogError(ErrorResponse):
+    """Response from search_catalog when failed."""
+
+    query: str
+    scope: str = "global"
+    bucket: str = ""
+    backend_used: Optional[str] = None
+    backend_status: Optional[dict[str, Any]] = None
+    help: Optional[dict[str, Any]] = None
+
+
 # Search responses
 SearchExplainResponse = SearchExplainSuccess | SearchExplainError
 SearchGraphQLResponse = SearchGraphQLSuccess | SearchGraphQLError
+SearchCatalogResponse = SearchCatalogSuccess | SearchCatalogError
 
 # Quilt summary responses
 QuiltSummarizeJsonResponse = QuiltSummarizeJson | QuiltSummarizeJsonError
 PackageVisualizationsResponse = PackageVisualizationsSuccess | PackageVisualizationsError
 QuiltSummaryFilesResponse = QuiltSummaryFilesSuccess | QuiltSummaryFilesError
+
+
+# ============================================================================
+# Resource Access Tool Responses
+# ============================================================================
+
+
+class ResourceMetadata(BaseModel):
+    """Metadata for a single resource in discovery mode."""
+
+    uri: str = Field(..., description="Resource URI pattern (may contain {variables})")
+    name: str = Field(..., description="Human-readable resource name")
+    description: str = Field(..., description="Functional description")
+    is_template: bool = Field(..., description="True if URI contains template variables")
+    template_variables: list[str] = Field(
+        default_factory=list, description="List of variable names in URI (empty if not templated)"
+    )
+    requires_admin: bool = Field(..., description="True if admin privileges required")
+    category: str = Field(..., description="Resource category (auth, admin, etc.)")
+
+
+class GetResourceSuccess(SuccessResponse):
+    """Successful resource access response."""
+
+    uri: str = Field(..., description="The resolved URI (expanded if templated)")
+    resource_name: str = Field(..., description="Human-readable name of the resource")
+    data: dict[str, Any] = Field(..., description="The actual resource data")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the data was retrieved")
+    mime_type: str = Field(default="application/json", description="Resource MIME type")
+
+
+class GetResourceError(ErrorResponse):
+    """Failed resource access response."""
+
+    # Inherits: success, error, cause, possible_fixes, suggested_actions
+    valid_uris: Optional[list[str]] = Field(default=None, description="Available URIs (for invalid URI errors)")

@@ -7,16 +7,12 @@ after migrating from direct quilt3 imports to QuiltService.
 from __future__ import annotations
 
 from unittest.mock import Mock, patch
+import pytest
 
 from quilt_mcp.tools.packages import (
     packages_list,
     package_browse,
     package_diff,
-)
-from quilt_mcp.models import (
-    PackagesListParams,
-    PackageBrowseParams,
-    PackageDiffParams,
 )
 
 
@@ -32,8 +28,7 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            params = PackagesListParams(registry='s3://test-bucket')
-            result = packages_list(params)
+            result = packages_list(registry='s3://test-bucket')
 
         mock_service.list_packages.assert_called_once_with(registry='s3://test-bucket')
         assert result.packages == ['user/package1', 'user/package2']
@@ -56,8 +51,7 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.utils.suppress_stdout'),
             patch('quilt_mcp.tools.packages.generate_signed_url', return_value='signed_url'),
         ):
-            params = PackageBrowseParams(package_name='user/package', registry='s3://test-bucket')
-            result = package_browse(params)
+            result = package_browse(package_name='user/package', registry='s3://test-bucket')
 
         mock_service.browse_package.assert_called_once_with('user/package', registry='s3://test-bucket')
         assert result.success is True
@@ -75,10 +69,9 @@ class TestPackagesMigrationValidation:
             patch('quilt_mcp.tools.packages.QuiltService', return_value=mock_service),
             patch('quilt_mcp.utils.suppress_stdout'),
         ):
-            params = PackageDiffParams(
+            result = package_diff(
                 package1_name='user/package1', package2_name='user/package2', registry='s3://test-bucket'
             )
-            result = package_diff(params)
 
         assert mock_service.browse_package.call_count == 2
         mock_service.browse_package.assert_any_call('user/package1', registry='s3://test-bucket')

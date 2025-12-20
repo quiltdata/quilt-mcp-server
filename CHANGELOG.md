@@ -6,7 +6,213 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.3] - UNRELEASED
+## [Unreleased]
+
+## [0.9.4] - 2025-12-12
+
+### Added
+
+- **Startup Error Diagnostics**: Comprehensive error messages when server fails to start
+  - Detailed error output to stderr with troubleshooting steps for common issues
+  - Context-aware help for missing dependencies, port conflicts, permissions, etc.
+  - System information (Python version, platform, working directory) included in error output
+  - Specific guidance for installing `uv`/`uvx` when missing
+
+### Changed
+
+- **Error Handling**: Enhanced error messages in `main.py` and `utils.py`
+  - `print_startup_error()` helper formats diagnostic messages with actionable troubleshooting
+  - Import errors now provide clear installation instructions
+  - Generic errors include traceback for debugging
+  - Port conflicts and permission errors have specific troubleshooting steps
+
+### Fixed
+
+- Users no longer see only "Server transport closed unexpectedly" without diagnostic information
+- MCP client logs now contain helpful error details for debugging startup failures
+
+## [0.9.3] - 2025-12-04
+
+### BREAKING CHANGES
+
+**Removed constants**: `DEFAULT_BUCKET`, `DEFAULT_REGISTRY`, `KNOWN_TEST_S3_OBJECT`
+
+**Package operations now require explicit `registry` parameter**:
+
+- `package_create()`
+- `package_update()`
+- `package_delete()`
+- `package_browse()`
+- `package_diff()`
+
+Clear error messages guide LLM clients when registry is missing.
+
+### Changed
+
+- Tests now use `test_bucket` fixture from `QUILT_TEST_BUCKET` environment variable
+- Health checks use explicit `s3://quilt-example` instead of DEFAULT_REGISTRY
+- setup properly sets, displays, and uses new BenchingWebhook CFT Parameter for integrated deployments
+
+### Fixed
+
+- Users no longer get "Access Denied" errors to hardcoded test buckets
+- Container deploys with useful error messages even if secrets are not present
+
+## [0.9.2] - 2025-11-19
+
+### Added
+
+- **Intelligent Package Scope**: New `package` scope for package-centric search results (#239)
+  - Search both manifests and entries while returning package-level results
+  - Answers queries like "Find packages containing CSV files" or "Which packages have RNA-seq data?"
+  - Uses Elasticsearch collapse to group by package name
+  - Returns aggregated entry information (up to 100 matched files per package)
+  - Implements intelligent query boosting (2.0x for manifest matches)
+  - Comprehensive testing: 19 unit tests + 15 integration tests
+
+### Fixed
+
+- **Type Checking**: Re-enabled mypy type checking for ALL 12 disabled modules
+  - Removed all `# type: ignore` module-level suppressions
+  - Fixed type errors in all previously disabled modules
+  - Complete mypy compliance across entire codebase
+- **Wildcard Preservation**: Fixed Elasticsearch queries to preserve wildcards in search terms
+- **PackageEntry Scope**: Improved handling of package entry searches
+- **Test Organization**: Reorganized tests - moved mocked tests to unit directory
+
+## [0.9.1] - 2025-11-14
+
+### Changed
+
+- **Search Backend Simplification**: Removed S3 and GraphQL backends
+  - `search_catalog` now uses Elasticsearch backend only for catalog-indexed content
+  - Use `bucket_objects_list` for direct S3 object exploration
+  - Improved search consistency and reliability
+
+### Fixed
+
+- **Wildcard Preservation**: Fixed Elasticsearch query handling to preserve wildcards
+- **Type Safety**: Re-enabled mypy type checking for all 12 previously disabled modules
+- **Test Coverage**: Reorganized tests, improved combined coverage to 45%+
+- **PackageEntry Scope**: Better handling of package-level search results
+- **HTTP Timeout**: Added timeout configuration to prevent hanging calls
+
+## [0.9.0] - 2025-11-12
+
+### Added
+
+- **MCP Testing Infrastructure**: Comprehensive testing system for MCP protocol compliance (#232)
+  - Local server mode for faster testing without Docker
+  - Coverage validation with YAML configuration
+  - Protocol diagnostics and schema inspection tools
+  - Only test idempotent (no effect) tools
+  - Reverted templated resources to being tools
+
+### Changed
+
+- **Search API Refactoring** (Breaking Changes) (#231):
+  - Removed S3 backend (and GraphQL backend) - `search_catalog` now searches catalog indices only (use `bucket_objects_list` for S3 exploration)
+  - Structured errors with `error_category`, actionable `fix` instructions, and tool `alternatives`
+  - Lazy initialization: backends defer authentication checks until first search (faster startup, graceful failures)
+  - Backend status integration: `catalog_info` resource now includes search backend capabilities and availability
+  - Scope parameter uses Literal type for validation
+
+### Fixed
+
+- **MCP Resources**: Improved error handling for admin resources and fixed athena query history (#233)
+  - Admin resources (`admin://users`, `admin://roles`) now provide clear error messages when accessed without admin privileges
+  - Fixed `athena://query/history` resource to properly call the underlying function with default parameters
+- **Elasticsearch**: Special character escaping, improved error messages
+- **Search Results**: Package search returns packages (not objects)
+- **Docker**: Build locally
+
+## [0.8.5] - 2025-11-10
+
+### Changed
+
+- **Flattened Tool Parameters**: Simplified MCP tool interfaces by removing nested Pydantic models (#227, #229)
+  - Tools now accept flat parameter lists instead of wrapper objects (e.g., `params: PackageBrowseParams`)
+  - Reduced JSON schema depth from 3+ levels to 1-2 levels for better LLM comprehension
+  - **Breaking change**: All tool signatures changed from `tool(params: FooParams)` to `tool(field1, field2, ...)`
+  - Updated 29 tools across 8 modules: catalog, packages, buckets, search, athena_glue, governance, workflow, visualization
+  - Maintained parameter validation and type safety through Pydantic function decorators
+
+- **Search API Improvements**:
+  - Removed `filters` parameter from `search_catalog` (already redundant with query syntax)
+  - Changed `backends` from array to scalar `backend` parameter (single backend per call)
+  - Added `catalog_info` with detection method tracking, replacing standalone `catalog_name`
+
+- **Testing & Performance**:
+  - Optimized e2e tests: 80s → 8s (10.7x faster) through parallel execution
+  - Added pytest-asyncio configuration and proper test markers
+  - Added `--skip-banner` CLI flag to disable FastMCP startup banner in tests
+
+### Fixed
+
+- Corrected test mocking for S3 and GraphQL search backends
+- Resolved pytest warnings for test collection and async markers
+- Added metadata validation after parameter flattening
+- Removed duplicate function calls with undefined params variable
+
+## [0.8.4] - 2025-10-21
+
+### Changed
+
+- **Improved Input Schema Usability**: Reorganized Pydantic input schemas to reduce cognitive complexity for LLMs (#227)
+  - **Reordered parameters by importance**: Required → Common → Advanced → Internal
+  - **Added clear labels in descriptions**: `[ADVANCED]` and `[INTERNAL]` tags guide LLM usage
+  - **Included JSON schema examples**: Each complex tool now shows minimal, common, and full usage patterns
+  - **Accept dicts for nested params**: `BucketObjectsPutParams` now accepts simple dicts in addition to Pydantic models
+  - **No API proliferation**: Improved existing 29 tools instead of creating 58 duplicate `_simple` functions
+  - **Maintained backward compatibility**: All existing code continues to work unchanged
+
+- **BucketObjectsPutParams Simplified** (#229):
+  - Removed nested `BucketObjectsPutItem` class - use plain dicts instead
+  - Changed `items` parameter from `list[BucketObjectsPutItem]` to `list[dict[str, Any]]`
+  - Enhanced validation with clearer error messages showing exact issue and examples
+  - Updated tool examples to use dict literals: `[{"key": "file.txt", "text": "Hello"}]`
+  - **Breaking change**: Remove `from quilt_mcp.models import BucketObjectsPutItem` imports
+
+### Implemented
+
+- `PackageCreateFromS3Params`: 15 parameters reorganized into 4 importance groups with examples
+  - 2 required (source_bucket, package_name)
+  - 2 common (source_prefix, description)
+  - 5 advanced (target_registry, patterns, templates, copy_mode)
+  - 6 internal (flags for testing/automation)
+- `DataVisualizationParams`: 11 parameters reorganized into 3 importance groups with examples
+  - 4 required (data, plot_type, x_column, y_column)
+  - 2 common (group_column, title)
+  - 5 advanced (labels, color_scheme, template, output_format)
+- `BucketObjectsPutParams`: Added field validator to accept both dicts and Pydantic objects
+  - Simple usage: `items=[{"key": "file.txt", "text": "content"}]`
+  - Full usage: `items=[BucketObjectsPutItem(...)]`
+  - Mixed usage supported
+
+### Benefits
+
+- **Reduced cognitive load**: LLMs can easily identify essential parameters vs optional ones
+- **Progressive disclosure**: Parameters grouped by importance (required/common/advanced/internal)
+- **Better guidance**: Field descriptions clearly indicate when parameters are needed
+- **Easier to call**: Complex tools now show examples of minimal usage patterns
+- **Maintainable**: Single implementation per tool, no duplicate functions to maintain
+
+### Documentation
+
+- Added comprehensive analysis in `spec/227-input-schemas/analysis.md`
+  - Analyzed all 29 tool parameter models for complexity
+  - Identified root cause: excessive optional parameters (8-13 per tool)
+  - Only 1 of 29 tools has actual nested types
+- Added detailed solution plan in `spec/227-input-schemas/solution.md`
+  - Comparison of approaches (improved schemas vs duplicate functions)
+  - Implementation checklist with concrete examples
+  - Expected results and success metrics
+- **Parameter Flattening Specification** (#229):
+  - Added spec for eliminating nested parameter models in `spec/227-input-schemas/05-flatten-models.md`
+  - Removed exploration docs for unimplemented features (presets, natural language filters)
+  - Documents future approach for eliminating `params` wrapper pattern
+
+## [0.8.3] - 2025-10-21
 
 ### Added
 
@@ -74,7 +280,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ⏸️ Test Migration: Started - 2/80 tests updated in test_bucket_tools.py
 - 📋 Remaining: Continue migration to other tool files (packages.py, catalog.py, etc.)
 
-## [0.8.2] - 2024-10-20
+## [0.8.2] - 2025-10-20
 
 ### Changed
 

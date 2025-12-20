@@ -10,15 +10,9 @@ from quilt_mcp import (
     bucket_objects_list,
     bucket_objects_put,
 )
-from quilt_mcp.constants import DEFAULT_BUCKET
+
+# Removed test_bucket import - using test_bucket fixture instead
 from quilt_mcp.models import (
-    BucketObjectFetchParams,
-    BucketObjectInfoParams,
-    BucketObjectLinkParams,
-    BucketObjectsPutItem,
-    BucketObjectsPutParams,
-    BucketObjectsListParams,
-    BucketObjectTextParams,
     BucketObjectsListSuccess,
     BucketObjectInfoSuccess,
     BucketObjectsPutSuccess,
@@ -29,11 +23,20 @@ from quilt_mcp.models import (
 from quilt_mcp.tools.auth_helpers import AuthorizationContext
 
 
+@pytest.mark.search
 @pytest.mark.integration
-def test_bucket_objects_list_success():
+def test_bucket_objects_list_success(test_bucket):
     """Test bucket objects listing with real AWS (integration test)."""
-    params = BucketObjectsListParams(bucket=DEFAULT_BUCKET, max_keys=10)
-    result = bucket_objects_list(params)
+    result = bucket_objects_list(bucket=test_bucket, max_keys=10)
+
+    # Check if request failed
+    if hasattr(result, 'error'):
+        pytest.fail(
+            f"Failed to list bucket {test_bucket}. "
+            f"Ensure QUILT_TEST_BUCKET is set and AWS credentials are configured. "
+            f"Error: {result.error}"
+        )
+
     assert isinstance(result, BucketObjectsListSuccess)
     assert result.bucket
     assert isinstance(result.objects, list)
@@ -50,46 +53,42 @@ def test_bucket_objects_list_error():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectsListParams(bucket="my-bucket")
-        result = bucket_objects_list(params)
+        result = bucket_objects_list(bucket="my-bucket")
         assert hasattr(result, "error")
 
 
+@pytest.mark.search
 @pytest.mark.integration
-def test_bucket_object_info_success():
+def test_bucket_object_info_success(test_bucket):
     """Test bucket object info with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    params = BucketObjectsListParams(bucket=DEFAULT_BUCKET, max_keys=5)
-    objects_result = bucket_objects_list(params)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
+
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
     test_s3_uri = test_object.s3_uri
 
-    params = BucketObjectInfoParams(s3_uri=test_s3_uri)
-    result = bucket_object_info(params)
+    result = bucket_object_info(s3_uri=test_s3_uri)
     assert isinstance(result, BucketObjectInfoSuccess)
     assert result.object.size >= 0
 
 
 def test_bucket_object_info_invalid_uri():
-    # Invalid URIs should be caught by Pydantic validation
-    from pydantic import ValidationError
-
-    try:
-        params = BucketObjectInfoParams(s3_uri="not-an-s3-uri")
-        # If validation passes (shouldn't), call the function
-        result = bucket_object_info(params)
-        assert hasattr(result, "error")
-    except ValidationError:
-        # Expected - Pydantic validates the URI format
-        pass
+    # Invalid URIs should fail at runtime validation
+    result = bucket_object_info(s3_uri="not-an-s3-uri")
+    assert hasattr(result, "error")
 
 
+@pytest.mark.search
 @pytest.mark.integration
-def test_bucket_objects_put_success():
+def test_bucket_objects_put_success(test_bucket):
     """Test bucket objects upload with real AWS (integration test)."""
     # Use timestamp-based keys to avoid conflicts
     import time
@@ -97,53 +96,60 @@ def test_bucket_objects_put_success():
     timestamp = int(time.time())
 
     items = [
-        BucketObjectsPutItem(key=f"test-{timestamp}-a.txt", text="hello world"),
-        BucketObjectsPutItem(key=f"test-{timestamp}-b.bin", data="aGVsbG8="),
+        {"key": f"test-{timestamp}-a.txt", "text": "hello world"},
+        {"key": f"test-{timestamp}-b.bin", "data": "aGVsbG8="},
     ]
-    params = BucketObjectsPutParams(bucket=DEFAULT_BUCKET, items=items)
-    result = bucket_objects_put(params)
+    result = bucket_objects_put(bucket=test_bucket, items=items)
 
     assert isinstance(result, BucketObjectsPutSuccess)
     assert len(result.results) == 2
     assert result.uploaded >= 0
 
 
+@pytest.mark.search
 @pytest.mark.integration
-def test_bucket_object_fetch_base64():
+def test_bucket_object_fetch_base64(test_bucket):
     """Test bucket object fetch with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    params = BucketObjectsListParams(bucket=DEFAULT_BUCKET, max_keys=5)
-    objects_result = bucket_objects_list(params)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
+
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
     test_s3_uri = test_object.s3_uri
 
-    params = BucketObjectFetchParams(s3_uri=test_s3_uri, max_bytes=10, base64_encode=True)
-    result = bucket_object_fetch(params)
+    result = bucket_object_fetch(s3_uri=test_s3_uri, max_bytes=10, base64_encode=True)
     assert isinstance(result, BucketObjectFetchSuccess)
     assert result.is_base64 is True
     assert result.data
     assert isinstance(result.data, str)
 
 
+@pytest.mark.search
 @pytest.mark.integration
-def test_bucket_object_link_success():
+def test_bucket_object_link_success(test_bucket):
     """Test bucket object presigned URL generation with real AWS (integration test)."""
     # First, get a list of objects to find one that exists
-    params = BucketObjectsListParams(bucket=DEFAULT_BUCKET, max_keys=5)
-    objects_result = bucket_objects_list(params)
+    objects_result = bucket_objects_list(bucket=test_bucket, max_keys=5)
+
+    # Check if request failed (handles both permission errors and other issues)
+    if hasattr(objects_result, 'error'):
+        pytest.fail(f"Failed to list objects in {test_bucket}. Error: {objects_result.error}")
+
     if not objects_result.objects:
-        pytest.fail(f"No objects found in test bucket {DEFAULT_BUCKET}")
+        pytest.fail(f"No objects found in test bucket {test_bucket}")
 
     # Use the first object for testing
     test_object = objects_result.objects[0]
     test_s3_uri = test_object.s3_uri
 
-    params = BucketObjectLinkParams(s3_uri=test_s3_uri, expiration=7200)
-    result = bucket_object_link(params)
+    result = bucket_object_link(s3_uri=test_s3_uri, expiration=7200)
     assert isinstance(result, PresignedUrlResponse)
     assert result.bucket
     assert result.key
@@ -157,9 +163,7 @@ def test_bucket_object_link_invalid_uri():
     from pydantic import ValidationError
 
     try:
-        params = BucketObjectLinkParams(s3_uri="not-an-s3-uri")
-        # If validation passes (shouldn't), call the function
-        result = bucket_object_link(params)
+        result = bucket_object_link(s3_uri="not-an-s3-uri")
         assert hasattr(result, "error")
     except ValidationError:
         # Expected - Pydantic validates the URI format
@@ -175,8 +179,7 @@ def test_bucket_object_link_error():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectLinkParams(s3_uri="s3://my-bucket/file.txt")
-        result = bucket_object_link(params)
+        result = bucket_object_link(s3_uri="s3://my-bucket/file.txt")
         assert hasattr(result, "error")
         assert result.bucket == "my-bucket"
         assert result.key == "file.txt"
@@ -203,8 +206,7 @@ def test_bucket_object_info_with_version_id():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectInfoParams(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
-        result = bucket_object_info(params)
+        result = bucket_object_info(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
         mock_client.head_object.assert_called_once_with(
@@ -227,8 +229,7 @@ def test_bucket_object_text_with_version_id():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectTextParams(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
         mock_client.get_object.assert_called_once_with(
@@ -252,8 +253,7 @@ def test_bucket_object_fetch_with_version_id():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectFetchParams(s3_uri="s3://my-bucket/file.bin?versionId=test-version-123")
-        result = bucket_object_fetch(params)
+        result = bucket_object_fetch(s3_uri="s3://my-bucket/file.bin?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId
         mock_client.get_object.assert_called_once_with(
@@ -273,8 +273,7 @@ def test_bucket_object_link_with_version_id():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectLinkParams(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
-        result = bucket_object_link(params)
+        result = bucket_object_link(s3_uri="s3://my-bucket/file.txt?versionId=test-version-123")
 
         # Verify S3 API was called with VersionId in Params
         mock_client.generate_presigned_url.assert_called_once_with(
@@ -301,8 +300,7 @@ def test_bucket_object_info_version_error_handling():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectInfoParams(s3_uri="s3://my-bucket/file.txt?versionId=invalid-version")
-        result = bucket_object_info(params)
+        result = bucket_object_info(s3_uri="s3://my-bucket/file.txt?versionId=invalid-version")
 
         assert hasattr(result, "error")
         assert "Version invalid-version not found" in result.error
@@ -323,8 +321,7 @@ def test_bucket_object_text_version_error_handling():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectTextParams(s3_uri="s3://my-bucket/file.txt?versionId=restricted-version")
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://my-bucket/file.txt?versionId=restricted-version")
 
         assert hasattr(result, "error")
         assert "Access denied for version restricted-version" in result.error
@@ -350,10 +347,10 @@ def test_bucket_object_functions_without_version_id():
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test without version ID - should not pass VersionId parameter
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri="s3://my-bucket/file.txt"))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri="s3://my-bucket/file.txt"))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri="s3://my-bucket/file.txt"))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri="s3://my-bucket/file.txt"))
+        info_result = bucket_object_info(s3_uri="s3://my-bucket/file.txt")
+        text_result = bucket_object_text(s3_uri="s3://my-bucket/file.txt")
+        fetch_result = bucket_object_fetch(s3_uri="s3://my-bucket/file.txt")
+        link_result = bucket_object_link(s3_uri="s3://my-bucket/file.txt")
 
         # Verify calls were made without VersionId
         mock_client.head_object.assert_called_with(Bucket="my-bucket", Key="file.txt")
@@ -372,7 +369,7 @@ def test_bucket_object_functions_without_version_id():
 # Phase 5: Cross-Function Consistency Tests
 
 
-def test_version_consistency_across_all_functions():
+def test_version_consistency_across_all_functions(test_bucket):
     """Test that the same versionId returns consistent object metadata across all four functions."""
     mock_client = MagicMock()
 
@@ -406,10 +403,10 @@ def test_version_consistency_across_all_functions():
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Call all four functions with the same versioned URI
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=test_s3_uri))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri=test_s3_uri))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=test_s3_uri))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri))
+        info_result = bucket_object_info(s3_uri=test_s3_uri)
+        text_result = bucket_object_text(s3_uri=test_s3_uri)
+        fetch_result = bucket_object_fetch(s3_uri=test_s3_uri)
+        link_result = bucket_object_link(s3_uri=test_s3_uri)
 
         # Verify all functions called with the same VersionId
         mock_client.head_object.assert_called_with(Bucket=test_bucket, Key=test_key, VersionId=test_version_id)
@@ -472,10 +469,10 @@ def test_version_parameter_consistency_across_functions(version_id, should_fail)
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Call all functions
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=test_s3_uri))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri=test_s3_uri))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=test_s3_uri))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri))
+        info_result = bucket_object_info(s3_uri=test_s3_uri)
+        text_result = bucket_object_text(s3_uri=test_s3_uri)
+        fetch_result = bucket_object_fetch(s3_uri=test_s3_uri)
+        link_result = bucket_object_link(s3_uri=test_s3_uri)
 
         # Build expected call parameters
         expected_params = {"Bucket": test_bucket, "Key": test_key}
@@ -502,7 +499,7 @@ def test_version_parameter_consistency_across_functions(version_id, should_fail)
             assert not hasattr(link_result, "error")
 
 
-def test_error_handling_consistency_across_functions():
+def test_error_handling_consistency_across_functions(test_bucket):
     """Test that version-specific errors are handled consistently across all functions."""
     from botocore.exceptions import ClientError
 
@@ -524,10 +521,10 @@ def test_error_handling_consistency_across_functions():
         s3_client=mock_client,
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=test_s3_uri))
-        text_result = bucket_object_text(BucketObjectTextParams(s3_uri=test_s3_uri))
-        fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=test_s3_uri))
-        link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri))
+        info_result = bucket_object_info(s3_uri=test_s3_uri)
+        text_result = bucket_object_text(s3_uri=test_s3_uri)
+        fetch_result = bucket_object_fetch(s3_uri=test_s3_uri)
+        link_result = bucket_object_link(s3_uri=test_s3_uri)
 
         # All should have error
         assert hasattr(info_result, "error")
@@ -576,10 +573,10 @@ def test_version_error_scenarios_across_functions(error_code, error_message, exp
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         results = [
-            bucket_object_info(BucketObjectInfoParams(s3_uri=test_s3_uri)),
-            bucket_object_text(BucketObjectTextParams(s3_uri=test_s3_uri)),
-            bucket_object_fetch(BucketObjectFetchParams(s3_uri=test_s3_uri)),
-            bucket_object_link(BucketObjectLinkParams(s3_uri=test_s3_uri)),
+            bucket_object_info(s3_uri=test_s3_uri),
+            bucket_object_text(s3_uri=test_s3_uri),
+            bucket_object_fetch(s3_uri=test_s3_uri),
+            bucket_object_link(s3_uri=test_s3_uri),
         ]
 
         # All should have error with consistent messaging
@@ -607,24 +604,19 @@ def test_invalid_s3_uri_consistency():
     ]
 
     for uri in invalid_uris:
-        # All functions should raise ValidationError for invalid URIs
-        for params_class, func in [
-            (BucketObjectInfoParams, bucket_object_info),
-            (BucketObjectTextParams, bucket_object_text),
-            (BucketObjectFetchParams, bucket_object_fetch),
-            (BucketObjectLinkParams, bucket_object_link),
+        # All functions should return errors for invalid URIs
+        for func_name, func in [
+            ("bucket_object_info", bucket_object_info),
+            ("bucket_object_text", bucket_object_text),
+            ("bucket_object_fetch", bucket_object_fetch),
+            ("bucket_object_link", bucket_object_link),
         ]:
-            try:
-                params = params_class(s3_uri=uri)
-                # If validation passes, the function should return an error
-                result = func(params)
-                assert hasattr(result, "error"), f"Expected error for URI: {uri} with {params_class.__name__}"
-            except ValidationError:
-                # Expected - Pydantic validates the URI format
-                pass
+            # Functions should return an error for invalid URIs
+            result = func(s3_uri=uri)
+            assert hasattr(result, "error"), f"Expected error for URI: {uri} with {func_name}"
 
 
-def test_malformed_version_id_handling():
+def test_malformed_version_id_handling(test_bucket):
     """Test handling of malformed version IDs in S3 URIs."""
     malformed_uris = [
         "s3://bucket/file.txt?versionId=",
@@ -652,10 +644,10 @@ def test_malformed_version_id_handling():
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         for uri in malformed_uris:
             # Functions should either parse and handle the version ID or fail consistently
-            info_result = bucket_object_info(BucketObjectInfoParams(s3_uri=uri))
-            text_result = bucket_object_text(BucketObjectTextParams(s3_uri=uri))
-            fetch_result = bucket_object_fetch(BucketObjectFetchParams(s3_uri=uri))
-            link_result = bucket_object_link(BucketObjectLinkParams(s3_uri=uri))
+            info_result = bucket_object_info(s3_uri=uri)
+            text_result = bucket_object_text(s3_uri=uri)
+            fetch_result = bucket_object_fetch(s3_uri=uri)
+            link_result = bucket_object_link(s3_uri=uri)
 
             # All should have the same error/success status
             all_have_error = all(
@@ -695,8 +687,7 @@ def test_bucket_object_text_encoding_scenarios():
             s3_client=mock_client,
         )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectTextParams(s3_uri="s3://test-bucket/test-file.txt", encoding=encoding)
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://test-bucket/test-file.txt", encoding=encoding)
 
         if should_succeed:
             assert not hasattr(result, "error")
@@ -741,8 +732,7 @@ def test_bucket_object_text_truncation_scenarios():
             s3_client=mock_client,
         )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectTextParams(s3_uri="s3://test-bucket/test-file.txt", max_bytes=max_bytes)
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://test-bucket/test-file.txt", max_bytes=max_bytes)
 
         assert not hasattr(result, "error")
         assert hasattr(result, "truncated")
@@ -775,8 +765,7 @@ def test_bucket_object_text_with_client_error_variations():
             s3_client=mock_client,
         )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
-        params = BucketObjectTextParams(s3_uri="s3://test-bucket/test-file.txt")
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://test-bucket/test-file.txt")
 
         assert hasattr(result, "error")
         assert expected_msg in result.error
@@ -802,8 +791,7 @@ def test_bucket_object_text_decode_failure_handling():
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test with errors="replace" (default behavior)
-        params = BucketObjectTextParams(s3_uri="s3://test-bucket/test-file.txt", encoding="ascii")
-        result = bucket_object_text(params)
+        result = bucket_object_text(s3_uri="s3://test-bucket/test-file.txt", encoding="ascii")
 
         # Should succeed but use replacement characters
         assert not hasattr(result, "error")
@@ -831,8 +819,7 @@ def test_bucket_object_fetch_with_decode_fallback():
     )
     with patch("quilt_mcp.tools.buckets.check_s3_authorization", return_value=mock_auth_ctx):
         # Test with base64_encode=False to trigger decode fallback
-        params = BucketObjectFetchParams(s3_uri="s3://test-bucket/image.png", base64_encode=False)
-        result = bucket_object_fetch(params)
+        result = bucket_object_fetch(s3_uri="s3://test-bucket/image.png", base64_encode=False)
 
         assert not hasattr(result, "error")
         assert result.is_base64 is True

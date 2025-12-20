@@ -183,7 +183,7 @@ class TestAthenaWorkflow:
             print(f"Checking database: {db_name}")
 
             # 2. List tables using Glue API
-            tables_result = athena_tables_list(database_name=db_name)
+            tables_result = athena_tables_list(database=db_name)
 
             if not tables_result.get("success"):
                 error_msg = tables_result.get("error", "Unknown error")
