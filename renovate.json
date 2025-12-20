@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "schedule": [
+    "before 6am on Monday"
+  ],
+  "timezone": "America/Los_Angeles",
+  "prConcurrentLimit": 3,
+  "branchConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Group ALL non-major dependency updates into a single mega-PR",
+      "matchManagers": ["pip_requirements", "pip_setup", "pep621"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "all non-major dependencies"
+    },
+    {
+      "description": "Group all major dependency updates into a single PR (for careful review)",
+      "matchManagers": ["pip_requirements", "pip_setup", "pep621"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "all major dependencies"
+    },
+    {
+      "description": "Separate security vulnerabilities for immediate attention",
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "vulnerabilityAlerts": true,
+      "groupName": null
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "assignees": []
+  },
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore(deps):",
+  "prFooter": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}
