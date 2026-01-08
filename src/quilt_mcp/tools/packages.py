@@ -99,11 +99,13 @@ def _collect_objects_into_package(
             warnings.append(f"Skipping URI that appears to be a 'directory': {uri}")
             continue
         logical_path = os.path.basename(key) if flatten else key
-        original_logical_path = logical_path
-        counter = 1
-        while logical_path in pkg:
-            logical_path = f"{counter}_{original_logical_path}"
-            counter += 1
+
+        # Since Quilt packages are versioned, we simply replace files at the same logical path
+        # The old file remains accessible in previous package versions
+        # No need for 1_filename, 2_filename collision avoidance
+        if logical_path in pkg:
+            warnings.append(f"Replacing existing file at logical path: {logical_path}")
+
         try:
             pkg.set(logical_path, uri)
             added.append({"logical_path": logical_path, "source": uri})
