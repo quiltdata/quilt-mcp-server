@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Package Update Behavior**: Fixed `package_update()` to correctly replace files instead of creating duplicates
+  - Previously, updating a package with a file at the same logical path would create numbered duplicates (e.g., `1_file.txt`, `2_file.txt`)
+  - Now correctly replaces the file at the same logical path, with the old version remaining accessible in package history
+  - This behavior aligns with Quilt's versioned package system - each push creates a new version with a unique top_hash
+  - Added warning message when a file is replaced during update
+  - Updated tests to verify replacement behavior instead of duplicate creation
+
 ## [0.9.4] - 2025-12-12
 
 ### Added

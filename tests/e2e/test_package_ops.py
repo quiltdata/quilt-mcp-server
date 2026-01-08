@@ -458,7 +458,12 @@ class TestCollectObjectsIntoPackageAdvanced:
     """Advanced test cases for the _collect_objects_into_package function."""
 
     def test_collect_objects_with_duplicate_logical_paths(self):
-        """Test collecting objects with duplicate logical paths (filename collisions)."""
+        """Test collecting objects with duplicate logical paths (filename collisions).
+
+        Since Quilt packages are versioned, duplicate files should REPLACE the old file
+        at the same logical path, not create numbered duplicates (1_file.txt, 2_file.txt).
+        The old file remains accessible in the previous package version.
+        """
         mock_pkg = Mock()
 
         # Track what gets added as we go - initially package is empty
@@ -469,7 +474,7 @@ class TestCollectObjectsIntoPackageAdvanced:
             return key in added_keys
 
         def set_side_effect(key, uri):
-            # Track what gets added
+            # Track what gets added (overwrites are allowed)
             added_keys.add(key)
 
         mock_pkg.__contains__ = Mock(side_effect=contains_side_effect)
@@ -477,13 +482,13 @@ class TestCollectObjectsIntoPackageAdvanced:
 
         s3_uris = [
             "s3://bucket/file.txt",
-            "s3://bucket/path/file.txt",  # Same filename, should get counter prefix
+            "s3://bucket/path/file.txt",  # Same filename, should REPLACE the first one
         ]
         warnings = []
 
         result = _collect_objects_into_package(mock_pkg, s3_uris, flatten=True, warnings=warnings)
 
-        # Verify objects were added with unique logical paths
+        # Verify both objects were processed
         assert len(result) == 2
         assert mock_pkg.set.call_count == 2
 
@@ -495,9 +500,13 @@ class TestCollectObjectsIntoPackageAdvanced:
         assert logical_paths[0] == "file.txt"
         assert source_uris[0] == "s3://bucket/file.txt"
 
-        # Second URI should get counter prefix since "file.txt" is now taken
-        assert logical_paths[1] == "1_file.txt"  # Counter starts at 1
+        # Second URI should REPLACE at the same logical path (not create 1_file.txt)
+        assert logical_paths[1] == "file.txt"  # Same path = replacement
         assert source_uris[1] == "s3://bucket/path/file.txt"
+
+        # Verify a warning was issued about the replacement
+        assert len(warnings) == 1
+        assert "Replacing existing file at logical path: file.txt" in warnings[0]
 
     def test_collect_objects_with_package_set_exception(self):
         """Test collecting objects when package.set() raises an exception."""
