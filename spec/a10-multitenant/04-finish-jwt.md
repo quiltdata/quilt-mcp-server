@@ -155,9 +155,10 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 - JWT mode without JWT → 401 with message: "JWT authentication required. Provide Authorization: Bearer header."
 - JWT mode with invalid JWT → 403 with details: "Invalid JWT: <reason>"
-- JWT mode with insufficient permissions → 403 with details: "Tool requires permissions: <list>"
 - IAM mode with JWT header → **Ignore JWT**, use IAM credentials (no error)
 - Errors must **not** suggest local auth methods (e.g., "run quilt3 login") in production mode
+
+**Note**: Authorization (what actions are allowed) is handled by AWS IAM policies, not by JWT claims. The JWT only handles authentication (who you are).
 
 **FR6: Security Requirements**
 
@@ -263,7 +264,7 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 │  │   IAMAuthService     │    JWTAuthService        │   │
 │  │   ──────────────     │    ──────────────        │   │
 │  │ - Read AWS creds     │ - Get RuntimeAuthState   │   │
-│  │   from env/profile   │ - Check tool permissions │   │
+│  │   from env/profile   │ - Extract JWT claims     │   │
 │  │ - Use quilt3 session │ - Assume role from JWT   │   │
 │  │ - Return boto3       │ - Return scoped boto3    │   │
 │  │   session            │   session                │   │
@@ -297,8 +298,10 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 **Removed Complexity**:
 
 - Merge `bearer_auth_service.py` concepts into `jwt_auth_service.py` with clearer naming
-- Simplify permission checking (may be overkill for initial implementation)
-- Consider deferring ABAC/fine-grained permissions to Phase 2
+- Remove JWT-level permission checking (AWS IAM handles authorization)
+- Use HS256 only (defer RS256/ES256 to Phase 4 if needed)
+- Remove JWT refresh flow (MCP sessions are short-lived)
+- Remove claims compression (unnecessary complexity)
 
 ## What Needs to Change
 
@@ -323,10 +326,13 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 **Configuration needed**:
 
-- `MCP_JWT_SECRET` - Shared secret for HS256 (or path to public key for RS256)
+- `MCP_JWT_SECRET` - Shared secret for HS256 validation
 - `MCP_JWT_ISSUER` - Expected issuer (optional)
 - `MCP_JWT_AUDIENCE` - Expected audience (optional)
-- `MCP_JWT_ALGORITHM` - Algorithm (default: HS256)
+
+**Hardcoded values** (not configurable in Phase 1-3):
+
+- Algorithm: HS256 only (RS256/ES256 deferred to Phase 4)
 
 **Success criteria**:
 
@@ -334,7 +340,7 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 - ✅ Rejects expired JWTs
 - ✅ Rejects JWTs with invalid signatures
 - ✅ Extracts all standard claims (`sub`, `exp`, `iat`, `iss`, `aud`)
-- ✅ Handles custom claims (permissions, role ARN, etc.)
+- ✅ Handles custom claims (role_arn, session_tags)
 - ✅ Clear error messages for all failure cases
 
 #### Task 1.2: Create JWT Auth Service
@@ -513,10 +519,10 @@ pyjwt = "^2.8.0"
 - [ ] When to use each mode
 - [ ] Configuration environment variables:
   - [ ] `MCP_REQUIRE_JWT` (boolean toggle)
-  - [ ] `MCP_JWT_SECRET` (JWT secret for validation)
+  - [ ] `MCP_JWT_SECRET` or `MCP_JWT_SECRET_SSM_PARAMETER`
   - [ ] `MCP_JWT_ISSUER` (optional issuer validation)
   - [ ] `MCP_JWT_AUDIENCE` (optional audience validation)
-  - [ ] `MCP_JWT_ALGORITHM` (default: HS256)
+- [ ] Supported JWT algorithm: HS256 only (hardcoded)
 - [ ] How JWT mode works (architecture diagram)
 - [ ] Example JWT structure
 - [ ] How to generate JWTs for testing
@@ -684,7 +690,7 @@ pyjwt = "^2.8.0"
 
 #### Task 3.1: Implement JWT Secret Management
 
-**Goal**: Support multiple ways to provide JWT secrets
+**Goal**: Support simple ways to provide JWT secrets
 
 **Where**: `src/quilt_mcp/services/jwt_decoder.py`
 
@@ -692,64 +698,26 @@ pyjwt = "^2.8.0"
 
 - [ ] Direct secret from environment: `MCP_JWT_SECRET`
 - [ ] Secret from AWS SSM Parameter Store: `MCP_JWT_SECRET_SSM_PARAMETER`
-- [ ] Secret from AWS Secrets Manager: `MCP_JWT_SECRET_SECRETS_MANAGER_ID`
-- [ ] Secret from file: `MCP_JWT_SECRET_FILE` (for Kubernetes secrets)
-- [ ] Secret caching (cache for 1 hour, refresh in background)
-- [ ] Secret rotation handling (validate with new secret on failure, retry with old)
+- [ ] Secret caching for SSM (cache for 1 hour, refresh in background)
+- [ ] Basic secret rotation: retry with cached secret on validation failure
 
 **Configuration precedence**:
 
-1. `MCP_JWT_SECRET` (direct)
-2. `MCP_JWT_SECRET_FILE` (file path)
-3. `MCP_JWT_SECRET_SSM_PARAMETER` (AWS SSM)
-4. `MCP_JWT_SECRET_SECRETS_MANAGER_ID` (AWS Secrets Manager)
+1. `MCP_JWT_SECRET` (direct from environment)
+2. `MCP_JWT_SECRET_SSM_PARAMETER` (AWS SSM)
 
 **Success criteria**:
 
-- ✅ Secrets loaded from all sources
-- ✅ Caching reduces SSM/Secrets Manager calls
-- ✅ Secret rotation handled gracefully
+- ✅ Secrets loaded from both sources
+- ✅ Caching reduces SSM API calls
+- ✅ Basic secret rotation handled
 - ✅ Startup fails clearly if no secret provided in JWT mode
 
-#### Task 3.2: Add Permission Checking (Optional)
+**Future enhancements** (if needed):
+- File-based secrets (`MCP_JWT_SECRET_FILE`) for Kubernetes
+- AWS Secrets Manager support
 
-**Goal**: Check tool permissions against JWT claims
-
-**Where**: `src/quilt_mcp/services/jwt_auth_service.py`
-
-**What to implement**:
-
-- [ ] Define expected JWT claims structure for permissions
-- [ ] Map tools to required permissions (e.g., bucket_objects_list → s3:ListBucket)
-- [ ] Check JWT claims contain required permissions before tool execution
-- [ ] Return 403 with clear message if permissions missing
-- [ ] Make permission checking optional (feature flag: `MCP_JWT_CHECK_PERMISSIONS`)
-
-**Example JWT structure**:
-
-```json
-{
-  "sub": "user@example.com",
-  "exp": 1706483200,
-  "permissions": ["s3:GetObject", "s3:ListBucket", "quilt:GetPackage"],
-  "role_arn": "arn:aws:iam::123456789012:role/QuiltMCPUser",
-  "session_tags": [
-    {"Key": "tenant", "Value": "acme-corp"},
-    {"Key": "user", "Value": "alice"}
-  ]
-}
-```
-
-**Success criteria**:
-
-- ✅ Tools blocked when permissions missing
-- ✅ Clear error message listing required permissions
-- ✅ Can be disabled via feature flag
-- ✅ Does not apply in IAM mode
-
-**Note**: This may be overkill for Phase 1. Consider deferring to Phase 4.
-
-#### Task 3.3: Add Auth Metrics and Logging
+#### Task 3.2: Add Auth Metrics and Logging
 
 **Goal**: Observability for authentication events
 
@@ -762,7 +730,6 @@ pyjwt = "^2.8.0"
   - [ ] JWT validation attempts (success/failure)
   - [ ] JWT validation failure reasons
   - [ ] Role assumption attempts (success/failure)
-  - [ ] Permission check failures
   - [ ] User identity from JWT (sub claim)
 - [ ] Metrics (if metrics system exists):
   - [ ] Counter: `auth.mode` (labels: iam, jwt)
@@ -778,7 +745,7 @@ pyjwt = "^2.8.0"
 - ✅ Metrics available for monitoring (if system exists)
 - ✅ No sensitive data (tokens, secrets) logged
 
-#### Task 3.4: Create Deployment Examples
+#### Task 3.3: Create Deployment Examples
 
 **Goal**: Show how to deploy in each auth mode
 
@@ -801,7 +768,7 @@ pyjwt = "^2.8.0"
 - ✅ Examples follow security best practices
 - ✅ Examples tested and verified
 
-#### Task 3.5: Update Stateless Deployment Tests
+#### Task 3.4: Update Stateless Deployment Tests
 
 **Goal**: Integrate JWT mode into stateless tests
 
@@ -822,86 +789,34 @@ pyjwt = "^2.8.0"
 - ✅ Test validates role assumption
 - ✅ Test checks CloudTrail SourceIdentity
 
-### Phase 4: Advanced Features (Nice to Have)
+### Phase 4: Future Enhancements (As Needed)
 
-#### Task 4.1: Support Multiple JWT Algorithms
+**These features should only be implemented if specific use cases require them:**
 
-**Goal**: Support RS256, ES256 in addition to HS256
+- **Multiple JWT Algorithms** (RS256, ES256): If public key infrastructure is needed
+  - Currently HS256 (shared secret) is sufficient for most deployments
+  - Add RS256/ES256 if customers need asymmetric signing
 
-**What to implement**:
+- **File-based Secrets** (`MCP_JWT_SECRET_FILE`): For Kubernetes secret mounting
+  - Currently environment variable and SSM are sufficient
+  - Add if Kubernetes deployment becomes common
 
-- [ ] RS256 (RSA signatures) using public key
-- [ ] ES256 (ECDSA signatures) using public key
-- [ ] Public key management (JWKs from JWKS endpoint)
-- [ ] Algorithm selection via `MCP_JWT_ALGORITHM`
+- **AWS Secrets Manager**: Alternative to SSM for secret storage
+  - Currently SSM is sufficient
+  - Add if customers prefer Secrets Manager
 
-**Success criteria**:
+- **Fine-grained Permission Checking**: JWT-level authorization
+  - Currently AWS IAM policies handle all authorization
+  - Only add if IAM policies prove insufficient for use cases
 
-- ✅ HS256, RS256, ES256 all work
-- ✅ Can fetch public keys from JWKS endpoint
-- ✅ Algorithm negotiation is secure
+- **Desktop Client JWT Integration**: JWT auth for Claude Desktop / VS Code
+  - Currently IAM mode (local credentials) is recommended for desktop use
+  - Only add if remote JWT auth is specifically requested for desktop clients
 
-**Note**: Defer unless required by specific deployment.
-
-#### Task 4.2: Implement JWT Claims Compression
-
-**Goal**: Support compressed JWT claims (as in removed implementation)
-
-**What to implement**:
-
-- [ ] Permission abbreviations (g → s3:GetObject, etc.)
-- [ ] Bucket pattern expansion
-- [ ] Nested claim extraction
-- [ ] Configurable claim mappings
-
-**Reference**: Removed implementation had this (see build artifacts)
-
-**Success criteria**:
-
-- ✅ Compressed JWTs validated correctly
-- ✅ Claims expanded to full form
-- ✅ Backward compatible with non-compressed claims
-
-**Note**: Only implement if JWT size is a concern.
-
-#### Task 4.3: Add JWT Refresh Flow
-
-**Goal**: Support JWT refresh tokens for long-running sessions
-
-**What to implement**:
-
-- [ ] Refresh token endpoint
-- [ ] Token exchange (refresh → access)
-- [ ] Automatic refresh before expiration
-- [ ] Graceful handling of refresh failures
-
-**Success criteria**:
-
-- ✅ Tokens refreshed automatically
-- ✅ No service interruption during refresh
-- ✅ Expired tokens handled gracefully
-
-**Note**: May not be needed for MCP protocol (short-lived sessions).
-
-#### Task 4.4: Desktop Client JWT Integration
-
-**Goal**: Restore desktop client JWT script (was reverted)
-
-**What to restore**:
-
-- [ ] Retrieve `scripts/quilt-mcp-remote.sh` from commit `6ac69fe`
-- [ ] Review why it was reverted (commit `a35a802`)
-- [ ] Fix issues that caused revert
-- [ ] Test with Claude Desktop and VS Code
-- [ ] Document setup for desktop clients
-
-**Success criteria**:
-
-- ✅ Desktop clients can use JWT auth
-- ✅ Tokens read from quilt3 auth store
-- ✅ Works on macOS and Linux
-
-**Note**: Only implement if desktop JWT auth is required.
+**Removed features** (not recommended):
+- ~~JWT Claims Compression~~ - Modern JWTs handle size well enough
+- ~~JWT Refresh Flow~~ - MCP sessions are typically short-lived
+- ~~Custom claim mappings~~ - Adds unnecessary complexity
 
 ## Configuration Reference
 
@@ -915,24 +830,21 @@ pyjwt = "^2.8.0"
 
 #### JWT Configuration (JWT Mode Only)
 
-| Variable | Type | Required | Description |
-|----------|------|----------|-------------|
-| `MCP_JWT_SECRET` | string | Yes* | Shared secret for HS256 |
-| `MCP_JWT_SECRET_FILE` | path | Yes* | Path to secret file |
-| `MCP_JWT_SECRET_SSM_PARAMETER` | string | Yes* | AWS SSM parameter name |
-| `MCP_JWT_ISSUER` | string | No | Expected JWT issuer (iss claim) |
-| `MCP_JWT_AUDIENCE` | string | No | Expected JWT audience (aud claim) |
-| `MCP_JWT_ALGORITHM` | string | No | Algorithm (default: HS256) |
+| Variable                        | Type   | Required | Description                                    |
+|---------------------------------|--------|----------|------------------------------------------------|
+| `MCP_JWT_SECRET`                | string | Yes*     | Shared secret for HS256 validation             |
+| `MCP_JWT_SECRET_SSM_PARAMETER`  | string | Yes*     | AWS SSM parameter name for secret              |
+| `MCP_JWT_ISSUER`                | string | No       | Expected JWT issuer (iss claim) for validation |
+| `MCP_JWT_AUDIENCE`              | string | No       | Expected JWT audience (aud claim)              |
 
 *One of the secret sources required in JWT mode
 
-#### AWS Role Assumption (JWT Mode Only)
+**JWT Claims** (hardcoded defaults, no configuration needed):
 
-| Variable | Type | Required | Description |
-|----------|------|----------|-------------|
-| `MCP_JWT_ROLE_ARN_CLAIM` | string | No | JWT claim for role ARN (default: `role_arn`) |
-| `MCP_JWT_SESSION_TAGS_CLAIM` | string | No | JWT claim for session tags (default: `session_tags`) |
-| `MCP_STS_SESSION_DURATION` | int | No | STS session duration seconds (default: 3600) |
+- Role ARN read from `role_arn` claim
+- Session tags read from `session_tags` claim
+- STS session duration: 3600 seconds (1 hour)
+- JWT algorithm: HS256 only (RS256/ES256 deferred to Phase 4)
 
 #### IAM Configuration (IAM Mode Only)
 
@@ -974,17 +886,9 @@ Standard AWS environment variables:
 }
 ```
 
-**Optional permission claims** (if Task 3.2 implemented):
-
-```json
-{
-  "permissions": [
-    "s3:GetObject",
-    "s3:ListBucket",
-    "quilt:GetPackage"
-  ]
-}
-```
+**Note on Authorization**: The JWT provides authentication (who you are).
+Authorization (what you can do) is handled by AWS IAM policies attached to the assumed role.
+No permission claims are needed in the JWT.
 
 ## Success Criteria
 
@@ -1008,18 +912,13 @@ Standard AWS environment variables:
 
 ### Phase 3 Success (Production Ready)
 
-- ✅ JWT secrets managed securely
+- ✅ JWT secrets managed securely (environment + SSM)
 - ✅ Auth events logged and monitored
 - ✅ Deployment examples for common platforms
 - ✅ Stateless tests include JWT mode
 - ✅ Ready for production multitenant deployment
 
-### Phase 4 Success (Advanced Features)
-
-- ✅ Multiple JWT algorithms supported (if needed)
-- ✅ JWT compression working (if needed)
-- ✅ Token refresh implemented (if needed)
-- ✅ Desktop clients work with JWT (if needed)
+**Phase 4 is now a collection of optional enhancements, not a formal phase with success criteria.**
 
 ## Testing Strategy
 
@@ -1185,29 +1084,55 @@ If JWT mode has issues:
 3. Service falls back to IAM credentials
 4. Investigate JWT issues offline
 
-## Open Questions
+## Design Decisions
 
-1. **JWT Claims Standard**: Should we define a standard JWT structure for Quilt MCP? (Document in Phase 1)
+**These decisions simplify the implementation and can be revisited if specific needs arise:**
 
-2. **Permission Granularity**: How granular should tool permissions be? Per-tool, per-S3-bucket, per-package? (Consider in Phase 3)
+1. **JWT Claims Standard**: ✅ **Decided**
+   - Required: `sub`, `exp`, `iat`
+   - Optional: `iss`, `aud`, `role_arn`, `session_tags`
+   - Document in Phase 1, standardize in production use
 
-3. **Role Assumption Caching**: Should we cache assumed role credentials across requests for same user? (Security vs performance trade-off)
+2. **Authorization Model**: ✅ **Decided**
+   - Use AWS IAM policies exclusively for authorization
+   - JWT only provides authentication (identity)
+   - No permission claims in JWT (simpler, leverages AWS ABAC/RBAC)
 
-4. **Multi-Region Support**: How to handle role assumption in different AWS regions? (Future enhancement)
+3. **Role Assumption Caching**: ✅ **Decided**
+   - No cross-request caching (security over performance)
+   - Each request assumes role independently
+   - STS credentials cached only within request scope
 
-5. **JWT Expiration**: What's appropriate JWT lifetime for MCP protocol? (Short-lived: 1 hour? Long-lived: 24 hours?)
+4. **JWT Expiration**: ✅ **Decided**
+   - Recommended: 1 hour (3600 seconds)
+   - Documented as best practice, not enforced by server
+   - Clients responsible for token refresh if needed
 
-6. **Refresh Tokens**: Do we need refresh token support for long-running MCP sessions? (Probably not for initial implementation)
+5. **Desktop Clients**: ✅ **Decided**
+   - Use IAM mode (local credentials)
+   - Simpler setup for developers
+   - JWT mode only for production/remote deployments
 
-7. **Desktop Clients**: Should desktop clients (Claude Desktop, VS Code) use JWT or IAM? (IAM is simpler for local development)
+6. **JWT Algorithm**: ✅ **Decided**
+   - HS256 only for Phase 1-3
+   - RS256/ES256 deferred to Phase 4 if needed
+   - Shared secrets sufficient for most deployments
 
-8. **API Gateway Integration**: Should API Gateway validate JWT or pass-through to MCP server? (Both patterns have trade-offs)
+7. **Refresh Tokens**: ✅ **Decided**
+   - Not implemented (MCP sessions are typically short-lived)
+   - If long sessions needed, clients can handle refresh externally
+
+8. **API Gateway Integration**: ✅ **Decided**
+   - MCP server validates JWT (not API Gateway)
+   - Provides flexibility and keeps auth logic centralized
+   - API Gateway only needs to pass Authorization header through
 
 ## Implementation Phases Summary
 
 ### Phase 1: Core JWT (2-3 weeks)
 
-- Restore JWT decoder and auth services
+- Restore JWT decoder (HS256 only)
+- Create IAM and JWT auth services
 - Create auth service factory
 - Add JWT middleware
 - Unit tests for all components
@@ -1222,19 +1147,23 @@ If JWT mode has issues:
 
 ### Phase 3: Production Readiness (1-2 weeks)
 
-- Secret management
+- Secret management (environment + SSM only)
 - Metrics and logging
 - Deployment examples
 - Stateless test integration
 
-### Phase 4: Advanced Features (As needed)
+**Total estimated time**: 4-7 weeks for Phases 1-3 (production ready)
 
-- Multiple JWT algorithms (1 week)
-- Claims compression (1 week)
-- Token refresh (1 week)
-- Desktop client integration (1 week)
+### Phase 4: Optional Enhancements (As Needed)
 
-**Total estimated time**: 6-10 weeks for Phases 1-3 (production ready)
+Implement only if specific use cases require:
+
+- Additional JWT algorithms (RS256, ES256)
+- File-based secrets (Kubernetes)
+- AWS Secrets Manager support
+- JWT-level permission checking
+
+**Timeline**: 1-2 weeks per feature, as needed
 
 ## References
 
@@ -1264,9 +1193,9 @@ If JWT mode has issues:
 **Functionality** (conceptual, not actual code):
 
 - Accept claims as command-line arguments
-- Generate JWT signed with test secret
+- Generate JWT signed with test secret (HS256)
 - Print token to stdout
-- Support common scenarios (minimal, with role, with permissions)
+- Support common scenarios (minimal, with role, with session tags)
 
 **Example usage**:
 
