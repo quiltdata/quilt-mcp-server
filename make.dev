@@ -11,7 +11,7 @@ DEV_ENDPOINT ?= http://127.0.0.1:8001/mcp/
 # Test results directory
 RESULTS_DIR ?= build/test-results
 
-.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-catalog lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
+.PHONY: test test-all test-unit test-integration test-e2e test-ci test-scripts test-mcp test-catalog test-stateless lint coverage coverage-results coverage-html run run-inspector kill dev-clean docker-build docker-run docker-test
 
 # Directory targets
 $(RESULTS_DIR):
@@ -123,6 +123,32 @@ test-mcp-ci: docker-build
 	@echo "\n===📍 Step 2/2: Running Docker mode tests..."
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
 	@echo "\n===✅ Both local and Docker mode tests passed"
+
+# Stateless Deployment Testing
+test-stateless: docker-build
+	@echo "========================================"
+	@echo "Stateless Deployment Validation"
+	@echo "========================================"
+	@echo ""
+	@echo "This test validates the Docker container can run in production"
+	@echo "multitenant mode with strict security constraints:"
+	@echo "  ✓ Read-only filesystem"
+	@echo "  ✓ JWT-only authentication"
+	@echo "  ✓ No persistent volumes"
+	@echo "  ✓ Security constraints (no-new-privileges, cap-drop=ALL)"
+	@echo "  ✓ Resource limits (512M memory, 1.0 CPU)"
+	@echo ""
+	@echo "See spec/a10-multitenant/02-test-stateless.md for details."
+	@echo ""
+	@uv sync --group test
+	@echo "Running stateless deployment tests..."
+	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		export PYTHONPATH="src" && \
+		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
+	@echo ""
+	@echo "========================================"
+	@echo "✅ Stateless deployment tests completed"
+	@echo "========================================"
 
 # Code Quality Targets
 lint:
