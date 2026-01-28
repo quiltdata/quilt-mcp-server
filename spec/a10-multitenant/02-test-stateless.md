@@ -13,11 +13,25 @@ Create a `make test-stateless` target (or equivalent) that runs the Docker conta
 3. **CI/CD Check**: Automated verification before deployment
 4. **Documentation**: Living example of production configuration
 
+## Critical Constraint: Real Data, Real Auth
+
+**MUST use real infrastructure**:
+- ✅ Real dev catalog deployment (e.g., `https://dev.quiltdata.com`)
+- ✅ Real JWT authentication (from dev auth server)
+- ✅ Real S3 buckets with real data
+- ✅ Real AWS credentials (IAM role or test account)
+- ❌ NO mocks, NO fake data, NO test doubles
+
+**Goal**: Prove it works **AT ALL** in stateless mode, not that it scales.
+
+This is a smoke test for stateless deployment, not a performance or load test.
+
 ## Multitenant Deployment Characteristics
 
 A true multitenant deployment must have:
 
 ### Hard Constraints (Must Enforce)
+
 1. **Read-only root filesystem** - No writes except tmpfs
 2. **No persistent volumes** - State cleared on every restart
 3. **JWT-only authentication** - No local credential files
@@ -79,8 +93,8 @@ The container MUST be started with:
 --memory-swap=512M                       # No swap space
 --cpus=1.0                               # CPU limit
 
-# Network isolation (optional for testing)
---network=none                           # Or isolated test network
+# Network access (MUST be enabled for real catalog/S3 access)
+# (default network, NOT --network=none)
 
 # No volume mounts (verify empty)
 # (no -v flags at all)
@@ -88,24 +102,49 @@ The container MUST be started with:
 
 ### Required Environment Variables
 
+**IMPORTANT**: These must point to a **real dev deployment**, not mocks.
+
 ```bash
 # Stateless mode enforcement
 MCP_REQUIRE_JWT=true                     # Force JWT-only auth
 QUILT_DISABLE_CACHE=true                 # If supported by quilt3
 HOME=/tmp                                # Redirect home directory
 
-# Catalog configuration (test instance)
-QUILT_CATALOG_URL=https://test.quiltdata.com
+# Real catalog configuration (REQUIRED: actual dev deployment)
+QUILT_CATALOG_URL=https://dev.quiltdata.com    # Or your dev stack URL
 
-# AWS credentials (test/mock)
+# Real AWS credentials (REQUIRED: access to real S3 buckets)
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=test_key_id           # Or use IAM role
-AWS_SECRET_ACCESS_KEY=test_secret       # Or use IAM role
+AWS_ACCESS_KEY_ID=<from-dev-account>     # Real credentials for dev environment
+AWS_SECRET_ACCESS_KEY=<from-dev-account> # Or use IAM role (preferred)
+# OR better: Use IAM role attached to test runner
+
+# Real JWT token (REQUIRED: from dev auth server)
+# Passed via Authorization header in MCP protocol requests
 
 # Optional: Observability
 LOG_LEVEL=DEBUG                          # Verbose logging for test
 QUILT_MCP_STATELESS_MODE=true           # Flag to enable extra checks
 ```
+
+### Test Data Requirements
+
+The test requires a real dev environment with:
+
+1. **Dev catalog deployment** - Live Quilt catalog stack (not production)
+2. **Test S3 bucket** - Real S3 bucket with sample data (e.g., `s3://dev-quilt-test-bucket`)
+3. **Test packages** - At least one package in the dev registry for browsing/search
+4. **Dev auth server** - Running auth service that issues valid JWT tokens
+5. **Test user account** - User with permissions to access test bucket and packages
+
+**Setup checklist**:
+
+- [ ] Dev catalog accessible (e.g., `https://dev.quiltdata.com`)
+- [ ] Test S3 bucket created with sample files (CSV, JSON, images)
+- [ ] Test package pushed to dev registry
+- [ ] Test user account created with appropriate permissions
+- [ ] JWT token generated for test user (valid for test duration)
+- [ ] AWS credentials configured with access to test bucket
 
 ### Forbidden Configurations
 
@@ -134,14 +173,16 @@ The test MUST fail if:
 
 ## Test Scenarios
 
+**Note**: All scenarios use **real data** from dev environment. No mocks.
+
 ### Scenario 1: Basic Tool Execution
 
-**Goal**: Verify all tools work with read-only filesystem
+**Goal**: Verify all tools work with read-only filesystem using real S3/catalog data
 
 **Test steps**:
 1. Start container with stateless constraints
 2. Call `tools/list` via MCP protocol
-3. Execute each tool with minimal valid parameters
+3. Execute each tool with real dev bucket/package parameters (e.g., `s3://dev-test-bucket/data.csv`)
 4. Verify successful responses (or expected errors)
 
 **Success criteria**:
@@ -156,13 +197,13 @@ The test MUST fail if:
 
 ### Scenario 2: JWT Authentication
 
-**Goal**: Verify JWT-only authentication works
+**Goal**: Verify JWT-only authentication works with real tokens from dev auth server
 
 **Test steps**:
 1. Start container with `MCP_REQUIRE_JWT=true`
 2. Attempt tool call without JWT (should fail clearly)
-3. Attempt tool call with invalid JWT (should fail clearly)
-4. Attempt tool call with valid JWT (should succeed)
+3. Attempt tool call with malformed JWT string (should fail clearly)
+4. Attempt tool call with **real valid JWT** from dev auth server (should succeed)
 
 **Success criteria**:
 - ✅ Clear error message when JWT missing
@@ -284,8 +325,10 @@ Before running tests, verify:
 
 1. **Docker image exists** and is built with correct settings
 2. **Test environment variables** are set (JWT tokens, AWS credentials)
-3. **Network access** to test catalog (or mock server running)
-4. **No conflicting containers** running on same ports
+3. **Network access** to dev catalog (real deployment, not mock)
+4. **Dev S3 bucket** is accessible and contains test data
+5. **JWT token** is valid and not expired
+6. **No conflicting containers** running on same ports
 
 ### Runtime Checks (During Test)
 
@@ -506,21 +549,25 @@ CI environment needs:
 
 - Docker daemon available
 - Sufficient resources (2GB RAM minimum)
-- Network access to test catalog (or mock server)
-- Test JWT tokens available as secrets
-- Test AWS credentials (or mock)
+- **Network access to real dev catalog** (e.g., `https://dev.quiltdata.com`)
+- **Real JWT tokens** available as CI secrets (from dev auth server)
+- **Real AWS credentials** as CI secrets (with access to dev S3 bucket)
+- **Dev S3 bucket** with test data pre-populated
 
 ## Success Criteria for Test Target
 
 The `test-stateless` target is complete when:
 
 1. ✅ **Automated**: Runs with single command (`make test-stateless`)
-2. ✅ **Comprehensive**: Tests all 7 scenarios defined above
-3. ✅ **Fast**: Completes in under 5 minutes
+2. ✅ **Comprehensive**: Tests all 7 scenarios defined above with real data
+3. ✅ **Validates statelessness**: Proves container works **AT ALL** in stateless mode
 4. ✅ **Reliable**: No false positives or flaky tests
 5. ✅ **Clear**: Obvious pass/fail with actionable errors
 6. ✅ **Integrated**: Runs in CI/CD pipeline
 7. ✅ **Documented**: README explains how to run and interpret results
+
+**Note**: Performance/speed is not a success criterion. This is a smoke test to prove stateless deployment works, not
+a performance test.
 
 ## Edge Cases to Test
 
@@ -610,10 +657,12 @@ See `spec/a10-multitenant/02-test-stateless.md` for details.
 Create `docs/STATELESS_TESTING.md`:
 
 - How to run the test locally
+- How to set up dev catalog access
+- How to obtain valid JWT tokens for testing
+- How to configure AWS credentials for dev S3 access
 - How to interpret results
 - How to debug failures
 - How to add new test scenarios
-- How to mock external dependencies
 
 ### Operations Guide
 
@@ -627,11 +676,13 @@ Create `docs/PRODUCTION_DEPLOYMENT.md`:
 
 ## Open Questions
 
-1. **Test data**: Do we need a dedicated test catalog, or mock S3/catalog API?
-2. **JWT generation**: How to generate valid test JWTs? (Real auth server vs mock)
-3. **Concurrency**: How many concurrent requests to test? (10? 100?)
-4. **Duration**: Should we test long-running operations? (30 min package push)
-5. **Cleanup**: How to handle test failures that leave containers running?
+1. **Dev environment setup**: Which dev catalog to use? (Existing dev stack or dedicated test stack?)
+2. **JWT token lifecycle**: How to refresh tokens during test? (Store refresh token in CI secrets?)
+3. **Test data maintenance**: Who maintains the test S3 bucket and packages?
+4. **Concurrency level**: Start with 1-2 concurrent requests (prove it works), scalability later
+5. **Test duration**: Focus on quick operations first (<1 min), long operations in separate test
+6. **Cleanup strategy**: How to handle test failures that leave containers running?
+7. **CI secrets management**: How to securely store JWT tokens and AWS credentials in CI?
 
 ## Future Enhancements
 
