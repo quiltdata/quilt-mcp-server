@@ -8,6 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-Tenant Authentication**: Complete authentication architecture for multi-tenant deployments
+  - JWT-based authentication with bearer token support for HTTP transports
+  - IAM-based authentication mode as alternative for AWS environments
+  - JWT middleware for automatic token validation and session management
+  - JWT decoder service with comprehensive claim extraction
+  - Auth metrics tracking for role assumption and validation events
+  - Toggleable authentication modes via `QUILT_AUTH_MODE` environment variable
+
+- **Stateless HTTP Transport Support**: Production-ready stateless deployment capabilities
+  - Complete stateless test suite with intelligent failure diagnostics
+  - Stateless HTTP transport execution with proper session ID routing
+  - Read-only filesystem compatibility for containerized deployments
+  - Integration tests validating stateless operation across all auth modes
+
+- **Deployment Documentation**: Comprehensive deployment guides for production
+  - JWT mode deployment guides (Docker, ECS, Kubernetes)
+  - IAM mode deployment configuration and examples
+  - Authentication architecture documentation
+  - Stateless testing methodology guide
+
+### Changed
+
+- **Authentication Service**: Refactored auth service to support pluggable auth modes
+  - Factory pattern for creating IAM or JWT auth service instances
+  - Unified auth interface with mode-specific implementations
+  - Enhanced runtime context with auth state and claims tracking
+
 ### Fixed
 
 - **Package Update Behavior**: Fixed `package_update()` to correctly replace files instead of creating duplicates
@@ -16,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - This behavior aligns with Quilt's versioned package system - each push creates a new version with a unique top_hash
   - Added warning message when a file is replaced during update
   - Updated tests to verify replacement behavior instead of duplicate creation
+
+- **Stateless HTTP Protocol**: Fixed session ID routing for MCP HTTP protocol endpoints
+  - Corrected MCP protocol endpoint format in stateless tests
+  - Improved AWS SDK mocking in unit tests to prevent external calls
 
 ## [0.9.4] - 2025-12-12
 
