@@ -151,23 +151,41 @@ class TestValidation:
         assert result["error"] == "Test error message"
         assert "timestamp" in result
 
-    @pytest.mark.slow
-    def test_dry_run_preview(self):
+    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.packages.check_bucket_access")
+    @patch("quilt_mcp.tools.packages._validate_bucket_access")
+    @patch("quilt_mcp.tools.packages._create_enhanced_package")
+    def test_dry_run_preview(
+        self,
+        mock_create,
+        mock_validate_access,
+        mock_check_access,
+        mock_recommendations,
+    ):
         """Test dry_run=True doesn't call package creation."""
-        # Simple test: verify dry_run doesn't create packages
-        with patch("quilt_mcp.tools.packages._create_enhanced_package") as mock_create:
-            # Make it error if called
-            mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
+        # Mock all AWS calls to avoid real API calls
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]}
+        }
+        mock_check_access.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True}
+        }
+        mock_validate_access.return_value = None  # No exception = valid access
 
-            # Call with invalid bucket - should fail before trying to create
-            result = package_create_from_s3(
-                source_bucket="nonexistent",
-                package_name="test/pkg",
-                dry_run=True,
-            )
+        # Make it error if called
+        mock_create.side_effect = RuntimeError("Should not create package in dry_run mode!")
 
-            # Either fails early OR succeeds with preview, but never calls create
-            assert mock_create.call_count == 0, "dry_run=True called _create_enhanced_package"
+        # Call with dry_run=True
+        result = package_create_from_s3(
+            source_bucket="test-bucket",
+            package_name="test/pkg",
+            dry_run=True,
+        )
+
+        # Verify package creation was never called
+        assert mock_create.call_count == 0, "dry_run=True called _create_enhanced_package"
 
     def test_auto_registry_suggestion(self):
         """Test _suggest_target_registry function directly."""
