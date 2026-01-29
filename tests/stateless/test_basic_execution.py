@@ -92,10 +92,16 @@ def test_mcp_server_responds(container_url: str):
 def test_tools_list_endpoint(container_url: str):
     """Verify tools/list endpoint works in stateless mode."""
     try:
-        # MCP protocol: list available tools
+        # MCP protocol over HTTP uses JSON-RPC 2.0 format
+        # All requests go to the single /mcp endpoint
         response = httpx.post(
-            f"{container_url}/mcp/v1/tools/list",
-            json={"method": "tools/list", "params": {}},
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {}
+            },
             headers={"Content-Type": "application/json"},
             timeout=10.0,
         )
@@ -106,8 +112,8 @@ def test_tools_list_endpoint(container_url: str):
             # Try root to see server info
             root_response = httpx.get(f"{container_url}/", timeout=5.0)
             pytest.fail(
-                f"❌ FAIL: tools/list endpoint not found\n"
-                f"Tried: {container_url}/mcp/v1/tools/list\n"
+                f"❌ FAIL: MCP endpoint not found\n"
+                f"Tried: {container_url}/mcp\n"
                 f"Status: {response.status_code}\n"
                 f"Server root response: {root_response.text[:500]}\n"
                 "Verify MCP protocol endpoint structure"
@@ -123,11 +129,18 @@ def test_tools_list_endpoint(container_url: str):
 
         data = response.json()
 
-        # Should return a list of tools
-        assert "tools" in data or "result" in data, (
-            f"❌ FAIL: tools/list response missing 'tools' or 'result' field\n"
+        # JSON-RPC 2.0 response should have 'result' field
+        assert "result" in data, (
+            f"❌ FAIL: JSON-RPC response missing 'result' field\n"
             f"Response: {data}\n"
-            "MCP protocol response should contain tools list"
+            "MCP protocol uses JSON-RPC 2.0 format with 'result' field"
+        )
+
+        result = data["result"]
+        assert "tools" in result, (
+            f"❌ FAIL: tools/list result missing 'tools' field\n"
+            f"Result: {result}\n"
+            "MCP tools/list should return object with 'tools' array"
         )
 
         print("✅ tools/list endpoint working")

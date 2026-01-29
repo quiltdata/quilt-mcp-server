@@ -38,10 +38,16 @@ def test_jwt_required_environment_variable(stateless_container: Container):
 def test_request_without_jwt_fails_clearly(container_url: str):
     """Verify requests without JWT are rejected with clear error message."""
     try:
-        # Attempt to call an endpoint without JWT
+        # Attempt to call MCP endpoint without JWT
+        # MCP protocol over HTTP uses JSON-RPC 2.0 format at /mcp endpoint
         response = httpx.post(
-            f"{container_url}/mcp/v1/tools/list",
-            json={"method": "tools/list", "params": {}},
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {}
+            },
             headers={"Content-Type": "application/json"},
             timeout=10.0,
         )
@@ -97,10 +103,16 @@ def test_request_without_jwt_fails_clearly(container_url: str):
 def test_request_with_malformed_jwt_fails_clearly(container_url: str):
     """Verify requests with malformed JWT are rejected with clear error."""
     try:
-        # Send request with invalid JWT
+        # Send request with invalid JWT to MCP endpoint
+        # MCP protocol over HTTP uses JSON-RPC 2.0 format at /mcp endpoint
         response = httpx.post(
-            f"{container_url}/mcp/v1/tools/list",
-            json={"method": "tools/list", "params": {}},
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/list",
+                "params": {}
+            },
             headers={
                 "Content-Type": "application/json",
                 "Authorization": "Bearer not-a-valid-jwt-token",
