@@ -333,11 +333,22 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     Returns:
         Configured FastMCP server instance
     """
+    import sys
+
     mcp = create_mcp_server()
+
+    # Validate auth configuration early so startup fails fast.
+    try:
+        from quilt_mcp.services.auth_service import get_auth_service
+
+        get_auth_service()
+    except Exception as exc:  # pragma: no cover - startup validation
+        if verbose:
+            print(f"Auth service initialization failed: {exc}", file=sys.stderr)
+        raise
 
     # Register resources using FastMCP decorator pattern
     from quilt_mcp.config import resource_config
-    import sys
 
     if resource_config.RESOURCES_ENABLED:
         from quilt_mcp.resources import register_resources
@@ -384,11 +395,60 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     logger = logging.getLogger(__name__)
 
+    from quilt_mcp.services.auth_service import get_jwt_mode_enabled
+
+    # Check if we're running in stateless mode (for containerized deployments)
+    stateless_mode = os.environ.get("QUILT_MCP_STATELESS_MODE", "false").lower() == "true"
+
     try:
-        app = mcp.http_app(transport=transport)
+        # Use JSON responses in stateless mode for simpler HTTP client integration
+        # (SSE requires stream parsing which complicates testing and client implementations)
+        app = mcp.http_app(transport=transport, stateless_http=stateless_mode, json_response=stateless_mode)
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
+
+    try:
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.datastructures import MutableHeaders
+    except ImportError as exc:  # pragma: no cover
+        logger.error("Starlette HTTP middleware unavailable: %s", exc)
+        return app
+
+    class QuiltAcceptHeaderMiddleware(BaseHTTPMiddleware):
+        """Middleware that fixes Accept headers for SSE compatibility."""
+
+        HEALTH_PATHS = {"/health", "/healthz", "/"}
+
+        async def dispatch(self, request, call_next):
+            # Skip Accept header modification for health check endpoints
+            if request.url.path in self.HEALTH_PATHS:
+                return await call_next(request)
+
+            headers = MutableHeaders(scope=request.scope)
+            accept_header = headers.get("accept", "")
+
+            # For MCP protocol endpoints, ensure both application/json and text/event-stream are present
+            if request.url.path.startswith("/mcp"):
+                needs_json = "application/json" not in accept_header
+                needs_sse = "text/event-stream" not in accept_header
+
+                if needs_json and needs_sse:
+                    # No Accept header or missing both - add both
+                    headers["accept"] = "application/json, text/event-stream"
+                elif needs_json:
+                    # Has SSE but not JSON
+                    headers["accept"] = f"application/json, {accept_header}"
+                elif needs_sse:
+                    # Has JSON but not SSE
+                    headers["accept"] = f"{accept_header}, text/event-stream"
+            elif "application/json" in accept_header and "text/event-stream" not in accept_header:
+                # For other endpoints, add SSE if JSON is present
+                headers["accept"] = f"{accept_header}, text/event-stream"
+
+            return await call_next(request)
+
+    app.add_middleware(QuiltAcceptHeaderMiddleware)
 
     try:
         from starlette.middleware.cors import CORSMiddleware
@@ -404,27 +464,19 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     except ImportError:  # pragma: no cover - starlette optional guard
         logger.warning("CORS middleware unavailable; continuing without CORS configuration")
 
-    try:
-        from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.datastructures import MutableHeaders
-    except ImportError as exc:  # pragma: no cover
-        logger.error("Starlette HTTP middleware unavailable: %s", exc)
-        return app
+    if get_jwt_mode_enabled():
+        try:
+            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
 
-    class QuiltAcceptHeaderMiddleware(BaseHTTPMiddleware):
-        """Middleware that fixes Accept headers for SSE compatibility."""
+            # Add last so it runs first in Starlette's middleware stack.
+            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
+            logger.info("JWT middleware enabled for HTTP transport")
+        except ImportError as exc:  # pragma: no cover
+            logger.error("JWT middleware unavailable: %s", exc)
+            raise
+    else:
+        logger.info("JWT middleware disabled (IAM mode)")
 
-        HEALTH_PATHS = {"/health", "/healthz"}
-
-        async def dispatch(self, request, call_next):
-            headers = MutableHeaders(scope=request.scope)
-            accept_header = headers.get("accept", "")
-            if "application/json" in accept_header and "text/event-stream" not in accept_header:
-                headers["accept"] = f"{accept_header}, text/event-stream"
-
-            return await call_next(request)
-
-    app.add_middleware(QuiltAcceptHeaderMiddleware)
     return app
 
 

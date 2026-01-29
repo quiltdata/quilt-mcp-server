@@ -12,12 +12,13 @@ from typing import Any, Dict, Literal, Optional
 
 import boto3
 
-from quilt_mcp.services.auth_service import AuthService, get_auth_service
+from quilt_mcp.services.auth_service import AuthServiceError, AuthServiceProtocol, get_auth_service
+from quilt_mcp.services.jwt_auth_service import JwtAuthServiceError
 
 logger = logging.getLogger(__name__)
 
 
-AuthType = Literal["iam"]
+AuthType = Literal["iam", "jwt"]
 
 
 @dataclass
@@ -54,20 +55,34 @@ def _base_authorization(
     *,
     require_s3: bool,
 ) -> AuthorizationContext:
-    auth_service: AuthService = get_auth_service()
-    session = auth_service.get_iam_session()
+    auth_service: AuthServiceProtocol = get_auth_service()
+    try:
+        session = auth_service.get_boto3_session()
+    except (AuthServiceError, JwtAuthServiceError) as exc:
+        return AuthorizationContext(
+            authorized=False,
+            auth_type=auth_service.auth_type,
+            error=str(exc),
+        )
+    except Exception as exc:  # pragma: no cover - unexpected auth failure
+        logger.error("Unexpected auth service error for %s: %s", tool_name, exc)
+        return AuthorizationContext(
+            authorized=False,
+            auth_type=auth_service.auth_type,
+            error="Authentication failed",
+        )
     s3_client = _build_s3_client(session) if require_s3 else None
 
     if require_s3 and s3_client is None:
         return AuthorizationContext(
             authorized=False,
-            auth_type="iam",
-            error="Failed to construct S3 client from IAM credentials",
+            auth_type=auth_service.auth_type,
+            error="Failed to construct S3 client from AWS credentials",
         )
 
     return AuthorizationContext(
         authorized=True,
-        auth_type="iam",
+        auth_type=auth_service.auth_type,
         session=session,
         s3_client=s3_client,
     )
