@@ -51,13 +51,10 @@ help:
 	@echo "  make docker-push-dev  - Build and push development Docker image"
 	@echo "  make docker-validate  - Validate CI-pushed images (public read, no auth needed)"
 	@echo ""
-	@echo "🔢 Version Management: (version.py)"
-	@echo "  make bump-patch       - Bump patch version (1.2.3 → 1.2.4)"
-	@echo "  make bump-minor       - Bump minor version (1.2.3 → 1.3.0)"
-	@echo "  make bump-major       - Bump major version (1.2.3 → 2.0.0)"
-	@echo "  make release-patch    - Bump patch version, commit, and create release"
-	@echo "  make release-minor    - Bump minor version, commit, and create release"
-	@echo "  make release-major    - Bump major version, commit, and create release"
+	@echo "🔢 Version Management:"
+	@echo "  make bump-patch       - Bump patch version (1.2.3 → 1.2.4), update uv.lock, and commit"
+	@echo "  make bump-minor       - Bump minor version (1.2.3 → 1.3.0), update uv.lock, and commit"
+	@echo "  make bump-major       - Bump major version (1.2.3 → 2.0.0), update uv.lock, and commit"
 	@echo ""
 	@echo "🧹 Coordination & Utilities:"
 	@echo "  make clean               - Clean all artifacts (dev + deploy)"
@@ -105,7 +102,7 @@ config-claude:
 	@claude mcp add quilt-mcp --env FASTMCP_TRANSPORT=stdio -- make run
 	@claude mcp list
 
-# Version Management Targets
+# Version Management Targets (bump + update uv.lock + commit)
 bump-patch:
 	@scripts/release.sh bump patch
 
@@ -114,31 +111,3 @@ bump-minor:
 
 bump-major:
 	@scripts/release.sh bump major
-
-# Combined Release Targets (bump + commit + tag)
-release-patch: bump-patch
-	@echo "🔍 Committing patch version bump..."
-	@git add pyproject.toml
-	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
-	git commit -m "bump: patch version to $$VERSION"; \
-	echo "✅ Committed version bump to $$VERSION"
-	@echo "🏷️  Creating release tag..."
-	@scripts/release.sh release
-
-release-minor: bump-minor
-	@echo "🔍 Committing minor version bump..."
-	@git add pyproject.toml
-	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
-	git commit -m "bump: minor version to $$VERSION"; \
-	echo "✅ Committed version bump to $$VERSION"
-	@echo "🏷️  Creating release tag..."
-	@scripts/release.sh release
-
-release-major: bump-major
-	@echo "🔍 Committing major version bump..."
-	@git add pyproject.toml
-	@VERSION=$$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"); \
-	git commit -m "bump: major version to $$VERSION"; \
-	echo "✅ Committed version bump to $$VERSION"
-	@echo "🏷️  Creating release tag..."
-	@scripts/release.sh release

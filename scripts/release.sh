@@ -221,8 +221,23 @@ bump_version() {
     fi
     
     rm pyproject.toml.bak
-    echo "✅ Version updated from $CURRENT_VERSION to $NEW_VERSION"
-    echo "💡 Don't forget to commit this change before creating a release!"
+    echo "✅ Version updated from $CURRENT_VERSION to $NEW_VERSION in pyproject.toml"
+
+    echo "🔒 Updating uv.lock..."
+    if ! uv lock; then
+        echo "❌ Failed to update uv.lock. Rolling back version change..."
+        git checkout pyproject.toml
+        exit 1
+    fi
+    echo "✅ uv.lock updated"
+
+    echo "💾 Committing version bump..."
+    git add pyproject.toml uv.lock
+    if ! git commit -m "bump: $version_type version to $NEW_VERSION"; then
+        echo "❌ Failed to commit version bump"
+        exit 1
+    fi
+    echo "✅ Version bump committed: $CURRENT_VERSION → $NEW_VERSION"
 }
 
 tag_dev() {

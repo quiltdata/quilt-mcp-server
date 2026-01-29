@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-01-29
+
+### Fixed
+
+- **CI Python Compatibility**: Downgraded Python from 3.14 to 3.13 in production workflow
+  - Python 3.14 is incompatible with pydantic-core 2.33.2 (uses PyO3 0.24.1 which only supports up to Python 3.13)
+  - Fixed production Docker build failures in "Install Python dependencies" step
+  - Updated both build and validate jobs in [.github/workflows/prod.yml](.github/workflows/prod.yml)
+
+### Changed
+
+- **Release Process**: Streamlined version bumping workflow
+  - `make bump-{patch,minor,major}` now automatically updates `uv.lock` and commits the change
+  - Removed redundant `release-{patch,minor,major}` Makefile targets
+  - Enhanced `scripts/release.sh` to handle commit creation with rollback on failure
+  - Simplified release workflow: bump → commit in one step instead of two
+
+- **Dependency Management**: Updated Renovate configuration
+  - Migrated renovate.json to latest configuration format
+  - Enhanced dependency update automation
+
 ## [0.10.0] - 2026-01-28
 
 ### Added
