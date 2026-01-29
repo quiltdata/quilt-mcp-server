@@ -13,6 +13,7 @@ The current MCP server architecture is **functionally stateless** but has three 
 3. **Writable Container Filesystem**: No explicit read-only constraints on the container
 
 These create issues for:
+
 - **Multitenant deployments**: Shared state across tenants
 - **Container security**: Writable filesystem = attack surface
 - **Horizontal scaling**: Cache inconsistency across replicas
@@ -25,6 +26,7 @@ These create issues for:
 **Location**: `~/.quilt/` directory
 
 **Contents observed**:
+
 ```
 ~/.quilt/
   ├── mcp_telemetry.jsonl   # 1.1 MB telemetry data
@@ -32,12 +34,14 @@ These create issues for:
 ```
 
 **What needs investigation**:
+
 - Does quilt3 cache downloaded package data?
 - Are credentials stored locally? (Answer: Yes, confirmed in README.md)
 - Does quilt3 support `QUILT_DISABLE_CACHE` or similar?
 - What happens if `~/.quilt/` is not writable?
 
 **Impact**:
+
 - Credentials in `~/.quilt/` shouldn't be used in production (JWT-only mode exists via `MCP_REQUIRE_JWT=true`)
 - Telemetry writes fail silently if filesystem is read-only (acceptable)
 - Unknown if package operations cache data locally
@@ -45,6 +49,7 @@ These create issues for:
 ### 2. Local Directory Mount Pattern
 
 **Found in documentation** ([docs/archive/user/INSTALLATION.md:215](docs/archive/user/INSTALLATION.md#L215)):
+
 ```bash
 docker run -p 8000:8000 \
   -e QUILT_CATALOG_URL=... \
@@ -58,6 +63,7 @@ docker run -p 8000:8000 \
 **Issue**: Archive docs may contain outdated patterns with `-v` mounts
 
 **What needs verification**:
+
 - Are there any code paths that assume writable local directories?
 - Do any tools write temporary files outside `/tmp`?
 - Are there example configs that mount `~/.aws` or `~/.quilt`?
@@ -65,12 +71,14 @@ docker run -p 8000:8000 \
 ### 3. Container Filesystem Permissions
 
 **Current Dockerfile** ([Dockerfile](Dockerfile)):
+
 - No `USER` directive (runs as root)
 - No read-only filesystem constraint
 - No tmpfs mounts for writable locations
 - No explicit security hardening
 
 **What should change**:
+
 - Container filesystem should be read-only (`--read-only`)
 - Tmpfs mounts for required writable locations (`/tmp`, `/app/.cache`)
 - Non-root user for reduced privilege
@@ -125,11 +133,13 @@ docker run -p 8000:8000 \
 **WHAT**: Disable all quilt3 local caching and telemetry
 
 **Where**:
+
 - Environment variable configuration in Dockerfile
 - Potentially in QuiltService initialization
 - Runtime context for quilt3 configuration
 
 **Options to investigate**:
+
 ```python
 # Option A: Environment variable (if quilt3 supports it)
 QUILT_DISABLE_CACHE=true
@@ -142,6 +152,7 @@ quilt3.config(cache_dir=None)  # or cache_dir='/tmp/quilt-cache'
 ```
 
 **Success criteria**:
+
 - No writes to `~/.quilt/` directory
 - quilt3 operations complete successfully with read-only FS
 - Package operations don't cache locally
@@ -155,29 +166,33 @@ quilt3.config(cache_dir=None)  # or cache_dir='/tmp/quilt-cache'
 **Changes needed**:
 
 a. **Dockerfile additions**:
-   - Add non-root USER directive
-   - Document required tmpfs mount points
-   - Set environment variable for JWT-only mode
-   - Add healthcheck that verifies stateless operation
+
+- Add non-root USER directive
+- Document required tmpfs mount points
+- Set environment variable for JWT-only mode
+- Add healthcheck that verifies stateless operation
 
 b. **Runtime configuration** (docker run / docker-compose):
-   - `--read-only` flag
-   - `--tmpfs /tmp:size=100M,mode=1777`
-   - `--tmpfs /app/.cache:size=50M,mode=700` (if needed by quilt3)
-   - `--security-opt=no-new-privileges:true`
-   - `--cap-drop=ALL` (if compatible)
+
+- `--read-only` flag
+- `--tmpfs /tmp:size=100M,mode=1777`
+- `--tmpfs /app/.cache:size=50M,mode=700` (if needed by quilt3)
+- `--security-opt=no-new-privileges:true`
+- `--cap-drop=ALL` (if compatible)
 
 c. **Documentation updates**:
-   - README.md: Add "Production Deployment" section
-   - Show read-only Docker run example
-   - Explain JWT-only authentication requirement
-   - Document environment variable requirements
+
+- README.md: Add "Production Deployment" section
+- Show read-only Docker run example
+- Explain JWT-only authentication requirement
+- Document environment variable requirements
 
 ### 3. Authentication Flow
 
 **WHAT**: Clarify and enforce JWT-only mode in production
 
 **Where**:
+
 - AuthService ([src/quilt_mcp/services/auth_service.py](src/quilt_mcp/services/auth_service.py))
 - Tool authorization helpers
 - Documentation
@@ -185,34 +200,40 @@ c. **Documentation updates**:
 **Changes needed**:
 
 a. **Environment variable** (already exists):
+
    ```
    MCP_REQUIRE_JWT=true  # Force JWT-only, no ~/.quilt/ fallback
    ```
 
 b. **Dockerfile default**:
-   - Set `MCP_REQUIRE_JWT=true` by default in Docker
-   - Can be overridden for development
+
+- Set `MCP_REQUIRE_JWT=true` by default in Docker
+- Can be overridden for development
 
 c. **Startup validation**:
-   - Log warning if running in JWT-only mode
-   - Verify no writable `~/.quilt/` directory accessible
-   - Confirm read-only filesystem if applicable
+
+- Log warning if running in JWT-only mode
+- Verify no writable `~/.quilt/` directory accessible
+- Confirm read-only filesystem if applicable
 
 d. **Error messages**:
-   - Clear instructions when JWT missing
-   - No suggestion to run `quilt3 login` in production
-   - Point to JWT configuration docs
+
+- Clear instructions when JWT missing
+- No suggestion to run `quilt3 login` in production
+- Point to JWT configuration docs
 
 ### 4. Temporary File Handling
 
 **WHAT**: Verify all temporary files use `/tmp` (in-memory with tmpfs)
 
 **Where**:
+
 - Any file I/O operations
 - Package creation/manipulation
 - Data processing pipelines
 
 **Verification needed**:
+
 - Audit code for `tempfile.mkstemp()` usage
 - Check if any tools write to current directory
 - Verify boto3 doesn't cache in `~/.aws/`
@@ -223,6 +244,7 @@ d. **Error messages**:
 **WHAT**: Document zero-filesystem-config deployment
 
 **Where**:
+
 - README.md
 - docs/deployment/ (new)
 - Example docker-compose.yml
@@ -230,6 +252,7 @@ d. **Error messages**:
 **Changes needed**:
 
 a. **Required environment variables**:
+
    ```bash
    # Authentication (production)
    MCP_REQUIRE_JWT=true
@@ -248,14 +271,16 @@ a. **Required environment variables**:
    ```
 
 b. **IAM role authentication** (preferred over env vars):
-   - Document ECS task role pattern
-   - Document Kubernetes service account pattern
-   - Show how to test locally with AWS_PROFILE
+
+- Document ECS task role pattern
+- Document Kubernetes service account pattern
+- Show how to test locally with AWS_PROFILE
 
 c. **Remove examples** that show:
-   - Mounting `~/.aws/` or `~/.quilt/`
-   - Persisting volumes
-   - Writable container patterns
+
+- Mounting `~/.aws/` or `~/.quilt/`
+- Persisting volumes
+- Writable container patterns
 
 ## Success Criteria
 
@@ -285,11 +310,13 @@ c. **Remove examples** that show:
 ## Testing Strategy
 
 ### Unit Tests
+
 - Mock filesystem to be read-only
 - Verify no write attempts outside `/tmp`
 - Test JWT-only authentication path
 
 ### Integration Tests
+
 ```bash
 # Test 1: Read-only filesystem
 docker run --read-only --tmpfs /tmp:size=100M \
@@ -311,6 +338,7 @@ docker run --read-only --tmpfs /tmp \
 ```
 
 ### Security Tests
+
 - Run with minimal capabilities
 - Verify no privilege escalation
 - Test with security scanners (trivy, grype)
@@ -366,10 +394,10 @@ docker run --read-only --tmpfs /tmp \
 ## References
 
 - Current architecture analysis: (conversation context)
-- MCP Protocol: https://modelcontextprotocol.io
-- Docker security: https://docs.docker.com/engine/security/
-- Dockerfile best practices: https://docs.docker.com/develop/dev-best-practices/
-- quilt3 documentation: https://docs.quilt.bio
+- MCP Protocol: <https://modelcontextprotocol.io>
+- Docker security: <https://docs.docker.com/engine/security/>
+- Dockerfile best practices: <https://docs.docker.com/develop/dev-best-practices/>
+- quilt3 documentation: <https://docs.quilt.bio>
 
 ## Related Specifications
 
