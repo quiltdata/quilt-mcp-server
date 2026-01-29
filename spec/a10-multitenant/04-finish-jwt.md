@@ -315,14 +315,14 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 **What to implement**:
 
-- [ ] Retrieve JWT implementation from commit `f36c689` or build artifacts
-- [ ] Review and update for compatibility with current codebase
-- [ ] Implement JWT signature verification (HS256 support required, RS256 optional)
-- [ ] Implement claims extraction and normalization
-- [ ] Implement expiration validation (`exp` claim)
-- [ ] Add optional issuer (`iss`) and audience (`aud`) validation
+- [x] Retrieve JWT implementation from commit `f36c689` or build artifacts
+- [x] Review and update for compatibility with current codebase
+- [x] Implement JWT signature verification (HS256 support required, RS256 optional)
+- [x] Implement claims extraction and normalization
+- [x] Implement expiration validation (`exp` claim)
+- [x] Add optional issuer (`iss`) and audience (`aud`) validation
 - [ ] Create comprehensive unit tests for all validation paths
-- [ ] Document expected JWT structure and required claims
+- [x] Document expected JWT structure and required claims
 
 **Configuration needed**:
 
@@ -351,21 +351,21 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 **What to implement**:
 
-- [ ] Retrieve bearer_auth_service from commit history
-- [ ] Refactor and rename to jwt_auth_service
-- [ ] Integrate with RuntimeAuthState (read JWT from context)
-- [ ] Implement AWS role assumption based on JWT claims:
-  - [ ] Extract role ARN from JWT (e.g., `role_arn` claim)
-  - [ ] Extract session tags from JWT (e.g., `session_tags` claim)
-  - [ ] Extract source identity from JWT (`sub` claim)
-  - [ ] Call STS AssumeRole with these parameters
-  - [ ] Cache assumed credentials per request scope
-- [ ] Create boto3 session from assumed credentials
-- [ ] Implement error handling for:
-  - [ ] Missing JWT in RuntimeAuthState
-  - [ ] Missing required claims
-  - [ ] STS AssumeRole failures
-  - [ ] Expired assumed credentials
+- [x] Retrieve bearer_auth_service from commit history
+- [x] Refactor and rename to jwt_auth_service
+- [x] Integrate with RuntimeAuthState (read JWT from context)
+- [x] Implement AWS role assumption based on JWT claims:
+  - [x] Extract role ARN from JWT (e.g., `role_arn` claim)
+  - [x] Extract session tags from JWT (e.g., `session_tags` claim)
+  - [x] Extract source identity from JWT (`sub` claim)
+  - [x] Call STS AssumeRole with these parameters
+  - [x] Cache assumed credentials per request scope
+- [x] Create boto3 session from assumed credentials
+- [x] Implement error handling for:
+  - [x] Missing JWT in RuntimeAuthState
+  - [x] Missing required claims
+  - [x] STS AssumeRole failures
+  - [x] Expired assumed credentials
 
 **Configuration needed**:
 
@@ -396,15 +396,15 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 **What to implement**:
 
-- [ ] Extract IAM credential logic from current `auth_service.py`
-- [ ] Create `IAMAuthService` class with same interface as JWTAuthService
-- [ ] Implement credential resolution:
-  - [ ] Environment variables (AWS_ACCESS_KEY_ID, etc.)
-  - [ ] AWS profiles (AWS_PROFILE)
-  - [ ] quilt3 session credentials
-  - [ ] IAM roles (EC2/ECS/Lambda instance roles)
-- [ ] Return boto3 session using resolved credentials
-- [ ] No RuntimeAuthState dependency (IAM mode doesn't use it)
+- [x] Extract IAM credential logic from current `auth_service.py`
+- [x] Create `IAMAuthService` class with same interface as JWTAuthService
+- [x] Implement credential resolution:
+  - [x] Environment variables (AWS_ACCESS_KEY_ID, etc.)
+  - [x] AWS profiles (AWS_PROFILE)
+  - [x] quilt3 session credentials
+  - [x] IAM roles (EC2/ECS/Lambda instance roles)
+- [x] Return boto3 session using resolved credentials
+- [x] No RuntimeAuthState dependency (IAM mode doesn't use it)
 
 **Success criteria**:
 
@@ -421,12 +421,12 @@ Full implementations remain in `build/lib/quilt_mcp/services/`:
 
 **What to implement**:
 
-- [ ] Read `MCP_REQUIRE_JWT` environment variable at startup
-- [ ] Validate configuration for selected mode
-- [ ] Return IAMAuthService or JWTAuthService instance
-- [ ] Cache auth service instance (singleton per mode)
-- [ ] Add logging for mode selection
-- [ ] Expose `get_jwt_mode_enabled()` function for debugging
+- [x] Read `MCP_REQUIRE_JWT` environment variable at startup
+- [x] Validate configuration for selected mode
+- [x] Return IAMAuthService or JWTAuthService instance
+- [x] Cache auth service instance (singleton per mode)
+- [x] Add logging for mode selection
+- [x] Expose `get_jwt_mode_enabled()` function for debugging
 
 **Pseudo-structure**:
 
@@ -457,20 +457,20 @@ def get_auth_service() -> AuthServiceProtocol:
 
 **What to implement**:
 
-- [ ] Create FastAPI/Starlette middleware class
-- [ ] Extract `Authorization: Bearer <token>` header from requests
-- [ ] Call JWTDecoder to validate and parse token
-- [ ] Populate RuntimeAuthState with:
-  - [ ] `scheme = "Bearer"`
-  - [ ] `access_token = <token>`
-  - [ ] `claims = <decoded_claims>`
-- [ ] Use `push_runtime_context()` to set request-scoped state
-- [ ] Handle errors:
-  - [ ] Missing Authorization header → 401
-  - [ ] Invalid Bearer format → 401
-  - [ ] JWT validation failure → 403
-- [ ] Clear RuntimeAuthState after request completes
-- [ ] **Only activate in JWT mode** (check MCP_REQUIRE_JWT=true)
+- [x] Create FastAPI/Starlette middleware class
+- [x] Extract `Authorization: Bearer <token>` header from requests
+- [x] Call JWTDecoder to validate and parse token
+- [x] Populate RuntimeAuthState with:
+  - [x] `scheme = "Bearer"`
+  - [x] `access_token = <token>`
+  - [x] `claims = <decoded_claims>`
+- [x] Use `push_runtime_context()` to set request-scoped state
+- [x] Handle errors:
+  - [x] Missing Authorization header → 401
+  - [x] Invalid Bearer format → 401
+  - [x] JWT validation failure → 403
+- [x] Clear RuntimeAuthState after request completes
+- [x] **Only activate in JWT mode** (check MCP_REQUIRE_JWT=true)
 
 **Integration point**: `src/quilt_mcp/utils.py:build_http_app()`
 
@@ -515,19 +515,19 @@ pyjwt = "^2.8.0"
 
 **What to document**:
 
-- [ ] Overview of two auth modes (IAM and JWT)
-- [ ] When to use each mode
-- [ ] Configuration environment variables:
-  - [ ] `MCP_REQUIRE_JWT` (boolean toggle)
-  - [ ] `MCP_JWT_SECRET` or `MCP_JWT_SECRET_SSM_PARAMETER`
-  - [ ] `MCP_JWT_ISSUER` (optional issuer validation)
-  - [ ] `MCP_JWT_AUDIENCE` (optional audience validation)
-- [ ] Supported JWT algorithm: HS256 only (hardcoded)
+- [x] Overview of two auth modes (IAM and JWT)
+- [x] When to use each mode
+- [x] Configuration environment variables:
+  - [x] `MCP_REQUIRE_JWT` (boolean toggle)
+  - [x] `MCP_JWT_SECRET` or `MCP_JWT_SECRET_SSM_PARAMETER`
+  - [x] `MCP_JWT_ISSUER` (optional issuer validation)
+  - [x] `MCP_JWT_AUDIENCE` (optional audience validation)
+- [x] Supported JWT algorithm: HS256 only (hardcoded)
 - [ ] How JWT mode works (architecture diagram)
-- [ ] Example JWT structure
-- [ ] How to generate JWTs for testing
-- [ ] Common error messages and solutions
-- [ ] Migration guide from IAM to JWT mode
+- [x] Example JWT structure
+- [x] How to generate JWTs for testing
+- [x] Common error messages and solutions
+- [x] Migration guide from IAM to JWT mode
 
 **Success criteria**:
 
@@ -546,10 +546,10 @@ pyjwt = "^2.8.0"
 
 **What to implement**:
 
-- [ ] Check MCP_REQUIRE_JWT at HTTP app startup
-- [ ] If MCP_REQUIRE_JWT=true, register JWT middleware
-- [ ] If MCP_REQUIRE_JWT=false, skip JWT middleware
-- [ ] Add startup log indicating middleware registration
+- [x] Check MCP_REQUIRE_JWT at HTTP app startup
+- [x] If MCP_REQUIRE_JWT=true, register JWT middleware
+- [x] If MCP_REQUIRE_JWT=false, skip JWT middleware
+- [x] Add startup log indicating middleware registration
 - [ ] Ensure middleware runs before all other middleware
 - [ ] Test that CORS middleware still works correctly
 
@@ -568,29 +568,29 @@ pyjwt = "^2.8.0"
 
 **Test files to create**:
 
-- [ ] `tests/unit/test_jwt_decoder.py`:
-  - [ ] Valid JWT validation
-  - [ ] Expired JWT rejection
-  - [ ] Invalid signature rejection
-  - [ ] Missing claims handling
-  - [ ] Issuer/audience validation
+- [x] `tests/unit/test_jwt_decoder.py`:
+  - [x] Valid JWT validation
+  - [x] Expired JWT rejection
+  - [x] Invalid signature rejection
+  - [x] Missing claims handling
+  - [x] Issuer/audience validation
   - [ ] Edge cases (malformed tokens, etc.)
-- [ ] `tests/unit/test_jwt_auth_service.py`:
-  - [ ] Role assumption from JWT claims
-  - [ ] Session tag extraction
-  - [ ] Source identity setting
+- [x] `tests/unit/test_jwt_auth_service.py`:
+  - [x] Role assumption from JWT claims
+  - [x] Session tag extraction
+  - [x] Source identity setting
   - [ ] Error handling (missing claims, STS failures)
-  - [ ] Boto3 session construction
-- [ ] `tests/unit/test_jwt_middleware.py`:
-  - [ ] Header extraction
-  - [ ] RuntimeAuthState population
-  - [ ] Error responses (401, 403)
-  - [ ] State cleanup after request
-- [ ] `tests/unit/test_auth_service_factory.py`:
-  - [ ] Mode selection logic
-  - [ ] Configuration validation
-  - [ ] Service instantiation
-  - [ ] Error handling
+  - [x] Boto3 session construction
+- [x] `tests/unit/test_jwt_middleware.py`:
+  - [x] Header extraction
+  - [x] RuntimeAuthState population
+  - [x] Error responses (401, 403)
+  - [x] State cleanup after request
+- [x] `tests/unit/test_auth_service_factory.py`:
+  - [x] Mode selection logic
+  - [x] Configuration validation
+  - [x] Service instantiation
+  - [x] Error handling
 
 **Success criteria**:
 
@@ -612,13 +612,13 @@ pyjwt = "^2.8.0"
   - [ ] Tool execution with AWS profile
   - [ ] Ignores Authorization headers (if present)
   - [ ] Works with all existing tools
-- [ ] JWT mode:
-  - [ ] Tool execution with valid JWT
-  - [ ] Rejection without JWT (401)
+- [x] JWT mode:
+  - [x] Tool execution with valid JWT
+  - [x] Rejection without JWT (401)
   - [ ] Rejection with invalid JWT (403)
-  - [ ] Role assumption works correctly
+  - [x] Role assumption works correctly
   - [ ] Session tags passed to AWS
-  - [ ] SourceIdentity recorded
+  - [x] SourceIdentity recorded
 - [ ] Mode switching:
   - [ ] Can switch modes via environment variable
   - [ ] No cross-contamination between modes
@@ -647,15 +647,15 @@ pyjwt = "^2.8.0"
 
 - [ ] All tests continue to pass with default IAM mode
 - [ ] No tests accidentally require JWT mode
-- [ ] Test fixtures properly set MCP_REQUIRE_JWT=false
+- [x] Test fixtures properly set MCP_REQUIRE_JWT=false
 - [ ] No tests leak auth state between test cases
 - [ ] Clean up RuntimeAuthState in teardown
 
 **Changes needed in conftest.py**:
 
-- [ ] Explicitly set `MCP_REQUIRE_JWT=false` for all tests
+- [x] Explicitly set `MCP_REQUIRE_JWT=false` for all tests
 - [ ] Clear RuntimeAuthState before each test
-- [ ] Document why JWT is disabled for tests
+- [x] Document why JWT is disabled for tests
 
 **Success criteria**:
 
@@ -671,14 +671,14 @@ pyjwt = "^2.8.0"
 
 **What to document**:
 
-- [ ] How to run MCP server in IAM mode (default)
-- [ ] How to run MCP server in JWT mode
+- [x] How to run MCP server in IAM mode (default)
+- [x] How to run MCP server in JWT mode
 - [ ] How to generate test JWTs with jose or jwt.io
 - [ ] Example JWT payloads for different scenarios
-- [ ] How to send authenticated requests using curl
-- [ ] How to test with Claude Desktop (if applicable)
+- [x] How to send authenticated requests using curl
+- [x] How to test with Claude Desktop (if applicable)
 - [ ] How to verify role assumption (check CloudTrail)
-- [ ] Common issues and debugging steps
+- [x] Common issues and debugging steps
 
 **Success criteria**:
 
@@ -696,10 +696,10 @@ pyjwt = "^2.8.0"
 
 **What to implement**:
 
-- [ ] Direct secret from environment: `MCP_JWT_SECRET`
-- [ ] Secret from AWS SSM Parameter Store: `MCP_JWT_SECRET_SSM_PARAMETER`
+- [x] Direct secret from environment: `MCP_JWT_SECRET`
+- [x] Secret from AWS SSM Parameter Store: `MCP_JWT_SECRET_SSM_PARAMETER`
 - [ ] Secret caching for SSM (cache for 1 hour, refresh in background)
-- [ ] Basic secret rotation: retry with cached secret on validation failure
+- [x] Basic secret rotation: retry with cached secret on validation failure
 
 **Configuration precedence**:
 
@@ -714,6 +714,7 @@ pyjwt = "^2.8.0"
 - ✅ Startup fails clearly if no secret provided in JWT mode
 
 **Future enhancements** (if needed):
+
 - File-based secrets (`MCP_JWT_SECRET_FILE`) for Kubernetes
 - AWS Secrets Manager support
 
@@ -725,18 +726,18 @@ pyjwt = "^2.8.0"
 
 **What to add**:
 
-- [ ] Structured logging for:
-  - [ ] Auth mode selected at startup
-  - [ ] JWT validation attempts (success/failure)
-  - [ ] JWT validation failure reasons
-  - [ ] Role assumption attempts (success/failure)
-  - [ ] User identity from JWT (sub claim)
-- [ ] Metrics (if metrics system exists):
-  - [ ] Counter: `auth.mode` (labels: iam, jwt)
-  - [ ] Counter: `auth.jwt.validation` (labels: success, failure, expired, invalid_signature)
-  - [ ] Histogram: `auth.jwt.validation_duration_ms`
-  - [ ] Counter: `auth.role_assumption` (labels: success, failure)
-  - [ ] Histogram: `auth.role_assumption_duration_ms`
+- [x] Structured logging for:
+  - [x] Auth mode selected at startup
+  - [x] JWT validation attempts (success/failure)
+  - [x] JWT validation failure reasons
+  - [x] Role assumption attempts (success/failure)
+  - [x] User identity from JWT (sub claim)
+- [x] Metrics (if metrics system exists):
+  - [x] Counter: `auth.mode` (labels: iam, jwt)
+  - [x] Counter: `auth.jwt.validation` (labels: success, failure, expired, invalid_signature)
+  - [x] Histogram: `auth.jwt.validation_duration_ms`
+  - [x] Counter: `auth.role_assumption` (labels: success, failure)
+  - [x] Histogram: `auth.role_assumption_duration_ms`
 
 **Success criteria**:
 
@@ -753,13 +754,13 @@ pyjwt = "^2.8.0"
 
 **What to create**:
 
-- [ ] `iam-mode-local.md` - Running locally with IAM credentials
-- [ ] `jwt-mode-docker.md` - Running in Docker with JWT
-- [ ] `jwt-mode-ecs.md` - Deploying to ECS Fargate with JWT
-- [ ] `jwt-mode-kubernetes.md` - Deploying to Kubernetes with JWT
-- [ ] Example docker-compose files for both modes
-- [ ] Example Kubernetes manifests for JWT mode
-- [ ] Example ECS task definitions for JWT mode
+- [x] `iam-mode-local.md` - Running locally with IAM credentials
+- [x] `jwt-mode-docker.md` - Running in Docker with JWT
+- [x] `jwt-mode-ecs.md` - Deploying to ECS Fargate with JWT
+- [x] `jwt-mode-kubernetes.md` - Deploying to Kubernetes with JWT
+- [x] Example docker-compose files for both modes
+- [x] Example Kubernetes manifests for JWT mode
+- [x] Example ECS task definitions for JWT mode
 
 **Success criteria**:
 
@@ -776,7 +777,7 @@ pyjwt = "^2.8.0"
 
 **What to update**:
 
-- [ ] Add JWT mode as requirement for stateless tests
+- [x] Add JWT mode as requirement for stateless tests
 - [ ] Generate test JWTs for stateless test scenarios
 - [ ] Update test runner to use JWT authentication
 - [ ] Verify role assumption works in stateless mode
@@ -814,6 +815,7 @@ pyjwt = "^2.8.0"
   - Only add if remote JWT auth is specifically requested for desktop clients
 
 **Removed features** (not recommended):
+
 - ~~JWT Claims Compression~~ - Modern JWTs handle size well enough
 - ~~JWT Refresh Flow~~ - MCP sessions are typically short-lived
 - ~~Custom claim mappings~~ - Adds unnecessary complexity
@@ -1029,7 +1031,7 @@ See [02-test-stateless.md](02-test-stateless.md) for full stateless test specifi
 
 **JWT-specific additions**:
 
-- [ ] JWT mode enforced in stateless tests
+- [x] JWT mode enforced in stateless tests
 - [ ] No JWT secrets in container filesystem
 - [ ] Role assumption verified via CloudTrail
 - [ ] Session tags visible in AWS logs

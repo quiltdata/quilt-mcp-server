@@ -6,6 +6,7 @@
 ## Executive Summary
 
 The Quilt MCP Server makes GraphQL calls to Quilt catalog endpoints for:
+
 1. Bucket discovery (3 locations)
 2. Object search with filtering and pagination
 3. Generic GraphQL query execution
@@ -17,6 +18,7 @@ All GraphQL calls depend on `quilt3` configuration for authentication and regist
 ## GraphQL Endpoints Used
 
 ### Base Endpoint Construction
+
 ```
 {registry_url}/graphql
 ```
@@ -32,6 +34,7 @@ Where `registry_url` is obtained from quilt3 configuration (typically `https://{
 **Purpose:** Discover which buckets are configured in the Quilt catalog stack
 
 **Query:**
+
 ```graphql
 query {
   bucketConfigs {
@@ -44,31 +47,39 @@ query {
 **Locations:**
 
 #### Location 1: Permission Discovery Service
+
 **File:** `src/quilt_mcp/services/permission_discovery.py:602`
+
 ```python
 query = {"query": "query { bucketConfigs { name } }"}
 response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 ```
 
 **Usage Context:**
+
 - Called by `PermissionDiscoveryService._discover_buckets_via_graphql()`
 - Used as fallback when S3 bucket listing fails
 - Returns set of bucket names accessible via the catalog
 
 #### Location 2: Stack Buckets Tool
+
 **File:** `src/quilt_mcp/tools/stack_buckets.py:61`
+
 ```python
 query = {"query": "query { bucketConfigs { name title } }"}
 response = session.post(graphql_url, json=query, timeout=http_config.SERVICE_TIMEOUT)
 ```
 
 **Usage Context:**
+
 - Primary tool for discovering buckets in a Quilt stack
 - Returns both bucket name and title (user-friendly display name)
 - Used by LLMs to understand available data sources
 
 #### Location 3: Elasticsearch Backend
+
 **File:** `src/quilt_mcp/search/backends/elasticsearch.py:236`
+
 ```python
 resp = session.post(
     f"{registry_url.rstrip('/')}/graphql",
@@ -78,6 +89,7 @@ resp = session.post(
 ```
 
 **Usage Context:**
+
 - Called by `ElasticsearchBackend._fetch_all_buckets()`
 - Used to populate bucket list for search operations
 - Returns list of bucket names for cross-bucket searches
@@ -89,6 +101,7 @@ resp = session.post(
 **Purpose:** Search for objects within buckets with filtering, pagination, and package linkage
 
 **Query:**
+
 ```graphql
 query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String) {
   objects(bucket: $bucket, filter: $filter, first: $first, after: $after) {
@@ -120,17 +133,20 @@ query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String)
 **Function:** `search_objects_graphql()`
 
 **Parameters:**
+
 - `bucket`: S3 bucket name or s3:// URI
 - `object_filter`: Dictionary of filter fields (e.g., `{"extension": "csv"}`)
 - `first`: Page size (default 100, max 1000)
 - `after`: Pagination cursor
 
 **Returns:**
+
 - List of objects with metadata
 - Package linkage information (if object is part of a package)
 - Pagination info for fetching additional results
 
 **Usage Context:**
+
 - Enables catalog-aware object search
 - Links objects to their parent packages
 - Supports filtering by file type, size, date, etc.
@@ -146,14 +162,17 @@ query($bucket: String!, $filter: ObjectFilterInput, $first: Int, $after: String)
 **Function:** `search_graphql(query, variables)`
 
 **Parameters:**
+
 - `query`: GraphQL query string
 - `variables`: Optional variables dictionary
 
 **Returns:**
+
 - `SearchGraphQLSuccess` with data
 - `SearchGraphQLError` with error details
 
 **Implementation:**
+
 ```python
 resp = session.post(
     graphql_url,
@@ -163,6 +182,7 @@ resp = session.post(
 ```
 
 **Usage Context:**
+
 - Provides flexibility for custom queries
 - Used for advanced catalog exploration
 - Allows LLMs to construct specialized queries
@@ -172,6 +192,7 @@ resp = session.post(
 ## Authentication and Session Management
 
 ### Session Source
+
 All GraphQL calls use the authenticated session from `quilt3`:
 
 ```python
@@ -179,16 +200,19 @@ session, graphql_url = _get_graphql_endpoint()
 ```
 
 This function:
+
 1. Gets the quilt3 session (`quilt3.session.get_session()`)
 2. Extracts registry URL from quilt3 config
 3. Constructs GraphQL endpoint URL: `{registry_url}/graphql`
 
 ### Authentication Flow
+
 ```
 quilt3.login() → Session with credentials → GraphQL calls use session
 ```
 
 ### Timeout Configuration
+
 - Standard timeout: `http_config.SERVICE_TIMEOUT` (from config)
 - Elasticsearch backend: 30 seconds hardcoded
 
@@ -219,29 +243,36 @@ quilt3.login() → Session with credentials → GraphQL calls use session
 ## Multi-Tenant Support Scenarios
 
 ### Scenario 1: Multiple Stacks (Same Credentials)
+
 **Example:** User has access to `prod.quiltdata.com` and `dev.quiltdata.com`
 
 **Current Status:** ❌ Not Supported
+
 - Can only connect to one registry at a time
 - Would need to restart/reconfigure to switch
 
 **Required Changes:**
+
 - Pass registry URL explicitly to GraphQL functions
 - Manage multiple authenticated sessions
 - Update `_get_graphql_endpoint()` to accept registry parameter
 
 ### Scenario 2: Multiple Buckets (Single Stack)
+
 **Example:** User accesses multiple buckets on `mycompany.quiltdata.com`
 
 **Current Status:** ✅ Fully Supported
+
 - `bucketConfigs` query returns all accessible buckets
 - Object search accepts bucket parameter
 - No code changes needed
 
 ### Scenario 3: Cross-Registry Operations
+
 **Example:** Search objects across both prod and dev stacks
 
 **Current Status:** ❌ Not Supported
+
 - Would require parallel sessions to different registries
 - No architecture for managing multiple GraphQL endpoints
 - Would need significant refactoring
@@ -308,6 +339,7 @@ quilt3.login() → Session with credentials → GraphQL calls use session
 ### Current Error Recovery
 
 **Bucket Discovery:**
+
 ```python
 except Exception as e:
     logger.warning(f"GraphQL bucket discovery failed: {e}")
@@ -315,12 +347,14 @@ except Exception as e:
 ```
 
 **Object Search:**
+
 ```python
 if resp.status_code != 200:
     return SearchGraphQLError(error=f"GraphQL HTTP {resp.status_code}: {resp.text}")
 ```
 
 **Generic GraphQL:**
+
 ```python
 if "errors" in payload:
     return SearchGraphQLError(error=f"GraphQL errors: {payload.get('errors')}")
@@ -346,11 +380,13 @@ if "errors" in payload:
 ### Caching Considerations
 
 **Current State:** ❌ No caching implemented
+
 - Each GraphQL call hits the catalog
 - No client-side result caching
 - No TTL-based cache invalidation
 
 **Potential Optimizations:**
+
 - Cache `bucketConfigs` results (TTL: 5-15 minutes)
 - Cache object search results (TTL: 1-5 minutes)
 - Use ETags for conditional requests
@@ -390,6 +426,7 @@ if "errors" in payload:
 ### For Multi-Tenant Support
 
 1. **Explicit Registry Parameter**
+
    ```python
    def search_objects_graphql(
        bucket: str,
@@ -487,11 +524,13 @@ if "errors" in payload:
 ### Known Schema Fields
 
 **bucketConfigs:**
+
 - `name` (String) - S3 bucket name
 - `title` (String) - User-friendly display name
 - Additional fields may be available depending on catalog version
 
 **objects:**
+
 - `key` (String) - Object key/path
 - `size` (Int) - Object size in bytes
 - `updated` (DateTime) - Last modified timestamp
@@ -505,6 +544,7 @@ if "errors" in payload:
 ### Filter Capabilities
 
 The `ObjectFilterInput` type supports:
+
 - `extension` - Filter by file extension
 - `size_gt`, `size_lt` - Filter by size
 - `updated_gt`, `updated_lt` - Filter by date

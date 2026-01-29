@@ -79,6 +79,7 @@ def stateless_container(
             cpu_period=100000,
             environment={
                 "MCP_REQUIRE_JWT": "true",  # Force JWT-only auth
+                "MCP_JWT_SECRET": "test-secret-key-for-stateless-testing-only",  # Test JWT secret
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching
                 "HOME": "/tmp",  # Redirect home directory  # noqa: S108
                 "LOG_LEVEL": "DEBUG",  # Verbose logging

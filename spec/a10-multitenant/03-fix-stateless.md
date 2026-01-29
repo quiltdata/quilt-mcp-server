@@ -7,6 +7,7 @@
 ## Test Results Summary
 
 Current status from `make test-stateless`:
+
 - **12 passing tests** ✅
 - **4 failing tests** ❌
 - **1 skipped test** (requires implementation)
@@ -20,16 +21,19 @@ Current status from `make test-stateless`:
 **Problem**: The MCP protocol endpoint `/mcp/v1/tools/list` returns 404 Not Found
 
 **Observed behavior**:
+
 - Server root (`/`) responds correctly with status and version info
 - MCP protocol endpoints are not accessible
 - Clients cannot discover available tools
 
 **Why this matters**:
+
 - MCP clients use the `tools/list` endpoint to discover capabilities
 - Without proper routing, the server cannot participate in MCP protocol communication
 - This is a fundamental requirement for MCP server operation
 
 **What needs investigation**:
+
 - Is the MCP protocol router properly configured for HTTP transport?
 - Are MCP endpoints registered correctly in the FastAPI app?
 - Is there a routing conflict or missing route configuration?
@@ -42,23 +46,27 @@ Current status from `make test-stateless`:
 **Problem**: Container wrote to `/app` directory despite read-only filesystem constraint
 
 **Observed behavior**:
+
 - Files were created in `/app` (outside allowed tmpfs directories)
 - Read-only filesystem requirement not enforced
 - Application attempts to write to locations that should be immutable
 
 **Why this matters**:
+
 - Stateless deployment requires strict read-only root filesystem
 - Writes outside tmpfs can persist state across requests (security risk)
 - Violates multitenant isolation requirements
 - Creates potential for cross-tenant data leakage
 
 **What needs investigation**:
+
 - What is being written to `/app`?
 - Is it cache files, configuration, logs, or telemetry?
 - Is quilt3 attempting to create directories in the application directory?
 - Are there temporary files being created in the wrong location?
 
 **What needs to be fixed**:
+
 - Redirect all writable locations to tmpfs directories (`/tmp`, `/app/.cache`, `/run`)
 - Configure application to never write to `/app` root
 - Set `HOME=/tmp` or similar to redirect user directories
@@ -71,17 +79,20 @@ Current status from `make test-stateless`:
 **Problem**: Requests without JWT return generic "404 Not Found" instead of clear authentication error
 
 **Observed behavior**:
+
 - Status: 404
 - Response: "Not Found"
 - No mention of JWT, authorization, or authentication requirements
 
 **Why this matters**:
+
 - Developers cannot debug authentication issues without clear error messages
 - Generic 404 suggests endpoint doesn't exist (misleading)
 - Production deployments need actionable error messages
 - Poor developer experience leads to wasted time troubleshooting
 
 **Expected behavior**:
+
 - Status: 401 Unauthorized (or 403 Forbidden)
 - Response should clearly state one of:
   - "JWT token required"
@@ -89,6 +100,7 @@ Current status from `make test-stateless`:
   - "Bearer token not provided"
 
 **What needs to be fixed**:
+
 - Authentication middleware must intercept requests before routing
 - Missing JWT should return 401 with clear message
 - Error response should explain what's required
@@ -101,17 +113,20 @@ Current status from `make test-stateless`:
 **Problem**: Requests with malformed JWT return generic "404 Not Found" instead of validation error
 
 **Observed behavior**:
+
 - Status: 404
 - Response: "Not Found"
 - No explanation of JWT validation failure
 
 **Why this matters**:
+
 - Malformed JWT suggests misconfiguration or token generation bug
 - Generic 404 hides the real problem
 - Developers cannot distinguish between missing endpoint and auth failure
 - Production debugging becomes significantly harder
 
 **Expected behavior**:
+
 - Status: 401 Unauthorized
 - Response should clearly state one of:
   - "Invalid JWT token"
@@ -120,6 +135,7 @@ Current status from `make test-stateless`:
   - "JWT validation failed: [specific reason]"
 
 **What needs to be fixed**:
+
 - JWT validation should happen before routing
 - Invalid token format should return specific error
 - Token signature failures should be clearly identified
@@ -139,6 +155,7 @@ All 4 failures point to issues in the HTTP transport layer implementation:
 ### Architecture Gap
 
 **Current state** (inferred from failures):
+
 - HTTP server accepts requests at root (`/`)
 - MCP protocol endpoints not accessible
 - Authentication happens after routing (if at all)
@@ -146,6 +163,7 @@ All 4 failures point to issues in the HTTP transport layer implementation:
 - Filesystem writes not properly redirected
 
 **Required state**:
+
 - HTTP server serves both root and MCP protocol paths
 - Authentication middleware runs before routing
 - MCP-aware error responses with clear messages
@@ -159,6 +177,7 @@ All 4 failures point to issues in the HTTP transport layer implementation:
 **Goal**: Make `/mcp/v1/tools/list` and other MCP endpoints accessible
 
 **Tasks**:
+
 1. Investigate HTTP transport router configuration
 2. Verify MCP protocol endpoint registration in FastAPI app
 3. Ensure all MCP paths are properly mounted
@@ -166,12 +185,14 @@ All 4 failures point to issues in the HTTP transport layer implementation:
 5. Verify endpoint responds with proper MCP protocol schema
 
 **Success criteria**:
+
 - `/mcp/v1/tools/list` returns 200 OK
 - Response contains list of available tools in MCP format
 - All other MCP protocol endpoints accessible
 - MCP clients can successfully connect and query tools
 
 **Acceptance test**:
+
 ```
 Start container in stateless mode
 → Call GET/POST /mcp/v1/tools/list
@@ -184,6 +205,7 @@ Start container in stateless mode
 **Goal**: Ensure container writes only to tmpfs directories
 
 **Tasks**:
+
 1. Audit application code for filesystem writes
 2. Identify what is being written to `/app`
 3. Configure application to use tmpfs locations for all writes
@@ -193,6 +215,7 @@ Start container in stateless mode
 7. Test that application functions correctly with read-only root filesystem
 
 **Success criteria**:
+
 - Container starts successfully with `--read-only` flag
 - No writes to `/app` directory
 - All writes go to `/tmp`, `/app/.cache`, or `/run` (tmpfs mounts)
@@ -200,6 +223,7 @@ Start container in stateless mode
 - No "Read-only file system" errors in logs
 
 **Acceptance test**:
+
 ```
 Start container with --read-only and tmpfs mounts
 → Execute all MCP tools
@@ -213,6 +237,7 @@ Start container with --read-only and tmpfs mounts
 **Goal**: Return actionable error when JWT token is missing
 
 **Tasks**:
+
 1. Add authentication middleware that runs before routing
 2. Check for Authorization header presence
 3. If missing and `MCP_REQUIRE_JWT=true`, return 401 with clear message
@@ -223,6 +248,7 @@ Start container with --read-only and tmpfs mounts
 5. Ensure error is returned before attempting to route request
 
 **Success criteria**:
+
 - Request without Authorization header returns 401 (not 404)
 - Error message mentions "JWT" or "Authorization" or "Bearer token"
 - Error message is actionable (tells user what to do)
@@ -230,6 +256,7 @@ Start container with --read-only and tmpfs mounts
 - Consistent across all MCP endpoints
 
 **Acceptance test**:
+
 ```
 Start container with MCP_REQUIRE_JWT=true
 → Call /mcp/v1/tools/list without Authorization header
@@ -245,6 +272,7 @@ Start container with MCP_REQUIRE_JWT=true
 **Goal**: Return specific error when JWT token is malformed or invalid
 
 **Tasks**:
+
 1. Parse Authorization header in authentication middleware
 2. Validate JWT format (three parts separated by dots)
 3. Attempt signature verification
@@ -257,6 +285,7 @@ Start container with MCP_REQUIRE_JWT=true
 6. Log detailed error for debugging (but don't expose in response)
 
 **Success criteria**:
+
 - Malformed JWT returns 401 with descriptive error (not 404)
 - Error message identifies the specific problem
 - Different JWT failures return different error messages
@@ -264,6 +293,7 @@ Start container with MCP_REQUIRE_JWT=true
 - Helpful for debugging but doesn't expose security details
 
 **Acceptance test**:
+
 ```
 Start container with MCP_REQUIRE_JWT=true
 → Call /mcp/v1/tools/list with "Bearer invalid-jwt-string"
@@ -278,6 +308,7 @@ Start container with MCP_REQUIRE_JWT=true
 ## Implementation Order
 
 **Phase 1: Authentication (Highest Priority)**
+
 1. Task 3: Fix missing JWT error messages
 2. Task 4: Fix invalid JWT error messages
 
@@ -298,21 +329,25 @@ Start container with MCP_REQUIRE_JWT=true
 ### Verification After Each Phase
 
 **After Phase 1** (Authentication):
+
 - Run: `pytest tests/stateless/test_jwt_authentication.py`
 - Expect: `test_request_without_jwt_fails_clearly` passes
 - Expect: `test_request_with_malformed_jwt_fails_clearly` passes
 
 **After Phase 2** (Routing):
+
 - Run: `pytest tests/stateless/test_basic_execution.py::test_tools_list_endpoint`
 - Expect: Test passes
 - Verify: MCP clients can discover tools
 
 **After Phase 3** (Filesystem):
+
 - Run: `pytest tests/stateless/test_basic_execution.py::test_no_filesystem_writes_outside_tmpfs`
 - Expect: Test passes
 - Verify: `docker diff` shows no changes outside tmpfs
 
 **Full Test Suite**:
+
 - Run: `make test-stateless`
 - Expect: All 17 tests pass (currently 12 pass, 4 fail, 1 skip)
 
@@ -323,24 +358,28 @@ Start container with MCP_REQUIRE_JWT=true
 The following information needs to be gathered:
 
 **1. HTTP Transport Architecture**:
+
 - How is the FastAPI app configured in HTTP transport mode?
 - Where are MCP protocol endpoints registered?
 - Is there a separate router for MCP paths vs. health check paths?
 - Does the transport layer properly handle MCP protocol messages?
 
 **2. Authentication Middleware**:
+
 - Where is JWT validation currently happening?
 - Is there existing authentication middleware?
 - Does it run before or after routing?
 - What error responses does it currently return?
 
 **3. Filesystem Writes**:
+
 - What specific files are being written to `/app`?
 - Run container and examine `docker diff` output
 - Check if it's quilt3, FastAPI, or application code writing files
 - Identify if writes are cache, logs, telemetry, or something else
 
 **4. Current Error Handling**:
+
 - Where do 404 errors come from in the auth flow?
 - Is routing happening before authentication?
 - Are there error handlers that override auth failures?
@@ -396,6 +435,7 @@ These may be addressed in future specifications.
 ### No External Dependencies
 
 All fixes should be possible with:
+
 - Current FastAPI framework
 - Existing JWT libraries
 - Standard Docker configuration
@@ -404,13 +444,16 @@ All fixes should be possible with:
 ## Risk Assessment
 
 ### Low Risk
+
 - **Task 3 & 4** (Auth error messages): Isolated to error handling logic
 - **Task 1** (Endpoint routing): Well-understood FastAPI routing
 
 ### Medium Risk
+
 - **Task 2** (Filesystem constraints): May require changes to quilt3 configuration or multiple application components
 
 ### Mitigation
+
 - Implement in phases (auth → routing → filesystem)
 - Test each phase independently
 - Add comprehensive logging to debug issues
@@ -426,6 +469,6 @@ All fixes should be possible with:
 
 - Test suite: `tests/stateless/`
 - Current failures: Output from `make test-stateless`
-- MCP Protocol: https://modelcontextprotocol.io
-- FastAPI middleware: https://fastapi.tiangolo.com/tutorial/middleware/
-- Docker security: https://docs.docker.com/engine/security/
+- MCP Protocol: <https://modelcontextprotocol.io>
+- FastAPI middleware: <https://fastapi.tiangolo.com/tutorial/middleware/>
+- Docker security: <https://docs.docker.com/engine/security/>
