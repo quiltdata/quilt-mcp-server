@@ -3,6 +3,8 @@
 Verify all tools work with read-only filesystem and stateless constraints.
 """
 
+import uuid
+
 import httpx
 import pytest
 from docker.models.containers import Container
@@ -100,12 +102,22 @@ def test_tools_list_endpoint(container_url: str):
 
         # MCP HTTP protocol requires initialize first
         init_response = httpx.post(
-            f"{container_url}/mcp?sessionId={session_id}",
-            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}},
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "1.0"},
+                },
+            },
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
                 "Authorization": f"Bearer {token}",
+                "mcp-session-id": session_id,
             },
             timeout=10.0,
         )
@@ -114,12 +126,13 @@ def test_tools_list_endpoint(container_url: str):
 
         # Now call tools/list with the same session ID
         response = httpx.post(
-            f"{container_url}/mcp?sessionId={session_id}",
+            f"{container_url}/mcp",
             json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
                 "Authorization": f"Bearer {token}",
+                "mcp-session-id": session_id,
             },
             timeout=10.0,
         )
@@ -221,6 +234,110 @@ def test_no_filesystem_writes_outside_tmpfs(stateless_container: Container):
         pytest.fail("\n".join(error_lines))
 
     print("✅ No unexpected filesystem writes detected")
+
+
+def test_quilt3_operations_with_cache_disabled(
+    stateless_container: Container,
+    container_url: str,
+) -> None:
+    """Verify quilt3 operations work without cache and don't write files."""
+    from .conftest import get_container_filesystem_writes, make_test_jwt
+
+    # Create JWT token
+    token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
+
+    # Get baseline filesystem state
+    baseline_writes = set(get_container_filesystem_writes(stateless_container))
+
+    try:
+        # Initialize session
+        session_id = str(uuid.uuid4())
+        init_response = httpx.post(
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "1.0"},
+                },
+            },
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "Authorization": f"Bearer {token}",
+                "mcp-session-id": session_id,
+            },
+            timeout=10.0,
+        )
+        assert init_response.status_code == 200, "Failed to initialize session"
+
+        # Call bucket_objects_list on public bucket
+        # This should trigger quilt3 S3 operations that would normally use cache
+        list_response = httpx.post(
+            f"{container_url}/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {
+                    "name": "bucket_objects_list",
+                    "arguments": {
+                        "s3_uri": "s3://quilt-example",
+                        "prefix": "examples/",
+                        "max_keys": 10,
+                    },
+                },
+            },
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "Authorization": f"Bearer {token}",
+                "mcp-session-id": session_id,
+            },
+            timeout=30.0,
+        )
+
+        # Check response
+        if list_response.status_code != 200:
+            pytest.fail(
+                f"❌ FAIL: bucket_objects_list failed\n"
+                f"Status: {list_response.status_code}\n"
+                f"Response: {list_response.text[:500]}\n"
+                "quilt3 should work with QUILT_DISABLE_CACHE=true"
+            )
+
+        data = list_response.json()
+        assert "result" in data, f"Missing result field: {data}"
+
+        # Verify filesystem - check for new writes outside tmpfs
+        current_writes = set(get_container_filesystem_writes(stateless_container))
+        new_writes = current_writes - baseline_writes
+
+        # Filter acceptable writes
+        acceptable_writes = {
+            "/etc/hostname",
+            "/etc/hosts",
+            "/etc/resolv.conf",
+            "/.dockerenv",
+        }
+        unexpected_writes = [w for w in new_writes if w not in acceptable_writes]
+
+        if unexpected_writes:
+            pytest.fail(
+                f"❌ FAIL: quilt3 operation created cache files despite QUILT_DISABLE_CACHE=true\n"
+                f"New files written: {unexpected_writes}\n"
+                "This violates stateless requirement - no persistent cache allowed"
+            )
+
+        print("✅ quilt3 operations work without cache writes")
+
+    except httpx.TimeoutException:
+        pytest.fail("❌ FAIL: Request timed out\nCheck if container is responsive")
+    except Exception as e:
+        pytest.fail(f"❌ FAIL: Error testing quilt3 operations\nError: {type(e).__name__}: {e}")
 
 
 def test_container_continues_running_after_requests(

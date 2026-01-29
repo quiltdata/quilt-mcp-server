@@ -397,8 +397,13 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     from quilt_mcp.services.auth_service import get_jwt_mode_enabled
 
+    # Check if we're running in stateless mode (for containerized deployments)
+    stateless_mode = os.environ.get("QUILT_MCP_STATELESS_MODE", "false").lower() == "true"
+
     try:
-        app = mcp.http_app(transport=transport)
+        # Use JSON responses in stateless mode for simpler HTTP client integration
+        # (SSE requires stream parsing which complicates testing and client implementations)
+        app = mcp.http_app(transport=transport, stateless_http=stateless_mode, json_response=stateless_mode)
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
