@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import Optional, cast
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,12 +36,10 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         # Skip JWT auth for health check endpoints
         if request.url.path in self.HEALTH_PATHS:
-            response_obj = await call_next(request)
-            return response_obj
+            return cast(Response, await call_next(request))
 
         if not self.require_jwt:
-            response_obj = await call_next(request)
-            return response_obj
+            return cast(Response, await call_next(request))
 
         request_id = _get_request_id(request)
         auth_header = request.headers.get("authorization")

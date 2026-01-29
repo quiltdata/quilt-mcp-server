@@ -55,13 +55,13 @@ def test_docker_image_serves_http():
     try:
         deadline = time.time() + DEFAULT_TIMEOUT
         last_exception = None
-        mcp_url = f"http://127.0.0.1:{free_port}/mcp"
+        health_url = f"http://127.0.0.1:{free_port}/health"
 
-        # Wait for container to be ready
+        # Wait for container to be ready by checking health endpoint
         while time.time() < deadline:
             try:
-                response = requests.get(mcp_url, timeout=5)
-                assert response.status_code in {200, 302, 307, 406}
+                response = requests.get(health_url, timeout=5)
+                assert response.status_code == 200
                 break
             except Exception as exc:
                 last_exception = exc
