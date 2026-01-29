@@ -23,10 +23,14 @@
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["security"],
+    "labels": [
+      "security"
+    ],
     "assignees": []
   },
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "commitMessagePrefix": "chore(deps):",
   "prFooter": "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 }
