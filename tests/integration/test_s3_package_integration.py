@@ -7,6 +7,7 @@ from quilt_mcp.tools.packages import package_create_from_s3
 
 
 @pytest.mark.integration
+@pytest.mark.search  # Requires catalog session, skip in CI
 class TestPackageCreateFromS3Integration:
     """Integration tests that hit real S3 buckets."""
 
