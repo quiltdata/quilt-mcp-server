@@ -67,9 +67,12 @@ quilt3 config https://your-stack.your-company.com
 quilt3 login
 ```
 
-Your credentials are stored in `~/.quilt/` and automatically used by quilt-mcp whenever a JWT is not present.
+By default, quilt-mcp uses IAM credentials from your environment, AWS profiles, or quilt3 sessions.
 
-To **require JWTs** in production deployments, set `MCP_REQUIRE_JWT=true`. In strict mode, bucket and package tools return a clear error instead of falling back to quilt3 credentials.
+For multitenant deployments, enable **JWT mode** by setting `MCP_REQUIRE_JWT=true`. In JWT mode the server requires
+`Authorization: Bearer <token>` on every request and assumes AWS roles based on JWT claims.
+
+See `docs/AUTHENTICATION.md` for full configuration details and examples.
 
 ### Environment Variables
 
@@ -78,6 +81,11 @@ Override defaults via environment or MCP config:
 - `QUILT_CATALOG_URL` - Your Quilt catalog URL (e.g., `https://your-catalog.quiltdata.com`)
 - `AWS_PROFILE` - AWS credentials profile for S3 access (if not default)
 - `QUILT_SERVICE_TIMEOUT` - HTTP timeout for service calls in seconds (default: 60)
+- `MCP_REQUIRE_JWT` - Enable JWT auth mode (true/false, default: false)
+- `MCP_JWT_SECRET` - HS256 shared secret for JWT validation (JWT mode)
+- `MCP_JWT_SECRET_SSM_PARAMETER` - SSM parameter name for JWT secret (JWT mode)
+- `MCP_JWT_ISSUER` - Expected JWT issuer (optional)
+- `MCP_JWT_AUDIENCE` - Expected JWT audience (optional)
 
 ## Development
 

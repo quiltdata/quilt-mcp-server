@@ -138,8 +138,8 @@ def pytest_configure(config):
     os.environ["QUILT_DISABLE_QUILT3_SESSION"] = "1"
 
     # Remove JWT secrets to prevent development fallback behavior
-    os.environ.pop("MCP_ENHANCED_JWT_SECRET", None)
-    os.environ.pop("MCP_ENHANCED_JWT_SECRET_SSM_PARAMETER", None)
+    os.environ.pop("MCP_JWT_SECRET", None)
+    os.environ.pop("MCP_JWT_SECRET_SSM_PARAMETER", None)
 
     # Configure boto3 default session to use AWS_PROFILE if set
     # This must be done very early before any imports that create boto3 clients

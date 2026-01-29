@@ -333,11 +333,22 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     Returns:
         Configured FastMCP server instance
     """
+    import sys
+
     mcp = create_mcp_server()
+
+    # Validate auth configuration early so startup fails fast.
+    try:
+        from quilt_mcp.services.auth_service import get_auth_service
+
+        get_auth_service()
+    except Exception as exc:  # pragma: no cover - startup validation
+        if verbose:
+            print(f"Auth service initialization failed: {exc}", file=sys.stderr)
+        raise
 
     # Register resources using FastMCP decorator pattern
     from quilt_mcp.config import resource_config
-    import sys
 
     if resource_config.RESOURCES_ENABLED:
         from quilt_mcp.resources import register_resources
@@ -384,25 +395,13 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     logger = logging.getLogger(__name__)
 
+    from quilt_mcp.services.auth_service import get_jwt_mode_enabled
+
     try:
         app = mcp.http_app(transport=transport)
     except AttributeError as exc:  # pragma: no cover - FastMCP versions prior to HTTP support
         logger.error("HTTP transport requested but FastMCP does not expose http_app(): %s", exc)
         raise
-
-    try:
-        from starlette.middleware.cors import CORSMiddleware
-
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["*", "Authorization", "Mcp-Session-Id", "MCP-Protocol-Version"],
-            expose_headers=["mcp-session-id"],
-            allow_credentials=False,
-        )
-    except ImportError:  # pragma: no cover - starlette optional guard
-        logger.warning("CORS middleware unavailable; continuing without CORS configuration")
 
     try:
         from starlette.middleware.base import BaseHTTPMiddleware
@@ -425,6 +424,33 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
             return await call_next(request)
 
     app.add_middleware(QuiltAcceptHeaderMiddleware)
+
+    if get_jwt_mode_enabled():
+        try:
+            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+
+            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
+            logger.info("JWT middleware enabled for HTTP transport")
+        except ImportError as exc:  # pragma: no cover
+            logger.error("JWT middleware unavailable: %s", exc)
+            raise
+    else:
+        logger.info("JWT middleware disabled (IAM mode)")
+
+    try:
+        from starlette.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["*", "Authorization", "Mcp-Session-Id", "MCP-Protocol-Version"],
+            expose_headers=["mcp-session-id"],
+            allow_credentials=False,
+        )
+    except ImportError:  # pragma: no cover - starlette optional guard
+        logger.warning("CORS middleware unavailable; continuing without CORS configuration")
+
     return app
 
 

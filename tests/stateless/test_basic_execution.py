@@ -12,9 +12,7 @@ def test_container_starts_with_stateless_constraints(stateless_container: Contai
     """Verify container starts successfully with all stateless constraints."""
     stateless_container.reload()
 
-    assert stateless_container.status == "running", (
-        f"Container should be running but is: {stateless_container.status}"
-    )
+    assert stateless_container.status == "running", f"Container should be running but is: {stateless_container.status}"
 
     # Verify container has expected configuration
     config = stateless_container.attrs["HostConfig"]
@@ -132,7 +130,7 @@ def test_tools_list_endpoint(container_url: str):
             "MCP protocol response should contain tools list"
         )
 
-        print(f"✅ tools/list endpoint working")
+        print("✅ tools/list endpoint working")
 
     except Exception as e:
         pytest.fail(
@@ -158,10 +156,7 @@ def test_no_filesystem_writes_outside_tmpfs(stateless_container: Container):
         "/.dockerenv",
     }
 
-    unexpected_writes = [
-        path for path in writes
-        if path not in acceptable_writes
-    ]
+    unexpected_writes = [path for path in writes if path not in acceptable_writes]
 
     if unexpected_writes:
         # Create detailed error message
@@ -177,18 +172,20 @@ def test_no_filesystem_writes_outside_tmpfs(stateless_container: Container):
         if len(unexpected_writes) > 10:
             error_lines.append(f"  ... and {len(unexpected_writes) - 10} more")
 
-        error_lines.extend([
-            "",
-            "Stateless deployment requires:",
-            "  ✓ Only tmpfs directories can be written: /tmp, /app/.cache, /run",
-            "  ✗ Root filesystem must remain read-only",
-            "",
-            "Recommendations:",
-            "  1. Check if application is trying to write config/cache files",
-            "  2. Set HOME=/tmp to redirect user files to tmpfs",
-            "  3. Configure applications to use /tmp for temporary storage",
-            "  4. Review container logs for 'Read-only file system' errors",
-        ])
+        error_lines.extend(
+            [
+                "",
+                "Stateless deployment requires:",
+                "  ✓ Only tmpfs directories can be written: /tmp, /app/.cache, /run",
+                "  ✗ Root filesystem must remain read-only",
+                "",
+                "Recommendations:",
+                "  1. Check if application is trying to write config/cache files",
+                "  2. Set HOME=/tmp to redirect user files to tmpfs",
+                "  3. Configure applications to use /tmp for temporary storage",
+                "  4. Review container logs for 'Read-only file system' errors",
+            ]
+        )
 
         pytest.fail("\n".join(error_lines))
 

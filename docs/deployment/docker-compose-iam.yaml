@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  quilt-mcp:
+    image: quiltdata/quilt-mcp:latest
+    ports:
+      - "8000:8000"
+    environment:
+      MCP_REQUIRE_JWT: "false"
+      AWS_PROFILE: "default"
+      QUILT_CATALOG_URL: "https://your-catalog.quiltdata.com"

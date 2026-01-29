@@ -69,7 +69,7 @@ def stateless_container(
             security_opt=["no-new-privileges:true"],  # Prevent privilege escalation
             cap_drop=["ALL"],  # Drop all capabilities
             tmpfs={
-                "/tmp": "size=100M,mode=1777",
+                "/tmp": "size=100M,mode=1777",  # noqa: S108
                 "/app/.cache": "size=50M,mode=700",
                 "/run": "size=10M,mode=755",
             },
@@ -80,11 +80,11 @@ def stateless_container(
             environment={
                 "MCP_REQUIRE_JWT": "true",  # Force JWT-only auth
                 "QUILT_DISABLE_CACHE": "true",  # Disable caching
-                "HOME": "/tmp",  # Redirect home directory
+                "HOME": "/tmp",  # Redirect home directory  # noqa: S108
                 "LOG_LEVEL": "DEBUG",  # Verbose logging
                 "QUILT_MCP_STATELESS_MODE": "true",  # Enable stateless mode checks
                 "FASTMCP_TRANSPORT": "http",
-                "FASTMCP_HOST": "0.0.0.0",
+                "FASTMCP_HOST": "0.0.0.0",  # noqa: S104
                 "FASTMCP_PORT": "8000",
             },
             ports={"8000/tcp": None},  # Random host port
@@ -137,7 +137,7 @@ def writable_container(
             environment={
                 "MCP_REQUIRE_JWT": "false",  # ❌ Allow local credentials (VIOLATION)
                 "FASTMCP_TRANSPORT": "http",
-                "FASTMCP_HOST": "0.0.0.0",
+                "FASTMCP_HOST": "0.0.0.0",  # noqa: S104
                 "FASTMCP_PORT": "8000",
             },
             ports={"8000/tcp": None},
@@ -187,7 +187,7 @@ def get_container_filesystem_writes(container: Container) -> list[str]:
 
     # Parse docker diff output (format: "A /path/to/file" or "C /path/to/file")
     changes = []
-    tmpfs_paths = {"/tmp", "/app/.cache", "/run"}
+    tmpfs_paths = {"/tmp", "/app/.cache", "/run"}  # noqa: S108
 
     for line in result.stdout.strip().split("\n"):
         if not line:

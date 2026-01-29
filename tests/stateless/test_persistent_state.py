@@ -33,13 +33,13 @@ def test_no_state_persists_across_restarts(
                 detach=True,
                 remove=False,
                 read_only=True,
-                tmpfs={"/tmp": "size=100M", "/app/.cache": "size=50M"},
+                tmpfs={"/tmp": "size=100M", "/app/.cache": "size=50M"},  # noqa: S108
                 environment={
                     "MCP_REQUIRE_JWT": "true",
                     "QUILT_DISABLE_CACHE": "true",
-                    "HOME": "/tmp",
+                    "HOME": "/tmp",  # noqa: S108
                     "FASTMCP_TRANSPORT": "http",
-                    "FASTMCP_HOST": "0.0.0.0",
+                    "FASTMCP_HOST": "0.0.0.0",  # noqa: S104
                     "FASTMCP_PORT": "8000",
                 },
                 ports={"8000/tcp": None},
@@ -60,6 +60,7 @@ def test_no_state_persists_across_restarts(
 
             # Get filesystem state
             from .conftest import get_container_filesystem_writes
+
             writes = get_container_filesystem_writes(container)
 
             return {
@@ -108,7 +109,7 @@ def test_no_state_persists_across_restarts(
             f"❌ FAIL: Second run suspiciously faster (warm-start effect)\n"
             f"First run: {first_run['response_time']:.3f}s\n"
             f"Second run: {second_run['response_time']:.3f}s\n"
-            f"Speedup: {1/time_ratio:.1f}x faster\n"
+            f"Speedup: {1 / time_ratio:.1f}x faster\n"
             "\n"
             "Possible causes:\n"
             "  1. Data cached in persistent storage (not tmpfs)\n"
@@ -153,16 +154,14 @@ def test_tmpfs_contents_cleared_on_restart(
                 detach=True,
                 remove=False,
                 read_only=True,
-                tmpfs={"/tmp": "size=100M"},
+                tmpfs={"/tmp": "size=100M"},  # noqa: S108
                 environment={"FASTMCP_TRANSPORT": "http"},
             )
 
             time.sleep(2)
 
             # Try to create a marker file in tmpfs
-            exec_result = container.exec_run(
-                "sh -c 'echo test > /tmp/marker.txt && cat /tmp/marker.txt'"
-            )
+            exec_result = container.exec_run("sh -c 'echo test > /tmp/marker.txt && cat /tmp/marker.txt'")
 
             marker_created = exec_result.exit_code == 0
 
@@ -189,7 +188,7 @@ def test_tmpfs_contents_cleared_on_restart(
             detach=True,
             remove=False,
             read_only=True,
-            tmpfs={"/tmp": "size=100M"},
+            tmpfs={"/tmp": "size=100M"},  # noqa: S108
             environment={"FASTMCP_TRANSPORT": "http"},
         )
 

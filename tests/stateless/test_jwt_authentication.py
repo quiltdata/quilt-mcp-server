@@ -68,10 +68,7 @@ def test_request_without_jwt_fails_clearly(container_url: str):
         # Check if error message is clear
         response_text = response.text.lower()
 
-        has_jwt_mention = any(
-            keyword in response_text
-            for keyword in ["jwt", "token", "authorization", "auth"]
-        )
+        has_jwt_mention = any(keyword in response_text for keyword in ["jwt", "token", "authorization", "auth"])
 
         if not has_jwt_mention:
             pytest.fail(
@@ -131,8 +128,7 @@ def test_request_with_malformed_jwt_fails_clearly(container_url: str):
         response_text = response.text.lower()
 
         has_validation_mention = any(
-            keyword in response_text
-            for keyword in ["invalid", "malformed", "token", "jwt", "signature"]
+            keyword in response_text for keyword in ["invalid", "malformed", "token", "jwt", "signature"]
         )
 
         if not has_validation_mention:
@@ -166,20 +162,16 @@ def test_no_fallback_to_local_credentials(stateless_container: Container):
 
     # Look for credential-related paths
     credential_paths = [
-        path for path in writes
-        if any(
-            cred_marker in path.lower()
-            for cred_marker in [".quilt", ".aws", "credentials", ".config"]
-        )
+        path
+        for path in writes
+        if any(cred_marker in path.lower() for cred_marker in [".quilt", ".aws", "credentials", ".config"])
     ]
 
     if credential_paths:
         pytest.fail(
             "❌ FAIL: Container attempted to access local credential files\n"
             "\n"
-            "Detected credential file access:\n" +
-            "\n".join(f"  - {path}" for path in credential_paths) +
-            "\n\n"
+            "Detected credential file access:\n" + "\n".join(f"  - {path}" for path in credential_paths) + "\n\n"
             "Stateless mode MUST NOT use local credentials:\n"
             "  ✗ No ~/.quilt/ directory access\n"
             "  ✗ No ~/.aws/credentials access\n"

@@ -16,9 +16,7 @@ def test_detects_writable_filesystem(writable_container: Container):
     # This container should have writable filesystem
     is_readonly = config.get("ReadonlyRootfs", False)
 
-    assert is_readonly is False, (
-        "Test setup error: writable_container should have writable filesystem"
-    )
+    assert is_readonly is False, "Test setup error: writable_container should have writable filesystem"
 
     # Now verify our detection logic would catch this
     if is_readonly is not True:
@@ -54,8 +52,7 @@ def test_detects_missing_security_options(writable_container: Container):
     if "no-new-privileges:true" not in security_opt:
         violation_detected = True
         error_message = (
-            "❌ FAIL: Container allows privilege escalation\n"
-            "Expected: SecurityOpt contains 'no-new-privileges:true'\n"
+            "❌ FAIL: Container allows privilege escalation\nExpected: SecurityOpt contains 'no-new-privileges:true'\n"
         )
     else:
         violation_detected = False
@@ -82,9 +79,7 @@ def test_detects_missing_jwt_requirement(writable_container: Container):
     # This container should have MCP_REQUIRE_JWT=false or missing
     jwt_required = env_dict.get("MCP_REQUIRE_JWT", "false").lower() == "true"
 
-    assert not jwt_required, (
-        "Test setup error: writable_container should not require JWT"
-    )
+    assert not jwt_required, "Test setup error: writable_container should not require JWT"
 
     # Verify our detection logic would catch this
     if "MCP_REQUIRE_JWT" not in env_dict:
@@ -93,8 +88,7 @@ def test_detects_missing_jwt_requirement(writable_container: Container):
     elif env_dict["MCP_REQUIRE_JWT"].lower() != "true":
         violation_detected = True
         error_message = (
-            f"❌ FAIL: MCP_REQUIRE_JWT should be 'true'\n"
-            f"Actual: MCP_REQUIRE_JWT={env_dict['MCP_REQUIRE_JWT']}\n"
+            f"❌ FAIL: MCP_REQUIRE_JWT should be 'true'\nActual: MCP_REQUIRE_JWT={env_dict['MCP_REQUIRE_JWT']}\n"
         )
     else:
         violation_detected = False
@@ -111,10 +105,7 @@ def test_error_messages_are_actionable():
     # Sample error messages from our test suite
     error_messages = [
         # From test_basic_execution.py
-        (
-            "❌ FAIL: Container filesystem is NOT read-only\n"
-            "Fix: Add --read-only flag to docker run command"
-        ),
+        ("❌ FAIL: Container filesystem is NOT read-only\nFix: Add --read-only flag to docker run command"),
         (
             "❌ FAIL: Container allows privilege escalation\n"
             "Fix: Add --security-opt=no-new-privileges:true to docker run command"
@@ -141,8 +132,7 @@ def test_error_messages_are_actionable():
 
         # Should have actionable guidance
         has_fix = any(
-            keyword in error_msg.lower()
-            for keyword in ["fix:", "recommendations:", "add ", "set ", "check "]
+            keyword in error_msg.lower() for keyword in ["fix:", "recommendations:", "add ", "set ", "check "]
         )
 
         assert has_fix, f"Error message should provide fix:\n{error_msg}"
@@ -160,8 +150,7 @@ def test_error_messages_explain_why_it_matters():
             ["security risk", "violating", "constraints"],
         ),
         (
-            "Security issue: Server must validate JWT tokens:\n"
-            "Accepting invalid tokens defeats JWT security.",
+            "Security issue: Server must validate JWT tokens:\nAccepting invalid tokens defeats JWT security.",
             ["security issue", "validate", "defeats"],
         ),
         (
@@ -174,8 +163,6 @@ def test_error_messages_explain_why_it_matters():
 
     for error_msg, required_keywords in important_errors:
         for keyword in required_keywords:
-            assert keyword in error_msg.lower(), (
-                f"Error should explain impact with keyword '{keyword}':\n{error_msg}"
-            )
+            assert keyword in error_msg.lower(), f"Error should explain impact with keyword '{keyword}':\n{error_msg}"
 
     print("✅ Error messages explain security/operational impact")
