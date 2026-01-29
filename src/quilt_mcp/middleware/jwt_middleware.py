@@ -36,11 +36,11 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         # Skip JWT auth for health check endpoints
         if request.url.path in self.HEALTH_PATHS:
-            response_obj: Response = await call_next(request)
+            response_obj = await call_next(request)
             return response_obj
 
         if not self.require_jwt:
-            response_obj: Response = await call_next(request)
+            response_obj = await call_next(request)
             return response_obj
 
         request_id = _get_request_id(request)

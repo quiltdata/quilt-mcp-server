@@ -11,7 +11,9 @@ The test `test_no_filesystem_writes_outside_tmpfs` was failing, reporting that t
 ## Investigation
 
 ### Initial Hypothesis
+
 The spec suggested multiple potential causes:
+
 - quilt3 creating cache/config directories
 - Application writing logs or temporary files
 - Missing `HOME=/tmp` environment variable redirection
@@ -26,6 +28,7 @@ A /app/.cache
 ```
 
 **Analysis**:
+
 - `C /app` - Directory metadata changed (not a write violation)
 - `A /app/.cache` - Tmpfs mount added (expected, allowed)
 
@@ -34,6 +37,7 @@ The `/app` directory shows as "Changed" because mounting tmpfs at `/app/.cache` 
 ## Root Cause
 
 The test helper `get_container_filesystem_writes()` in [tests/stateless/conftest.py](../../tests/stateless/conftest.py) was:
+
 1. Correctly filtering out tmpfs directories (`/tmp`, `/app/.cache`, `/run`)
 2. **Incorrectly** flagging `/app` metadata changes as a violation
 
@@ -75,6 +79,7 @@ tests/stateless/test_basic_execution.py::test_no_filesystem_writes_outside_tmpfs
 ## Why This Matters
 
 **False positives are dangerous in security tests** - they can lead to:
+
 1. Ignoring real issues ("it's just another false positive")
 2. Wasted time investigating non-issues
 3. Loss of confidence in the test suite
@@ -100,6 +105,7 @@ The stateless container is already correctly configured:
 ### No Application Changes Required ✅
 
 The application code does NOT need modification:
+
 - No actual filesystem writes are occurring outside tmpfs
 - quilt3 is behaving correctly with `QUILT_DISABLE_CACHE=true`
 - The container runs successfully with `--read-only` flag
@@ -143,6 +149,7 @@ Any other paths indicate an actual write violation.
 **The filesystem write test was failing due to a false positive, not an actual violation.**
 
 The container was already properly configured with:
+
 - Read-only root filesystem
 - Appropriate tmpfs mounts
 - Correct environment variables

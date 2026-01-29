@@ -166,12 +166,9 @@ class TestValidation:
         # Mock all AWS calls to avoid real API calls
         mock_recommendations.return_value = {
             "success": True,
-            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]}
+            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]},
         }
-        mock_check_access.return_value = {
-            "success": True,
-            "access_summary": {"can_write": True}
-        }
+        mock_check_access.return_value = {"success": True, "access_summary": {"can_write": True}}
         mock_validate_access.return_value = None  # No exception = valid access
 
         # Make it error if called
@@ -339,12 +336,9 @@ class TestREADMEContentExtraction:
         # Mock all AWS calls to avoid real API calls
         mock_recommendations.return_value = {
             "success": True,
-            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]}
+            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]},
         }
-        mock_check_access.return_value = {
-            "success": True,
-            "access_summary": {"can_write": True}
-        }
+        mock_check_access.return_value = {"success": True, "access_summary": {"can_write": True}}
         mock_validate_access.return_value = None  # No exception = valid access
 
         # Test that the function handles metadata parameter

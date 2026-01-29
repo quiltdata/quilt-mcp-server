@@ -246,7 +246,16 @@ def test_request_with_valid_jwt_succeeds(container_url: str):
     # MCP HTTP protocol requires initialize first
     init_response = httpx.post(
         f"{container_url}/mcp?sessionId={session_id}",
-        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}},
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        },
         headers={
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
