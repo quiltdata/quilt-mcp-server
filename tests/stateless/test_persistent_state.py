@@ -36,6 +36,7 @@ def test_no_state_persists_across_restarts(
                 tmpfs={"/tmp": "size=100M", "/app/.cache": "size=50M"},  # noqa: S108
                 environment={
                     "MCP_REQUIRE_JWT": "true",
+                    "MCP_JWT_SECRET": "test-secret-key-for-stateless-testing-only",
                     "QUILT_DISABLE_CACHE": "true",
                     "HOME": "/tmp",  # noqa: S108
                     "FASTMCP_TRANSPORT": "http",
@@ -50,6 +51,15 @@ def test_no_state_persists_across_restarts(
 
             # Get container URL
             ports = container.ports
+
+            if "8000/tcp" not in ports or not ports["8000/tcp"]:
+                pytest.fail(
+                    f"❌ FAIL: Container port 8000/tcp not exposed\n"
+                    f"Available ports: {list(ports.keys())}\n"
+                    f"Container status: {container.status}\n"
+                    "Check if container started properly"
+                )
+
             host_port = ports["8000/tcp"][0]["HostPort"]
             url = f"http://localhost:{host_port}"
 

@@ -85,7 +85,7 @@ def stateless_container(
             cap_drop=["ALL"],  # Drop all capabilities
             tmpfs={
                 "/tmp": "size=100M,mode=1777",  # noqa: S108
-                "/app/.cache": "size=50M,mode=700",
+                # "/app/.cache": "size=50M,mode=700",  # Not needed with QUILT_DISABLE_CACHE=true
                 "/run": "size=10M,mode=755",
             },
             mem_limit="512m",  # Memory limit
@@ -203,7 +203,7 @@ def get_container_filesystem_writes(container: Container) -> list[str]:
 
     # Parse docker diff output (format: "A /path/to/file" or "C /path/to/file")
     changes = []
-    tmpfs_paths = {"/tmp", "/app/.cache", "/run"}  # noqa: S108
+    tmpfs_paths = {"/tmp", "/run"}  # noqa: S108
 
     for line in result.stdout.strip().split("\n"):
         if not line:

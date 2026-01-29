@@ -25,12 +25,20 @@ logger = logging.getLogger(__name__)
 class JwtAuthMiddleware(BaseHTTPMiddleware):
     """Extract and validate JWT bearer tokens, populating runtime auth state."""
 
+    # Health check endpoints that don't require JWT authentication
+    HEALTH_PATHS = {"/", "/health", "/healthz"}
+
     def __init__(self, app, *, require_jwt: bool = True) -> None:
         super().__init__(app)
         self.require_jwt = require_jwt
         self.decoder = get_jwt_decoder()
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Skip JWT auth for health check endpoints
+        if request.url.path in self.HEALTH_PATHS:
+            response_obj: Response = await call_next(request)
+            return response_obj
+
         if not self.require_jwt:
             response_obj: Response = await call_next(request)
             return response_obj

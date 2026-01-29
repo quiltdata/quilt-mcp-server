@@ -93,16 +93,32 @@ def test_tools_list_endpoint(container_url: str):
     """Verify tools/list endpoint works in stateless mode."""
     try:
         from .conftest import make_test_jwt
+        import uuid
 
         token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
+        session_id = str(uuid.uuid4())
 
-        # MCP protocol over HTTP uses JSON-RPC 2.0 format
-        # All requests go to the single /mcp endpoint
-        response = httpx.post(
-            f"{container_url}/mcp",
-            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+        # MCP HTTP protocol requires initialize first
+        init_response = httpx.post(
+            f"{container_url}/mcp?sessionId={session_id}",
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}},
             headers={
                 "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "Authorization": f"Bearer {token}",
+            },
+            timeout=10.0,
+        )
+
+        assert init_response.status_code == 200, f"Initialize failed: {init_response.status_code}"
+
+        # Now call tools/list with the same session ID
+        response = httpx.post(
+            f"{container_url}/mcp?sessionId={session_id}",
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
                 "Authorization": f"Bearer {token}",
             },
             timeout=10.0,
@@ -191,7 +207,7 @@ def test_no_filesystem_writes_outside_tmpfs(stateless_container: Container):
             [
                 "",
                 "Stateless deployment requires:",
-                "  ✓ Only tmpfs directories can be written: /tmp, /app/.cache, /run",
+                "  ✓ Only tmpfs directories can be written: /tmp, /run",
                 "  ✗ Root filesystem must remain read-only",
                 "",
                 "Recommendations:",

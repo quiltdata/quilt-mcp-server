@@ -413,12 +413,32 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
     class QuiltAcceptHeaderMiddleware(BaseHTTPMiddleware):
         """Middleware that fixes Accept headers for SSE compatibility."""
 
-        HEALTH_PATHS = {"/health", "/healthz"}
+        HEALTH_PATHS = {"/health", "/healthz", "/"}
 
         async def dispatch(self, request, call_next):
+            # Skip Accept header modification for health check endpoints
+            if request.url.path in self.HEALTH_PATHS:
+                return await call_next(request)
+
             headers = MutableHeaders(scope=request.scope)
             accept_header = headers.get("accept", "")
-            if "application/json" in accept_header and "text/event-stream" not in accept_header:
+
+            # For MCP protocol endpoints, ensure both application/json and text/event-stream are present
+            if request.url.path.startswith("/mcp"):
+                needs_json = "application/json" not in accept_header
+                needs_sse = "text/event-stream" not in accept_header
+
+                if needs_json and needs_sse:
+                    # No Accept header or missing both - add both
+                    headers["accept"] = "application/json, text/event-stream"
+                elif needs_json:
+                    # Has SSE but not JSON
+                    headers["accept"] = f"application/json, {accept_header}"
+                elif needs_sse:
+                    # Has JSON but not SSE
+                    headers["accept"] = f"{accept_header}, text/event-stream"
+            elif "application/json" in accept_header and "text/event-stream" not in accept_header:
+                # For other endpoints, add SSE if JSON is present
                 headers["accept"] = f"{accept_header}, text/event-stream"
 
             return await call_next(request)

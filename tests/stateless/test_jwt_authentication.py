@@ -238,19 +238,37 @@ sys.exit(0)
 def test_request_with_valid_jwt_succeeds(container_url: str):
     """Verify requests with valid JWT tokens work correctly."""
     from .conftest import make_test_jwt
+    import uuid
 
     token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
+    session_id = str(uuid.uuid4())
 
+    # MCP HTTP protocol requires initialize first
+    init_response = httpx.post(
+        f"{container_url}/mcp?sessionId={session_id}",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "Authorization": f"Bearer {token}",
+        },
+        timeout=10.0,
+    )
+
+    assert init_response.status_code == 200, f"Initialize failed: {init_response.status_code}"
+
+    # Now call tools/list with valid JWT
     response = httpx.post(
-        f"{container_url}/mcp",
+        f"{container_url}/mcp?sessionId={session_id}",
         json={
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": 2,
             "method": "tools/list",
             "params": {},
         },
         headers={
             "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
             "Authorization": f"Bearer {token}",
         },
         timeout=10.0,
