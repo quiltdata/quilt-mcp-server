@@ -11,22 +11,14 @@
   "branchConcurrentLimit": 5,
   "packageRules": [
     {
-      "description": "Group ALL non-major dependency updates into a single mega-PR",
-      "matchManagers": ["pip_requirements", "pip_setup", "pep621"],
+      "description": "Group ALL non-major dependency updates (Python, GitHub Actions, Docker, etc.) including security updates into a single PR",
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "all non-major dependencies"
     },
     {
-      "description": "Group all major dependency updates into a single PR (for careful review)",
-      "matchManagers": ["pip_requirements", "pip_setup", "pep621"],
+      "description": "Group all major dependency updates including security updates into a single PR (for careful review)",
       "matchUpdateTypes": ["major"],
       "groupName": "all major dependencies"
-    },
-    {
-      "description": "Separate security vulnerabilities for immediate attention",
-      "matchUpdateTypes": ["major", "minor", "patch"],
-      "vulnerabilityAlerts": true,
-      "groupName": null
     }
   ],
   "vulnerabilityAlerts": {

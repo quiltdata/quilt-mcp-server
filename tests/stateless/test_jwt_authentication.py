@@ -7,6 +7,8 @@ import httpx
 import pytest
 from docker.models.containers import Container
 
+pytestmark = pytest.mark.docker
+
 
 def test_jwt_required_environment_variable(stateless_container: Container):
     """Verify container has MCP_REQUIRE_JWT enabled."""

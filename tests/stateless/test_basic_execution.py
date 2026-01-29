@@ -9,6 +9,8 @@ import httpx
 import pytest
 from docker.models.containers import Container
 
+pytestmark = pytest.mark.docker
+
 
 def test_container_starts_with_stateless_constraints(stateless_container: Container):
     """Verify container starts successfully with all stateless constraints."""

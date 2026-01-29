@@ -108,6 +108,7 @@ markers = [
     "search: marks tests that require Elasticsearch search functionality (deselect with '-m \"not search\"')",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+    "docker: marks tests that require Docker container runtime (deselect with '-m \"not docker\"')",
     "asyncio: marks tests as async tests that require pytest-asyncio",
 ]
 
