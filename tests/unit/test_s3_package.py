@@ -326,15 +326,34 @@ class TestValidationUtilities:
 class TestREADMEContentExtraction:
     """Test cases for README content extraction from metadata."""
 
-    def test_readme_content_extraction_from_metadata(self):
+    @patch("quilt_mcp.tools.packages.bucket_recommendations_get")
+    @patch("quilt_mcp.tools.packages.check_bucket_access")
+    @patch("quilt_mcp.tools.packages._validate_bucket_access")
+    def test_readme_content_extraction_from_metadata(
+        self,
+        mock_validate_access,
+        mock_check_access,
+        mock_recommendations,
+    ):
         """Test that metadata fields are handled correctly."""
+        # Mock all AWS calls to avoid real API calls
+        mock_recommendations.return_value = {
+            "success": True,
+            "recommendations": {"primary_recommendations": [{"bucket_name": "test-registry"}]}
+        }
+        mock_check_access.return_value = {
+            "success": True,
+            "access_summary": {"can_write": True}
+        }
+        mock_validate_access.return_value = None  # No exception = valid access
+
         # Test that the function handles metadata parameter
         # The actual extraction logic is simple: metadata gets passed through
         test_metadata = {"description": "Test", "readme_content": "# README"}
 
         # Just verify the function accepts metadata without error
         result = package_create_from_s3(
-            source_bucket="nonexistent",
+            source_bucket="test-bucket",
             package_name=KNOWN_TEST_PACKAGE,
             metadata=test_metadata,
         )
