@@ -100,12 +100,7 @@ def test_tools_list_endpoint(container_url: str):
         # All requests go to the single /mcp endpoint
         response = httpx.post(
             f"{container_url}/mcp",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list",
-                "params": {}
-            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {token}",

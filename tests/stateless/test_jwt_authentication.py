@@ -42,12 +42,7 @@ def test_request_without_jwt_fails_clearly(container_url: str):
         # MCP protocol over HTTP uses JSON-RPC 2.0 format at /mcp endpoint
         response = httpx.post(
             f"{container_url}/mcp",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list",
-                "params": {}
-            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
             headers={"Content-Type": "application/json"},
             timeout=10.0,
         )
@@ -107,12 +102,7 @@ def test_request_with_malformed_jwt_fails_clearly(container_url: str):
         # MCP protocol over HTTP uses JSON-RPC 2.0 format at /mcp endpoint
         response = httpx.post(
             f"{container_url}/mcp",
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/list",
-                "params": {}
-            },
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
             headers={
                 "Content-Type": "application/json",
                 "Authorization": "Bearer not-a-valid-jwt-token",
@@ -243,6 +233,7 @@ sys.exit(0)
     )
 
     print("✅ JWT secret not found on filesystem")
+
 
 def test_request_with_valid_jwt_succeeds(container_url: str):
     """Verify requests with valid JWT tokens work correctly."""
