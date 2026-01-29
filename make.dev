@@ -25,7 +25,10 @@ test:
 test-all: lint test-catalog test-scripts mcpb-validate | $(RESULTS_DIR)
 	@echo "Running all tests..."
 	@uv sync --group test
-	@export PYTHONPATH="src" && uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
+	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
+		export QUILT_DISABLE_CACHE=true && \
+		export PYTHONPATH="src" && \
+		uv run python -m pytest tests/ -v --cov=quilt_mcp --cov-report=xml:$(RESULTS_DIR)/coverage-all.xml --cov-report=term-missing --durations=7
 
 
 test-ci: | $(RESULTS_DIR)
@@ -124,32 +127,14 @@ test-mcp-ci: docker-build
 	@uv run python scripts/tests/test_mcp.py --docker --image quilt-mcp:test -v
 	@echo "\n===✅ Both local and Docker mode tests passed"
 
-# Stateless Deployment Testing
+# Stateless Deployment Testing (convenience target - included in test-all)
 test-stateless: docker-build
-	@echo "========================================"
-	@echo "Stateless Deployment Validation"
-	@echo "========================================"
-	@echo ""
-	@echo "This test validates the Docker container can run in production"
-	@echo "multitenant mode with strict security constraints:"
-	@echo "  ✓ Read-only filesystem"
-	@echo "  ✓ JWT-only authentication"
-	@echo "  ✓ No persistent volumes"
-	@echo "  ✓ Security constraints (no-new-privileges, cap-drop=ALL)"
-	@echo "  ✓ Resource limits (512M memory, 1.0 CPU)"
-	@echo ""
-	@echo "See spec/a10-multitenant/02-test-stateless.md for details."
-	@echo ""
-	@uv sync --group test
-	@echo "Running stateless deployment tests..."
+	@echo "Running stateless deployment tests only..."
+	@echo "💡 Tip: Run 'make test-all' to run all tests including stateless"
 	@export TEST_DOCKER_IMAGE=quilt-mcp:test && \
 		export QUILT_DISABLE_CACHE=true && \
 		export PYTHONPATH="src" && \
 		uv run python -m pytest tests/stateless/ -v --tb=short --color=yes
-	@echo ""
-	@echo "========================================"
-	@echo "✅ Stateless deployment tests completed"
-	@echo "========================================"
 
 # Code Quality Targets
 lint:
