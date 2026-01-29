@@ -48,6 +48,22 @@ def test_jwt_auth_requires_role_arn(monkeypatch):
         reset_runtime_context(token_handle)
 
 
+def test_jwt_auth_requires_sub(monkeypatch):
+    auth_state = RuntimeAuthState(
+        scheme="Bearer",
+        access_token="token",
+        claims={"role_arn": "arn:aws:iam::123456789012:role/TestRole"},
+    )
+    token_handle = push_runtime_context(environment="web-service", auth=auth_state)
+    try:
+        service = JWTAuthService()
+        with pytest.raises(JwtAuthServiceError) as excinfo:
+            service.get_boto3_session()
+        assert excinfo.value.code == "missing_sub"
+    finally:
+        reset_runtime_context(token_handle)
+
+
 def test_jwt_auth_assumes_role(monkeypatch):
     fixed_time = 1700000000
     monkeypatch.setattr(time, "time", lambda: fixed_time)
@@ -94,6 +110,36 @@ def test_jwt_auth_assumes_role(monkeypatch):
         # Second call should use cached session (no extra assume_role calls).
         session_again = service.get_boto3_session()
         assert session_again is session
+    finally:
+        stubber.deactivate()
+        reset_runtime_context(token_handle)
+
+
+def test_jwt_auth_handles_sts_failure(monkeypatch):
+    role_arn = "arn:aws:iam::123456789012:role/TestRole"
+    claims = {"sub": "user-123", "role_arn": role_arn}
+    auth_state = RuntimeAuthState(scheme="Bearer", access_token="token", claims=claims)
+    token_handle = push_runtime_context(environment="web-service", auth=auth_state)
+
+    sts_client = boto3.client("sts", region_name="us-east-1")
+    stubber = Stubber(sts_client)
+    stubber.add_client_error("assume_role", service_error_code="AccessDenied")
+    stubber.activate()
+
+    original_client = boto3.client
+    monkeypatch.setattr(
+        boto3,
+        "client",
+        lambda service, region_name=None: sts_client
+        if service == "sts"
+        else original_client(service, region_name=region_name),
+    )
+
+    try:
+        service = JWTAuthService()
+        with pytest.raises(JwtAuthServiceError) as excinfo:
+            service.get_boto3_session()
+        assert excinfo.value.code == "assume_role_failed"
     finally:
         stubber.deactivate()
         reset_runtime_context(token_handle)

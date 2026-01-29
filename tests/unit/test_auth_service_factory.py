@@ -42,3 +42,24 @@ def test_jwt_mode_enabled(monkeypatch):
 
     service = get_auth_service()
     assert isinstance(service, JWTAuthService)
+
+
+def test_mode_switching_resets_service(monkeypatch):
+    monkeypatch.setenv("MCP_REQUIRE_JWT", "true")
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    reset_auth_service()
+    assert isinstance(get_auth_service(), JWTAuthService)
+
+    monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
+    reset_auth_service()
+    assert isinstance(get_auth_service(), IAMAuthService)
+
+
+def test_logs_auth_mode(monkeypatch, caplog):
+    monkeypatch.setenv("MCP_REQUIRE_JWT", "false")
+    reset_auth_service()
+
+    with caplog.at_level("INFO"):
+        _ = get_auth_service()
+
+    assert any("Authentication mode selected: IAM" in record.message for record in caplog.records)

@@ -198,22 +198,73 @@ def test_no_fallback_to_local_credentials(stateless_container: Container):
     print("✅ No local credential access detected")
 
 
-@pytest.mark.skip(reason="Requires valid JWT token from auth server - implement when auth integration ready")
+def test_jwt_secret_not_written_to_filesystem(stateless_container: Container):
+    """Verify JWT secret is not persisted to container filesystem."""
+    secret = "test-secret-key-for-stateless-testing-only"
+
+    script = r"""
+import os
+import sys
+
+secret = os.environ.get("TEST_SECRET")
+if not secret:
+    sys.exit(0)
+
+roots = ["/app", "/tmp", "/run", "/root", "/etc"]
+secret_bytes = secret.encode("utf-8")
+
+for root in roots:
+    if not os.path.exists(root):
+        continue
+    for dirpath, dirnames, filenames in os.walk(root):
+        for name in filenames:
+            path = os.path.join(dirpath, name)
+            try:
+                if os.path.getsize(path) > 5_000_000:
+                    continue
+                with open(path, "rb") as handle:
+                    if secret_bytes in handle.read():
+                        print(path)
+                        sys.exit(1)
+            except Exception:
+                continue
+sys.exit(0)
+"""
+
+    result = stateless_container.exec_run(
+        ["python", "-c", script],
+        environment={"TEST_SECRET": secret},
+    )
+
+    assert result.exit_code == 0, (
+        "❌ FAIL: JWT secret was written to the container filesystem.\n"
+        f"File containing secret: {result.output.decode('utf-8', errors='ignore')}\n"
+        "Stateless deployments must not persist JWT secrets to disk."
+    )
+
+    print("✅ JWT secret not found on filesystem")
+
 def test_request_with_valid_jwt_succeeds(container_url: str):
-    """Verify requests with valid JWT tokens work correctly.
+    """Verify requests with valid JWT tokens work correctly."""
+    from .conftest import make_test_jwt
 
-    NOTE: This test is skipped because it requires:
-    - Real JWT token from dev auth server
-    - Token generation/refresh mechanism
-    - Test user account with permissions
+    token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
 
-    Implement this test when JWT authentication integration is ready.
-    """
-    # TODO: Implement when JWT auth infrastructure is available
-    #
-    # Steps:
-    # 1. Generate or retrieve valid JWT token for test user
-    # 2. Make request with Authorization: Bearer <token>
-    # 3. Verify request succeeds (200 OK)
-    # 4. Verify token claims are respected (user permissions, etc.)
-    pass
+    response = httpx.post(
+        f"{container_url}/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
+            "params": {},
+        },
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+        timeout=10.0,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "result" in data

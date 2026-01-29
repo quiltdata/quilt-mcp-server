@@ -550,7 +550,7 @@ pyjwt = "^2.8.0"
 - [x] If MCP_REQUIRE_JWT=true, register JWT middleware
 - [x] If MCP_REQUIRE_JWT=false, skip JWT middleware
 - [x] Add startup log indicating middleware registration
-- [ ] Ensure middleware runs before all other middleware
+- [x] Ensure middleware runs before all other middleware
 - [ ] Test that CORS middleware still works correctly
 
 **Success criteria**:
@@ -574,12 +574,12 @@ pyjwt = "^2.8.0"
   - [x] Invalid signature rejection
   - [x] Missing claims handling
   - [x] Issuer/audience validation
-  - [ ] Edge cases (malformed tokens, etc.)
+  - [x] Edge cases (malformed tokens, etc.)
 - [x] `tests/unit/test_jwt_auth_service.py`:
   - [x] Role assumption from JWT claims
   - [x] Session tag extraction
   - [x] Source identity setting
-  - [ ] Error handling (missing claims, STS failures)
+  - [x] Error handling (missing claims, STS failures)
   - [x] Boto3 session construction
 - [x] `tests/unit/test_jwt_middleware.py`:
   - [x] Header extraction
@@ -608,25 +608,25 @@ pyjwt = "^2.8.0"
 **What to test**:
 
 - [ ] IAM mode:
-  - [ ] Tool execution with AWS credentials from environment
-  - [ ] Tool execution with AWS profile
-  - [ ] Ignores Authorization headers (if present)
+  - [x] Tool execution with AWS credentials from environment
+  - [x] Tool execution with AWS profile
+  - [x] Ignores Authorization headers (if present)
   - [ ] Works with all existing tools
 - [x] JWT mode:
   - [x] Tool execution with valid JWT
   - [x] Rejection without JWT (401)
-  - [ ] Rejection with invalid JWT (403)
+  - [x] Rejection with invalid JWT (403)
   - [x] Role assumption works correctly
-  - [ ] Session tags passed to AWS
+  - [x] Session tags passed to AWS
   - [x] SourceIdentity recorded
 - [ ] Mode switching:
-  - [ ] Can switch modes via environment variable
-  - [ ] No cross-contamination between modes
-  - [ ] Startup logs indicate correct mode
+  - [x] Can switch modes via environment variable
+  - [x] No cross-contamination between modes
+  - [x] Startup logs indicate correct mode
 
 **Test infrastructure needed**:
 
-- [ ] JWT generator for test tokens (with configurable claims)
+- [x] JWT generator for test tokens (with configurable claims)
 - [ ] Mock STS service for role assumption (using moto)
 - [ ] Test fixtures for both modes
 
@@ -648,13 +648,13 @@ pyjwt = "^2.8.0"
 - [ ] All tests continue to pass with default IAM mode
 - [ ] No tests accidentally require JWT mode
 - [x] Test fixtures properly set MCP_REQUIRE_JWT=false
-- [ ] No tests leak auth state between test cases
-- [ ] Clean up RuntimeAuthState in teardown
+- [x] No tests leak auth state between test cases
+- [x] Clean up RuntimeAuthState in teardown
 
 **Changes needed in conftest.py**:
 
 - [x] Explicitly set `MCP_REQUIRE_JWT=false` for all tests
-- [ ] Clear RuntimeAuthState before each test
+- [x] Clear RuntimeAuthState before each test
 - [x] Document why JWT is disabled for tests
 
 **Success criteria**:
@@ -673,11 +673,11 @@ pyjwt = "^2.8.0"
 
 - [x] How to run MCP server in IAM mode (default)
 - [x] How to run MCP server in JWT mode
-- [ ] How to generate test JWTs with jose or jwt.io
-- [ ] Example JWT payloads for different scenarios
+- [x] How to generate test JWTs with jose or jwt.io
+- [x] Example JWT payloads for different scenarios
 - [x] How to send authenticated requests using curl
 - [x] How to test with Claude Desktop (if applicable)
-- [ ] How to verify role assumption (check CloudTrail)
+- [x] How to verify role assumption (check CloudTrail)
 - [x] Common issues and debugging steps
 
 **Success criteria**:
@@ -778,10 +778,10 @@ pyjwt = "^2.8.0"
 **What to update**:
 
 - [x] Add JWT mode as requirement for stateless tests
-- [ ] Generate test JWTs for stateless test scenarios
-- [ ] Update test runner to use JWT authentication
+- [x] Generate test JWTs for stateless test scenarios
+- [x] Update test runner to use JWT authentication
 - [ ] Verify role assumption works in stateless mode
-- [ ] Ensure no JWT secrets stored in container filesystem
+- [x] Ensure no JWT secrets stored in container filesystem
 
 **Success criteria**:
 
@@ -1032,7 +1032,7 @@ See [02-test-stateless.md](02-test-stateless.md) for full stateless test specifi
 **JWT-specific additions**:
 
 - [x] JWT mode enforced in stateless tests
-- [ ] No JWT secrets in container filesystem
+- [x] No JWT secrets in container filesystem
 - [ ] Role assumption verified via CloudTrail
 - [ ] Session tags visible in AWS logs
 

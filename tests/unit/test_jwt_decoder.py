@@ -71,6 +71,16 @@ def test_decode_requires_exp(monkeypatch):
     assert excinfo.value.code == "invalid_token"
 
 
+def test_decode_malformed_token(monkeypatch):
+    monkeypatch.setenv("MCP_JWT_SECRET", "test-secret")
+    decoder = get_jwt_decoder()
+
+    with pytest.raises(JwtDecodeError) as excinfo:
+        decoder.decode("not-a-jwt")
+
+    assert excinfo.value.code == "invalid_token"
+
+
 def test_decode_with_issuer_audience(monkeypatch):
     secret = "test-secret"
     monkeypatch.setenv("MCP_JWT_SECRET", secret)

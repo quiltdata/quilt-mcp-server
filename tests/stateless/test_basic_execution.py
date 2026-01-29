@@ -92,6 +92,10 @@ def test_mcp_server_responds(container_url: str):
 def test_tools_list_endpoint(container_url: str):
     """Verify tools/list endpoint works in stateless mode."""
     try:
+        from .conftest import make_test_jwt
+
+        token = make_test_jwt(secret="test-secret-key-for-stateless-testing-only")
+
         # MCP protocol over HTTP uses JSON-RPC 2.0 format
         # All requests go to the single /mcp endpoint
         response = httpx.post(
@@ -102,7 +106,10 @@ def test_tools_list_endpoint(container_url: str):
                 "method": "tools/list",
                 "params": {}
             },
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+            },
             timeout=10.0,
         )
 

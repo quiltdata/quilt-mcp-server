@@ -425,18 +425,6 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
 
     app.add_middleware(QuiltAcceptHeaderMiddleware)
 
-    if get_jwt_mode_enabled():
-        try:
-            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
-
-            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
-            logger.info("JWT middleware enabled for HTTP transport")
-        except ImportError as exc:  # pragma: no cover
-            logger.error("JWT middleware unavailable: %s", exc)
-            raise
-    else:
-        logger.info("JWT middleware disabled (IAM mode)")
-
     try:
         from starlette.middleware.cors import CORSMiddleware
 
@@ -450,6 +438,19 @@ def build_http_app(mcp: FastMCP, transport: Literal["http", "sse", "streamable-h
         )
     except ImportError:  # pragma: no cover - starlette optional guard
         logger.warning("CORS middleware unavailable; continuing without CORS configuration")
+
+    if get_jwt_mode_enabled():
+        try:
+            from quilt_mcp.middleware.jwt_middleware import JwtAuthMiddleware
+
+            # Add last so it runs first in Starlette's middleware stack.
+            app.add_middleware(JwtAuthMiddleware, require_jwt=True)
+            logger.info("JWT middleware enabled for HTTP transport")
+        except ImportError as exc:  # pragma: no cover
+            logger.error("JWT middleware unavailable: %s", exc)
+            raise
+    else:
+        logger.info("JWT middleware disabled (IAM mode)")
 
     return app
 

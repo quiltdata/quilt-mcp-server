@@ -155,6 +155,28 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "slow: mark test as slow-running test")
 
 
+@pytest.fixture(autouse=True)
+def reset_runtime_auth_state():
+    """Ensure runtime auth state doesn't leak between tests."""
+    try:
+        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+
+        clear_runtime_auth()
+        update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
+    except Exception:
+        pass
+
+    yield
+
+    try:
+        from quilt_mcp.runtime_context import clear_runtime_auth, update_runtime_metadata
+
+        clear_runtime_auth()
+        update_runtime_metadata(jwt_assumed_session=None, jwt_assumed_expiration=None)
+    except Exception:
+        pass
+
+
 # Cached Athena service fixtures for better performance across all tests
 
 
