@@ -95,3 +95,26 @@ def test_request_context_get_boto_session_delegates_to_auth_service():
     )
 
     assert context.get_boto_session() is sentinel
+
+
+@pytest.mark.parametrize(
+    ("permission_service", "workflow_service", "expected_message"),
+    [
+        (None, object(), "permission_service"),
+        (object(), None, "workflow_service"),
+    ],
+)
+def test_request_context_rejects_missing_services(
+    permission_service, workflow_service, expected_message
+):
+    with pytest.raises(TypeError) as excinfo:
+        RequestContext(
+            request_id="req-4",
+            tenant_id="tenant-a",
+            user_id="user-1",
+            auth_service=object(),
+            permission_service=permission_service,
+            workflow_service=workflow_service,
+        )
+
+    assert expected_message in str(excinfo.value)
