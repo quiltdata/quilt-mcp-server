@@ -28,8 +28,8 @@ Create the core request context infrastructure using TDD approach.
 - [x] Write tests for get_boto_session() method
 - [x] Write tests that RequestContext rejects missing services
 - [x] Create `src/quilt_mcp/context/request_context.py` to make tests pass
-- [x] Implement RequestContext with fields: request_id, tenant_id, user_id, auth_service,
-  permission_service, workflow_service
+- [x] Implement RequestContext with fields: request_id, tenant_id, user_id, auth_service
+  (permission_service and workflow_service added in Phases 2 and 3)
 - [x] Add `__post_init__` validation for required services
 - [x] Implement `is_authenticated` property
 - [x] Implement get_boto_session() convenience method
@@ -47,8 +47,8 @@ Create the core request context infrastructure using TDD approach.
 
 #### 1.3 Verification Checkpoint: Request Context Foundation
 
-- [x] Run linting: `ruff check src/quilt_mcp/context/`
-- [x] Run tests: `pytest tests/unit/context/ -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/context/`
+- [x] Run tests: `uv run pytest tests/unit/context/ -v`
 - [x] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: implement RequestContext foundation"`
 
@@ -105,8 +105,8 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 #### 2.5 Verification Checkpoint: Auth Service Refactor
 
-- [x] Run linting: `ruff check src/quilt_mcp/services/`
-- [x] Run tests: `pytest tests/unit/services/test_*auth*.py -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/services/`
+- [x] Run tests: `uv run pytest tests/unit/services/test_*auth*.py -v`
 - [x] Verify no module-level `_AUTH_SERVICE` variable exists
 - [x] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: refactor auth service to remove singleton pattern"`
@@ -155,8 +155,8 @@ Create factory for creating request-scoped service instances.
 
 #### 3.4 Verification Checkpoint: RequestContextFactory
 
-- [x] Run linting: `ruff check src/quilt_mcp/context/`
-- [x] Run tests: `pytest tests/unit/context/test_factory.py -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/context/`
+- [x] Run tests: `uv run pytest tests/unit/context/test_factory.py -v`
 - [x] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: implement RequestContextFactory for auth service"`
 
@@ -170,11 +170,11 @@ Update MCP server to create request contexts for each tool invocation.
 
 - [x] Write tests for context propagation in `tests/unit/server/test_context_propagation.py`
 - [x] Write tests for set_current_context() and get_current_context()
-- [x] Write tests that context is thread-safe (or async-safe)
+- [x] Write tests that context is async-safe (contextvars-based)
 - [x] Write tests for ContextNotAvailableError when accessed outside request
 - [x] Write tests that context is cleared after request completes
 - [x] Create `src/quilt_mcp/context/propagation.py` to make tests pass
-- [x] Implement thread-local or context variable storage
+- [x] Implement context variable storage (no thread-local)
 - [x] Implement set_current_context() and get_current_context()
 - [x] Add proper cleanup in finally blocks
 
@@ -201,8 +201,8 @@ Update MCP server to create request contexts for each tool invocation.
 
 #### 4.4 Verification Checkpoint: MCP Server Integration
 
-- [x] Run linting: `ruff check src/quilt_mcp/server.py src/quilt_mcp/context/`
-- [x] Run tests: `pytest tests/unit/server/ -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/server.py src/quilt_mcp/context/`
+- [x] Run tests: `uv run pytest tests/unit/server/ -v`
 - [x] Test MCP server startup with new context creation
 - [x] Verify context is created and cleaned up correctly
 - [x] Commit changes: `git add . && git commit -m "feat: integrate request context into MCP server"`
@@ -251,10 +251,10 @@ Comprehensive testing to verify singleton elimination for auth service.
 
 #### 5.5 Verification Checkpoint: Phase 1 Complete
 
-- [ ] Run linting: `ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `pytest -v`
-- [ ] Run integration tests: `pytest tests/integration/test_auth_isolation.py -v`
-- [ ] Run security tests: `pytest tests/security/test_credential_isolation.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
+- [ ] Run full test suite: `uv run pytest -v`
+- [ ] Run integration tests: `uv run pytest tests/integration/test_auth_isolation.py -v`
+- [ ] Run security tests: `uv run pytest tests/security/test_credential_isolation.py -v`
 - [ ] Verify no `_AUTH_SERVICE` module-level variable exists in codebase
 - [ ] Verify MCP server works with request-scoped auth
 - [ ] Commit changes: `git add . && git commit -m "feat: Phase 1 complete - auth service singleton eliminated"`
@@ -300,8 +300,8 @@ Update permission service to be instantiable per-request.
 
 #### 6.4 Verification Checkpoint: Permission Service Refactor
 
-- [x] Run linting: `ruff check src/quilt_mcp/services/permissions_service.py`
-- [x] Run tests: `pytest tests/unit/services/test_permission_service.py -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/services/permissions_service.py`
+- [x] Run tests: `uv run pytest tests/unit/services/test_permission_service.py -v`
 - [x] Verify no `_permission_discovery` module-level variable exists
 - [x] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: refactor permission service to remove singleton"`
@@ -342,8 +342,8 @@ Add permission service to request context creation.
 
 #### 7.4 Verification Checkpoint: Permission Service Integration
 
-- [x] Run linting: `ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
-- [x] Run tests: `pytest tests/unit/context/ tests/unit/services/ -v`
+- [x] Run linting: `uv run ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
+- [x] Run tests: `uv run pytest tests/unit/context/ tests/unit/services/ -v`
 - [x] Verify permission service is created per-request
 - [x] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: integrate permission service into request context"`
@@ -372,9 +372,9 @@ Validate that permission caches are isolated per request.
 
 #### 8.3 Verification Checkpoint: Phase 2 Complete
 
-- [ ] Run linting: `ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `pytest -v`
-- [ ] Run integration tests: `pytest tests/integration/test_permission_isolation.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
+- [ ] Run full test suite: `uv run pytest -v`
+- [ ] Run integration tests: `uv run pytest tests/integration/test_permission_isolation.py -v`
 - [ ] Verify no `_permission_discovery` module-level variable exists
 - [ ] Verify MCP server works with request-scoped permissions
 - [ ] Commit changes: `git add . && git commit -m "feat: Phase 2 complete - permission service singleton eliminated"`
@@ -401,14 +401,15 @@ Create workflow storage with tenant partitioning.
 #### 9.2 TDD: File-based workflow storage
 
 - [ ] Write tests for FileBasedWorkflowStorage in `tests/unit/storage/test_file_storage.py`
-- [ ] Write tests for tenant directory isolation (~/.quilt/workflows/{tenant_id}/)
+- [ ] Write tests for tenant directory isolation (default: ~/.quilt/workflows/{tenant_id}/)
+- [ ] Write tests for configurable base directory via env (e.g., QUILT_WORKFLOW_DIR)
 - [ ] Write tests that Tenant A cannot access Tenant B's workflows
 - [ ] Write tests for workflow JSON serialization
 - [ ] Write tests for workflow CRUD operations
 - [ ] Create `src/quilt_mcp/storage/file_storage.py`
-- [ ] Implement FileBasedWorkflowStorage with tenant directories
+- [ ] Implement FileBasedWorkflowStorage with tenant directories and configurable base dir
 - [ ] Implement save, load, list_all, delete methods
-- [ ] Add file system isolation per tenant
+- [ ] Add file system isolation per tenant (safe path joins, prevent traversal)
 - [ ] Add error handling for file operations
 
 #### 9.3 TDD: Workflow persistence
@@ -421,8 +422,8 @@ Create workflow storage with tenant partitioning.
 
 #### 9.4 Verification Checkpoint: Workflow Storage
 
-- [ ] Run linting: `ruff check src/quilt_mcp/storage/`
-- [ ] Run tests: `pytest tests/unit/storage/ -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/storage/`
+- [ ] Run tests: `uv run pytest tests/unit/storage/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement tenant-isolated workflow storage"`
 
@@ -463,8 +464,8 @@ Update workflow service to use tenant-isolated storage.
 
 #### 10.4 Verification Checkpoint: Workflow Service Refactor
 
-- [ ] Run linting: `ruff check src/quilt_mcp/services/workflow_service.py`
-- [ ] Run tests: `pytest tests/unit/services/test_workflow_service.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/services/workflow_service.py`
+- [ ] Run tests: `uv run pytest tests/unit/services/test_workflow_service.py -v`
 - [ ] Verify no `_workflows` module-level variable exists
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: refactor workflow service with tenant isolation"`
@@ -506,8 +507,8 @@ Add workflow service to request context creation.
 
 #### 11.4 Verification Checkpoint: Workflow Service Integration
 
-- [ ] Run linting: `ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
-- [ ] Run tests: `pytest tests/unit/context/ tests/unit/services/ -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/context/ src/quilt_mcp/services/`
+- [ ] Run tests: `uv run pytest tests/unit/context/ tests/unit/services/ -v`
 - [ ] Verify workflow service is created per-request
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: integrate workflow service into request context"`
@@ -543,9 +544,9 @@ Validate that workflows are isolated per tenant.
 
 #### 12.4 Verification Checkpoint: Phase 3 Complete
 
-- [ ] Run linting: `ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `pytest -v`
-- [ ] Run integration tests: `pytest tests/integration/test_workflow_isolation.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
+- [ ] Run full test suite: `uv run pytest -v`
+- [ ] Run integration tests: `uv run pytest tests/integration/test_workflow_isolation.py -v`
 - [ ] Verify no `_workflows` module-level variable exists
 - [ ] Verify MCP server works with tenant-isolated workflows
 - [ ] Commit changes: `git add . && git commit -m "feat: Phase 3 complete - workflow service singleton eliminated"`
@@ -594,8 +595,8 @@ Enable multitenant mode with tenant extraction and validation.
 
 #### 13.4 Verification Checkpoint: Multitenant Mode
 
-- [ ] Run linting: `ruff check src/quilt_mcp/context/`
-- [ ] Run tests: `pytest tests/unit/context/test_tenant_extraction.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/context/`
+- [ ] Run tests: `uv run pytest tests/unit/context/test_tenant_extraction.py -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: add multitenant mode support with tenant extraction"`
 
@@ -641,11 +642,11 @@ Comprehensive testing for multitenant deployments.
 
 #### 14.5 Verification Checkpoint: Phase 4 Complete
 
-- [ ] Run linting: `ruff check src/quilt_mcp/`
-- [ ] Run full test suite: `pytest -v`
-- [ ] Run integration tests: `pytest tests/integration/test_multitenant.py -v`
-- [ ] Run load tests: `pytest tests/load/test_multitenant_load.py -v`
-- [ ] Run security tests: `pytest tests/security/test_multitenant_security.py -v`
+- [ ] Run linting: `uv run ruff check src/quilt_mcp/`
+- [ ] Run full test suite: `uv run pytest -v`
+- [ ] Run integration tests: `uv run pytest tests/integration/test_multitenant.py -v`
+- [ ] Run load tests: `uv run pytest tests/load/test_multitenant_load.py -v`
+- [ ] Run security tests: `uv run pytest tests/security/test_multitenant_security.py -v`
 - [ ] Verify MCP server works in both single-user and multitenant modes
 - [ ] Commit changes: `git add . && git commit -m "feat: Phase 4 complete - multitenant deployment support"`
 - [ ] Create tag: `git tag phase4-multitenant-complete`
@@ -707,20 +708,20 @@ Final checks before considering the migration complete.
 
 ### 16.1 Code quality checks
 
-- [ ] Run linting on entire codebase: `ruff check .`
-- [ ] Run type checking: `mypy src/quilt_mcp/`
-- [ ] Run security scanning: `bandit -r src/quilt_mcp/`
-- [ ] Review code coverage: `pytest --cov=src/quilt_mcp --cov-report=html`
+- [ ] Run linting on entire codebase: `uv run ruff check .`
+- [ ] Run type checking: `uv run mypy src/quilt_mcp/`
+- [ ] Run security scanning: `uv run bandit -r src/quilt_mcp/`
+- [ ] Review code coverage: `uv run pytest --cov=src/quilt_mcp --cov-report=html`
 - [ ] Verify coverage > 80% for new code
 - [ ] Address any issues found
 
 ### 16.2 Comprehensive testing
 
-- [ ] Run full unit test suite: `pytest tests/unit/ -v`
-- [ ] Run full integration test suite: `pytest tests/integration/ -v`
-- [ ] Run security test suite: `pytest tests/security/ -v`
-- [ ] Run performance test suite: `pytest tests/performance/ -v`
-- [ ] Run load test suite: `pytest tests/load/ -v`
+- [ ] Run full unit test suite: `uv run pytest tests/unit/ -v`
+- [ ] Run full integration test suite: `uv run pytest tests/integration/ -v`
+- [ ] Run security test suite: `uv run pytest tests/security/ -v`
+- [ ] Run performance test suite: `uv run pytest tests/performance/ -v`
+- [ ] Run load test suite: `uv run pytest tests/load/ -v`
 - [ ] Verify all tests pass
 
 ### 16.3 Manual testing
