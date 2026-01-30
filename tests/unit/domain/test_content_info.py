@@ -149,6 +149,62 @@ class TestContentInfoRequiredFieldValidation:
                 download_url="https://example.com/download/file.txt"
             )
 
+    def test_content_info_path_cannot_be_none(self):
+        """Test that Content_Info path field cannot be None."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Even if we try to pass None explicitly, it should fail validation
+        with pytest.raises((TypeError, ValueError)):
+            Content_Info(
+                path=None,
+                size=1024,
+                type="file",
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/file.txt"
+            )
+
+    def test_content_info_type_cannot_be_none(self):
+        """Test that Content_Info type field cannot be None."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Even if we try to pass None explicitly, it should fail validation
+        with pytest.raises((TypeError, ValueError)):
+            Content_Info(
+                path="data/file.txt",
+                size=1024,
+                type=None,
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/file.txt"
+            )
+
+    def test_content_info_path_cannot_be_empty_string(self):
+        """Test that Content_Info path field cannot be empty string."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Empty path should fail validation
+        with pytest.raises(ValueError, match="path.*cannot be empty"):
+            Content_Info(
+                path="",
+                size=1024,
+                type="file",
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/file.txt"
+            )
+
+    def test_content_info_type_cannot_be_empty_string(self):
+        """Test that Content_Info type field cannot be empty string."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Empty type should fail validation
+        with pytest.raises(ValueError, match="type.*cannot be empty"):
+            Content_Info(
+                path="data/file.txt",
+                size=1024,
+                type="",
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/file.txt"
+            )
+
     def test_content_info_allows_none_size(self):
         """Test that Content_Info allows None for optional size field."""
         from quilt_mcp.domain.content_info import Content_Info
@@ -193,6 +249,69 @@ class TestContentInfoRequiredFieldValidation:
         )
         
         assert content_info.download_url is None
+
+    def test_content_info_size_must_be_non_negative(self):
+        """Test that Content_Info size field must be non-negative when provided."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Negative size should fail validation
+        with pytest.raises(ValueError, match="size.*cannot be negative"):
+            Content_Info(
+                path="data/file.txt",
+                size=-1,
+                type="file",
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/file.txt"
+            )
+
+    def test_content_info_allows_zero_size(self):
+        """Test that Content_Info allows zero size for empty files."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Zero size should be allowed (empty files)
+        content_info = Content_Info(
+            path="data/empty_file.txt",
+            size=0,
+            type="file",
+            modified_date="2024-01-15T10:30:00Z",
+            download_url="https://example.com/download/empty_file.txt"
+        )
+        
+        assert content_info.size == 0
+
+    def test_content_info_validates_type_values(self):
+        """Test that Content_Info validates type field values."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Valid types should work
+        valid_types = ["file", "directory"]
+        
+        for valid_type in valid_types:
+            content_info = Content_Info(
+                path=f"data/test_{valid_type}",
+                size=1024 if valid_type == "file" else None,
+                type=valid_type,
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/test"
+            )
+            assert content_info.type == valid_type
+
+    def test_content_info_allows_custom_type_values(self):
+        """Test that Content_Info allows custom type values beyond file/directory."""
+        from quilt_mcp.domain.content_info import Content_Info
+        
+        # Custom types should be allowed for extensibility
+        custom_types = ["symlink", "binary", "text", "image", "archive"]
+        
+        for custom_type in custom_types:
+            content_info = Content_Info(
+                path=f"data/test_{custom_type}",
+                size=1024,
+                type=custom_type,
+                modified_date="2024-01-15T10:30:00Z",
+                download_url="https://example.com/download/test"
+            )
+            assert content_info.type == custom_type
 
 
 class TestContentInfoDataclassAsdict:

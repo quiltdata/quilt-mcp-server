@@ -340,8 +340,22 @@ def create_configured_server(verbose: bool = False) -> FastMCP:
     # Validate auth configuration early so startup fails fast.
     try:
         from quilt_mcp.services.auth_service import get_auth_service
+        from quilt_mcp.ops.factory import QuiltOpsFactory
 
         get_auth_service()
+
+        # Also validate that QuiltOps can be created (Phase 1: quilt3 only)
+        # This ensures that the abstraction layer is properly configured
+        try:
+            QuiltOpsFactory.create()
+            if verbose:
+                print("QuiltOps abstraction layer validated successfully", file=sys.stderr)
+        except Exception as quilt_ops_exc:
+            if verbose:
+                print(f"QuiltOps validation failed: {quilt_ops_exc}", file=sys.stderr)
+            # For now, we'll continue even if QuiltOps fails, as some tools might not need it
+            # In the future, this could be made stricter based on which tools are enabled
+
     except Exception as exc:  # pragma: no cover - startup validation
         if verbose:
             print(f"Auth service initialization failed: {exc}", file=sys.stderr)

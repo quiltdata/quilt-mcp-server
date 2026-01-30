@@ -304,6 +304,38 @@ Before responding to a user query, ask yourself:
 
 ---
 
+## Python Execution Guidelines
+
+### Always Use 'uv run' for Python Scripts and Tests
+
+**CRITICAL:** This project uses `uv` as the Python package manager. When executing Python scripts or tests, always use `uv run` prefix:
+
+**✅ CORRECT:**
+```bash
+uv run python scripts/test-mcp-tool-call-formats.py
+uv run pytest tests/unit/
+uv run python -m pytest tests/integration/
+uv run mypy src/
+```
+
+**❌ INCORRECT:**
+```bash
+python scripts/test-mcp-tool-call-formats.py
+pytest tests/unit/
+python -m pytest tests/integration/
+mypy src/
+```
+
+**Why this matters:**
+- Ensures correct virtual environment activation
+- Uses project-specific dependencies from `uv.lock`
+- Prevents import errors and version conflicts
+- Maintains consistency with project setup
+
+**Exception:** Only use direct `python` commands when specifically working outside the project environment or when `uv run` is not available.
+
+---
+
 ## Summary
 
 **Core Behavior:** When users want to understand, query, or explore data:
@@ -317,9 +349,11 @@ Before responding to a user query, ask yourself:
 - Provide code for the user to run when you can run tools
 - Suggest capabilities without demonstrating them
 - Leave workflows incomplete
+- Use bare `python` or `pytest` commands (always use `uv run`)
 
 **Always:**
 - Execute available tools proactively
 - Show actual results from real data
 - Complete full workflows end-to-end
 - Offer specific, actionable next steps
+- Use `uv run` prefix for all Python script and test execution

@@ -29,9 +29,29 @@ class Bucket_Info:
 
     def __post_init__(self) -> None:
         """Validate required fields after initialization."""
-        # All validation is handled by dataclass field requirements
-        # Optional validation logic could be added here if needed
-        pass
+        # Validate name field
+        if self.name is None:
+            raise TypeError("name field is required and cannot be None")
+        if not isinstance(self.name, str):
+            raise TypeError("name field must be a string")
+        if self.name == "":
+            raise ValueError("name field cannot be empty")
+
+        # Validate region field
+        if self.region is None:
+            raise TypeError("region field is required and cannot be None")
+        if not isinstance(self.region, str):
+            raise TypeError("region field must be a string")
+        if self.region == "":
+            raise ValueError("region field cannot be empty")
+
+        # Validate access_level field
+        if self.access_level is None:
+            raise TypeError("access_level field is required and cannot be None")
+        if not isinstance(self.access_level, str):
+            raise TypeError("access_level field must be a string")
+        if self.access_level == "":
+            raise ValueError("access_level field cannot be empty")
 
     def __hash__(self) -> int:
         """Custom hash implementation for hashable dataclass."""

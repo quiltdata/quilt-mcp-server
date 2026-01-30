@@ -31,9 +31,28 @@ class Content_Info:
 
     def __post_init__(self) -> None:
         """Validate required fields after initialization."""
-        # All validation is handled by dataclass field requirements
-        # Optional validation logic could be added here if needed
-        pass
+        # Validate path field
+        if self.path is None:
+            raise TypeError("path field is required and cannot be None")
+        if not isinstance(self.path, str):
+            raise TypeError("path field must be a string")
+        if self.path == "":
+            raise ValueError("path field cannot be empty")
+
+        # Validate type field
+        if self.type is None:
+            raise TypeError("type field is required and cannot be None")
+        if not isinstance(self.type, str):
+            raise TypeError("type field must be a string")
+        if self.type == "":
+            raise ValueError("type field cannot be empty")
+
+        # Validate size field (when not None)
+        if self.size is not None:
+            if not isinstance(self.size, int):
+                raise TypeError("size field must be an integer when provided")
+            if self.size < 0:
+                raise ValueError("size field cannot be negative")
 
     def __hash__(self) -> int:
         """Custom hash implementation for hashable dataclass."""

@@ -22,26 +22,26 @@ Create the backend-agnostic data structures that represent Quilt concepts using 
 ### 1.2 TDD: Content_Info dataclass
 
 - [x] Write tests for Content_Info validation in `tests/unit/domain/test_content_info.py`
-- [ ] Write tests for required field validation
-- [ ] Write tests for dataclasses.asdict() compatibility
+- [x] Write tests for required field validation
+- [x] Write tests for dataclasses.asdict() compatibility
 - [x] Create `src/quilt_mcp/domain/content_info.py` to make tests pass
 - [x] Implement Content_Info with fields: path, size, type, modified_date, download_url
-- [ ] Add validation for required fields to satisfy tests
+- [x] Add validation for required fields to satisfy tests
 
 ### 1.3 TDD: Bucket_Info dataclass
 
 - [x] Write tests for Bucket_Info validation in `tests/unit/domain/test_bucket_info.py`
-- [ ] Write tests for required field validation
-- [ ] Write tests for dataclasses.asdict() compatibility
+- [x] Write tests for required field validation
+- [x] Write tests for dataclasses.asdict() compatibility
 - [x] Create `src/quilt_mcp/domain/bucket_info.py` to make tests pass
 - [x] Implement Bucket_Info with fields: name, region, access_level, created_date
-- [ ] Add validation for required fields to satisfy tests
+- [x] Add validation for required fields to satisfy tests
 
 ### 1.4 Verification Checkpoint: Domain Objects
 
 - [x] Run linting: `ruff check src/quilt_mcp/domain/`
 - [x] Run tests: `pytest tests/unit/domain/ -v`
-- [x] Verify all tests pass
+- [~] Verify all tests pass
 - [x] Commit changes: `git add . && git commit -m "feat: implement domain objects (Package_Info, Content_Info, Bucket_Info)"`
 
 ---
@@ -83,23 +83,23 @@ Create the backend implementation using TDD approach with mocked quilt3 library 
 
 ### 3.1 TDD: Quilt3_Backend class structure
 
-- [ ] Write tests for Quilt3_Backend initialization in `tests/unit/backends/test_quilt3_backend.py`
-- [ ] Write tests for session validation and error handling
-- [ ] Write tests for QuiltOps interface compliance
-- [ ] Create `src/quilt_mcp/backends/quilt3_backend.py` to make tests pass
-- [ ] Implement QuiltOps interface
-- [ ] Add session validation and initialization
-- [ ] Implement error handling for quilt3 operations
+- [x] Write tests for Quilt3_Backend initialization in `tests/unit/backends/test_quilt3_backend.py`
+- [x] Write tests for session validation and error handling
+- [x] Write tests for QuiltOps interface compliance
+- [x] Create `src/quilt_mcp/backends/quilt3_backend.py` to make tests pass
+- [~] Implement QuiltOps interface
+- [~] Add session validation and initialization
+- [~] Implement error handling for quilt3 operations
 
 ### 3.2 TDD: Package operations
 
-- [ ] Write tests for search_packages() with mocked quilt3.search() calls
-- [ ] Write tests for get_package_info() with mocked quilt3 package loading
-- [ ] Write tests for transformation from quilt3 objects to Package_Info
-- [ ] Write tests for error handling in package operations
-- [ ] Implement search_packages() with quilt3.search() and transform to Package_Info
-- [ ] Implement get_package_info() with quilt3 package loading and transform to Package_Info
-- [ ] Add transformation helper methods for quilt3 objects to domain objects
+- [~] Write tests for search_packages() with mocked quilt3.search() calls
+- [~] Write tests for get_package_info() with mocked quilt3 package loading
+- [~] Write tests for transformation from quilt3 objects to Package_Info
+- [~] Write tests for error handling in package operations
+- [~] Implement search_packages() with quilt3.search() and transform to Package_Info
+- [~] Implement get_package_info() with quilt3 package loading and transform to Package_Info
+- [~] Add transformation helper methods for quilt3 objects to domain objects
 
 ### 3.2a TDD: Package transformation unit tests
 - [ ] Write dedicated unit tests for _transform_package() method in isolation

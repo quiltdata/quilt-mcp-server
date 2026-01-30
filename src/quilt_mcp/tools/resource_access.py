@@ -45,7 +45,7 @@ RESOURCE_SERVICE_MAP = {
 }
 
 
-async def get_resource(uri: Optional[str] = None) -> Union[GetResourceSuccess, GetResourceError]:
+async def get_resource(uri: Optional[str] = None) -> GetResourceSuccess | GetResourceError:
     """Access MCP resources via tool interface for backward compatibility.
 
     This tool provides access to all 16 MCP resources through a standard tool interface,

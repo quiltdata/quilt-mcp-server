@@ -31,6 +31,23 @@ class TestQuilt3BackendStructure:
         
         assert issubclass(Quilt3_Backend, QuiltOps)
     
+    def test_quilt3_backend_implements_all_abstract_methods(self):
+        """Test that Quilt3_Backend implements all required QuiltOps abstract methods."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        from quilt_mcp.ops.quilt_ops import QuiltOps
+        
+        # Get all abstract methods from QuiltOps
+        abstract_methods = {name for name, method in QuiltOps.__dict__.items() 
+                          if getattr(method, '__isabstractmethod__', False)}
+        
+        # Check that Quilt3_Backend implements all abstract methods
+        backend_methods = set(dir(Quilt3_Backend))
+        
+        for method_name in abstract_methods:
+            assert method_name in backend_methods, f"Missing implementation of abstract method: {method_name}"
+            # Verify the method is callable
+            assert callable(getattr(Quilt3_Backend, method_name))
+    
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
     def test_quilt3_backend_initialization_with_valid_session(self, mock_quilt3):
         """Test that Quilt3_Backend initializes correctly with a valid session."""
@@ -42,33 +59,148 @@ class TestQuilt3BackendStructure:
             'credentials': {'access_key': 'test', 'secret_key': 'test'}
         }
         
+        # Mock successful session validation
+        mock_quilt3.session.get_session_info.return_value = mock_session_config
+        
         backend = Quilt3_Backend(mock_session_config)
         assert backend is not None
         assert hasattr(backend, 'session')
+        assert backend.session == mock_session_config
+        
+        # Verify session validation was called
+        mock_quilt3.session.get_session_info.assert_called_once()
     
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_quilt3_backend_initialization_with_invalid_session(self, mock_quilt3):
-        """Test that Quilt3_Backend raises AuthenticationError with invalid session."""
+    def test_quilt3_backend_initialization_with_empty_session(self, mock_quilt3):
+        """Test that Quilt3_Backend raises AuthenticationError with empty session."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
         
-        # Mock invalid session
-        invalid_session = None
+        # Test with None
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend(None)
+        assert "session configuration is empty" in str(exc_info.value)
+        
+        # Test with empty dict
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend({})
+        assert "session configuration is empty" in str(exc_info.value)
+        
+        # Test with empty string
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend("")
+        assert "session configuration is empty" in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3', None)
+    def test_quilt3_backend_initialization_without_quilt3_library(self):
+        """Test that Quilt3_Backend raises AuthenticationError when quilt3 library is not available."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session_config = {'registry': 's3://test-registry'}
         
         with pytest.raises(AuthenticationError) as exc_info:
-            Quilt3_Backend(invalid_session)
+            Quilt3_Backend(mock_session_config)
         
-        assert "session" in str(exc_info.value).lower()
+        assert "quilt3 library is not available" in str(exc_info.value)
     
     @patch('quilt_mcp.backends.quilt3_backend.quilt3')
-    def test_quilt3_backend_session_validation(self, mock_quilt3):
-        """Test that Quilt3_Backend validates session configuration."""
+    def test_quilt3_backend_session_validation_success(self, mock_quilt3):
+        """Test successful session validation with various session configurations."""
         from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
         
-        # Mock session validation failure
-        mock_quilt3.session.get_session_info.side_effect = Exception("Invalid session")
+        # Test with minimal valid session
+        minimal_session = {'registry': 's3://test-registry'}
+        mock_quilt3.session.get_session_info.return_value = minimal_session
         
-        with pytest.raises(AuthenticationError):
+        backend = Quilt3_Backend(minimal_session)
+        assert backend.session == minimal_session
+        
+        # Test with comprehensive session config
+        comprehensive_session = {
+            'registry': 's3://test-registry',
+            'credentials': {'access_key': 'test', 'secret_key': 'test'},
+            'region': 'us-east-1',
+            'profile': 'default'
+        }
+        mock_quilt3.session.get_session_info.return_value = comprehensive_session
+        
+        backend = Quilt3_Backend(comprehensive_session)
+        assert backend.session == comprehensive_session
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_quilt3_backend_session_validation_failure(self, mock_quilt3):
+        """Test session validation failure scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        # Test with session validation exception
+        mock_quilt3.session.get_session_info.side_effect = Exception("Invalid credentials")
+        
+        with pytest.raises(AuthenticationError) as exc_info:
             Quilt3_Backend({'invalid': 'config'})
+        
+        assert "Invalid quilt3 session: Invalid credentials" in str(exc_info.value)
+        
+        # Test with permission denied
+        mock_quilt3.session.get_session_info.side_effect = PermissionError("Access denied")
+        
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend({'registry': 's3://test-registry'})
+        
+        assert "Invalid quilt3 session: Access denied" in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_quilt3_backend_session_validation_without_get_session_info(self, mock_quilt3):
+        """Test session validation when get_session_info method is not available."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        # Mock quilt3.session without get_session_info method
+        mock_session = Mock()
+        del mock_session.get_session_info  # Remove the method
+        mock_quilt3.session = mock_session
+        
+        # Should still initialize successfully if session config is provided
+        session_config = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(session_config)
+        assert backend.session == session_config
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_quilt3_backend_initialization_logging(self, mock_quilt3):
+        """Test that initialization success is properly logged."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import logging
+        
+        # Mock session validation
+        mock_session_config = {'registry': 's3://test-registry'}
+        mock_quilt3.session.get_session_info.return_value = mock_session_config
+        
+        # Capture log messages
+        with patch('quilt_mcp.backends.quilt3_backend.logger') as mock_logger:
+            backend = Quilt3_Backend(mock_session_config)
+            
+            # Verify success logging
+            mock_logger.info.assert_called_with("Quilt3_Backend initialized successfully")
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_quilt3_backend_initialization_preserves_session_config(self, mock_quilt3):
+        """Test that initialization preserves the original session configuration."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        original_config = {
+            'registry': 's3://test-registry',
+            'credentials': {'access_key': 'test', 'secret_key': 'test'},
+            'metadata': {'user': 'test_user', 'environment': 'test'}
+        }
+        
+        # Mock successful validation
+        mock_quilt3.session.get_session_info.return_value = original_config
+        
+        backend = Quilt3_Backend(original_config)
+        
+        # Verify the session config is preserved exactly
+        assert backend.session == original_config
+        
+        # Verify nested structures are preserved
+        assert backend.session['credentials']['access_key'] == 'test'
+        assert backend.session['metadata']['user'] == 'test_user'
 
 
 class TestQuilt3BackendPackageOperations:
@@ -584,6 +716,382 @@ class TestQuilt3BackendBucketTransformation:
             backend._transform_bucket(bucket_name, bucket_data)
 
 
+class TestQuilt3BackendSessionValidation:
+    """Test comprehensive session validation scenarios."""
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_corrupted_session_data(self, mock_quilt3):
+        """Test session validation with corrupted session data."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        # Test with corrupted session data that causes validation to fail
+        corrupted_sessions = [
+            {'registry': 'invalid-uri-format'},
+            {'credentials': 'not-a-dict'},
+            {'registry': 's3://test', 'credentials': {'malformed': True}},
+            {'registry': None},
+            {'registry': ''},
+        ]
+        
+        for corrupted_session in corrupted_sessions:
+            mock_quilt3.session.get_session_info.side_effect = ValueError("Corrupted session data")
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(corrupted_session)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert "Corrupted session data" in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_expired_credentials(self, mock_quilt3):
+        """Test session validation with expired credentials."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        expired_session = {
+            'registry': 's3://test-registry',
+            'credentials': {'access_key': 'expired', 'secret_key': 'expired'}
+        }
+        
+        # Mock expired credentials error
+        mock_quilt3.session.get_session_info.side_effect = Exception("Token has expired")
+        
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend(expired_session)
+        
+        assert "Invalid quilt3 session" in str(exc_info.value)
+        assert "Token has expired" in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_network_errors(self, mock_quilt3):
+        """Test session validation with network connectivity issues."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import socket
+        
+        session_config = {'registry': 's3://test-registry'}
+        
+        # Test various network-related errors
+        network_errors = [
+            socket.timeout("Connection timeout"),
+            ConnectionError("Network unreachable"),
+            OSError("Name resolution failed"),
+        ]
+        
+        for network_error in network_errors:
+            mock_quilt3.session.get_session_info.side_effect = network_error
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(session_config)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert str(network_error) in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_permission_errors(self, mock_quilt3):
+        """Test session validation with various permission-related errors."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        session_config = {'registry': 's3://restricted-registry'}
+        
+        # Test various permission errors
+        permission_errors = [
+            PermissionError("Access denied to registry"),
+            Exception("Forbidden: Insufficient permissions"),
+            Exception("403 Forbidden"),
+            Exception("UnauthorizedOperation"),
+        ]
+        
+        for permission_error in permission_errors:
+            mock_quilt3.session.get_session_info.side_effect = permission_error
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(session_config)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert str(permission_error) in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_error_message_clarity(self, mock_quilt3):
+        """Test that session validation errors provide clear, actionable messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        session_config = {'registry': 's3://test-registry'}
+        mock_quilt3.session.get_session_info.side_effect = Exception("Invalid API key")
+        
+        with pytest.raises(AuthenticationError) as exc_info:
+            Quilt3_Backend(session_config)
+        
+        error_message = str(exc_info.value)
+        
+        # Verify error message contains helpful information
+        assert "Invalid quilt3 session" in error_message
+        assert "Invalid API key" in error_message
+        
+        # Should provide context about what went wrong
+        assert any(keyword in error_message.lower() for keyword in [
+            "session", "authentication", "credentials", "login"
+        ])
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_malformed_registry_urls(self, mock_quilt3):
+        """Test session validation with malformed registry URLs."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        malformed_registries = [
+            {'registry': 'not-a-url'},
+            {'registry': 'http://insecure-registry'},  # Should be s3://
+            {'registry': 's3://'},  # Missing bucket name
+            {'registry': 's3://bucket/with/path'},  # Invalid format
+            {'registry': 'ftp://wrong-protocol'},
+        ]
+        
+        for malformed_config in malformed_registries:
+            mock_quilt3.session.get_session_info.side_effect = ValueError("Invalid registry URL")
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(malformed_config)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert "Invalid registry URL" in str(exc_info.value)
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_edge_cases(self, mock_quilt3):
+        """Test session validation edge cases and boundary conditions."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        # Test with very large session config
+        large_session = {
+            'registry': 's3://test-registry',
+            'metadata': {'key' + str(i): 'value' + str(i) for i in range(1000)}
+        }
+        mock_quilt3.session.get_session_info.return_value = large_session
+        
+        # Should handle large configs without issues
+        backend = Quilt3_Backend(large_session)
+        assert backend.session == large_session
+        
+        # Test with unicode characters in session
+        unicode_session = {
+            'registry': 's3://test-registry',
+            'user': 'üser_nämé',
+            'description': '测试用户'
+        }
+        mock_quilt3.session.get_session_info.return_value = unicode_session
+        
+        backend = Quilt3_Backend(unicode_session)
+        assert backend.session == unicode_session
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_timeout_scenarios(self, mock_quilt3):
+        """Test session validation with various timeout scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import socket
+        
+        session_config = {'registry': 's3://test-registry'}
+        
+        # Test different timeout scenarios
+        timeout_errors = [
+            socket.timeout("Connection timed out"),
+            TimeoutError("Operation timed out"),
+            Exception("Read timeout"),
+            Exception("Connection timeout after 30 seconds"),
+        ]
+        
+        for timeout_error in timeout_errors:
+            mock_quilt3.session.get_session_info.side_effect = timeout_error
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(session_config)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert any(keyword in str(exc_info.value).lower() for keyword in ["timeout", "timed out"])
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_session_validation_with_ssl_errors(self, mock_quilt3):
+        """Test session validation with SSL/TLS related errors."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import ssl
+        
+        session_config = {'registry': 's3://test-registry'}
+        
+        # Test SSL-related errors
+        ssl_errors = [
+            ssl.SSLError("SSL certificate verification failed"),
+            ssl.SSLCertVerificationError("Certificate verification failed"),
+            Exception("SSL: CERTIFICATE_VERIFY_FAILED"),
+            Exception("SSL handshake failed"),
+        ]
+        
+        for ssl_error in ssl_errors:
+            mock_quilt3.session.get_session_info.side_effect = ssl_error
+            
+            with pytest.raises(AuthenticationError) as exc_info:
+                Quilt3_Backend(session_config)
+            
+            assert "Invalid quilt3 session" in str(exc_info.value)
+            assert any(keyword in str(exc_info.value).lower() for keyword in ["ssl", "certificate", "handshake"])
+
+
+class TestQuilt3BackendAdvancedErrorHandling:
+    """Test advanced error handling scenarios and edge cases."""
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_handling_with_nested_exceptions(self, mock_quilt3):
+        """Test error handling with nested exception chains."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Create nested exception
+        root_cause = ValueError("Invalid parameter")
+        wrapper_exception = Exception("Operation failed")
+        wrapper_exception.__cause__ = root_cause
+        
+        # Mock the search_api directly since that's what the backend uses
+        with patch('quilt3.search_util.search_api') as mock_search_api:
+            mock_search_api.side_effect = wrapper_exception
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.search_packages("test", "s3://test-registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert "search failed" in error_message.lower()
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_handling_with_unicode_error_messages(self, mock_quilt3):
+        """Test error handling with unicode characters in error messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test with unicode error message
+        unicode_error = Exception("错误: 无法连接到服务器")
+        
+        # Mock the search_api directly since that's what the backend uses
+        with patch('quilt3.search_util.search_api') as mock_search_api:
+            mock_search_api.side_effect = unicode_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.search_packages("test", "s3://test-registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert "search failed" in error_message.lower()
+            # The unicode characters should be preserved in the error message
+            assert "错误" in error_message
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_propagation_preserves_original_context(self, mock_quilt3):
+        """Test that error propagation preserves original error context."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test with detailed error context
+        detailed_error = Exception("HTTP 404: Package 'test/package' not found in registry 's3://test-registry'")
+        mock_quilt3.Package.browse.side_effect = detailed_error
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_package_info("test/package", "s3://test-registry")
+        
+        error_message = str(exc_info.value)
+        assert "quilt3" in error_message.lower()
+        assert "404" in error_message
+        assert "test/package" in error_message
+        assert "s3://test-registry" in error_message
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_handling_with_empty_error_messages(self, mock_quilt3):
+        """Test error handling when underlying errors have empty messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test with empty error message
+        empty_error = Exception("")
+        mock_quilt3.search.side_effect = empty_error
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend.search_packages("test", "registry")
+        
+        error_message = str(exc_info.value)
+        assert "quilt3" in error_message.lower()
+        assert "backend" in error_message.lower()
+        # Should still provide meaningful context even with empty underlying message
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_handling_with_very_long_error_messages(self, mock_quilt3):
+        """Test error handling with very long error messages."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Create very long error message
+        long_message = "Error: " + "A" * 10000 + " - operation failed"
+        long_error = Exception(long_message)
+        
+        # Mock the search_api directly since that's what the backend uses
+        with patch('quilt3.search_util.search_api') as mock_search_api:
+            mock_search_api.side_effect = long_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.search_packages("test", "s3://test-registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert "search failed" in error_message.lower()
+            # Should handle long messages without truncation issues
+            # The original long message should be preserved in the error
+            assert len(error_message) > 100  # Should preserve substantial portion of the long message
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_concurrent_error_handling(self, mock_quilt3):
+        """Test error handling in concurrent operation scenarios."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import threading
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Mock different errors for concurrent calls
+        errors = [
+            Exception("Error 1"),
+            Exception("Error 2"),
+            Exception("Error 3"),
+        ]
+        
+        mock_quilt3.search.side_effect = errors
+        
+        results = []
+        
+        def call_backend():
+            try:
+                backend.search_packages("test", "registry")
+            except BackendError as e:
+                results.append(str(e))
+        
+        # Create multiple threads
+        threads = [threading.Thread(target=call_backend) for _ in range(3)]
+        
+        # Start all threads
+        for thread in threads:
+            thread.start()
+        
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
+        
+        # Verify all errors were handled properly
+        assert len(results) == 3
+        for result in results:
+            assert "quilt3" in result.lower()
+
+
 class TestQuilt3BackendErrorHandling:
     """Test comprehensive error handling across all operations."""
     
@@ -648,6 +1156,306 @@ class TestQuilt3BackendErrorHandling:
         # (AuthenticationError is for session validation only)
         assert isinstance(exc_info.value, BackendError)
         assert "access denied" in str(exc_info.value).lower()
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_authentication_error_scenarios_during_operations(self, mock_quilt3):
+        """Test authentication-related errors during backend operations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test various authentication errors during operations
+        auth_errors = [
+            Exception("401 Unauthorized"),
+            Exception("403 Forbidden"),
+            Exception("Invalid credentials"),
+            Exception("Session expired"),
+            Exception("Access token invalid"),
+        ]
+        
+        for auth_error in auth_errors:
+            # Mock the search_api directly since that's what the backend uses
+            with patch('quilt3.search_util.search_api') as mock_search_api:
+                mock_search_api.side_effect = auth_error
+                
+                with pytest.raises(BackendError) as exc_info:
+                    backend.search_packages("test", "s3://test-registry")
+                
+                error_message = str(exc_info.value)
+                assert "quilt3" in error_message.lower()
+                assert "search failed" in error_message.lower()
+                # Should preserve the original authentication error context
+                original_message = str(auth_error).lower()
+                if "unauthorized" in original_message or "forbidden" in original_message:
+                    assert any(keyword in error_message.lower() for keyword in ["unauthorized", "forbidden"])
+                elif "credentials" in original_message or "session" in original_message or "token" in original_message:
+                    assert any(keyword in error_message.lower() for keyword in ["credentials", "session", "token"])
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_network_error_scenarios_during_operations(self, mock_quilt3):
+        """Test network-related errors during backend operations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        import socket
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test various network errors
+        network_errors = [
+            socket.timeout("Connection timeout"),
+            ConnectionError("Network unreachable"),
+            Exception("DNS resolution failed"),
+            Exception("Connection refused"),
+            Exception("Network is unreachable"),
+        ]
+        
+        for network_error in network_errors:
+            mock_quilt3.Package.browse.side_effect = network_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.get_package_info("test/package", "registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert any(keyword in error_message.lower() for keyword in [
+                "timeout", "connection", "network", "dns", "unreachable"
+            ])
+            
+            mock_quilt3.Package.browse.side_effect = None  # Reset
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_data_validation_error_scenarios(self, mock_quilt3):
+        """Test data validation errors during backend operations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test various data validation errors
+        validation_errors = [
+            ValueError("Invalid package name format"),
+            Exception("Malformed registry URL"),
+            Exception("Invalid path specification"),
+            Exception("Package hash mismatch"),
+            Exception("Corrupted package metadata"),
+        ]
+        
+        for validation_error in validation_errors:
+            mock_quilt3.list_buckets.side_effect = validation_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.list_buckets()
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert any(keyword in error_message.lower() for keyword in [
+                "invalid", "malformed", "mismatch", "corrupted", "format"
+            ])
+            
+            mock_quilt3.list_buckets.side_effect = None  # Reset
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_resource_exhaustion_error_scenarios(self, mock_quilt3):
+        """Test resource exhaustion errors during backend operations."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test various resource exhaustion errors
+        resource_errors = [
+            MemoryError("Out of memory"),
+            Exception("Rate limit exceeded"),
+            Exception("Quota exceeded"),
+            Exception("Too many requests"),
+            Exception("Service unavailable"),
+        ]
+        
+        for resource_error in resource_errors:
+            # Mock the search_api directly since that's what the backend uses
+            with patch('quilt3.search_util.search_api') as mock_search_api:
+                mock_search_api.side_effect = resource_error
+                
+                with pytest.raises(BackendError) as exc_info:
+                    backend.search_packages("test", "s3://test-registry")
+                
+                error_message = str(exc_info.value)
+                assert "quilt3" in error_message.lower()
+                assert "search failed" in error_message.lower()
+                # Should preserve the original resource error context
+                original_message = str(resource_error).lower()
+                if "memory" in original_message:
+                    assert "memory" in error_message.lower()
+                elif any(keyword in original_message for keyword in ["rate", "quota", "requests", "unavailable"]):
+                    assert any(keyword in error_message.lower() for keyword in ["rate", "quota", "requests", "unavailable"])
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_context_preservation(self, mock_quilt3):
+        """Test that error context is preserved through the backend layer."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test with detailed error context
+        detailed_errors = [
+            Exception("HTTP 404: Package 'user/dataset' not found in registry 's3://my-registry'"),
+            Exception("S3 Error: Access denied for bucket 'restricted-bucket' (Code: AccessDenied)"),
+            Exception("Elasticsearch timeout: Query took longer than 30 seconds to complete"),
+        ]
+        
+        operations = [
+            (lambda: backend.get_package_info("user/dataset", "s3://my-registry"), mock_quilt3.Package.browse),
+            (lambda: backend.list_buckets(), mock_quilt3.list_buckets),
+        ]
+        
+        # Test the first two operations with their respective detailed errors
+        for (operation, mock_method), detailed_error in zip(operations, detailed_errors[:2]):
+            mock_method.side_effect = detailed_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                operation()
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            # Should preserve specific details from original error
+            if "404" in str(detailed_error):
+                assert "404" in error_message
+                assert "user/dataset" in error_message
+            elif "AccessDenied" in str(detailed_error):
+                assert "access denied" in error_message.lower()
+                assert "restricted-bucket" in error_message
+            
+            mock_method.side_effect = None  # Reset
+        
+        # Test search operation with timeout error using search_api
+        with patch('quilt3.search_util.search_api') as mock_search_api:
+            mock_search_api.side_effect = detailed_errors[2]  # Timeout error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.search_packages("test", "s3://test-registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert "search failed" in error_message.lower()
+            assert "timeout" in error_message.lower()
+            assert "30 seconds" in error_message
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_message_backend_identification(self, mock_quilt3):
+        """Test that all error messages clearly identify the backend type."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test all operations include backend identification in errors
+        operations_and_mocks = [
+            (lambda: backend.search_packages("test", "registry"), mock_quilt3.search),
+            (lambda: backend.get_package_info("pkg", "registry"), mock_quilt3.Package.browse),
+            (lambda: backend.browse_content("pkg", "registry"), mock_quilt3.Package.browse),
+            (lambda: backend.get_content_url("pkg", "registry", "path"), mock_quilt3.Package.browse),
+            (lambda: backend.list_buckets(), mock_quilt3.list_buckets),
+        ]
+        
+        for operation, mock_method in operations_and_mocks:
+            mock_method.side_effect = Exception("Generic error")
+            
+            with pytest.raises(BackendError) as exc_info:
+                operation()
+            
+            error_message = str(exc_info.value)
+            # Should clearly identify this as a quilt3 backend error
+            assert "quilt3" in error_message.lower()
+            assert "backend" in error_message.lower()
+            
+            mock_method.side_effect = None  # Reset
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_handling_with_transformation_failures(self, mock_quilt3):
+        """Test error handling when data transformation fails."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Mock successful quilt3 call but create object that will fail transformation
+        mock_package = Mock()
+        mock_package.name = "test/package"
+        mock_package.modified = "invalid-date"  # This triggers the special error case in _transform_package
+        mock_package.description = "Test package"
+        mock_package.tags = []
+        mock_package.registry = "s3://test-registry"
+        mock_package.bucket = "test-bucket"
+        mock_package.top_hash = "abc123"
+        
+        mock_quilt3.Package.browse.return_value = mock_package
+        
+        with pytest.raises(BackendError) as exc_info:
+            backend.get_package_info("test/package", "s3://test-registry")
+        
+        error_message = str(exc_info.value)
+        assert "quilt3" in error_message.lower()
+        assert "get_package_info failed" in error_message.lower()
+        # Should indicate this was a transformation/processing error
+        assert any(keyword in error_message.lower() for keyword in [
+            "transformation failed", "invalid date", "invalid"
+        ])
+    
+    @patch('quilt_mcp.backends.quilt3_backend.quilt3')
+    def test_error_propagation_from_quilt3_library(self, mock_quilt3):
+        """Test proper error propagation from quilt3 library calls."""
+        from quilt_mcp.backends.quilt3_backend import Quilt3_Backend
+        
+        mock_session = {'registry': 's3://test-registry'}
+        backend = Quilt3_Backend(mock_session)
+        
+        # Test that specific quilt3 errors are properly wrapped
+        quilt3_specific_errors = [
+            Exception("QuiltException: Package validation failed"),
+            Exception("S3NoCredentialsError: No AWS credentials found"),
+            Exception("PackageException: Invalid package structure"),
+            Exception("RegistryException: Registry not accessible"),
+        ]
+        
+        operations = [
+            (lambda: backend.get_package_info("pkg", "s3://test-registry"), mock_quilt3.Package.browse),
+            (lambda: backend.browse_content("pkg", "s3://test-registry"), mock_quilt3.Package.browse),
+            (lambda: backend.list_buckets(), mock_quilt3.list_buckets),
+        ]
+        
+        # Test the first three operations with their respective errors
+        for (operation, mock_method), quilt3_error in zip(operations, quilt3_specific_errors[:3]):
+            mock_method.side_effect = quilt3_error
+            
+            with pytest.raises(BackendError) as exc_info:
+                operation()
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            # Should preserve the original quilt3 error details
+            original_message = str(quilt3_error).lower()
+            if "validation" in original_message:
+                assert "validation" in error_message.lower()
+            elif "credentials" in original_message:
+                assert "credentials" in error_message.lower()
+            elif "package" in original_message:
+                assert "package" in error_message.lower()
+            
+            mock_method.side_effect = None  # Reset
+        
+        # Test search operation with registry error using search_api
+        with patch('quilt3.search_util.search_api') as mock_search_api:
+            mock_search_api.side_effect = quilt3_specific_errors[3]  # Registry error
+            
+            with pytest.raises(BackendError) as exc_info:
+                backend.search_packages("test", "s3://test-registry")
+            
+            error_message = str(exc_info.value)
+            assert "quilt3" in error_message.lower()
+            assert "search failed" in error_message.lower()
+            assert "registry" in error_message.lower()
 
 
 class TestQuilt3BackendIntegration:
