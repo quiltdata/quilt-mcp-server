@@ -38,7 +38,7 @@ Create the core request context infrastructure using TDD approach.
 
 - [x] Write tests for context exceptions in `tests/unit/context/test_exceptions.py`
 - [x] Write tests for ContextNotAvailableError with clear error message
-- [ ] Write tests for ServiceInitializationError with service name and reason
+- [x] Write tests for ServiceInitializationError with service name and reason
 - [ ] Write tests for TenantValidationError for single-user vs multitenant modes
 - [ ] Create `src/quilt_mcp/context/exceptions.py` to make tests pass
 - [ ] Implement ContextNotAvailableError with actionable error message
