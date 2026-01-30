@@ -1,0 +1,398 @@
+# Implementation Tasks
+
+## Phase 1: QuiltOps Abstraction with Quilt3_Backend Only
+
+This task list follows Test-Driven Development (TDD) principles, implementing tests first for each component before writing the implementation code.
+
+---
+
+## Task 1: Create Core Domain Objects (TDD)
+
+Create the backend-agnostic data structures that represent Quilt concepts using TDD approach.
+
+### 1.1 TDD: Package_Info dataclass
+
+- [ ] Write tests for Package_Info validation in `tests/unit/domain/test_package_info.py`
+- [ ] Write tests for required field validation
+- [ ] Write tests for dataclasses.asdict() compatibility
+- [ ] Create `src/quilt_mcp/domain/package_info.py` to make tests pass
+- [ ] Implement Package_Info with fields: name, description, tags, modified_date, registry, bucket, top_hash
+- [ ] Add validation for required fields to satisfy tests
+
+### 1.2 TDD: Content_Info dataclass
+
+- [ ] Write tests for Content_Info validation in `tests/unit/domain/test_content_info.py`
+- [ ] Write tests for required field validation
+- [ ] Write tests for dataclasses.asdict() compatibility
+- [ ] Create `src/quilt_mcp/domain/content_info.py` to make tests pass
+- [ ] Implement Content_Info with fields: path, size, type, modified_date, download_url
+- [ ] Add validation for required fields to satisfy tests
+
+### 1.3 TDD: Bucket_Info dataclass
+
+- [ ] Write tests for Bucket_Info validation in `tests/unit/domain/test_bucket_info.py`
+- [ ] Write tests for required field validation
+- [ ] Write tests for dataclasses.asdict() compatibility
+- [ ] Create `src/quilt_mcp/domain/bucket_info.py` to make tests pass
+- [ ] Implement Bucket_Info with fields: name, region, access_level, created_date
+- [ ] Add validation for required fields to satisfy tests
+
+### 1.4 Verification Checkpoint: Domain Objects
+
+- [ ] Run linting: `ruff check src/quilt_mcp/domain/`
+- [ ] Run tests: `pytest tests/unit/domain/ -v`
+- [ ] Verify all tests pass
+- [ ] Commit changes: `git add . && git commit -m "feat: implement domain objects (Package_Info, Content_Info, Bucket_Info)"`
+
+---
+
+## Task 2: Create QuiltOps Abstract Interface (TDD)
+
+Define the domain-driven abstraction interface using TDD approach.
+
+### 2.1 TDD: Custom exceptions
+
+- [ ] Write tests for custom exceptions in `tests/unit/ops/test_exceptions.py`
+- [ ] Write tests for AuthenticationError, BackendError, ValidationError
+- [ ] Write tests for error context fields and messages
+- [ ] Create `src/quilt_mcp/ops/exceptions.py` to make tests pass
+- [ ] Implement exception classes with error context fields for debugging
+
+### 2.2 TDD: QuiltOps abstract base class
+
+- [ ] Write tests for QuiltOps interface in `tests/unit/ops/test_quilt_ops.py`
+- [ ] Write tests that verify abstract methods raise NotImplementedError
+- [ ] Write tests for method signatures and type hints
+- [ ] Create `src/quilt_mcp/ops/quilt_ops.py` to make tests pass
+- [ ] Define abstract methods: search_packages, get_package_info, browse_content, list_buckets, get_content_url
+- [ ] Add proper type hints using domain objects
+- [ ] Add comprehensive docstrings for each method
+
+### 2.3 Verification Checkpoint: QuiltOps Interface
+
+- [ ] Run linting: `ruff check src/quilt_mcp/ops/`
+- [ ] Run tests: `pytest tests/unit/ops/ -v`
+- [ ] Verify all tests pass
+- [ ] Commit changes: `git add . && git commit -m "feat: implement QuiltOps abstract interface and exceptions"`
+
+---
+
+## Task 3: Implement Quilt3_Backend (TDD)
+
+Create the backend implementation using TDD approach with mocked quilt3 library calls.
+
+### 3.1 TDD: Quilt3_Backend class structure
+
+- [ ] Write tests for Quilt3_Backend initialization in `tests/unit/backends/test_quilt3_backend.py`
+- [ ] Write tests for session validation and error handling
+- [ ] Write tests for QuiltOps interface compliance
+- [ ] Create `src/quilt_mcp/backends/quilt3_backend.py` to make tests pass
+- [ ] Implement QuiltOps interface
+- [ ] Add session validation and initialization
+- [ ] Implement error handling for quilt3 operations
+
+### 3.2 TDD: Package operations
+
+- [ ] Write tests for search_packages() with mocked quilt3.search() calls
+- [ ] Write tests for get_package_info() with mocked quilt3 package loading
+- [ ] Write tests for transformation from quilt3 objects to Package_Info
+- [ ] Write tests for error handling in package operations
+- [ ] Implement search_packages() with quilt3.search() and transform to Package_Info
+- [ ] Implement get_package_info() with quilt3 package loading and transform to Package_Info
+- [ ] Add transformation helper methods for quilt3 objects to domain objects
+
+### 3.2a TDD: Package transformation unit tests
+- [ ] Write dedicated unit tests for _transform_package() method in isolation
+- [ ] Test transformation with mock quilt3.Package objects
+- [ ] Test handling of missing/null fields in quilt3 objects
+- [ ] Test error handling in transformation logic
+
+### 3.3 TDD: Content operations
+
+- [ ] Write tests for browse_content() with mocked quilt3 package browsing
+- [ ] Write tests for get_content_url() with mocked quilt3 URL generation
+- [ ] Write tests for directory vs file type detection
+- [ ] Write tests for transformation from quilt3 objects to Content_Info
+- [ ] Implement browse_content() with quilt3 package browsing and transform to Content_Info
+- [ ] Implement get_content_url() with quilt3 URL generation
+- [ ] Handle directory vs file type detection
+
+### 3.3a TDD: Content transformation unit tests
+- [ ] Write dedicated unit tests for _transform_content() method in isolation
+- [ ] Test transformation with mock quilt3 content objects
+- [ ] Test handling of missing/null fields in quilt3 objects
+- [ ] Test error handling in transformation logic
+
+### 3.4 TDD: Bucket operations
+
+- [ ] Write tests for list_buckets() with mocked quilt3 calls
+- [ ] Write tests for transformation from quilt3 responses to Bucket_Info
+- [ ] Write tests for bucket metadata extraction
+- [ ] Implement list_buckets() with appropriate quilt3 calls and transform to Bucket_Info
+- [ ] Add bucket metadata extraction from quilt3 responses
+
+### 3.4a TDD: Bucket transformation unit tests
+- [ ] Write dedicated unit tests for _transform_bucket() method in isolation
+- [ ] Test transformation with mock quilt3 bucket objects
+- [ ] Test handling of missing/null fields in quilt3 objects
+- [ ] Test error handling in transformation logic
+
+### 3.5 Verification Checkpoint: Quilt3_Backend
+
+- [ ] Run linting: `ruff check src/quilt_mcp/backends/`
+- [ ] Run tests: `pytest tests/unit/backends/ -v`
+- [ ] Verify all tests pass
+- [ ] Commit changes: `git add . && git commit -m "feat: implement Quilt3_Backend with all QuiltOps operations"`
+
+---
+
+## Task 4: Create QuiltOps Factory (TDD - Phase 1 Version)
+
+Create the factory using TDD approach, focusing only on quilt3 sessions for Phase 1.
+
+### 4.1 TDD: QuiltOpsFactory class
+
+- [ ] Write tests for QuiltOpsFactory.create() in `tests/unit/ops/test_factory.py`
+- [ ] Write tests for quilt3 session detection and validation
+- [ ] Write tests for error handling when no quilt3 session is found
+- [ ] Write tests for clear error messages with remediation steps
+- [ ] Create `src/quilt_mcp/ops/factory.py` to make tests pass
+- [ ] Implement create() method that only checks for quilt3 sessions
+- [ ] Add clear error messages when no quilt3 session is found
+- [ ] Add session validation logic
+
+### 4.2 TDD: Authentication detection
+
+- [ ] Write tests for quilt3 session detection using mocked quilt3.session
+- [ ] Write tests for session validation and error scenarios
+- [ ] Write tests for error message content and clarity
+- [ ] Implement quilt3 session detection using quilt3.session
+- [ ] Add session validation and error handling
+- [ ] Provide clear error messages with remediation steps
+
+### 4.3 Verification Checkpoint: QuiltOps Factory
+
+- [ ] Run linting: `ruff check src/quilt_mcp/ops/factory.py`
+- [ ] Run tests: `pytest tests/unit/ops/test_factory.py -v`
+- [ ] Verify all tests pass
+- [ ] Commit changes: `git add . && git commit -m "feat: implement QuiltOpsFactory with quilt3 session detection"`
+
+---
+
+## Task 5: Update Existing MCP Tools (TDD)
+
+Migrate existing MCP tools using TDD approach to ensure they work correctly with QuiltOps.
+
+### 5.1 TDD: Audit and plan tool migration
+
+- [ ] Audit all MCP tools in `src/quilt_mcp/tools/` for QuiltService usage
+- [ ] Create migration checklist for each tool category
+- [ ] Write integration tests for existing tool behavior before migration
+- [ ] Document current QuiltService method usage patterns
+
+### 5.2 TDD: Migrate search and package tools
+
+- [ ] Write tests for search_catalog tool using QuiltOps.search_packages()
+- [ ] Write tests for package browsing tools using QuiltOps.browse_content()
+- [ ] Write tests for package info tools using QuiltOps.get_package_info()
+- [ ] Write tests ensuring tools work with Package_Info and Content_Info objects
+- [ ] Update search_catalog tool to use QuiltOps.search_packages()
+- [ ] Update package browsing tools to use QuiltOps.browse_content()
+- [ ] Update package info tools to use QuiltOps.get_package_info()
+- [ ] Ensure tools work with Package_Info and Content_Info objects
+
+### 5.3 TDD: Migrate bucket and content tools
+
+- [ ] Write tests for bucket listing tools using QuiltOps.list_buckets()
+- [ ] Write tests for content access tools using QuiltOps.get_content_url()
+- [ ] Write tests ensuring tools work with Bucket_Info objects
+- [ ] Update bucket listing tools to use QuiltOps.list_buckets()
+- [ ] Update content access tools to use QuiltOps.get_content_url()
+- [ ] Ensure tools work with Bucket_Info objects
+
+### 5.4 TDD: Update tool response formatting
+
+- [ ] Write tests for domain object conversion using dataclasses.asdict() for MCP responses
+- [ ] Write tests for backward compatibility in tool response formats
+- [ ] Write tests that existing tool consumers still work correctly
+- [ ] Update tools to convert domain objects using dataclasses.asdict() for MCP responses
+- [ ] Ensure backward compatibility in tool response formats
+- [ ] Test that existing tool consumers still work correctly
+
+### 5.5 Verification Checkpoint: Tool Migration
+
+- [ ] Run linting: `ruff check src/quilt_mcp/tools/`
+- [ ] Run tests: `pytest tests/unit/tools/ -v`
+- [ ] Run integration tests: `pytest tests/integration/ -v`
+- [ ] Verify all migrated tools work with QuiltOps
+- [ ] Commit changes: `git add . && git commit -m "feat: migrate all MCP tools to use QuiltOps abstraction"`
+
+---
+
+## Task 6: Replace QuiltService Integration (TDD)
+
+Remove the old QuiltService and integrate the new QuiltOps using TDD approach.
+
+### 6.1 TDD: Update service initialization
+
+- [ ] Write integration tests for MCP server initialization with QuiltOpsFactory
+- [ ] Write tests for error handling when QuiltOps creation fails
+- [ ] Write tests ensuring QuiltService is no longer used
+- [ ] Update main MCP server initialization to use QuiltOpsFactory
+- [ ] Remove QuiltService instantiation and dependencies
+- [ ] Add proper error handling for QuiltOps creation failures
+
+### 6.2 TDD: Update dependency injection
+
+- [ ] Write tests for dependency injection providing QuiltOps instead of QuiltService
+- [ ] Write tests ensuring all tools receive QuiltOps instances
+- [ ] Write tests that QuiltService is removed from service container
+- [ ] Update any dependency injection to provide QuiltOps instead of QuiltService
+- [ ] Ensure all tools receive QuiltOps instances
+- [ ] Remove QuiltService from service container
+
+### 6.3 TDD: Clean up old code
+
+- [ ] Write tests to ensure no tools directly import quilt3 library
+- [ ] Write tests to ensure QuiltService is no longer referenced
+- [ ] Remove or deprecate the old QuiltService class
+- [ ] Remove unused quilt3-specific imports from tools
+- [ ] Clean up any remaining direct quilt3 usage in tools
+- [ ] Remove obsolete tests that reference QuiltService
+- [ ] Remove obsolete tests that test quilt3-specific behavior no longer relevant
+- [ ] Update any remaining tests to use QuiltOps instead of QuiltService
+
+### 6.4 Verification Checkpoint: QuiltService Replacement
+
+- [ ] Run linting: `ruff check src/quilt_mcp/`
+- [ ] Run full test suite: `pytest -v`
+- [ ] Verify no QuiltService references remain
+- [ ] Verify MCP server starts successfully with QuiltOps
+- [ ] Commit changes: `git add . && git commit -m "feat: replace QuiltService with QuiltOps throughout system"`
+
+---
+
+## Task 7: Add Error Handling and Logging (TDD)
+
+Implement comprehensive error handling and debug logging using TDD approach.
+
+### 7.1 TDD: Implement error handling
+
+- [ ] Write tests for backend operation error handling
+- [ ] Write tests for backend-specific error transformation to domain errors
+- [ ] Write tests ensuring error messages include backend type
+- [ ] Add try-catch blocks around all backend operations
+- [ ] Transform backend-specific errors to domain errors
+- [ ] Include backend type in all error messages
+
+### 7.2 TDD: Add debug logging
+
+- [ ] Write tests for authentication detection and backend selection logging
+- [ ] Write tests for operation routing and execution logging
+- [ ] Write tests for performance logging of operation timing
+- [ ] Add logging for authentication detection and backend selection
+- [ ] Add logging for operation routing and execution
+- [ ] Add performance logging for operation timing
+
+### 7.3 TDD: Add error recovery
+
+- [ ] Write tests for graceful degradation of non-critical failures
+- [ ] Write tests for retry logic on transient network errors
+- [ ] Write tests for actionable error messages with remediation steps
+- [ ] Implement graceful degradation for non-critical failures
+- [ ] Add retry logic for transient network errors
+- [ ] Provide actionable error messages with remediation steps
+
+### 7.4 Verification Checkpoint: Error Handling and Logging
+
+- [ ] Run linting: `ruff check src/quilt_mcp/`
+- [ ] Run tests: `pytest tests/ -v`
+- [ ] Verify error handling works correctly
+- [ ] Verify logging output is appropriate
+- [ ] Commit changes: `git add . && git commit -m "feat: add comprehensive error handling and logging"`
+
+---
+
+## Task 8: Create Integration Tests
+
+Develop integration tests that validate the complete abstraction layer functionality.
+
+### 8.1 End-to-end workflow integration tests
+
+- [ ] Write integration tests for complete package search and browsing workflows
+- [ ] Write integration tests for bucket listing and content access workflows
+- [ ] Write integration tests for error scenarios with real authentication failures
+- [ ] Ensure all integration tests pass with real quilt3 sessions
+
+### 8.2 Tool integration tests
+
+- [ ] Write integration tests that migrated MCP tools work correctly with QuiltOps
+- [ ] Write integration tests for tool response formats and backward compatibility
+- [ ] Write integration tests for error propagation from backend to tools
+- [ ] Ensure all tool integration tests pass
+
+### 8.3 Authentication scenario integration tests
+
+- [ ] Write integration tests with valid quilt3 sessions
+- [ ] Write integration tests with invalid or expired sessions
+- [ ] Write integration tests with missing authentication
+- [ ] Write integration tests that verify error messages provide correct remediation steps
+- [ ] Ensure all authentication integration tests pass
+
+### 8.4 Verification Checkpoint: Integration Tests
+
+- [ ] Run linting: `ruff check tests/`
+- [ ] Run full integration test suite: `pytest tests/integration/ -v`
+- [ ] Verify all integration tests pass
+- [ ] Verify test coverage is adequate
+- [ ] Commit changes: `git add . && git commit -m "feat: add comprehensive integration test suite"`
+
+---
+
+## Task 9: Documentation and Migration Guide
+
+Create documentation for the new abstraction layer and migration process.
+
+### 9.1 Create API documentation
+
+- [ ] Document QuiltOps interface and all methods
+- [ ] Document domain objects and their fields
+- [ ] Document error types and handling
+
+### 9.2 Update system documentation
+
+- [ ] Update architecture documentation to reflect new abstraction layer
+- [ ] Update deployment documentation for any configuration changes
+- [ ] Update troubleshooting guides for new error patterns
+
+### 9.3 Final Verification Checkpoint: Complete Implementation
+
+- [ ] Run full linting: `ruff check .`
+- [ ] Run complete test suite: `pytest -v --cov=src/quilt_mcp`
+- [ ] Verify test coverage meets requirements
+- [ ] Run integration tests with real quilt3 session
+- [ ] Verify MCP server works end-to-end
+- [ ] Commit final changes: `git add . && git commit -m "feat: complete QuiltOps abstraction layer implementation"`
+- [ ] Create summary commit: `git commit --allow-empty -m "feat: Phase 1 complete - QuiltOps abstraction with Quilt3_Backend"`
+
+---
+
+## Acceptance Criteria
+
+### Phase 1 Complete When
+
+- [ ] All existing MCP tools work correctly using QuiltOps with Quilt3_Backend
+- [ ] No tools directly import or use quilt3 library (all go through QuiltOps)
+- [ ] All tools work with domain objects (Package_Info, Content_Info, Bucket_Info)
+- [ ] Authentication only requires valid quilt3 sessions
+- [ ] Error messages are clear and include backend context
+- [ ] Unit and integration tests pass
+- [ ] Documentation is complete and accurate
+
+### Ready for Phase 2 When
+
+- [ ] QuiltOps interface is stable and well-tested
+- [ ] Domain objects handle all necessary Quilt concepts
+- [ ] Backend abstraction is proven to work with Quilt3_Backend
+- [ ] Tool migration patterns are established and documented
+- [ ] Error handling and logging infrastructure is in place
