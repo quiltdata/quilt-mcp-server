@@ -47,7 +47,7 @@ Create the core request context infrastructure using TDD approach.
 
 #### 1.3 Verification Checkpoint: Request Context Foundation
 
-- [ ] Run linting: `ruff check src/quilt_mcp/context/`
+- [x] Run linting: `ruff check src/quilt_mcp/context/`
 - [ ] Run tests: `pytest tests/unit/context/ -v`
 - [ ] Verify all tests pass
 - [ ] Commit changes: `git add . && git commit -m "feat: implement RequestContext foundation"`
