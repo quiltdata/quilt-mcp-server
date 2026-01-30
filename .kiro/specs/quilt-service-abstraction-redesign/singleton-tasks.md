@@ -119,29 +119,29 @@ Create factory for creating request-scoped service instances.
 
 #### 3.1 TDD: Factory initialization and mode detection
 
-- [ ] Write tests for RequestContextFactory in `tests/unit/context/test_factory.py`
-- [ ] Write tests for mode detection (single-user, multitenant, auto)
-- [ ] Write tests for auto mode reading QUILT_MULTITENANT_MODE env var
-- [ ] Write tests for explicit mode override
-- [ ] Create `src/quilt_mcp/context/factory.py` to make tests pass
-- [ ] Implement __init__ with mode parameter
-- [ ] Implement _determine_mode() for auto-detection
-- [ ] Add environment variable reading for mode detection
+- [x] Write tests for RequestContextFactory in `tests/unit/context/test_factory.py`
+- [x] Write tests for mode detection (single-user, multitenant, auto)
+- [x] Write tests for auto mode reading QUILT_MULTITENANT_MODE env var
+- [x] Write tests for explicit mode override
+- [x] Create `src/quilt_mcp/context/factory.py` to make tests pass
+- [x] Implement __init__ with mode parameter
+- [x] Implement _determine_mode() for auto-detection
+- [x] Add environment variable reading for mode detection
 
 #### 3.2 TDD: Context creation with auth service
 
-- [ ] Write tests for create_context() method
-- [ ] Write tests for JWT token authentication path
-- [ ] Write tests for quilt3 session authentication path
-- [ ] Write tests for tenant_id validation in multitenant mode
-- [ ] Write tests for default tenant in single-user mode
-- [ ] Write tests for request_id generation (unique per request)
-- [ ] Write tests for error when no authentication provided
-- [ ] Implement create_context() method
-- [ ] Implement _create_auth_service() with JWT vs IAM routing
-- [ ] Add tenant_id validation logic
-- [ ] Add request_id generation using uuid
-- [ ] Add clear error messages for authentication failures
+- [x] Write tests for create_context() method
+- [x] Write tests for JWT token authentication path
+- [x] Write tests for quilt3 session authentication path
+- [x] Write tests for tenant_id validation in multitenant mode
+- [x] Write tests for default tenant in single-user mode
+- [x] Write tests for request_id generation (unique per request)
+- [x] Write tests for error when no authentication provided
+- [x] Implement create_context() method
+- [x] Implement _create_auth_service() with JWT vs IAM routing
+- [x] Add tenant_id validation logic
+- [x] Add request_id generation using uuid
+- [x] Add clear error messages for authentication failures
 
 #### 3.3 TDD: Service instance creation
 
