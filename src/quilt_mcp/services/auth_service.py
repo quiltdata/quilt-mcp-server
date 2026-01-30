@@ -1,10 +1,11 @@
-"""Authentication service factory for Quilt MCP server."""
+"""Authentication service abstraction and factory for Quilt MCP server."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 import logging
 import os
-from typing import Literal, Optional, Protocol, cast
+from typing import Literal, Optional, cast
 
 import boto3
 
@@ -26,16 +27,28 @@ class AuthServiceError(RuntimeError):
         self.code = code
 
 
-class AuthServiceProtocol(Protocol):
-    """Protocol for authentication services."""
+class AuthService(ABC):
+    """Abstract base class for authentication services."""
 
     auth_type: AuthMode
 
-    def get_boto3_session(self) -> boto3.Session:
+    @abstractmethod
+    def get_session(self) -> boto3.Session:
         """Return a boto3 session for the current request."""
 
+    @abstractmethod
+    def is_valid(self) -> bool:
+        """Return whether the credentials are valid."""
 
-_AUTH_SERVICE: Optional[AuthServiceProtocol] = None
+    @abstractmethod
+    def get_user_identity(self) -> dict[str, str | None]:
+        """Return user identity information for the current request."""
+
+    def get_boto3_session(self) -> boto3.Session:
+        return self.get_session()
+
+
+_AUTH_SERVICE: Optional[AuthService] = None
 _JWT_MODE_ENABLED: Optional[bool] = None
 
 
@@ -68,18 +81,14 @@ def _validate_jwt_mode() -> None:
         raise AuthServiceError(str(exc), code="jwt_config_error") from exc
 
 
-def get_auth_service() -> AuthServiceProtocol:
-    """Return the shared auth service instance for the configured mode."""
-    global _AUTH_SERVICE
-    if _AUTH_SERVICE is None:
-        if get_jwt_mode_enabled():
-            _validate_jwt_mode()
-            _AUTH_SERVICE = cast(AuthServiceProtocol, JWTAuthService())
-            logger.info("Authentication mode selected: JWT")
-            record_auth_mode("jwt")
-        else:
-            _AUTH_SERVICE = cast(AuthServiceProtocol, IAMAuthService())
-            logger.info("Authentication mode selected: IAM")
-            record_auth_mode("iam")
-    assert _AUTH_SERVICE is not None
-    return _AUTH_SERVICE
+def get_auth_service() -> AuthService:
+    """Return a new auth service instance for the configured mode."""
+    if get_jwt_mode_enabled():
+        _validate_jwt_mode()
+        logger.info("Authentication mode selected: JWT")
+        record_auth_mode("jwt")
+        return cast(AuthService, JWTAuthService())
+
+    logger.info("Authentication mode selected: IAM")
+    record_auth_mode("iam")
+    return cast(AuthService, IAMAuthService())
