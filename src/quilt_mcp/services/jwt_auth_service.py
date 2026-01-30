@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 
 import boto3
 
@@ -18,6 +18,9 @@ from quilt_mcp.runtime_context import (
 )
 from quilt_mcp.services.auth_metrics import record_role_assumption
 from quilt_mcp.services.jwt_decoder import JwtDecodeError, get_jwt_decoder
+
+if TYPE_CHECKING:
+    from quilt_mcp.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,7 @@ class JWTAuthService:
         self._decoder = get_jwt_decoder()
         self._catalog_configured = False
 
-    def get_boto3_session(self) -> boto3.Session:
+    def get_session(self) -> boto3.Session:
         """Assume an AWS role using JWT claims and return a boto3 session."""
         runtime_auth = get_runtime_auth()
         if runtime_auth is None:
@@ -101,6 +104,46 @@ class JWTAuthService:
         session, expiration = self._assume_role_session(role_arn, claims, subject)
         update_runtime_metadata(jwt_assumed_session=session, jwt_assumed_expiration=expiration)
         return session
+
+    def get_boto3_session(self) -> boto3.Session:
+        return self.get_session()
+
+    def is_valid(self) -> bool:
+        runtime_auth = get_runtime_auth()
+        if runtime_auth is None:
+            return False
+
+        claims = runtime_auth.claims or {}
+        if not claims and runtime_auth.access_token:
+            try:
+                claims = self._decoder.decode(runtime_auth.access_token)
+            except JwtDecodeError:
+                return False
+
+        exp = claims.get("exp")
+        if exp is None:
+            return True
+        try:
+            return float(exp) > time.time()
+        except (TypeError, ValueError):
+            return False
+
+    def get_user_identity(self) -> Dict[str, str | None]:
+        runtime_auth = get_runtime_auth()
+        claims: Dict[str, Any] = {}
+        if runtime_auth:
+            claims = runtime_auth.claims or {}
+            if not claims and runtime_auth.access_token:
+                try:
+                    claims = self._decoder.decode(runtime_auth.access_token)
+                except JwtDecodeError:
+                    claims = {}
+
+        return {
+            "user_id": claims.get("sub") or claims.get("user_id") or claims.get("id"),
+            "email": claims.get("email"),
+            "name": claims.get("name"),
+        }
 
     def _setup_catalog_authentication(self, claims: Dict[str, Any]) -> None:
         """Setup catalog authentication from JWT claims."""

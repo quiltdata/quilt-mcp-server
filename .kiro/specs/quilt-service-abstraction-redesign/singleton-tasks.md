@@ -71,17 +71,17 @@ Update auth service to be instantiable per-request instead of module-level singl
 
 #### 2.2 TDD: JWTAuthService implementation
 
-- [ ] Write tests for JWTAuthService in `tests/unit/services/test_jwt_auth_service.py`
-- [ ] Write tests for JWT token validation
-- [ ] Write tests for AWS credential exchange
-- [ ] Write tests for boto3 session creation
-- [ ] Write tests for is_valid() checking JWT expiration
-- [ ] Write tests for get_user_identity() extracting user info from JWT
-- [ ] Create or update `src/quilt_mcp/services/jwt_auth_service.py` to make tests pass
-- [ ] Implement JWT validation logic
-- [ ] Implement AWS credential exchange from JWT
-- [ ] Implement boto3 session creation with JWT-derived credentials
-- [ ] Implement is_valid() and get_user_identity() methods
+- [x] Write tests for JWTAuthService in `tests/unit/services/test_jwt_auth_service.py`
+- [x] Write tests for JWT token validation
+- [x] Write tests for AWS credential exchange
+- [x] Write tests for boto3 session creation
+- [x] Write tests for is_valid() checking JWT expiration
+- [x] Write tests for get_user_identity() extracting user info from JWT
+- [x] Create or update `src/quilt_mcp/services/jwt_auth_service.py` to make tests pass
+- [x] Implement JWT validation logic
+- [x] Implement AWS credential exchange from JWT
+- [x] Implement boto3 session creation with JWT-derived credentials
+- [x] Implement is_valid() and get_user_identity() methods
 
 #### 2.3 TDD: IAMAuthService implementation
 
