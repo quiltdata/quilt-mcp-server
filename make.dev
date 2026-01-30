@@ -140,7 +140,7 @@ test-stateless: docker-build
 test-stateless-mcp: docker-build
 	@echo "🔐 Testing stateless MCP with JWT authentication..."
 	@echo "Step 1: Verifying test environment..."
-	@if [ -z "$$(QUILT_TEST_ROLE_ARN)" ]; then \
+	@if [ -z "$(QUILT_TEST_ROLE_ARN)" ]; then \
 		echo "❌ QUILT_TEST_ROLE_ARN not set"; \
 		echo "   Set to real AWS role ARN for testing"; \
 		echo "   Example: export QUILT_TEST_ROLE_ARN=arn:aws:iam::123456789:role/QuiltMCPTestRole"; \
@@ -148,7 +148,7 @@ test-stateless-mcp: docker-build
 	fi
 	@echo "Step 2: Generating JWT token with REAL role ARN..."
 	@JWT_TOKEN=$$(uv run python scripts/tests/jwt_helper.py generate \
-		--role-arn "$$(QUILT_TEST_ROLE_ARN)" \
+		--role-arn "$(QUILT_TEST_ROLE_ARN)" \
 		--secret "test-secret-key-for-stateless-testing-only" \
 		--expiry 3600) && \
 	echo "Step 3: Starting Docker container with SAME constraints as test-stateless..." && \
