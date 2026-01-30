@@ -30,65 +30,72 @@ except ImportError:
 
 def extract_catalog_token_from_session() -> Optional[str]:
     """Extract catalog bearer token from active quilt3 session.
-    
+
     Returns:
         Catalog bearer token string, or None if no session exists
     """
     try:
-        # Get quilt3 config directory
-        config_dir = Path.home() / ".config" / "quilt"
-        if not config_dir.exists():
+        # Use quilt3 API to load auth data
+        import quilt3.session as session
+        auth_data = session._load_auth()
+
+        if not auth_data:
             return None
-            
-        # Look for session files
-        session_files = list(config_dir.glob("*.json"))
-        if not session_files:
+
+        # Get registry URL for current catalog
+        registry_url = get_current_registry_url()
+        if not registry_url:
+            # Fall back to any available session
+            registry_url = next(iter(auth_data.keys()), None)
+
+        if not registry_url or registry_url not in auth_data:
             return None
-            
-        # Find the most recent session file
-        latest_session = max(session_files, key=lambda f: f.stat().st_mtime)
-        
-        with open(latest_session, 'r') as f:
-            session_data = json.load(f)
-            
-        # Extract bearer token
-        return session_data.get("refresh_token") or session_data.get("access_token")
-        
+
+        # Extract bearer token (prefer access_token - it's the JWT the catalog expects)
+        session_data = auth_data[registry_url]
+        return session_data.get("access_token") or session_data.get("refresh_token")
+
     except Exception:
         return None
 
 
 def get_current_catalog_url() -> Optional[str]:
     """Get current catalog URL from quilt3 configuration.
-    
+
     Returns:
         Catalog URL string, or None if not configured
     """
     try:
         # Try to get from quilt3 config
         config = quilt3.config()
-        if config and hasattr(config, 'catalog_url'):
-            return config.catalog_url
-            
+        if config:
+            # Try different possible keys
+            return (config.get('navigator_url') or
+                    config.get('catalog_url') or
+                    os.getenv("QUILT_CATALOG_URL"))
+
         # Fallback to environment variable
         return os.getenv("QUILT_CATALOG_URL")
-        
+
     except Exception:
         return os.getenv("QUILT_CATALOG_URL")
 
 
 def get_current_registry_url() -> Optional[str]:
     """Get current registry URL from quilt3 configuration.
-    
+
     Returns:
         Registry URL string, or None if not configured
     """
     try:
         # Try to get from quilt3 config
         config = quilt3.config()
-        if config and hasattr(config, 'registry_url'):
-            return config.registry_url
-            
+        if config:
+            # Try different possible keys
+            registry = config.get('registryUrl') or config.get('registry_url')
+            if registry:
+                return registry
+
         # Derive from catalog URL
         catalog_url = get_current_catalog_url()
         if catalog_url:
@@ -98,42 +105,54 @@ def get_current_registry_url() -> Optional[str]:
                 return catalog_url.replace("nightly.quilttest.com", "nightly-registry.quilttest.com")
             elif "quiltdata.com" in catalog_url:
                 return catalog_url.replace("quiltdata.com", "registry.quiltdata.com")
-                
+
         return None
-        
+
     except Exception:
         return None
 
 
 def get_quilt3_user_id() -> Optional[str]:
     """Get user ID from active quilt3 session.
-    
+
     Returns:
         User ID string, or None if no session exists
     """
     try:
-        # Get quilt3 config directory
-        config_dir = Path.home() / ".config" / "quilt"
-        if not config_dir.exists():
-            return None
-            
-        # Look for session files
-        session_files = list(config_dir.glob("*.json"))
-        if not session_files:
-            return None
-            
-        # Find the most recent session file
-        latest_session = max(session_files, key=lambda f: f.stat().st_mtime)
-        
-        with open(latest_session, 'r') as f:
-            session_data = json.load(f)
-            
-        # Extract user ID from various possible fields
-        return (session_data.get("user_id") or 
-                session_data.get("sub") or 
-                session_data.get("username") or
-                "quilt-user")
-        
+        # Use quilt3 API to load auth data
+        import quilt3.session as session
+        auth_data = session._load_auth()
+
+        if not auth_data:
+            return "quilt-user"
+
+        # Get registry URL for current catalog
+        registry_url = get_current_registry_url()
+        if not registry_url:
+            # Fall back to any available session
+            registry_url = next(iter(auth_data.keys()), None)
+
+        if not registry_url or registry_url not in auth_data:
+            return "quilt-user"
+
+        session_data = auth_data[registry_url]
+
+        # Try to decode the access token to get user ID
+        access_token = session_data.get("access_token")
+        if access_token:
+            try:
+                # JWT tokens have 3 parts: header.payload.signature
+                payload_part = access_token.split('.')[1]
+                # Add padding if needed
+                payload_part += '=' * (4 - len(payload_part) % 4)
+                import base64
+                payload = json.loads(base64.b64decode(payload_part))
+                return payload.get("id") or payload.get("uuid") or "quilt-user"
+            except Exception:
+                pass
+
+        return "quilt-user"
+
     except Exception:
         return "quilt-user"
 
