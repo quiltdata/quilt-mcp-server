@@ -7,6 +7,7 @@ The `mcp-test.py` script supports JWT authentication for testing stateless MCP d
 ## Quick Start
 
 1. **Generate a test JWT token:**
+
    ```bash
    python scripts/tests/jwt_helper.py generate \
      --role-arn "arn:aws:iam::123456789012:role/TestRole" \
@@ -15,6 +16,7 @@ The `mcp-test.py` script supports JWT authentication for testing stateless MCP d
    ```
 
 2. **Run tests with JWT token:**
+
    ```bash
    # Using environment variable (recommended)
    export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -56,6 +58,7 @@ python scripts/tests/jwt_helper.py generate \
 Generated JWT tokens include these claims:
 
 **Standard Claims:**
+
 - `iss` (issuer): "mcp-test" (configurable)
 - `aud` (audience): "mcp-server" (configurable)  
 - `iat` (issued at): Current timestamp
@@ -63,6 +66,7 @@ Generated JWT tokens include these claims:
 - `sub` (subject): "test-user"
 
 **MCP-Specific Claims:**
+
 - `role_arn`: AWS IAM role ARN to assume
 - `external_id`: Optional external ID for role assumption
 - `session_tags`: Optional AWS session tags
@@ -81,6 +85,7 @@ For production testing, generate tokens using your auth system. Ensure tokens in
 ### Local Development with JWT
 
 1. **Start MCP server in JWT mode:**
+
    ```bash
    export MCP_REQUIRE_JWT=true
    export MCP_JWT_SECRET="your-secret-key"
@@ -88,6 +93,7 @@ For production testing, generate tokens using your auth system. Ensure tokens in
    ```
 
 2. **Generate test token:**
+
    ```bash
    JWT_TOKEN=$(python scripts/tests/jwt_helper.py generate \
      --role-arn "arn:aws:iam::123456789012:role/TestRole" \
@@ -95,6 +101,7 @@ For production testing, generate tokens using your auth system. Ensure tokens in
    ```
 
 3. **Run tests:**
+
    ```bash
    export MCP_JWT_TOKEN="$JWT_TOKEN"
    python scripts/mcp-test.py http://localhost:8000/mcp --tools-test
@@ -128,14 +135,17 @@ python scripts/mcp-test.py https://your-mcp-server.com/mcp --tools-test
 **Error:** "Authentication failed: JWT token rejected"
 
 **Possible causes:**
+
 - Token signature doesn't match server's JWT_SECRET
 - Token has expired (check `exp` claim)
 - Token missing required claims (`role_arn`, etc.)
 
 **Solutions:**
+
 1. Verify JWT_SECRET matches between client and server
 2. Generate new token with longer expiry
 3. Check token claims with inspect command:
+
    ```bash
    python scripts/tests/jwt_helper.py inspect \
      --token "$JWT_TOKEN" --secret "$JWT_SECRET"
@@ -146,11 +156,13 @@ python scripts/mcp-test.py https://your-mcp-server.com/mcp --tools-test
 **Error:** "Authorization failed: Insufficient permissions"
 
 **Possible causes:**
+
 - JWT `role_arn` lacks necessary AWS permissions
 - Session tags don't provide required access
 - Role assumption failed
 
 **Solutions:**
+
 1. Verify IAM role has required permissions
 2. Check role trust policy allows assumption
 3. Review session tags in JWT claims
@@ -160,11 +172,14 @@ python scripts/mcp-test.py https://your-mcp-server.com/mcp --tools-test
 **Error:** Token expired
 
 **Solutions:**
+
 1. Generate new token:
+
    ```bash
    JWT_TOKEN=$(python scripts/tests/jwt_helper.py generate \
      --role-arn "$ROLE_ARN" --secret "$SECRET" --expiry 3600)
    ```
+
 2. Use longer expiry for long-running tests
 3. Implement token refresh in test automation
 
@@ -173,6 +188,7 @@ python scripts/mcp-test.py https://your-mcp-server.com/mcp --tools-test
 **Error:** "JWT token rejected (invalid signature)"
 
 **Solutions:**
+
 1. Ensure JWT_SECRET matches exactly between client and server
 2. Check for whitespace or encoding issues in secret
 3. Verify HS256 algorithm is used
@@ -180,18 +196,21 @@ python scripts/mcp-test.py https://your-mcp-server.com/mcp --tools-test
 ## Security Best Practices
 
 ### Token Storage
+
 - ✅ **Use environment variables:** `MCP_JWT_TOKEN`
 - ✅ **Secure secret management:** Store JWT_SECRET securely
 - ❌ **Never commit tokens:** Don't put tokens in code/config files
 - ❌ **Avoid command-line args:** Process lists may expose tokens
 
 ### Token Lifecycle
+
 - ✅ **Short expiry:** Use 1-hour expiry for test tokens
 - ✅ **Rotate regularly:** Generate new tokens frequently
 - ✅ **Scope appropriately:** Use minimal required permissions
 - ❌ **Don't reuse:** Generate fresh tokens for each test run
 
 ### Development vs Production
+
 - ✅ **Test tokens:** Use jwt_helper.py for development/CI
 - ✅ **Production tokens:** Use proper auth system for real deployments
 - ✅ **Separate secrets:** Different JWT_SECRET for each environment
@@ -208,6 +227,7 @@ make test-stateless-mcp
 ```
 
 This target:
+
 1. Generates test JWT token using jwt_helper.py
 2. Starts Docker container in JWT mode with stateless constraints
 3. Runs mcp-test.py with JWT authentication

@@ -2,7 +2,7 @@
 
 **Status**: Draft
 **Created**: 2026-01-29
-**Objective**: Add JWT authentication support to mcp-test.py to enable testing of stateless JWT-authenticated MCP deployments
+**Objective**: Add JWT authentication support to mcp-test.py to enable testing of stateless JWT-authenticated MCP deploymentdsh
 
 ## Problem Statement
 
