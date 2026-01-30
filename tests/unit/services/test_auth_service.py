@@ -39,3 +39,24 @@ def test_auth_service_allows_multiple_instances():
     second = ConcreteAuthService()
 
     assert first is not second
+
+
+def test_auth_service_session_cached_within_instance():
+    class CachedAuthService(AuthService):
+        def __init__(self) -> None:
+            self._session = None
+
+        def get_session(self):
+            if self._session is None:
+                self._session = object()
+            return self._session
+
+        def is_valid(self) -> bool:
+            return True
+
+        def get_user_identity(self):
+            return {"user_id": "user-1"}
+
+    service = CachedAuthService()
+
+    assert service.get_session() is service.get_session()
