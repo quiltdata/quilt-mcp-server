@@ -24,6 +24,10 @@ import requests
 import yaml
 from jsonschema import validate
 
+# Import JWT helper functions for auto-generation
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tests'))
+from jwt_helper import generate_test_jwt, validate_quilt3_session_exists
+
 
 class ResourceFailureType(enum.Enum):
     """Classify resource test failures for better reporting."""
@@ -1466,14 +1470,20 @@ Examples:
   mcp-test.py --stdio --stdin-fd 3 --stdout-fd 4 --tools-test
 
 JWT Authentication:
-  # Using environment variable (recommended)
+  # Auto-generate JWT token (recommended - simplest approach)
+  mcp-test.py http://localhost:8000/mcp --jwt \
+    --role-arn arn:aws:iam::123456789012:role/TestRole \
+    --secret test-secret \
+    --tools-test
+
+  # Using environment variable
   export MCP_JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   mcp-test.py http://localhost:8000/mcp --tools-test
 
   # Using command-line argument
   mcp-test.py http://localhost:8000/mcp --jwt-token "eyJhbGciOi..." --tools-test
 
-  # Generate test token
+  # Or generate token separately with jwt_helper
   python scripts/tests/jwt_helper.py generate --role-arn arn:aws:iam::123456789012:role/TestRole --secret test-secret
 
 For detailed JWT testing documentation, see: docs/JWT_TESTING.md
@@ -1514,10 +1524,25 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
 
     # Test options
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--jwt-token", type=str,
+
+    # JWT Authentication (mutually exclusive options)
+    jwt_group = parser.add_mutually_exclusive_group()
+    jwt_group.add_argument("--jwt-token", type=str,
                        help="JWT token for authentication (HTTP transport only). "
                             "Alternatively, set MCP_JWT_TOKEN environment variable. "
                             "⚠️  Prefer env var for production use to avoid token exposure in logs.")
+    jwt_group.add_argument("--jwt", action="store_true",
+                       help="Auto-generate JWT token using jwt_helper library. "
+                            "Requires --role-arn and --secret. "
+                            "Will auto-extract catalog authentication from quilt3 session.")
+
+    # JWT generation parameters (only used with --jwt)
+    parser.add_argument("--role-arn", type=str,
+                       help="AWS IAM role ARN for JWT generation (required with --jwt)")
+    parser.add_argument("--secret", type=str,
+                       help="JWT signing secret (required with --jwt)")
+    parser.add_argument("--jwt-expiry", type=int, default=3600,
+                       help="JWT token expiry in seconds (default: 3600, only with --jwt)")
     parser.add_argument("-t", "--tools-test", action="store_true",
                        help="Run tools test with test configurations")
     parser.add_argument("-T", "--test-tool", metavar="TOOL_NAME",
@@ -1549,18 +1574,53 @@ For detailed JWT testing documentation, see: docs/JWT_TESTING.md
             parser.print_help()
             sys.exit(1)
 
-    # Resolve JWT token (command line takes precedence over env var)
-    jwt_token = args.jwt_token or os.environ.get('MCP_JWT_TOKEN')
+    # Resolve JWT token
+    jwt_token = None
 
-    if jwt_token and transport != "http":
-        print("⚠️  Warning: --jwt-token ignored for stdio transport")
-        jwt_token = None
+    if args.jwt:
+        # Auto-generate JWT token using jwt_helper library
+        if transport != "http":
+            print("❌ --jwt only supported for HTTP transport")
+            sys.exit(1)
 
-    if jwt_token and args.jwt_token:
-        # Token passed on command line - warn about security
-        print("⚠️  Security Warning: JWT token passed on command line")
-        print("    Prefer using MCP_JWT_TOKEN environment variable")
-        print("    Command-line arguments may be visible in process lists\n")
+        if not args.role_arn or not args.secret:
+            print("❌ --jwt requires both --role-arn and --secret")
+            sys.exit(1)
+
+        print("🔐 Auto-generating JWT token with catalog authentication...")
+
+        # Validate quilt3 session exists (jwt_helper needs it for auto-extract)
+        if not validate_quilt3_session_exists():
+            sys.exit(1)
+
+        try:
+            jwt_token = generate_test_jwt(
+                role_arn=args.role_arn,
+                secret=args.secret,
+                expiry_seconds=args.jwt_expiry,
+                auto_extract=True
+            )
+            print("✅ JWT token generated successfully")
+            if args.verbose:
+                # Show masked token for debugging
+                masked = f"{jwt_token[:8]}...{jwt_token[-8:]}" if len(jwt_token) > 16 else "***"
+                print(f"   Token preview: {masked}")
+        except Exception as e:
+            print(f"❌ Failed to generate JWT token: {e}")
+            sys.exit(1)
+    else:
+        # Use provided token (command line takes precedence over env var)
+        jwt_token = args.jwt_token or os.environ.get('MCP_JWT_TOKEN')
+
+        if jwt_token and transport != "http":
+            print("⚠️  Warning: --jwt-token ignored for stdio transport")
+            jwt_token = None
+
+        if jwt_token and args.jwt_token:
+            # Token passed on command line - warn about security
+            print("⚠️  Security Warning: JWT token passed on command line")
+            print("    Prefer using MCP_JWT_TOKEN environment variable")
+            print("    Command-line arguments may be visible in process lists\n")
 
     # Create tester instance
     try:

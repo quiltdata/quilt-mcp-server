@@ -146,14 +146,8 @@ test-stateless-mcp: docker-build
 		echo "   Example: export QUILT_TEST_ROLE_ARN=arn:aws:iam::123456789:role/QuiltMCPTestRole"; \
 		exit 1; \
 	fi
-	@echo "Step 2: Generating JWT token with catalog authentication..."
-	@JWT_TOKEN=$$(uv run python scripts/tests/jwt_helper.py generate \
-		--role-arn "$(QUILT_TEST_ROLE_ARN)" \
-		--secret "test-secret-key-for-stateless-testing-only" \
-		--expiry 3600 \
-		--auto-extract) && \
-	echo "Step 3: Starting Docker container with SAME constraints as test-stateless..." && \
-	docker run -d --name mcp-jwt-test \
+	@echo "Step 2: Starting Docker container with SAME constraints as test-stateless..."
+	@docker run -d --name mcp-jwt-test \
 		--read-only \
 		--security-opt=no-new-privileges:true \
 		--cap-drop=ALL \
@@ -176,9 +170,11 @@ test-stateless-mcp: docker-build
 		-p 8002:8000 \
 		quilt-mcp:test && \
 	sleep 3 && \
-	echo "Step 5: Running mcp-test.py with JWT containing catalog auth..." && \
+	echo "Step 3: Running mcp-test.py with auto-generated JWT (catalog auth)..." && \
 	(uv run python scripts/mcp-test.py http://localhost:8002/mcp \
-		--jwt-token "$$JWT_TOKEN" \
+		--jwt \
+		--role-arn "$(QUILT_TEST_ROLE_ARN)" \
+		--secret "test-secret-key-for-stateless-testing-only" \
 		--tools-test --resources-test \
 		--config scripts/tests/mcp-test.yaml && \
 	docker stop mcp-jwt-test && docker rm mcp-jwt-test) || \
